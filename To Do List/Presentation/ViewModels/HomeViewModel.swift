@@ -497,6 +497,9 @@ public final class HomeViewModel: ObservableObject {
     @Published private(set) var homeCalendarSnapshot: HomeCalendarSnapshot = .empty {
         didSet { scheduleHomeRenderStateRefresh() }
     }
+    @Published private var hiddenHomeTimelineCalendarEvents: Set<HomeTimelineHiddenCalendarEventKey> = [] {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
     @Published private(set) var catchUpDailyReflectionEntryPreview: DailyReflectionEntryState? {
         didSet { scheduleHomeRenderStateRefresh() }
     }
@@ -543,6 +546,7 @@ public final class HomeViewModel: ObservableObject {
     private let aiSuggestionService: AISuggestionService?
     private let userDefaults: UserDefaults
     private let workspacePreferencesProvider: () -> TaskerWorkspacePreferences
+    private let hiddenCalendarEventStore: HomeTimelineHiddenCalendarEventStore
     private var cancellables = Set<AnyCancellable>()
     private var retainedInsightsViewModel: InsightsViewModel?
     private var retainedHomeSearchViewModel: LGSearchViewModel?
@@ -1158,7 +1162,8 @@ public final class HomeViewModel: ObservableObject {
         analyticsService: AnalyticsServiceProtocol? = nil,
         aiSuggestionService: AISuggestionService? = nil,
         workspacePreferencesProvider: @escaping () -> TaskerWorkspacePreferences = { TaskerWorkspacePreferencesStore.shared.load() },
-        userDefaults: UserDefaults = .standard
+        userDefaults: UserDefaults = .standard,
+        hiddenCalendarEventStore: HomeTimelineHiddenCalendarEventStore? = nil
     ) {
         self.useCaseCoordinator = useCaseCoordinator
         self.homeFilteredTasksUseCase = useCaseCoordinator.getHomeFilteredTasks
@@ -1179,6 +1184,8 @@ public final class HomeViewModel: ObservableObject {
         self.aiSuggestionService = aiSuggestionService
         self.workspacePreferencesProvider = workspacePreferencesProvider
         self.userDefaults = userDefaults
+        self.hiddenCalendarEventStore = hiddenCalendarEventStore ?? HomeTimelineHiddenCalendarEventStore(defaults: userDefaults)
+        self.hiddenHomeTimelineCalendarEvents = self.hiddenCalendarEventStore.load()
         self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
             from: calendarIntegrationService.snapshot,
             selectedDate: selectedDate,
@@ -7842,10 +7849,12 @@ extension HomeViewModel {
         let calendarAllDayItems = showCalendarEventsInTimeline
             ? calendarSnapshot.selectedDayEvents
                 .filter(\.isAllDay)
+                .filter { !isCalendarEventHiddenFromHomeTimeline(eventID: $0.id, on: selectedDay) }
                 .map(timelinePlanItem(from:))
             : []
         let calendarTimedItems = showCalendarEventsInTimeline
             ? calendarSnapshot.selectedDayTimelineEvents
+                .filter { !isCalendarEventHiddenFromHomeTimeline(eventID: $0.id, on: selectedDay) }
                 .map(timelinePlanItem(from:))
                 .sorted { lhs, rhs in
                     guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else { return lhs.title < rhs.title }
@@ -7929,6 +7938,14 @@ extension HomeViewModel {
             preferences.showCalendarEventsInTimeline = true
         }
         calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: "home_timeline_show_calendar")
+    }
+
+    func hideCalendarEventFromTimeline(eventID: String, on day: Date) {
+        hiddenHomeTimelineCalendarEvents = hiddenCalendarEventStore.hide(eventID: eventID, on: day)
+    }
+
+    func isCalendarEventHiddenFromHomeTimeline(eventID: String, on day: Date) -> Bool {
+        hiddenHomeTimelineCalendarEvents.contains(HomeTimelineHiddenCalendarEventKey(eventID: eventID, day: day))
     }
 }
 
@@ -8051,9 +8068,12 @@ extension HomeViewModel {
                 return false
             }
             let taskMarkers = tasks.compactMap { timelinePlacementDate(for: $0) }
-            let eventMarkers = includeCalendarEvents ? (agenda?.events.filter { !$0.isAllDay }.map(\.startDate) ?? []) : []
-            let tints = tasks.compactMap { timelineTintHex(for: $0) } + (includeCalendarEvents ? (agenda?.events.compactMap(\.calendarColorHex) ?? []) : [])
-            let allDayCount = tasks.filter { timelineAllDayDate(for: $0) != nil }.count + (includeCalendarEvents ? (agenda?.events.filter(\.isAllDay).count ?? 0) : 0)
+            let visibleEvents = includeCalendarEvents
+                ? (agenda?.events.filter { !isCalendarEventHiddenFromHomeTimeline(eventID: $0.id, on: normalizedDay) } ?? [])
+                : []
+            let eventMarkers = visibleEvents.filter { !$0.isAllDay }.map(\.startDate)
+            let tints = tasks.compactMap { timelineTintHex(for: $0) } + visibleEvents.compactMap(\.calendarColorHex)
+            let allDayCount = tasks.filter { timelineAllDayDate(for: $0) != nil }.count + visibleEvents.filter(\.isAllDay).count
             let timedCount = taskMarkers.count + eventMarkers.count
             let totalCount = allDayCount + timedCount
             let replanEligibleCount = needsReplanCandidates.filter {
@@ -8643,6 +8663,573 @@ extension HomeViewModel {
     }
 }
 
+enum TaskListWidgetCalendarProjection {
+    static func make(
+        from snapshot: TaskerCalendarSnapshot,
+        weekStartsOn: Weekday,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> TaskListWidgetCalendarSnapshot {
+        let startOfToday = calendar.startOfDay(for: now)
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday
+        let todayEvents = events(
+            from: snapshot.eventsInRange,
+            start: startOfToday,
+            end: endOfToday
+        )
+        let timedEvents = todayEvents
+            .filter { $0.isAllDay == false && $0.isBusy }
+            .map(calendarEvent(from:))
+        let allDayEvents = todayEvents
+            .filter(\.isAllDay)
+            .map(calendarEvent(from:))
+
+        return TaskListWidgetCalendarSnapshot(
+            status: status(from: snapshot, todayEvents: todayEvents, timedEvents: timedEvents),
+            date: startOfToday,
+            updatedAt: now,
+            selectedCalendarCount: snapshot.selectedCalendarIDs.count,
+            availableCalendarCount: snapshot.availableCalendars.count,
+            eventsTodayCount: todayEvents.count,
+            nextMeeting: snapshot.nextMeeting.map(nextMeeting(from:)),
+            freeUntil: snapshot.freeUntil,
+            timedEvents: timedEvents,
+            allDayEvents: allDayEvents,
+            weekDays: weekDays(
+                from: snapshot.eventsInRange,
+                anchorDate: startOfToday,
+                weekStartsOn: weekStartsOn,
+                calendar: calendar
+            ),
+            isLoading: snapshot.isLoading,
+            errorMessage: snapshot.errorMessage
+        )
+    }
+
+    private static func status(
+        from snapshot: TaskerCalendarSnapshot,
+        todayEvents: [TaskerCalendarEventSnapshot],
+        timedEvents: [TaskListWidgetCalendarEvent]
+    ) -> TaskListWidgetCalendarStatus {
+        if snapshot.authorizationStatus.isAuthorizedForRead == false {
+            return .permissionRequired
+        }
+        if let error = snapshot.errorMessage, error.isEmpty == false {
+            return .error
+        }
+        if snapshot.selectedCalendarIDs.isEmpty {
+            return .noCalendarsSelected
+        }
+        if todayEvents.isEmpty == false && timedEvents.isEmpty {
+            return .allDayOnly
+        }
+        if timedEvents.isEmpty {
+            return .empty
+        }
+        return .active
+    }
+
+    private static func weekDays(
+        from sourceEvents: [TaskerCalendarEventSnapshot],
+        anchorDate: Date,
+        weekStartsOn: Weekday,
+        calendar: Calendar
+    ) -> [TaskListWidgetCalendarDay] {
+        let weekStart = XPCalculationEngine.startOfWeek(
+            for: anchorDate,
+            startingOn: weekStartsOn,
+            calendar: calendar
+        )
+
+        return (0..<7).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: weekStart) else {
+                return nil
+            }
+            let dayStart = calendar.startOfDay(for: date)
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+            let dayEvents = events(from: sourceEvents, start: dayStart, end: dayEnd)
+            return TaskListWidgetCalendarDay(
+                date: dayStart,
+                eventCount: dayEvents.count,
+                timedEvents: dayEvents
+                    .filter { $0.isAllDay == false && $0.isBusy }
+                    .prefix(3)
+                    .map(calendarEvent(from:)),
+                allDayEvents: dayEvents
+                    .filter(\.isAllDay)
+                    .prefix(2)
+                    .map(calendarEvent(from:))
+            )
+        }
+    }
+
+    private static func events(
+        from sourceEvents: [TaskerCalendarEventSnapshot],
+        start: Date,
+        end: Date
+    ) -> [TaskerCalendarEventSnapshot] {
+        sourceEvents
+            .filter { $0.endDate > start && $0.startDate < end }
+            .sorted { lhs, rhs in
+                if lhs.startDate != rhs.startDate {
+                    return lhs.startDate < rhs.startDate
+                }
+                return lhs.endDate < rhs.endDate
+            }
+    }
+
+    private static func nextMeeting(
+        from summary: TaskerNextMeetingSummary
+    ) -> TaskListWidgetCalendarNextMeeting {
+        TaskListWidgetCalendarNextMeeting(
+            event: calendarEvent(from: summary.event),
+            isInProgress: summary.isInProgress,
+            minutesUntilStart: summary.minutesUntilStart
+        )
+    }
+
+    private static func calendarEvent(
+        from event: TaskerCalendarEventSnapshot
+    ) -> TaskListWidgetCalendarEvent {
+        TaskListWidgetCalendarEvent(
+            id: event.id,
+            title: event.title,
+            calendarTitle: event.calendarTitle,
+            calendarColorHex: event.calendarColorHex,
+            startDate: event.startDate,
+            endDate: event.endDate,
+            isAllDay: event.isAllDay,
+            isBusy: event.isBusy,
+            isCanceled: event.isCanceled,
+            isTentative: event.participationStatus == .tentative
+        )
+    }
+}
+
+enum TaskListWidgetTimelineProjection {
+    static func make(
+        tasks: [TaskDefinition],
+        calendarSnapshot: TaskListWidgetCalendarSnapshot,
+        preferences: TaskerWorkspacePreferences,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> TaskListWidgetTimelineSnapshot {
+        let dayStart = calendar.startOfDay(for: now)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+        let wakeAnchor = timelineAnchorTime(
+            on: dayStart,
+            hour: preferences.timelineRiseAndShineHour,
+            minute: preferences.timelineRiseAndShineMinute,
+            calendar: calendar
+        )
+        let sleepAnchor = resolvedSleepAnchor(
+            on: dayStart,
+            wakeAnchor: wakeAnchor,
+            preferences: preferences,
+            calendar: calendar
+        )
+        let calendarItems = preferences.showCalendarEventsInTimeline
+            ? calendarSnapshot.timedEvents.map(timelineItem(from:))
+            : []
+        let allDayCalendarItems = preferences.showCalendarEventsInTimeline
+            ? calendarSnapshot.allDayEvents.map(timelineItem(from:))
+            : []
+
+        let taskItems = tasks
+            .filter { $0.parentTaskID == nil }
+            .compactMap { timelineItem(from: $0, dayStart: dayStart, dayEnd: dayEnd, now: now, calendar: calendar) }
+        let timedTaskItems = taskItems.filter { $0.isAllDay == false && $0.startDate != nil }
+        let allDayTaskItems = taskItems.filter(\.isAllDay)
+        let inboxItems = tasks
+            .filter { isInboxCaptureTask($0) }
+            .sorted(by: sortTasksForTimeline)
+            .prefix(4)
+            .map { inboxItem(from: $0) }
+
+        let rawTimedItems = (timedTaskItems + calendarItems).sorted(by: sortItemsForTimeline)
+        let currentItemID = currentTimelineItemID(in: rawTimedItems, now: now)
+        let timedItems = rawTimedItems.map { item in
+            var value = item
+            value.isCurrent = value.id == currentItemID
+            return value
+        }
+        let allDayItems = (allDayTaskItems + allDayCalendarItems).sorted { lhs, rhs in
+            lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+        let gaps = timelineGaps(
+            timedItems: timedItems,
+            wakeAnchor: wakeAnchor,
+            sleepAnchor: sleepAnchor,
+            inboxCount: inboxItems.count,
+            now: now
+        )
+        let weekDays = weekDays(
+            tasks: tasks,
+            calendarSnapshot: calendarSnapshot,
+            preferences: preferences,
+            anchorDate: dayStart,
+            calendar: calendar
+        )
+
+        return TaskListWidgetTimelineSnapshot(
+            date: dayStart,
+            updatedAt: now,
+            day: TaskListWidgetTimelineDay(
+                date: dayStart,
+                wakeAnchor: wakeAnchor,
+                sleepAnchor: sleepAnchor,
+                currentTime: now,
+                allDayItems: Array(allDayItems.prefix(6)),
+                inboxItems: Array(inboxItems),
+                timedItems: Array(timedItems.prefix(12)),
+                gaps: Array(gaps.prefix(4)),
+                currentItemID: currentItemID
+            ),
+            weekDays: weekDays,
+            calendarPlottingEnabled: preferences.showCalendarEventsInTimeline
+        )
+    }
+
+    private static func timelineItem(
+        from task: TaskDefinition,
+        dayStart: Date,
+        dayEnd: Date,
+        now: Date,
+        calendar: Calendar
+    ) -> TaskListWidgetTimelineItem? {
+        if let allDayDate = allDayDate(for: task, calendar: calendar),
+           calendar.isDate(allDayDate, inSameDayAs: dayStart) {
+            return TaskListWidgetTimelineItem(
+                id: "task:\(task.id.uuidString)",
+                source: .task,
+                taskID: task.id,
+                title: task.title,
+                subtitle: task.projectLabelForWidget,
+                startDate: allDayDate,
+                endDate: nil,
+                isAllDay: true,
+                isComplete: task.isComplete,
+                tintHex: task.priority.colorHex,
+                systemImageName: systemImageName(for: task),
+                accessoryText: task.isComplete ? "Done" : nil
+            )
+        }
+
+        guard let start = placementDate(for: task, calendar: calendar) else { return nil }
+        let duration = max(task.scheduledEndAt?.timeIntervalSince(start) ?? task.estimatedDuration ?? 30 * 60, 15 * 60)
+        let end = task.scheduledEndAt ?? start.addingTimeInterval(duration)
+        guard end > dayStart, start < dayEnd else { return nil }
+
+        return TaskListWidgetTimelineItem(
+            id: "task:\(task.id.uuidString)",
+            source: .task,
+            taskID: task.id,
+            title: task.title,
+            subtitle: task.projectLabelForWidget,
+            startDate: start,
+            endDate: end,
+            isAllDay: false,
+            isComplete: task.isComplete,
+            tintHex: task.priority.colorHex,
+            systemImageName: systemImageName(for: task),
+            accessoryText: accessoryText(for: task, start: start, end: end, now: now)
+        )
+    }
+
+    private static func timelineItem(from event: TaskListWidgetCalendarEvent) -> TaskListWidgetTimelineItem {
+        TaskListWidgetTimelineItem(
+            id: "event:\(event.id)",
+            source: .calendarEvent,
+            eventID: event.id,
+            title: event.title,
+            subtitle: event.calendarTitle,
+            startDate: event.startDate,
+            endDate: event.endDate,
+            isAllDay: event.isAllDay,
+            isComplete: false,
+            tintHex: event.calendarColorHex,
+            systemImageName: event.isAllDay ? "sun.max" : "calendar.badge.clock",
+            accessoryText: event.isTentative ? "Tentative" : nil
+        )
+    }
+
+    private static func inboxItem(from task: TaskDefinition) -> TaskListWidgetTimelineItem {
+        TaskListWidgetTimelineItem(
+            id: "inbox:\(task.id.uuidString)",
+            source: .task,
+            taskID: task.id,
+            title: task.title,
+            subtitle: task.projectLabelForWidget,
+            isAllDay: false,
+            isComplete: false,
+            tintHex: task.priority.colorHex,
+            systemImageName: systemImageName(for: task),
+            accessoryText: task.priority.code
+        )
+    }
+
+    private static func weekDays(
+        tasks: [TaskDefinition],
+        calendarSnapshot: TaskListWidgetCalendarSnapshot,
+        preferences: TaskerWorkspacePreferences,
+        anchorDate: Date,
+        calendar: Calendar
+    ) -> [TaskListWidgetTimelineWeekDay] {
+        let weekStart = XPCalculationEngine.startOfWeek(
+            for: anchorDate,
+            startingOn: preferences.weekStartsOn,
+            calendar: calendar
+        )
+        return (0..<7).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return nil }
+            let dayStart = calendar.startOfDay(for: date)
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+            let dayTasks = tasks.filter { task in
+                if let allDayDate = allDayDate(for: task, calendar: calendar) {
+                    return calendar.isDate(allDayDate, inSameDayAs: dayStart)
+                }
+                guard let start = placementDate(for: task, calendar: calendar) else { return false }
+                let end = task.scheduledEndAt ?? start.addingTimeInterval(max(task.estimatedDuration ?? 30 * 60, 15 * 60))
+                return end > dayStart && start < dayEnd
+            }
+            let taskAllDayCount = dayTasks.filter { allDayDate(for: $0, calendar: calendar) != nil }.count
+            let taskTimedCount = dayTasks.count - taskAllDayCount
+            let calendarDay = preferences.showCalendarEventsInTimeline
+                ? calendarSnapshot.weekDays.first { calendar.isDate($0.date, inSameDayAs: dayStart) }
+                : nil
+            let calendarAllDayCount = calendarDay?.allDayEvents.count ?? 0
+            let calendarTimedCount = calendarDay.map { max(0, $0.eventCount - $0.allDayEvents.count) } ?? 0
+            let allDayCount = taskAllDayCount + calendarAllDayCount
+            let timedCount = taskTimedCount + calendarTimedCount
+            let tints = dayTasks.map { $0.priority.colorHex } + (calendarDay?.timedEvents.compactMap(\.calendarColorHex) ?? [])
+
+            return TaskListWidgetTimelineWeekDay(
+                date: dayStart,
+                dayKey: dayKey(for: dayStart, calendar: calendar),
+                allDayCount: allDayCount,
+                timedCount: timedCount,
+                tintHexes: Array(tints.prefix(4)),
+                loadLevel: loadLevel(for: allDayCount + timedCount)
+            )
+        }
+    }
+
+    private static func timelineGaps(
+        timedItems: [TaskListWidgetTimelineItem],
+        wakeAnchor: Date,
+        sleepAnchor: Date,
+        inboxCount: Int,
+        now: Date
+    ) -> [TaskListWidgetTimelineGap] {
+        guard sleepAnchor > wakeAnchor else { return [] }
+        let minimumGap: TimeInterval = 30 * 60
+        let intervals = timedItems.compactMap { item -> (start: Date, end: Date)? in
+            guard let start = item.startDate, let end = item.endDate else { return nil }
+            let clippedStart = max(start, wakeAnchor)
+            let clippedEnd = min(end, sleepAnchor)
+            guard clippedEnd > clippedStart else { return nil }
+            return (clippedStart, clippedEnd)
+        }
+        .sorted { lhs, rhs in
+            if lhs.start != rhs.start { return lhs.start < rhs.start }
+            return lhs.end < rhs.end
+        }
+
+        var merged: [(start: Date, end: Date)] = []
+        for interval in intervals {
+            guard let last = merged.last else {
+                merged.append(interval)
+                continue
+            }
+            if interval.start <= last.end {
+                merged[merged.count - 1] = (last.start, max(last.end, interval.end))
+            } else {
+                merged.append(interval)
+            }
+        }
+
+        var cursor = wakeAnchor
+        var gaps: [TaskListWidgetTimelineGap] = []
+        for interval in merged {
+            appendGapIfNeeded(start: cursor, end: interval.start, inboxCount: inboxCount, now: now, into: &gaps)
+            cursor = max(cursor, interval.end)
+        }
+        appendGapIfNeeded(start: cursor, end: sleepAnchor, inboxCount: inboxCount, now: now, into: &gaps)
+        return gaps
+    }
+
+    private static func appendGapIfNeeded(
+        start: Date,
+        end: Date,
+        inboxCount: Int,
+        now: Date,
+        into gaps: inout [TaskListWidgetTimelineGap]
+    ) {
+        guard end.timeIntervalSince(start) >= 30 * 60 else { return }
+        let headline = start <= now && end > now ? "Open now" : "Open time"
+        let minutes = Int(end.timeIntervalSince(start) / 60)
+        let supporting = inboxCount > 0
+            ? "\(minutes)m available. Place an Inbox task here."
+            : "\(minutes)m available. Add a task for this window."
+        gaps.append(TaskListWidgetTimelineGap(
+            startDate: start,
+            endDate: end,
+            suggestedTaskCount: inboxCount,
+            headline: headline,
+            supportingText: supporting
+        ))
+    }
+
+    private static func currentTimelineItemID(in items: [TaskListWidgetTimelineItem], now: Date) -> String? {
+        if let current = items.first(where: { item in
+            guard item.isComplete == false, let start = item.startDate, let end = item.endDate else { return false }
+            return start <= now && end > now
+        }) {
+            return current.id
+        }
+        return items.first { item in
+            guard let start = item.startDate else { return false }
+            return start >= now
+        }?.id
+    }
+
+    private static func sortItemsForTimeline(_ lhs: TaskListWidgetTimelineItem, _ rhs: TaskListWidgetTimelineItem) -> Bool {
+        let lhsStart = lhs.startDate ?? Date.distantFuture
+        let rhsStart = rhs.startDate ?? Date.distantFuture
+        if lhsStart != rhsStart { return lhsStart < rhsStart }
+        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+    }
+
+    private static func sortTasksForTimeline(_ lhs: TaskDefinition, _ rhs: TaskDefinition) -> Bool {
+        if lhs.priority.scorePoints != rhs.priority.scorePoints {
+            return lhs.priority.scorePoints > rhs.priority.scorePoints
+        }
+        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+    }
+
+    private static func isInboxCaptureTask(_ task: TaskDefinition) -> Bool {
+        guard task.isComplete == false, task.parentTaskID == nil else { return false }
+        guard task.scheduledStartAt == nil, task.dueDate == nil else { return false }
+        let projectName = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return task.projectID == ProjectConstants.inboxProjectID
+            || projectName.isEmpty
+            || projectName.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame
+    }
+
+    private static func placementDate(for task: TaskDefinition, calendar: Calendar) -> Date? {
+        task.scheduledStartAt ?? (isDateOnly(task.dueDate, calendar: calendar) ? nil : task.dueDate)
+    }
+
+    private static func allDayDate(for task: TaskDefinition, calendar: Calendar) -> Date? {
+        if task.isAllDay {
+            return task.dueDate ?? task.scheduledStartAt
+        }
+        if isDateOnly(task.dueDate, calendar: calendar) {
+            return task.dueDate
+        }
+        return nil
+    }
+
+    private static func isDateOnly(_ date: Date?, calendar: Calendar) -> Bool {
+        guard let date else { return false }
+        let components = calendar.dateComponents([.hour, .minute, .second], from: date)
+        return (components.hour ?? 0) == 0 && (components.minute ?? 0) == 0 && (components.second ?? 0) == 0
+    }
+
+    private static func timelineAnchorTime(on day: Date, hour: Int, minute: Int, calendar: Calendar) -> Date {
+        calendar.date(
+            bySettingHour: max(0, min(23, hour)),
+            minute: max(0, min(59, minute)),
+            second: 0,
+            of: day
+        ) ?? day
+    }
+
+    private static func resolvedSleepAnchor(
+        on day: Date,
+        wakeAnchor: Date,
+        preferences: TaskerWorkspacePreferences,
+        calendar: Calendar
+    ) -> Date {
+        var sleep = timelineAnchorTime(
+            on: day,
+            hour: preferences.timelineWindDownHour,
+            minute: preferences.timelineWindDownMinute,
+            calendar: calendar
+        )
+        if sleep <= wakeAnchor {
+            sleep = calendar.date(byAdding: .day, value: 1, to: sleep) ?? sleep
+        }
+        return sleep
+    }
+
+    private static func accessoryText(for task: TaskDefinition, start: Date, end: Date, now: Date) -> String? {
+        if task.isComplete {
+            return "Done"
+        }
+        if start <= now, end > now {
+            let roundedMinutes = max(1, Int(ceil(end.timeIntervalSince(now) / 60)))
+            return "\(roundedMinutes)m left"
+        }
+        if let duration = task.estimatedDuration {
+            return durationText(duration)
+        }
+        return task.priority.code
+    }
+
+    private static func durationText(_ duration: TimeInterval) -> String {
+        let totalMinutes = max(1, Int((duration / 60).rounded()))
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours > 0 && minutes > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+        if hours > 0 {
+            return "\(hours)h"
+        }
+        return "\(minutes)m"
+    }
+
+    private static func systemImageName(for task: TaskDefinition) -> String {
+        if let iconSymbolName = task.iconSymbolName, iconSymbolName.isEmpty == false {
+            return iconSymbolName
+        }
+        switch task.category {
+        case .work:
+            return "briefcase.fill"
+        case .health:
+            return "heart.fill"
+        case .personal:
+            return "person.fill"
+        case .shopping:
+            return "cart.fill"
+        default:
+            return "checklist"
+        }
+    }
+
+    private static func dayKey(for date: Date, calendar: Calendar) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        let year = components.year ?? 0
+        let month = components.month ?? 0
+        let day = components.day ?? 0
+        return String(format: "%04d-%02d-%02d", year, month, day)
+    }
+
+    private static func loadLevel(for count: Int) -> TaskListWidgetTimelineLoadLevel {
+        if count >= 5 { return .busy }
+        if count >= 2 { return .balanced }
+        return .light
+    }
+}
+
+private extension TaskDefinition {
+    var projectLabelForWidget: String {
+        let projectName = projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return projectName?.isEmpty == false ? projectName! : ProjectConstants.inboxProjectName
+    }
+}
+
 final class TaskListWidgetSnapshotService {
     static let shared = TaskListWidgetSnapshotService()
 
@@ -8705,7 +9292,16 @@ final class TaskListWidgetSnapshotService {
                     fields: ["reason": reason],
                     counts: ["task_count": tasks.count]
                 )
-                let snapshot = self.buildSnapshot(tasks: tasks)
+                let calendarSnapshot = TaskListWidgetCalendarProjection.make(
+                    from: coordinator.calendarIntegrationService.snapshot,
+                    weekStartsOn: coordinator.calendarIntegrationService.weekStartsOn
+                )
+                let workspacePreferences = TaskerWorkspacePreferencesStore.shared.load()
+                let snapshot = self.buildSnapshot(
+                    tasks: tasks,
+                    calendarSnapshot: calendarSnapshot,
+                    workspacePreferences: workspacePreferences
+                )
                 self.persistIfChanged(snapshot: snapshot, reason: reason)
                 self.finishRefresh()
             }
@@ -8728,7 +9324,12 @@ final class TaskListWidgetSnapshotService {
         return container.coordinator
     }
 
-    private func buildSnapshot(tasks: [TaskDefinition], now: Date = Date()) -> TaskListWidgetSnapshot {
+    private func buildSnapshot(
+        tasks: [TaskDefinition],
+        now: Date = Date(),
+        calendarSnapshot: TaskListWidgetCalendarSnapshot = .empty,
+        workspacePreferences: TaskerWorkspacePreferences = TaskerWorkspacePreferences()
+    ) -> TaskListWidgetSnapshot {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: now)
         let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
@@ -8802,6 +9403,13 @@ final class TaskListWidgetSnapshotService {
                 count: openTasks.filter { $0.energy == energy }.count
             )
         }
+        let timelineSnapshot = TaskListWidgetTimelineProjection.make(
+            tasks: tasks,
+            calendarSnapshot: calendarSnapshot,
+            preferences: workspacePreferences,
+            now: now,
+            calendar: calendar
+        )
 
         return TaskListWidgetSnapshot(
             schemaVersion: TaskListWidgetSnapshot.currentSchemaVersion,
@@ -8823,7 +9431,9 @@ final class TaskListWidgetSnapshotService {
                 generatedAt: now,
                 isStale: false,
                 hasCorruptionFallback: false
-            )
+            ),
+            calendar: calendarSnapshot,
+            timeline: timelineSnapshot
         )
     }
 
@@ -8867,7 +9477,7 @@ final class TaskListWidgetSnapshotService {
 
     private func persistIfChanged(snapshot: TaskListWidgetSnapshot, reason: String) {
         let current = TaskListWidgetSnapshot.load()
-        if normalized(snapshot) == normalized(current) {
+        if Self.normalizedForReloadComparison(snapshot) == Self.normalizedForReloadComparison(current) {
             return
         }
         snapshot.save()
@@ -8875,11 +9485,14 @@ final class TaskListWidgetSnapshotService {
         logDebug("TASK_WIDGET_SNAPSHOT refreshed reason=\(reason)")
     }
 
-    private func normalized(_ snapshot: TaskListWidgetSnapshot) -> TaskListWidgetSnapshot {
+    static func normalizedForReloadComparison(_ snapshot: TaskListWidgetSnapshot) -> TaskListWidgetSnapshot {
         var value = snapshot
         value.updatedAt = Date(timeIntervalSince1970: 0)
         value.snapshotHealth.generatedAt = Date(timeIntervalSince1970: 0)
         value.snapshotHealth.hasCorruptionFallback = false
+        value.calendar.updatedAt = Date(timeIntervalSince1970: 0)
+        value.timeline.updatedAt = Date(timeIntervalSince1970: 0)
+        value.timeline.day.currentTime = Date(timeIntervalSince1970: 0)
         return value
     }
 
@@ -8897,6 +9510,7 @@ final class TaskListWidgetSnapshotService {
             "BacklogHealthWidget", "KanbanLiteWidget", "DeadlineHeatmapWidget",
             "ExecutionDashboardWidget", "DeepWorkAgendaWidget", "AssistantPlanPreviewWidget",
             "LifeAreasBoardWidget",
+            "HomeCalendarWidget", "HomeTimelineWidget",
             "InlineNextTaskWidget", "InlineDueSoonWidget",
             "CircularTodayProgressWidget", "CircularQuickAddWidget",
             "RectangularTop2TasksWidget", "RectangularOverdueAlertWidget",
