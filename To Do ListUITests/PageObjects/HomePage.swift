@@ -41,6 +41,14 @@ class HomePage {
         return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.foredropCollapseHint]
     }
 
+    var timelineSurface: XCUIElement {
+        let byIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.timelineSurface]
+        if byIdentifier.exists {
+            return byIdentifier
+        }
+        return app.descendants(matching: .any)["home.timeline.surface"]
+    }
+
     var addTaskButton: XCUIElement {
         return app.buttons[AccessibilityIdentifiers.Home.addTaskButton]
     }
@@ -1832,5 +1840,13 @@ class HomePage {
             scrollView.swipeDown()
         }
         return true
+    }
+
+    func swipeTimelineLeft() {
+        timelineSurface.swipeLeft()
+    }
+
+    func swipeTimelineRight() {
+        timelineSurface.swipeRight()
     }
 }

@@ -74,6 +74,7 @@ enum AccessibilityIdentifiers {
         static let radarChartView = "home.radarChartView"
         static let navXpPieChart = "home.navXpPieChart"
         static let weeklyCalendar = "home.weeklyCalendar"
+        static let timelineSurface = "home.timeline.surface"
         static let taskListScrollView = "home.taskList.scrollView"
         static let dailySummaryModal = "home.dailySummaryModal"
         static let dailySummaryHeroOpenCount = "home.dailySummary.hero.openCount"
