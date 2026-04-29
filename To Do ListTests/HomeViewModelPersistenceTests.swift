@@ -5,6 +5,75 @@ import Combine
 final class HomeViewModelPersistenceTests: XCTestCase {
     private var cancellables = Set<AnyCancellable>()
 
+    func testShiftSelectedDayLeftContractMovesToPreviousCustomDate() {
+        let suiteName = "HomeViewModelPersistenceTests.DaySwipePrevious.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let today = Calendar.current.startOfDay(for: Date())
+        let expectedPrevious = Calendar.current.date(byAdding: .day, value: -1, to: today)!
+
+        viewModel.shiftSelectedDay(byDays: -1, source: .swipe)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(Calendar.current.isDate(viewModel.selectedDate, inSameDayAs: expectedPrevious))
+        if case .customDate(let selectedScopeDate) = viewModel.activeScope {
+            XCTAssertTrue(Calendar.current.isDate(selectedScopeDate, inSameDayAs: expectedPrevious))
+        } else {
+            XCTFail("Expected previous day swipe to select a custom date scope")
+        }
+        XCTAssertTrue(viewModel.activeFilterState.quickView == .today)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testShiftSelectedDayRightContractMovesToNextCustomDateAndReturnToTodayRestoresTodayScope() {
+        let suiteName = "HomeViewModelPersistenceTests.DaySwipeNext.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let today = Calendar.current.startOfDay(for: Date())
+        let expectedNext = Calendar.current.date(byAdding: .day, value: 1, to: today)!
+
+        viewModel.shiftSelectedDay(byDays: 1, source: .swipe)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(Calendar.current.isDate(viewModel.selectedDate, inSameDayAs: expectedNext))
+        if case .customDate(let selectedScopeDate) = viewModel.activeScope {
+            XCTAssertTrue(Calendar.current.isDate(selectedScopeDate, inSameDayAs: expectedNext))
+        } else {
+            XCTFail("Expected next day swipe to select a custom date scope")
+        }
+
+        viewModel.returnToToday(source: .backToToday)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(Calendar.current.isDateInToday(viewModel.selectedDate))
+        XCTAssertEqual(viewModel.activeScope, .today)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testGroupingModeAndCustomProjectOrderPersistAcrossSessions() {
         let suiteName = "HomeViewModelPersistenceTests.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {

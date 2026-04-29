@@ -3,6 +3,51 @@ import XCTest
 
 final class HomeForedropLayoutMetricsTests: XCTestCase {
 
+    func testDaySwipeResolverMapsLeftSwipeToNextDay() {
+        let direction = HomeDaySwipeResolver.default.resolvedDirection(
+            translation: CGSize(width: -74, height: 8),
+            predictedEndTranslation: CGSize(width: -110, height: 10)
+        )
+
+        XCTAssertEqual(direction, .next)
+    }
+
+    func testDaySwipeResolverMapsRightSwipeToPreviousDay() {
+        let direction = HomeDaySwipeResolver.default.resolvedDirection(
+            translation: CGSize(width: 74, height: 8),
+            predictedEndTranslation: CGSize(width: 110, height: 10)
+        )
+
+        XCTAssertEqual(direction, .previous)
+    }
+
+    func testDaySwipeResolverIgnoresVerticalDrag() {
+        let direction = HomeDaySwipeResolver.default.resolvedDirection(
+            translation: CGSize(width: 90, height: 120),
+            predictedEndTranslation: CGSize(width: 130, height: 160)
+        )
+
+        XCTAssertNil(direction)
+    }
+
+    func testDaySwipeResolverIgnoresShortHorizontalDrag() {
+        let direction = HomeDaySwipeResolver.default.resolvedDirection(
+            translation: CGSize(width: 38, height: 2),
+            predictedEndTranslation: CGSize(width: 44, height: 3)
+        )
+
+        XCTAssertNil(direction)
+    }
+
+    func testDaySwipeResolverAllowsQuickPredictedFlick() {
+        let direction = HomeDaySwipeResolver.default.resolvedDirection(
+            translation: CGSize(width: -48, height: 4),
+            predictedEndTranslation: CGSize(width: -132, height: 6)
+        )
+
+        XCTAssertEqual(direction, .next)
+    }
+
     func testCollapsedOffsetIsZero() {
         let metrics = HomeForedropLayoutMetrics(
             calendarExpandedHeight: 18,
