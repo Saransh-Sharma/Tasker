@@ -48,7 +48,9 @@ public final class GetHomeFilteredTasksUseCase {
     private let readModelRepository: TaskReadModelRepositoryProtocol?
     private let cacheLock = NSLock()
     private var resultCache: [String: HomeFilteredTasksResult] = [:]
+    private var resultCacheOrder: [String] = []
     private let exactProjectionPageSize = 400
+    private let maxResultCacheEntries = 32
 
     private struct ProjectionAccumulator {
         let scope: HomeListScope
@@ -71,7 +73,20 @@ public final class GetHomeFilteredTasksUseCase {
     public func invalidateCaches() {
         cacheLock.lock()
         resultCache.removeAll()
+        resultCacheOrder.removeAll()
         cacheLock.unlock()
+    }
+
+    public func hasCachedResult(
+        state: HomeFilterState,
+        scope: HomeListScope,
+        revision: HomeDataRevision = .zero
+    ) -> Bool {
+        let cacheKey = makeCacheKey(state: state, scope: scope, revision: revision)
+        cacheLock.lock()
+        let isCached = resultCache[cacheKey] != nil
+        cacheLock.unlock()
+        return isCached
     }
 
     /// Executes execute.
@@ -93,6 +108,7 @@ public final class GetHomeFilteredTasksUseCase {
         let cacheKey = makeCacheKey(state: state, scope: scope, revision: revision)
         cacheLock.lock()
         if let cached = resultCache[cacheKey] {
+            markCacheKeyRecentlyUsed(cacheKey)
             cacheLock.unlock()
             completion(.success(cached))
             return
@@ -129,7 +145,7 @@ public final class GetHomeFilteredTasksUseCase {
                     pointsPotential: accumulator.pointsPotential
                 )
                 self.cacheLock.lock()
-                self.resultCache[cacheKey] = payload
+                self.storeCachedResult(payload, for: cacheKey)
                 self.cacheLock.unlock()
                 completion(.success(payload))
 
@@ -145,6 +161,20 @@ public final class GetHomeFilteredTasksUseCase {
         completion: @escaping (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
     ) {
         execute(state: state, scope: .fromQuickView(state.quickView), revision: .zero, completion: completion)
+    }
+
+    private func markCacheKeyRecentlyUsed(_ cacheKey: String) {
+        resultCacheOrder.removeAll { $0 == cacheKey }
+        resultCacheOrder.append(cacheKey)
+    }
+
+    private func storeCachedResult(_ result: HomeFilteredTasksResult, for cacheKey: String) {
+        resultCache[cacheKey] = result
+        markCacheKeyRecentlyUsed(cacheKey)
+        while resultCacheOrder.count > maxResultCacheEntries {
+            let evicted = resultCacheOrder.removeFirst()
+            resultCache.removeValue(forKey: evicted)
+        }
     }
 
     private func fetchHomeProjection(
