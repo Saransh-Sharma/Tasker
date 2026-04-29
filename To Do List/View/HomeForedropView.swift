@@ -2449,7 +2449,7 @@ struct HomeBackdropForedropRootView: View {
     let onDeleteTask: (TaskDefinition) -> Void
     let onRescheduleTask: (TaskDefinition) -> Void
     let onReorderCustomProjects: ([UUID]) -> Void
-    let onAddTask: () -> Void
+    let onAddTask: (Date?) -> Void
     let onOpenChat: () -> Void
     let onOpenProjectCreator: () -> Void
     let onOpenSettings: () -> Void
@@ -3048,7 +3048,7 @@ struct HomeBackdropForedropRootView: View {
                     if overlaySnapshot.replanState.launcherSummary?.count == 0 {
                         viewModel.dismissNeedsReplanSessionUI()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            onAddTask()
+                            onAddTask(nil)
                         }
                     } else {
                         viewModel.startNeedsReplanSession()
@@ -3471,7 +3471,7 @@ struct HomeBackdropForedropRootView: View {
                             ]
                         )
                     },
-                    onEmptyStateAction: { onAddTask() },
+                    onEmptyStateAction: { onAddTask(nil) },
                     onToggleAgendaTailItemExpansion: { itemID in
                         if expandedAgendaTailItemIDs.contains(itemID) {
                             expandedAgendaTailItemIDs.remove(itemID)
@@ -4063,6 +4063,9 @@ struct HomeBackdropForedropRootView: View {
                             onScheduleInbox: {
                                 viewModel.startTriage()
                             },
+                            onShowCalendarInTimeline: {
+                                viewModel.showCalendarEventsInTimelineFromHome()
+                            },
                             onPlaceReplanAtTime: { candidate, date in
                                 viewModel.placeReplanCandidate(taskID: candidate.taskID, at: date)
                             },
@@ -4131,29 +4134,55 @@ struct HomeBackdropForedropRootView: View {
         return max(taskListBottomInset + spacing.s40 + spacing.s8, 132)
     }
 
+    @ViewBuilder
     private var calendarScheduleModuleCard: some View {
-        Button(action: handleOpenScheduleAction) {
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                calendarSummaryHeader
-                calendarModuleBody
+        if calendarSnapshot.moduleState == .permissionRequired {
+            calendarCardChrome {
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    calendarSummaryHeader
+                    calendarModuleBody
+                    calendarPermissionCTA
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            calendarCardChrome {
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    calendarSummaryHeader
+                    calendarModuleBody
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
+            .onTapGesture(perform: handleOpenScheduleAction)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(calendarCardAccessibilityLabel)
+            .accessibilityHint(String(localized: "Opens the full calendar schedule"))
         }
-        .buttonStyle(.plain)
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s12)
-        .background(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .fill(Color.tasker.surfacePrimary)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.calendar.card")
-        .accessibilityLabel(calendarCardAccessibilityLabel)
-        .accessibilityHint(String(localized: "Opens the full calendar schedule"))
+    }
+
+    @ViewBuilder
+    private func calendarCardChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .modifier(CalendarCardChromeModifier())
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.calendar.card")
+    }
+
+    @ViewBuilder
+    private var calendarPermissionCTA: some View {
+        if shouldShowCalendarPermissionCTA {
+            Button(action: onRequestCalendarPermission) {
+                Text(calendarPermissionButtonTitle)
+                    .font(.tasker(.bodyStrong))
+                    .foregroundStyle(Color.tasker.textInverse)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(Color.tasker.accentPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.calendar.connect")
+        }
     }
 
     private var calendarSummaryHeader: some View {
@@ -4196,6 +4225,7 @@ struct HomeBackdropForedropRootView: View {
                     .foregroundStyle(Color.tasker.textSecondary)
                     .accessibilityIdentifier(calendarPermissionStateAccessibilityID)
             }
+            .accessibilityLabel(calendarPermissionBodyText)
             .accessibilityIdentifier("home.calendar.state.permission")
         case .noCalendarsSelected:
             Text(String(localized: "No calendars selected. Choose at least one calendar for schedule insights."))
@@ -4242,19 +4272,21 @@ struct HomeBackdropForedropRootView: View {
 
     private var shouldShowCalendarPermissionCTA: Bool {
         guard calendarSnapshot.moduleState == .permissionRequired else { return false }
-        switch calendarSnapshot.authorizationStatus {
-        case .notDetermined, .denied, .writeOnly:
+        switch calendarSnapshot.accessAction {
+        case .requestPermission, .openSystemSettings:
             return true
-        case .restricted, .authorized:
+        case .unavailable, .noneNeeded:
             return false
         }
     }
 
     private var calendarPermissionButtonTitle: String {
-        switch calendarSnapshot.authorizationStatus {
-        case .denied, .writeOnly:
+        switch calendarSnapshot.accessAction {
+        case .openSystemSettings:
             return String(localized: "Open Settings")
-        case .notDetermined, .restricted, .authorized:
+        case .requestPermission:
+            return String(localized: "Allow Full Calendar Access")
+        case .unavailable, .noneNeeded:
             return String(localized: "Connect")
         }
     }
@@ -4264,11 +4296,11 @@ struct HomeBackdropForedropRootView: View {
         case .notDetermined:
             return String(localized: "Connect Calendar to surface next meetings and free windows.")
         case .denied:
-            return String(localized: "Calendar access is off. Open Settings to re-enable read access.")
+            return String(localized: "Calendar access is denied by iOS. Enable Tasker in Settings > Privacy & Security > Calendars. If Tasker is missing, restart iPhone, reinstall Tasker, or reset Location & Privacy.")
         case .restricted:
             return String(localized: "Calendar access is restricted by system policy.")
         case .writeOnly:
-            return String(localized: "Tasker currently has write-only access. Open Settings and allow full read access.")
+            return String(localized: "Tasker has write-only access. Allow full calendar access so schedule events can appear.")
         case .authorized:
             return String(localized: "Connect Calendar to surface next meetings and free windows.")
         }
@@ -5320,6 +5352,28 @@ struct HomeBackdropForedropRootView: View {
             }
         )
         showDailyReflectPlan = true
+    }
+}
+
+private struct CalendarCardChromeModifier: ViewModifier {
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens {
+        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, spacing.s16)
+            .padding(.vertical, spacing.s12)
+            .background(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                    .fill(Color.tasker.surfacePrimary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+            )
     }
 }
 

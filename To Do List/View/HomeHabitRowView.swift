@@ -1,16 +1,32 @@
 import SwiftUI
 
 struct HomeHabitRowHitTargetMetrics: Equatable {
+    static let normalMaximumCellSide: CGFloat = 48
+    static let accessibilityMaximumCellSide: CGFloat = 56
+    static let normalMinimumRowHeight: CGFloat = 44
+    static let accessibilityMinimumRowHeight: CGFloat = 68
+
+    let cellSide: CGFloat
+    let rowHeight: CGFloat
     let visualLastCellWidth: CGFloat
 
-    init(stripWidth: CGFloat, cellCount: Int, showsLastCellDecoration: Bool) {
+    init(
+        stripWidth: CGFloat,
+        cellCount: Int,
+        showsLastCellDecoration: Bool,
+        usesExpandedTitle: Bool = false
+    ) {
         let resolvedStripWidth = max(stripWidth, 1)
         let resolvedCellCount = max(cellCount, 1)
-        let trailingCellWidth = showsLastCellDecoration
-            ? max(resolvedStripWidth / CGFloat(resolvedCellCount), 1)
-            : 0
+        let maximumCellSide = usesExpandedTitle ? Self.accessibilityMaximumCellSide : Self.normalMaximumCellSide
+        let minimumRowHeight = usesExpandedTitle ? Self.accessibilityMinimumRowHeight : Self.normalMinimumRowHeight
+        let resolvedCellSide = min(max(resolvedStripWidth / CGFloat(resolvedCellCount), 1), maximumCellSide)
 
-        self.visualLastCellWidth = trailingCellWidth
+        self.cellSide = resolvedCellSide
+        self.rowHeight = max(minimumRowHeight, resolvedCellSide)
+        self.visualLastCellWidth = showsLastCellDecoration
+            ? resolvedCellSide
+            : 0
     }
 }
 
@@ -57,6 +73,7 @@ private struct HomeHabitRowInteractiveSurface: View {
     let row: HomeHabitRow
     let boardCellCount: Int
     let colorScheme: ColorScheme
+    let usesExpandedTitle: Bool
     let lastCellInteraction: HomeHabitLastCellInteraction
     let accessibilityHint: String
     let onRowAction: (() -> Void)?
@@ -68,7 +85,8 @@ private struct HomeHabitRowInteractiveSurface: View {
             let metrics = HomeHabitRowHitTargetMetrics(
                 stripWidth: proxy.size.width,
                 cellCount: boardCellCount,
-                showsLastCellDecoration: stripAction != nil
+                showsLastCellDecoration: stripAction != nil,
+                usesExpandedTitle: usesExpandedTitle
             )
 
             if let stripAction {
@@ -83,7 +101,7 @@ private struct HomeHabitRowInteractiveSurface: View {
                         if metrics.visualLastCellWidth > 0 {
                             RoundedRectangle(cornerRadius: 1, style: .continuous)
                                 .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.2)
-                                .frame(width: metrics.visualLastCellWidth)
+                                .frame(width: metrics.visualLastCellWidth, height: metrics.visualLastCellWidth)
                         }
                     }
                 }
@@ -128,6 +146,7 @@ struct HomeHabitRowView: View {
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
+    @State private var measuredStreakWidth: CGFloat = 0
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
@@ -144,7 +163,19 @@ struct HomeHabitRowView: View {
     }
 
     private var rowMinHeight: CGFloat {
-        usesExpandedTitle ? 88 : 64
+        usesExpandedTitle
+            ? HomeHabitRowHitTargetMetrics.accessibilityMinimumRowHeight
+            : HomeHabitRowHitTargetMetrics.normalMinimumRowHeight
+    }
+
+    private var resolvedRowHeight: CGFloat {
+        guard measuredStreakWidth > 0 else { return rowMinHeight }
+        return HomeHabitRowHitTargetMetrics(
+            stripWidth: measuredStreakWidth,
+            cellCount: boardCellCount,
+            showsLastCellDecoration: false,
+            usesExpandedTitle: usesExpandedTitle
+        ).rowHeight
     }
 
     private var iconTileWidth: CGFloat {
@@ -205,7 +236,7 @@ struct HomeHabitRowView: View {
             streakSurface
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: rowMinHeight, alignment: .center)
+        .frame(minHeight: resolvedRowHeight, alignment: .center)
     }
 
     @ViewBuilder
@@ -252,6 +283,7 @@ struct HomeHabitRowView: View {
                 row: row,
                 boardCellCount: boardCellCount,
                 colorScheme: colorScheme,
+                usesExpandedTitle: usesExpandedTitle,
                 lastCellInteraction: lastCellInteraction,
                 accessibilityHint: accessibilityHint,
                 onRowAction: onRowAction,
@@ -259,6 +291,11 @@ struct HomeHabitRowView: View {
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { newWidth in
+            measuredStreakWidth = newWidth
+        }
         .accessibilityIdentifier("home.habitRow.strip.\(row.id)")
     }
 
@@ -287,14 +324,21 @@ struct HomeHabitRowView: View {
 
     private var stretchedStrip: some View {
         GeometryReader { proxy in
+            let metrics = HomeHabitRowHitTargetMetrics(
+                stripWidth: proxy.size.width,
+                cellCount: boardCellCount,
+                showsLastCellDecoration: false,
+                usesExpandedTitle: usesExpandedTitle
+            )
+
             HabitBoardStripView(
                 cells: boardCells,
                 family: family,
                 mode: .homeList,
-                cellWidthOverride: stretchedCellWidth(for: proxy.size.width),
-                cellHeightOverride: max(proxy.size.height, 1)
+                cellWidthOverride: metrics.cellSide,
+                cellHeightOverride: metrics.cellSide
             )
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+            .frame(width: proxy.size.width, height: metrics.rowHeight, alignment: .trailing)
         }
         .clipped()
         .allowsHitTesting(false)
@@ -320,10 +364,6 @@ struct HomeHabitRowView: View {
             )
         )
         .allowsHitTesting(false)
-    }
-
-    private func stretchedCellWidth(for totalWidth: CGFloat) -> CGFloat {
-        max(totalWidth / CGFloat(boardCellCount), 1)
     }
 
     private var primaryActionTitle: String? {

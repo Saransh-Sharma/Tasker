@@ -633,6 +633,202 @@ enum TimelineForedropRendererPolicy {
     }
 }
 
+enum VisualTimelineElement: Equatable, Identifiable {
+    struct RoutineMarkerModel: Equatable, Identifiable {
+        let anchor: TimelineAnchorItem
+        let temporalY: CGFloat
+        let height: CGFloat
+
+        var id: String { "routine:\(anchor.id)" }
+    }
+
+    struct SingleItemModel: Equatable, Identifiable {
+        let item: TimelinePlanItem
+        let temporalY: CGFloat
+        let height: CGFloat
+        let isEmphasized: Bool
+
+        var id: String { item.id }
+    }
+
+    struct FlockBlockModel: Equatable, Identifiable {
+        let block: TimelineTimeBlock
+        let temporalY: CGFloat
+        let height: CGFloat
+
+        var id: String { block.id }
+    }
+
+    struct GapPromptModel: Equatable, Identifiable {
+        let gap: TimelineGap
+        let temporalY: CGFloat
+        let height: CGFloat
+
+        var id: String { "gap:\(gap.id)" }
+    }
+
+    struct EmptyStateModel: Equatable, Identifiable {
+        let id: String
+        let title: String
+        let subtitle: String
+        let primaryTitle: String
+        let secondaryTitle: String
+        let showsCalendarAction: Bool
+        let suggestedDate: Date
+        let temporalStart: Date
+        let temporalY: CGFloat
+        let height: CGFloat
+    }
+
+    case routineMarker(RoutineMarkerModel)
+    case meetingCard(SingleItemModel)
+    case taskMarker(SingleItemModel)
+    case taskCard(SingleItemModel)
+    case flock(FlockBlockModel)
+    case gapPrompt(GapPromptModel)
+    case emptyState(EmptyStateModel)
+
+    var id: String {
+        switch self {
+        case .routineMarker(let model):
+            return model.id
+        case .meetingCard(let model):
+            return "meeting:\(model.id)"
+        case .taskMarker(let model):
+            return "task-marker:\(model.id)"
+        case .taskCard(let model):
+            return "task-card:\(model.id)"
+        case .flock(let model):
+            return "flock:\(model.id)"
+        case .gapPrompt(let model):
+            return model.id
+        case .emptyState(let model):
+            return model.id
+        }
+    }
+
+    var temporalStart: Date {
+        switch self {
+        case .routineMarker(let model):
+            return model.anchor.time
+        case .meetingCard(let model), .taskMarker(let model), .taskCard(let model):
+            return model.item.startDate ?? .distantPast
+        case .flock(let model):
+            return model.block.startDate
+        case .gapPrompt(let model):
+            return model.gap.startDate
+        case .emptyState(let model):
+            return model.temporalStart
+        }
+    }
+
+    var temporalEnd: Date {
+        switch self {
+        case .routineMarker(let model):
+            return model.anchor.time
+        case .meetingCard(let model), .taskMarker(let model), .taskCard(let model):
+            return model.item.endDate ?? model.item.startDate ?? .distantPast
+        case .flock(let model):
+            return model.block.endDate
+        case .gapPrompt(let model):
+            return model.gap.endDate
+        case .emptyState(let model):
+            return model.temporalStart
+        }
+    }
+
+    var temporalY: CGFloat {
+        switch self {
+        case .routineMarker(let model):
+            return model.temporalY
+        case .meetingCard(let model), .taskMarker(let model), .taskCard(let model):
+            return model.temporalY
+        case .flock(let model):
+            return model.temporalY
+        case .gapPrompt(let model):
+            return model.temporalY
+        case .emptyState(let model):
+            return model.temporalY
+        }
+    }
+
+    var measuredHeight: CGFloat {
+        switch self {
+        case .routineMarker(let model):
+            return model.height
+        case .meetingCard(let model), .taskMarker(let model), .taskCard(let model):
+            return model.height
+        case .flock(let model):
+            return model.height
+        case .gapPrompt(let model):
+            return model.height
+        case .emptyState(let model):
+            return model.height
+        }
+    }
+
+    var displayPriority: Int {
+        switch self {
+        case .flock:
+            return 0
+        case .meetingCard:
+            return 1
+        case .taskCard:
+            return 2
+        case .taskMarker:
+            return 3
+        case .routineMarker:
+            return 4
+        case .gapPrompt:
+            return 5
+        case .emptyState:
+            return 6
+        }
+    }
+
+    var isPlottedContent: Bool {
+        switch self {
+        case .meetingCard, .taskMarker, .taskCard, .flock:
+            return true
+        case .routineMarker, .gapPrompt, .emptyState:
+            return false
+        }
+    }
+
+    func isActive(at date: Date) -> Bool {
+        switch self {
+        case .routineMarker:
+            return false
+        case .meetingCard(let model), .taskMarker(let model), .taskCard(let model):
+            return model.item.isActive(at: date)
+        case .flock(let model):
+            return model.block.items.contains { $0.isActive(at: date) }
+        case .gapPrompt(let model):
+            return model.gap.startDate <= date && date < model.gap.endDate
+        case .emptyState:
+            return false
+        }
+    }
+
+    static func elementSort(_ lhs: VisualTimelineElement, _ rhs: VisualTimelineElement, now: Date) -> Bool {
+        if lhs.temporalStart != rhs.temporalStart {
+            return lhs.temporalStart < rhs.temporalStart
+        }
+        if lhs.temporalY != rhs.temporalY {
+            return lhs.temporalY < rhs.temporalY
+        }
+        let lhsActive = lhs.isActive(at: now)
+        let rhsActive = rhs.isActive(at: now)
+        if lhsActive != rhsActive {
+            return lhsActive
+        }
+        if lhs.displayPriority != rhs.displayPriority {
+            return lhs.displayPriority < rhs.displayPriority
+        }
+        return lhs.id.localizedStandardCompare(rhs.id) == .orderedAscending
+    }
+}
+
 struct TimelineCanvasLayoutPlan: Equatable {
     private struct Candidate {
         let item: TimelinePlanItem
@@ -685,6 +881,51 @@ struct TimelineCanvasLayoutPlan: Equatable {
         var height: CGFloat { visualHeight }
     }
 
+    struct PositionedVisualTimelineElement: Equatable, Identifiable {
+        let element: VisualTimelineElement
+        let temporalY: CGFloat
+        let visualY: CGFloat
+        let height: CGFloat
+        let wasShifted: Bool
+
+        var id: String { element.id }
+        var y: CGFloat { visualY }
+        var centerY: CGFloat { visualY + (height / 2) }
+        var bottomY: CGFloat { visualY + height }
+    }
+
+    struct PositionedLongGapIndicator: Equatable, Identifiable {
+        let id: String
+        let text: String
+        let y: CGFloat
+        let height: CGFloat
+    }
+
+    struct SpineExtent: Equatable {
+        let startY: CGFloat
+        let solidEndY: CGFloat
+        let fadeStartY: CGFloat
+        let fadeEndY: CGFloat
+    }
+
+    struct EndMarker: Equatable {
+        let centerY: CGFloat
+        let suggestedDate: Date
+        let accessibilityValue: String
+    }
+
+    static let minimumBlockGap: CGFloat = 12
+    static let routineMarkerHeight: CGFloat = 56
+    static let taskMarkerMinHeight: CGFloat = 48
+    static let taskMarkerIdealHeight: CGFloat = 56
+    static let cardVisualHeight: CGFloat = 84
+    static let flockMinHeight: CGFloat = 104
+    static let gapPromptHeight: CGFloat = 56
+    static let sparseEmptyCardHeight: CGFloat = 112
+    static let endMarkerHitArea: CGFloat = 44
+    static let spineFadeHeight: CGFloat = 40
+    static let spineFadeOffset: CGFloat = 16
+
     let visibleStart: Date
     let visibleEnd: Date
     let pointsPerMinute: CGFloat
@@ -696,6 +937,10 @@ struct TimelineCanvasLayoutPlan: Equatable {
     let items: [PositionedItem]
     let blocks: [PositionedBlock]
     let gaps: [PositionedGap]
+    let visualElements: [PositionedVisualTimelineElement]
+    let longGapIndicators: [PositionedLongGapIndicator]
+    let spineExtent: SpineExtent
+    let endMarker: EndMarker
 
     static func maxVisualColumns(for layoutClass: TaskerLayoutClass) -> Int {
         switch layoutClass {
@@ -708,7 +953,7 @@ struct TimelineCanvasLayoutPlan: Equatable {
 
     init(
         projection: TimelineDayProjection,
-        pointsPerMinute: CGFloat = 1.08,
+        pointsPerMinute: CGFloat = 1.2,
         minimumItemHeight: CGFloat = 44,
         topInset: CGFloat = 36,
         bottomInset: CGFloat = 36,
@@ -795,15 +1040,15 @@ struct TimelineCanvasLayoutPlan: Equatable {
             return $0.startMinute < $1.startMinute
         }
 
-        self.items = Self.positionedItems(from: candidates)
-        self.blocks = Self.positionedBlocks(
+        let positionedItems = Self.positionedItems(from: candidates)
+        let positionedBlocks = Self.positionedBlocks(
             from: candidates,
             pointsPerMinute: pointsPerMinute,
             minimumItemHeight: minimumItemHeight,
             maxVisualColumns: maxVisualColumns
         )
 
-        self.gaps = projection.gaps.compactMap { gap in
+        let positionedGaps: [PositionedGap] = projection.gaps.compactMap { gap -> PositionedGap? in
             let startMinute = Self.minuteOffset(for: gap.startDate, start: start, calendar: calendar)
             let endMinute = Self.minuteOffset(for: gap.endDate, start: start, calendar: calendar)
             let gapHeight = max((endMinute - startMinute) * pointsPerMinute, 0)
@@ -814,13 +1059,37 @@ struct TimelineCanvasLayoutPlan: Equatable {
                 height: gapHeight
             )
         }
+
+        let visualFlow = Self.positionedVisualElements(
+            projection: projection,
+            wakeY: wakeY,
+            sleepY: sleepY,
+            blocks: positionedBlocks,
+            gaps: positionedGaps,
+            now: projection.currentTime,
+            calendar: calendar
+        )
+        let resolvedSpineExtent = Self.spineExtent(for: visualFlow.elements)
+        let resolvedEndMarker = Self.endMarker(
+            for: visualFlow.elements,
+            projection: projection,
+            spineExtent: resolvedSpineExtent,
+            calendar: calendar
+        )
+
+        self.items = positionedItems
+        self.blocks = positionedBlocks
+        self.gaps = positionedGaps
+        self.visualElements = visualFlow.elements
+        self.longGapIndicators = visualFlow.longGapIndicators
+        self.spineExtent = resolvedSpineExtent
+        self.endMarker = resolvedEndMarker
     }
 
     var contentHeight: CGFloat {
         max(
-            sleepAnchor.y,
-            items.map { $0.y + $0.height }.max() ?? 0,
-            blocks.map { $0.y + $0.height }.max() ?? 0
+            visualElements.map { $0.y + $0.height }.max() ?? 0,
+            endMarker.centerY + (Self.endMarkerHitArea / 2)
         ) + bottomInset
     }
 
@@ -918,37 +1187,296 @@ struct TimelineCanvasLayoutPlan: Equatable {
             )
         }, maxVisualColumns: maxVisualColumns)
 
-        var accumulatedShift: CGFloat = 0
         var previousVisualBottom: CGFloat?
-        let minimumGap: CGFloat = 10
-        let maximumShiftPerBlock: CGFloat = 120
-        let maximumAccumulatedShift: CGFloat = 180
 
         return rawBlocks.map { block in
             let durationHeight = max((block.endMinute - block.startMinute) * pointsPerMinute, minimumItemHeight)
             let visualHeight = block.isConflict
-                ? TimelineFlockModel.displayHeight(itemCount: block.items.count)
-                : max(durationHeight, minimumItemHeight, 64)
-            let minimumVisualY = (previousVisualBottom ?? -.infinity) + minimumGap
-            let requestedShift = max(minimumVisualY - block.y, 0)
-            let allowedShift = min(
-                requestedShift,
-                maximumShiftPerBlock,
-                max(maximumAccumulatedShift - accumulatedShift, 0)
-            )
-            let visualY = block.y + allowedShift
-            accumulatedShift += allowedShift
+                ? max(TimelineFlockModel.displayHeight(itemCount: block.items.count), flockMinHeight)
+                : singleVisualHeight(for: block.items.first, durationHeight: durationHeight, minimumItemHeight: minimumItemHeight)
+            let minimumVisualY = (previousVisualBottom ?? -.infinity) + minimumBlockGap
+            let visualY = max(block.y, minimumVisualY)
             previousVisualBottom = visualY + visualHeight
             return PositionedBlock(
                 block: block,
                 temporalY: block.y,
                 visualY: visualY,
                 visualHeight: visualHeight,
-                wasVisuallyShifted: allowedShift > 0.5,
+                wasVisuallyShifted: visualY > block.y + 0.5,
                 startMinute: block.startMinute,
                 endMinute: block.endMinute
             )
         }
+    }
+
+    private static func positionedVisualElements(
+        projection: TimelineDayProjection,
+        wakeY: CGFloat,
+        sleepY: CGFloat,
+        blocks: [PositionedBlock],
+        gaps: [PositionedGap],
+        now: Date,
+        calendar: Calendar
+    ) -> (elements: [PositionedVisualTimelineElement], longGapIndicators: [PositionedLongGapIndicator]) {
+        let rawElements = rawVisualElements(
+            projection: projection,
+            wakeY: wakeY,
+            sleepY: sleepY,
+            blocks: blocks,
+            gaps: gaps,
+            calendar: calendar
+        )
+        .sorted { lhs, rhs in
+            VisualTimelineElement.elementSort(lhs, rhs, now: now)
+        }
+
+        var cursorY: CGFloat = wakeY - (routineMarkerHeight / 2)
+        var previousElement: VisualTimelineElement?
+        var positionedElements: [PositionedVisualTimelineElement] = []
+        var longGapIndicators: [PositionedLongGapIndicator] = []
+
+        for element in rawElements {
+            let temporalY = element.temporalY
+            let gapHeight: CGFloat
+            if let previousElement {
+                let minutes = minutesBetween(previousElement.temporalEnd, element.temporalStart, calendar: calendar)
+                gapHeight = visualGap(for: minutes)
+                if projection.timelineDensityMode == .normal,
+                   minutes >= 180,
+                   previousElement.isPlottedContent,
+                   element.isPlottedContent {
+                    longGapIndicators.append(PositionedLongGapIndicator(
+                        id: "long-gap:\(previousElement.id):\(element.id)",
+                        text: longGapIndicatorText(for: minutes),
+                        y: cursorY + ((gapHeight - 22) / 2),
+                        height: 22
+                    ))
+                }
+            } else {
+                gapHeight = 0
+            }
+
+            let visualY = max(cursorY + gapHeight, 0)
+            let positioned = PositionedVisualTimelineElement(
+                element: element,
+                temporalY: temporalY,
+                visualY: visualY,
+                height: element.measuredHeight,
+                wasShifted: visualY > temporalY + 0.5
+            )
+            positionedElements.append(positioned)
+            cursorY = positioned.bottomY
+            previousElement = element
+        }
+
+        return (positionedElements, longGapIndicators)
+    }
+
+    private static func rawVisualElements(
+        projection: TimelineDayProjection,
+        wakeY: CGFloat,
+        sleepY: CGFloat,
+        blocks: [PositionedBlock],
+        gaps: [PositionedGap],
+        calendar: Calendar
+    ) -> [VisualTimelineElement] {
+        let wakeElement = VisualTimelineElement.routineMarker(.init(
+            anchor: projection.wakeAnchor,
+            temporalY: max(wakeY - (routineMarkerHeight / 2), 0),
+            height: routineMarkerHeight
+        ))
+        let sleepElement = VisualTimelineElement.routineMarker(.init(
+            anchor: projection.sleepAnchor,
+            temporalY: max(sleepY - (routineMarkerHeight / 2), 0),
+            height: routineMarkerHeight
+        ))
+
+        switch projection.timelineDensityMode {
+        case .sparse:
+            return [
+                wakeElement,
+                emptyStateElement(
+                    id: "empty:sparse",
+                    projection: projection,
+                    temporalStart: midpointDate(from: projection.wakeAnchor.time, to: projection.sleepAnchor.time, calendar: calendar)
+                ),
+                sleepElement
+            ]
+        case .lightTimeline:
+            let blockElements = blocks.map { visualElement(for: $0) }
+            let promptStart = lightPromptDate(for: projection, blocks: blocks, calendar: calendar)
+            return [wakeElement]
+                + blockElements
+                + [emptyStateElement(id: "empty:light", projection: projection, temporalStart: promptStart)]
+                + [sleepElement]
+        case .normal:
+            let blockElements = blocks.map { visualElement(for: $0) }
+            let gapElements = gaps.compactMap { gap -> VisualTimelineElement? in
+                let minutes = minutesBetween(gap.gap.startDate, gap.gap.endDate, calendar: calendar)
+                guard minutes < 180 else { return nil }
+                let promptY = gap.startY + min(max(10, gap.height * 0.16), max(gap.height - gapPromptHeight, 10))
+                return .gapPrompt(.init(
+                    gap: gap.gap,
+                    temporalY: promptY,
+                    height: gapPromptHeight
+                ))
+            }
+            return [wakeElement] + blockElements + gapElements + [sleepElement]
+        }
+    }
+
+    private static func visualElement(for positioned: PositionedBlock) -> VisualTimelineElement {
+        switch positioned.block.kind {
+        case .conflict:
+            return .flock(.init(
+                block: positioned.block,
+                temporalY: positioned.temporalY,
+                height: positioned.height
+            ))
+        case .single(let item):
+            let model = VisualTimelineElement.SingleItemModel(
+                item: item,
+                temporalY: positioned.temporalY,
+                height: positioned.height,
+                isEmphasized: item.taskPriority?.isHighPriority == true
+            )
+            if item.source == .calendarEvent {
+                return .meetingCard(model)
+            }
+            if shouldRenderTaskAsCard(item) {
+                return .taskCard(model)
+            }
+            return .taskMarker(model)
+        }
+    }
+
+    static func visualGap(for gapMinutes: Int) -> CGFloat {
+        switch gapMinutes {
+        case ...0:
+            return minimumBlockGap
+        case 1...15:
+            return max(CGFloat(gapMinutes) * 1.2, minimumBlockGap)
+        case 16...60:
+            return CGFloat(gapMinutes) * 1.2
+        case 61...180:
+            return min(112, 72 + CGFloat(gapMinutes - 60) * 0.35)
+        default:
+            return 112
+        }
+    }
+
+    private static func minutesBetween(_ start: Date, _ end: Date, calendar: Calendar) -> Int {
+        max(0, calendar.dateComponents([.minute], from: start, to: end).minute ?? 0)
+    }
+
+    private static func longGapIndicatorText(for minutes: Int) -> String {
+        "· · · \(TimelineFormatting.durationText(TimeInterval(minutes * 60))) free · · ·"
+    }
+
+    private static func midpointDate(from start: Date, to end: Date, calendar: Calendar) -> Date {
+        let minutes = max(0, calendar.dateComponents([.minute], from: start, to: end).minute ?? 0)
+        return calendar.date(byAdding: .minute, value: minutes / 2, to: start) ?? start
+    }
+
+    private static func lightPromptDate(for projection: TimelineDayProjection, blocks: [PositionedBlock], calendar: Calendar) -> Date {
+        let latestEnd = blocks.map(\.block.endDate).max() ?? projection.wakeAnchor.time
+        let remaining = max(0, calendar.dateComponents([.minute], from: latestEnd, to: projection.sleepAnchor.time).minute ?? 0)
+        return calendar.date(byAdding: .minute, value: max(30, remaining / 2), to: latestEnd) ?? latestEnd
+    }
+
+    private static func emptyStateElement(
+        id: String,
+        projection: TimelineDayProjection,
+        temporalStart: Date
+    ) -> VisualTimelineElement {
+        let calendarHidden = projection.calendarPlottingEnabled == false
+        let isLightPrompt = id == "empty:light"
+        let title: String
+        let subtitle: String
+        if calendarHidden {
+            title = "Calendar is hidden"
+            subtitle = "Add tasks here or turn calendar plotting back on."
+        } else if isLightPrompt {
+            title = "Plenty of open time"
+            subtitle = "Add a task or let EVA help shape the rest of the day."
+        } else {
+            title = "No meetings today"
+            subtitle = "Add a task or let EVA help you shape the day."
+        }
+        return .emptyState(.init(
+            id: id,
+            title: title,
+            subtitle: subtitle,
+            primaryTitle: "Add task",
+            secondaryTitle: calendarHidden ? "Show calendar" : "Plan with EVA",
+            showsCalendarAction: calendarHidden,
+            suggestedDate: projection.wakeAnchor.time.addingTimeInterval(60 * 60),
+            temporalStart: temporalStart,
+            temporalY: 0,
+            height: sparseEmptyCardHeight
+        ))
+    }
+
+    private static func spineExtent(for elements: [PositionedVisualTimelineElement]) -> SpineExtent {
+        guard let first = elements.first, let last = elements.last else {
+            return SpineExtent(startY: 0, solidEndY: 0, fadeStartY: 16, fadeEndY: 56)
+        }
+        let startY = first.centerY
+        let solidEndY = last.centerY
+        let fadeStartY = solidEndY + spineFadeOffset
+        return SpineExtent(
+            startY: startY,
+            solidEndY: solidEndY,
+            fadeStartY: fadeStartY,
+            fadeEndY: fadeStartY + spineFadeHeight
+        )
+    }
+
+    private static func endMarker(
+        for elements: [PositionedVisualTimelineElement],
+        projection: TimelineDayProjection,
+        spineExtent: SpineExtent,
+        calendar: Calendar
+    ) -> EndMarker {
+        let lastElement = elements.last?.element
+        let suggestedDate: Date
+        if case .routineMarker(let model) = lastElement, model.anchor.id == projection.sleepAnchor.id {
+            suggestedDate = model.anchor.time.addingTimeInterval(15 * 60)
+        } else if let lastElement {
+            suggestedDate = lastElement.temporalEnd
+        } else {
+            suggestedDate = projection.sleepAnchor.time.addingTimeInterval(15 * 60)
+        }
+        let selectedDay = calendar.startOfDay(for: projection.date)
+        let suggestedDay = calendar.startOfDay(for: suggestedDate)
+        return EndMarker(
+            centerY: spineExtent.fadeEndY + 18 + (endMarkerHitArea / 2),
+            suggestedDate: suggestedDate,
+            accessibilityValue: suggestedDay > selectedDay ? "Later tonight" : suggestedDate.formatted(date: .omitted, time: .shortened)
+        )
+    }
+
+    static func shouldRenderTaskAsCard(_ item: TimelinePlanItem) -> Bool {
+        guard item.source == .task else { return false }
+        if item.isPinnedFocusTask { return true }
+        if item.taskPriority == .max { return true }
+        guard item.taskPriority?.isHighPriority == true else { return false }
+        return (item.duration ?? 0) >= 45 * 60
+    }
+
+    private static func singleVisualHeight(
+        for item: TimelinePlanItem?,
+        durationHeight: CGFloat,
+        minimumItemHeight: CGFloat
+    ) -> CGFloat {
+        guard let item else { return max(durationHeight, minimumItemHeight, cardVisualHeight) }
+        if item.source == .calendarEvent {
+            return max(cardVisualHeight, durationHeight)
+        }
+        if shouldRenderTaskAsCard(item) {
+            return max(cardVisualHeight, durationHeight)
+        }
+        return max(taskMarkerMinHeight, min(max(durationHeight, taskMarkerIdealHeight), 72))
     }
 
     private static func minuteOffset(for date: Date, start: Date, calendar: Calendar) -> CGFloat {
@@ -1507,6 +2035,7 @@ struct TimelineSurfaceMetrics {
     let timelineBottomPadding: CGFloat
 
     static func make(for layoutClass: TaskerLayoutClass) -> TimelineSurfaceMetrics {
+        let bottomProtection = TimelineBottomProtectionBudget.make(for: layoutClass).timelineInset
         switch layoutClass {
         case .phone:
             return TimelineSurfaceMetrics(
@@ -1524,9 +2053,9 @@ struct TimelineSurfaceMetrics {
                 compactAnchorCircleSize: 48,
                 compactAnchorIconSize: 18,
                 expandedTimeGutter: 60,
-                expandedSpineLaneWidth: 16,
+                expandedSpineLaneWidth: 0,
                 expandedTrailingLaneWidth: 0,
-                expandedContentInset: 10,
+                expandedContentInset: 8,
                 expandedTimeToSpineGap: 4,
                 expandedCapsuleMinWidth: 60,
                 expandedSingleColumnTextMaxWidth: 360,
@@ -1536,7 +2065,7 @@ struct TimelineSurfaceMetrics {
                 agendaCapsuleWidth: 56,
                 agendaAnchorCircleSize: 48,
                 agendaAnchorIconSize: 18,
-                timelineBottomPadding: 132
+                timelineBottomPadding: bottomProtection
             )
         case .padCompact:
             return TimelineSurfaceMetrics(
@@ -1566,7 +2095,7 @@ struct TimelineSurfaceMetrics {
                 agendaCapsuleWidth: 60,
                 agendaAnchorCircleSize: 52,
                 agendaAnchorIconSize: 18,
-                timelineBottomPadding: 132
+                timelineBottomPadding: bottomProtection
             )
         case .padRegular, .padExpanded:
             return TimelineSurfaceMetrics(
@@ -1596,7 +2125,37 @@ struct TimelineSurfaceMetrics {
                 agendaCapsuleWidth: 60,
                 agendaAnchorCircleSize: 56,
                 agendaAnchorIconSize: 20,
-                timelineBottomPadding: 132
+                timelineBottomPadding: bottomProtection
+            )
+        }
+    }
+}
+
+private struct TimelineBottomProtectionBudget: Equatable {
+    let bottomNavHeight: CGFloat
+    let floatingActionButtonHeight: CGFloat
+    let reflectionBannerHeight: CGFloat
+    let extraClearance: CGFloat
+
+    var timelineInset: CGFloat {
+        bottomNavHeight + floatingActionButtonHeight + reflectionBannerHeight + extraClearance
+    }
+
+    static func make(for layoutClass: TaskerLayoutClass) -> TimelineBottomProtectionBudget {
+        switch layoutClass {
+        case .phone:
+            return TimelineBottomProtectionBudget(
+                bottomNavHeight: 72,
+                floatingActionButtonHeight: 64,
+                reflectionBannerHeight: 48,
+                extraClearance: 32
+            )
+        case .padCompact, .padRegular, .padExpanded:
+            return TimelineBottomProtectionBudget(
+                bottomNavHeight: 44,
+                floatingActionButtonHeight: 32,
+                reflectionBannerHeight: 24,
+                extraClearance: 32
             )
         }
     }
@@ -1783,8 +2342,9 @@ struct TimelineForedropView: View {
     let onDragEnded: (CGFloat) -> Void
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
-    let onAddTask: () -> Void
+    let onAddTask: (Date?) -> Void
     let onScheduleInbox: () -> Void
+    let onShowCalendarInTimeline: () -> Void
     let onPlaceReplanAtTime: (TimelinePlacementCandidate, Date) -> Void
     let onPlaceReplanAllDay: (TimelinePlacementCandidate, Date) -> Void
     let onCancelReplanPlacement: () -> Void
@@ -1814,8 +2374,9 @@ struct TimelineForedropView: View {
         onDragEnded: @escaping (CGFloat) -> Void,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
-        onAddTask: @escaping () -> Void,
+        onAddTask: @escaping (Date?) -> Void,
         onScheduleInbox: @escaping () -> Void,
+        onShowCalendarInTimeline: @escaping () -> Void,
         onPlaceReplanAtTime: @escaping (TimelinePlacementCandidate, Date) -> Void,
         onPlaceReplanAllDay: @escaping (TimelinePlacementCandidate, Date) -> Void,
         onCancelReplanPlacement: @escaping () -> Void,
@@ -1833,6 +2394,7 @@ struct TimelineForedropView: View {
         self.onToggleComplete = onToggleComplete
         self.onAddTask = onAddTask
         self.onScheduleInbox = onScheduleInbox
+        self.onShowCalendarInTimeline = onShowCalendarInTimeline
         self.onPlaceReplanAtTime = onPlaceReplanAtTime
         self.onPlaceReplanAllDay = onPlaceReplanAllDay
         self.onCancelReplanPlacement = onCancelReplanPlacement
@@ -1885,7 +2447,7 @@ struct TimelineForedropView: View {
                     layoutClass: layoutClass,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
-                    onAddTask: onAddTask,
+                    onAddTask: { onAddTask(nil) },
                     onScheduleInbox: onScheduleInbox
                 )
             case .compact:
@@ -1894,7 +2456,7 @@ struct TimelineForedropView: View {
                     layoutClass: layoutClass,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
-                    onAddTask: onAddTask,
+                    onAddTask: { onAddTask(nil) },
                     onScheduleInbox: onScheduleInbox
                 )
             case .expanded:
@@ -1906,6 +2468,7 @@ struct TimelineForedropView: View {
                     onToggleComplete: onToggleComplete,
                     onAddTask: onAddTask,
                     onScheduleInbox: onScheduleInbox,
+                    onShowCalendarInTimeline: onShowCalendarInTimeline,
                     onPlaceReplanAtTime: onPlaceReplanAtTime
                 )
             }
@@ -2354,6 +2917,108 @@ private struct TimelineCurrentTimeMarker: View {
     }
 }
 
+private struct TimelineSpineEndView: View {
+    let extent: TimelineCanvasLayoutPlan.SpineExtent
+    let lineWidth: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Rectangle()
+                .fill(TimelineVisualTokens.neutralStem)
+                .frame(width: lineWidth, height: max(extent.solidEndY - extent.startY, 0))
+                .offset(y: extent.startY)
+
+            LinearGradient(
+                colors: [
+                    TimelineVisualTokens.neutralStem,
+                    TimelineVisualTokens.neutralStem.opacity(0)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(width: lineWidth, height: max(extent.fadeEndY - extent.fadeStartY, 0))
+            .offset(y: extent.fadeStartY)
+        }
+    }
+}
+
+private struct TimelineLongGapIndicator: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .foregroundStyle(TimelineVisualTokens.utilityText.opacity(0.75))
+            .lineLimit(1)
+            .minimumScaleFactor(0.82)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
+
+private struct TimelineEndAddMarker: View {
+    let suggestedDate: Date
+    let accessibilityValue: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "plus")
+                .font(.system(size: 19, weight: .medium, design: .rounded))
+                .foregroundStyle(TimelineVisualTokens.utilityText.opacity(0.55))
+                .frame(width: TimelineCanvasLayoutPlan.endMarkerHitArea, height: TimelineCanvasLayoutPlan.endMarkerHitArea)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add task after timeline")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Opens Add Task with a suggested timeline time.")
+        .accessibilityIdentifier("home.timeline.endAdd")
+    }
+}
+
+private struct TimelineEmptyStateCard: View {
+    let model: VisualTimelineElement.EmptyStateModel
+    let primaryAction: () -> Void
+    let secondaryAction: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(model.title)
+                    .font(.tasker(.headline).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.86)
+
+                Text(model.subtitle)
+                    .font(.tasker(.support))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 10) {
+                Button(model.primaryTitle, action: primaryAction)
+                    .buttonStyle(.bordered)
+                Button(model.secondaryTitle, action: secondaryAction)
+                    .buttonStyle(.borderedProminent)
+            }
+            .font(.tasker(.buttonSmall))
+            .controlSize(.small)
+        }
+        .padding(14)
+        .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.tasker.strokeHairline.opacity(0.62), lineWidth: 1)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(model.showsCalendarAction ? "home.timeline.calendarHidden" : "home.timeline.emptyDay")
+    }
+}
+
 private enum TimelineDenseTitleFormatter {
     static func displayTitles(for items: [TimelinePlanItem]) -> [String: String] {
         let basePairs = items.map { item in
@@ -2508,6 +3173,129 @@ private struct TimelineNormalItemCard: View {
     }
 }
 
+private struct TimelineTaskMarkerRow: View {
+    let item: TimelinePlanItem
+    let row: TimelineRenderableRow
+    let isEmphasized: Bool
+    let spineCenterX: CGFloat
+    let completionX: CGFloat
+    let onTap: () -> Void
+    let onToggleComplete: () -> Void
+
+    private let iconContainer: CGFloat = 24
+    private let iconSize: CGFloat = 18
+    private let textLeadingOffset: CGFloat = 30
+    private let visibleCompletionSize: CGFloat = 24
+    private var palette: TimelinePalette { .resolve(from: item.tintHex) }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Button(action: onTap) {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            if isEmphasized {
+                                Image(systemName: item.taskPriority == .max ? "exclamationmark.triangle.fill" : "flag.fill")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(palette.icon)
+                                    .accessibilityHidden(true)
+                            }
+                            Text(item.title)
+                                .font(.tasker(.headline).weight(isEmphasized ? .bold : .semibold))
+                                .foregroundStyle(timelineTitleColor(for: row, item: item))
+                                .strikethrough(item.isComplete, color: timelineTitleColor(for: row, item: item))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.82)
+                        }
+
+                        Text(timeText)
+                            .font(.tasker(.caption1).weight(.medium))
+                            .foregroundStyle(timelineMetaColor(for: row))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .offset(x: spineCenterX + textLeadingOffset, y: 5)
+
+            Circle()
+                .fill(markerFill)
+                .frame(width: iconContainer, height: iconContainer)
+                .overlay {
+                    Image(systemName: item.systemImageName)
+                        .font(.system(size: iconSize, weight: .semibold))
+                        .foregroundStyle(markerIconColor)
+                        .accessibilityHidden(true)
+                }
+                .overlay {
+                    Circle()
+                        .stroke(markerStroke, lineWidth: isEmphasized ? 1.5 : 1)
+                }
+                .offset(x: spineCenterX - (iconContainer / 2), y: 14)
+                .accessibilityHidden(true)
+
+            TimelineCompletionRing(
+                color: timelineRingColor(for: row, palette: palette),
+                isCompleted: item.isComplete,
+                isInteractive: item.source == .task,
+                label: item.isComplete ? "\(item.title) completed" : "Mark \(item.title) complete"
+            ) {
+                onToggleComplete()
+            }
+            .scaleEffect(visibleCompletionSize / 28)
+            .frame(width: 44, height: 44)
+            .offset(x: completionX - 22, y: 6)
+        }
+        .contextMenu {
+            Button("Open", action: onTap)
+            if item.source == .task {
+                Button(item.isComplete ? "Mark Incomplete" : "Mark Complete", action: onToggleComplete)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(timelineAccessibilityLabel(for: row, item: item))
+        .accessibilityValue(item.isComplete ? "Completed" : (row.temporalState == .currentTask ? "In progress" : "Scheduled"))
+        .accessibilityHint("Opens the task details.")
+        .accessibilityAction(named: Text("Open")) {
+            onTap()
+        }
+        .accessibilityAction(named: Text(item.isComplete ? "Mark Incomplete" : "Mark Complete")) {
+            guard item.source == .task else { return }
+            onToggleComplete()
+        }
+    }
+
+    private var markerFill: Color {
+        if row.temporalState == .currentTask {
+            return palette.progress
+        }
+        if isEmphasized {
+            return palette.fill.opacity(0.98)
+        }
+        return Color.tasker.surfacePrimary.opacity(0.96)
+    }
+
+    private var markerIconColor: Color {
+        row.temporalState == .currentTask ? Color.white.opacity(0.96) : palette.icon
+    }
+
+    private var markerStroke: Color {
+        isEmphasized ? palette.progress.opacity(0.8) : palette.halo.opacity(0.58)
+    }
+
+    private var timeText: String {
+        guard let start = item.startDate else { return "All day" }
+        guard let end = item.endDate else {
+            return start.formatted(date: .omitted, time: .shortened)
+        }
+        return TimelineFormatting.timeRangeText(start: start, end: end)
+    }
+}
+
 private struct TimelineFlockBlock: View {
     let model: TimelineFlockModel
     let presentation: TimelineDayPresentation
@@ -2549,7 +3337,7 @@ private struct TimelineFlockBlock: View {
         .padding(.trailing, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.tasker.surfaceSecondary.opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(alignment: .leading) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(accent.opacity(0.82))
@@ -2557,9 +3345,12 @@ private struct TimelineFlockBlock: View {
                 .padding(.vertical, 6)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color.tasker.strokeHairline.opacity(0.54), lineWidth: 1)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .compositingGroup()
+        .zIndex(3)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(TimelineFormatting.timeRangeText(start: model.startDate, end: model.endDate)), \(model.countLabel)")
         .accessibilityIdentifier("home.timeline.flockBlock")
@@ -3119,8 +3910,9 @@ struct DailyTimelineCanvas: View {
     let placementCandidate: TimelinePlacementCandidate?
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
-    let onAddTask: () -> Void
+    let onAddTask: (Date?) -> Void
     let onScheduleInbox: () -> Void
+    let onShowCalendarInTimeline: () -> Void
     let onPlaceReplanAtTime: (TimelinePlacementCandidate, Date) -> Void
 
     private let plan: TimelineCanvasLayoutPlan
@@ -3132,8 +3924,9 @@ struct DailyTimelineCanvas: View {
         placementCandidate: TimelinePlacementCandidate?,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
-        onAddTask: @escaping () -> Void,
+        onAddTask: @escaping (Date?) -> Void,
         onScheduleInbox: @escaping () -> Void,
+        onShowCalendarInTimeline: @escaping () -> Void,
         onPlaceReplanAtTime: @escaping (TimelinePlacementCandidate, Date) -> Void
     ) {
         self.projection = projection
@@ -3143,6 +3936,7 @@ struct DailyTimelineCanvas: View {
         self.onToggleComplete = onToggleComplete
         self.onAddTask = onAddTask
         self.onScheduleInbox = onScheduleInbox
+        self.onShowCalendarInTimeline = onShowCalendarInTimeline
         self.onPlaceReplanAtTime = onPlaceReplanAtTime
         let resolvedMetrics = TimelineSurfaceMetrics.make(for: layoutClass)
         self.plan = TimelineCanvasLayoutPlan(
@@ -3175,22 +3969,15 @@ struct DailyTimelineCanvas: View {
             let currentY = currentBoundaryY(now: now)
 
             ZStack(alignment: .topLeading) {
-                Rectangle()
-                    .fill(TimelineVisualTokens.neutralStem)
-                    .frame(width: 2, height: plan.contentHeight)
-                    .offset(x: spineCenterX - 1)
+                TimelineSpineEndView(extent: plan.spineExtent, lineWidth: 1.5)
+                    .offset(x: spineCenterX - 0.75)
                     .accessibilityHidden(true)
 
-                ForEach(plan.gaps) { gap in
-                    TimelineStemSegments(
-                        leading: presentation.row(for: gap.gap).stemLeading,
-                        trailing: presentation.row(for: gap.gap).stemTrailing,
-                        fallbackPalette: .resolve(from: presentation.currentTintHex),
-                        width: 2,
-                        height: gap.height
-                    )
-                    .offset(x: spineCenterX - 1, y: gap.startY)
-                    .accessibilityHidden(true)
+                ForEach(plan.longGapIndicators) { indicator in
+                    TimelineLongGapIndicator(text: indicator.text)
+                        .frame(width: contentWidth, height: indicator.height)
+                        .offset(x: contentX, y: indicator.y)
+                        .accessibilityHidden(true)
                 }
 
                 if let currentY {
@@ -3203,33 +3990,11 @@ struct DailyTimelineCanvas: View {
                     .accessibilityHidden(true)
                 }
 
-                ForEach(plan.gaps) { gap in
-                    TimelineGapPrompt(
-                        gap: gap.gap,
-                        row: presentation.row(for: gap.gap),
-                        onAddTask: onAddTask,
-                        onPlanBlock: onScheduleInbox
-                    )
-                        .frame(width: contentWidth, alignment: .leading)
-                        .offset(
-                            x: contentX,
-                            y: gap.startY + min(max(10, gap.height * 0.16), max(gap.height - 56, 10))
-                        )
-                }
-
-                anchorView(
-                    plan.wakeAnchor,
-                    row: presentation.row(for: plan.wakeAnchor.anchor),
-                    timeGutterWidth: timeGutterWidth,
-                    spineCenterX: spineCenterX,
-                    contentX: contentX,
-                    currentY: currentY
-                )
-
-                ForEach(plan.blocks) { positioned in
-                    timelineBlockView(
+                ForEach(plan.visualElements) { positioned in
+                    visualElementView(
                         positioned,
                         presentation: presentation,
+                        totalWidth: totalWidth,
                         timeGutterWidth: timeGutterWidth,
                         contentX: contentX,
                         contentWidth: contentWidth,
@@ -3238,15 +4003,6 @@ struct DailyTimelineCanvas: View {
                         currentY: currentY
                     )
                 }
-
-                anchorView(
-                    plan.sleepAnchor,
-                    row: presentation.row(for: plan.sleepAnchor.anchor),
-                    timeGutterWidth: timeGutterWidth,
-                    spineCenterX: spineCenterX,
-                    contentX: contentX,
-                    currentY: currentY
-                )
 
                 if let currentY {
                     TimelineCurrentTimeMarker(
@@ -3258,6 +4014,15 @@ struct DailyTimelineCanvas: View {
                     .zIndex(10)
                     .accessibilityHidden(true)
                 }
+
+                TimelineEndAddMarker(
+                    suggestedDate: plan.endMarker.suggestedDate,
+                    accessibilityValue: plan.endMarker.accessibilityValue
+                ) {
+                    onAddTask(plan.endMarker.suggestedDate)
+                }
+                .offset(x: spineCenterX - (TimelineCanvasLayoutPlan.endMarkerHitArea / 2), y: plan.endMarker.centerY - (TimelineCanvasLayoutPlan.endMarkerHitArea / 2))
+                .zIndex(4)
             }
         }
         .frame(height: plan.contentHeight + 36)
@@ -3280,6 +4045,166 @@ struct DailyTimelineCanvas: View {
     }
 
     @ViewBuilder
+    private func visualElementView(
+        _ positioned: TimelineCanvasLayoutPlan.PositionedVisualTimelineElement,
+        presentation: TimelineDayPresentation,
+        totalWidth: CGFloat,
+        timeGutterWidth: CGFloat,
+        contentX: CGFloat,
+        contentWidth: CGFloat,
+        spineCenterX: CGFloat,
+        completionX: CGFloat,
+        currentY: CGFloat?
+    ) -> some View {
+        switch positioned.element {
+        case .routineMarker(let model):
+            anchorView(
+                .init(anchor: model.anchor, y: positioned.y + (positioned.height / 2)),
+                row: presentation.row(for: model.anchor),
+                timeGutterWidth: timeGutterWidth,
+                spineCenterX: spineCenterX,
+                contentX: contentX,
+                currentY: currentY
+            )
+        case .meetingCard(let model):
+            let row = presentation.row(for: model.item)
+            timelineStem(
+                row: row,
+                item: model.item,
+                spineCenterX: spineCenterX,
+                y: positioned.y,
+                height: positioned.height
+            )
+            timeLabelView(
+                text: timeLabel(for: model.item),
+                row: row,
+                timeGutterWidth: timeGutterWidth,
+                y: positioned.y,
+                currentY: currentY
+            )
+            TimelineMeetingBlockRow(
+                item: model.item,
+                row: row,
+                isNested: false,
+                action: { onTaskTap(model.item) }
+            )
+            .frame(width: contentWidth, height: positioned.height, alignment: .leading)
+            .offset(x: contentX, y: positioned.y)
+            .zIndex(2)
+        case .taskMarker(let model):
+            let row = presentation.row(for: model.item)
+            timelineStem(
+                row: row,
+                item: model.item,
+                spineCenterX: spineCenterX,
+                y: positioned.y,
+                height: positioned.height
+            )
+            timeLabelView(
+                text: timeLabel(for: model.item),
+                row: row,
+                timeGutterWidth: timeGutterWidth,
+                y: positioned.y,
+                currentY: currentY
+            )
+            TimelineTaskMarkerRow(
+                item: model.item,
+                row: row,
+                isEmphasized: model.isEmphasized,
+                spineCenterX: spineCenterX,
+                completionX: completionX,
+                onTap: { onTaskTap(model.item) },
+                onToggleComplete: { onToggleComplete(model.item) }
+            )
+            .frame(width: totalWidth, height: positioned.height, alignment: .leading)
+            .offset(x: 0, y: positioned.y)
+            .zIndex(1)
+        case .taskCard(let model):
+            let row = presentation.row(for: model.item)
+            let title = TimelineDenseTitleFormatter.displayTitles(for: [model.item])[model.item.id] ?? model.item.title
+            timelineStem(
+                row: row,
+                item: model.item,
+                spineCenterX: spineCenterX,
+                y: positioned.y,
+                height: positioned.height
+            )
+            timeLabelView(
+                text: timeLabel(for: model.item),
+                row: row,
+                timeGutterWidth: timeGutterWidth,
+                y: positioned.y,
+                currentY: currentY
+            )
+            TimelineNormalItemCard(
+                item: model.item,
+                row: row,
+                title: title,
+                onTap: { onTaskTap(model.item) },
+                onToggleComplete: {
+                    guard model.item.source == .task else { return }
+                    onToggleComplete(model.item)
+                }
+            )
+            .frame(width: contentWidth, height: positioned.height, alignment: .leading)
+            .offset(x: contentX, y: positioned.y)
+            .zIndex(2)
+        case .flock(let model):
+            let primaryItem = model.block.items.first
+            TimelineStemSegments(
+                leading: primaryItem.map { presentation.row(for: $0).stemLeading } ?? .futureSegment,
+                trailing: primaryItem.map { presentation.row(for: $0).stemTrailing } ?? .futureSegment,
+                fallbackPalette: TimelinePalette.resolve(from: primaryItem?.tintHex),
+                width: 2,
+                height: positioned.height
+            )
+            .offset(x: spineCenterX - 1, y: positioned.y)
+            .accessibilityHidden(true)
+            Text(model.block.startDate.formatted(date: .omitted, time: .shortened))
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(TimelineVisualTokens.metaText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .frame(width: timeGutterWidth - 8, alignment: .trailing)
+                .offset(x: 0, y: max(positioned.y - 2, 0))
+                .opacity(shouldHideTimeLabel(at: positioned.y, currentY: currentY) ? 0 : 1)
+            TimelineFlockBlock(
+                model: TimelineFlockModel(block: model.block, now: presentation.now),
+                presentation: presentation,
+                onTaskTap: onTaskTap,
+                onToggleComplete: onToggleComplete
+            )
+            .frame(width: contentWidth, height: positioned.height, alignment: .leading)
+            .offset(x: contentX, y: positioned.y)
+            .zIndex(3)
+        case .gapPrompt(let model):
+            TimelineGapPrompt(
+                gap: model.gap,
+                row: presentation.row(for: model.gap),
+                onAddTask: { onAddTask(model.gap.startDate) },
+                onPlanBlock: onScheduleInbox
+            )
+            .frame(width: contentWidth, height: positioned.height, alignment: .leading)
+            .offset(x: contentX, y: positioned.y)
+            .zIndex(0)
+        case .emptyState(let model):
+            TimelineEmptyStateCard(model: model) {
+                onAddTask(model.suggestedDate)
+            } secondaryAction: {
+                if model.showsCalendarAction {
+                    onShowCalendarInTimeline()
+                } else {
+                    onScheduleInbox()
+                }
+            }
+            .frame(width: contentWidth, height: positioned.height, alignment: .leading)
+            .offset(x: contentX, y: positioned.y)
+            .zIndex(1)
+        }
+    }
+
+    @ViewBuilder
     private func anchorView(
         _ anchor: TimelineCanvasLayoutPlan.PositionedAnchor,
         row: TimelineRenderableRow,
@@ -3293,7 +4218,7 @@ struct DailyTimelineCanvas: View {
         let iconTop = max(anchorCenterY - (iconSize / 2), 0)
 
         Text(anchor.anchor.time.formatted(date: .omitted, time: .shortened))
-            .font(.tasker(.meta))
+            .font(.system(size: 13, weight: .medium, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(Color.tasker.textSecondary)
             .lineLimit(1)
@@ -3330,6 +4255,42 @@ struct DailyTimelineCanvas: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(anchor.anchor.title), \(anchor.anchor.time.formatted(date: .omitted, time: .shortened))")
         .accessibilityValue(anchor.anchor.id == "wake" ? "Timeline start" : "Timeline end")
+    }
+
+    private func timelineStem(
+        row: TimelineRenderableRow,
+        item: TimelinePlanItem,
+        spineCenterX: CGFloat,
+        y: CGFloat,
+        height: CGFloat
+    ) -> some View {
+        TimelineStemSegments(
+            leading: row.stemLeading,
+            trailing: row.stemTrailing,
+            fallbackPalette: TimelinePalette.resolve(from: item.tintHex),
+            width: 2,
+            height: height
+        )
+        .offset(x: spineCenterX - 1, y: y)
+        .accessibilityHidden(true)
+    }
+
+    private func timeLabelView(
+        text: String,
+        row: TimelineRenderableRow,
+        timeGutterWidth: CGFloat,
+        y: CGFloat,
+        currentY: CGFloat?
+    ) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: row.isCurrentRailEmphasis ? .semibold : .medium, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(row.isCurrentRailEmphasis ? Color.tasker.textPrimary : TimelineVisualTokens.metaText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .frame(width: timeGutterWidth - 8, alignment: .trailing)
+            .offset(x: 0, y: max(y - 2, 0))
+            .opacity(shouldHideTimeLabel(at: y, currentY: currentY) ? 0 : 1)
     }
 
     @ViewBuilder
