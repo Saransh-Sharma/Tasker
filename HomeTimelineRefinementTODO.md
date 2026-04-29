@@ -1,0 +1,8 @@
+- [x] Compress phone timeline left rail metrics.
+- [x] Convert phone expanded timeline to visual-flow positioning.
+- [x] Add clamped visual gap sizing and long-gap indicators.
+- [x] Add sparse and light timeline modes.
+- [x] Add spine fade and end add marker.
+- [x] Pass suggested dates through timeline Add Task actions.
+- [x] Add focused layout and interaction tests.
+- [x] Run targeted timeline tests.
