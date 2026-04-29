@@ -700,6 +700,7 @@ Technical implementation details are intentionally kept out of this PRD. Use the
 
 ## Document History
 
+- **v4.7 (April 29, 2026):** Updated the canonical calendar + timeline docs for the iPhone glanceability model, including title-first timeline cards, stacked overlap flocks, readable visual positioning, current-time treatment, and dense timeline risks.
 - **v4.6 (April 25, 2026):** Added the canonical calendar + timeline docs package and linked the read-only schedule-context roadmap into the product reference set.
 - **v4.5 (April 25, 2026):** Expanded the habits contract with a Tasker-native streak model, dedicated Habit Board semantics, recovery-first behavior, a canonical habits docs package, and updated roadmap coverage for remaining UX gaps.
 - **v4.4 (March 22, 2026):** Added dedicated habits requirements summary and linked the new habits product, runtime, risk, and roadmap documentation package.
