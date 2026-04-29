@@ -289,6 +289,171 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertTrue(timeline.week.days.contains { $0.allDayCount > 0 || $0.timedMarkers.isEmpty == false })
     }
 
+    func testHomeTimelineBlocksIncludeOnlyBusyTimedCalendarEvents() {
+        let preferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true
+        )
+        workspaceStore.save(preferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([
+            event(id: "all_day", start: todayDate(hour: 0), end: todayDate(hour: 23, minute: 59), isAllDay: true),
+            event(id: "free", start: todayDate(hour: 9), end: todayDate(hour: 10), availability: .free),
+            event(id: "busy", start: todayDate(hour: 11), end: todayDate(hour: 12))
+        ])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineBusyTimedBlocksTests")
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
+
+        waitForMainQueue(seconds: 0.45)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: timeline.day)
+        let blockEventIDs = plan.blocks.flatMap { $0.block.items.compactMap(\.eventID) }
+
+        XCTAssertEqual(timeline.day.allDayItems.compactMap(\.eventID), ["all_day"])
+        XCTAssertEqual(timeline.day.timedItems.compactMap(\.eventID), ["busy"])
+        XCTAssertEqual(blockEventIDs, ["busy"])
+    }
+
+    func testHomeTimelineBlocksGroupMixedTaskAndCalendarConflictAndSuppressGapInsideOverlap() {
+        let preferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true,
+            timelineRiseAndShineHour: 8,
+            timelineRiseAndShineMinute: 0,
+            timelineWindDownHour: 18,
+            timelineWindDownMinute: 0
+        )
+        workspaceStore.save(preferences)
+
+        let taskStart = todayDate(hour: 10, minute: 30)
+        let task = TaskDefinition(
+            title: "Draft Quarterly Report",
+            dueDate: taskStart,
+            scheduledStartAt: taskStart,
+            scheduledEndAt: todayDate(hour: 11, minute: 30),
+            isComplete: false
+        )
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([
+            event(id: "design_sync", start: todayDate(hour: 10), end: todayDate(hour: 11))
+        ])
+
+        let coordinator = makeCoordinator(provider: provider, seedTasks: [task])
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineMixedConflictBlocksTests")
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
+
+        waitForMainQueue(seconds: 0.45)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: timeline.day)
+        let conflictBlock = plan.blocks.first { $0.block.isConflict }
+
+        XCTAssertNotNil(conflictBlock)
+        XCTAssertEqual(conflictBlock?.block.items.map(\.source), [.calendarEvent, .task])
+        XCTAssertEqual(conflictBlock?.block.items.compactMap(\.eventID), ["design_sync"])
+        XCTAssertEqual(conflictBlock?.block.items.compactMap(\.taskID), [task.id])
+        XCTAssertEqual(conflictBlock?.block.overlapDepth, 2)
+        XCTAssertEqual(conflictBlock?.block.visualLaneCount, 2)
+        XCTAssertEqual(conflictBlock?.block.densityMode, .dualLane)
+        XCTAssertEqual(conflictBlock?.block.lanePlacements.count, 2)
+        if let block = conflictBlock?.block,
+           case .flock(let flock) = TimelinePhoneRenderModel.make(from: block, now: todayDate(hour: 10, minute: 30)) {
+            XCTAssertEqual(flock.rows.count, 2)
+            XCTAssertEqual(flock.densityMode, .smallFlock)
+        } else {
+            XCTFail("Mixed task/calendar overlap should render as one phone flock")
+        }
+        XCTAssertFalse(timeline.day.actionableGaps.contains { gap in
+            gap.startDate < todayDate(hour: 11, minute: 30) && gap.endDate > todayDate(hour: 10)
+        })
+    }
+
+    func testHomeTimelineDenseCalendarOnlyWindowKeepsAllBusyEventsVisible() {
+        let preferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true,
+            timelineRiseAndShineHour: 8,
+            timelineRiseAndShineMinute: 0,
+            timelineWindDownHour: 18,
+            timelineWindDownMinute: 0
+        )
+        workspaceStore.save(preferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([
+            event(id: "alpha", start: todayDate(hour: 14), end: todayDate(hour: 15)),
+            event(id: "beta", start: todayDate(hour: 14), end: todayDate(hour: 15)),
+            event(id: "gamma", start: todayDate(hour: 14), end: todayDate(hour: 15)),
+            event(id: "delta", start: todayDate(hour: 14), end: todayDate(hour: 15))
+        ])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineDenseCalendarWindowTests")
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
+
+        waitForMainQueue(seconds: 0.45)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: timeline.day)
+        let conflictBlock = plan.blocks.first { $0.block.isConflict }
+
+        XCTAssertEqual(conflictBlock?.block.items.compactMap(\.eventID), ["alpha", "beta", "delta", "gamma"])
+        XCTAssertEqual(conflictBlock?.block.overlapDepth, 4)
+        XCTAssertEqual(conflictBlock?.block.visualLaneCount, 3)
+        XCTAssertEqual(conflictBlock?.block.densityMode, .microLane)
+        XCTAssertTrue(conflictBlock?.block.compressed ?? false)
+        XCTAssertEqual(conflictBlock?.block.lanePlacements.count, 4)
+        if let block = conflictBlock?.block,
+           case .flock(let flock) = TimelinePhoneRenderModel.make(from: block, now: todayDate(hour: 14, minute: 15)) {
+            XCTAssertEqual(flock.rows.count, 4)
+            XCTAssertEqual(flock.densityMode, .mediumFlock)
+            XCTAssertEqual(flock.displayHeight, 156, accuracy: 0.001)
+        } else {
+            XCTFail("Calendar-only dense windows should render as one readable phone flock")
+        }
+    }
+
     func testHomeTimelineSnapshotUsesWorkspaceTimelineAnchorTimes() {
         let preferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
@@ -422,7 +587,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertGreaterThan(timeline.day.sleepAnchor.time.timeIntervalSince(timeline.day.wakeAnchor.time), 0)
     }
 
-    func testHomeTimelineSnapshotUsesCompactLayoutForEmptyDay() {
+    func testHomeTimelineSnapshotKeepsCompactHeuristicForEmptyDayButPhoneRendererUsesUnifiedCanvas() {
         let preferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -453,10 +618,14 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         )
 
         XCTAssertEqual(timeline.day.layoutMode, .compact)
+        XCTAssertEqual(
+            TimelineForedropRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: timeline.day.layoutMode, isAccessibilitySize: false),
+            .expanded
+        )
         XCTAssertTrue(timeline.day.timedItems.isEmpty)
     }
 
-    func testHomeTimelineSnapshotUsesCompactLayoutForSparseDay() {
+    func testHomeTimelineSnapshotKeepsCompactHeuristicForSparseDayButPhoneRendererUsesUnifiedCanvas() {
         let preferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -490,6 +659,10 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         )
 
         XCTAssertEqual(timeline.day.layoutMode, .compact)
+        XCTAssertEqual(
+            TimelineForedropRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: timeline.day.layoutMode, isAccessibilitySize: false),
+            .expanded
+        )
         XCTAssertEqual(timeline.day.timedItems.count, 2)
     }
 
