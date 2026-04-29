@@ -1181,7 +1181,10 @@ public final class HomeViewModel: ObservableObject {
         self.userDefaults = userDefaults
         self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
             from: calendarIntegrationService.snapshot,
-            selectedDate: selectedDate
+            selectedDate: selectedDate,
+            accessAction: calendarIntegrationService.accessAction(
+                for: calendarIntegrationService.snapshot.authorizationStatus
+            )
         )
 
         setupBindings()
@@ -1225,7 +1228,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public func requestCalendarPermission(openSystemSettings: @escaping () -> Void = {}) {
-        _ = calendarIntegrationService.performAccessAction(openSystemSettings: openSystemSettings)
+        _ = calendarIntegrationService.performAccessAction(source: "home", openSystemSettings: openSystemSettings)
     }
 
     public func refreshCalendarContext(reason: String = "home_manual_refresh") {
@@ -3150,7 +3153,8 @@ public final class HomeViewModel: ObservableObject {
                 guard let self else { return }
                 self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
                     from: snapshot,
-                    selectedDate: self.selectedDate
+                    selectedDate: self.selectedDate,
+                    accessAction: self.calendarIntegrationService.accessAction(for: snapshot.authorizationStatus)
                 )
             }
             .store(in: &cancellables)
@@ -3163,7 +3167,10 @@ public final class HomeViewModel: ObservableObject {
                 guard let self else { return }
                 self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
                     from: self.calendarIntegrationService.snapshot,
-                    selectedDate: selectedDate
+                    selectedDate: selectedDate,
+                    accessAction: self.calendarIntegrationService.accessAction(
+                        for: self.calendarIntegrationService.snapshot.authorizationStatus
+                    )
                 )
                 self.calendarIntegrationService.refreshContext(
                     referenceDate: selectedDate,
@@ -7495,7 +7502,8 @@ public final class HomeViewModel: ObservableObject {
 
     private static func buildHomeCalendarSnapshot(
         from snapshot: TaskerCalendarSnapshot,
-        selectedDate: Date
+        selectedDate: Date,
+        accessAction: CalendarAccessAction
     ) -> HomeCalendarSnapshot {
         let calendar = Calendar.current
         let selectedDayStart = calendar.startOfDay(for: selectedDate)
@@ -7538,6 +7546,7 @@ public final class HomeViewModel: ObservableObject {
             moduleState: moduleState,
             selectedDate: selectedDate,
             authorizationStatus: snapshot.authorizationStatus,
+            accessAction: accessAction,
             selectedCalendarCount: snapshot.selectedCalendarIDs.count,
             availableCalendarCount: snapshot.availableCalendars.count,
             nextMeeting: snapshot.nextMeeting,
@@ -7896,6 +7905,7 @@ extension HomeViewModel {
                 bridgeItems: timedBuckets.bridgeItems,
                 actionableGaps: gaps,
                 layoutMode: layoutMode,
+                calendarPlottingEnabled: showCalendarEventsInTimeline,
                 wakeAnchor: wakeAnchor,
                 sleepAnchor: sleepAnchor,
                 activeItemID: currentItemID,
@@ -7912,6 +7922,13 @@ extension HomeViewModel {
 
     func timelineWeekStartsOn() -> Weekday {
         calendarIntegrationService.weekStartsOn
+    }
+
+    func showCalendarEventsInTimelineFromHome() {
+        TaskerWorkspacePreferencesStore.shared.update { preferences in
+            preferences.showCalendarEventsInTimeline = true
+        }
+        calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: "home_timeline_show_calendar")
     }
 }
 
@@ -8114,6 +8131,8 @@ extension HomeViewModel {
             tintHex: timelineTintHex(for: task),
             systemImageName: timelineSystemImageName(for: task),
             accessoryText: timelineAccessoryText(for: task),
+            taskPriority: task.priority,
+            isPinnedFocusTask: pinnedFocusTaskIDs.contains(task.id),
             hasNotes: task.details?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
             isRecurring: task.repeatPattern != nil || task.recurrenceSeriesID != nil,
             checklistSummary: checklistSummary,
@@ -8147,6 +8166,8 @@ extension HomeViewModel {
             tintHex: event.calendarColorHex,
             systemImageName: "calendar",
             accessoryText: nil,
+            taskPriority: nil,
+            isPinnedFocusTask: false,
             hasNotes: event.notes?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
             isRecurring: false,
             checklistSummary: nil,
@@ -8250,6 +8271,8 @@ extension HomeViewModel {
             tintHex: item.tintHex,
             systemImageName: item.systemImageName,
             accessoryText: item.accessoryText,
+            taskPriority: item.taskPriority,
+            isPinnedFocusTask: item.isPinnedFocusTask,
             hasNotes: item.hasNotes,
             isRecurring: item.isRecurring,
             checklistSummary: item.checklistSummary,
