@@ -2425,6 +2425,16 @@ private final class HomePrimaryWidgetPagerController: UICollectionViewController
     }
 }
 
+private struct HomeCalendarEventDetailSelection: Identifiable, Equatable {
+    let eventID: String
+    let selectedDate: Date
+    let allowsTimelineHide: Bool
+
+    var id: String {
+        "\(eventID):\(HomeTimelineHiddenCalendarEventKey.dayStamp(for: selectedDate)):\(allowsTimelineHide)"
+    }
+}
+
 struct HomeBackdropForedropRootView: View {
     let viewModel: HomeViewModel
     @ObservedObject var chromeStore: HomeChromeStore
@@ -2501,6 +2511,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var hasMountedSearchSurface = false
     @State private var hasMountedAnalyticsSurface = false
     @State private var expandedAgendaTailItemIDs = Set<String>()
+    @State private var selectedHomeCalendarEventDetail: HomeCalendarEventDetailSelection?
+    @State private var suppressNextCalendarScheduleOpen = false
     @State private var showHabitBoardPresented = false
     @State private var showHabitLibraryPresented = false
     @State private var selectedHomeHabitRow: HabitLibraryRow?
@@ -2885,6 +2897,25 @@ struct HomeBackdropForedropRootView: View {
                     viewModel.deleteSavedView(id: id)
                 }
             )
+        }
+        .sheet(item: $selectedHomeCalendarEventDetail) { selection in
+            EventKitEventDetailView(
+                eventID: selection.eventID,
+                onDismiss: {
+                    selectedHomeCalendarEventDetail = nil
+                },
+                onHideFromTimeline: selection.allowsTimelineHide ? {
+                    viewModel.hideCalendarEventFromTimeline(
+                        eventID: selection.eventID,
+                        on: selection.selectedDate
+                    )
+                    selectedHomeCalendarEventDetail = nil
+                    snackbar = SnackbarData(message: "Hidden from Home timeline for this day.", autoDismissSeconds: 2)
+                } : nil
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Color.tasker(.bgElevated))
         }
         .onAppear {
             if let forcedFaceValue {
@@ -3796,9 +3827,6 @@ struct HomeBackdropForedropRootView: View {
                     onResetFilters: {
                         viewModel.resetAllFilters()
                     },
-                    onOpenTopNavSearch: {
-                        openSearch(source: "top_nav_search")
-                    },
                     onOpenMenuSearch: {
                         openSearch(source: "scope_menu_search")
                     },
@@ -3971,6 +3999,10 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private var timelineHasNextHomeWidget: Bool {
+        true
+    }
+
     @ViewBuilder
     private func timelineColumnContent<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         if let maxWidth = timelineColumnMaxWidth {
@@ -4007,11 +4039,6 @@ struct HomeBackdropForedropRootView: View {
                             .padding(.horizontal, passiveTrackingRailHorizontalInset)
                     }
 
-                    timelineColumnContent {
-                        calendarScheduleModuleCard
-                            .reportHeight(to: TimelineCalendarCardHeightPreferenceKey.self)
-                    }
-
                     if case .trayVisible(let summary) = overlaySnapshot.replanState.phase {
                         timelineColumnContent {
                             NeedsReplanTrayView(
@@ -4034,6 +4061,7 @@ struct HomeBackdropForedropRootView: View {
                             snapshot: timelineSnapshot,
                             layoutClass: layoutClass,
                             showsRevealHandle: false,
+                            hasNextHomeWidget: timelineHasNextHomeWidget,
                             onSelectDate: { date in
                                 timelineViewModel.syncSelectedDate(date)
                                 viewModel.selectDate(date)
@@ -4050,6 +4078,10 @@ struct HomeBackdropForedropRootView: View {
                                 timelineViewModel.endDrag(predictedTranslation: translation, metrics: timelineLayoutMetrics)
                             },
                             onTaskTap: { item in
+                                if let eventID = item.eventID {
+                                    handleHomeCalendarEventSelection(eventID: eventID, allowsTimelineHide: true)
+                                    return
+                                }
                                 if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
                                     onTaskTap(task)
                                 }
@@ -4154,7 +4186,12 @@ struct HomeBackdropForedropRootView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .contentShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
-            .onTapGesture(perform: handleOpenScheduleAction)
+            .gesture(
+                TapGesture().onEnded {
+                    handleOpenScheduleAction()
+                },
+                including: .gesture
+            )
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel(calendarCardAccessibilityLabel)
             .accessibilityHint(String(localized: "Opens the full calendar schedule"))
@@ -4263,10 +4300,13 @@ struct HomeBackdropForedropRootView: View {
                 date: calendarSnapshot.selectedDate,
                 events: calendarSnapshot.selectedDayEvents,
                 density: .compact,
-                showsDateLabel: false
+                showsDateLabel: false,
+                accessibilityIdentifier: "home.calendar.timelinePreview",
+                accessibilityLabelText: String(localized: "Home calendar timeline preview."),
+                eventAccessibilityIdentifierPrefix: "home.calendar.event",
+                onSelectEvent: handleHomeCalendarEventSelection
             )
             .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityIdentifier("home.calendar.timelinePreview")
         }
     }
 
@@ -4321,7 +4361,27 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private func handleHomeCalendarEventSelection(_ event: TaskerCalendarEventSnapshot) {
+        handleHomeCalendarEventSelection(eventID: event.id, allowsTimelineHide: false)
+    }
+
+    private func handleHomeCalendarEventSelection(eventID: String, allowsTimelineHide: Bool) {
+        suppressNextCalendarScheduleOpen = true
+        selectedHomeCalendarEventDetail = HomeCalendarEventDetailSelection(
+            eventID: eventID,
+            selectedDate: viewModel.selectedDate,
+            allowsTimelineHide: allowsTimelineHide
+        )
+        DispatchQueue.main.async {
+            suppressNextCalendarScheduleOpen = false
+        }
+    }
+
     private func handleOpenScheduleAction() {
+        if suppressNextCalendarScheduleOpen {
+            suppressNextCalendarScheduleOpen = false
+            return
+        }
         onOpenCalendarSchedule()
     }
 
