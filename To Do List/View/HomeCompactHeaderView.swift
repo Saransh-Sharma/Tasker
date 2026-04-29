@@ -97,14 +97,9 @@ struct HomeCompactHeaderView: View {
     }
 
     private var canCenterDate: Bool {
-        let availableCenterWidth = containerWidth
-            - (dateHeroHorizontalInset * 2)
-            - measuredLeadingColumnWidth
-            - measuredTrailingColumnWidth
         return presentation.backgroundDateText != nil
             && presentation.foregroundRelativeLabel != nil
             && containerWidth >= 360
-            && availableCenterWidth >= 120
             && !dynamicTypeSize.isAccessibilitySize
     }
 
@@ -133,14 +128,7 @@ struct HomeCompactHeaderView: View {
                         measuredLeadingHeaderContent
                             .layoutPriority(1)
 
-                        if let dateText = presentation.compactDateText {
-                            Text(dateText)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker.textSecondary)
-                                .lineLimit(1)
-                                .accessibilityLabel(presentation.dateAccessibilityLabel ?? dateText)
-                                .accessibilityIdentifier("home.topChrome.date")
-                        }
+                        compactDateLabel
                     }
 
                     Spacer(minLength: spacing.s4)
@@ -251,6 +239,20 @@ struct HomeCompactHeaderView: View {
         )
         .allowsHitTesting(false)
         .accessibilityIdentifier("home.topChrome.date")
+    }
+
+    @ViewBuilder
+    private var compactDateLabel: some View {
+        if let dateText = presentation.compactDateText {
+            Text(dateText)
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(presentation.dateAccessibilityLabel ?? dateText)
+                .accessibilityIdentifier("home.topChrome.date")
+        }
     }
 
     private var watermarkDateColor: Color {

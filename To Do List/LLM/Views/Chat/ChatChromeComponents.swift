@@ -268,9 +268,9 @@ struct ChatEmptyStateView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: TaskerTheme.Spacing.md) {
-                    structuredExampleChip(icon: "arrow.triangle.2.circlepath", title: "Move unfinished tasks", subtitle: "Reschedule my unfinished tasks", submissionText: "Reschedule my unfinished tasks")
-                    structuredExampleChip(icon: "graduationcap.fill", title: "Break down a study day", subtitle: "Plan my study day around classes", submissionText: "Plan my study day around classes")
-                    structuredExampleChip(icon: "checklist", title: "Turn list into steps", subtitle: "Turn this messy list into next actions", submissionText: "Turn this messy list into next actions")
+                    ForEach(EvaChiefOfStaffGuideContent.homePromptChips) { chip in
+                        structuredExampleChip(chip)
+                    }
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.xl)
                 .padding(.bottom, TaskerTheme.Spacing.sm)
@@ -279,23 +279,23 @@ struct ChatEmptyStateView: View {
         .accessibilityIdentifier("chat.emptyState.container")
     }
 
-    private func structuredExampleChip(icon: String, title: String, subtitle: String, submissionText: String) -> some View {
+    private func structuredExampleChip(_ chip: EvaHomePromptChip) -> some View {
         Button {
-            onSelectStarterPrompt(EvaStarterPrompt(id: title, title: title, submissionText: submissionText, style: .naturalLanguage, isRecommended: false))
+            onSelectStarterPrompt(chip.prompt)
         } label: {
             HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
-                Image(systemName: icon)
+                Image(systemName: chip.icon)
                     .taskerFont(.caption1)
                     .foregroundStyle(Color.tasker(.accentPrimary))
                     .frame(width: 32, height: 32)
                     .background(Color.tasker(.accentWash), in: Circle())
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
+                    Text(chip.prompt.title)
                         .taskerFont(.callout)
                         .foregroundStyle(Color.tasker(.textPrimary))
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(subtitle)
+                    Text(chip.prompt.submissionText)
                         .taskerFont(.caption1)
                         .foregroundStyle(Color.tasker(.textTertiary))
                         .lineLimit(2)
@@ -387,6 +387,12 @@ struct EvaChiefOfStaffGuideSection: Identifiable, Equatable {
     let title: String
     let body: String
     let prompts: [EvaStarterPrompt]
+}
+
+struct EvaHomePromptChip: Identifiable, Equatable {
+    let id: String
+    let icon: String
+    let prompt: EvaStarterPrompt
 }
 
 enum EvaChiefOfStaffGuideContent {
@@ -510,6 +516,70 @@ enum EvaChiefOfStaffGuideContent {
         ]
     }
 
+    static var homePromptChips: [EvaHomePromptChip] {
+        var seenIDs = Set<String>()
+        var seenSubmissionTexts = Set<String>()
+        var chips: [EvaHomePromptChip] = []
+
+        func append(_ chip: EvaHomePromptChip) {
+            guard seenIDs.insert(chip.prompt.id).inserted else { return }
+            guard seenSubmissionTexts.insert(chip.prompt.submissionText).inserted else { return }
+            chips.append(chip)
+        }
+
+        curatedHomePromptChips.forEach(append)
+        guideHomePromptChips.forEach(append)
+
+        return chips
+    }
+
+    private static var curatedHomePromptChips: [EvaHomePromptChip] {
+        [
+            homePromptChip(
+                id: "home_how_is_my_day",
+                icon: "sparkles",
+                title: "How is my day?",
+                submissionText: "How is my day looking today?"
+            ),
+            homePromptChip(
+                id: "home_plan_today",
+                icon: "arrow.triangle.2.circlepath",
+                title: "Plan today",
+                submissionText: "Help me plan today around my existing tasks and habits."
+            ),
+            homePromptChip(
+                id: "home_recover_overdue",
+                icon: "sun.max",
+                title: "Recover overdue",
+                submissionText: "Show me what is overdue and what I should recover first."
+            ),
+            homePromptChip(
+                id: "home_carry_todays_overdues_to_tomorrow",
+                icon: "calendar.badge.clock",
+                title: "Carry today's overdues to tomorrow",
+                submissionText: "Move today's overdue tasks to tomorrow."
+            ),
+            homePromptChip(
+                id: "home_overdue_today_first_then_rest",
+                icon: "calendar.badge.clock",
+                title: "Overdue today first and then the rest",
+                submissionText: "Plan today with overdue tasks first, then the rest."
+            )
+        ]
+    }
+
+    private static var guideHomePromptChips: [EvaHomePromptChip] {
+        sections.flatMap { section in
+            section.prompts.map { prompt in
+                EvaHomePromptChip(
+                    id: "home_\(prompt.id)",
+                    icon: section.icon,
+                    prompt: prompt
+                )
+            }
+        }
+    }
+
     private static func guidePrompt(
         id: String,
         title: String,
@@ -523,6 +593,23 @@ enum EvaChiefOfStaffGuideContent {
             style: style,
             isRecommended: false
         )
+    }
+
+    private static func homePromptChip(
+        id: String,
+        icon: String,
+        title: String,
+        submissionText: String,
+        style: EvaStarterPrompt.Style = .naturalLanguage
+    ) -> EvaHomePromptChip {
+        let prompt = EvaStarterPrompt(
+            id: id,
+            title: title,
+            submissionText: submissionText,
+            style: style,
+            isRecommended: false
+        )
+        return EvaHomePromptChip(id: id, icon: icon, prompt: prompt)
     }
 }
 
