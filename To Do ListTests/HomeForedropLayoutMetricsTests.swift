@@ -60,6 +60,32 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertLessThan(metrics.offset(for: .midReveal), metrics.offset(for: .fullReveal))
     }
 
+    func testPhoneTimelineRendererUsesUnifiedCanvasForNormalTextSizes() {
+        XCTAssertEqual(
+            TimelineForedropRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: .compact, isAccessibilitySize: false),
+            .expanded
+        )
+        XCTAssertEqual(
+            TimelineForedropRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: .expanded, isAccessibilitySize: false),
+            .expanded
+        )
+    }
+
+    func testTimelineRendererKeepsAccessibilityAndPadCompactFallbacks() {
+        XCTAssertEqual(
+            TimelineForedropRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: .expanded, isAccessibilitySize: true),
+            .agenda
+        )
+        XCTAssertEqual(
+            TimelineForedropRendererPolicy.mode(layoutClass: .padCompact, dayLayoutMode: .expanded, isAccessibilitySize: false),
+            .compact
+        )
+        XCTAssertEqual(
+            TimelineForedropRendererPolicy.mode(layoutClass: .padRegular, dayLayoutMode: .compact, isAccessibilitySize: false),
+            .expanded
+        )
+    }
+
     func testScheduleNormalizerCreatesTimedScheduleFromDeadline() {
         let calendar = Self.fixedCalendar
         let pickedDate = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 30)
@@ -196,6 +222,460 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
 
         XCTAssertEqual(plan.items.map(\.columnCount), [3, 3, 3])
         XCTAssertEqual(plan.items.map(\.columnIndex), [0, 1, 2])
+    }
+
+    func testTimelineLayoutPlanKeepsNonOverlappingTaskAndMeetingAsSeparateBlocks() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeTimedItem(
+                    id: "task",
+                    title: "Task",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 45)
+                ),
+                Self.makeMeetingItem(
+                    id: "meeting",
+                    title: "Meeting",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 30)
+                )
+            ]
+        )
+
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+
+        XCTAssertEqual(plan.blocks.count, 2)
+        XCTAssertTrue(plan.blocks.allSatisfy { $0.block.isConflict == false })
+        XCTAssertEqual(plan.blocks.map(\.block.items.count), [1, 1])
+    }
+
+    func testTimelineLayoutPlanGroupsOverlappingTaskAndMeetingIntoConflictBlock() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(
+                    id: "meeting",
+                    title: "Design Sync",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0)
+                ),
+                Self.makeTimedItem(
+                    id: "task",
+                    title: "Draft Report",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 30),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 30)
+                )
+            ]
+        )
+
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+
+        XCTAssertEqual(plan.blocks.count, 1)
+        XCTAssertTrue(plan.blocks[0].block.isConflict)
+        XCTAssertTrue(plan.blocks[0].block.containsTask)
+        XCTAssertTrue(plan.blocks[0].block.containsCalendarEvent)
+        XCTAssertEqual(plan.blocks[0].block.items.map(\.id), ["event:meeting", "task:task"])
+        XCTAssertEqual(plan.blocks[0].block.startDate, Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0))
+        XCTAssertEqual(plan.blocks[0].block.endDate, Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 30))
+        XCTAssertEqual(plan.blocks[0].block.overlapDepth, 2)
+        XCTAssertEqual(plan.blocks[0].block.visualLaneCount, 2)
+        XCTAssertEqual(plan.blocks[0].block.densityMode, .dualLane)
+        XCTAssertEqual(plan.blocks[0].block.lanePlacements.map(\.laneIndex), [0, 1])
+    }
+
+    func testPhoneTimelineMetricsMoveSpineLeftWhileKeepingReadableTimeGutter() {
+        let metrics = TimelineSurfaceMetrics.make(for: .phone)
+        let spineX = metrics.expandedTimeGutter
+            + metrics.expandedTimeToSpineGap
+            + (metrics.expandedSpineLaneWidth / 2)
+        let contentStart = metrics.expandedTimeGutter
+            + metrics.expandedTimeToSpineGap
+            + metrics.expandedSpineLaneWidth
+            + metrics.expandedContentInset
+
+        XCTAssertEqual(metrics.expandedTimeGutter, 60, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(spineX, 68)
+        XCTAssertLessThanOrEqual(spineX, 74)
+        XCTAssertGreaterThanOrEqual(contentStart, 84)
+        XCTAssertLessThanOrEqual(contentStart, 90)
+    }
+
+    func testPhoneRenderModelUsesNormalCardForSingleTaskAndCalendarEvent() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let taskStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0)
+        let eventStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeTimedItem(id: "task", title: "Draft", start: taskStart, end: taskStart.addingTimeInterval(30 * 60)),
+                Self.makeMeetingItem(id: "event", title: "Review", start: eventStart, end: eventStart.addingTimeInterval(30 * 60))
+            ]
+        )
+
+        let blocks = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar).blocks
+        let renderModels = blocks.map { TimelinePhoneRenderModel.make(from: $0.block, now: wake) }
+
+        guard case .normal(let firstItem) = renderModels[0],
+              case .normal(let secondItem) = renderModels[1] else {
+            return XCTFail("Single timeline blocks should render as normal phone cards")
+        }
+        XCTAssertEqual(firstItem.id, "task:task")
+        XCTAssertEqual(secondItem.id, "event:event")
+    }
+
+    func testPhoneRenderModelUsesFlockForOverlapsInsteadOfPhoneLanes() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let start = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "a", title: "Alpha", start: start, end: start.addingTimeInterval(60 * 60)),
+                Self.makeTimedItem(id: "b", title: "Beta", start: start.addingTimeInterval(15 * 60), end: start.addingTimeInterval(75 * 60))
+            ]
+        )
+
+        let block = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar).blocks[0].block
+        let renderModel = TimelinePhoneRenderModel.make(from: block, now: start)
+
+        guard case .flock(let flock) = renderModel else {
+            return XCTFail("Phone overlaps should render as a flock")
+        }
+        XCTAssertEqual(flock.rows.count, 2)
+        XCTAssertEqual(flock.densityMode, .smallFlock)
+        XCTAssertEqual(flock.displayHeight, 104, accuracy: 0.001)
+    }
+
+    func testFlockHeightAndTapTargetRulesMatchDensityModes() {
+        XCTAssertEqual(TimelineFlockModel.effectiveTapTargetHeight, 44, accuracy: 0.001)
+        XCTAssertEqual(TimelineFlockModel.displayHeight(itemCount: 2), 104, accuracy: 0.001)
+        XCTAssertEqual(TimelineFlockModel.displayHeight(itemCount: 3), 132, accuracy: 0.001)
+        XCTAssertEqual(TimelineFlockModel.displayHeight(itemCount: 4), 156, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(TimelineFlockModel.displayHeight(itemCount: 10, densityMode: .extremeFlock), 280)
+    }
+
+    func testCurrentTimeInsideFlockMarksActiveRow() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let start = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 15, minute: 0)
+        let now = start.addingTimeInterval(20 * 60)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "current", title: "Current", start: start, end: start.addingTimeInterval(60 * 60)),
+                Self.makeTimedItem(id: "other", title: "Other", start: start.addingTimeInterval(10 * 60), end: start.addingTimeInterval(40 * 60))
+            ]
+        )
+        let block = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar).blocks[0].block
+
+        let flock = TimelineFlockModel(block: block, now: now)
+
+        XCTAssertEqual(flock.activeItemID, "event:current")
+        XCTAssertTrue(flock.rows.contains { $0.id == "event:current" && $0.isActiveNow })
+    }
+
+    func testExtremeFlockPrioritizesCurrentNextTaskAndChronologicalRows() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let base = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 13, minute: 0)
+        let items = (0..<10).map { index in
+            index == 4
+                ? Self.makeTimedItem(id: "task-\(index)", title: "Task \(index)", start: base.addingTimeInterval(Double(index * 5) * 60), end: base.addingTimeInterval(Double(index * 5 + 45) * 60))
+                : Self.makeMeetingItem(id: "event-\(index)", title: "Event \(index)", start: base.addingTimeInterval(Double(index * 5) * 60), end: base.addingTimeInterval(Double(index * 5 + 45) * 60))
+        }
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: items
+        )
+        let block = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar).blocks[0].block
+
+        let flock = TimelineFlockModel(block: block, now: base.addingTimeInterval(22 * 60))
+
+        XCTAssertEqual(flock.densityMode, .extremeFlock)
+        XCTAssertTrue(flock.isCollapsedExtreme)
+        XCTAssertTrue(flock.visibleItemIDs.contains("event:event-0"))
+        XCTAssertTrue(flock.visibleItemIDs.contains("event:event-5"))
+        XCTAssertTrue(flock.visibleItemIDs.contains("task:task-4"))
+        XCTAssertEqual(flock.rows.last?.isSummary, true)
+    }
+
+    func testReadableVisualPositionTracksTemporalPositionAndCapsShift() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let firstStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0)
+        let firstEnd = firstStart.addingTimeInterval(20 * 60)
+        let secondStart = firstEnd
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "a", title: "A", start: firstStart, end: firstEnd),
+                Self.makeMeetingItem(id: "b", title: "B", start: firstStart.addingTimeInterval(5 * 60), end: firstEnd),
+                Self.makeTimedItem(id: "c", title: "C", start: secondStart, end: secondStart.addingTimeInterval(10 * 60))
+            ]
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+
+        XCTAssertEqual(plan.blocks.count, 2)
+        guard plan.blocks.count == 2 else { return }
+        XCTAssertEqual(plan.blocks[0].temporalY, plan.blocks[0].visualY, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(plan.blocks[1].visualY, plan.blocks[1].temporalY)
+        XCTAssertLessThanOrEqual(plan.blocks[1].visualY - plan.blocks[1].temporalY, 120)
+        XCTAssertEqual(plan.blocks[1].wasVisuallyShifted, plan.blocks[1].visualY > plan.blocks[1].temporalY)
+    }
+
+    func testTimelineLayoutPlanGroupsOverlappingMeetingsIntoEventConflictBlock() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(
+                    id: "alpha",
+                    title: "Alpha",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 12, minute: 0)
+                ),
+                Self.makeMeetingItem(
+                    id: "beta",
+                    title: "Beta",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 15),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 45)
+                )
+            ]
+        )
+
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+
+        XCTAssertEqual(plan.blocks.count, 1)
+        XCTAssertTrue(plan.blocks[0].block.isConflict)
+        XCTAssertFalse(plan.blocks[0].block.containsTask)
+        XCTAssertTrue(plan.blocks[0].block.containsCalendarEvent)
+        XCTAssertEqual(plan.blocks[0].block.countLabel, "2 Events")
+    }
+
+    func testTimelineLayoutPlanUsesCompactLaneModeForThreeSimultaneousItems() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let start = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 14, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "a", title: "Alpha", start: start, end: start.addingTimeInterval(45 * 60)),
+                Self.makeTimedItem(id: "b", title: "Beta", start: start.addingTimeInterval(5 * 60), end: start.addingTimeInterval(35 * 60)),
+                Self.makeMeetingItem(id: "c", title: "Gamma", start: start.addingTimeInterval(10 * 60), end: start.addingTimeInterval(40 * 60))
+            ]
+        )
+
+        let block = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar).blocks[0].block
+
+        XCTAssertEqual(block.overlapDepth, 3)
+        XCTAssertEqual(block.visualLaneCount, 3)
+        XCTAssertEqual(block.densityMode, .compactLane)
+        XCTAssertEqual(block.lanePlacements.map(\.laneIndex), [0, 1, 2])
+        XCTAssertFalse(block.compressed)
+    }
+
+    func testTimelineLayoutPlanCapsPhoneOverlapAtThreeVisualColumnsAndPacksMicroRows() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let start = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 14, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "a", title: "Alpha", start: start, end: start.addingTimeInterval(45 * 60)),
+                Self.makeTimedItem(id: "b", title: "Beta", start: start, end: start.addingTimeInterval(45 * 60)),
+                Self.makeMeetingItem(id: "c", title: "Gamma", start: start, end: start.addingTimeInterval(45 * 60)),
+                Self.makeTimedItem(id: "d", title: "Delta", start: start, end: start.addingTimeInterval(45 * 60))
+            ]
+        )
+
+        let block = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, maxVisualColumns: 3, calendar: calendar).blocks[0].block
+
+        XCTAssertEqual(block.overlapDepth, 4)
+        XCTAssertEqual(block.visualLaneCount, 3)
+        XCTAssertEqual(block.densityMode, .microLane)
+        XCTAssertTrue(block.compressed)
+        XCTAssertEqual(block.lanePlacements.map(\.laneIndex), [0, 1, 2, 0])
+        XCTAssertEqual(block.lanePlacements.map(\.rowIndex), [0, 0, 0, 1])
+    }
+
+    func testTimelineLayoutPlanShowsSixDenseItemsWithoutVisualCollision() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let start = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 14, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: (0..<6).map { index in
+                Self.makeMeetingItem(
+                    id: "event-\(index)",
+                    title: "Event \(index)",
+                    start: start,
+                    end: start.addingTimeInterval(30 * 60)
+                )
+            }
+        )
+
+        let block = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, maxVisualColumns: 3, calendar: calendar).blocks[0].block
+
+        XCTAssertEqual(block.lanePlacements.count, 6)
+        XCTAssertEqual(block.visualLaneCount, 3)
+        XCTAssertTrue(block.compressed)
+        Self.assertNoVisualCollisions(block.lanePlacements)
+    }
+
+    func testTimelineLayoutPlanScalesSameLaneMinimumHeightUntilCap() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let base = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "long", title: "Long", start: base, end: base.addingTimeInterval(60 * 60)),
+                Self.makeTimedItem(id: "short-a", title: "Short A", start: base.addingTimeInterval(5 * 60), end: base.addingTimeInterval(10 * 60)),
+                Self.makeTimedItem(id: "short-b", title: "Short B", start: base.addingTimeInterval(30 * 60), end: base.addingTimeInterval(35 * 60))
+            ]
+        )
+
+        let block = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar).blocks[0].block
+        let secondLanePlacements = block.lanePlacements.filter { $0.laneIndex == 1 }.sorted { $0.relativeY < $1.relativeY }
+
+        XCTAssertEqual(block.densityMode, .dualLane)
+        XCTAssertFalse(block.isDensePacked)
+        XCTAssertGreaterThan(secondLanePlacements[1].relativeY - secondLanePlacements[0].relativeY, 52)
+    }
+
+    func testTimelineLayoutPlanSwitchesToDensePackedWhenScaleWouldExceedCap() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let base = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "long", title: "Long", start: base, end: base.addingTimeInterval(60 * 60)),
+                Self.makeTimedItem(id: "short-a", title: "Short A", start: base.addingTimeInterval(5 * 60), end: base.addingTimeInterval(10 * 60)),
+                Self.makeTimedItem(id: "short-b", title: "Short B", start: base.addingTimeInterval(11 * 60), end: base.addingTimeInterval(16 * 60))
+            ]
+        )
+
+        let block = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar).blocks[0].block
+
+        XCTAssertEqual(block.densityMode, .densePacked)
+        XCTAssertTrue(block.isDensePacked)
+        XCTAssertTrue(block.compressed)
+        Self.assertNoVisualCollisions(block.lanePlacements)
+    }
+
+    func testTimelineLayoutPlanMergesChainedOverlapsIntoOneConflictBlock() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(
+                    id: "a",
+                    title: "A",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0)
+                ),
+                Self.makeTimedItem(
+                    id: "b",
+                    title: "B",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 45),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 30)
+                ),
+                Self.makeMeetingItem(
+                    id: "c",
+                    title: "C",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 15),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0)
+                )
+            ]
+        )
+
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+
+        XCTAssertEqual(plan.blocks.count, 1)
+        XCTAssertEqual(plan.blocks[0].block.items.map(\.id), ["event:a", "task:b", "event:c"])
+        XCTAssertEqual(plan.blocks[0].block.endDate, Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0))
+    }
+
+    func testTimelineLayoutPlanDoesNotGroupAdjacentItemsAsConflict() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(
+                    id: "meeting",
+                    title: "Meeting",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0)
+                ),
+                Self.makeTimedItem(
+                    id: "task",
+                    title: "Task",
+                    start: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0),
+                    end: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 30)
+                )
+            ]
+        )
+
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+
+        XCTAssertEqual(plan.blocks.count, 2)
+        XCTAssertTrue(plan.blocks.allSatisfy { $0.block.isConflict == false })
+    }
+
+    func testTimelineLayoutPlanOnlyReturnsCurrentTimeYForSelectedTodayWithinVisibleWindow() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0)
+        let projection = Self.makeProjection(calendar: calendar, wake: wake, sleep: sleep, timedItems: [])
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let now = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 30)
+
+        let currentY = plan.currentTimeY(now: now, selectedDate: wake, calendar: calendar)
+        XCTAssertNotNil(currentY)
+        XCTAssertEqual(currentY ?? 0, plan.wakeAnchor.y + 210, accuracy: 0.001)
+        XCTAssertNil(plan.currentTimeY(now: now, selectedDate: Self.date(calendar: calendar, year: 2026, month: 4, day: 22, hour: 0, minute: 0), calendar: calendar))
+        XCTAssertNil(plan.currentTimeY(now: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 7, minute: 59), selectedDate: wake, calendar: calendar))
+        XCTAssertNil(plan.currentTimeY(now: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 1), selectedDate: wake, calendar: calendar))
     }
 
     func testTimelineLayoutPlanKeepsShortItemAnchoredWhileApplyingMinimumHeight() {
@@ -410,7 +890,7 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(metrics.expandedCapsuleMinWidth, 64, accuracy: 0.001)
         XCTAssertEqual(metrics.expandedSingleColumnTextMaxWidth, 420, accuracy: 0.001)
         XCTAssertEqual(metrics.expandedOverlappingTextMaxWidth, 320, accuracy: 0.001)
-        XCTAssertEqual(metrics.timelineBottomPadding, 24, accuracy: 0.001)
+        XCTAssertEqual(metrics.timelineBottomPadding, 132, accuracy: 0.001)
     }
 
     func testCompactTimelineLayoutPlanScalesItemRowsByDuration() {
@@ -719,6 +1199,25 @@ private extension HomeForedropLayoutMetricsTests {
         )
     }
 
+    static func makeMeetingItem(id: String, title: String, start: Date, end: Date) -> TimelinePlanItem {
+        TimelinePlanItem(
+            id: "event:\(id)",
+            source: .calendarEvent,
+            taskID: nil,
+            eventID: id,
+            title: title,
+            subtitle: "Work",
+            startDate: start,
+            endDate: end,
+            isAllDay: false,
+            isComplete: false,
+            tintHex: ProjectColor.purple.hexString,
+            systemImageName: "calendar",
+            accessoryText: nil,
+            isMeetingLike: true
+        )
+    }
+
     static func makeProjection(
         calendar: Calendar,
         wake: Date,
@@ -762,6 +1261,26 @@ private extension HomeForedropLayoutMetricsTests {
         entries.compactMap { entry in
             guard case .item(let item) = entry else { return nil }
             return item
+        }
+    }
+
+    static func assertNoVisualCollisions(
+        _ placements: [TimelineTimeBlock.LanePlacement],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let grouped = Dictionary(grouping: placements, by: \.laneIndex)
+        for lanePlacements in grouped.values {
+            let sorted = lanePlacements.sorted { $0.relativeY < $1.relativeY }
+            guard sorted.count > 1 else { continue }
+            for index in 0..<(sorted.count - 1) {
+                XCTAssertLessThanOrEqual(
+                    sorted[index].relativeY + sorted[index].height,
+                    sorted[index + 1].relativeY + 0.001,
+                    file: file,
+                    line: line
+                )
+            }
         }
     }
 }
