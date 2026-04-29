@@ -313,6 +313,7 @@ public final class EnhancedDependencyContainer {
             preferences.includeCanceledCalendarEvents = false
             preferences.includeAllDayInAgenda = true
             preferences.includeAllDayInBusyStrip = false
+            preferences.showCalendarEventsInTimeline = mode == .active
 
             switch mode {
             case .permission, .writeOnly, .denied, .deniedAfterAttempt, .noCalendars:

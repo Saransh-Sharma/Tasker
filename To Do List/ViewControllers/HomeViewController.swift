@@ -1183,6 +1183,7 @@ private struct HomeBottomBarContainer: View {
     let state: HomeBottomBarState
     let shellPhase: HomeShellPhase
     let onHome: () -> Void
+    let onCalendar: () -> Void
     let onChartsToggle: () -> Void
     let onSearch: () -> Void
     let onChat: () -> Void
@@ -1195,6 +1196,7 @@ private struct HomeBottomBarContainer: View {
             state: state,
             shellPhase: shellPhase,
             onHome: onHome,
+            onCalendar: onCalendar,
             onChartsToggle: onChartsToggle,
             onSearch: onSearch,
             onChat: onChat,
@@ -1253,6 +1255,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var homeHostingController: UIHostingController<HomeHostRootView>?
     private var bottomBarHostingController: UIHostingController<HomeBottomBarContainer>?
     private var bottomBarBottomConstraint: NSLayoutConstraint?
+    private weak var presentedCalendarScheduleController: UIViewController?
     private var insightsViewModel: InsightsViewModel?
     private let searchState = HomeSearchState()
     private let chromeStore = HomeChromeStore()
@@ -2139,6 +2142,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             shellPhase: faceCoordinator.shellPhase,
             onHome: { [weak self] in
                 self?.returnToTasks(source: "bottom_bar_home")
+            },
+            onCalendar: { [weak self] in
+                self?.presentCalendarSchedule()
             },
             onChartsToggle: { [weak self] in
                 self?.toggleInsights(source: "bottom_bar_analytics")
@@ -4071,6 +4077,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             sheet.prefersGrabberVisible = true
             sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
         }
+        presentedCalendarScheduleController = host
+        host.presentationController?.delegate = self
         present(host, animated: true)
     }
 
@@ -5565,6 +5573,10 @@ private struct DailySummaryModalView: View {
 
 extension HomeViewController {
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        if presentationController.presentedViewController === presentedCalendarScheduleController {
+            presentedCalendarScheduleController = nil
+            faceCoordinator.bottomBarState.select(faceCoordinator.activeFace.selectedBottomBarItem)
+        }
         resetPendingIPadModalWaitState()
         processPendingIPadModalRequest()
         scheduleOnboardingEvaluationIfNeeded()
