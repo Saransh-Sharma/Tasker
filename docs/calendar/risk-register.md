@@ -65,6 +65,47 @@ Mitigation:
 - Make calendar data advisory rather than dominant
 - Avoid introducing write semantics or grid-first navigation
 
+## Dense Timeline Readability Risk
+
+Risk:
+Busy calendars and scheduled tasks create overlapping regions that are technically accurate but unreadable on iPhone.
+
+Impact:
+The Home timeline looks noisy, titles truncate into meaningless fragments, and users cannot quickly understand what is happening next.
+
+Mitigation:
+- Render iPhone overlaps as stacked flocks instead of horizontal lanes
+- Use compact, title-first single-item cards
+- Compress noisy titles before truncation
+- Keep extreme-density flocks relevance-prioritized rather than purely exhaustive
+
+## Visual Time Distortion Risk
+
+Risk:
+The collision pass moves blocks away from their exact time-scaled position to preserve readability.
+
+Impact:
+The timeline can imply more free time or less free time than actually exists if visual shifting is unbounded.
+
+Mitigation:
+- Track `temporalY` and `visualY` separately
+- Mark shifted blocks with `wasVisuallyShifted`
+- Cap visual shifting and compact or summarize dense flocks before the whole day drifts downward
+
+## Compact Interaction Risk
+
+Risk:
+Dense flock rows become visually compact enough that they are hard to tap or inaccessible with larger text.
+
+Impact:
+Users can see a busy-period summary but cannot reliably open or act on individual rows.
+
+Mitigation:
+- Preserve an effective `44pt` row tap target
+- Keep time visible before optional metadata
+- Use agenda fallback at accessibility text sizes
+- Keep completion state subtle but readable inside compact rows
+
 ## Scope Drift Risk
 
 Risk:

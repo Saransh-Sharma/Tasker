@@ -58,6 +58,17 @@ It should remain task-first while still using calendar context to:
 - Inform timeline-adjacent planning surfaces
 - Keep the user oriented around next action, not around a giant calendar grid
 
+On iPhone, the timeline should optimize for glanceability rather than calendar fidelity:
+
+- The time spine sits far enough left to give titles meaningful horizontal room.
+- Single tasks and calendar events use one title-first card style with a small glyph, readable title, and always-visible compact time.
+- Calendar source labels, all-caps category labels, large icon bubbles, and external completion rails stay out of compact phone cards.
+- Overlapping regions render as flocks: stacked, chronological rows inside one busy-period container.
+- Flocks do not use multiple horizontal lanes on iPhone.
+- Small and medium flocks show all visible rows; dense flocks stay compact; extreme flocks show relevance-prioritized rows plus a summary action when all items cannot remain readable.
+- If current time falls inside a flock, the active row gets a subtle now treatment rather than a red rule cutting through the content.
+- Accessibility text sizes switch to agenda-style fallback instead of forcing dense timeline geometry to absorb large text.
+
 ## User Stories
 
 - As a user, I can allow read-only calendar access so Tasker can understand my day.
@@ -96,5 +107,6 @@ Calendar context should improve the timeline in a few specific ways:
 - Gaps can become intentional planning windows
 - Current time pressure can be expressed without a giant now marker
 - Calendar events can inform fit and context, but they do not replace task chronology
+- Overlapping items should communicate "this period is busy" before exposing exact calendar geometry
 
 The timeline chapter in this package exists to keep that distinction explicit.

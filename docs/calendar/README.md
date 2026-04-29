@@ -28,6 +28,17 @@ The current implementation centers on these runtime surfaces:
 
 Those types are the source of truth for how calendar data is fetched, filtered, cached, and projected into Home and schedule surfaces.
 
+## Mobile Timeline Contract
+
+The iPhone timeline is a readable mobile day planner, not a miniature calendar grid.
+
+Phone rendering follows these rules:
+
+- Single tasks and calendar events render as compact, title-first timeline cards.
+- Overlapping items render as stacked flocks, which are readable busy-period summaries anchored to the correct time window.
+- iPhone never renders horizontal overlap lanes, even when lower-level layout data still tracks overlap depth or lane placements for tests, layout math, or future larger-screen renderers.
+- Dense flocks prioritize recognizable titles, current/next relevance, and tap accessibility over exact internal calendar geometry.
+
 ## Scope
 
 In scope:

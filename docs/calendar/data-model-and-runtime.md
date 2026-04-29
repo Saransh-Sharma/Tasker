@@ -32,6 +32,9 @@ The repo currently uses these primary types:
 - `TaskerCalendarSnapshot`
 - `HomeCalendarModuleState`
 - `HomeCalendarSnapshot`
+- `TimelinePhoneRenderModel`
+- `TimelineFlockModel`
+- `TimelineCanvasLayoutPlan`
 
 These types are the canonical projection layer for the feature.
 
@@ -138,3 +141,53 @@ The timeline should:
 - Avoid inventing write semantics for calendar events
 
 If timeline surfaces need to present calendar-derived context, they should consume the same resolved state that Home does rather than inferring a separate interpretation.
+
+### Phone Render Model
+
+The phone timeline uses a display-model layer on top of the lower-level time-block grouping:
+
+- `TimelinePhoneRenderModel.normal(item)` represents one readable task or calendar event card.
+- `TimelinePhoneRenderModel.flock(model)` represents an overlapping or chained busy period rendered as stacked rows.
+- Lower-level `TimelineTimeBlock` overlap fields, including overlap depth and lane placements, can remain available for deterministic grouping, tests, and non-phone renderers.
+- iPhone rendering must not use horizontal overlap lanes.
+
+`TimelineFlockModel` is the phone-facing busy-period summary. It owns:
+
+- chronological row ordering
+- compact title formatting
+- density mode selection
+- active-now row detection
+- extreme-density row prioritization
+- summary-row behavior when all items cannot remain readable
+
+### Phone Layout Metrics
+
+The expanded phone timeline should reserve roughly:
+
+- `60pt` time gutter
+- `72pt` spine x-position
+- `90pt` content start
+
+Time labels should use monospaced digits, one line, and a minimum scale factor so labels such as `12:30 PM` and `10:00 PM` remain readable in the reduced gutter.
+
+### Visual Positioning
+
+Readable phone layout tracks both true time placement and final rendered placement:
+
+- `temporalY` is the actual time-based position.
+- `visualY` is the final position after readability collision handling.
+- `visualHeight` is the rendered block height.
+- `wasVisuallyShifted` records when a block moved away from its exact time position.
+
+The collision pass may push later blocks down to avoid visual overlap, but the shift is bounded. If an exact time-scaled view would become unreadable, the flock should become denser or summarized rather than pushing the entire day indefinitely downward.
+
+### Current Time and Safe Areas
+
+The now marker should orient without damaging readability:
+
+- The dot and label render above content.
+- The horizontal rule is subtle, behind content, and should not cut through flock text.
+- If the now label collides with an hour label, prefer the now label.
+- If now is inside a flock, highlight the active row inside the flock.
+
+Timeline content must include bottom padding for the bottom navigation, floating action button, and additional breathing room so the last block does not sit under Home chrome.

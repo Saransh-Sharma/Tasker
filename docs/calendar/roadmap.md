@@ -7,7 +7,8 @@
 - Keep multi-calendar selection and local persistence behavior clearly documented
 - Align the Home schedule module terminology with the actual runtime snapshot types
 - Clarify how next-meeting, free-until, and busy-block context feeds Home and task-fit hints
-- Make the timeline wording explicit so it stays task-first rather than grid-first
+- Add visual snapshot coverage for single cards, small flocks, dense flocks, extreme flocks, now-inside-flock, smallest iPhone width, large Dynamic Type, and bottom navigation overlap
+- Polish the detail/open behavior for extreme flock summary rows
 
 ## Mid Term
 
