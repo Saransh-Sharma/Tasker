@@ -37,6 +37,20 @@ public enum HomeReloadScope: String, CaseIterable, Hashable {
     case savedViews
 }
 
+public enum HomeDateNavigationSource: String {
+    case datePicker
+    case weekStrip
+    case swipe
+    case backToToday
+    case replan
+    case dailyReflection
+}
+
+public enum HomeDayNavigationDirection: Equatable {
+    case previous
+    case next
+}
+
 public struct HomeDataRevision: Equatable, Hashable {
     public static let zero = HomeDataRevision(rawValue: 0)
     public private(set) var rawValue: UInt64
@@ -654,8 +668,17 @@ public final class HomeViewModel: ObservableObject {
     private func habitMutationKey(for row: HomeHabitRow, on date: Date) -> HomeHabitMutationKey {
         HomeHabitMutationKey(
             habitID: row.habitID,
-            day: Calendar.current.startOfDay(for: date)
+            day: normalizedDay(date)
         )
+    }
+
+    private func normalizedDay(_ date: Date) -> Date {
+        Calendar.current.startOfDay(for: date)
+    }
+
+    private func selectedDayMatches(_ targetDay: Date, scope: HomeListScope) -> Bool {
+        guard scope.quickView == .today else { return true }
+        return Calendar.current.isDate(selectedDate, inSameDayAs: targetDay)
     }
 
     private func captureHabitMutationSnapshot() -> HomeHabitMutationSnapshot {
@@ -1202,27 +1225,22 @@ public final class HomeViewModel: ObservableObject {
 
     /// Load tasks for the selected date.
     public func loadTasksForSelectedDate() {
-        focusEngineEnabled = true
-        activeScope = .customDate(selectedDate)
-        var state = activeFilterState
-        state.quickView = .today
-        state.selectedSavedViewID = nil
-        activeFilterState = state
-        persistLastFilterState()
-        applyFocusFilters(trackAnalytics: false, generation: nextReloadGeneration())
+        applySelectedDay(selectedDate, source: .datePicker, trackAnalytics: false)
     }
 
     /// Executes loadTasksForSelectedDate.
     private func loadTasksForSelectedDate(generation: Int) {
-        scheduleRecurringTopUpIfNeeded()
-        focusEngineEnabled = true
-        activeScope = .customDate(selectedDate)
-        applyFocusFilters(trackAnalytics: false, generation: generation)
+        applySelectedDay(
+            selectedDate,
+            source: .datePicker,
+            trackAnalytics: false,
+            generation: generation
+        )
     }
 
     /// Load tasks for today.
     public func loadTodayTasks() {
-        loadTodayTasks(generation: nextReloadGeneration())
+        returnToToday(source: .backToToday)
     }
 
     public func refreshWeeklySummaryNow() {
@@ -1258,17 +1276,12 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes loadTodayTasks.
     private func loadTodayTasks(generation: Int) {
-        scheduleRecurringTopUpIfNeeded()
-        focusEngineEnabled = true
-        activeScope = .today
-        selectedDate = Date()
-        var state = activeFilterState
-        state.quickView = .today
-        state.selectedSavedViewID = nil
-        activeFilterState = state
-        persistLastFilterState()
-        applyFocusFilters(trackAnalytics: false, generation: generation)
-        loadDailyAnalytics()
+        applySelectedDay(
+            Date(),
+            source: .backToToday,
+            trackAnalytics: false,
+            generation: generation
+        )
     }
 
     /// Executes scheduleRecurringTopUpIfNeeded.
@@ -1857,19 +1870,78 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Change selected date.
-    public func selectDate(_ date: Date) {
-        selectedDate = date
+    public func selectDate(_ date: Date, source: HomeDateNavigationSource = .datePicker) {
+        applySelectedDay(date, source: source, trackAnalytics: source == .swipe)
+    }
 
-        if Calendar.current.isDateInToday(date) {
-            focusEngineEnabled = true
-            activeScope = .today
-            loadTodayTasks()
+    public func shiftSelectedDay(
+        byDays days: Int,
+        source: HomeDateNavigationSource = .swipe
+    ) {
+        guard days != 0 else { return }
+        let baseDay = normalizedDay(selectedDate)
+        let targetDay = Calendar.current.date(byAdding: .day, value: days, to: baseDay) ?? baseDay
+        selectDate(targetDay, source: source)
+    }
+
+    public func returnToToday(source: HomeDateNavigationSource = .backToToday) {
+        applySelectedDay(Date(), source: source, trackAnalytics: source == .backToToday)
+    }
+
+    private func applySelectedDay(
+        _ day: Date,
+        source: HomeDateNavigationSource,
+        trackAnalytics: Bool
+    ) {
+        applySelectedDay(
+            day,
+            source: source,
+            trackAnalytics: trackAnalytics,
+            generation: nextReloadGeneration()
+        )
+    }
+
+    private func applySelectedDay(
+        _ day: Date,
+        source: HomeDateNavigationSource,
+        trackAnalytics: Bool,
+        generation: Int
+    ) {
+        scheduleRecurringTopUpIfNeeded()
+
+        let targetDay = normalizedDay(day)
+        let targetScope: HomeListScope = Calendar.current.isDateInToday(targetDay) ? .today : .customDate(targetDay)
+        let currentDay = normalizedDay(selectedDate)
+        let isSameDay = Calendar.current.isDate(currentDay, inSameDayAs: targetDay)
+        let alreadySelected = isSameDay && activeScope == targetScope && activeFilterState.quickView == .today
+
+        guard alreadySelected == false else {
+            TaskerPerformanceTrace.event("HomeDaySwipeCancelled")
             return
         }
 
-        focusEngineEnabled = true
-        activeScope = .customDate(date)
-        loadTasksForSelectedDate()
+        performHomeRenderStateBatch {
+            focusEngineEnabled = true
+            activeScope = targetScope
+            selectedDate = targetDay
+            var state = activeFilterState
+            state.quickView = .today
+            state.selectedSavedViewID = nil
+            activeFilterState = state
+        }
+
+        persistLastFilterState()
+        calendarIntegrationService.refreshContext(
+            referenceDate: targetDay,
+            reason: "home_selected_date_changed_\(source.rawValue)"
+        )
+        if source == .swipe {
+            TaskerPerformanceTrace.event("HomeDaySwipeCommitted")
+        }
+        applyFocusFilters(trackAnalytics: trackAnalytics, generation: generation)
+        if Calendar.current.isDateInToday(targetDay) {
+            loadDailyAnalytics()
+        }
     }
 
     /// Change selected project filter (legacy path).
@@ -1891,11 +1963,13 @@ public final class HomeViewModel: ObservableObject {
 
     /// Focus Engine: set quick view.
     public func setQuickView(_ quickView: HomeQuickView) {
+        if quickView == .today {
+            applySelectedDay(Date(), source: .datePicker, trackAnalytics: true)
+            return
+        }
+
         focusEngineEnabled = true
         activeScope = .fromQuickView(quickView)
-        if quickView == .today {
-            selectedDate = Date()
-        }
         var state = activeFilterState
         state.quickView = quickView
         state.selectedSavedViewID = nil
@@ -2499,7 +2573,7 @@ public final class HomeViewModel: ObservableObject {
     public func refreshAfterDailyReflectPlanSave(planningDate: Date) {
         refreshWeeklySummary()
         loadDailyAnalytics(includeGamificationRefresh: false)
-        selectDate(planningDate)
+        selectDate(planningDate, source: .dailyReflection)
         scheduleHomeRenderStateRefresh()
     }
 
@@ -3597,9 +3671,12 @@ public final class HomeViewModel: ObservableObject {
     private func refreshDueTodayAgenda(
         openTaskRows: [TaskDefinition],
         generation: Int,
+        targetDay: Date,
+        scope: HomeListScope,
         includeAnalyticsRefresh: Bool = true,
         completion: (() -> Void)? = nil
     ) {
+        let day = normalizedDay(targetDay)
         let group = DispatchGroup()
         let stateLock = NSLock()
         var agendaHabitRows: [HomeHabitRow] = []
@@ -3608,7 +3685,7 @@ public final class HomeViewModel: ObservableObject {
         var libraryRowsByID: [UUID: HabitLibraryRow] = [:]
 
         group.enter()
-        buildHabitHomeProjectionUseCase.execute(date: selectedDate) { result in
+        buildHabitHomeProjectionUseCase.execute(date: day) { result in
             stateLock.lock()
             agendaHabitRows = (try? result.get()) ?? []
             stateLock.unlock()
@@ -3637,7 +3714,7 @@ public final class HomeViewModel: ObservableObject {
                     trackingHabitRows = self.trackingHomeRows(
                         from: libraryRows,
                         historyByHabitID: lockedHistory,
-                        on: self.selectedDate
+                        on: day
                     )
                     stateLock.unlock()
                     group.leave()
@@ -3646,7 +3723,7 @@ public final class HomeViewModel: ObservableObject {
                 group.enter()
                 self.useCaseCoordinator.getHabitHistory.execute(
                     habitIDs: libraryRows.map(\.habitID),
-                    endingOn: self.selectedDate,
+                    endingOn: day,
                     dayCount: 30
                 ) { historyResult in
                     var resolvedHistoryByHabitID: [UUID: [HabitDayMark]] = [:]
@@ -3658,7 +3735,7 @@ public final class HomeViewModel: ObservableObject {
                     let resolvedTrackingRows = self.trackingHomeRows(
                         from: libraryRows,
                         historyByHabitID: resolvedHistoryByHabitID,
-                        on: self.selectedDate
+                        on: day
                     )
                     stateLock.lock()
                     historyByHabitID = resolvedHistoryByHabitID
@@ -3672,7 +3749,14 @@ public final class HomeViewModel: ObservableObject {
 
         group.notify(queue: .main) { [weak self] in
             defer { completion?() }
-            guard let self, self.isCurrentReloadGeneration(generation) else { return }
+            guard let self, self.isCurrentReloadGeneration(generation) else {
+                TaskerPerformanceTrace.event("HomeDaySwipeStaleDrop")
+                return
+            }
+            guard self.selectedDayMatches(day, scope: scope) else {
+                TaskerPerformanceTrace.event("HomeDaySwipeStaleDrop")
+                return
+            }
 
             stateLock.lock()
             let resolvedAgendaHabitRows = agendaHabitRows
@@ -3687,16 +3771,16 @@ public final class HomeViewModel: ObservableObject {
             let splitHabitRows = HabitBoardPresentationBuilder.splitHomeRows(allHabitRows)
             self.currentHabitSignals = self.habitSignals(from: allHabitRows)
             self.habitLibraryRowsByID = resolvedLibraryRowsByID
-            let rescueSplit = self.splitRescueEligibleTasks(from: openTaskRows, on: self.selectedDate)
+            let rescueSplit = self.splitRescueEligibleTasks(from: openTaskRows, on: day)
 
             let focusRows = self.composeFocusRows(taskRows: rescueSplit.focusTaskRows, habitRows: allHabitRows)
             let agendaTaskRows =
-                self.activeScope.quickView == .today
+                scope.quickView == .today
                 ? Self.excludingVisibleFocusTasks(from: rescueSplit.agendaTaskRows, focusRows: focusRows)
                 : rescueSplit.agendaTaskRows
 
             let agenda = self.buildHomeAgendaUseCase.execute(
-                date: self.selectedDate,
+                date: day,
                 taskRows: agendaTaskRows,
                 habitRows: resolvedAgendaHabitRows
             )
@@ -3745,7 +3829,7 @@ public final class HomeViewModel: ObservableObject {
             )
 
             if includeAnalyticsRefresh,
-               Calendar.current.isDate(self.selectedDate, inSameDayAs: Date()) {
+               Calendar.current.isDate(day, inSameDayAs: Date()) {
                 self.loadDailyAnalytics(includeGamificationRefresh: false)
             }
         }
@@ -4535,6 +4619,8 @@ public final class HomeViewModel: ObservableObject {
         refreshDueTodayAgenda(
             openTaskRows: focusOpenTasksForCurrentState(),
             generation: reloadGeneration,
+            targetDay: normalizedDay(selectedDate),
+            scope: activeScope,
             includeAnalyticsRefresh: false
         )
     }
@@ -5236,9 +5322,13 @@ public final class HomeViewModel: ObservableObject {
         }
         if scopes.contains(.habits) {
             let interval = TaskerPerformanceTrace.begin("HomeHabitScopedReload")
+            let targetDay = normalizedDay(activeScope.referenceDate)
+            let scope = activeScope
             refreshDueTodayAgenda(
                 openTaskRows: openTaskRowsForHabitReconciliation(),
                 generation: generation,
+                targetDay: targetDay,
+                scope: scope,
                 includeAnalyticsRefresh: false,
                 completion: {
                     TaskerPerformanceTrace.end(interval)
@@ -5270,13 +5360,26 @@ public final class HomeViewModel: ObservableObject {
         completion: (() -> Void)? = nil
     ) {
         let interval = TaskerPerformanceTrace.begin("HomeApplyFilters")
+        let filterState = activeFilterState
+        let scope = activeScope
+        let revision = dataRevision
+        let targetDay = normalizedDay(scope.referenceDate)
+        if scope.quickView == .today {
+            TaskerPerformanceTrace.event(
+                homeFilteredTasksUseCase.hasCachedResult(
+                    state: filterState,
+                    scope: scope,
+                    revision: revision
+                ) ? "HomeDaySwipeCacheHit" : "HomeDaySwipeCacheMiss"
+            )
+        }
         isLoading = true
         errorMessage = nil
 
         homeFilteredTasksUseCase.execute(
-            state: activeFilterState,
-            scope: activeScope,
-            revision: dataRevision
+            state: filterState,
+            scope: scope,
+            revision: revision
         ) { [weak self] result in
             DispatchQueue.main.async {
                 defer { TaskerPerformanceTrace.end(interval) }
@@ -5284,6 +5387,12 @@ public final class HomeViewModel: ObservableObject {
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
                     logDebug("HOME_ROW_STATE vm.drop_stale_reload source=focus generation=\(generation)")
+                    TaskerPerformanceTrace.event("HomeDaySwipeStaleDrop")
+                    return
+                }
+                guard self.selectedDayMatches(targetDay, scope: scope) else {
+                    logDebug("HOME_ROW_STATE vm.drop_stale_day source=focus generation=\(generation)")
+                    TaskerPerformanceTrace.event("HomeDaySwipeStaleDrop")
                     return
                 }
                 self.isLoading = false
@@ -5293,18 +5402,26 @@ public final class HomeViewModel: ObservableObject {
                     self.performHomeRenderStateBatch {
                         self.assignIfChanged(\.quickViewCounts, filteredResult.quickViewCounts)
                         self.assignIfChanged(\.pointsPotential, filteredResult.pointsPotential)
-                        self.applyResultToSections(filteredResult, generation: generation)
+                        self.applyResultToSections(
+                            filteredResult,
+                            generation: generation,
+                            targetDay: targetDay,
+                            scope: scope
+                        )
                         self.refreshProgressState()
                         self.refreshWeeklySummary()
 
                         if trackAnalytics {
                             self.trackFeatureUsage(action: "home_filter_applied", metadata: [
-                                "quick_view": self.activeScope.quickView.analyticsAction,
-                                "scope": self.scopeAnalyticsAction(self.activeScope),
-                                "project_count": self.activeFilterState.selectedProjectIDs.count,
-                                "saved_view": self.activeFilterState.selectedSavedViewID?.uuidString ?? "",
-                                "advanced_filter": self.activeFilterState.advancedFilter != nil
+                                "quick_view": scope.quickView.analyticsAction,
+                                "scope": self.scopeAnalyticsAction(scope),
+                                "project_count": filterState.selectedProjectIDs.count,
+                                "saved_view": filterState.selectedSavedViewID?.uuidString ?? "",
+                                "advanced_filter": filterState.advancedFilter != nil
                             ])
+                        }
+                        if scope.quickView == .today {
+                            self.prefetchAdjacentDays(around: targetDay)
                         }
                     }
 
@@ -5315,15 +5432,50 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    private func prefetchAdjacentDays(around targetDay: Date) {
+        let calendar = Calendar.current
+        let baseDay = normalizedDay(targetDay)
+        var state = activeFilterState
+        state.quickView = .today
+        state.selectedSavedViewID = nil
+        let revision = dataRevision
+
+        for dayOffset in [-1, 1] {
+            guard let adjacentDay = calendar.date(byAdding: .day, value: dayOffset, to: baseDay) else {
+                continue
+            }
+
+            let scope: HomeListScope = calendar.isDateInToday(adjacentDay) ? .today : .customDate(adjacentDay)
+            guard homeFilteredTasksUseCase.hasCachedResult(state: state, scope: scope, revision: revision) == false else {
+                continue
+            }
+
+            homeFilteredTasksUseCase.execute(
+                state: state,
+                scope: scope,
+                revision: revision
+            ) { result in
+                if case .success = result {
+                    TaskerPerformanceTrace.event("HomeDaySwipePrefetchReady")
+                }
+            }
+        }
+    }
+
     /// Executes applyResultToSections.
-    private func applyResultToSections(_ result: HomeFilteredTasksResult, generation: Int) {
+    private func applyResultToSections(
+        _ result: HomeFilteredTasksResult,
+        generation: Int,
+        targetDay: Date,
+        scope: HomeListScope
+    ) {
         let overriddenResult = applyCompletionOverrides(
             openTasks: result.openTasks,
             doneTasks: result.doneTimelineTasks
         )
         let openTasks = overriddenResult.openTasks
         let incomingDoneTasks = overriddenResult.doneTasks
-        let shouldKeepCompletedInline = shouldKeepCompletedInline(for: activeScope)
+        let shouldKeepCompletedInline = shouldKeepCompletedInline(for: scope)
         let doneTasks = mergedInlineDoneTasks(
             incomingDoneTasks: incomingDoneTasks,
             openTasks: openTasks,
@@ -5332,11 +5484,11 @@ public final class HomeViewModel: ObservableObject {
         let visibleTasks = shouldKeepCompletedInline ? (openTasks + doneTasks) : openTasks
 
         logDebug(
-            "HOME_ROW_STATE vm.apply_result quick=\(activeScope.quickView.rawValue) " +
+            "HOME_ROW_STATE vm.apply_result quick=\(scope.quickView.rawValue) " +
             "open=\(summarizeRowState(openTasks)) done=\(summarizeRowState(doneTasks))"
         )
 
-        if activeScope.quickView == .today {
+        if scope.quickView == .today {
             prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
         }
         assignIfChanged(\.focusTasks, composedFocusTasks(from: openTasks))
@@ -5378,11 +5530,13 @@ public final class HomeViewModel: ObservableObject {
         assignIfChanged(\.dailyCompletedTasks, doneTasks)
         refreshDueTodayAgenda(
             openTaskRows: openTasks,
-            generation: generation
+            generation: generation,
+            targetDay: targetDay,
+            scope: scope
         )
 
-        let overdue = visibleTasks.filter { isTaskOverdue($0, relativeTo: activeScope) }
-        let nonOverdue = visibleTasks.filter { !isTaskOverdue($0, relativeTo: activeScope) }
+        let overdue = visibleTasks.filter { isTaskOverdue($0, relativeTo: scope) }
+        let nonOverdue = visibleTasks.filter { !isTaskOverdue($0, relativeTo: scope) }
 
         let computedEvening = nonOverdue.filter { isEveningTaskHybrid($0) }.sorted(by: sortByPriorityThenDue)
         let computedMorning = nonOverdue.filter { !isEveningTaskHybrid($0) }.sorted(by: sortByPriorityThenDue)
@@ -5404,7 +5558,7 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(\.overdueTasks, computedOverdue)
         }
 
-        switch activeScope.quickView {
+        switch scope.quickView {
         case .upcoming:
             assignIfChanged(\.upcomingTasks, openTasks)
             assignIfChanged(\.emptyStateMessage, "No upcoming tasks in 14 days")
@@ -5432,7 +5586,7 @@ public final class HomeViewModel: ObservableObject {
 
         updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
         refreshNeedsReplanCandidates()
-        writeTaskListWidgetSnapshot(reason: "apply_result_\(activeScope.quickView.rawValue)")
+        writeTaskListWidgetSnapshot(reason: "apply_result_\(scope.quickView.rawValue)")
     }
 
     /// Executes updateCompletionRateFromFocusResult.
@@ -6450,7 +6604,7 @@ public final class HomeViewModel: ObservableObject {
         guard let candidate = activeReplanCandidates.first else { return }
         replanErrorMessage = nil
         let defaultDay = defaultReplanPlacementDay()
-        selectDate(defaultDay)
+        selectDate(defaultDay, source: .replan)
         updateReplanState(phase: .placement(candidate, defaultDay: defaultDay))
     }
 
@@ -7888,7 +8042,7 @@ extension HomeViewModel {
             wakeAnchor: wakeAnchor,
             sleepAnchor: sleepAnchor,
             inboxCount: inboxItems.count,
-            selectedDate: selectedDate,
+            selectedDate: selectedDay,
             now: now
         )
         let layoutMode = timelineDayLayoutMode(
@@ -7900,10 +8054,10 @@ extension HomeViewModel {
         let currentItemID = timedBuckets.allItems.first(where: { $0.isActive(at: now) })?.id
 
         return HomeTimelineSnapshot(
-            selectedDate: selectedDate,
+            selectedDate: selectedDay,
             foredropAnchor: foredropAnchor,
             day: TimelineDayProjection(
-                date: selectedDate,
+                date: selectedDay,
                 allDayItems: allDayItems,
                 inboxItems: inboxItems,
                 timedItems: timedBuckets.operationalItems,
