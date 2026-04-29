@@ -203,6 +203,18 @@ public final class EnhancedDependencyContainer {
         self.notificationService = LocalNotificationService()
         self.remindersProvider = EventKitAppleRemindersProvider()
         if let calendarMode = calendarUITestMode() {
+            UserDefaultsCalendarAccessAttemptStore.shared.reset()
+            if calendarMode == .deniedAfterAttempt {
+                UserDefaultsCalendarAccessAttemptStore.shared.recordFullAccessAttempt(
+                    CalendarAccessAttemptRecord(
+                        source: "ui_test_seed",
+                        statusBefore: .denied,
+                        statusAfter: .denied,
+                        outcome: .denied,
+                        appVersion: UserDefaultsCalendarAccessAttemptStore.defaultAppVersion()
+                    )
+                )
+            }
             self.calendarEventsProvider = UITestCalendarEventsProvider(mode: calendarMode)
             applyCalendarUITestWorkspaceDefaults(mode: calendarMode)
         } else {
@@ -303,7 +315,7 @@ public final class EnhancedDependencyContainer {
             preferences.includeAllDayInBusyStrip = false
 
             switch mode {
-            case .permission, .noCalendars:
+            case .permission, .writeOnly, .denied, .deniedAfterAttempt, .noCalendars:
                 preferences.selectedCalendarIDs = []
             case .active, .allDayOnly, .empty, .error:
                 preferences.selectedCalendarIDs = ["work"]
@@ -409,6 +421,9 @@ enum UITestCalendarMode: String {
     case active
     case allDayOnly
     case permission
+    case writeOnly
+    case denied
+    case deniedAfterAttempt
     case noCalendars
     case empty
     case error
@@ -424,6 +439,10 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
         switch mode {
         case .permission:
             self.authStatus = .notDetermined
+        case .writeOnly:
+            self.authStatus = .writeOnly
+        case .denied, .deniedAfterAttempt:
+            self.authStatus = .denied
         case .active, .allDayOnly, .noCalendars, .empty, .error:
             self.authStatus = .authorized
         }
@@ -434,8 +453,13 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
     }
 
     func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
-        authStatus = .authorized
-        completion(.success(true))
+        switch mode {
+        case .deniedAfterAttempt:
+            completion(.success(false))
+        default:
+            authStatus = .authorized
+            completion(.success(true))
+        }
     }
 
     func resetStoreStateAfterPermissionChange() {}
@@ -477,7 +501,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
         completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
     ) {
         switch mode {
-        case .permission, .noCalendars, .empty:
+        case .permission, .writeOnly, .denied, .deniedAfterAttempt, .noCalendars, .empty:
             completion(.success([]))
         case .error:
             completion(.failure(NSError(
@@ -488,11 +512,9 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
         case .active:
             let calendar = Calendar.current
             let now = Date()
-            let clampedAnchor = min(max(now, startDate), endDate.addingTimeInterval(-60))
-            let startOfAnchorDay = calendar.startOfDay(for: clampedAnchor)
-            let firstStart = calendar.date(byAdding: .hour, value: 10, to: startOfAnchorDay) ?? startOfAnchorDay
+            let firstStart = calendar.date(byAdding: .minute, value: 30, to: now) ?? now
             let firstEnd = calendar.date(byAdding: .minute, value: 30, to: firstStart) ?? firstStart
-            let secondStart = calendar.date(byAdding: .hour, value: 14, to: startOfAnchorDay) ?? firstEnd
+            let secondStart = calendar.date(byAdding: .minute, value: 60, to: firstEnd) ?? firstEnd
             let secondEnd = calendar.date(byAdding: .minute, value: 30, to: secondStart) ?? secondStart
             let allEvents = [
                 TaskerCalendarEventSnapshot(

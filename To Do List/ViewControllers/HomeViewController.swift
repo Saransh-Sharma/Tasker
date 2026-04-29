@@ -326,6 +326,7 @@ struct HomeCalendarSnapshot: Equatable {
     let moduleState: HomeCalendarModuleState
     let selectedDate: Date
     let authorizationStatus: TaskerCalendarAuthorizationStatus
+    let accessAction: CalendarAccessAction
     let selectedCalendarCount: Int
     let availableCalendarCount: Int
     let nextMeeting: TaskerNextMeetingSummary?
@@ -341,6 +342,7 @@ struct HomeCalendarSnapshot: Equatable {
         moduleState: .permissionRequired,
         selectedDate: Date(),
         authorizationStatus: .notDetermined,
+        accessAction: .requestPermission,
         selectedCalendarCount: 0,
         availableCalendarCount: 0,
         nextMeeting: nil,
@@ -388,6 +390,8 @@ struct TimelinePlanItem: Equatable, Identifiable {
     let tintHex: String?
     let systemImageName: String
     let accessoryText: String?
+    let taskPriority: TaskPriority?
+    let isPinnedFocusTask: Bool
     let hasNotes: Bool
     let isRecurring: Bool
     let checklistSummary: TimelineChecklistSummary?
@@ -411,6 +415,8 @@ struct TimelinePlanItem: Equatable, Identifiable {
         tintHex: String?,
         systemImageName: String,
         accessoryText: String?,
+        taskPriority: TaskPriority? = nil,
+        isPinnedFocusTask: Bool = false,
         hasNotes: Bool = false,
         isRecurring: Bool = false,
         checklistSummary: TimelineChecklistSummary? = nil,
@@ -433,6 +439,8 @@ struct TimelinePlanItem: Equatable, Identifiable {
         self.tintHex = tintHex
         self.systemImageName = systemImageName
         self.accessoryText = accessoryText
+        self.taskPriority = taskPriority
+        self.isPinnedFocusTask = isPinnedFocusTask
         self.hasNotes = hasNotes
         self.isRecurring = isRecurring
         self.checklistSummary = checklistSummary
@@ -556,6 +564,12 @@ enum TimelineDayLayoutMode: Equatable {
     case compact
 }
 
+enum TimelineDensityMode: Equatable {
+    case normal
+    case lightTimeline
+    case sparse
+}
+
 struct TimelineDayProjection: Equatable {
     let date: Date
     let allDayItems: [TimelinePlanItem]
@@ -568,6 +582,7 @@ struct TimelineDayProjection: Equatable {
     let bridgeItems: [TimelinePlanItem]
     let actionableGaps: [TimelineGap]
     let layoutMode: TimelineDayLayoutMode
+    let calendarPlottingEnabled: Bool
     let wakeAnchor: TimelineAnchorItem
     let sleepAnchor: TimelineAnchorItem
     let activeItemID: String?
@@ -586,6 +601,7 @@ struct TimelineDayProjection: Equatable {
         bridgeItems: [TimelinePlanItem]? = nil,
         actionableGaps: [TimelineGap]? = nil,
         layoutMode: TimelineDayLayoutMode,
+        calendarPlottingEnabled: Bool = true,
         wakeAnchor: TimelineAnchorItem,
         sleepAnchor: TimelineAnchorItem,
         activeItemID: String?,
@@ -603,6 +619,7 @@ struct TimelineDayProjection: Equatable {
         self.bridgeItems = bridgeItems ?? timedItems.filter { $0.overlapsWake || $0.overlapsSleep }
         self.actionableGaps = actionableGaps ?? gaps
         self.layoutMode = layoutMode
+        self.calendarPlottingEnabled = calendarPlottingEnabled
         self.wakeAnchor = wakeAnchor
         self.sleepAnchor = sleepAnchor
         self.activeItemID = activeItemID
@@ -620,6 +637,23 @@ struct TimelineDayProjection: Equatable {
 
     var afterSleepItems: [TimelinePlanItem] {
         afterSleepSummaryItems
+    }
+
+    var plottedTimelineItems: [TimelinePlanItem] {
+        beforeWakeItems + timedItems + afterSleepItems
+    }
+
+    var hasPlottedTimelineItems: Bool {
+        plottedTimelineItems.isEmpty == false
+    }
+
+    var timelineDensityMode: TimelineDensityMode {
+        let plotted = plottedTimelineItems
+        guard plotted.isEmpty == false else { return .sparse }
+        guard beforeWakeItems.isEmpty, afterSleepItems.isEmpty else { return .normal }
+        guard plotted.count == 1, let item = plotted.first else { return .normal }
+        let duration = item.duration ?? 0
+        return duration < 90 * 60 ? .lightTimeline : .normal
     }
 
     func displayStartDate(for item: TimelinePlanItem) -> Date? {
@@ -2265,16 +2299,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             onReorderCustomProjects: { [weak self] projectIDs in
                 self?.viewModel?.setCustomProjectOrder(projectIDs)
             },
-            onAddTask: { [weak self] in
-                if self?.isUsingIPadNativeShell == true {
-                    if self?.currentLayoutClass == .padExpanded {
-                        self?.iPadShellState.destination = .addTask
-                    } else {
-                        self?.presentAddTaskSheetForPadFallback()
-                    }
-                } else {
-                    self?.AddTaskAction()
-                }
+            onAddTask: { [weak self] suggestedDate in
+                self?.presentAddTaskFlow(suggestedDate: suggestedDate)
             },
             onOpenChat: { [weak self] in
                 if self?.isUsingIPadNativeShell == true {
@@ -3521,10 +3547,27 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes AddTaskAction.
     @objc func AddTaskAction() {
+        presentAddTaskFlow(suggestedDate: nil)
+    }
+
+    private func presentAddTaskFlow(suggestedDate: Date?) {
+        if isUsingIPadNativeShell,
+           currentLayoutClass == .padExpanded,
+           suggestedDate == nil {
+            iPadShellState.destination = .addTask
+            return
+        }
+
+        if isUsingIPadNativeShell {
+            presentAddTaskSheetForPadFallback(suggestedDate: suggestedDate)
+            return
+        }
+
         guard let presentationDependencyContainer else {
             fatalError("HomeViewController missing PresentationDependencyContainer")
         }
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
+        applyTimelineSuggestedDate(suggestedDate, to: vm)
         let sheet = AddTaskSheetView(
             viewModel: vm,
             habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
@@ -3543,15 +3586,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
-    private func presentAddTaskSheetForPadFallback() {
+    private func presentAddTaskSheetForPadFallback(suggestedDate: Date? = nil) {
         guard isUsingIPadNativeShell else {
-            AddTaskAction()
+            presentAddTaskFlow(suggestedDate: suggestedDate)
             return
         }
         guard let presentationDependencyContainer else {
             fatalError("HomeViewController missing PresentationDependencyContainer")
         }
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
+        applyTimelineSuggestedDate(suggestedDate, to: vm)
         let sheet = AddTaskSheetView(
             viewModel: vm,
             habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
@@ -3576,6 +3620,18 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(hostingVC, animated: true) {
             TaskerPerformanceTrace.end(interval)
         }
+    }
+
+    private func applyTimelineSuggestedDate(_ suggestedDate: Date?, to viewModel: AddTaskViewModel) {
+        guard let suggestedDate else { return }
+        viewModel.applyPrefill(
+            AddTaskPrefillTemplate(
+                title: "",
+                dueDateIntent: .exact(suggestedDate),
+                expandedSections: [.schedule],
+                showMoreDetails: true
+            )
+        )
     }
 
     @objc private func openProjectCreator() {

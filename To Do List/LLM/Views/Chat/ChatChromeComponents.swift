@@ -235,8 +235,19 @@ struct ChatEmptyStateView: View {
 
     private var structuredPlanEmptyState: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Spacer()
+            HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                    Text("Hi there!")
+                        .taskerFont(.screenTitle)
+                        .foregroundStyle(Color.tasker(.accentPrimary))
+                    Text("What do you need to plan?")
+                        .taskerFont(.title1)
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: TaskerTheme.Spacing.md)
+
                 Button(action: onOpenEvaGuide) {
                     Image(systemName: "questionmark")
                         .font(.system(size: 24, weight: .semibold))
@@ -249,18 +260,6 @@ struct ChatEmptyStateView: View {
                 .accessibilityHint("Shows ways to use Eva as your chief of staff.")
                 .accessibilityIdentifier("eva.structured.help")
                 .taskerPressFeedback(reduceMotion: reduceMotion)
-            }
-            .padding(.horizontal, TaskerTheme.Spacing.xl)
-            .padding(.top, TaskerTheme.Spacing.xl)
-
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-                Text("Hi there!")
-                    .taskerFont(.screenTitle)
-                    .foregroundStyle(Color.tasker(.accentPrimary))
-                Text("What do you need to plan?")
-                    .taskerFont(.title1)
-                    .foregroundStyle(Color.tasker(.textPrimary))
-                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, TaskerTheme.Spacing.xl)
             .padding(.top, TaskerTheme.Spacing.xl)

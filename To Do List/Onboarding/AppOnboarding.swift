@@ -146,8 +146,8 @@ enum OnboardingCopy {
 
     enum Calendar {
         static let title = String(localized: "Connect calendar")
-        static let subtitle = String(localized: "Calendar access helps Tasker fit tasks around your day.")
-        static let cta = String(localized: "Allow calendar")
+        static let subtitle = String(localized: "Full calendar access lets Tasker read your schedule and fit tasks around your day.")
+        static let cta = String(localized: "Allow Full Calendar Access")
     }
 
     enum Notifications {
@@ -8830,7 +8830,7 @@ extension ResolveHabitOccurrenceUseCase {
 extension CalendarIntegrationService {
     func requestAccessAsync() async -> Bool {
         await withCheckedContinuation { continuation in
-            requestAccess { granted in
+            requestAccess(source: "onboarding") { granted in
                 continuation.resume(returning: granted)
             }
         }
