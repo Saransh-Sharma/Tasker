@@ -2,15 +2,20 @@
 
 Tasker uses calendar data as execution context, not as a competing calendar product.
 
-The purpose of the feature is to answer three questions quickly:
+The Home timeline is the user's calm command center for the day. It turns tasks, meetings, routines, busy blocks, open gaps, and EVA guidance into one visual day narrative so the user can understand the day without mentally stitching together a calendar, task list, and planner.
 
-1. What is happening next?
-2. How much time is actually free?
-3. Can this task fit in the window that remains?
+The purpose of the feature is to answer the user's most important day questions quickly:
+
+1. What is happening now?
+2. What is coming next?
+3. Which parts of the day are busy?
+4. Where is there usable free time?
+5. What needs attention?
+6. What can safely be ignored or deferred?
 
 ## Core Promise
 
-Tasker observes calendar reality and reflects it back in a compact, read-only form.
+Tasker observes calendar reality and reflects it back in a compact, read-only form that supports orientation, prioritization, and action.
 
 That means:
 
@@ -19,12 +24,14 @@ That means:
 - The Home screen can surface the next meeting and free time
 - Task detail can surface fit hints derived from the live calendar picture
 - The timeline can remain task-first while still respecting schedule pressure
+- Sparse days become planning opportunities instead of blank screens
+- EVA can eventually use the timeline as the foundation for conflict detection, overload repair, focus-time protection, task deferral, and free-gap planning assistance
 
 ## Primary Surfaces
 
 ### Home
 
-Home is the main calendar entry point.
+Home is the main calendar entry point and the primary single-glanceable day surface.
 
 The Home schedule module should communicate:
 
@@ -49,7 +56,7 @@ The feature is advisory. It does not reschedule anything on its own.
 
 ### Timeline
 
-The timeline is Tasker’s task chronology and schedule-aware planning view.
+The timeline is Tasker's task chronology, visual day narrative, and intelligent planning surface.
 
 It should remain task-first while still using calendar context to:
 
@@ -57,6 +64,15 @@ It should remain task-first while still using calendar context to:
 - Distinguish open windows from blocked windows
 - Inform timeline-adjacent planning surfaces
 - Keep the user oriented around next action, not around a giant calendar grid
+
+Every element in the timeline has a role:
+
+- Fixed meetings render as anchored blocks because they are hard commitments.
+- Tasks render as lighter markers or cards because they are flexible, actionable work.
+- Routines such as morning and evening rituals give the day gentle structure.
+- Busy overlapping periods render as flocks so complexity is visible but not chaotic.
+- Large empty gaps are compressed and labeled so open time becomes understandable and usable.
+- Sparse or empty days offer planning, task creation, or EVA-assisted scheduling affordances.
 
 On iPhone, the timeline should optimize for glanceability rather than calendar fidelity:
 
@@ -77,6 +93,9 @@ On iPhone, the timeline should optimize for glanceability rather than calendar f
 - As a user, I can see when I am free until, so I can choose a task that fits.
 - As a user, I can open task detail and understand whether a task is likely to fit the current day.
 - As a user, I can use the timeline without feeling like Tasker has turned into another calendar grid app.
+- As a user, I can open Tasker, look at the timeline for two seconds, and feel grounded about what matters now.
+- As a user, I can see whether the day is packed, flexible, or sparse without decoding a crowded interface.
+- As a user, I can use large open gaps as planning opportunities instead of seeing them as empty space.
 
 ## Calendar States
 
@@ -108,5 +127,6 @@ Calendar context should improve the timeline in a few specific ways:
 - Current time pressure can be expressed without a giant now marker
 - Calendar events can inform fit and context, but they do not replace task chronology
 - Overlapping items should communicate "this period is busy" before exposing exact calendar geometry
+- EVA guidance should appear only when it helps the user act, repair, defer, or protect focus
 
 The timeline chapter in this package exists to keep that distinction explicit.

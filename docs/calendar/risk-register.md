@@ -71,13 +71,42 @@ Risk:
 Busy calendars and scheduled tasks create overlapping regions that are technically accurate but unreadable on iPhone.
 
 Impact:
-The Home timeline looks noisy, titles truncate into meaningless fragments, and users cannot quickly understand what is happening next.
+The Home timeline looks noisy, titles truncate into meaningless fragments, and users cannot quickly understand what is happening now, what is next, or which windows are overloaded.
 
 Mitigation:
 - Render iPhone overlaps as stacked flocks instead of horizontal lanes
 - Use compact, title-first single-item cards
 - Compress noisy titles before truncation
 - Keep extreme-density flocks relevance-prioritized rather than purely exhaustive
+- Treat readability and orientation as higher priority than showing every item with equal visual weight
+
+## Sparse Timeline Abandonment Risk
+
+Risk:
+Sparse or empty days render as blank space with little planning guidance.
+
+Impact:
+Open time feels like an abandoned screen instead of a useful opportunity, and users may leave Tasker to plan elsewhere.
+
+Mitigation:
+- Compress long gaps into labeled opportunity windows
+- Offer lightweight task creation or planning affordances in open windows
+- Keep empty states explicit and useful without implying a calendar failure
+- Allow EVA-assisted scheduling prompts where available, framed as optional help
+
+## EVA Guidance Noise Risk
+
+Risk:
+EVA suggestions appear too often, compete with timeline content, or imply automatic scheduling authority.
+
+Impact:
+The single-glance day surface becomes noisy, and users may lose trust in the assistant or the read-only calendar boundary.
+
+Mitigation:
+- Surface EVA guidance only when it helps the user act, repair, defer, or protect focus
+- Keep assistant-driven changes behind proposal, confirmation, and undo boundaries
+- Avoid persistent advice chrome that distracts from current and next actions
+- Clearly separate future EVA planning direction from currently implemented workflows
 
 ## Visual Time Distortion Risk
 

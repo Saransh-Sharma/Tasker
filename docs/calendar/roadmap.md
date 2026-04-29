@@ -23,6 +23,8 @@
 - Consider widgets or Live Activities only if they remain read-only and reinforce execution context
 - Consider broader planning-mode surfaces only if they do not collapse Tasker into a calendar-first app
 - Expand timeline-adjacent context carefully, preserving the distinction between schedule context and task chronology
+- Evolve EVA into a quiet day-management layer on top of the timeline, with conflict detection, overloaded-window repair, focus-time protection, task deferral, and free-gap planning assistance
+- Keep EVA timeline guidance optional, reviewable, and oriented toward the next useful action rather than persistent advice noise
 
 ## Non-Goals
 

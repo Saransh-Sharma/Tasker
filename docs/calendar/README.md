@@ -1,6 +1,8 @@
 # Calendar + Timeline
 
-Tasker’s calendar layer is read-only schedule context that improves execution without turning Tasker into a full calendar app.
+Tasker's calendar layer is read-only schedule context that improves execution without turning Tasker into a full calendar app.
+
+The Home timeline is the product's single-glanceable day command center: a calm visual day narrative where tasks, fixed calendar commitments, routines, busy periods, open gaps, and EVA guidance come together as one readable planning surface. It should help users understand what matters in the day right now without forcing them to switch between a calendar, task list, and planner.
 
 The system observes external calendar reality through EventKit, filters it locally, and uses the resulting context in three places:
 
@@ -32,6 +34,8 @@ Those types are the source of truth for how calendar data is fetched, filtered, 
 
 The iPhone timeline is a readable mobile day planner, not a miniature calendar grid.
 
+Its job is to interpret the shape of the day, not reproduce every schedule detail with equal weight. Fixed commitments should feel anchored, tasks should feel flexible and actionable, busy overlapping windows should collapse into readable flocks, and open gaps should be labeled as usable opportunity.
+
 Phone rendering follows these rules:
 
 - Single tasks and calendar events render as compact, title-first timeline cards.
@@ -60,6 +64,6 @@ Out of scope:
 
 ## Terminology
 
-In Tasker, “timeline” means the task chronology and schedule context inside Tasker, not a full calendar grid.
+In Tasker, "timeline" means the task chronology and schedule context inside Tasker, not a full calendar grid.
 
 Calendar data informs timeline decisions, but the timeline remains task-first.

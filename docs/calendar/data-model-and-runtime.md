@@ -12,7 +12,7 @@ The current flow is:
 4. Raw calendar snapshots are projected into Home and schedule-specific view state
 5. Home and task detail consume those projections for next-meeting, free-until, and fit hints
 
-The implementation is read-only from Tasker’s point of view.
+The implementation is read-only from Tasker's point of view.
 
 ## Core Types
 
@@ -104,7 +104,7 @@ Derived projections should respect these rules consistently across Home, task-fi
 - Whether it is already in progress
 - Minutes until start for the next upcoming event
 
-This is the main “what’s next” signal for Home.
+This is the main "what's next" signal for Home.
 
 ### Busy Blocks
 
@@ -133,12 +133,15 @@ Unknown is the fallback when the app does not have enough context to evaluate fi
 
 The timeline is not a calendar clone.
 
+Timeline models exist to support a readable interpretation of the user's day. They should preserve enough time truth for orientation while prioritizing glanceability, action, and cognitive load reduction on a mobile screen.
+
 The timeline should:
 
 - Keep tasks as the primary chronology
 - Use schedule context to inform gaps and current pressure
 - Preserve read-only separation from external calendar edits
 - Avoid inventing write semantics for calendar events
+- Distinguish anchored commitments, flexible tasks, routines, busy flocks, and usable free gaps in the presentation layer
 
 If timeline surfaces need to present calendar-derived context, they should consume the same resolved state that Home does rather than inferring a separate interpretation.
 
@@ -159,6 +162,8 @@ The phone timeline uses a display-model layer on top of the lower-level time-blo
 - active-now row detection
 - extreme-density row prioritization
 - summary-row behavior when all items cannot remain readable
+
+The render model should protect the product goal of a calm single-glance day surface. Dense inputs should compress into readable summaries before the timeline becomes a noisy stack of equal-weight cards.
 
 ### Phone Layout Metrics
 
