@@ -5,16 +5,21 @@ final class HomeCalendarModuleUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testCalendarCardStateTransitionsAcrossStubModes() throws {
-        assertCalendarMode("permission", expectedStateID: "home.calendar.state.permission", expectsRetry: false)
-        assertCalendarMode("writeOnly", expectedStateID: "home.calendar.state.permission", expectsRetry: false)
-        assertCalendarMode("denied", expectedStateID: "home.calendar.state.permission", expectsRetry: false)
-        assertCalendarMode("deniedAfterAttempt", expectedStateID: "home.calendar.state.permission", expectsRetry: false)
-        assertCalendarMode("noCalendars", expectedStateID: "home.calendar.state.noCalendars", expectsRetry: false)
-        assertCalendarMode("allDayOnly", expectedStateID: "home.calendar.state.allDayOnly", expectsRetry: false)
-        assertCalendarMode("empty", expectedStateID: "home.calendar.state.empty", expectsRetry: false)
-        assertCalendarMode("active", expectedStateID: "home.calendar.state.active", expectsRetry: false)
-        assertCalendarMode("error", expectedStateID: "home.calendar.state.error", expectsRetry: false)
+    func testScheduleOpensFromBottomBarAcrossStubModes() throws {
+        for mode in ["permission", "writeOnly", "denied", "deniedAfterAttempt", "noCalendars", "allDayOnly", "empty", "active", "error"] {
+            let app = launchApp(calendarMode: mode)
+            XCTAssertFalse(
+                app.descendants(matching: .any)["home.calendar.card"].waitForExistence(timeout: 2),
+                "Inline Home calendar card should be hidden for mode \(mode)."
+            )
+
+            openScheduleFromBottomBar(from: app)
+            XCTAssertTrue(
+                app.descendants(matching: .any)["schedule.list"].waitForExistence(timeout: 8),
+                "Expected bottom bar calendar button to open schedule in \(mode) mode."
+            )
+            app.terminate()
+        }
     }
 
     func testSettingsCalendarControlsSmokePath() throws {
@@ -60,62 +65,98 @@ final class HomeCalendarModuleUITests: XCTestCase {
         )
     }
 
-    func testCalendarCardOpensSchedule() throws {
+    func testBottomBarCalendarButtonOpensSchedule() throws {
         let app = launchApp(calendarMode: "active")
 
-        let card = homeCalendarCard(in: app)
-        XCTAssertTrue(
-            waitForElementWithScrolling(card, in: app, timeout: 10, scrollAttempts: 4),
-            "Expected calendar card to be visible in active calendar mode."
-        )
-        tapElement(card, in: app)
-        XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
+        XCTAssertFalse(app.descendants(matching: .any)["home.calendar.card"].waitForExistence(timeout: 2))
+        openScheduleFromBottomBar(from: app)
 
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["schedule.list"].exists)
     }
 
-    func testCalendarPermissionCardUsesConnectCTAInsteadOfOpeningSchedule() throws {
-        let app = launchApp(calendarMode: "permission")
+    func testHomeTimelineEventOpensNativeEventDetailWithoutOpeningSchedule() throws {
+        let app = launchApp(calendarMode: "active")
 
-        let card = homeCalendarCard(in: app)
+        let eventCard = homeCalendarEvent(in: app, identifier: "home.timeline.event.test_meeting_1")
         XCTAssertTrue(
-            waitForElementWithScrolling(card, in: app, timeout: 10, scrollAttempts: 4),
-            "Expected calendar card to be visible in permission mode."
+            waitForElementWithScrolling(eventCard, in: app, timeout: 10, scrollAttempts: 4),
+            "Expected Home calendar timeline event to be tappable in active calendar mode."
         )
+        tapElement(eventCard, in: app)
 
-        let connect = app.buttons["home.calendar.connect"]
-        XCTAssertTrue(
-            waitForElementWithScrolling(connect, in: app, timeout: 8, scrollAttempts: 4),
-            "Expected permission mode to expose the calendar connect CTA."
-        )
-
-        card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
         XCTAssertFalse(
             app.descendants(matching: .any)["schedule.list"].waitForExistence(timeout: 1),
-            "Permission card background should not open the schedule before access is granted."
+            "Tapping a Home timeline event should not open the full schedule behind the event detail."
+        )
+        XCTAssertTrue(
+            dismissEventDetailIfPresented(in: app),
+            "Expected Home timeline event tap to present the native event detail sheet."
+        )
+    }
+
+    func testHomeTimelineEventHideRemovesOnlyHomeTimelineOccurrence() throws {
+        let app = launchApp(calendarMode: "active")
+
+        let eventCard = homeCalendarEvent(in: app, identifier: "home.timeline.event.test_meeting_1")
+        XCTAssertTrue(
+            waitForElementWithScrolling(eventCard, in: app, timeout: 10, scrollAttempts: 4),
+            "Expected Home calendar timeline event to be visible before hiding."
+        )
+        tapElement(eventCard, in: app)
+
+        let hideButton = app.descendants(matching: .any)["schedule.detail.hideFromTimeline"]
+        XCTAssertTrue(
+            hideButton.waitForExistence(timeout: 4),
+            "Expected Home timeline-origin event detail to expose Hide from Timeline."
+        )
+        tapElement(hideButton, in: app)
+
+        XCTAssertFalse(
+            app.descendants(matching: .any)["home.timeline.event.test_meeting_1"].waitForExistence(timeout: 2),
+            "Hidden event should be removed from the Home timeline occurrence."
+        )
+
+        openScheduleFromBottomBar(from: app)
+        XCTAssertTrue(
+            waitForActiveScheduleContent(in: app, timeout: 10),
+            "Expected schedule content to remain available after hiding a Home timeline event."
+        )
+        let scheduleEvent = scheduleEventRow(in: app, identifier: "schedule.event.test_meeting_1")
+        XCTAssertTrue(
+            waitForElementWithScrolling(scheduleEvent, in: app, timeout: 8),
+            "Hidden Home timeline event should remain visible in Calendar Schedule."
+        )
+    }
+
+    func testCalendarPermissionScheduleUsesConnectCTA() throws {
+        let app = launchApp(calendarMode: "permission")
+
+        XCTAssertFalse(app.descendants(matching: .any)["home.calendar.card"].waitForExistence(timeout: 2))
+        openScheduleFromBottomBar(from: app)
+
+        let connect = app.buttons["schedule.permission.connect"]
+        XCTAssertTrue(
+            connect.waitForExistence(timeout: 8),
+            "Expected permission mode to expose the schedule calendar connect CTA."
         )
 
         connect.tap()
         XCTAssertTrue(
-            app.descendants(matching: .any)["home.calendar.state.noCalendars"].waitForExistence(timeout: 8),
-            "After the stub grants calendar access, Home should leave permission state and ask for calendar selection."
+            app.descendants(matching: .any)["schedule.noCalendars.body"].waitForExistence(timeout: 8),
+            "After the stub grants calendar access, schedule should ask for calendar selection."
         )
     }
 
-    func testCalendarWriteOnlyCardRequestsFullAccessInsteadOfOpeningSettings() throws {
+    func testCalendarWriteOnlyScheduleRequestsFullAccessInsteadOfOpeningSettings() throws {
         let app = launchApp(calendarMode: "writeOnly")
 
-        let card = homeCalendarCard(in: app)
-        XCTAssertTrue(
-            waitForElementWithScrolling(card, in: app, timeout: 10, scrollAttempts: 4),
-            "Expected calendar card to be visible in write-only mode."
-        )
+        openScheduleFromBottomBar(from: app)
 
-        let connect = app.buttons["home.calendar.connect"]
+        let connect = app.buttons["schedule.permission.connect"]
         XCTAssertTrue(
-            waitForElementWithScrolling(connect, in: app, timeout: 8, scrollAttempts: 4),
-            "Expected write-only mode to expose the full-access CTA."
+            connect.waitForExistence(timeout: 8),
+            "Expected write-only schedule mode to expose the full-access CTA."
         )
         XCTAssertTrue(
             connect.label.localizedCaseInsensitiveContains("Full Calendar Access"),
@@ -124,23 +165,25 @@ final class HomeCalendarModuleUITests: XCTestCase {
 
         connect.tap()
         XCTAssertTrue(
-            app.descendants(matching: .any)["home.calendar.state.noCalendars"].waitForExistence(timeout: 8),
-            "After the stub upgrades full access, Home should ask for calendar selection."
+            app.descendants(matching: .any)["schedule.noCalendars.body"].waitForExistence(timeout: 8),
+            "After the stub upgrades full access, schedule should ask for calendar selection."
         )
     }
 
-    func testCalendarDeniedShowsSettingsRecoveryCopyWithoutFullAccessPromptCTA() throws {
+    func testCalendarDeniedScheduleShowsSettingsRecoveryCopyWithoutFullAccessPromptCTA() throws {
         let app = launchApp(calendarMode: "denied")
 
-        let deniedBody = app.descendants(matching: .any)["home.calendar.state.permission"]
+        openScheduleFromBottomBar(from: app)
+
+        let deniedBody = app.descendants(matching: .any)["schedule.permission.state.denied"]
         XCTAssertTrue(
-            waitForElementWithScrolling(deniedBody, in: app, timeout: 8, scrollAttempts: 4),
+            deniedBody.waitForExistence(timeout: 8),
             "Expected denied mode to show denied recovery copy."
         )
 
-        let connect = app.buttons["home.calendar.connect"]
+        let connect = app.buttons["schedule.permission.connect"]
         XCTAssertTrue(
-            waitForElementWithScrolling(connect, in: app, timeout: 8, scrollAttempts: 4),
+            connect.waitForExistence(timeout: 8),
             "Expected denied mode to expose a settings recovery CTA."
         )
         XCTAssertEqual(connect.label, "Open Settings")
@@ -157,13 +200,15 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testCalendarDeniedAfterAttemptShowsSettingsRecoveryCopy() throws {
         let app = launchApp(calendarMode: "deniedAfterAttempt")
 
-        let deniedBody = app.descendants(matching: .any)["home.calendar.state.permission"]
+        openScheduleFromBottomBar(from: app)
+
+        let deniedBody = app.descendants(matching: .any)["schedule.permission.state.denied"]
         XCTAssertTrue(
-            waitForElementWithScrolling(deniedBody, in: app, timeout: 8, scrollAttempts: 4),
+            deniedBody.waitForExistence(timeout: 8),
             "Expected denied-after-attempt mode to show denied recovery copy."
         )
 
-        let connect = app.buttons["home.calendar.connect"]
+        let connect = app.buttons["schedule.permission.connect"]
         XCTAssertTrue(connect.waitForExistence(timeout: 4))
         XCTAssertEqual(connect.label, "Open Settings")
         XCTAssertTrue(
@@ -172,41 +217,19 @@ final class HomeCalendarModuleUITests: XCTestCase {
         )
     }
 
-    func testCalendarCardShowsInlineNextUpHeader() throws {
+    func testInlineCalendarCardIsHiddenFromHomeTimeline() throws {
         let app = launchApp(calendarMode: "active")
 
-        let nextMeeting = app.descendants(matching: .any)["home.calendar.nextMeeting"]
-        XCTAssertTrue(
-            waitForElementWithScrolling(nextMeeting, in: app, timeout: 10, scrollAttempts: 4),
-            "Expected inline next-up header to be visible in active calendar mode."
+        XCTAssertFalse(
+            app.descendants(matching: .any)["home.calendar.card"].waitForExistence(timeout: 2),
+            "The inline foreDrop calendar card should not render above the timeline."
         )
-        XCTAssertTrue(
-            nextMeeting.label.contains("Next up: Design Review"),
-            "Expected next-up header to include the stub meeting title. Actual label: \(nextMeeting.label)"
-        )
-    }
-
-    func testCalendarCardOpensScheduleAcrossHomeStates() throws {
-        for mode in ["active", "empty", "allDayOnly", "noCalendars", "error"] {
-            let app = launchApp(calendarMode: mode)
-            let card = homeCalendarCard(in: app)
-            XCTAssertTrue(
-                waitForElementWithScrolling(card, in: app, timeout: 10, scrollAttempts: 4),
-                "Expected calendar card to be visible in \(mode) mode."
-            )
-            tapElement(card, in: app)
-            XCTAssertTrue(
-                scheduleSurfaceIsVisible(in: app, timeout: 8),
-                "Expected tapping calendar card to open schedule in \(mode) mode."
-            )
-            app.terminate()
-        }
     }
 
     func testScheduleSwitchesBetweenTodayAndWeekTabs() throws {
         let app = launchApp(calendarMode: "active")
 
-        openScheduleFromCardOrTimeline(from: app)
+        openScheduleFromBottomBar(from: app)
 
         let weekTab = scheduleWeekTab(in: app)
         XCTAssertTrue(weekTab.waitForExistence(timeout: 8))
@@ -239,7 +262,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testScheduleFiltersOpenCustomChooserAndCommitSelection() throws {
         let app = launchApp(calendarMode: "active")
 
-        openScheduleFromCardOrTimeline(from: app)
+        openScheduleFromBottomBar(from: app)
 
         let filters = app.buttons["schedule.toolbar.filters"]
         XCTAssertTrue(filters.waitForExistence(timeout: 8))
@@ -259,7 +282,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testScheduleTimelineIsAlwaysExpandedInRedesign() throws {
         let app = launchApp(calendarMode: "active")
 
-        openScheduleFromCardOrTimeline(from: app)
+        openScheduleFromBottomBar(from: app)
         XCTAssertTrue(
             waitForActiveScheduleContent(in: app, timeout: 10),
             "Expected active schedule content to render in active mode. Visible states: \(scheduleStateDiagnostics(in: app))"
@@ -280,7 +303,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testScheduleEventRowOpensNativeEventDetail() throws {
         let app = launchApp(calendarMode: "active")
 
-        openScheduleFromCardOrTimeline(from: app)
+        openScheduleFromBottomBar(from: app)
         XCTAssertTrue(
             waitForActiveScheduleContent(in: app, timeout: 10),
             "Expected active schedule content to render in active mode. Visible states: \(scheduleStateDiagnostics(in: app))"
@@ -299,56 +322,6 @@ final class HomeCalendarModuleUITests: XCTestCase {
         )
 
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
-    }
-
-    private func assertCalendarMode(_ mode: String, expectedStateID: String, expectsRetry: Bool) {
-        let app = launchApp(calendarMode: mode)
-        let card = app.descendants(matching: .any)["home.calendar.card"]
-        XCTAssertTrue(card.waitForExistence(timeout: 12), "Calendar card should render for mode \(mode)")
-
-        let state = app.descendants(matching: .any)[expectedStateID]
-        let knownStateIDs = [
-            "home.calendar.state.permission",
-            "home.calendar.state.permission.notDetermined",
-            "home.calendar.state.permission.denied",
-            "home.calendar.state.permission.restricted",
-            "home.calendar.state.permission.writeOnly",
-            "home.calendar.state.noCalendars",
-            "home.calendar.state.allDayOnly",
-            "home.calendar.state.empty",
-            "home.calendar.state.active",
-            "home.calendar.state.error"
-        ]
-        let visibleStates = knownStateIDs.filter { app.descendants(matching: .any)[$0].exists }
-        let diagnostics = [
-            "home.calendar.connect",
-            "home.calendar.nextMeeting",
-            "home.calendar.freeUntil",
-            "home.calendar.busyStrip",
-            "home.calendar.timelinePreview",
-            "home.calendar.retry"
-        ]
-        let visibleDiagnostics = diagnostics.filter { app.descendants(matching: .any)[$0].exists }
-        if expectedStateID == "home.calendar.state.active" {
-            let timelinePreview = app.descendants(matching: .any)["home.calendar.timelinePreview"]
-            let activeSignalVisible = state.waitForExistence(timeout: 4) || timelinePreview.waitForExistence(timeout: 4)
-            XCTAssertTrue(
-                activeSignalVisible,
-                "Expected active calendar signal for mode \(mode). Visible states: \(visibleStates); Visible diagnostics: \(visibleDiagnostics)"
-            )
-        } else {
-            XCTAssertTrue(
-                state.waitForExistence(timeout: 8),
-                "Expected calendar state \(expectedStateID) for mode \(mode). Visible states: \(visibleStates); Visible diagnostics: \(visibleDiagnostics)"
-            )
-        }
-
-        let retry = app.descendants(matching: .any)["home.calendar.retry"]
-        if expectsRetry {
-            XCTAssertTrue(retry.waitForExistence(timeout: 8))
-        } else {
-            XCTAssertFalse(retry.exists)
-        }
     }
 
     private func launchApp(calendarMode: String) -> XCUIApplication {
@@ -383,17 +356,37 @@ final class HomeCalendarModuleUITests: XCTestCase {
         return element
     }
 
-    private func openScheduleFromCardOrTimeline(from app: XCUIApplication) {
-        let card = homeCalendarCard(in: app)
-        XCTAssertTrue(waitForElementWithScrolling(card, in: app, timeout: 8))
-        tapElement(card, in: app)
-        if scheduleSurfaceIsVisible(in: app, timeout: 2) {
-            return
-        }
-        let timelinePreview = homeTimelinePreview(in: app)
-        XCTAssertTrue(waitForElementWithScrolling(timelinePreview, in: app, timeout: 8))
-        tapElement(timelinePreview, in: app)
+    private func openScheduleFromBottomBar(from app: XCUIApplication) {
+        let calendarButton = bottomBarCalendarButton(in: app)
+        XCTAssertTrue(
+            calendarButton.waitForExistence(timeout: 8),
+            "Expected bottom bar calendar button to exist."
+        )
+        tapElement(calendarButton, in: app)
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
+    }
+
+    private func bottomBarCalendarButton(in app: XCUIApplication) -> XCUIElement {
+        let button = app.buttons["home.bottomBar.calendar"]
+        if button.exists {
+            return button
+        }
+        let any = app.descendants(matching: .any)["home.bottomBar.calendar"]
+        if any.exists {
+            return any
+        }
+
+        for _ in 0..<4 {
+            app.swipeDown()
+            if button.exists {
+                return button
+            }
+            if any.exists {
+                return any
+            }
+        }
+
+        return any
     }
 
     private func scheduleWeekTab(in app: XCUIApplication) -> XCUIElement {
@@ -425,23 +418,20 @@ final class HomeCalendarModuleUITests: XCTestCase {
         return app.buttons.matching(identifier: identifier).firstMatch
     }
 
-    private func homeTimelinePreview(in app: XCUIApplication) -> XCUIElement {
-        let button = app.buttons["home.calendar.timelinePreview"]
+    private func homeCalendarEvent(in app: XCUIApplication, identifier: String) -> XCUIElement {
+        let button = app.buttons[identifier]
         if button.exists {
             return button
         }
-        return app.descendants(matching: .any)["home.calendar.timelinePreview"]
-    }
-
-    private func homeCalendarCard(in app: XCUIApplication) -> XCUIElement {
-        let button = app.buttons["home.calendar.card"]
-        if button.exists {
-            return button
-        }
-        return app.descendants(matching: .any)["home.calendar.card"]
+        return app.descendants(matching: .any)[identifier]
     }
 
     private func dismissScheduleEventDetailIfPresented(in app: XCUIApplication) -> Bool {
+        let detailAppeared = dismissEventDetailIfPresented(in: app)
+        return detailAppeared && scheduleSurfaceIsVisible(in: app, timeout: 8)
+    }
+
+    private func dismissEventDetailIfPresented(in app: XCUIApplication) -> Bool {
         let sheet = app.sheets.firstMatch
         let detailSheet = app.descendants(matching: .any)["schedule.detail.sheet"]
         let identifiedClose = app.descendants(matching: .any)["schedule.detail.close"]
@@ -469,7 +459,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
             app.swipeDown()
         }
 
-        return scheduleSurfaceIsVisible(in: app, timeout: 8)
+        return detailAppeared
     }
 
     private func scheduleSurfaceIsVisible(in app: XCUIApplication, timeout: TimeInterval) -> Bool {
