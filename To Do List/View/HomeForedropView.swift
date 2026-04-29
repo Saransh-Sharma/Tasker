@@ -1257,6 +1257,46 @@ struct HomeForedropLayoutMetrics {
     }
 }
 
+struct HomeDaySwipeResolver {
+    let minimumTranslation: CGFloat
+    let minimumPredictedTranslation: CGFloat
+    let horizontalDominanceRatio: CGFloat
+
+    static let `default` = HomeDaySwipeResolver(
+        minimumTranslation: 56,
+        minimumPredictedTranslation: 92,
+        horizontalDominanceRatio: 1.35
+    )
+
+    func resolvedDirection(
+        translation: CGSize,
+        predictedEndTranslation: CGSize
+    ) -> HomeDayNavigationDirection? {
+        let horizontal = translation.width
+        let predictedHorizontal = predictedEndTranslation.width
+        let vertical = translation.height
+        let dominantDistance = max(abs(horizontal), abs(predictedHorizontal))
+
+        guard isHorizontallyDominant(translation: translation) else { return nil }
+        guard dominantDistance >= minimumTranslation || abs(predictedHorizontal) >= minimumPredictedTranslation else {
+            return nil
+        }
+
+        let resolvedHorizontal = abs(predictedHorizontal) >= minimumPredictedTranslation
+            ? predictedHorizontal
+            : horizontal
+        guard abs(resolvedHorizontal) >= max(abs(vertical) * horizontalDominanceRatio, minimumTranslation) else {
+            return nil
+        }
+
+        return resolvedHorizontal < 0 ? .next : .previous
+    }
+
+    func isHorizontallyDominant(translation: CGSize) -> Bool {
+        abs(translation.width) > max(abs(translation.height) * horizontalDominanceRatio, 28)
+    }
+}
+
 struct HomeForedropHintEligibility {
     static let triggerCooldown: TimeInterval = 0.7
 
@@ -2526,6 +2566,9 @@ struct HomeBackdropForedropRootView: View {
     @State private var measuredTimelineHeaderHeight: CGFloat = 0
     @State private var measuredCalendarCardHeight: CGFloat = 0
     @State private var measuredWeekBackdropHeight: CGFloat = 0
+    @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
+    @State private var isDaySwipeTracingActive = false
+    @GestureState private var daySwipeTranslation: CGFloat = 0
     @StateObject private var timelineViewModel = HomeTimelineViewModel()
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
@@ -2611,6 +2654,45 @@ struct HomeBackdropForedropRootView: View {
             foredropAnchor: timelineViewModel.foredropAnchor
         )
     }
+    private var isDaySwipeGestureEnabled: Bool {
+        guard isTodayTimelineVisible else { return false }
+        guard showDatePicker == false, showAdvancedFilters == false else { return false }
+        guard overlaySnapshot.replanState.isApplying == false else { return false }
+        if case .placement = overlaySnapshot.replanState.phase {
+            return false
+        }
+        return true
+    }
+    private var daySwipeVisualOffset: CGFloat {
+        guard isDaySwipeGestureEnabled else { return 0 }
+        return min(max(daySwipeTranslation, -36), 36)
+    }
+    private var daySwipeAnimation: Animation {
+        if reduceMotion || isUITesting {
+            return .easeOut(duration: 0.12)
+        }
+        return .snappy(duration: 0.22)
+    }
+    private var daySwipeTransition: AnyTransition {
+        guard reduceMotion == false, isUITesting == false else {
+            return .opacity
+        }
+
+        switch committedDaySwipeDirection {
+        case .previous:
+            return .asymmetric(
+                insertion: .move(edge: .leading).combined(with: .opacity),
+                removal: .move(edge: .trailing).combined(with: .opacity)
+            )
+        case .next:
+            return .asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .move(edge: .leading).combined(with: .opacity)
+            )
+        case nil:
+            return .opacity
+        }
+    }
     @ViewBuilder
     private var needsReplanFloatingOverlay: some View {
         switch overlaySnapshot.replanState.phase {
@@ -2634,7 +2716,7 @@ struct HomeBackdropForedropRootView: View {
                 onReviewSkipped: { viewModel.reviewSkippedReplanCandidates() },
                 onViewToday: {
                     timelineViewModel.syncSelectedDate(Date())
-                    viewModel.selectDate(Date())
+                    viewModel.returnToToday(source: .backToToday)
                     viewModel.dismissNeedsReplanSessionUI()
                 },
                 onDone: { viewModel.dismissNeedsReplanSessionUI() }
@@ -2852,13 +2934,13 @@ struct HomeBackdropForedropRootView: View {
                     HStack(spacing: spacing.s12) {
                         Button("Today") {
                             draftDate = Date()
-                            viewModel.selectDate(Date())
+                            viewModel.returnToToday(source: .datePicker)
                             showDatePicker = false
                         }
                         .buttonStyle(.bordered)
 
                         Button("Apply") {
-                            viewModel.selectDate(draftDate)
+                            viewModel.selectDate(draftDate, source: .datePicker)
                             showDatePicker = false
                         }
                         .buttonStyle(.borderedProminent)
@@ -3365,7 +3447,7 @@ struct HomeBackdropForedropRootView: View {
                         snapshot: timelineSnapshot,
                         onSelectDate: { date in
                             timelineViewModel.syncSelectedDate(date)
-                            viewModel.selectDate(date)
+                            viewModel.selectDate(date, source: .weekStrip)
                             withAnimation(foredropFlipAnimation) {
                                 timelineViewModel.snap(to: .collapsed)
                             }
@@ -3375,7 +3457,7 @@ struct HomeBackdropForedropRootView: View {
                         },
                         onPlaceReplanAllDay: { candidate, date in
                             timelineViewModel.syncSelectedDate(date)
-                            viewModel.selectDate(date)
+                            viewModel.selectDate(date, source: .replan)
                             viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
                         }
                     )
@@ -3815,7 +3897,7 @@ struct HomeBackdropForedropRootView: View {
                     reduceMotion: reduceMotion,
                     onSelectQuickView: { viewModel.setQuickView($0) },
                     onBackToToday: {
-                        viewModel.setQuickView(.today)
+                        viewModel.returnToToday(source: .backToToday)
                     },
                     onShowDatePicker: {
                         draftDate = chromeSnapshot.selectedDate
@@ -4014,6 +4096,50 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private var daySwipeGesture: some Gesture {
+        let resolver = HomeDaySwipeResolver.default
+        return DragGesture(minimumDistance: 12, coordinateSpace: .local)
+            .updating($daySwipeTranslation) { value, state, _ in
+                guard isDaySwipeGestureEnabled else { return }
+                guard resolver.isHorizontallyDominant(translation: value.translation) else { return }
+                state = min(max(value.translation.width * 0.35, -36), 36)
+            }
+            .onChanged { value in
+                guard isDaySwipeGestureEnabled else { return }
+                guard resolver.isHorizontallyDominant(translation: value.translation) else { return }
+                guard isDaySwipeTracingActive == false else { return }
+                isDaySwipeTracingActive = true
+                TaskerPerformanceTrace.event("HomeDaySwipeStarted")
+            }
+            .onEnded { value in
+                defer { isDaySwipeTracingActive = false }
+                guard isDaySwipeGestureEnabled else { return }
+                guard let direction = resolver.resolvedDirection(
+                    translation: value.translation,
+                    predictedEndTranslation: value.predictedEndTranslation
+                ) else {
+                    if isDaySwipeTracingActive {
+                        TaskerPerformanceTrace.event("HomeDaySwipeCancelled")
+                    }
+                    return
+                }
+                commitDaySwipe(direction)
+            }
+    }
+
+    private func commitDaySwipe(_ direction: HomeDayNavigationDirection) {
+        committedDaySwipeDirection = direction
+        let dayOffset = direction == .previous ? -1 : 1
+        withAnimation(daySwipeAnimation) {
+            viewModel.shiftSelectedDay(byDays: dayOffset, source: .swipe)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            if committedDaySwipeDirection == direction {
+                committedDaySwipeDirection = nil
+            }
+        }
+    }
+
     private func todayTimelineSurface(taskListBottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
             TimelineForedropBar(
@@ -4057,14 +4183,16 @@ struct HomeBackdropForedropRootView: View {
                     }
 
                     timelineColumnContent {
+                        let snapshot = timelineSnapshot
+                        let selectedDayKey = Int(Calendar.current.startOfDay(for: snapshot.selectedDate).timeIntervalSince1970)
                         TimelineForedropView(
-                            snapshot: timelineSnapshot,
+                            snapshot: snapshot,
                             layoutClass: layoutClass,
                             showsRevealHandle: false,
                             hasNextHomeWidget: timelineHasNextHomeWidget,
                             onSelectDate: { date in
                                 timelineViewModel.syncSelectedDate(date)
-                                viewModel.selectDate(date)
+                                viewModel.selectDate(date, source: .weekStrip)
                             },
                             onSnapAnchor: { anchor in
                                 withAnimation(foredropFlipAnimation) {
@@ -4114,7 +4242,17 @@ struct HomeBackdropForedropRootView: View {
                                 viewModel.clearReplanError()
                             }
                         )
+                        .id(selectedDayKey)
+                        .offset(x: daySwipeVisualOffset)
+                        .transition(daySwipeTransition)
+                        .animation(daySwipeAnimation, value: selectedDayKey)
                         .padding(.horizontal, spacing.s16)
+                        .accessibilityAction(named: Text("Previous Day")) {
+                            commitDaySwipe(.previous)
+                        }
+                        .accessibilityAction(named: Text("Next Day")) {
+                            commitDaySwipe(.next)
+                        }
                     }
 
                     if let entryState = chromeSnapshot.dailyReflectionEntryState {
@@ -4148,6 +4286,8 @@ struct HomeBackdropForedropRootView: View {
                 .padding(.top, spacing.s8)
             }
             .scrollIndicators(.hidden)
+            .contentShape(Rectangle())
+            .simultaneousGesture(daySwipeGesture)
         }
         .accessibilityIdentifier("home.timeline.surface")
     }
