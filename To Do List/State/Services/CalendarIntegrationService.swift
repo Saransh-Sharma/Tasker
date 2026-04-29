@@ -8,6 +8,205 @@ public enum CalendarAccessAction: Equatable {
     case noneNeeded
 }
 
+public enum CalendarAccessAttemptOutcome: String, Codable, Equatable {
+    case started
+    case granted
+    case denied
+    case failed
+    case systemRequestFailed
+}
+
+public struct CalendarAccessAttemptRecord: Codable, Equatable {
+    public let attemptedAt: Date
+    public let source: String
+    public let statusBefore: TaskerCalendarAuthorizationStatus
+    public let statusAfter: TaskerCalendarAuthorizationStatus?
+    public let outcome: CalendarAccessAttemptOutcome
+    public let errorDomain: String?
+    public let errorCode: Int?
+    public let errorMessage: String?
+    public let appVersion: String
+
+    public init(
+        attemptedAt: Date = Date(),
+        source: String,
+        statusBefore: TaskerCalendarAuthorizationStatus,
+        statusAfter: TaskerCalendarAuthorizationStatus?,
+        outcome: CalendarAccessAttemptOutcome,
+        errorDomain: String? = nil,
+        errorCode: Int? = nil,
+        errorMessage: String? = nil,
+        appVersion: String
+    ) {
+        self.attemptedAt = attemptedAt
+        self.source = source
+        self.statusBefore = statusBefore
+        self.statusAfter = statusAfter
+        self.outcome = outcome
+        self.errorDomain = errorDomain
+        self.errorCode = errorCode
+        self.errorMessage = errorMessage
+        self.appVersion = appVersion
+    }
+
+    public var countsAsTerminalFullAccessAttempt: Bool {
+        switch outcome {
+        case .granted, .denied:
+            return true
+        case .started, .failed, .systemRequestFailed:
+            return false
+        }
+    }
+
+    public var isSystemRequestFailure: Bool {
+        if outcome == .systemRequestFailed {
+            return true
+        }
+
+        return errorDomain == CalendarAccessDiagnostics.eventKitDaemonErrorDomain &&
+            errorCode == CalendarAccessDiagnostics.eventKitDaemonXPCErrorCode
+    }
+}
+
+public protocol CalendarAccessAttemptStore: AnyObject {
+    var hasAttemptedFullAccessRequest: Bool { get }
+    var lastFullAccessAttempt: CalendarAccessAttemptRecord? { get }
+    func recordFullAccessAttempt(_ record: CalendarAccessAttemptRecord)
+    func reset()
+}
+
+public final class UserDefaultsCalendarAccessAttemptStore: CalendarAccessAttemptStore {
+    public static let shared = UserDefaultsCalendarAccessAttemptStore()
+
+    private let defaults: UserDefaults
+    private let appVersionProvider: () -> String
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    public init(
+        defaults: UserDefaults = .standard,
+        appVersionProvider: @escaping () -> String = UserDefaultsCalendarAccessAttemptStore.defaultAppVersion
+    ) {
+        self.defaults = defaults
+        self.appVersionProvider = appVersionProvider
+    }
+
+    public var hasAttemptedFullAccessRequest: Bool {
+        lastFullAccessAttempt?.countsAsTerminalFullAccessAttempt == true
+    }
+
+    public var lastFullAccessAttempt: CalendarAccessAttemptRecord? {
+        guard let data = defaults.data(forKey: storageKey) else { return nil }
+        return try? decoder.decode(CalendarAccessAttemptRecord.self, from: data)
+    }
+
+    public func recordFullAccessAttempt(_ record: CalendarAccessAttemptRecord) {
+        guard let data = try? encoder.encode(record) else { return }
+        defaults.set(data, forKey: storageKey)
+    }
+
+    public func reset() {
+        defaults.removeObject(forKey: storageKey)
+    }
+
+    public static func defaultAppVersion() -> String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
+        return "\(version)-\(build)"
+    }
+
+    private var storageKey: String {
+        "calendar.fullAccessAttempt.\(appVersionProvider())"
+    }
+}
+
+public final class CalendarDiagnosticsStore {
+    public static let shared = CalendarDiagnosticsStore()
+
+    private let defaults: UserDefaults
+    private let lock = NSLock()
+    private let storageKey = "calendar.diagnostics.recentEntries"
+    private let maxStoredEntries = 20
+
+    public init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    public func record(
+        level: String,
+        event: String,
+        message: String,
+        fields: [String: String]
+    ) {
+        let line = formattedLine(level: level, event: event, message: message, fields: fields)
+        lock.lock()
+        var entries = defaults.stringArray(forKey: storageKey) ?? []
+        entries.append(line)
+        if entries.count > maxStoredEntries {
+            entries = Array(entries.suffix(maxStoredEntries))
+        }
+        defaults.set(entries, forKey: storageKey)
+        lock.unlock()
+    }
+
+    public func recentEntriesText(limit: Int = 20) -> String {
+        lock.lock()
+        let entries = defaults.stringArray(forKey: storageKey) ?? []
+        lock.unlock()
+
+        let limitedEntries = entries.suffix(max(1, limit))
+        guard limitedEntries.isEmpty == false else {
+            return "No calendar diagnostics recorded yet."
+        }
+        return limitedEntries.joined(separator: "\n")
+    }
+
+    public func reset() {
+        lock.lock()
+        defaults.removeObject(forKey: storageKey)
+        lock.unlock()
+    }
+
+    private func formattedLine(
+        level: String,
+        event: String,
+        message: String,
+        fields: [String: String]
+    ) -> String {
+        var chunks = [
+            "lvl=\(level)",
+            "cmp=CalendarIntegration",
+            "evt=\(event)",
+            "msg=\"\(singleLine(message))\""
+        ]
+        for key in fields.keys.sorted() {
+            guard key.isEmpty == false else { continue }
+            chunks.append("\(key)=\(formattedValue(fields[key] ?? ""))")
+        }
+        return chunks.joined(separator: " ")
+    }
+
+    private func formattedValue(_ value: String) -> String {
+        let singleLineValue = singleLine(value)
+        guard singleLineValue.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
+              singleLineValue.contains("\"") == false else {
+            return "\"\(singleLineValue.replacingOccurrences(of: "\"", with: "\\\""))\""
+        }
+        return singleLineValue
+    }
+
+    private func singleLine(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+    }
+}
+
+public enum CalendarAccessDiagnostics {
+    public static let eventKitDaemonErrorDomain = "EKCADErrorDomain"
+    public static let eventKitDaemonXPCErrorCode = 1015
+}
+
 public final class CalendarIntegrationService: ObservableObject {
     private struct DayProjectionKey: Hashable {
         let revision: UInt64
@@ -24,6 +223,7 @@ public final class CalendarIntegrationService: ObservableObject {
 
     private let provider: CalendarEventsProviderProtocol?
     private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let accessAttemptStore: CalendarAccessAttemptStore
     private let filterEvents = FilterCalendarEventsUseCase()
     private let buildBusyBlocks = BuildCalendarBusyBlocksUseCase()
     private let resolveNextMeeting = ResolveNextMeetingUseCase()
@@ -40,10 +240,12 @@ public final class CalendarIntegrationService: ObservableObject {
 
     public init(
         provider: CalendarEventsProviderProtocol?,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
+        accessAttemptStore: CalendarAccessAttemptStore = UserDefaultsCalendarAccessAttemptStore.shared
     ) {
         self.provider = provider
         self.workspacePreferencesStore = workspacePreferencesStore
+        self.accessAttemptStore = accessAttemptStore
 
         let prefs = workspacePreferencesStore.load()
         self.snapshot = TaskerCalendarSnapshot(
@@ -85,6 +287,14 @@ public final class CalendarIntegrationService: ObservableObject {
         workspacePreferencesStore.load().weekStartsOn
     }
 
+    public var hasAttemptedFullCalendarAccessRequest: Bool {
+        accessAttemptStore.hasAttemptedFullAccessRequest
+    }
+
+    public var lastFullCalendarAccessAttempt: CalendarAccessAttemptRecord? {
+        accessAttemptStore.lastFullAccessAttempt
+    }
+
     public func refreshAuthorizationStatus() {
         let status = provider?.authorizationStatus() ?? .denied
         snapshot.authorizationStatus = status
@@ -96,14 +306,30 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     public func accessAction() -> CalendarAccessAction {
-        refreshAuthorizationStatus()
-        switch snapshot.authorizationStatus {
+        guard let provider else {
+            snapshot.authorizationStatus = .denied
+            let action = CalendarAccessAction.unavailable(.denied)
+            logCalendarAccessPolicy(status: .denied, action: action)
+            return action
+        }
+
+        let status = provider.authorizationStatus()
+        snapshot.authorizationStatus = status
+        let action = accessAction(for: status)
+        logCalendarAccessPolicy(status: status, action: action)
+        return action
+    }
+
+    public func accessAction(for status: TaskerCalendarAuthorizationStatus) -> CalendarAccessAction {
+        switch status {
         case .notDetermined:
             return .requestPermission
-        case .denied, .writeOnly:
+        case .writeOnly:
+            return .requestPermission
+        case .denied:
             return .openSystemSettings
         case .restricted:
-            return .unavailable(snapshot.authorizationStatus)
+            return .unavailable(status)
         case .authorized:
             return .noneNeeded
         }
@@ -111,14 +337,23 @@ public final class CalendarIntegrationService: ObservableObject {
 
     @discardableResult
     public func performAccessAction(
+        source: String = "unknown",
         openSystemSettings: @escaping () -> Void,
         completion: ((Bool) -> Void)? = nil
     ) -> CalendarAccessAction {
         let action = accessAction()
         switch action {
         case .requestPermission:
-            requestAccess(completion: completion)
+            requestAccess(source: source, completion: completion)
         case .openSystemSettings:
+            logCalendarWarning(
+                event: "calendar_open_system_settings",
+                message: "Opening app Settings for calendar access recovery",
+                fields: calendarDiagnosticFields(
+                    status: snapshot.authorizationStatus,
+                    extra: ["source": source]
+                )
+            )
             openSystemSettings()
             completion?(false)
         case .unavailable:
@@ -129,11 +364,41 @@ public final class CalendarIntegrationService: ObservableObject {
         return action
     }
 
-    public func requestAccess(completion: ((Bool) -> Void)? = nil) {
+    public func requestAccess(source: String = "unknown", completion: ((Bool) -> Void)? = nil) {
         guard let provider else {
+            logCalendarWarning(
+                event: "calendar_full_access_request_completed",
+                message: "Calendar provider unavailable for full access request",
+                fields: calendarDiagnosticFields(
+                    status: .denied,
+                    extra: [
+                        "source": source,
+                        "granted": "false",
+                        "attemptOutcome": CalendarAccessAttemptOutcome.failed.rawValue,
+                        "statusAfter": TaskerCalendarAuthorizationStatus.denied.rawValue,
+                        "errorMessage": "provider_unavailable"
+                    ]
+                )
+            )
             completion?(false)
             return
         }
+
+        let statusBefore = provider.authorizationStatus()
+        recordFullAccessAttempt(
+            source: source,
+            statusBefore: statusBefore,
+            statusAfter: nil,
+            outcome: .started
+        )
+        logCalendarWarning(
+            event: "calendar_full_access_request_started",
+            message: "Requesting full calendar access",
+            fields: calendarDiagnosticFields(
+                status: statusBefore,
+                extra: ["source": source]
+            )
+        )
 
         provider.requestAccess { [weak self] result in
             DispatchQueue.main.async {
@@ -143,14 +408,47 @@ public final class CalendarIntegrationService: ObservableObject {
                     if granted {
                         provider.resetStoreStateAfterPermissionChange()
                     }
-                    self.snapshot.authorizationStatus = self.provider?.authorizationStatus() ?? (granted ? .authorized : .denied)
+                    let statusAfter = self.provider?.authorizationStatus() ?? (granted ? .authorized : .denied)
+                    let outcome: CalendarAccessAttemptOutcome = granted ? .granted : .denied
+                    self.recordFullAccessAttempt(
+                        source: source,
+                        statusBefore: statusBefore,
+                        statusAfter: statusAfter,
+                        outcome: outcome
+                    )
+                    self.logFullAccessRequestCompleted(
+                        source: source,
+                        granted: granted,
+                        statusBefore: statusBefore,
+                        statusAfter: statusAfter,
+                        outcome: outcome,
+                        error: nil
+                    )
+                    self.snapshot.authorizationStatus = statusAfter
                     if granted {
                         self.refreshContext(reason: "permission_granted")
                     }
                     completion?(granted)
                 case .failure(let error):
+                    let statusAfter = self.provider?.authorizationStatus() ?? .denied
+                    let outcome = self.fullAccessFailureOutcome(for: error)
+                    self.recordFullAccessAttempt(
+                        source: source,
+                        statusBefore: statusBefore,
+                        statusAfter: statusAfter,
+                        outcome: outcome,
+                        error: error
+                    )
+                    self.logFullAccessRequestCompleted(
+                        source: source,
+                        granted: false,
+                        statusBefore: statusBefore,
+                        statusAfter: statusAfter,
+                        outcome: outcome,
+                        error: error
+                    )
                     self.snapshot.errorMessage = error.localizedDescription
-                    self.snapshot.authorizationStatus = self.provider?.authorizationStatus() ?? .denied
+                    self.snapshot.authorizationStatus = statusAfter
                     completion?(false)
                 }
             }
@@ -200,13 +498,20 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     public func refreshContext(referenceDate: Date = Date(), reason: String = "manual") {
-        _ = reason
         let generation = beginRefreshGeneration()
 
         guard let provider else {
             snapshot.authorizationStatus = .denied
             snapshot.errorMessage = "Calendar provider unavailable."
             clearCalendarContext(keepAvailableCalendars: false)
+            logCalendarWarning(
+                event: "calendar_context_refresh_skipped",
+                message: "Calendar provider unavailable",
+                fields: calendarDiagnosticFields(
+                    status: .denied,
+                    extra: ["reason": reason]
+                )
+            )
             return
         }
 
@@ -216,6 +521,14 @@ public final class CalendarIntegrationService: ObservableObject {
             clearCalendarContext(keepAvailableCalendars: false)
             snapshot.errorMessage = nil
             snapshot.isLoading = false
+            logCalendarWarning(
+                event: "calendar_context_refresh_skipped",
+                message: "Calendar context refresh skipped without readable access",
+                fields: calendarDiagnosticFields(
+                    status: snapshot.authorizationStatus,
+                    extra: ["reason": reason]
+                )
+            )
             return
         }
 
@@ -242,6 +555,7 @@ public final class CalendarIntegrationService: ObservableObject {
                     self.snapshot.isLoading = false
                     self.snapshot.errorMessage = error.localizedDescription
                     self.clearCalendarContext(keepAvailableCalendars: true)
+                    self.logCalendarContextLoadFailed(error: error, reason: reason, stage: "calendars")
                 case .success(let calendars):
                     self.snapshot.availableCalendars = calendars
                     let availableCalendarIDs = Set(calendars.map(\.id))
@@ -270,12 +584,14 @@ public final class CalendarIntegrationService: ObservableObject {
                             case .failure(let error):
                                 self.snapshot.errorMessage = error.localizedDescription
                                 self.clearCalendarContext(keepAvailableCalendars: true)
+                                self.logCalendarContextLoadFailed(error: error, reason: reason, stage: "events")
                             case .success(let events):
                                 self.reconcile(
                                     events: events,
                                     referenceDate: referenceDate,
                                     loadedRange: fetchStart...fetchEnd
                                 )
+                                self.logCalendarContextLoaded(reason: reason)
                             }
                         }
                     }
@@ -448,5 +764,180 @@ public final class CalendarIntegrationService: ObservableObject {
         projectionRevision &+= 1
         dayProjectionCache.removeAll(keepingCapacity: true)
         weekProjectionCache.removeAll(keepingCapacity: true)
+    }
+
+    private func recordFullAccessAttempt(
+        source: String,
+        statusBefore: TaskerCalendarAuthorizationStatus,
+        statusAfter: TaskerCalendarAuthorizationStatus?,
+        outcome: CalendarAccessAttemptOutcome,
+        error: Error? = nil
+    ) {
+        let nsError = error.map { $0 as NSError }
+        accessAttemptStore.recordFullAccessAttempt(
+            CalendarAccessAttemptRecord(
+                source: source,
+                statusBefore: statusBefore,
+                statusAfter: statusAfter,
+                outcome: outcome,
+                errorDomain: nsError?.domain,
+                errorCode: nsError?.code,
+                errorMessage: error?.localizedDescription,
+                appVersion: UserDefaultsCalendarAccessAttemptStore.defaultAppVersion()
+            )
+        )
+    }
+
+    private func logCalendarAccessPolicy(
+        status: TaskerCalendarAuthorizationStatus,
+        action: CalendarAccessAction
+    ) {
+        logCalendarWarning(
+            event: "calendar_access_policy_resolved",
+            message: "Resolved calendar access action",
+            fields: calendarDiagnosticFields(
+                status: status,
+                extra: ["selectedAction": diagnosticName(for: action)]
+            )
+        )
+    }
+
+    private func logFullAccessRequestCompleted(
+        source: String,
+        granted: Bool,
+        statusBefore: TaskerCalendarAuthorizationStatus,
+        statusAfter: TaskerCalendarAuthorizationStatus,
+        outcome: CalendarAccessAttemptOutcome,
+        error: Error?
+    ) {
+        var extra = [
+            "source": source,
+            "granted": String(granted),
+            "attemptOutcome": outcome.rawValue,
+            "statusBefore": statusBefore.rawValue,
+            "statusAfter": statusAfter.rawValue
+        ]
+        if let error {
+            let nsError = error as NSError
+            extra["errorDomain"] = nsError.domain
+            extra["errorCode"] = String(nsError.code)
+            extra["errorMessage"] = error.localizedDescription
+        }
+
+        logCalendarWarning(
+            event: "calendar_full_access_request_completed",
+            message: "Full calendar access request completed",
+            fields: calendarDiagnosticFields(status: statusAfter, extra: extra)
+        )
+    }
+
+    private func logCalendarContextLoadFailed(error: Error, reason: String, stage: String) {
+        let nsError = error as NSError
+        logCalendarWarning(
+            event: "calendar_context_load_failed",
+            message: "Calendar context load failed",
+            fields: calendarDiagnosticFields(
+                status: snapshot.authorizationStatus,
+                extra: [
+                    "reason": reason,
+                    "stage": stage,
+                    "errorDomain": nsError.domain,
+                    "errorCode": String(nsError.code),
+                    "errorMessage": error.localizedDescription
+                ]
+            )
+        )
+    }
+
+    private func logCalendarContextLoaded(reason: String) {
+        logCalendarInfo(
+            event: "calendar_context_loaded",
+            message: "Calendar context loaded",
+            fields: calendarDiagnosticFields(
+                status: snapshot.authorizationStatus,
+                extra: [
+                    "reason": reason,
+                    "availableCalendarCount": String(snapshot.availableCalendars.count),
+                    "selectedCalendarCount": String(snapshot.selectedCalendarIDs.count),
+                    "eventCount": String(snapshot.eventsInRange.count),
+                    "busyBlockCount": String(snapshot.busyBlocks.count)
+                ]
+            )
+        )
+    }
+
+    private func fullAccessFailureOutcome(for error: Error) -> CalendarAccessAttemptOutcome {
+        let nsError = error as NSError
+        if nsError.domain == CalendarAccessDiagnostics.eventKitDaemonErrorDomain &&
+            nsError.code == CalendarAccessDiagnostics.eventKitDaemonXPCErrorCode {
+            return .systemRequestFailed
+        }
+        return .failed
+    }
+
+    private func logCalendarWarning(
+        event: String,
+        message: String,
+        fields: [String: String]
+    ) {
+        CalendarDiagnosticsStore.shared.record(
+            level: LogLevel.warning.label,
+            event: event,
+            message: message,
+            fields: fields
+        )
+        logWarning(
+            event: event,
+            message: message,
+            component: "CalendarIntegration",
+            fields: fields
+        )
+    }
+
+    private func logCalendarInfo(
+        event: String,
+        message: String,
+        fields: [String: String]
+    ) {
+        CalendarDiagnosticsStore.shared.record(
+            level: LogLevel.info.label,
+            event: event,
+            message: message,
+            fields: fields
+        )
+        logInfo(
+            event: event,
+            message: message,
+            component: "CalendarIntegration",
+            fields: fields
+        )
+    }
+
+    private func calendarDiagnosticFields(
+        status: TaskerCalendarAuthorizationStatus,
+        extra: [String: String] = [:]
+    ) -> [String: String] {
+        var fields = [
+            "currentStatus": status.rawValue,
+            "hasAttemptedFullAccess": String(accessAttemptStore.hasAttemptedFullAccessRequest),
+            "lastAttemptOutcome": accessAttemptStore.lastFullAccessAttempt?.outcome.rawValue ?? "none",
+            "hasFullAccessUsageKey": String(Bundle.main.object(forInfoDictionaryKey: "NSCalendarsFullAccessUsageDescription") != nil),
+            "osVersion": ProcessInfo.processInfo.operatingSystemVersionString
+        ]
+        extra.forEach { fields[$0.key] = $0.value }
+        return fields
+    }
+
+    private func diagnosticName(for action: CalendarAccessAction) -> String {
+        switch action {
+        case .requestPermission:
+            return "requestFullAccess"
+        case .openSystemSettings:
+            return "openSystemSettings"
+        case .unavailable(let status):
+            return "unavailable:\(status.rawValue)"
+        case .noneNeeded:
+            return "noneNeeded"
+        }
     }
 }
