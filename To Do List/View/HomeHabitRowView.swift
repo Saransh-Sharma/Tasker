@@ -99,9 +99,13 @@ private struct HomeHabitRowInteractiveSurface: View {
                         Color.black.opacity(0.001)
 
                         if metrics.visualLastCellWidth > 0 {
-                            RoundedRectangle(cornerRadius: 1, style: .continuous)
-                                .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.2)
+                            Image(systemName: "circle.dotted.circle")
+                                .font(.system(size: min(metrics.visualLastCellWidth * 0.58, usesExpandedTitle ? 28 : 22), weight: .semibold))
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, .yellow)
+                                .symbolEffect(.breathe.pulse.byLayer, options: .repeat(.periodic(delay: 2.5)))
                                 .frame(width: metrics.visualLastCellWidth, height: metrics.visualLastCellWidth)
+                                .accessibilityHidden(true)
                         }
                     }
                 }

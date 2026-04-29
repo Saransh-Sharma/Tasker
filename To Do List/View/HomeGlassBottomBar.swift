@@ -11,6 +11,7 @@ struct HomeGlassBottomBar: View {
     let shellPhase: HomeShellPhase
 
     let onHome: () -> Void
+    let onCalendar: () -> Void
     let onChartsToggle: () -> Void
     let onSearch: () -> Void
     let onChat: () -> Void
@@ -47,6 +48,7 @@ struct HomeGlassBottomBar: View {
         .padding(.horizontal, spacing.s16)
         .padding(.top, spacing.s12)
         .padding(.bottom, 0)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.bottomBar")
         .accessibilityValue(state.isMinimized ? "minimized" : "expanded")
     }
@@ -62,6 +64,8 @@ struct HomeGlassBottomBar: View {
             switch item {
             case .home:
                 onHome()
+            case .calendar:
+                onCalendar()
             case .charts:
                 onChartsToggle()
             case .search:
@@ -87,36 +91,49 @@ struct HomeGlassBottomBar: View {
 
 private struct BottomToolDescriptor: Identifiable {
     let item: HomeBottomBarItem
-    let symbolName: String
+    let staticSymbolName: String?
     let accessibilityID: String
     let accessibilityLabel: String
 
     var id: String { accessibilityID }
+
+    var symbolName: String {
+        if item == .calendar {
+            return HomeCalendarBottomBarSymbol.symbolName(for: Date())
+        }
+        return staticSymbolName ?? "circle"
+    }
 }
 
 private struct BottomToolCluster: View {
     private static let tools: [BottomToolDescriptor] = [
         BottomToolDescriptor(
             item: .home,
-            symbolName: "house.fill",
+            staticSymbolName: "house.fill",
             accessibilityID: "home.bottomBar.home",
             accessibilityLabel: "Home"
         ),
         BottomToolDescriptor(
+            item: .calendar,
+            staticSymbolName: nil,
+            accessibilityID: "home.bottomBar.calendar",
+            accessibilityLabel: "Schedule"
+        ),
+        BottomToolDescriptor(
             item: .charts,
-            symbolName: "chart.bar.xaxis",
+            staticSymbolName: "chart.bar.xaxis",
             accessibilityID: "home.bottomBar.charts",
             accessibilityLabel: "Analytics"
         ),
         BottomToolDescriptor(
             item: .search,
-            symbolName: "magnifyingglass",
+            staticSymbolName: "magnifyingglass",
             accessibilityID: "home.searchButton",
             accessibilityLabel: "Search"
         ),
         BottomToolDescriptor(
             item: .chat,
-            symbolName: "sparkles",
+            staticSymbolName: "sparkles",
             accessibilityID: "home.chatButton",
             accessibilityLabel: "Chat"
         )
@@ -128,12 +145,12 @@ private struct BottomToolCluster: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private let buttonWidth: CGFloat = 54
+    private let buttonWidth: CGFloat = 44
     private let buttonHeight: CGFloat = 44
     private let clusterHeight: CGFloat = 56
     private let clusterCornerRadius: CGFloat = 28
-    private let clusterSpacing: CGFloat = 4
-    private let clusterHorizontalPadding: CGFloat = 8
+    private let clusterSpacing: CGFloat = 0
+    private let clusterHorizontalPadding: CGFloat = 4
     private let clusterVerticalPadding: CGFloat = 6
     private var prefersReducedMotion: Bool { shellPhase != .interactive }
 
