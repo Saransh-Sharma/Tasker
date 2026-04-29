@@ -157,6 +157,78 @@ public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Has
     }
 }
 
+struct HomeTimelineHiddenCalendarEventKey: Codable, Equatable, Hashable, Sendable, Comparable {
+    let eventID: String
+    let dayStamp: String
+
+    init(eventID: String, dayStamp: String) {
+        self.eventID = eventID
+        self.dayStamp = dayStamp
+    }
+
+    init(eventID: String, day: Date, calendar: Calendar = .current) {
+        self.init(eventID: eventID, dayStamp: Self.dayStamp(for: day, calendar: calendar))
+    }
+
+    static func < (lhs: HomeTimelineHiddenCalendarEventKey, rhs: HomeTimelineHiddenCalendarEventKey) -> Bool {
+        if lhs.dayStamp != rhs.dayStamp {
+            return lhs.dayStamp < rhs.dayStamp
+        }
+        return lhs.eventID.localizedStandardCompare(rhs.eventID) == .orderedAscending
+    }
+
+    static func dayStamp(for day: Date, calendar: Calendar = .current) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: day)
+        return String(
+            format: "%04d%02d%02d",
+            components.year ?? 0,
+            components.month ?? 0,
+            components.day ?? 0
+        )
+    }
+}
+
+final class HomeTimelineHiddenCalendarEventStore {
+    private struct Payload: Codable, Equatable {
+        var hiddenEvents: [HomeTimelineHiddenCalendarEventKey]
+    }
+
+    private let defaults: UserDefaults
+    private let key = "tasker.home.timeline.hiddenCalendarEvents.v1"
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load() -> Set<HomeTimelineHiddenCalendarEventKey> {
+        guard let data = defaults.data(forKey: key),
+              let payload = try? decoder.decode(Payload.self, from: data) else {
+            return []
+        }
+        return Set(payload.hiddenEvents)
+    }
+
+    func save(_ hiddenEvents: Set<HomeTimelineHiddenCalendarEventKey>) {
+        let payload = Payload(hiddenEvents: hiddenEvents.sorted())
+        guard let data = try? encoder.encode(payload) else { return }
+        defaults.set(data, forKey: key)
+    }
+
+    @discardableResult
+    func hide(eventID: String, on day: Date, calendar: Calendar = .current) -> Set<HomeTimelineHiddenCalendarEventKey> {
+        var hiddenEvents = load()
+        hiddenEvents.insert(HomeTimelineHiddenCalendarEventKey(eventID: eventID, day: day, calendar: calendar))
+        save(hiddenEvents)
+        return hiddenEvents
+    }
+
+    func isHidden(eventID: String, on day: Date, calendar: Calendar = .current) -> Bool {
+        load().contains(HomeTimelineHiddenCalendarEventKey(eventID: eventID, day: day, calendar: calendar))
+    }
+}
+
 public struct TaskerCalendarEventSlice: Codable, Equatable, Hashable, Sendable {
     public let startDate: Date
     public let endDate: Date
