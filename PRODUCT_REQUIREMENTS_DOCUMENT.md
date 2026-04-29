@@ -1,7 +1,7 @@
 # Tasker iOS - Product Requirements Document
 
-**Version:** 4.6
-**Last Updated:** April 25, 2026
+**Version:** 4.7
+**Last Updated:** April 29, 2026
 **Platform:** iOS 16.0+
 **Status:** Active Product Direction
 
@@ -226,6 +226,13 @@ Tasker intentionally adopts patterns that reduce day-level overwhelm and increas
 ### Home And Focus
 Purpose:
 - Resolve "what should I do now" with minimal decision overhead.
+- Make the Home timeline a single-glanceable day command center that combines tasks, fixed commitments, routines, busy blocks, free gaps, and EVA guidance into one readable flow.
+
+Product direction:
+- The Home timeline is Tasker's primary planning surface for the current day. It should help the user understand the shape of the day without mentally stitching together a calendar, task list, habit routine, and planner.
+- The timeline is not a dense calendar clone. It is optimized for orientation, prioritization, and action, not raw schedule completeness.
+- The user should be able to answer in about two seconds: what is happening now, what is coming next, which windows are busy, where usable free time exists, what needs attention, and what can safely be ignored or deferred.
+- The timeline should feel structured but not rigid. It should surface what is necessary, compress what is secondary, and guide the user toward the next useful action.
 
 Requirements:
 - Focus screen contains a bounded "Now" area with at most 3 tasks.
@@ -234,6 +241,13 @@ Requirements:
 - Complete action supports immediate undo feedback.
 - Resume banner is shown when last active context is present after interruption.
 - Done timeline is collapsed by default and expandable for progress reflection.
+- Fixed calendar meetings render as anchored, time-bound commitments.
+- Tasks render as lighter, flexible, actionable items that remain easy to complete, move, or defer.
+- Routines such as morning and evening rituals provide rhythm and emotional structure without becoming heavy UI.
+- Overlapping busy windows group into readable flocks so overload is visible without forcing the user to parse stacked calendar cards.
+- Long free gaps compress into clearly labeled opportunity windows instead of becoming dead space.
+- Sparse or empty days guide the user toward planning, task creation, or EVA-assisted scheduling instead of feeling abandoned.
+- The current moment is obvious without overpowering the rest of the timeline.
 
 ### Add Task (Lightning + Clarify)
 Purpose:
@@ -671,7 +685,7 @@ This table maps product surfaces to existing runtime usecases for implementation
 - Improve task breakdown templates and decomposition assists.
 
 ### Mid-Term
-- Expand the calendar + timeline package’s schedule-context behavior without turning Tasker into a calendar-first app.
+- Expand the calendar + timeline package's schedule-context behavior without turning Tasker into a calendar-first app.
 - Deepen habit-task linkage where useful while keeping habits analytically distinct from tasks.
 - Add more flexible count-based or frequency-based habits once the visual streak contract is stable.
 - Improve on-device assistant planning quality.

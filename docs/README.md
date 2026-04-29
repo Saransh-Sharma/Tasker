@@ -11,7 +11,7 @@ This directory is the navigation hub for product, architecture, audit, and featu
 ## Feature Packages
 
 - [Habits feature docs](./habits/README.md)
-- [Calendar + timeline docs](./calendar/README.md)
+- [Calendar + timeline docs](./calendar/README.md) - canonical Home/timeline product contract for the single-glanceable day command center, read-only calendar context, timeline runtime, risks, and roadmap.
 
 ## Working Rule
 

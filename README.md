@@ -51,15 +51,17 @@ See `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md` for the LLM/EVA architectu
 
 ## Calendar And Timeline
 
-Tasker’s calendar integration is view-only schedule context, not a calendar editing system.
+Tasker's calendar integration is view-only schedule context, not a calendar editing system.
+
+Home and the timeline are intended to be Tasker's single-glanceable command center for the day. The surface brings together tasks, fixed calendar commitments, routines, busy blocks, open gaps, and EVA guidance into one calm visual flow so users can understand what matters now without switching between a calendar, task list, and planner.
 
 The feature is documented in `docs/calendar/README.md` and covers:
 
 - Calendar permission onboarding and recovery
 - Local multi-calendar selection
 - Next meeting and busy-block projections
-- Task-fit hints based on the user’s current availability
-- Timeline surfaces that remain task-first while using calendar context
+- Task-fit hints based on the user's current availability
+- Timeline surfaces that remain task-first, schedule-aware, and optimized for orientation rather than calendar density
 
 ## Workflows
 
