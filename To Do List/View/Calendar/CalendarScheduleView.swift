@@ -1281,6 +1281,7 @@ struct TaskerCalendarTimelineView: View {
     var accessibilityIdentifier: String? = nil
     var accessibilityLabelText: String? = nil
     var initialVisibleHour: Int? = nil
+    var eventAccessibilityIdentifierPrefix = "schedule.event"
     var onSelectEvent: ((TaskerCalendarEventSnapshot) -> Void)? = nil
 
     @Environment(\.taskerLayoutClass) private var layoutClass
@@ -1477,7 +1478,7 @@ struct TaskerCalendarTimelineView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .accessibilityIdentifier("schedule.event.\(positioned.event.id)")
+                        .accessibilityIdentifier("\(eventAccessibilityIdentifierPrefix).\(positioned.event.id)")
                         .accessibilityLabel(timelineEventAccessibilityLabel(for: positioned.event))
                         .accessibilityHint(String(localized: "Open event details"))
                     } else {

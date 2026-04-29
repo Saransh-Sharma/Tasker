@@ -8,9 +8,10 @@ import EventKitUI
 struct EventKitEventDetailView: UIViewControllerRepresentable {
     let eventID: String
     let onDismiss: () -> Void
+    var onHideFromTimeline: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(eventID: eventID, onDismiss: onDismiss)
+        Coordinator(eventID: eventID, onDismiss: onDismiss, onHideFromTimeline: onHideFromTimeline)
     }
 
     func makeUIViewController(context: Context) -> UINavigationController {
@@ -24,13 +25,19 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
     final class Coordinator: NSObject, EKEventViewDelegate {
         private let store = EKEventStore()
         private let onDismiss: () -> Void
+        private let onHideFromTimeline: (() -> Void)?
         private var eventID: String
         private weak var eventViewController: EKEventViewController?
         private weak var unavailableLabel: UILabel?
 
-        init(eventID: String, onDismiss: @escaping () -> Void) {
+        init(
+            eventID: String,
+            onDismiss: @escaping () -> Void,
+            onHideFromTimeline: (() -> Void)?
+        ) {
             self.eventID = eventID
             self.onDismiss = onDismiss
+            self.onHideFromTimeline = onHideFromTimeline
         }
 
         func makeController() -> UINavigationController {
@@ -67,6 +74,7 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             self.eventViewController = eventViewController
             self.unavailableLabel = unavailableLabel
             applyCurrentEvent()
+            applyHideButtonIfNeeded()
 
             let navigationController = UINavigationController(rootViewController: eventViewController)
             navigationController.view.accessibilityIdentifier = "schedule.detail.sheet"
@@ -76,6 +84,7 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
         func update(eventID: String) {
             self.eventID = eventID
             applyCurrentEvent()
+            applyHideButtonIfNeeded()
         }
 
         private func applyCurrentEvent() {
@@ -97,6 +106,24 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             onDismiss()
         }
 
+        private func applyHideButtonIfNeeded() {
+            guard onHideFromTimeline != nil else { return }
+            let hideItem = UIBarButtonItem(
+                image: UIImage(systemName: "eye.slash"),
+                style: .plain,
+                target: self,
+                action: #selector(hideFromTimelineTapped)
+            )
+            hideItem.accessibilityLabel = String(localized: "Hide from Timeline")
+            hideItem.accessibilityHint = String(localized: "Hides this event from the Home timeline for this day.")
+            hideItem.accessibilityIdentifier = "schedule.detail.hideFromTimeline"
+            eventViewController?.navigationItem.rightBarButtonItem = hideItem
+        }
+
+        @objc private func hideFromTimelineTapped() {
+            onHideFromTimeline?()
+        }
+
         func eventViewController(_ controller: EKEventViewController, didCompleteWith action: EKEventViewAction) {
             _ = action
             onDismiss()
@@ -107,6 +134,7 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
 struct EventKitEventDetailView: View {
     let eventID: String
     let onDismiss: () -> Void
+    var onHideFromTimeline: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 16) {
@@ -116,6 +144,13 @@ struct EventKitEventDetailView: View {
                 .font(.tasker(.caption2))
                 .foregroundStyle(Color.tasker.textSecondary)
             Button(String(localized: "Close"), action: onDismiss)
+            if let onHideFromTimeline {
+                Button(action: onHideFromTimeline) {
+                    Label(String(localized: "Hide from Timeline"), systemImage: "eye.slash")
+                }
+                .accessibilityHint(String(localized: "Hides this event from the Home timeline for this day."))
+                .accessibilityIdentifier("schedule.detail.hideFromTimeline")
+            }
         }
         .padding()
     }
