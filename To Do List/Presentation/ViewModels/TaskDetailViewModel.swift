@@ -548,7 +548,6 @@ public final class TaskDetailViewModel: ObservableObject {
             estimatedDuration = scheduleDuration
         }
         scheduledStartAt = roundedStart
-        dueDate = roundedStart
     }
 
     public func setDurationMinutes(_ minutes: Int) {
@@ -557,9 +556,6 @@ public final class TaskDetailViewModel: ObservableObject {
         if scheduledStartAt == nil {
             let defaultStart = Self.defaultScheduledStart()
             scheduledStartAt = defaultStart
-            dueDate = defaultStart
-        } else {
-            dueDate = scheduledStartAt
         }
     }
 
@@ -1135,12 +1131,11 @@ public final class TaskDetailViewModel: ObservableObject {
             }
         }
 
-        let effectiveDueDate = scheduledStartAt ?? dueDate
         let effectiveScheduledEndAt = scheduledEndAtForStorage
 
-        if areDatesDifferent(effectiveDueDate, persistedTask.dueDate) {
-            if let effectiveDueDate {
-                dueDateChange = effectiveDueDate
+        if areDatesDifferent(dueDate, persistedTask.dueDate) {
+            if let dueDate {
+                dueDateChange = dueDate
             } else if persistedTask.dueDate != nil {
                 clearDueDate = true
             }
@@ -1489,16 +1484,32 @@ public final class TaskDetailViewModel: ObservableObject {
         return clearingSubminuteComponents(Date(timeIntervalSinceReferenceDate: rounded), calendar: calendar)
     }
 
-    public static func scheduleRangeLabel(start: Date, end: Date?) -> String {
+    public static func scheduleRangeLabel(start: Date, end: Date?, locale: Locale = .current) -> String {
         let formatter = DateFormatter()
+        formatter.locale = locale
         formatter.timeStyle = .short
         guard let end else {
             return normalizedTimeText(formatter.string(from: start))
         }
         let startText = normalizedTimeText(formatter.string(from: start))
         let endText = normalizedTimeText(formatter.string(from: end))
-        if startText.suffix(2) == endText.suffix(2) {
-            return "\(startText.dropLast(3))-\(endText)"
+        if localeUses12HourClock(formatter.locale) {
+            let periodFormatter = DateFormatter()
+            periodFormatter.locale = formatter.locale
+            periodFormatter.calendar = formatter.calendar
+            periodFormatter.timeZone = formatter.timeZone
+            periodFormatter.dateFormat = "a"
+            let startPeriod = normalizedTimeText(periodFormatter.string(from: start))
+            let endPeriod = normalizedTimeText(periodFormatter.string(from: end))
+            if startPeriod.isEmpty == false,
+               startPeriod == endPeriod,
+               startText.hasSuffix(startPeriod),
+               endText.hasSuffix(endPeriod) {
+                let compactStart = startText
+                    .dropLast(startPeriod.count)
+                    .trimmingCharacters(in: .whitespaces)
+                return "\(compactStart)-\(endText)"
+            }
         }
         return "\(startText)-\(endText)"
     }
@@ -1519,6 +1530,12 @@ public final class TaskDetailViewModel: ObservableObject {
 
     private static func normalizedTimeText(_ text: String) -> String {
         text.replacingOccurrences(of: "\u{202F}", with: " ")
+    }
+
+    private static func localeUses12HourClock(_ locale: Locale) -> Bool {
+        DateFormatter
+            .dateFormat(fromTemplate: "j", options: 0, locale: locale)?
+            .contains("a") == true
     }
 
     private static func durationLabel(for duration: TimeInterval) -> String {
