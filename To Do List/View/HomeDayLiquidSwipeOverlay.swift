@@ -50,18 +50,22 @@ struct HomeDayLiquidSwipeOverlay: View {
             } label: {
                 Label(side.accessibilityLabel, systemImage: side.systemImage)
                     .labelStyle(.iconOnly)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 14 * HomeDayLiquidSwipeData.buttonVisualScale, weight: .bold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Color.tasker.accentOnPrimary)
                     .frame(
-                        width: HomeDayLiquidSwipeData.buttonRadius * 2,
-                        height: HomeDayLiquidSwipeData.buttonRadius * 2
+                        width: HomeDayLiquidSwipeData.buttonVisualRadius * 2,
+                        height: HomeDayLiquidSwipeData.buttonVisualRadius * 2
                     )
                     .background {
                         Circle()
                             .stroke(Color.tasker.accentOnPrimary.opacity(0.28), lineWidth: 1)
                             .background(Color.tasker.accentPrimary.opacity(0.38), in: Circle())
                     }
+                    .frame(
+                        width: HomeDayLiquidSwipeData.buttonRadius * 2,
+                        height: HomeDayLiquidSwipeData.buttonRadius * 2
+                    )
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)

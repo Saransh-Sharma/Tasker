@@ -2561,6 +2561,7 @@ struct HomeBackdropForedropRootView: View {
 
     let onTaskTap: (TaskDefinition) -> Void
     let onToggleComplete: (TaskDefinition) -> Void
+    let onTimelineAnchorTap: (TimelineAnchorItem) -> Void
     let onDeleteTask: (TaskDefinition) -> Void
     let onRescheduleTask: (TaskDefinition) -> Void
     let onReorderCustomProjects: ([UUID]) -> Void
@@ -4459,6 +4460,7 @@ struct HomeBackdropForedropRootView: View {
                                     trackTaskToggle(task, source: "timeline")
                                     onToggleComplete(task)
                                 },
+                                onAnchorTap: onTimelineAnchorTap,
                                 onAddTask: onAddTask,
                                 onScheduleInbox: {
                                     viewModel.startTriage()
