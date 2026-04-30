@@ -822,7 +822,12 @@ struct ChatComposerView: View {
 
     var body: some View {
         if V2FeatureFlags.evaStructuredComposer && isActivationPresentation == false {
-            structuredComposer
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                if shouldShowComposerSuggestionStrip {
+                    composerSuggestionStrip
+                }
+                structuredComposer
+            }
         } else {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
             if activeAttachments.isEmpty == false {
@@ -1074,7 +1079,7 @@ struct ChatComposerView: View {
     }
 
     private var composerPlaceholder: String {
-        isActivationPresentation ? "Ask Eva what to focus on..." : "ask Eva anything..."
+        isActivationPresentation ? "Ask Eva what to focus on..." : "Ask Eva anything"
     }
 
     private var activeAttachmentRow: some View {
@@ -1422,13 +1427,16 @@ struct ChatScaffoldView: View {
                 .onAppear {
                     publishNavigationChromeState()
                 }
-                .onChange(of: currentThread?.id) { _, _ in
+                .onChange(of: currentThread?.id) { _ in
                     publishNavigationChromeState()
                 }
-                .onChange(of: chatTitle) { _, _ in
+                .onChange(of: chatTitle) { _ in
                     publishNavigationChromeState()
                 }
-                .onChange(of: showsHistoryAction) { _, _ in
+                .onChange(of: showsHistoryAction) { _ in
+                    publishNavigationChromeState()
+                }
+                .onChange(of: presentationMode) { _ in
                     publishNavigationChromeState()
                 }
                 .sheet(isPresented: showSettings) {
