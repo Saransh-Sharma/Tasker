@@ -1256,6 +1256,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var bottomBarHostingController: UIHostingController<HomeBottomBarContainer>?
     private var bottomBarBottomConstraint: NSLayoutConstraint?
     private weak var presentedCalendarScheduleController: UIViewController?
+    private weak var presentedEvaChatController: UIViewController?
+    private var shouldResetHomeAfterEvaChatDismissal = false
     private var insightsViewModel: InsightsViewModel?
     private let searchState = HomeSearchState()
     private let chromeStore = HomeChromeStore()
@@ -1357,6 +1359,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     /// Executes viewDidAppear.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        resetHomeSelectionAfterEvaChatDismissalIfNeeded()
         if let pendingRoute = TaskerNotificationRouteBus.shared.consumePendingRoute() {
             handleNotificationRoute(pendingRoute)
         }
@@ -3767,7 +3770,23 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let navController = UINavigationController(rootViewController: chatHostVC)
         navController.modalPresentationStyle = .fullScreen
         navController.navigationBar.prefersLargeTitles = false
+        presentedEvaChatController = navController
+        shouldResetHomeAfterEvaChatDismissal = true
+        navController.presentationController?.delegate = self
         present(navController, animated: true)
+    }
+
+    private func resetHomeSelectionAfterEvaChatDismissalIfNeeded() {
+        guard shouldResetHomeAfterEvaChatDismissal else { return }
+        guard presentedViewController == nil else { return }
+        resetHomeSelectionAfterEvaChatDismissal()
+    }
+
+    private func resetHomeSelectionAfterEvaChatDismissal() {
+        shouldResetHomeAfterEvaChatDismissal = false
+        presentedEvaChatController = nil
+        faceCoordinator.setActiveFace(.tasks)
+        faceCoordinator.bottomBarState.select(.home)
     }
 
     // MARK: - Task Routing
@@ -5576,6 +5595,8 @@ extension HomeViewController {
         if presentationController.presentedViewController === presentedCalendarScheduleController {
             presentedCalendarScheduleController = nil
             faceCoordinator.bottomBarState.select(faceCoordinator.activeFace.selectedBottomBarItem)
+        } else if presentationController.presentedViewController === presentedEvaChatController {
+            resetHomeSelectionAfterEvaChatDismissal()
         }
         resetPendingIPadModalWaitState()
         processPendingIPadModalRequest()
