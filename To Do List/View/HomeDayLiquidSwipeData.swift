@@ -1,5 +1,38 @@
 import SwiftUI
 
+struct HomeDayLiquidSwipeRestingPosition {
+    static func centerY(
+        defaultCenterY: CGFloat,
+        showsQuietTrackingRail: Bool,
+        measuredQuietTrackingRailHeight: CGFloat,
+        quietTrackingRailFallbackHeight: CGFloat,
+        showsNeedsReplanTray: Bool,
+        measuredNeedsReplanTrayHeight: CGFloat,
+        needsReplanTrayFallbackHeight: CGFloat,
+        topPadding: CGFloat,
+        interModuleSpacing: CGFloat,
+        buttonRadius: CGFloat,
+        clearance: CGFloat
+    ) -> CGFloat {
+        guard showsQuietTrackingRail || showsNeedsReplanTray else {
+            return defaultCenterY
+        }
+
+        var contentHeight = topPadding
+        if showsQuietTrackingRail {
+            contentHeight += max(measuredQuietTrackingRailHeight, quietTrackingRailFallbackHeight)
+        }
+        if showsQuietTrackingRail, showsNeedsReplanTray {
+            contentHeight += interModuleSpacing
+        }
+        if showsNeedsReplanTray {
+            contentHeight += max(measuredNeedsReplanTrayHeight, needsReplanTrayFallbackHeight)
+        }
+
+        return contentHeight + interModuleSpacing + buttonRadius + clearance
+    }
+}
+
 struct HomeDayLiquidSwipeData: Equatable {
     static let buttonRadius: CGFloat = 24
     static let timelineHandleCenterY: CGFloat = buttonRadius + 16
@@ -15,13 +48,19 @@ struct HomeDayLiquidSwipeData: Equatable {
     let centerY: CGFloat
     let progress: CGFloat
     let containerSize: CGSize
+    let restingCenterY: CGFloat
 
-    init(side: HomeDayLiquidSwipeSide, containerSize: CGSize = .zero) {
+    init(
+        side: HomeDayLiquidSwipeSide,
+        containerSize: CGSize = .zero,
+        restingCenterY: CGFloat = Self.timelineHandleCenterY
+    ) {
         self.init(
             side: side,
-            centerY: Self.timelineHandleCenterY,
+            centerY: restingCenterY,
             progress: 0,
-            containerSize: containerSize
+            containerSize: containerSize,
+            restingCenterY: restingCenterY
         )
     }
 
@@ -29,12 +68,14 @@ struct HomeDayLiquidSwipeData: Equatable {
         side: HomeDayLiquidSwipeSide,
         centerY: CGFloat,
         progress: CGFloat,
-        containerSize: CGSize
+        containerSize: CGSize,
+        restingCenterY: CGFloat = Self.timelineHandleCenterY
     ) {
         self.side = side
         self.centerY = centerY
         self.progress = min(max(progress, 0), 1)
         self.containerSize = containerSize
+        self.restingCenterY = restingCenterY
     }
 
     var buttonCenter: CGPoint {
@@ -81,16 +122,28 @@ struct HomeDayLiquidSwipeData: Equatable {
             side: side,
             centerY: centerY,
             progress: progress,
-            containerSize: size
+            containerSize: size,
+            restingCenterY: restingCenterY
+        )
+    }
+
+    func resting(at restingCenterY: CGFloat) -> HomeDayLiquidSwipeData {
+        HomeDayLiquidSwipeData(
+            side: side,
+            centerY: centerY,
+            progress: progress,
+            containerSize: containerSize,
+            restingCenterY: restingCenterY
         )
     }
 
     func initial() -> HomeDayLiquidSwipeData {
         HomeDayLiquidSwipeData(
             side: side,
-            centerY: Self.timelineHandleCenterY,
+            centerY: restingCenterY,
             progress: 0,
-            containerSize: containerSize
+            containerSize: containerSize,
+            restingCenterY: restingCenterY
         )
     }
 
@@ -99,7 +152,8 @@ struct HomeDayLiquidSwipeData: Equatable {
             side: side,
             centerY: centerY,
             progress: 1,
-            containerSize: containerSize
+            containerSize: containerSize,
+            restingCenterY: restingCenterY
         )
     }
 
@@ -110,7 +164,8 @@ struct HomeDayLiquidSwipeData: Equatable {
             side: side,
             centerY: min(max(location.y, 0), height),
             progress: nextProgress,
-            containerSize: containerSize
+            containerSize: containerSize,
+            restingCenterY: restingCenterY
         )
     }
 
