@@ -162,6 +162,44 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
         XCTAssertEqual(metrics.visualLastCellWidth, 0, accuracy: 0.001)
     }
 
+    func testLastCellDecorationPolicyShowsForUncheckedStates() {
+        XCTAssertTrue(HomeHabitLastCellDecorationPolicy.showsDecoration(for: .due))
+        XCTAssertTrue(HomeHabitLastCellDecorationPolicy.showsDecoration(for: .overdue))
+        XCTAssertTrue(HomeHabitLastCellDecorationPolicy.showsDecoration(for: .tracking))
+    }
+
+    func testLastCellDecorationPolicyHidesForCheckedInStates() {
+        XCTAssertFalse(HomeHabitLastCellDecorationPolicy.showsDecoration(for: .completedToday))
+        XCTAssertFalse(HomeHabitLastCellDecorationPolicy.showsDecoration(for: .skippedToday))
+        XCTAssertFalse(HomeHabitLastCellDecorationPolicy.showsDecoration(for: .lapsedToday))
+    }
+
+    func testLastCellDecorationPolicyDrivesTrailingVisualWidth() {
+        let checkedInStates: [HomeHabitRowState] = [.completedToday, .skippedToday, .lapsedToday]
+
+        for state in checkedInStates {
+            let metrics = HomeHabitRowHitTargetMetrics(
+                stripWidth: 210,
+                cellCount: 7,
+                showsLastCellDecoration: HomeHabitLastCellDecorationPolicy.showsDecoration(for: state)
+            )
+
+            XCTAssertEqual(metrics.visualLastCellWidth, 0, accuracy: 0.001, "Expected no decoration for \(state)")
+        }
+
+        let uncheckedStates: [HomeHabitRowState] = [.due, .tracking]
+
+        for state in uncheckedStates {
+            let metrics = HomeHabitRowHitTargetMetrics(
+                stripWidth: 210,
+                cellCount: 7,
+                showsLastCellDecoration: HomeHabitLastCellDecorationPolicy.showsDecoration(for: state)
+            )
+
+            XCTAssertEqual(metrics.visualLastCellWidth, 30, accuracy: 0.001, "Expected decoration for \(state)")
+        }
+    }
+
     private func makeRow(kind: HabitKind, state: HomeHabitRowState) -> HomeHabitRow {
         HomeHabitRow(
             habitID: UUID(),
