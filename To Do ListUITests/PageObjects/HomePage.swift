@@ -1843,10 +1843,14 @@ class HomePage {
     }
 
     func swipeTimelineLeft() {
-        timelineSurface.swipeLeft()
+        let start = timelineSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.5))
+        let end = timelineSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.48, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 
     func swipeTimelineRight() {
-        timelineSurface.swipeRight()
+        let start = timelineSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5))
+        let end = timelineSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.52, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 }
