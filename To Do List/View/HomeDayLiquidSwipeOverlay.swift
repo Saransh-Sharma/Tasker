@@ -4,6 +4,7 @@ import UIKit
 struct HomeDayLiquidSwipeOverlay: View {
     let isEnabled: Bool
     let reduceMotion: Bool
+    let restingCenterY: CGFloat
     let onInteractionStarted: () -> Void
     let onInteractionCancelled: () -> Void
     let onCommit: (HomeDayNavigationDirection) -> Void
@@ -100,7 +101,11 @@ struct HomeDayLiquidSwipeOverlay: View {
         translation: CGSize,
         size: CGSize
     ) -> CGPoint {
-        let center = HomeDayLiquidSwipeData(side: side, containerSize: size).buttonCenter
+        let center = HomeDayLiquidSwipeData(
+            side: side,
+            containerSize: size,
+            restingCenterY: restingCenterY
+        ).buttonCenter
         return CGPoint(
             x: center.x + translation.width,
             y: center.y + translation.height
@@ -147,7 +152,9 @@ struct HomeDayLiquidSwipeOverlay: View {
 
     private func swipeData(for side: HomeDayLiquidSwipeSide, size: CGSize) -> HomeDayLiquidSwipeData {
         let data = side == .leading ? leadingData : trailingData
-        return data.sized(to: size == .zero ? data.containerSize : size)
+        return data
+            .resting(at: restingCenterY)
+            .sized(to: size == .zero ? data.containerSize : size)
     }
 
     private func setSwipeData(_ data: HomeDayLiquidSwipeData) {
@@ -163,6 +170,7 @@ struct HomeDayLiquidSwipeOverlay: View {
 struct HomeDayLiquidSwipeGestureSurface: UIViewRepresentable {
     let isEnabled: Bool
     let containerSize: CGSize
+    let restingCenterY: CGFloat
     let resolver: HomeDaySwipeResolver
     let onInteractionStarted: () -> Void
     let onChanged: (HomeDayLiquidSwipeSide, CGSize, CGPoint) -> Void
@@ -362,7 +370,11 @@ struct HomeDayLiquidSwipeGestureSurface: UIViewRepresentable {
         private func isHandleLocation(_ location: CGPoint, in size: CGSize) -> Bool {
             let hitRadius = HomeDayLiquidSwipeData.buttonRadius + 12
             return HomeDayLiquidSwipeSide.allCases.contains { side in
-                let center = HomeDayLiquidSwipeData(side: side, containerSize: size).buttonCenter
+                let center = HomeDayLiquidSwipeData(
+                    side: side,
+                    containerSize: size,
+                    restingCenterY: parent.restingCenterY
+                ).buttonCenter
                 return hypot(location.x - center.x, location.y - center.y) <= hitRadius
             }
         }
