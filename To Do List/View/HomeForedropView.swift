@@ -2639,6 +2639,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var trailingDayLiquidSwipeData = HomeDayLiquidSwipeData(side: .trailing)
     @State private var topDayLiquidSwipeSide: HomeDayLiquidSwipeSide = .trailing
     @State private var activeDayLiquidSwipeSide: HomeDayLiquidSwipeSide?
+    @State private var isDayLiquidSwipeChromeVisible = true
+    @State private var timelineScrollChromeStateTracker = HomeScrollChromeStateTracker()
     @StateObject private var timelineViewModel = HomeTimelineViewModel()
     private static let dayLiquidSwipeCoordinateSpaceName = "home.dayLiquidSwipe"
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
@@ -2733,6 +2735,9 @@ struct HomeBackdropForedropRootView: View {
             return false
         }
         return true
+    }
+    private var isDaySwipeInteractionEnabled: Bool {
+        isDaySwipeGestureEnabled && isDayLiquidSwipeChromeVisible
     }
     private var daySwipeAnimation: Animation {
         if reduceMotion || isUITesting {
@@ -2941,6 +2946,10 @@ struct HomeBackdropForedropRootView: View {
         .onPreferenceChange(TimelineBackdropWeekHeightPreferenceKey.self) { measuredWeekBackdropHeight = $0 }
         .onChange(of: dayLiquidSwipeRestingCenterY) { _, newValue in
             resetIdleDayLiquidSwipeHandles(restingCenterY: newValue)
+        }
+        .onChange(of: isTodayTimelineVisible) { _, isVisible in
+            guard isVisible else { return }
+            resetDayLiquidSwipeChromeVisibility()
         }
         .onChange(of: habitRenderSignature) { _, _ in
             HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
@@ -4236,6 +4245,30 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private func handleTimelineScrollOffsetChange(_ newOffset: CGFloat) {
+        if let nextState = timelineScrollChromeStateTracker.consume(offset: newOffset) {
+            updateDayLiquidSwipeChromeVisibility(for: nextState)
+        }
+    }
+
+    private func updateDayLiquidSwipeChromeVisibility(for state: HomeScrollChromeState) {
+        let nextVisibility = HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+            currentVisibility: isDayLiquidSwipeChromeVisible,
+            for: state
+        )
+        guard nextVisibility != isDayLiquidSwipeChromeVisible else { return }
+        isDayLiquidSwipeChromeVisible = nextVisibility
+        if nextVisibility == false {
+            activeDayLiquidSwipeSide = nil
+            cancelDaySwipeTraceIfNeeded()
+        }
+    }
+
+    private func resetDayLiquidSwipeChromeVisibility() {
+        timelineScrollChromeStateTracker = HomeScrollChromeStateTracker()
+        isDayLiquidSwipeChromeVisible = true
+    }
+
     private func updateDayLiquidSwipe(
         side: HomeDayLiquidSwipeSide,
         translation: CGSize,
@@ -4494,7 +4527,7 @@ struct HomeBackdropForedropRootView: View {
                     .contentShape(Rectangle())
                     .background {
                         HomeDayLiquidSwipeGestureSurface(
-                            isEnabled: isDaySwipeGestureEnabled,
+                            isEnabled: isDaySwipeInteractionEnabled,
                             containerSize: dayLiquidSwipeContainerSize,
                             restingCenterY: dayLiquidSwipeRestingCenterY,
                             resolver: .default,
@@ -4528,9 +4561,19 @@ struct HomeBackdropForedropRootView: View {
                     }
                 }
                 .scrollIndicators(.hidden)
+                .onScrollGeometryChange(
+                    for: CGFloat.self,
+                    of: { geometry in
+                        geometry.contentOffset.y + geometry.contentInsets.top
+                    },
+                    action: { _, newOffset in
+                        handleTimelineScrollOffsetChange(max(0, newOffset))
+                    }
+                )
 
                 HomeDayLiquidSwipeOverlay(
                     isEnabled: isDaySwipeGestureEnabled,
+                    isChromeVisible: isDayLiquidSwipeChromeVisible,
                     reduceMotion: reduceMotion || isUITesting,
                     restingCenterY: dayLiquidSwipeRestingCenterY,
                     onInteractionStarted: beginDaySwipeTrace,
