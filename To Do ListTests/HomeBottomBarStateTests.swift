@@ -99,8 +99,8 @@ final class HomeBottomBarStateTests: XCTestCase {
     }
 
     func testCalendarBottomBarSymbolFallsBackForInvalidDay() {
-        XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 0), "calendar")
-        XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 32), "calendar")
+        XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 0), HomeCalendarBottomBarSymbol.defaultSymbol)
+        XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 32), HomeCalendarBottomBarSymbol.defaultSymbol)
     }
 
     func testCollapsedChromeStateMinimizesBottomBar() {

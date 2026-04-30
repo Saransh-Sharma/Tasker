@@ -305,6 +305,27 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertFalse(reloadedStore.isHidden(eventID: "event-1", on: tomorrow))
     }
 
+    func testEmptyWidgetCalendarSnapshotUsesNeutralStatus() {
+        XCTAssertEqual(TaskListWidgetCalendarSnapshot.empty.status, .empty)
+        XCTAssertEqual(TaskListWidgetCalendarSnapshot().status, .empty)
+    }
+
+    func testHiddenCalendarEventDefaultDayStampUsesGregorianCalendar() {
+        let day = todayDate(hour: 9)
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = Calendar.current.timeZone
+        let components = gregorian.dateComponents([.year, .month, .day], from: day)
+        let expected = String(
+            format: "%04d%02d%02d",
+            components.year ?? 0,
+            components.month ?? 0,
+            components.day ?? 0
+        )
+
+        XCTAssertEqual(HomeTimelineHiddenCalendarEventKey.dayStamp(for: day), expected)
+        XCTAssertEqual(HomeTimelineHiddenCalendarEventKey(eventID: "event-1", day: day).dayStamp, expected)
+    }
+
     func testHiddenHomeTimelineCalendarEventsAreFilteredOnlyFromTimelineProjection() {
         let preferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],

@@ -101,7 +101,7 @@ final class TaskDetailViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.durationMinutes, 30)
     }
 
-    func testChangingStartTimePersistsScheduledStartEndAndAlignedDueDate() async {
+    func testChangingStartTimePersistsScheduledStartEndWithoutDueDateFallback() async {
         let originalStart = makeDate(year: 2026, month: 4, day: 29, hour: 20, minute: 15)
         let newStart = makeDate(year: 2026, month: 4, day: 29, hour: 21, minute: 7)
         let roundedStart = makeDate(year: 2026, month: 4, day: 29, hour: 21, minute: 0)
@@ -130,7 +130,7 @@ final class TaskDetailViewModelTests: XCTestCase {
         viewModel.scheduleAutosave(debounced: false)
         await fulfillment(of: [saveExpectation], timeout: 1.0)
 
-        XCTAssertEqual(capturedRequest?.dueDate, roundedStart)
+        XCTAssertNil(capturedRequest?.dueDate)
         XCTAssertEqual(capturedRequest?.scheduledStartAt, roundedStart)
         XCTAssertEqual(capturedRequest?.scheduledEndAt, roundedStart.addingTimeInterval(15 * 60))
     }
@@ -181,12 +181,21 @@ final class TaskDetailViewModelTests: XCTestCase {
         let midnightStart = makeDate(year: 2026, month: 4, day: 29, hour: 23, minute: 30)
 
         XCTAssertEqual(
-            TaskDetailViewModel.scheduleRangeLabel(start: eveningStart, end: eveningStart.addingTimeInterval(15 * 60)),
+            TaskDetailViewModel.scheduleRangeLabel(start: eveningStart, end: eveningStart.addingTimeInterval(15 * 60), locale: Locale(identifier: "en_US")),
             "8:15-8:30 PM"
         )
         XCTAssertEqual(
-            TaskDetailViewModel.scheduleRangeLabel(start: midnightStart, end: midnightStart.addingTimeInterval(45 * 60)),
+            TaskDetailViewModel.scheduleRangeLabel(start: midnightStart, end: midnightStart.addingTimeInterval(45 * 60), locale: Locale(identifier: "en_US")),
             "11:30 PM-12:15 AM"
+        )
+    }
+
+    func testScheduleRangeLabelKeepsFullTimesIn24HourLocales() {
+        let eveningStart = makeDate(year: 2026, month: 4, day: 29, hour: 20, minute: 15)
+
+        XCTAssertEqual(
+            TaskDetailViewModel.scheduleRangeLabel(start: eveningStart, end: eveningStart.addingTimeInterval(15 * 60), locale: Locale(identifier: "en_GB")),
+            "20:15-20:30"
         )
     }
 

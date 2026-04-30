@@ -1953,10 +1953,11 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let rescueTitles = rescueTailState(from: viewModel)?.rows.map(\.title)
         let agendaTitles = viewModel.todayAgendaSectionState.sections.flatMap(\.rows).map(\.title)
         let focusTitles = viewModel.focusNowSectionState.rows.map(\.title)
+        let visibleWorkTitles = agendaTitles + focusTitles
 
         XCTAssertEqual(rescueTitles, ["Rescue Older", "Rescue Old"])
-        XCTAssertTrue(agendaTitles.contains("Agenda Overdue"))
-        XCTAssertTrue(agendaTitles.contains("Due Today"))
+        XCTAssertTrue(visibleWorkTitles.contains("Agenda Overdue"))
+        XCTAssertTrue(visibleWorkTitles.contains("Due Today"))
         XCTAssertFalse(agendaTitles.contains("Rescue Older"))
         XCTAssertFalse(agendaTitles.contains("Rescue Old"))
         XCTAssertFalse(agendaTitles.contains("Stale Important"))
@@ -2377,16 +2378,16 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             return XCTFail("Expected habit row after initial load")
         }
 
-        let initialAgendaTitles = harness.viewModel.dueTodayRows.map { $0.title }
-        XCTAssertTrue(initialAgendaTitles.contains("Hydrate"))
-        XCTAssertTrue(initialAgendaTitles.contains("Keep Me"))
+        let initialVisibleTitles = visibleTodayWorkTitles(in: harness.viewModel)
+        XCTAssertTrue(initialVisibleTitles.contains("Hydrate"))
+        XCTAssertTrue(initialVisibleTitles.contains("Keep Me"))
 
         harness.schedulingEngine.deferResolveCompletion = true
         harness.viewModel.performHabitLastCellAction(row, source: "test")
 
-        let optimisticAgendaTitles = harness.viewModel.dueTodayRows.map { $0.title }
-        XCTAssertFalse(optimisticAgendaTitles.contains("Hydrate"))
-        XCTAssertTrue(optimisticAgendaTitles.contains("Keep Me"))
+        let optimisticVisibleTitles = visibleTodayWorkTitles(in: harness.viewModel)
+        XCTAssertFalse(optimisticVisibleTitles.contains("Hydrate"))
+        XCTAssertTrue(optimisticVisibleTitles.contains("Keep Me"))
     }
 
     func testHabitMutationPreservesStableHomeOrdering() {
@@ -2858,6 +2859,11 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             guard case .task(let task) = row else { return nil }
             return task.id
         })
+    }
+
+    private func visibleTodayWorkTitles(in viewModel: HomeViewModel) -> [String] {
+        viewModel.dueTodayRows.map(\.title)
+            + viewModel.focusNowSectionState.rows.map(\.title)
     }
 
     private func taskTitles(in sections: [HomeListSection]) -> [String] {
