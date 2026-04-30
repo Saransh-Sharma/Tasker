@@ -1261,11 +1261,15 @@ struct HomeDaySwipeResolver {
     let minimumTranslation: CGFloat
     let minimumPredictedTranslation: CGFloat
     let horizontalDominanceRatio: CGFloat
+    let liquidActivationMinimumTranslation: CGFloat
+    let liquidActivationHorizontalDominanceRatio: CGFloat
 
     static let `default` = HomeDaySwipeResolver(
         minimumTranslation: 56,
         minimumPredictedTranslation: 92,
-        horizontalDominanceRatio: 1.35
+        horizontalDominanceRatio: 1.35,
+        liquidActivationMinimumTranslation: 8,
+        liquidActivationHorizontalDominanceRatio: 1.0
     )
 
     func resolvedDirection(
@@ -1294,6 +1298,66 @@ struct HomeDaySwipeResolver {
 
     func isHorizontallyDominant(translation: CGSize) -> Bool {
         abs(translation.width) > max(abs(translation.height) * horizontalDominanceRatio, 28)
+    }
+
+    func liquidActivationSide(
+        startLocation: CGPoint,
+        translation: CGSize,
+        containerSize: CGSize
+    ) -> HomeDayLiquidSwipeSide? {
+        guard isLiquidActivationCandidate(translation: translation) else { return nil }
+        guard let side = HomeDayLiquidSwipeData.side(
+            forStartLocation: startLocation,
+            containerSize: containerSize
+        ) else {
+            return nil
+        }
+        guard side.horizontalSign * translation.width > 0 else { return nil }
+        return side
+    }
+
+    func liquidActivationSide(
+        startLocation: CGPoint,
+        translation: CGSize,
+        velocity: CGPoint,
+        containerSize: CGSize
+    ) -> HomeDayLiquidSwipeSide? {
+        guard let side = HomeDayLiquidSwipeData.side(
+            forStartLocation: startLocation,
+            containerSize: containerSize
+        ) else {
+            return nil
+        }
+
+        let intent = liquidIntentTranslation(translation: translation, velocity: velocity)
+        guard isLiquidActivationCandidate(translation: intent) else { return nil }
+        guard side.horizontalSign * intent.width > 0 else { return nil }
+        return side
+    }
+
+    func isLiquidActivationCandidate(translation: CGSize) -> Bool {
+        let horizontalDistance = abs(translation.width)
+        let verticalDistance = abs(translation.height)
+        guard horizontalDistance >= liquidActivationMinimumTranslation else { return false }
+        return horizontalDistance > verticalDistance * liquidActivationHorizontalDominanceRatio
+    }
+
+    func predictedEndTranslation(translation: CGSize, velocity: CGPoint) -> CGSize {
+        let projectionDuration: CGFloat = 0.18
+        return CGSize(
+            width: translation.width + velocity.x * projectionDuration,
+            height: translation.height + velocity.y * projectionDuration
+        )
+    }
+
+    private func liquidIntentTranslation(translation: CGSize, velocity: CGPoint) -> CGSize {
+        let horizontal = abs(translation.width) >= liquidActivationMinimumTranslation
+            ? translation.width
+            : velocity.x
+        let vertical = abs(translation.height) >= liquidActivationMinimumTranslation
+            ? translation.height
+            : velocity.y
+        return CGSize(width: horizontal, height: vertical)
     }
 }
 
@@ -2568,8 +2632,12 @@ struct HomeBackdropForedropRootView: View {
     @State private var measuredWeekBackdropHeight: CGFloat = 0
     @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
     @State private var isDaySwipeTracingActive = false
-    @GestureState private var daySwipeTranslation: CGFloat = 0
+    @State private var leadingDayLiquidSwipeData = HomeDayLiquidSwipeData(side: .leading)
+    @State private var trailingDayLiquidSwipeData = HomeDayLiquidSwipeData(side: .trailing)
+    @State private var topDayLiquidSwipeSide: HomeDayLiquidSwipeSide = .trailing
+    @State private var activeDayLiquidSwipeSide: HomeDayLiquidSwipeSide?
     @StateObject private var timelineViewModel = HomeTimelineViewModel()
+    private static let dayLiquidSwipeCoordinateSpaceName = "home.dayLiquidSwipe"
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
     private static let foredropHintPeekDuration: TimeInterval = 0.10
@@ -2662,10 +2730,6 @@ struct HomeBackdropForedropRootView: View {
             return false
         }
         return true
-    }
-    private var daySwipeVisualOffset: CGFloat {
-        guard isDaySwipeGestureEnabled else { return 0 }
-        return min(max(daySwipeTranslation, -36), 36)
     }
     private var daySwipeAnimation: Animation {
         if reduceMotion || isUITesting {
@@ -4096,40 +4160,127 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private var daySwipeGesture: some Gesture {
-        let resolver = HomeDaySwipeResolver.default
-        return DragGesture(minimumDistance: 12, coordinateSpace: .local)
-            .updating($daySwipeTranslation) { value, state, _ in
-                guard isDaySwipeGestureEnabled else { return }
-                guard resolver.isHorizontallyDominant(translation: value.translation) else { return }
-                state = min(max(value.translation.width * 0.35, -36), 36)
+    private func beginDaySwipeTrace() {
+        guard isDaySwipeTracingActive == false else { return }
+        isDaySwipeTracingActive = true
+        TaskerPerformanceTrace.event("HomeDaySwipeStarted")
+    }
+
+    private func cancelDaySwipeTraceIfNeeded() {
+        guard isDaySwipeTracingActive else { return }
+        TaskerPerformanceTrace.event("HomeDaySwipeCancelled")
+        isDaySwipeTracingActive = false
+    }
+
+    private var dayLiquidSwipeContainerSize: CGSize {
+        CGSize(
+            width: max(layoutMetrics.width, 1),
+            height: max(layoutMetrics.height - measuredTimelineHeaderHeight, 1)
+        )
+    }
+
+    private func normalizedDayLiquidSwipeSize(_ size: CGSize) -> CGSize {
+        let fallback = dayLiquidSwipeContainerSize
+        return CGSize(
+            width: max(size.width, fallback.width, 1),
+            height: max(size.height, fallback.height, 1)
+        )
+    }
+
+    private func dayLiquidSwipeData(for side: HomeDayLiquidSwipeSide, size: CGSize) -> HomeDayLiquidSwipeData {
+        let data = side == .leading ? leadingDayLiquidSwipeData : trailingDayLiquidSwipeData
+        return data.sized(to: size)
+    }
+
+    private func setDayLiquidSwipeData(_ data: HomeDayLiquidSwipeData) {
+        switch data.side {
+        case .leading:
+            leadingDayLiquidSwipeData = data
+        case .trailing:
+            trailingDayLiquidSwipeData = data
+        }
+    }
+
+    private func updateDayLiquidSwipe(
+        side: HomeDayLiquidSwipeSide,
+        translation: CGSize,
+        location: CGPoint,
+        size: CGSize
+    ) {
+        guard isDaySwipeGestureEnabled else { return }
+        let containerSize = normalizedDayLiquidSwipeSize(size)
+        activeDayLiquidSwipeSide = side
+        topDayLiquidSwipeSide = side
+        setDayLiquidSwipeData(
+            dayLiquidSwipeData(for: side, size: containerSize)
+                .drag(translation: translation, location: location)
+        )
+    }
+
+    private func endDayLiquidSwipe(
+        side: HomeDayLiquidSwipeSide,
+        translation: CGSize,
+        predictedEndTranslation: CGSize,
+        size: CGSize
+    ) {
+        activeDayLiquidSwipeSide = nil
+        let containerSize = normalizedDayLiquidSwipeSize(size)
+
+        guard isDaySwipeGestureEnabled else {
+            resetDayLiquidSwipe(side, size: containerSize)
+            return
+        }
+
+        guard let direction = HomeDaySwipeResolver.default.resolvedDirection(
+            translation: translation,
+            predictedEndTranslation: predictedEndTranslation
+        ), direction == side.direction else {
+            cancelDaySwipeTraceIfNeeded()
+            resetDayLiquidSwipe(side, size: containerSize)
+            return
+        }
+
+        commitDayLiquidSwipe(side, size: containerSize)
+    }
+
+    private func cancelDayLiquidSwipe(side: HomeDayLiquidSwipeSide, size: CGSize) {
+        activeDayLiquidSwipeSide = nil
+        cancelDaySwipeTraceIfNeeded()
+        resetDayLiquidSwipe(side, size: normalizedDayLiquidSwipeSize(size))
+    }
+
+    private func resetDayLiquidSwipe(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
+        let data = dayLiquidSwipeData(for: side, size: size).initial()
+        if reduceMotion || isUITesting {
+            setDayLiquidSwipeData(data)
+        } else {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                setDayLiquidSwipeData(data)
             }
-            .onChanged { value in
-                guard isDaySwipeGestureEnabled else { return }
-                guard resolver.isHorizontallyDominant(translation: value.translation) else { return }
-                guard isDaySwipeTracingActive == false else { return }
-                isDaySwipeTracingActive = true
-                TaskerPerformanceTrace.event("HomeDaySwipeStarted")
-            }
-            .onEnded { value in
-                defer { isDaySwipeTracingActive = false }
-                guard isDaySwipeGestureEnabled else { return }
-                guard let direction = resolver.resolvedDirection(
-                    translation: value.translation,
-                    predictedEndTranslation: value.predictedEndTranslation
-                ) else {
-                    if isDaySwipeTracingActive {
-                        TaskerPerformanceTrace.event("HomeDaySwipeCancelled")
-                    }
-                    return
-                }
-                commitDaySwipe(direction)
-            }
+        }
+    }
+
+    private func commitDayLiquidSwipe(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
+        topDayLiquidSwipeSide = side
+        if reduceMotion || isUITesting {
+            commitDaySwipe(side.direction)
+            resetDayLiquidSwipe(side, size: size)
+            return
+        }
+
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+            setDayLiquidSwipeData(dayLiquidSwipeData(for: side, size: size).final())
+        } completion: {
+            commitDaySwipe(side.direction)
+            resetDayLiquidSwipe(side, size: size)
+        }
     }
 
     private func commitDaySwipe(_ direction: HomeDayNavigationDirection) {
+        isDaySwipeTracingActive = false
         committedDaySwipeDirection = direction
         let dayOffset = direction == .previous ? -1 : 1
+        TaskerFeedback.selection()
         withAnimation(daySwipeAnimation) {
             viewModel.shiftSelectedDay(byDays: dayOffset, source: .swipe)
         }
@@ -4158,136 +4309,199 @@ struct HomeBackdropForedropRootView: View {
             .reportHeight(to: TimelineHeaderHeightPreferenceKey.self)
             .padding(.horizontal, spacing.s16)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    if habitsSnapshot.quietTrackingSummaryState.isVisible {
-                        passiveTrackingRail
-                            .padding(.horizontal, passiveTrackingRailHorizontalInset)
-                    }
-
-                    if case .trayVisible(let summary) = overlaySnapshot.replanState.phase {
-                        timelineColumnContent {
-                            NeedsReplanTrayView(
-                                title: summary.title,
-                                subtitle: summary.subtitle,
-                                callToAction: summary.callToAction,
-                                accessibilityHint: "Opens Plan the Day.",
-                                accessibilityIdentifier: "home.needsReplan.tray",
-                                isProminent: true
-                            ) {
-                                viewModel.openNeedsReplanLauncher()
-                            }
-                            .padding(.horizontal, spacing.s16)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+            ZStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: spacing.s12) {
+                        if habitsSnapshot.quietTrackingSummaryState.isVisible {
+                            passiveTrackingRail
+                                .padding(.horizontal, passiveTrackingRailHorizontalInset)
                         }
-                    }
 
-                    timelineColumnContent {
-                        let snapshot = timelineSnapshot
-                        let selectedDayKey = Int(Calendar.current.startOfDay(for: snapshot.selectedDate).timeIntervalSince1970)
-                        TimelineForedropView(
-                            snapshot: snapshot,
-                            layoutClass: layoutClass,
-                            showsRevealHandle: false,
-                            hasNextHomeWidget: timelineHasNextHomeWidget,
-                            onSelectDate: { date in
-                                timelineViewModel.syncSelectedDate(date)
-                                viewModel.selectDate(date, source: .weekStrip)
-                            },
-                            onSnapAnchor: { anchor in
-                                withAnimation(foredropFlipAnimation) {
-                                    timelineViewModel.snap(to: anchor)
+                        if case .trayVisible(let summary) = overlaySnapshot.replanState.phase {
+                            timelineColumnContent {
+                                NeedsReplanTrayView(
+                                    title: summary.title,
+                                    subtitle: summary.subtitle,
+                                    callToAction: summary.callToAction,
+                                    accessibilityHint: "Opens Plan the Day.",
+                                    accessibilityIdentifier: "home.needsReplan.tray",
+                                    isProminent: true
+                                ) {
+                                    viewModel.openNeedsReplanLauncher()
                                 }
-                            },
-                            onDragChanged: { translation in
-                                timelineViewModel.updateDrag(translation, metrics: timelineLayoutMetrics)
-                            },
-                            onDragEnded: { translation in
-                                timelineViewModel.endDrag(predictedTranslation: translation, metrics: timelineLayoutMetrics)
-                            },
-                            onTaskTap: { item in
-                                if let eventID = item.eventID {
-                                    handleHomeCalendarEventSelection(eventID: eventID, allowsTimelineHide: true)
-                                    return
+                                .padding(.horizontal, spacing.s16)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
+
+                        timelineColumnContent {
+                            let snapshot = timelineSnapshot
+                            let selectedDayKey = Int(Calendar.current.startOfDay(for: snapshot.selectedDate).timeIntervalSince1970)
+                            TimelineForedropView(
+                                snapshot: snapshot,
+                                layoutClass: layoutClass,
+                                showsRevealHandle: false,
+                                hasNextHomeWidget: timelineHasNextHomeWidget,
+                                onSelectDate: { date in
+                                    timelineViewModel.syncSelectedDate(date)
+                                    viewModel.selectDate(date, source: .weekStrip)
+                                },
+                                onSnapAnchor: { anchor in
+                                    withAnimation(foredropFlipAnimation) {
+                                        timelineViewModel.snap(to: anchor)
+                                    }
+                                },
+                                onDragChanged: { translation in
+                                    timelineViewModel.updateDrag(translation, metrics: timelineLayoutMetrics)
+                                },
+                                onDragEnded: { translation in
+                                    timelineViewModel.endDrag(predictedTranslation: translation, metrics: timelineLayoutMetrics)
+                                },
+                                onTaskTap: { item in
+                                    if let eventID = item.eventID {
+                                        handleHomeCalendarEventSelection(eventID: eventID, allowsTimelineHide: true)
+                                        return
+                                    }
+                                    if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
+                                        onTaskTap(task)
+                                    }
+                                },
+                                onToggleComplete: { item in
+                                    guard let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) else { return }
+                                    trackTaskToggle(task, source: "timeline")
+                                    onToggleComplete(task)
+                                },
+                                onAddTask: onAddTask,
+                                onScheduleInbox: {
+                                    viewModel.startTriage()
+                                },
+                                onShowCalendarInTimeline: {
+                                    viewModel.showCalendarEventsInTimelineFromHome()
+                                },
+                                onPlaceReplanAtTime: { candidate, date in
+                                    viewModel.placeReplanCandidate(taskID: candidate.taskID, at: date)
+                                },
+                                onPlaceReplanAllDay: { candidate, date in
+                                    viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
+                                },
+                                onCancelReplanPlacement: {
+                                    viewModel.cancelCurrentReplanPlacement()
+                                },
+                                onSkipReplanPlacement: {
+                                    viewModel.skipCurrentReplanCandidate()
+                                },
+                                onClearReplanError: {
+                                    viewModel.clearReplanError()
                                 }
-                                if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
-                                    onTaskTap(task)
+                            )
+                            .id(selectedDayKey)
+                            .transition(daySwipeTransition)
+                            .animation(daySwipeAnimation, value: selectedDayKey)
+                            .padding(.horizontal, spacing.s16)
+                            .accessibilityAction(named: Text("Previous Day")) {
+                                beginDaySwipeTrace()
+                                commitDaySwipe(.previous)
+                            }
+                            .accessibilityAction(named: Text("Next Day")) {
+                                beginDaySwipeTrace()
+                                commitDaySwipe(.next)
+                            }
+                        }
+
+                        if let entryState = chromeSnapshot.dailyReflectionEntryState {
+                            timelineColumnContent {
+                                HomeDailyReflectionEntryCard(
+                                    state: entryState,
+                                    mode: .compact
+                                ) {
+                                    openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
                                 }
+                                .padding(.horizontal, spacing.s16)
+                            }
+                        }
+
+                        if let footerContent = timelineFooterModules {
+                            footerContent
+                        }
+
+                        if let guidanceState = overlaySnapshot.guidanceState {
+                            HomeOnboardingGuidanceBanner(state: guidanceState)
+                                .padding(.horizontal, spacing.s16)
+                        }
+
+                        timelineColumnContent {
+                            persistentReplanDayEntry
+                                .padding(.horizontal, spacing.s16)
+                        }
+
+                        timelineBottomContentSpacer(taskListBottomInset: taskListBottomInset)
+                    }
+                    .padding(.top, spacing.s8)
+                    .contentShape(Rectangle())
+                    .background {
+                        HomeDayLiquidSwipeGestureSurface(
+                            isEnabled: isDaySwipeGestureEnabled,
+                            containerSize: dayLiquidSwipeContainerSize,
+                            resolver: .default,
+                            onInteractionStarted: beginDaySwipeTrace,
+                            onChanged: { side, translation, location in
+                                updateDayLiquidSwipe(
+                                    side: side,
+                                    translation: translation,
+                                    location: location,
+                                    size: dayLiquidSwipeContainerSize
+                                )
                             },
-                            onToggleComplete: { item in
-                                guard let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) else { return }
-                                trackTaskToggle(task, source: "timeline")
-                                onToggleComplete(task)
+                            onEnded: { side, translation, predictedEndTranslation, _ in
+                                endDayLiquidSwipe(
+                                    side: side,
+                                    translation: translation,
+                                    predictedEndTranslation: predictedEndTranslation,
+                                    size: dayLiquidSwipeContainerSize
+                                )
                             },
-                            onAddTask: onAddTask,
-                            onScheduleInbox: {
-                                viewModel.startTriage()
-                            },
-                            onShowCalendarInTimeline: {
-                                viewModel.showCalendarEventsInTimelineFromHome()
-                            },
-                            onPlaceReplanAtTime: { candidate, date in
-                                viewModel.placeReplanCandidate(taskID: candidate.taskID, at: date)
-                            },
-                            onPlaceReplanAllDay: { candidate, date in
-                                viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
-                            },
-                            onCancelReplanPlacement: {
-                                viewModel.cancelCurrentReplanPlacement()
-                            },
-                            onSkipReplanPlacement: {
-                                viewModel.skipCurrentReplanCandidate()
-                            },
-                            onClearReplanError: {
-                                viewModel.clearReplanError()
+                            onCancelled: { side in
+                                cancelDayLiquidSwipe(
+                                    side: side,
+                                    size: dayLiquidSwipeContainerSize
+                                )
                             }
                         )
-                        .id(selectedDayKey)
-                        .offset(x: daySwipeVisualOffset)
-                        .transition(daySwipeTransition)
-                        .animation(daySwipeAnimation, value: selectedDayKey)
-                        .padding(.horizontal, spacing.s16)
-                        .accessibilityAction(named: Text("Previous Day")) {
-                            commitDaySwipe(.previous)
-                        }
-                        .accessibilityAction(named: Text("Next Day")) {
-                            commitDaySwipe(.next)
-                        }
+                        .frame(width: 1, height: 1)
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
                     }
-
-                    if let entryState = chromeSnapshot.dailyReflectionEntryState {
-                        timelineColumnContent {
-                            HomeDailyReflectionEntryCard(
-                                state: entryState,
-                                mode: .compact
-                            ) {
-                                openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
-                            }
-                            .padding(.horizontal, spacing.s16)
-                        }
-                    }
-
-                    if let footerContent = timelineFooterModules {
-                        footerContent
-                    }
-
-                    if let guidanceState = overlaySnapshot.guidanceState {
-                        HomeOnboardingGuidanceBanner(state: guidanceState)
-                            .padding(.horizontal, spacing.s16)
-                    }
-
-                    timelineColumnContent {
-                        persistentReplanDayEntry
-                            .padding(.horizontal, spacing.s16)
-                    }
-
-                    timelineBottomContentSpacer(taskListBottomInset: taskListBottomInset)
                 }
-                .padding(.top, spacing.s8)
+                .scrollIndicators(.hidden)
+
+                HomeDayLiquidSwipeOverlay(
+                    isEnabled: isDaySwipeGestureEnabled,
+                    reduceMotion: reduceMotion || isUITesting,
+                    onInteractionStarted: beginDaySwipeTrace,
+                    onInteractionCancelled: cancelDaySwipeTraceIfNeeded,
+                    onCommit: commitDaySwipe,
+                    onHandleDragChanged: { side, translation, location, size in
+                        updateDayLiquidSwipe(
+                            side: side,
+                            translation: translation,
+                            location: location,
+                            size: size
+                        )
+                    },
+                    onHandleDragEnded: { side, translation, predictedEndTranslation, _, size in
+                        endDayLiquidSwipe(
+                            side: side,
+                            translation: translation,
+                            predictedEndTranslation: predictedEndTranslation,
+                            size: size
+                        )
+                    },
+                    leadingData: $leadingDayLiquidSwipeData,
+                    trailingData: $trailingDayLiquidSwipeData,
+                    topSide: $topDayLiquidSwipeSide
+                )
             }
-            .scrollIndicators(.hidden)
-            .contentShape(Rectangle())
-            .simultaneousGesture(daySwipeGesture)
+            .coordinateSpace(name: Self.dayLiquidSwipeCoordinateSpaceName)
         }
         .accessibilityIdentifier("home.timeline.surface")
     }
