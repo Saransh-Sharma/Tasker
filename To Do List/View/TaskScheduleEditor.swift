@@ -27,18 +27,33 @@ struct TaskScheduleEditor: View {
     }
 }
 
-private struct TaskTimeWheelPicker: View {
+struct TaskTimeWheelPicker: View {
     @Binding var startDate: Date?
 
     let durationMinutes: Int
     let defaultStartDate: Date
     let intervalMinutes: Int
+    let showsDurationRange: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var centeredSlotID: Int?
 
     private let rowHeight: CGFloat = 44
     private let visibleRows = 5
+
+    init(
+        startDate: Binding<Date?>,
+        durationMinutes: Int,
+        defaultStartDate: Date,
+        intervalMinutes: Int,
+        showsDurationRange: Bool = true
+    ) {
+        self._startDate = startDate
+        self.durationMinutes = durationMinutes
+        self.defaultStartDate = defaultStartDate
+        self.intervalMinutes = intervalMinutes
+        self.showsDurationRange = showsDurationRange
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
@@ -173,7 +188,7 @@ private struct TaskTimeWheelPicker: View {
     }
 
     private func label(for date: Date, isSelected: Bool) -> String {
-        guard isSelected else {
+        guard isSelected, showsDurationRange else {
             let formatter = DateFormatter()
             formatter.timeStyle = .short
             return formatter.string(from: date)
@@ -185,10 +200,225 @@ private struct TaskTimeWheelPicker: View {
     }
 
     private func accessibilityLabel(for date: Date) -> String {
-        TaskDetailViewModel.scheduleRangeAccessibilityLabel(
+        guard showsDurationRange else {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        }
+        return TaskDetailViewModel.scheduleRangeAccessibilityLabel(
             start: date,
             end: date.addingTimeInterval(TimeInterval(durationMinutes * 60))
         )
+    }
+}
+
+enum TimelineAnchorSelection: String, Equatable, Identifiable {
+    case wake
+    case windDown
+
+    var id: String { rawValue }
+
+    init?(anchorID: String) {
+        switch anchorID {
+        case "wake":
+            self = .wake
+        case "sleep":
+            self = .windDown
+        default:
+            return nil
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .wake:
+            return "Rise and Shine"
+        case .windDown:
+            return "Wind Down"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .wake:
+            return "Choose when your timeline starts."
+        case .windDown:
+            return "Choose when your timeline closes."
+        }
+    }
+
+    var systemImageName: String {
+        switch self {
+        case .wake:
+            return "alarm.fill"
+        case .windDown:
+            return "moon.fill"
+        }
+    }
+
+    var accessibilityHint: String {
+        switch self {
+        case .wake:
+            return "Edit wake up time"
+        case .windDown:
+            return "Edit wind down time"
+        }
+    }
+
+    func date(from preferences: TaskerWorkspacePreferences, calendar: Calendar = .current) -> Date {
+        switch self {
+        case .wake:
+            return Self.date(
+                hour: preferences.timelineRiseAndShineHour,
+                minute: preferences.timelineRiseAndShineMinute,
+                calendar: calendar
+            )
+        case .windDown:
+            return Self.date(
+                hour: preferences.timelineWindDownHour,
+                minute: preferences.timelineWindDownMinute,
+                calendar: calendar
+            )
+        }
+    }
+
+    func save(time: Date, to store: TaskerWorkspacePreferencesStore, calendar: Calendar = .current) {
+        let components = calendar.dateComponents([.hour, .minute], from: time)
+        store.update { preferences in
+            switch self {
+            case .wake:
+                preferences.timelineRiseAndShineHour = components.hour ?? preferences.timelineRiseAndShineHour
+                preferences.timelineRiseAndShineMinute = components.minute ?? preferences.timelineRiseAndShineMinute
+            case .windDown:
+                preferences.timelineWindDownHour = components.hour ?? preferences.timelineWindDownHour
+                preferences.timelineWindDownMinute = components.minute ?? preferences.timelineWindDownMinute
+            }
+        }
+    }
+
+    private static func date(hour: Int, minute: Int, calendar: Calendar) -> Date {
+        calendar.date(
+            bySettingHour: hour,
+            minute: minute,
+            second: 0,
+            of: Date()
+        ) ?? Date()
+    }
+}
+
+struct TimelineAnchorDetailSheetView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedTime: Date?
+
+    let selection: TimelineAnchorSelection
+    let preferencesStore: TaskerWorkspacePreferencesStore
+
+    init(
+        selection: TimelineAnchorSelection,
+        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+    ) {
+        self.selection = selection
+        self.preferencesStore = preferencesStore
+        let initialTime = selection.date(from: preferencesStore.load())
+        self._selectedTime = State(initialValue: initialTime)
+    }
+
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                topBar
+                header
+                timeEditor
+            }
+            .taskerReadableContent(maxWidth: 560, alignment: .center)
+            .padding(.bottom, TaskerTheme.Spacing.xxxl)
+        }
+        .background(Color.tasker.bgCanvas)
+        .presentationDragIndicator(.visible)
+        .accessibilityIdentifier("timelineAnchorDetail.view")
+        .onChange(of: selectedTime) { _, newValue in
+            guard let newValue else { return }
+            selection.save(time: newValue, to: preferencesStore)
+        }
+    }
+
+    private var topBar: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .frame(width: 30, height: 30)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("timelineAnchorDetail.closeButton")
+            .accessibilityLabel("Close timeline anchor details")
+
+            Spacer()
+        }
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.top, TaskerTheme.Spacing.sm)
+    }
+
+    private var header: some View {
+        HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
+            Image(systemName: selection.systemImageName)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.tasker.accentPrimary)
+                .frame(width: 42, height: 42)
+                .background(Color.tasker.accentWash, in: Circle())
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                Text(selection.title)
+                    .font(.tasker(.title1))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(selection.subtitle)
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(currentTimeLabel)
+                    .font(.tasker(.meta).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textTertiary)
+                    .monospacedDigit()
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.vertical, TaskerTheme.Spacing.md)
+        .taskerDenseSurface(
+            cornerRadius: TaskerTheme.CornerRadius.card,
+            fillColor: Color.tasker.surfacePrimary,
+            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        )
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+    }
+
+    private var timeEditor: some View {
+        TaskTimeWheelPicker(
+            startDate: $selectedTime,
+            durationMinutes: 30,
+            defaultStartDate: selection.date(from: preferencesStore.load()),
+            intervalMinutes: TaskDetailViewModel.scheduleIntervalMinutes,
+            showsDurationRange: false
+        )
+        .accessibilityIdentifier("timelineAnchorDetail.timePicker")
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+    }
+
+    private var currentTimeLabel: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: selectedTime ?? selection.date(from: preferencesStore.load()))
     }
 }
 
