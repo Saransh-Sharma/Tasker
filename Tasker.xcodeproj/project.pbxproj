@@ -152,6 +152,8 @@
 		7551BCE52EAB665F003C6916 /* TaskEditingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC12EAB665F003C6916 /* TaskEditingTests.swift */; };
 		7551BCE62EAB665F003C6916 /* AnalyticsAndChartsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC52EAB665F003C6916 /* AnalyticsAndChartsTests.swift */; };
 		7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0124880DAC005CF826 /* AddTaskForedropView.swift */; };
+		D7A500000000000000000102 /* TaskerLaunchSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000101 /* TaskerLaunchSplashView.swift */; };
+		D7A500000000000000000202 /* HomeViewControllerLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */; };
 		7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0524882E94005CF826 /* ToDoFont.swift */; };
 		7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */; };
 		75573CAF2DE88A8000F5A873 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CAE2DE88A8000F5A873 /* SettingsView.swift */; };
@@ -1097,6 +1099,8 @@
 		D6248E090BE231D70E41F08C /* To Do List/State/Repositories/CoreDataScheduleRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataScheduleRepository.swift"; sourceTree = SOURCE_ROOT; };
 		D69B4ECB89C44E275D829577 /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/TagRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
 		D7C5BD9B9BA76D61F7F044BD /* TaskerSnackbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerSnackbar.swift; sourceTree = "<group>"; };
+		D7A500000000000000000101 /* TaskerLaunchSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerLaunchSplashView.swift; sourceTree = "<group>"; };
+		D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewControllerLifecycleTests.swift; sourceTree = "<group>"; };
 		DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProfileHeaderView.swift; sourceTree = "<group>"; };
 		DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskPriorityPicker.swift; sourceTree = "<group>"; };
 		E06E18805C2401359A9B0F5B /* To Do List/UseCases/LifeArea/ManageLifeAreasUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/LifeArea/ManageLifeAreasUseCase.swift"; sourceTree = SOURCE_ROOT; };
@@ -1634,6 +1638,7 @@
 				B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */,
 				B7C8D9E0F1A223344556677E /* FocusZonePresentationTests.swift */,
 				F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */,
+				D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */,
 				F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */,
 				F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */,
 				D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */,
@@ -1892,6 +1897,7 @@
 				C5A1D20E3F4B6789ABCDEF0A /* AddTaskTitleField.swift */,
 				ABCD00000000000000000024 /* AddHabitForedropView.swift */,
 				ABCD00000000000000000025 /* AddItemComposerView.swift */,
+				D7A500000000000000000101 /* TaskerLaunchSplashView.swift */,
 				C5A1D20E3F4B6789ABCDEF0B /* AddTaskXPPreview.swift */,
 				C5A1D20E3F4B6789ABCDEF0C /* Device+Notch.swift */,
 				A1B2C3D72F90000100AA1001 /* TaskEditorSectionCard.swift */,
@@ -2974,6 +2980,7 @@
 				75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */,
 				75F89F572DFC44E6009EDD8F /* ChatView.swift in Sources */,
 				7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */,
+				D7A500000000000000000102 /* TaskerLaunchSplashView.swift in Sources */,
 				75573CB42DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */,
 				75E866DE2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */,
@@ -3281,6 +3288,7 @@
 				B7C8D9E0F1A223344556677D /* FocusZoneStatusTests.swift in Sources */,
 				B7C8D9E0F1A223344556677F /* FocusZonePresentationTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */,
+				D7A500000000000000000202 /* HomeViewControllerLifecycleTests.swift in Sources */,
 				F2A1B2C3D4E5F60718293B53 /* HomeBottomBarStateTests.swift in Sources */,
 				F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */,
 				F3A1B2C3D4E5F60718293B55 /* HomeForedropLayoutMetricsTests.swift in Sources */,
