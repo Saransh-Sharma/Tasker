@@ -33,6 +33,48 @@ struct HomeDayLiquidSwipeRestingPosition {
     }
 }
 
+enum HomeDayLiquidSwipeChromeVisibilityPolicy {
+    static func nextVisibility(
+        currentVisibility: Bool,
+        for scrollChromeState: HomeScrollChromeState
+    ) -> Bool {
+        switch scrollChromeState {
+        case .nearTop, .expanded:
+            return true
+        case .collapsed:
+            return false
+        case .idle:
+            return currentVisibility
+        }
+    }
+}
+
+struct HomeDayLiquidSwipeChromePresentation: Equatable {
+    let offsetX: CGFloat
+    let scaleX: CGFloat
+    let scaleY: CGFloat
+
+    static func value(
+        for side: HomeDayLiquidSwipeSide,
+        isChromeVisible: Bool
+    ) -> HomeDayLiquidSwipeChromePresentation {
+        if isChromeVisible {
+            return HomeDayLiquidSwipeChromePresentation(
+                offsetX: 0,
+                scaleX: 1,
+                scaleY: 1
+            )
+        }
+
+        let distance = HomeDayLiquidSwipeData.buttonRadius * 1.4
+        return HomeDayLiquidSwipeChromePresentation(
+            offsetX: side == .leading ? -distance : distance,
+            scaleX: 0.82,
+            scaleY: 0.96
+        )
+    }
+}
+
 struct HomeDayLiquidSwipeData: Equatable {
     static let buttonRadius: CGFloat = 24
     static let timelineHandleCenterY: CGFloat = buttonRadius + 16
