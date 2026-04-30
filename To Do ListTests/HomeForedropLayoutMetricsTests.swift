@@ -21,6 +21,34 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         )
     }
 
+    func testLiquidSwipeEdgeActivationWidthUsesTwentyPercentReduction() {
+        XCTAssertEqual(HomeDayLiquidSwipeData.edgeActivationWidth, 70.4, accuracy: 0.001)
+    }
+
+    func testLiquidSwipeEdgeStartUsesReducedLeadingBoundary() {
+        let size = CGSize(width: 390, height: 760)
+
+        XCTAssertEqual(
+            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 70.4, y: 300), containerSize: size),
+            .leading
+        )
+        XCTAssertNil(
+            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 70.5, y: 300), containerSize: size)
+        )
+    }
+
+    func testLiquidSwipeEdgeStartUsesReducedTrailingBoundary() {
+        let size = CGSize(width: 390, height: 760)
+
+        XCTAssertNil(
+            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 319.5, y: 300), containerSize: size)
+        )
+        XCTAssertEqual(
+            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 319.6, y: 300), containerSize: size),
+            .trailing
+        )
+    }
+
     func testLiquidSwipeEdgeStartIgnoresCenterDrag() {
         XCTAssertNil(
             HomeDayLiquidSwipeData.side(
@@ -28,6 +56,23 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
                 containerSize: CGSize(width: 390, height: 760)
             )
         )
+    }
+
+    func testLiquidSwipeRestingLedgeUsesCompactEightPointInset() {
+        let size = CGSize(width: 390, height: 760)
+        let leading = HomeDayLiquidSwipeData(side: .leading, containerSize: size)
+        let trailing = HomeDayLiquidSwipeData(side: .trailing, containerSize: size)
+
+        XCTAssertEqual(HomeDayLiquidSwipeData.waveMinLedge, 8, accuracy: 0.001)
+        XCTAssertEqual(leading.waveLedgeX, 8, accuracy: 0.001)
+        XCTAssertEqual(trailing.waveLedgeX, size.width - 8, accuracy: 0.001)
+    }
+
+    func testLiquidSwipeVisibleHandleUsesTwentyPercentReduction() {
+        XCTAssertEqual(HomeDayLiquidSwipeData.buttonRadius, 24, accuracy: 0.001)
+        XCTAssertEqual(HomeDayLiquidSwipeData.buttonVisualScale, 0.8, accuracy: 0.001)
+        XCTAssertEqual(HomeDayLiquidSwipeData.buttonVisualRadius, 19.2, accuracy: 0.001)
+        XCTAssertEqual(HomeDayLiquidSwipeData.buttonVisualRadius * 2, 38.4, accuracy: 0.001)
     }
 
     func testLiquidSwipeInitialHandlesShareTimelineStartHeight() {

@@ -6,9 +6,9 @@ import CoreData
 final class HomeViewControllerLifecycleTests: XCTestCase {
     func testStoryboardInstantiatedHomeViewControllerDeallocatesWithoutInjectedDependencies() throws {
         weak var weakController: HomeViewController?
+        let storyboard = try XCTUnwrap(mainStoryboard())
 
         autoreleasepool {
-            let storyboard = try XCTUnwrap(mainStoryboard())
             let controller = storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController
 
             XCTAssertNotNil(controller)
@@ -31,6 +31,15 @@ final class HomeViewControllerLifecycleTests: XCTestCase {
 
         XCTAssertNil(result)
         XCTAssertTrue(sceneDelegate.window?.rootViewController is BootstrapFailureViewController)
+    }
+
+    func testLaunchSplashAssetsResolveFromMainBundle() {
+        XCTAssertNotNil(
+            UIImage(named: "TaskerSplashIcon", in: Bundle.main, compatibleWith: nil)
+        )
+        XCTAssertNotNil(
+            UIColor(named: "LaunchCanvas", in: Bundle.main, compatibleWith: nil)
+        )
     }
 
     private func mainStoryboard() -> UIStoryboard? {
