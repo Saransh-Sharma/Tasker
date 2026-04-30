@@ -1225,7 +1225,7 @@ public final class HomeViewModel: ObservableObject {
 
     /// Load tasks for the selected date.
     public func loadTasksForSelectedDate() {
-        applySelectedDay(selectedDate, source: .datePicker, trackAnalytics: false)
+        applySelectedDay(selectedDate, source: .datePicker, trackAnalytics: false, forceReload: true)
     }
 
     /// Executes loadTasksForSelectedDate.
@@ -1234,7 +1234,8 @@ public final class HomeViewModel: ObservableObject {
             selectedDate,
             source: .datePicker,
             trackAnalytics: false,
-            generation: generation
+            generation: generation,
+            forceReload: true
         )
     }
 
@@ -1280,7 +1281,8 @@ public final class HomeViewModel: ObservableObject {
             Date(),
             source: .backToToday,
             trackAnalytics: false,
-            generation: generation
+            generation: generation,
+            forceReload: true
         )
     }
 
@@ -1885,19 +1887,21 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public func returnToToday(source: HomeDateNavigationSource = .backToToday) {
-        applySelectedDay(Date(), source: source, trackAnalytics: source == .backToToday)
+        applySelectedDay(Date(), source: source, trackAnalytics: source == .backToToday, forceReload: true)
     }
 
     private func applySelectedDay(
         _ day: Date,
         source: HomeDateNavigationSource,
-        trackAnalytics: Bool
+        trackAnalytics: Bool,
+        forceReload: Bool = false
     ) {
         applySelectedDay(
             day,
             source: source,
             trackAnalytics: trackAnalytics,
-            generation: nextReloadGeneration()
+            generation: nextReloadGeneration(),
+            forceReload: forceReload
         )
     }
 
@@ -1905,7 +1909,8 @@ public final class HomeViewModel: ObservableObject {
         _ day: Date,
         source: HomeDateNavigationSource,
         trackAnalytics: Bool,
-        generation: Int
+        generation: Int,
+        forceReload: Bool = false
     ) {
         scheduleRecurringTopUpIfNeeded()
 
@@ -1915,7 +1920,7 @@ public final class HomeViewModel: ObservableObject {
         let isSameDay = Calendar.current.isDate(currentDay, inSameDayAs: targetDay)
         let alreadySelected = isSameDay && activeScope == targetScope && activeFilterState.quickView == .today
 
-        guard alreadySelected == false else {
+        guard alreadySelected == false || forceReload else {
             TaskerPerformanceTrace.event("HomeDaySwipeCancelled")
             return
         }
@@ -1931,10 +1936,12 @@ public final class HomeViewModel: ObservableObject {
         }
 
         persistLastFilterState()
-        calendarIntegrationService.refreshContext(
-            referenceDate: targetDay,
-            reason: "home_selected_date_changed_\(source.rawValue)"
-        )
+        if isSameDay {
+            calendarIntegrationService.refreshContext(
+                referenceDate: targetDay,
+                reason: "home_selected_date_changed_\(source.rawValue)"
+            )
+        }
         if source == .swipe {
             TaskerPerformanceTrace.event("HomeDaySwipeCommitted")
         }
@@ -6506,7 +6513,7 @@ public final class HomeViewModel: ObservableObject {
     public func dismissNeedsReplanLater() {
         guard replanApplyingAction == nil else { return }
         if replanScopedDate == nil,
-           activeReplanCandidates.isEmpty == false {
+           (activeReplanCandidates.isEmpty == false || needsReplanCandidates.isEmpty == false) {
             userDefaults.set(needsReplanDayKey(for: Date()), forKey: Self.needsReplanDismissedDayKey)
         }
         resetReplanSession(keepPassiveCandidates: true)
@@ -6716,7 +6723,7 @@ public final class HomeViewModel: ObservableObject {
             updateReplanState(phase: homeReplanState.phase)
             return
         }
-        guard activeGlobalReplanFetchRevision != dataRevision else {
+        if activeGlobalReplanFetchToken != nil {
             pendingGlobalReplanRefreshRevision = dataRevision
             return
         }
@@ -6733,7 +6740,9 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard self.activeGlobalReplanFetchToken == fetchToken else { return }
-                let shouldRefreshAgain = self.pendingGlobalReplanRefreshRevision == self.dataRevision
+                let completedRevision = self.activeGlobalReplanFetchRevision
+                let shouldRefreshAgain = self.pendingGlobalReplanRefreshRevision != nil &&
+                    self.pendingGlobalReplanRefreshRevision != completedRevision
                 self.pendingGlobalReplanRefreshRevision = nil
                 self.activeGlobalReplanFetchToken = nil
                 self.activeGlobalReplanFetchRevision = nil
