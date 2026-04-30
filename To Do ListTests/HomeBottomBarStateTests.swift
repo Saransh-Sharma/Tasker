@@ -93,6 +93,30 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertEqual(state.selectedItem, .charts)
     }
 
+    func testChatDoesNotReplacePersistentSelectionForMomentaryRestore() {
+        let state = HomeBottomBarState()
+        state.select(.home)
+        state.select(.chat)
+
+        state.selectMomentaryCreate()
+        state.restoreAfterMomentaryCreate()
+
+        XCTAssertEqual(state.selectedItem, .home)
+    }
+
+    func testSelectIndexForChatDoesNotReplacePersistentSelection() {
+        let state = HomeBottomBarState()
+        state.select(.home)
+
+        state.selectIndex(2)
+        XCTAssertEqual(state.selectedItem, .chat)
+
+        state.selectMomentaryCreate()
+        state.restoreAfterMomentaryCreate()
+
+        XCTAssertEqual(state.selectedItem, .home)
+    }
+
     func testCalendarBottomBarSymbolBuildsDaySpecificCalendarSFImageNames() {
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 1), "1.calendar")
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 31), "31.calendar")
