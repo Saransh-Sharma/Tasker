@@ -95,6 +95,97 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(data.initial().progress, 0)
     }
 
+    func testLiquidSwipeChromeVisibilityHidesOnCollapsedScrollState() {
+        XCTAssertFalse(
+            HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+                currentVisibility: true,
+                for: .collapsed
+            )
+        )
+    }
+
+    func testLiquidSwipeChromeVisibilityShowsNearTopAndExpanded() {
+        XCTAssertTrue(
+            HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+                currentVisibility: false,
+                for: .nearTop
+            )
+        )
+        XCTAssertTrue(
+            HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+                currentVisibility: false,
+                for: .expanded
+            )
+        )
+    }
+
+    func testLiquidSwipeChromeVisibilityKeepsCurrentStateWhenIdle() {
+        XCTAssertTrue(
+            HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+                currentVisibility: true,
+                for: .idle
+            )
+        )
+        XCTAssertFalse(
+            HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+                currentVisibility: false,
+                for: .idle
+            )
+        )
+    }
+
+    func testLiquidSwipeVisibleChromePresentationDoesNotOffsetHandles() {
+        let leading = HomeDayLiquidSwipeChromePresentation.value(
+            for: .leading,
+            isChromeVisible: true
+        )
+        let trailing = HomeDayLiquidSwipeChromePresentation.value(
+            for: .trailing,
+            isChromeVisible: true
+        )
+
+        XCTAssertEqual(leading.offsetX, 0, accuracy: 0.001)
+        XCTAssertEqual(trailing.offsetX, 0, accuracy: 0.001)
+        XCTAssertEqual(leading.scaleX, 1, accuracy: 0.001)
+        XCTAssertEqual(leading.scaleY, 1, accuracy: 0.001)
+        XCTAssertEqual(trailing.scaleX, 1, accuracy: 0.001)
+        XCTAssertEqual(trailing.scaleY, 1, accuracy: 0.001)
+    }
+
+    func testLiquidSwipeHiddenChromePresentationCollapsesTowardEdges() {
+        let leading = HomeDayLiquidSwipeChromePresentation.value(
+            for: .leading,
+            isChromeVisible: false
+        )
+        let trailing = HomeDayLiquidSwipeChromePresentation.value(
+            for: .trailing,
+            isChromeVisible: false
+        )
+
+        XCTAssertLessThan(leading.offsetX, 0)
+        XCTAssertGreaterThan(trailing.offsetX, 0)
+        XCTAssertLessThan(leading.scaleX, 1)
+        XCTAssertLessThan(leading.scaleY, 1)
+        XCTAssertLessThan(trailing.scaleX, 1)
+        XCTAssertLessThan(trailing.scaleY, 1)
+    }
+
+    func testHomeScrollChromeTrackerEmitsCollapsedAfterDownwardScroll() {
+        var tracker = HomeScrollChromeStateTracker()
+
+        XCTAssertEqual(tracker.consume(offset: 50), .expanded)
+        XCTAssertEqual(tracker.consume(offset: 80), .collapsed)
+    }
+
+    func testHomeScrollChromeTrackerEmitsExpandedAfterUpwardScroll() {
+        var tracker = HomeScrollChromeStateTracker()
+
+        _ = tracker.consume(offset: 50)
+        _ = tracker.consume(offset: 80)
+
+        XCTAssertEqual(tracker.consume(offset: 67), .expanded)
+    }
+
     func testLiquidSwipeRestingPositionUsesDefaultWhenNoTopModulesAreVisible() {
         let centerY = liquidRestingCenterY(
             showsQuietTrackingRail: false,
