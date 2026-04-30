@@ -166,7 +166,7 @@ struct HomeTimelineHiddenCalendarEventKey: Codable, Equatable, Hashable, Sendabl
         self.dayStamp = dayStamp
     }
 
-    init(eventID: String, day: Date, calendar: Calendar = .current) {
+    init(eventID: String, day: Date, calendar: Calendar = Self.persistedDayStampCalendar()) {
         self.init(eventID: eventID, dayStamp: Self.dayStamp(for: day, calendar: calendar))
     }
 
@@ -177,7 +177,7 @@ struct HomeTimelineHiddenCalendarEventKey: Codable, Equatable, Hashable, Sendabl
         return lhs.eventID.localizedStandardCompare(rhs.eventID) == .orderedAscending
     }
 
-    static func dayStamp(for day: Date, calendar: Calendar = .current) -> String {
+    static func dayStamp(for day: Date, calendar: Calendar = Self.persistedDayStampCalendar()) -> String {
         let components = calendar.dateComponents([.year, .month, .day], from: day)
         return String(
             format: "%04d%02d%02d",
@@ -185,6 +185,12 @@ struct HomeTimelineHiddenCalendarEventKey: Codable, Equatable, Hashable, Sendabl
             components.month ?? 0,
             components.day ?? 0
         )
+    }
+
+    fileprivate static func persistedDayStampCalendar() -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Calendar.current.timeZone
+        return calendar
     }
 }
 
@@ -217,14 +223,14 @@ final class HomeTimelineHiddenCalendarEventStore {
     }
 
     @discardableResult
-    func hide(eventID: String, on day: Date, calendar: Calendar = .current) -> Set<HomeTimelineHiddenCalendarEventKey> {
+    func hide(eventID: String, on day: Date, calendar: Calendar = HomeTimelineHiddenCalendarEventKey.persistedDayStampCalendar()) -> Set<HomeTimelineHiddenCalendarEventKey> {
         var hiddenEvents = load()
         hiddenEvents.insert(HomeTimelineHiddenCalendarEventKey(eventID: eventID, day: day, calendar: calendar))
         save(hiddenEvents)
         return hiddenEvents
     }
 
-    func isHidden(eventID: String, on day: Date, calendar: Calendar = .current) -> Bool {
+    func isHidden(eventID: String, on day: Date, calendar: Calendar = HomeTimelineHiddenCalendarEventKey.persistedDayStampCalendar()) -> Bool {
         load().contains(HomeTimelineHiddenCalendarEventKey(eventID: eventID, day: day, calendar: calendar))
     }
 }
