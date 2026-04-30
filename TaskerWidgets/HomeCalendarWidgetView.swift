@@ -211,7 +211,10 @@ private struct HomeCalendarStatusSummary: View {
         case .allDayOnly:
             return "Only all-day events are scheduled today."
         case .error:
-            return calendar.errorMessage?.isEmpty == false ? calendar.errorMessage ?? "Open Tasker to refresh." : "Open Tasker to refresh."
+            if let errorMessage = calendar.errorMessage, errorMessage.isEmpty == false {
+                return errorMessage
+            }
+            return "Open Tasker to refresh."
         case .active:
             if let nextMeeting = calendar.nextMeeting {
                 return HomeCalendarWidgetFormatter.nextMeetingDetail(nextMeeting, freeUntil: calendar.freeUntil)
@@ -540,7 +543,7 @@ private enum HomeCalendarWidgetFormatter {
     }
 
     static func tint(for event: TaskListWidgetCalendarEvent) -> Color {
-        guard let hex = event.calendarColorHex, let color = Color(taskWidgetHex: hex) else {
+        guard let hex = event.calendarColorHex, let color = Color(widgetHex: hex) else {
             return event.isBusy ? WidgetBrand.actionPrimary : WidgetBrand.textSecondary
         }
         return color
@@ -576,18 +579,5 @@ private enum HomeCalendarWidgetFormatter {
             return "Calendar, \(dateText(calendar.date)), next up \(nextMeeting.event.title), \(nextMeetingDetail(nextMeeting, freeUntil: calendar.freeUntil))."
         }
         return "Calendar, \(dateText(calendar.date)), \(countText(calendar.eventsTodayCount))."
-    }
-}
-
-private extension Color {
-    init?(taskWidgetHex hex: String) {
-        let value = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
-        guard value.count == 6, let intValue = Int(value, radix: 16) else {
-            return nil
-        }
-        let red = Double((intValue >> 16) & 0xFF) / 255.0
-        let green = Double((intValue >> 8) & 0xFF) / 255.0
-        let blue = Double(intValue & 0xFF) / 255.0
-        self.init(red: red, green: green, blue: blue)
     }
 }

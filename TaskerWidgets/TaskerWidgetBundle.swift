@@ -618,7 +618,7 @@ struct TaskListProvider: TimelineProvider {
         let now = Date()
         let day = calendar.startOfDay(for: now)
         let wake = calendar.date(bySettingHour: 8, minute: 0, second: 0, of: day) ?? day
-        let sleep = calendar.date(bySettingHour: 22, minute: 0, second: 0, of: day) ?? day.addingTimeInterval(14 * 60 * 60)
+        let sleep = calendar.date(bySettingHour: 22, minute: 0, second: 0, of: day) ?? day.addingTimeInterval(22 * 60 * 60)
         let focusStart = calendar.date(byAdding: .minute, value: 30, to: now) ?? now
         let focusEnd = calendar.date(byAdding: .minute, value: 75, to: focusStart) ?? focusStart.addingTimeInterval(75 * 60)
         let reviewStart = calendar.date(byAdding: .hour, value: 3, to: now) ?? now

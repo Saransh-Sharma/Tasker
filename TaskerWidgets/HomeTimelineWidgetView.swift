@@ -396,13 +396,14 @@ private struct HomeTimelineWeekAgendaDay: View {
     private var summary: String {
         let total = day.timedCount + day.allDayCount
         guard total > 0 else { return "Clear" }
+        let itemSuffix = total == 1 ? "item" : "items"
         switch day.loadLevel {
         case .light:
-            return "\(total) light item\(total == 1 ? "" : "s")"
+            return "\(total) light \(itemSuffix)"
         case .balanced:
-            return "\(total) balanced items"
+            return "\(total) balanced \(itemSuffix)"
         case .busy:
-            return "\(total) busy items"
+            return "\(total) busy \(itemSuffix)"
         }
     }
 }
@@ -551,7 +552,7 @@ private enum HomeTimelineFormatter {
     }
 
     static func tint(for item: TaskListWidgetTimelineItem) -> Color {
-        if let hex = item.tintHex, let color = Color(taskTimelineHex: hex) {
+        if let hex = item.tintHex, let color = Color(widgetHex: hex) {
             return color
         }
         return item.source == .calendarEvent ? WidgetBrand.actionPrimary : WidgetBrand.sandstone
@@ -581,19 +582,6 @@ private extension TaskListWidgetTimelineSnapshot {
         let prioritized = day.timedItems.filter(\.isCurrent) + day.timedItems.filter { !$0.isCurrent }
         let items = prioritized + day.allDayItems + day.inboxItems
         var seen = Set<String>()
-        return items.filter { seen.insert($0.id).inserted }.prefix(limit).map { $0 }
-    }
-}
-
-private extension Color {
-    init?(taskTimelineHex hex: String) {
-        let value = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
-        guard value.count == 6, let intValue = Int(value, radix: 16) else {
-            return nil
-        }
-        let red = Double((intValue >> 16) & 0xFF) / 255.0
-        let green = Double((intValue >> 8) & 0xFF) / 255.0
-        let blue = Double(intValue & 0xFF) / 255.0
-        self.init(red: red, green: green, blue: blue)
+        return Array(items.filter { seen.insert($0.id).inserted }.prefix(limit))
     }
 }

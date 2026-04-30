@@ -285,7 +285,7 @@ public struct TaskListWidgetCalendarSnapshot: Codable, Equatable {
     public var errorMessage: String?
 
     public init(
-        status: TaskListWidgetCalendarStatus = .permissionRequired,
+        status: TaskListWidgetCalendarStatus = .empty,
         date: Date = Date(),
         updatedAt: Date = Date(),
         selectedCalendarCount: Int = 0,

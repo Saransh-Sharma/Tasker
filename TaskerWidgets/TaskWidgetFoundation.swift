@@ -1,6 +1,19 @@
 import SwiftUI
 import WidgetKit
 
+extension Color {
+    init?(widgetHex hex: String) {
+        let value = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        guard value.count == 6, let intValue = Int(value, radix: 16) else {
+            return nil
+        }
+        let red = Double((intValue >> 16) & 0xFF) / 255.0
+        let green = Double((intValue >> 8) & 0xFF) / 255.0
+        let blue = Double(intValue & 0xFF) / 255.0
+        self.init(red: red, green: green, blue: blue)
+    }
+}
+
 @MainActor
 enum TaskWidgetTypography {
     static let eyebrow = TaskerTheme.Typography.eyebrow
