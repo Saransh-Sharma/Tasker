@@ -19,13 +19,13 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UINavigationController, context: Context) {
-        context.coordinator.update(eventID: eventID)
+        context.coordinator.update(eventID: eventID, onHideFromTimeline: onHideFromTimeline)
     }
 
     final class Coordinator: NSObject, EKEventViewDelegate {
         private let store = EKEventStore()
         private let onDismiss: () -> Void
-        private let onHideFromTimeline: (() -> Void)?
+        private var onHideFromTimeline: (() -> Void)?
         private var eventID: String
         private weak var eventViewController: EKEventViewController?
         private weak var unavailableLabel: UILabel?
@@ -81,8 +81,9 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             return navigationController
         }
 
-        func update(eventID: String) {
+        func update(eventID: String, onHideFromTimeline: (() -> Void)?) {
             self.eventID = eventID
+            self.onHideFromTimeline = onHideFromTimeline
             applyCurrentEvent()
             applyHideButtonIfNeeded()
         }
@@ -107,7 +108,10 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
         }
 
         private func applyHideButtonIfNeeded() {
-            guard onHideFromTimeline != nil else { return }
+            guard onHideFromTimeline != nil else {
+                eventViewController?.navigationItem.rightBarButtonItem = nil
+                return
+            }
             let hideItem = UIBarButtonItem(
                 image: UIImage(systemName: "eye.slash"),
                 style: .plain,

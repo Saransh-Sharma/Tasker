@@ -341,7 +341,7 @@ struct CalendarScheduleView: View {
         case .notDetermined:
             return String(localized: "Grant calendar access to bring Today and Week schedule context into Tasker.")
         case .denied:
-            return String(localized: "Calendar access is denied by iOS. Enable Tasker in Settings > Privacy & Security > Calendars. If Tasker is missing, restart iPhone, reinstall Tasker, or reset Location & Privacy.")
+            return String(localized: "Calendar access is denied by iOS. Enable Tasker in Settings > Privacy & Security > Calendars. If Tasker is missing, restart your device, reinstall Tasker, or reset Location & Privacy.")
         case .restricted:
             return String(localized: "Calendar access is restricted by system policy and cannot be changed here.")
         case .writeOnly:

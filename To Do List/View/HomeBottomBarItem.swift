@@ -46,17 +46,19 @@ extension HomeBottomBarItem {
 }
 
 enum HomeCalendarBottomBarSymbol {
+    static let defaultSymbol = "calendar"
+
     static func symbolName(for date: Date, calendar: Calendar = .current) -> String {
         let candidate = symbolName(day: calendar.component(.day, from: date))
-        guard candidate != "calendar", isSystemSymbolAvailable(candidate) else {
-            return "calendar"
+        guard candidate != defaultSymbol, isSystemSymbolAvailable(candidate) else {
+            return defaultSymbol
         }
         return candidate
     }
 
     static func symbolName(day: Int) -> String {
         guard (1...31).contains(day) else {
-            return "calendar"
+            return defaultSymbol
         }
         return "\(day).calendar"
     }

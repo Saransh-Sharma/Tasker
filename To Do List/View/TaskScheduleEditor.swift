@@ -80,6 +80,7 @@ private struct TaskTimeWheelPicker: View {
                         proxy.scrollTo(initialID, anchor: .center)
                     }
                 }
+                // selectedSlotID drives centeredSlotID and scroll(to:proxy:); centeredSlotID resolves select(slot). The guards prevent that bidirectional sync from feeding back into itself.
                 .onChange(of: selectedSlotID) { _, newValue in
                     guard centeredSlotID != newValue else { return }
                     centeredSlotID = newValue
@@ -167,7 +168,8 @@ private struct TaskTimeWheelPicker: View {
     private func slotID(for date: Date) -> Int {
         let components = Calendar.current.dateComponents([.hour, .minute], from: date)
         let minutes = (components.hour ?? 0) * 60 + (components.minute ?? 0)
-        return min(max(0, minutes / max(1, intervalMinutes)), slots.count - 1)
+        let slotCount = slots.count
+        return min(max(0, minutes / max(1, intervalMinutes)), slotCount - 1)
     }
 
     private func label(for date: Date, isSelected: Bool) -> String {

@@ -455,7 +455,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
 
     func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
         switch mode {
-        case .deniedAfterAttempt:
+        case .denied, .deniedAfterAttempt:
             completion(.success(false))
         default:
             authStatus = .authorized
