@@ -2557,6 +2557,7 @@ struct HomeBackdropForedropRootView: View {
     private var homeBackdropNoiseAmountStorage = V2FeatureFlags.defaultHomeBackdropNoiseAmount
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     let onTaskTap: (TaskDefinition) -> Void
     let onToggleComplete: (TaskDefinition) -> Void
@@ -2630,6 +2631,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var measuredTimelineHeaderHeight: CGFloat = 0
     @State private var measuredCalendarCardHeight: CGFloat = 0
     @State private var measuredWeekBackdropHeight: CGFloat = 0
+    @State private var measuredPassiveTrackingRailHeight: CGFloat = 0
+    @State private var measuredNeedsReplanTrayHeight: CGFloat = 0
     @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
     @State private var isDaySwipeTracingActive = false
     @State private var leadingDayLiquidSwipeData = HomeDayLiquidSwipeData(side: .leading)
@@ -2756,6 +2759,33 @@ struct HomeBackdropForedropRootView: View {
         case nil:
             return .opacity
         }
+    }
+    private var passiveTrackingRailFallbackHeight: CGFloat {
+        dynamicTypeSize >= .accessibility1 ? 72 : 56
+    }
+    private var needsReplanTrayFallbackHeight: CGFloat {
+        dynamicTypeSize >= .accessibility1 ? 120 : 88
+    }
+    private var isNeedsReplanTrayVisible: Bool {
+        if case .trayVisible = overlaySnapshot.replanState.phase {
+            return true
+        }
+        return false
+    }
+    private var dayLiquidSwipeRestingCenterY: CGFloat {
+        HomeDayLiquidSwipeRestingPosition.centerY(
+            defaultCenterY: HomeDayLiquidSwipeData.timelineHandleCenterY,
+            showsQuietTrackingRail: habitsSnapshot.quietTrackingSummaryState.isVisible,
+            measuredQuietTrackingRailHeight: measuredPassiveTrackingRailHeight,
+            quietTrackingRailFallbackHeight: passiveTrackingRailFallbackHeight,
+            showsNeedsReplanTray: isNeedsReplanTrayVisible,
+            measuredNeedsReplanTrayHeight: measuredNeedsReplanTrayHeight,
+            needsReplanTrayFallbackHeight: needsReplanTrayFallbackHeight,
+            topPadding: spacing.s8,
+            interModuleSpacing: spacing.s12,
+            buttonRadius: HomeDayLiquidSwipeData.buttonRadius,
+            clearance: spacing.s4
+        )
     }
     @ViewBuilder
     private var needsReplanFloatingOverlay: some View {
@@ -2909,6 +2939,9 @@ struct HomeBackdropForedropRootView: View {
         .onPreferenceChange(TimelineHeaderHeightPreferenceKey.self) { measuredTimelineHeaderHeight = $0 }
         .onPreferenceChange(TimelineCalendarCardHeightPreferenceKey.self) { measuredCalendarCardHeight = $0 }
         .onPreferenceChange(TimelineBackdropWeekHeightPreferenceKey.self) { measuredWeekBackdropHeight = $0 }
+        .onChange(of: dayLiquidSwipeRestingCenterY) { _, newValue in
+            resetIdleDayLiquidSwipeHandles(restingCenterY: newValue)
+        }
         .onChange(of: habitRenderSignature) { _, _ in
             HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
             activeHabitMutationInterval = nil
@@ -4189,7 +4222,9 @@ struct HomeBackdropForedropRootView: View {
 
     private func dayLiquidSwipeData(for side: HomeDayLiquidSwipeSide, size: CGSize) -> HomeDayLiquidSwipeData {
         let data = side == .leading ? leadingDayLiquidSwipeData : trailingDayLiquidSwipeData
-        return data.sized(to: size)
+        return data
+            .resting(at: dayLiquidSwipeRestingCenterY)
+            .sized(to: size)
     }
 
     private func setDayLiquidSwipeData(_ data: HomeDayLiquidSwipeData) {
@@ -4258,6 +4293,19 @@ struct HomeBackdropForedropRootView: View {
                 setDayLiquidSwipeData(data)
             }
         }
+    }
+
+    private func resetIdleDayLiquidSwipeHandles(restingCenterY: CGFloat) {
+        guard activeDayLiquidSwipeSide == nil else { return }
+        let size = normalizedDayLiquidSwipeSize(dayLiquidSwipeContainerSize)
+        leadingDayLiquidSwipeData = leadingDayLiquidSwipeData
+            .resting(at: restingCenterY)
+            .sized(to: size)
+            .initial()
+        trailingDayLiquidSwipeData = trailingDayLiquidSwipeData
+            .resting(at: restingCenterY)
+            .sized(to: size)
+            .initial()
     }
 
     private func commitDayLiquidSwipe(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
@@ -4330,6 +4378,12 @@ struct HomeBackdropForedropRootView: View {
                                     viewModel.openNeedsReplanLauncher()
                                 }
                                 .padding(.horizontal, spacing.s16)
+                                .onGeometryChange(for: CGFloat.self) { proxy in
+                                    proxy.size.height
+                                } action: { newHeight in
+                                    guard abs(newHeight - measuredNeedsReplanTrayHeight) > 0.5 else { return }
+                                    measuredNeedsReplanTrayHeight = newHeight
+                                }
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                             }
                         }
@@ -4442,6 +4496,7 @@ struct HomeBackdropForedropRootView: View {
                         HomeDayLiquidSwipeGestureSurface(
                             isEnabled: isDaySwipeGestureEnabled,
                             containerSize: dayLiquidSwipeContainerSize,
+                            restingCenterY: dayLiquidSwipeRestingCenterY,
                             resolver: .default,
                             onInteractionStarted: beginDaySwipeTrace,
                             onChanged: { side, translation, location in
@@ -4477,6 +4532,7 @@ struct HomeBackdropForedropRootView: View {
                 HomeDayLiquidSwipeOverlay(
                     isEnabled: isDaySwipeGestureEnabled,
                     reduceMotion: reduceMotion || isUITesting,
+                    restingCenterY: dayLiquidSwipeRestingCenterY,
                     onInteractionStarted: beginDaySwipeTrace,
                     onInteractionCancelled: cancelDaySwipeTraceIfNeeded,
                     onCommit: commitDaySwipe,
@@ -4847,6 +4903,12 @@ struct HomeBackdropForedropRootView: View {
         } action: { newWidth in
             guard abs(newWidth - passiveTrackingRailViewportWidth) > 0.5 else { return }
             passiveTrackingRailViewportWidth = newWidth
+        }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { newHeight in
+            guard abs(newHeight - measuredPassiveTrackingRailHeight) > 0.5 else { return }
+            measuredPassiveTrackingRailHeight = newHeight
         }
         .accessibilityIdentifier("home.passiveTracking.rail")
     }
