@@ -62,6 +62,96 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(data.initial().progress, 0)
     }
 
+    func testLiquidSwipeInitialHandlesUseConfiguredRestingHeight() {
+        let size = CGSize(width: 390, height: 760)
+        let restingCenterY: CGFloat = 124
+        let leading = HomeDayLiquidSwipeData(
+            side: .leading,
+            containerSize: size,
+            restingCenterY: restingCenterY
+        )
+        let trailing = HomeDayLiquidSwipeData(
+            side: .trailing,
+            containerSize: size,
+            restingCenterY: restingCenterY
+        )
+
+        XCTAssertEqual(leading.buttonCenter.y, restingCenterY)
+        XCTAssertEqual(trailing.buttonCenter.y, restingCenterY)
+        XCTAssertEqual(leading.buttonCenter.y, trailing.buttonCenter.y)
+    }
+
+    func testLiquidSwipeInitialResetReturnsHandleToConfiguredRestingHeight() {
+        let restingCenterY: CGFloat = 132
+        let data = HomeDayLiquidSwipeData(
+            side: .leading,
+            centerY: 220,
+            progress: 0.24,
+            containerSize: CGSize(width: 390, height: 760),
+            restingCenterY: restingCenterY
+        )
+
+        XCTAssertEqual(data.initial().buttonCenter.y, restingCenterY)
+        XCTAssertEqual(data.initial().progress, 0)
+    }
+
+    func testLiquidSwipeRestingPositionUsesDefaultWhenNoTopModulesAreVisible() {
+        let centerY = liquidRestingCenterY(
+            showsQuietTrackingRail: false,
+            measuredQuietTrackingRailHeight: 64,
+            showsNeedsReplanTray: false,
+            measuredNeedsReplanTrayHeight: 96
+        )
+
+        XCTAssertEqual(centerY, HomeDayLiquidSwipeData.timelineHandleCenterY, accuracy: 0.001)
+    }
+
+    func testLiquidSwipeRestingPositionClearsQuietTrackingRailOnly() {
+        let centerY = liquidRestingCenterY(
+            showsQuietTrackingRail: true,
+            measuredQuietTrackingRailHeight: 64,
+            showsNeedsReplanTray: false,
+            measuredNeedsReplanTrayHeight: 0
+        )
+
+        XCTAssertEqual(centerY, 8 + 64 + 12 + 24 + 4, accuracy: 0.001)
+    }
+
+    func testLiquidSwipeRestingPositionClearsNeedsReplanTrayOnly() {
+        let centerY = liquidRestingCenterY(
+            showsQuietTrackingRail: false,
+            measuredQuietTrackingRailHeight: 0,
+            showsNeedsReplanTray: true,
+            measuredNeedsReplanTrayHeight: 96
+        )
+
+        XCTAssertEqual(centerY, 8 + 96 + 12 + 24 + 4, accuracy: 0.001)
+    }
+
+    func testLiquidSwipeRestingPositionClearsQuietTrackingRailAndNeedsReplanTray() {
+        let centerY = liquidRestingCenterY(
+            showsQuietTrackingRail: true,
+            measuredQuietTrackingRailHeight: 64,
+            showsNeedsReplanTray: true,
+            measuredNeedsReplanTrayHeight: 96
+        )
+
+        XCTAssertEqual(centerY, 8 + 64 + 12 + 96 + 12 + 24 + 4, accuracy: 0.001)
+    }
+
+    func testLiquidSwipeRestingPositionUsesFallbackHeightsBeforeMeasurement() {
+        let centerY = liquidRestingCenterY(
+            showsQuietTrackingRail: true,
+            measuredQuietTrackingRailHeight: 0,
+            quietTrackingRailFallbackHeight: 72,
+            showsNeedsReplanTray: true,
+            measuredNeedsReplanTrayHeight: 0,
+            needsReplanTrayFallbackHeight: 120
+        )
+
+        XCTAssertEqual(centerY, 8 + 72 + 12 + 120 + 12 + 24 + 4, accuracy: 0.001)
+    }
+
     func testLiquidSwipeKeepsVerticalDragAvailableFromEdges() {
         let side = HomeDayLiquidSwipeData.side(
             forStartLocation: CGPoint(x: 20, y: 300),
@@ -160,7 +250,8 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
             side: .leading,
             centerY: 180,
             progress: 0,
-            containerSize: CGSize(width: 390, height: 760)
+            containerSize: CGSize(width: 390, height: 760),
+            restingCenterY: 124
         )
 
         let dragged = data.drag(
@@ -171,6 +262,7 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertGreaterThan(dragged.progress, 0)
         XCTAssertEqual(dragged.side.direction, .previous)
         XCTAssertEqual(dragged.centerY, 220)
+        XCTAssertEqual(dragged.buttonCenter.y, 220)
     }
 
     func testTrailingLiquidDataProgressesOnLeftwardDrag() {
@@ -192,28 +284,32 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
     }
 
     func testLeadingLiquidDataDoesNotProgressOnOppositeHandleDrag() {
+        let restingCenterY: CGFloat = 124
         let data = HomeDayLiquidSwipeData(
             side: .leading,
-            containerSize: CGSize(width: 390, height: 760)
+            containerSize: CGSize(width: 390, height: 760),
+            restingCenterY: restingCenterY
         )
 
         let dragged = data.drag(
             translation: CGSize(width: -160, height: 4),
-            location: CGPoint(x: 20, y: HomeDayLiquidSwipeData.timelineHandleCenterY + 4)
+            location: CGPoint(x: 20, y: restingCenterY + 4)
         )
 
         XCTAssertEqual(dragged.progress, 0)
     }
 
     func testTrailingLiquidDataDoesNotProgressOnOppositeHandleDrag() {
+        let restingCenterY: CGFloat = 124
         let data = HomeDayLiquidSwipeData(
             side: .trailing,
-            containerSize: CGSize(width: 390, height: 760)
+            containerSize: CGSize(width: 390, height: 760),
+            restingCenterY: restingCenterY
         )
 
         let dragged = data.drag(
             translation: CGSize(width: 160, height: 4),
-            location: CGPoint(x: 370, y: HomeDayLiquidSwipeData.timelineHandleCenterY + 4)
+            location: CGPoint(x: 370, y: restingCenterY + 4)
         )
 
         XCTAssertEqual(dragged.progress, 0)
@@ -1299,10 +1395,73 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
 
         let currentY = plan.currentTimeY(now: now, selectedDate: wake, calendar: calendar)
         XCTAssertNotNil(currentY)
-        XCTAssertEqual(currentY ?? 0, plan.wakeAnchor.y + 210, accuracy: 0.001)
+        let wakeRoutine = plan.visualElements.first { $0.element.id == "routine:wake" }
+        let sleepRoutine = plan.visualElements.first { $0.element.id == "routine:sleep" }
+        XCTAssertNotNil(wakeRoutine)
+        XCTAssertNotNil(sleepRoutine)
+        let dayProgress = CGFloat(now.timeIntervalSince(wake) / sleep.timeIntervalSince(wake))
+        let expectedCurrentY = (wakeRoutine?.centerY ?? 0) + (((sleepRoutine?.centerY ?? 0) - (wakeRoutine?.centerY ?? 0)) * dayProgress)
+        XCTAssertEqual(currentY ?? 0, expectedCurrentY, accuracy: 0.001)
         XCTAssertNil(plan.currentTimeY(now: now, selectedDate: Self.date(calendar: calendar, year: 2026, month: 4, day: 22, hour: 0, minute: 0), calendar: calendar))
         XCTAssertNil(plan.currentTimeY(now: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 7, minute: 59), selectedDate: wake, calendar: calendar))
         XCTAssertNil(plan.currentTimeY(now: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 1), selectedDate: wake, calendar: calendar))
+    }
+
+    func testCurrentTimeYUsesVisualFlowAfterEarlierMeeting() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 15)
+        let meetingStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 30)
+        let meetingEnd = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 12, minute: 0)
+        let now = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 12, minute: 40)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "standup", title: "Standup", start: meetingStart, end: meetingEnd)
+            ]
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let meeting = plan.visualElements.first { positioned in
+            if case .meetingCard = positioned.element { return true }
+            return false
+        }
+
+        let currentY = plan.currentTimeY(now: now, selectedDate: wake, calendar: calendar)
+
+        XCTAssertNotNil(meeting)
+        XCTAssertNotNil(currentY)
+        XCTAssertGreaterThan(currentY ?? 0, meeting?.y ?? .greatestFiniteMagnitude)
+        XCTAssertGreaterThan(currentY ?? 0, meeting?.bottomY ?? .greatestFiniteMagnitude)
+    }
+
+    func testCurrentTimeYInterpolatesInsideActiveScheduledBlock() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let meetingStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0)
+        let meetingEnd = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 12, minute: 0)
+        let now = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "planning", title: "Planning", start: meetingStart, end: meetingEnd)
+            ]
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let meeting = plan.visualElements.first { positioned in
+            if case .meetingCard = positioned.element { return true }
+            return false
+        }
+
+        let currentY = plan.currentTimeY(now: now, selectedDate: wake, calendar: calendar)
+
+        XCTAssertNotNil(meeting)
+        XCTAssertNotNil(currentY)
+        XCTAssertGreaterThan(currentY ?? 0, meeting?.y ?? .greatestFiniteMagnitude)
+        XCTAssertLessThan(currentY ?? 0, meeting?.bottomY ?? -.greatestFiniteMagnitude)
+        XCTAssertEqual(currentY ?? 0, (meeting?.y ?? 0) + ((meeting?.height ?? 0) / 2), accuracy: 0.001)
     }
 
     func testTimelineLayoutPlanKeepsShortItemAnchoredWhileApplyingMinimumHeight() {
@@ -1789,6 +1948,29 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
 }
 
 private extension HomeForedropLayoutMetricsTests {
+    func liquidRestingCenterY(
+        showsQuietTrackingRail: Bool,
+        measuredQuietTrackingRailHeight: CGFloat,
+        quietTrackingRailFallbackHeight: CGFloat = 56,
+        showsNeedsReplanTray: Bool,
+        measuredNeedsReplanTrayHeight: CGFloat,
+        needsReplanTrayFallbackHeight: CGFloat = 88
+    ) -> CGFloat {
+        HomeDayLiquidSwipeRestingPosition.centerY(
+            defaultCenterY: HomeDayLiquidSwipeData.timelineHandleCenterY,
+            showsQuietTrackingRail: showsQuietTrackingRail,
+            measuredQuietTrackingRailHeight: measuredQuietTrackingRailHeight,
+            quietTrackingRailFallbackHeight: quietTrackingRailFallbackHeight,
+            showsNeedsReplanTray: showsNeedsReplanTray,
+            measuredNeedsReplanTrayHeight: measuredNeedsReplanTrayHeight,
+            needsReplanTrayFallbackHeight: needsReplanTrayFallbackHeight,
+            topPadding: 8,
+            interModuleSpacing: 12,
+            buttonRadius: HomeDayLiquidSwipeData.buttonRadius,
+            clearance: 4
+        )
+    }
+
     static var fixedCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? TimeZone.current
