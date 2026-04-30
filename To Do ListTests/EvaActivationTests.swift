@@ -4,6 +4,140 @@ import XCTest
 
 @MainActor
 final class EvaActivationTests: XCTestCase {
+    func testActivationStarterPromptsLeadWithDayOverview() {
+        XCTAssertEqual(EvaStarterPrompt.activationDefaults.first, EvaStarterPrompt.dayOverviewPrompt)
+        XCTAssertEqual(EvaStarterPrompt.dayOverviewPrompt.submissionText, "How is my day looking today?")
+    }
+
+    func testChiefOfStaffGuideIncludesReschedulePromptSection() throws {
+        let section = try XCTUnwrap(EvaChiefOfStaffGuideContent.sections.first { $0.id == "reschedule_open_tasks" })
+
+        XCTAssertEqual(section.title, "Reschedule open tasks")
+        XCTAssertEqual(section.icon, "calendar.badge.clock")
+        XCTAssertTrue(section.body.contains("review cards"))
+        XCTAssertEqual(section.prompts.map(\.style), Array(repeating: .naturalLanguage, count: 5))
+        XCTAssertEqual(section.prompts.map(\.title), [
+            "Reschedule unfinished tasks",
+            "Carry today to tomorrow",
+            "Push by 20 minutes",
+            "Start tomorrow morning",
+            "Overdue to today"
+        ])
+        XCTAssertEqual(section.prompts.map(\.submissionText), [
+            "Reschedule my unfinished tasks",
+            "Move all my unfinished tasks from today to tomorrow",
+            "Move all my unfinished tasks from today forward by 20 minutes",
+            "Move my open tasks to tomorrow morning",
+            "Move overdue tasks to today"
+        ])
+    }
+
+    func testHomePromptChipsLeadWithCuratedOrderThenRemainingGuidePrompts() {
+        let chips = EvaChiefOfStaffGuideContent.homePromptChips
+
+        XCTAssertEqual(chips.prefix(5).map(\.prompt.title), [
+            "How is my day?",
+            "Plan today",
+            "Recover overdue",
+            "Carry today's overdues to tomorrow",
+            "Overdue today first and then the rest"
+        ])
+        XCTAssertEqual(chips.prefix(5).map(\.prompt.submissionText), [
+            "How is my day looking today?",
+            "Help me plan today around my existing tasks and habits.",
+            "Show me what is overdue and what I should recover first.",
+            "Move today's overdue tasks to tomorrow.",
+            "Plan today with overdue tasks first, then the rest."
+        ])
+
+        XCTAssertEqual(chips[5].prompt.title, "Focus first")
+        XCTAssertEqual(chips[6].prompt.title, "Reschedule unfinished tasks")
+    }
+
+    func testHomePromptChipsAppendGuidePromptsWithoutDuplicateIDsOrSubmissions() {
+        let chips = EvaChiefOfStaffGuideContent.homePromptChips
+        let ids = chips.map(\.prompt.id)
+        let submissionTexts = chips.map(\.prompt.submissionText)
+        let guidePromptCount = EvaChiefOfStaffGuideContent.sections.flatMap(\.prompts).count
+        let skippedGuideDuplicateSubmissionCount = 4
+        let curatedPromptCount = 5
+
+        XCTAssertEqual(Set(ids).count, ids.count)
+        XCTAssertEqual(Set(submissionTexts).count, submissionTexts.count)
+        XCTAssertEqual(chips.count, guidePromptCount - skippedGuideDuplicateSubmissionCount + curatedPromptCount)
+    }
+
+    func testHomePromptChipsUseCuratedAndInheritedGuideIcons() throws {
+        let chips = EvaChiefOfStaffGuideContent.homePromptChips
+
+        XCTAssertEqual(chips[0].icon, "sparkles")
+        XCTAssertEqual(chips[1].icon, "arrow.triangle.2.circlepath")
+        XCTAssertEqual(chips[2].icon, "sun.max")
+        XCTAssertEqual(chips[3].icon, "calendar.badge.clock")
+        XCTAssertEqual(chips[4].icon, "calendar.badge.clock")
+
+        let guideSection = try XCTUnwrap(EvaChiefOfStaffGuideContent.sections.first { $0.id == "break_work_down" })
+        let guidePrompt = try XCTUnwrap(guideSection.prompts.first)
+        let homeChip = try XCTUnwrap(chips.first { $0.prompt.id == guidePrompt.id })
+        XCTAssertEqual(homeChip.icon, guideSection.icon)
+    }
+
+    func testThreadChangePolicyPreservesFirstThreadAttachDuringGeneration() {
+        let firstThreadID = UUID()
+
+        XCTAssertFalse(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
+            oldThreadID: nil,
+            newThreadID: firstThreadID,
+            generatingThreadID: firstThreadID,
+            hasActiveGeneration: true
+        ))
+    }
+
+    func testChatViewGenerateFirstThreadAttachPreservesGenerationLifecycle() {
+        let internallyCreatedThreadID = UUID()
+
+        let decision = ChatThreadChangeCancellationPolicy.decision(
+            oldThreadID: nil,
+            newThreadID: internallyCreatedThreadID,
+            generatingThreadID: internallyCreatedThreadID,
+            hasActiveGeneration: true
+        )
+
+        XCTAssertEqual(decision, .preserveFirstGeneratedThreadAttach)
+    }
+
+    func testThreadChangePolicyCancelsRealSwitchDuringGeneration() {
+        let originalThreadID = UUID()
+        let switchedThreadID = UUID()
+
+        XCTAssertTrue(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
+            oldThreadID: originalThreadID,
+            newThreadID: switchedThreadID,
+            generatingThreadID: originalThreadID,
+            hasActiveGeneration: true
+        ))
+    }
+
+    func testThreadChangePolicyCancelsClearDuringGeneration() {
+        let originalThreadID = UUID()
+
+        XCTAssertTrue(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
+            oldThreadID: originalThreadID,
+            newThreadID: nil,
+            generatingThreadID: originalThreadID,
+            hasActiveGeneration: true
+        ))
+    }
+
+    func testThreadChangePolicyDoesNotCancelWhenNoGenerationIsActive() {
+        XCTAssertFalse(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
+            oldThreadID: UUID(),
+            newThreadID: UUID(),
+            generatingThreadID: nil,
+            hasActiveGeneration: false
+        ))
+    }
+
     func testMemoryMapperPrependsNewUniqueEntriesAndRespectsLimits() {
         let existing = LLMPersonalMemoryStoreV1(
             preferences: [

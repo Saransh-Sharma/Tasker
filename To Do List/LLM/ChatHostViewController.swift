@@ -13,6 +13,8 @@ import UIKit
 /// UIKit wrapper that embeds the SwiftUI LLM module.
 extension Notification.Name {
     static let toggleChatHistory = Notification.Name("toggleChatHistory")
+    static let requestEvaChatSettings = Notification.Name("requestEvaChatSettings")
+    static let requestEvaChatNewThread = Notification.Name("requestEvaChatNewThread")
 }
 
 class ChatHostViewController: UIViewController, PresentationDependencyContainerAware, UseCaseCoordinatorInjectable {
@@ -30,6 +32,8 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     private var cachedProjects: [Project] = [Project.createInbox()]
     private var currentLayoutClass: TaskerLayoutClass = .phone
     private let activationTitleView = EvaActivationNavigationTitleView()
+    private let chatTitleView = EvaChatNavigationTitleView()
+    private var chatNavigationChromeState = EvaChatNavigationChromeState.empty
     private lazy var leadingBarButtonItem = UIBarButtonItem(
         image: UIImage(systemName: EvaActivationNavigationLeadingActionStyle.back.iconName),
         style: .plain,
@@ -41,6 +45,18 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         style: .plain,
         target: self,
         action: #selector(onHistoryTapped)
+    )
+    private lazy var settingsBarButtonItem = UIBarButtonItem(
+        image: UIImage(systemName: "gearshape"),
+        style: .plain,
+        target: self,
+        action: #selector(onSettingsTapped)
+    )
+    private lazy var newChatBarButtonItem = UIBarButtonItem(
+        image: UIImage(systemName: "plus.message"),
+        style: .plain,
+        target: self,
+        action: #selector(onNewChatTapped)
     )
 
     private var resolvedUseCaseCoordinator: UseCaseCoordinator? {
@@ -151,8 +167,20 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                     onDismiss: { [weak self] in
                         self?.dismiss(animated: true)
                     },
+                    onNavigationChromeChange: { [weak self] state in
+                        self?.updateChatNavigationChrome(state)
+                    },
                     onOpenTaskDetail: { [weak self] task in
                         self?.presentTaskDetailSheet(for: task)
+                    },
+                    onOpenHabitDetail: { [weak self] habitID in
+                        self?.presentHabitDetailSheet(for: habitID)
+                    },
+                    onPerformDayTaskAction: { [weak self] action, card, completion in
+                        self?.performDayTaskAction(action, card: card, completion: completion)
+                    },
+                    onPerformDayHabitAction: { [weak self] action, card, completion in
+                        self?.performDayHabitAction(action, card: card, completion: completion)
                     }
                 )
                 .environmentObject(appManager)
@@ -195,6 +223,13 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         leadingBarButtonItem.tintColor = onAccent
         historyBarButtonItem.tintColor = onAccent
         historyBarButtonItem.accessibilityLabel = "History"
+        historyBarButtonItem.accessibilityIdentifier = "chat.header.history"
+        settingsBarButtonItem.tintColor = onAccent
+        settingsBarButtonItem.accessibilityLabel = "Settings"
+        settingsBarButtonItem.accessibilityIdentifier = "chat.header.settings"
+        newChatBarButtonItem.tintColor = onAccent
+        newChatBarButtonItem.accessibilityLabel = "New chat"
+        newChatBarButtonItem.accessibilityIdentifier = "chat.header.new_chat"
     }
 
     @objc private func onBackTapped() {
@@ -207,9 +242,18 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         NotificationCenter.default.post(name: .toggleChatHistory, object: nil)
     }
 
+    @objc private func onSettingsTapped() {
+        NotificationCenter.default.post(name: .requestEvaChatSettings, object: nil)
+    }
+
+    @objc private func onNewChatTapped() {
+        NotificationCenter.default.post(name: .requestEvaChatNewThread, object: nil)
+    }
+
     // MARK: - Task Detail Presentation
 
-    private func presentTaskDetailSheet(for task: TaskDefinition) {
+    @discardableResult
+    private func presentTaskDetailSheet(for task: TaskDefinition) -> Bool {
         guard let coordinator = resolvedUseCaseCoordinator else {
             logWarning(
                 event: "chat_task_detail_unavailable",
@@ -217,7 +261,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                 fields: ["task_id": task.id.uuidString]
             )
             showTaskDetailUnavailableAlert()
-            return
+            return false
         }
 
         loadProjectsIfNeeded(coordinator: coordinator) { [weak self] projects in
@@ -370,6 +414,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                 self.present(hostingController, animated: true)
             }
         }
+        return true
     }
 
     private func showTaskDetailUnavailableAlert() {
@@ -380,6 +425,150 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func presentHabitDetailSheet(for habitID: UUID) {
+        guard let coordinator = resolvedUseCaseCoordinator else {
+            showHabitDetailUnavailableAlert()
+            return
+        }
+
+        coordinator.getHabitLibrary.execute(habitID: habitID, includeArchived: true) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .failure:
+                    self.showHabitDetailUnavailableAlert()
+                case .success(let row):
+                    guard let row else {
+                        self.showHabitDetailUnavailableAlert()
+                        return
+                    }
+
+                    guard let presentationDependencyContainer = self.presentationDependencyContainer,
+                          presentationDependencyContainer.isConfiguredForRuntime else {
+                        self.showHabitDetailUnavailableAlert()
+                        return
+                    }
+
+                    let detailView = HabitDetailSheetView(
+                        viewModel: presentationDependencyContainer.makeHabitDetailViewModel(row: row),
+                        onMutation: {}
+                    )
+                    let layoutClass = TaskerLayoutResolver.classify(view: self.view)
+                    let hostingController = UIHostingController(rootView: detailView.taskerLayoutClass(layoutClass))
+                    hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+                    hostingController.modalPresentationStyle = .pageSheet
+
+                    if let sheet = hostingController.sheetPresentationController {
+                        sheet.detents = [.medium(), .large()]
+                        sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                        sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+                    }
+
+                    self.present(hostingController, animated: true)
+                }
+            }
+        }
+    }
+
+    private func showHabitDetailUnavailableAlert() {
+        let alert = UIAlertController(
+            title: "Habit details unavailable",
+            message: "Could not open habit details from chat right now. Please try again from Home.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
+    private func performDayTaskAction(
+        _ action: EvaDayTaskAction,
+        card: EvaDayTaskCard,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let coordinator = resolvedUseCaseCoordinator else {
+            completion(.failure(NSError(
+                domain: "ChatHostViewController",
+                code: 12,
+                userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+            )))
+            return
+        }
+
+        switch action {
+        case .done:
+            coordinator.completeTaskDefinition.setCompletion(taskID: card.taskID, to: true) { result in
+                DispatchQueue.main.async { completion(result.map { _ in }) }
+            }
+        case .reopen:
+            coordinator.completeTaskDefinition.setCompletion(taskID: card.taskID, to: false) { result in
+                DispatchQueue.main.async { completion(result.map { _ in }) }
+            }
+        case .tomorrow:
+            let calendar = Calendar.current
+            let baseDay = calendar.startOfDay(for: Date())
+            guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: baseDay) else {
+                completion(.failure(NSError(
+                    domain: "ChatHostViewController",
+                    code: 13,
+                    userInfo: [NSLocalizedDescriptionKey: "Could not compute tomorrow"]
+                )))
+                return
+            }
+            coordinator.rescheduleTaskDefinition.execute(taskID: card.taskID, newDate: tomorrow) { result in
+                DispatchQueue.main.async { completion(result.map { _ in }) }
+            }
+        case .open:
+            if presentTaskDetailSheet(for: card.taskSnapshot) {
+                completion(.success(()))
+            } else {
+                completion(.failure(NSError(
+                    domain: "ChatHostViewController",
+                    code: 14,
+                    userInfo: [NSLocalizedDescriptionKey: "Could not open task details"]
+                )))
+            }
+        }
+    }
+
+    private func performDayHabitAction(
+        _ action: EvaDayHabitAction,
+        card: EvaDayHabitCard,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let coordinator = resolvedUseCaseCoordinator else {
+            completion(.failure(NSError(
+                domain: "ChatHostViewController",
+                code: 14,
+                userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+            )))
+            return
+        }
+
+        let habitAction: HabitOccurrenceAction?
+        switch action {
+        case .done:
+            habitAction = .complete
+        case .skip:
+            habitAction = .skip
+        case .stayedClean:
+            habitAction = .abstained
+        case .lapsed, .logLapse:
+            habitAction = .lapsed
+        case .open:
+            presentHabitDetailSheet(for: card.habitID)
+            completion(.success(()))
+            return
+        }
+
+        coordinator.resolveHabitOccurrence.execute(
+            habitID: card.habitID,
+            action: habitAction ?? .complete,
+            on: card.dueAt ?? Date()
+        ) { result in
+            DispatchQueue.main.async { completion(result) }
+        }
     }
 
     private func loadProjectsIfNeeded(
@@ -578,6 +767,8 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         navigationController?.navigationBar.compactAppearance = appearance
         leadingBarButtonItem.tintColor = onAccent
         historyBarButtonItem.tintColor = onAccent
+        settingsBarButtonItem.tintColor = onAccent
+        newChatBarButtonItem.tintColor = onAccent
         updateNavigationBarChrome()
     }
 
@@ -598,9 +789,22 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         navigationItem.leftBarButtonItem = leadingBarButtonItem
 
         if activationCoordinator.state.stage == .completed {
-            navigationItem.titleView = nil
-            navigationItem.title = "Eva"
-            navigationItem.rightBarButtonItem = historyBarButtonItem
+            navigationItem.title = nil
+            chatTitleView.preferredWidth = navigationTitleWidth
+            chatTitleView.configure(
+                title: chatNavigationChromeState.title,
+                subtitle: chatNavigationChromeState.subtitle,
+                titleColor: themeColors.accentOnPrimary,
+                subtitleColor: themeColors.accentOnPrimary.withAlphaComponent(0.78)
+            )
+            chatTitleView.frame = CGRect(
+                x: 0,
+                y: 0,
+                width: navigationTitleWidth,
+                height: 38
+            )
+            navigationItem.titleView = chatTitleView
+            navigationItem.rightBarButtonItems = normalChatNavigationItems
             return
         }
 
@@ -621,7 +825,24 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             height: chrome.showsProgress ? 42 : 24
         )
         navigationItem.titleView = activationTitleView
-        navigationItem.rightBarButtonItem = chrome.showsTrailingHistoryButton ? historyBarButtonItem : nil
+        navigationItem.rightBarButtonItems = chrome.showsTrailingHistoryButton ? [historyBarButtonItem] : nil
+    }
+
+    private var normalChatNavigationItems: [UIBarButtonItem]? {
+        guard chatNavigationChromeState.showsUtilityActions else { return nil }
+        var items: [UIBarButtonItem] = [settingsBarButtonItem]
+        if chatNavigationChromeState.showsHistoryAction {
+            items.append(historyBarButtonItem)
+        }
+        if chatNavigationChromeState.showsNewChatAction {
+            items.append(newChatBarButtonItem)
+        }
+        return items
+    }
+
+    private func updateChatNavigationChrome(_ state: EvaChatNavigationChromeState) {
+        chatNavigationChromeState = state
+        updateNavigationBarChrome()
     }
 
     private var navigationTitleWidth: CGFloat {
@@ -758,6 +979,85 @@ struct LLMStoreUnavailableView: View {
     }
 }
 
+private final class EvaChatNavigationTitleView: UIView {
+    private let titleLabel = UILabel()
+    private let subtitleLabel = UILabel()
+
+    var preferredWidth: CGFloat = 232 {
+        didSet {
+            invalidateIntrinsicContentSize()
+        }
+    }
+
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: preferredWidth, height: 38)
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(
+        title: String,
+        subtitle: String,
+        titleColor: UIColor,
+        subtitleColor: UIColor
+    ) {
+        titleLabel.text = title
+        titleLabel.textColor = titleColor
+        subtitleLabel.text = subtitle
+        subtitleLabel.textColor = subtitleColor
+        accessibilityLabel = title
+        accessibilityValue = subtitle
+
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
+    }
+
+    private func setup() {
+        isAccessibilityElement = true
+        accessibilityIdentifier = "chat.nav.title"
+
+        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        titleLabel.textAlignment = .center
+        titleLabel.numberOfLines = 1
+        titleLabel.adjustsFontSizeToFitWidth = true
+        titleLabel.minimumScaleFactor = 0.8
+        titleLabel.isAccessibilityElement = false
+
+        subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        subtitleLabel.textAlignment = .center
+        subtitleLabel.numberOfLines = 1
+        subtitleLabel.adjustsFontSizeToFitWidth = true
+        subtitleLabel.minimumScaleFactor = 0.8
+        subtitleLabel.lineBreakMode = .byTruncatingTail
+        subtitleLabel.isAccessibilityElement = false
+
+        [titleLabel, subtitleLabel].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+        }
+
+        addSubview(titleLabel)
+        addSubview(subtitleLabel)
+
+        NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: topAnchor),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 1),
+            subtitleLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
+            subtitleLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            subtitleLabel.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor)
+        ])
+    }
+}
+
 // MARK: - SwiftUI chat container
 
 struct ChatContainerView: View {
@@ -767,7 +1067,11 @@ struct ChatContainerView: View {
 
     var presentationMode: ChatPresentationMode = .normal
     var onActivationChatEvent: ((EvaActivationChatEvent) -> Void)? = nil
+    var onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil
     var onOpenTaskDetail: (TaskDefinition) -> Void
+    var onOpenHabitDetail: ((UUID) -> Void)? = nil
+    var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
+    var onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
 
     @State private var currentThread: Thread? = nil
     @FocusState private var isPromptFocused: Bool
@@ -796,7 +1100,12 @@ struct ChatContainerView: View {
                         showSettings: $showSettings,
                         presentationMode: presentationMode,
                         onActivationChatEvent: onActivationChatEvent,
-                        onOpenTaskDetail: onOpenTaskDetail
+                        onOpenTaskDetail: onOpenTaskDetail,
+                        onOpenHabitDetail: onOpenHabitDetail,
+                        onPerformDayTaskAction: onPerformDayTaskAction,
+                        onPerformDayHabitAction: onPerformDayHabitAction,
+                        showsHistoryAction: false,
+                        onNavigationChromeChange: onNavigationChromeChange
                     )
                 }
                 .navigationSplitViewStyle(.balanced)
@@ -808,7 +1117,12 @@ struct ChatContainerView: View {
                     showSettings: $showSettings,
                     presentationMode: presentationMode,
                     onActivationChatEvent: onActivationChatEvent,
-                    onOpenTaskDetail: onOpenTaskDetail
+                    onOpenTaskDetail: onOpenTaskDetail,
+                    onOpenHabitDetail: onOpenHabitDetail,
+                    onPerformDayTaskAction: onPerformDayTaskAction,
+                    onPerformDayHabitAction: onPerformDayHabitAction,
+                    showsHistoryAction: true,
+                    onNavigationChromeChange: onNavigationChromeChange
                 )
             }
         }

@@ -33,6 +33,7 @@ extension XCUIApplication {
         case testPresentHabitBoard = "-TASKER_TEST_PRESENT_HABIT_BOARD"
         case testCalendarStub = "-TASKER_TEST_CALENDAR_STUB"
         case testCalendarMode = "-TASKER_TEST_CALENDAR_MODE"
+        case testEvaActivationCompleted = "-TASKER_TEST_EVA_ACTIVATION_COMPLETED"
         case testHabitDetailEditorSupportDelayMilliseconds = "-TASKER_TEST_HABIT_DETAIL_EDITOR_SUPPORT_DELAY_MS"
     }
 

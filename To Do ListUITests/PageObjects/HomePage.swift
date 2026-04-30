@@ -41,6 +41,14 @@ class HomePage {
         return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.foredropCollapseHint]
     }
 
+    var timelineSurface: XCUIElement {
+        let byIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.timelineSurface]
+        if byIdentifier.exists {
+            return byIdentifier
+        }
+        return app.descendants(matching: .any)["home.timeline.surface"]
+    }
+
     var addTaskButton: XCUIElement {
         return app.buttons[AccessibilityIdentifiers.Home.addTaskButton]
     }
@@ -162,29 +170,26 @@ class HomePage {
     }
 
     var searchButton: XCUIElement {
-        let topNavIdentifier = app.buttons[AccessibilityIdentifiers.Home.topNavSearchButton]
-        if topNavIdentifier.exists {
-            return topNavIdentifier
-        }
-
         let legacyIdentifier = app.buttons[AccessibilityIdentifiers.Home.searchButton]
         if legacyIdentifier.exists {
             return legacyIdentifier
         }
 
-        let topSearchByLabel = app.buttons.matching(
+        let bottomSearchByLabel = bottomBar.buttons.matching(
             NSPredicate(
-                format: "label == 'Search' AND identifier != %@",
-                AccessibilityIdentifiers.Home.bottomBar
+                format: "label == 'Search' OR identifier == %@",
+                AccessibilityIdentifiers.Home.searchButton
             )
         ).firstMatch
-        if topSearchByLabel.exists {
-            return topSearchByLabel
+        if bottomSearchByLabel.exists {
+            return bottomSearchByLabel
         }
 
         return app.buttons.matching(
             NSPredicate(
-                format: "label CONTAINS[c] 'Search' OR identifier CONTAINS[c] 'search'"
+                format: "identifier == %@ OR (label CONTAINS[c] 'Search' AND identifier != %@)",
+                AccessibilityIdentifiers.Home.searchButton,
+                AccessibilityIdentifiers.Home.topNavSearchButton
             )
         ).firstMatch
     }
@@ -889,11 +894,6 @@ class HomePage {
         let button = searchButton
         XCTAssertTrue(button.waitForExistence(timeout: 3), "Search button should exist before tapping")
         tapElement(button)
-    }
-
-    /// Tap top-nav search button
-    func tapTopNavSearch() {
-        topNavSearchButton.tap()
     }
 
     /// Tap charts button
@@ -1840,5 +1840,17 @@ class HomePage {
             scrollView.swipeDown()
         }
         return true
+    }
+
+    func swipeTimelineLeft() {
+        let start = timelineSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.5))
+        let end = timelineSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.48, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: end)
+    }
+
+    func swipeTimelineRight() {
+        let start = timelineSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5))
+        let end = timelineSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.52, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 }

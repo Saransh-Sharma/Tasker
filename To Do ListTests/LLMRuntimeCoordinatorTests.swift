@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import MLXLMCommon
 @testable import To_Do_List
 
 @MainActor
@@ -116,6 +117,24 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         XCTAssertNil(evaluator.loadedModelName)
     }
 
+    func testSwitchModelRejectsUnknownCompatibility() async {
+        var switchedModelNames: [String] = []
+        let coordinator = LLMRuntimeCoordinator(
+            switchHandler: { modelName in
+                switchedModelNames.append(modelName)
+                return true
+            },
+            compatibilityProvider: { _ in nil },
+            registerLifecycleObservers: false
+        )
+
+        let switched = await coordinator.switchModelIfNeeded(modelName: qwenPointSixName)
+
+        XCTAssertFalse(switched)
+        XCTAssertNil(coordinator.activeModelName)
+        XCTAssertTrue(switchedModelNames.isEmpty)
+    }
+
     func testSwitchModelSupportsQwen35TextCatalogEntry() async {
         var switchedModelNames: [String] = []
         let coordinator = LLMRuntimeCoordinator(
@@ -180,6 +199,13 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
                 }
                 return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
             },
+            compatibilityProvider: { modelName in
+                LLMModelCompatibilityResult(
+                    modelName: modelName,
+                    availability: .supported,
+                    statusReason: nil
+                )
+            },
             registerLifecycleObservers: false
         )
 
@@ -190,6 +216,47 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
             preparedModelNames,
             ["mlx-community/Qwen3.5-0.8B-OptiQ-4bit", qwenPointSixName]
         )
+        XCTAssertEqual(result.resolvedModelName, qwenPointSixName)
+        XCTAssertEqual(defaults.string(forKey: LLMPersistedModelSelection.currentModelKey), qwenPointSixName)
+    }
+
+    func testEnsureReadyFallsBackToDefaultTextModelWhenSelectedModelUnsupported() async {
+        let suiteName = "LLMRuntimeCoordinatorTests.UnsupportedFallback.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let bonsaiName = ModelConfiguration.bonsai_1_7b_mlx_1bit.name
+        LLMPersistedModelSelection.persistInstalledModels([bonsaiName, qwenPointSixName], defaults: defaults)
+        defaults.set(bonsaiName, forKey: LLMPersistedModelSelection.currentModelKey)
+
+        var preparedModelNames: [String] = []
+        let coordinator = LLMRuntimeCoordinator(
+            defaults: defaults,
+            prepareHandler: { modelName in
+                preparedModelNames.append(modelName)
+                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
+            },
+            compatibilityProvider: { modelName in
+                if modelName == bonsaiName {
+                    return LLMModelCompatibilityResult(
+                        modelName: modelName,
+                        availability: .temporarilyUnavailable,
+                        statusReason: "Bonsai 1-bit requires Prism-specific MLX kernels."
+                    )
+                }
+                return LLMModelCompatibilityResult(
+                    modelName: modelName,
+                    availability: .supported,
+                    statusReason: nil
+                )
+            },
+            registerLifecycleObservers: false
+        )
+
+        let result = await coordinator.ensureReady(modelName: bonsaiName)
+
+        XCTAssertTrue(result.ready)
+        XCTAssertEqual(preparedModelNames, [qwenPointSixName])
         XCTAssertEqual(result.resolvedModelName, qwenPointSixName)
         XCTAssertEqual(defaults.string(forKey: LLMPersistedModelSelection.currentModelKey), qwenPointSixName)
     }
@@ -308,6 +375,35 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         XCTAssertTrue(evaluator.cancelled)
         XCTAssertFalse(evaluator.isThinking)
         XCTAssertEqual(evaluator.runtimePhase, .stopping)
+    }
+
+    func testBeginUserTurnClearsCancelledOutputStateWithoutUnloadingModel() {
+        let evaluator = LLMEvaluator()
+        evaluator.loadedModelName = qwenPointSixName
+        evaluator.cancelled = true
+        evaluator.output = "stale output"
+        evaluator.stat = "stale stats"
+        evaluator.thinkingTime = 1.5
+        evaluator.lastGenerationTimedOut = true
+        evaluator.lastTerminationReason = "user_cancel"
+        evaluator.lastRawOutput = "raw"
+        evaluator.lastGeneratedTokenCount = 12
+        evaluator.lastVisibleCharacterCount = 8
+        evaluator.lastSanitizedTemplateArtifacts = true
+
+        evaluator.beginUserTurn(runID: UUID())
+
+        XCTAssertFalse(evaluator.cancelled)
+        XCTAssertEqual(evaluator.output, "")
+        XCTAssertEqual(evaluator.stat, "")
+        XCTAssertNil(evaluator.thinkingTime)
+        XCTAssertFalse(evaluator.lastGenerationTimedOut)
+        XCTAssertNil(evaluator.lastTerminationReason)
+        XCTAssertEqual(evaluator.lastRawOutput, "")
+        XCTAssertEqual(evaluator.lastGeneratedTokenCount, 0)
+        XCTAssertEqual(evaluator.lastVisibleCharacterCount, 0)
+        XCTAssertFalse(evaluator.lastSanitizedTemplateArtifacts)
+        XCTAssertEqual(evaluator.loadedModelName, qwenPointSixName)
     }
 
     func testPromptFocusPrewarmHonorsRequestedDelay() async {

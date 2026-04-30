@@ -22,6 +22,8 @@ struct AssistantDiffPreviewBuilder {
         commands.filter {
             if case .deleteTask = $0 { return true }
             if case .moveTask = $0 { return true }
+            if case .deferTask = $0 { return true }
+            if case .dropTaskFromToday = $0 { return true }
             return false
         }.count
     }
@@ -32,6 +34,8 @@ struct AssistantDiffPreviewBuilder {
         for command in commands {
             switch command {
             case .createTask:
+                continue
+            case .createScheduledTask, .createInboxTask:
                 continue
             case .restoreTask(let taskID, _, _, _, _, _):
                 touched.insert(taskID)
@@ -46,6 +50,14 @@ struct AssistantDiffPreviewBuilder {
             case .completeTask(let taskID):
                 touched.insert(taskID)
             case .moveTask(let taskID, _):
+                touched.insert(taskID)
+            case .updateTaskSchedule(let taskID, _, _, _, _):
+                touched.insert(taskID)
+            case .updateTaskFields(let taskID, _, _, _, _, _, _, _, _):
+                touched.insert(taskID)
+            case .deferTask(let taskID, _, _):
+                touched.insert(taskID)
+            case .dropTaskFromToday(let taskID, _, _):
                 touched.insert(taskID)
             }
         }
@@ -101,6 +113,58 @@ struct AssistantDiffPreviewBuilder {
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
             let targetName = projectNameByID[targetProjectID] ?? "selected project"
             return AssistantDiffLine(text: "Move '\(baseTitle)' to '\(targetName)'", isDestructive: true)
+        case let .createScheduledTask(_, title, start, end, _, _, _, _, _, _, _, _):
+            return AssistantDiffLine(
+                text: "Create: \(title) at \(format(time: start))-\(format(time: end))",
+                isDestructive: false
+            )
+        case let .createInboxTask(_, title, _, _, _, _, _, _):
+            return AssistantDiffLine(text: "Create inbox: \(title)", isDestructive: false)
+        case let .updateTaskSchedule(taskID, start, end, _, dueDate):
+            let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
+            if let start, let end {
+                return AssistantDiffLine(
+                    text: "Edit '\(baseTitle)' to \(format(time: start))-\(format(time: end))",
+                    isDestructive: false
+                )
+            }
+            if let start {
+                return AssistantDiffLine(
+                    text: "Move '\(baseTitle)' start to \(format(time: start))",
+                    isDestructive: false
+                )
+            }
+            if let end {
+                return AssistantDiffLine(
+                    text: "Move '\(baseTitle)' end to \(format(time: end))",
+                    isDestructive: false
+                )
+            }
+            if let dueDate {
+                return AssistantDiffLine(
+                    text: "Reschedule '\(baseTitle)' to \(format(date: dueDate))",
+                    isDestructive: false
+                )
+            }
+            return AssistantDiffLine(text: "Update schedule for '\(baseTitle)'", isDestructive: false)
+        case let .updateTaskFields(taskID, title, _, _, _, _, _, _, _):
+            let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
+            if let title = title.setValue {
+                return AssistantDiffLine(text: "Rename '\(baseTitle)' to '\(title)'", isDestructive: false)
+            }
+            return AssistantDiffLine(text: "Edit fields for '\(baseTitle)'", isDestructive: false)
+        case let .deferTask(taskID, targetDate, _):
+            let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
+            return AssistantDiffLine(
+                text: "Defer '\(baseTitle)' to \(format(date: targetDate))",
+                isDestructive: true
+            )
+        case let .dropTaskFromToday(taskID, destination, _):
+            let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
+            return AssistantDiffLine(
+                text: "Drop '\(baseTitle)' from today to \(destination.displayLabel)",
+                isDestructive: true
+            )
         }
     }
 
@@ -119,5 +183,12 @@ struct AssistantDiffPreviewBuilder {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    private static func format(time: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: time)
     }
 }

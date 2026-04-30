@@ -326,6 +326,7 @@ struct HomeCalendarSnapshot: Equatable {
     let moduleState: HomeCalendarModuleState
     let selectedDate: Date
     let authorizationStatus: TaskerCalendarAuthorizationStatus
+    let accessAction: CalendarAccessAction
     let selectedCalendarCount: Int
     let availableCalendarCount: Int
     let nextMeeting: TaskerNextMeetingSummary?
@@ -341,6 +342,7 @@ struct HomeCalendarSnapshot: Equatable {
         moduleState: .permissionRequired,
         selectedDate: Date(),
         authorizationStatus: .notDetermined,
+        accessAction: .requestPermission,
         selectedCalendarCount: 0,
         availableCalendarCount: 0,
         nextMeeting: nil,
@@ -388,6 +390,8 @@ struct TimelinePlanItem: Equatable, Identifiable {
     let tintHex: String?
     let systemImageName: String
     let accessoryText: String?
+    let taskPriority: TaskPriority?
+    let isPinnedFocusTask: Bool
     let hasNotes: Bool
     let isRecurring: Bool
     let checklistSummary: TimelineChecklistSummary?
@@ -411,6 +415,8 @@ struct TimelinePlanItem: Equatable, Identifiable {
         tintHex: String?,
         systemImageName: String,
         accessoryText: String?,
+        taskPriority: TaskPriority? = nil,
+        isPinnedFocusTask: Bool = false,
         hasNotes: Bool = false,
         isRecurring: Bool = false,
         checklistSummary: TimelineChecklistSummary? = nil,
@@ -433,6 +439,8 @@ struct TimelinePlanItem: Equatable, Identifiable {
         self.tintHex = tintHex
         self.systemImageName = systemImageName
         self.accessoryText = accessoryText
+        self.taskPriority = taskPriority
+        self.isPinnedFocusTask = isPinnedFocusTask
         self.hasNotes = hasNotes
         self.isRecurring = isRecurring
         self.checklistSummary = checklistSummary
@@ -556,6 +564,12 @@ enum TimelineDayLayoutMode: Equatable {
     case compact
 }
 
+enum TimelineDensityMode: Equatable {
+    case normal
+    case lightTimeline
+    case sparse
+}
+
 struct TimelineDayProjection: Equatable {
     let date: Date
     let allDayItems: [TimelinePlanItem]
@@ -568,6 +582,7 @@ struct TimelineDayProjection: Equatable {
     let bridgeItems: [TimelinePlanItem]
     let actionableGaps: [TimelineGap]
     let layoutMode: TimelineDayLayoutMode
+    let calendarPlottingEnabled: Bool
     let wakeAnchor: TimelineAnchorItem
     let sleepAnchor: TimelineAnchorItem
     let activeItemID: String?
@@ -586,6 +601,7 @@ struct TimelineDayProjection: Equatable {
         bridgeItems: [TimelinePlanItem]? = nil,
         actionableGaps: [TimelineGap]? = nil,
         layoutMode: TimelineDayLayoutMode,
+        calendarPlottingEnabled: Bool = true,
         wakeAnchor: TimelineAnchorItem,
         sleepAnchor: TimelineAnchorItem,
         activeItemID: String?,
@@ -603,6 +619,7 @@ struct TimelineDayProjection: Equatable {
         self.bridgeItems = bridgeItems ?? timedItems.filter { $0.overlapsWake || $0.overlapsSleep }
         self.actionableGaps = actionableGaps ?? gaps
         self.layoutMode = layoutMode
+        self.calendarPlottingEnabled = calendarPlottingEnabled
         self.wakeAnchor = wakeAnchor
         self.sleepAnchor = sleepAnchor
         self.activeItemID = activeItemID
@@ -620,6 +637,23 @@ struct TimelineDayProjection: Equatable {
 
     var afterSleepItems: [TimelinePlanItem] {
         afterSleepSummaryItems
+    }
+
+    var plottedTimelineItems: [TimelinePlanItem] {
+        beforeWakeItems + timedItems + afterSleepItems
+    }
+
+    var hasPlottedTimelineItems: Bool {
+        plottedTimelineItems.isEmpty == false
+    }
+
+    var timelineDensityMode: TimelineDensityMode {
+        let plotted = plottedTimelineItems
+        guard plotted.isEmpty == false else { return .sparse }
+        guard beforeWakeItems.isEmpty, afterSleepItems.isEmpty else { return .normal }
+        guard plotted.count == 1, let item = plotted.first else { return .normal }
+        let duration = item.duration ?? 0
+        return duration < 90 * 60 ? .lightTimeline : .normal
     }
 
     func displayStartDate(for item: TimelinePlanItem) -> Date? {
@@ -728,15 +762,35 @@ struct TimelineWeekDaySummary: Equatable, Identifiable {
 
 struct NeedsReplanSummary: Equatable {
     let count: Int
+    let datedCount: Int
+    let unscheduledCount: Int
     let dayCount: Int
     let newestDate: Date?
     let oldestDate: Date?
 
+    static let empty = NeedsReplanSummary(
+        count: 0,
+        datedCount: 0,
+        unscheduledCount: 0,
+        dayCount: 0,
+        newestDate: nil,
+        oldestDate: nil
+    )
+
     var title: String { "Needs Replan" }
+    var persistentTitle: String { "Replan Day" }
 
     var subtitle: String {
         if count == 0 {
             return "No unfinished past tasks need replanning."
+        }
+        if unscheduledCount > 0, datedCount > 0 {
+            return "\(datedCount) overdue or carry-over, \(unscheduledCount) unscheduled"
+        }
+        if unscheduledCount > 0 {
+            return unscheduledCount == 1
+                ? "1 unscheduled task needs a plan"
+                : "\(unscheduledCount) unscheduled tasks need a plan"
         }
         if count == 1 {
             if let newestDate, Calendar.current.isDateInYesterday(newestDate) {
@@ -762,6 +816,24 @@ struct NeedsReplanSummary: Equatable {
         return "\(count) unfinished from past days"
     }
 
+    var persistentSubtitle: String {
+        if count == 0 {
+            return emptyStateMessage
+        }
+        if unscheduledCount > 0, datedCount > 0 {
+            return "\(datedCount) overdue or carry-over, \(unscheduledCount) unscheduled"
+        }
+        if unscheduledCount > 0 {
+            return unscheduledCount == 1
+                ? "1 unscheduled task needs a plan"
+                : "\(unscheduledCount) unscheduled tasks need a plan"
+        }
+        if count == 1 {
+            return "1 task still needs a decision"
+        }
+        return "\(count) tasks still need a decision"
+    }
+
     var callToAction: String {
         if count == 0 { return "Go to Today" }
         if count == 1 { return "Resolve" }
@@ -769,15 +841,68 @@ struct NeedsReplanSummary: Equatable {
         if count >= 10 { return "Start" }
         return "Review"
     }
+
+    var persistentCallToAction: String {
+        count == 0 ? "Add Task" : "Open"
+    }
+
+    var launcherTitle: String {
+        count == 0 ? "You're all caught up" : "Plan the Day"
+    }
+
+    var launcherBodyText: String {
+        if count == 0 {
+            return emptyStateMessage
+        }
+        return "Resolve overdue, carry-over, and unscheduled work before you shape what happens next."
+    }
+
+    var launcherPrimaryActionTitle: String {
+        count == 0 ? "Add Task" : "Start Replan"
+    }
+
+    private var emptyStateMessage: String {
+        let variants = [
+            "Your day is clear. Add one task that makes today count.",
+            "Nothing needs recovery right now. Add a task to build momentum.",
+            "No backlog to clean up. Add a task and give today a target."
+        ]
+        let dayKey = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        let stableIndex = abs(((dayKey.year ?? 0) * 10_000) + ((dayKey.month ?? 0) * 100) + (dayKey.day ?? 0)) % variants.count
+        return variants[stableIndex]
+    }
+}
+
+enum HomeReplanCandidateKind: Equatable {
+    case pastDue
+    case scheduledCarryOver
+    case unscheduledBacklog
 }
 
 struct HomeReplanCandidate: Equatable, Identifiable {
     let task: TaskDefinition
-    let originalDate: Date
-    let originalEndDate: Date?
+    let kind: HomeReplanCandidateKind
+    let anchorDate: Date?
+    let anchorEndDate: Date?
     let projectName: String?
 
     var id: UUID { task.id }
+
+    var anchorDay: Date? {
+        anchorDate.map { Calendar.current.startOfDay(for: $0) }
+    }
+
+    var rescheduleDuration: TimeInterval {
+        if let scheduledStartAt = task.scheduledStartAt,
+           let scheduledEndAt = task.scheduledEndAt {
+            return max(scheduledEndAt.timeIntervalSince(scheduledStartAt), 15 * 60)
+        }
+        if let anchorDate,
+           let anchorEndDate {
+            return max(anchorEndDate.timeIntervalSince(anchorDate), 15 * 60)
+        }
+        return max(task.estimatedDuration ?? (30 * 60), 15 * 60)
+    }
 }
 
 struct HomeReplanOutcomeSummary: Equatable {
@@ -823,6 +948,7 @@ enum HomeReplanSessionPhase: Equatable {
 struct HomeReplanSessionState: Equatable {
     let phase: HomeReplanSessionPhase
     let summary: NeedsReplanSummary?
+    let persistentSummary: NeedsReplanSummary
     let currentCandidate: HomeReplanCandidate?
     let candidateIndex: Int
     let candidateTotal: Int
@@ -836,6 +962,7 @@ struct HomeReplanSessionState: Equatable {
     static let hidden = HomeReplanSessionState(
         phase: .trayHidden,
         summary: nil,
+        persistentSummary: .empty,
         currentCandidate: nil,
         candidateIndex: 0,
         candidateTotal: 0,
@@ -854,13 +981,10 @@ struct HomeReplanSessionState: Equatable {
 
     var placementCandidate: TimelinePlacementCandidate? {
         guard case .placement(let candidate, _) = phase else { return nil }
-        let duration = candidate.originalEndDate?.timeIntervalSince(candidate.originalDate)
-            ?? candidate.task.estimatedDuration
-            ?? (30 * 60)
         return TimelinePlacementCandidate(
             taskID: candidate.task.id,
             title: candidate.task.title,
-            duration: max(duration, 15 * 60),
+            duration: candidate.rescheduleDuration,
             tintHex: nil,
             isApplying: isApplying,
             errorMessage: errorMessage
@@ -1059,6 +1183,7 @@ private struct HomeBottomBarContainer: View {
     let state: HomeBottomBarState
     let shellPhase: HomeShellPhase
     let onHome: () -> Void
+    let onCalendar: () -> Void
     let onChartsToggle: () -> Void
     let onSearch: () -> Void
     let onChat: () -> Void
@@ -1071,6 +1196,7 @@ private struct HomeBottomBarContainer: View {
             state: state,
             shellPhase: shellPhase,
             onHome: onHome,
+            onCalendar: onCalendar,
             onChartsToggle: onChartsToggle,
             onSearch: onSearch,
             onChat: onChat,
@@ -1079,15 +1205,15 @@ private struct HomeBottomBarContainer: View {
         .padding(.horizontal, TaskerThemeManager.shared.tokens(for: layoutClass).spacing.s16)
         .padding(.bottom, 0)
         .ignoresSafeArea(.container, edges: .bottom)
-        .offset(y: 6)
+        .offset(y: 0)
         .background {
             GeometryReader { proxy in
                 Color.clear
                     .onAppear {
-                        onHeightChange(proxy.size.height + 6)
+                        onHeightChange(proxy.size.height)
                     }
                     .onChange(of: proxy.size.height) { _, newValue in
-                        onHeightChange(newValue + 6)
+                        onHeightChange(newValue)
                     }
             }
         }
@@ -1128,6 +1254,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private var homeHostingController: UIHostingController<HomeHostRootView>?
     private var bottomBarHostingController: UIHostingController<HomeBottomBarContainer>?
+    private var bottomBarBottomConstraint: NSLayoutConstraint?
+    private weak var presentedCalendarScheduleController: UIViewController?
+    private weak var presentedEvaChatController: UIViewController?
+    private var shouldResetHomeAfterEvaChatDismissal = false
     private var insightsViewModel: InsightsViewModel?
     private let searchState = HomeSearchState()
     private let chromeStore = HomeChromeStore()
@@ -1229,6 +1359,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     /// Executes viewDidAppear.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        resetHomeSelectionAfterEvaChatDismissalIfNeeded()
         if let pendingRoute = TaskerNotificationRouteBus.shared.consumePendingRoute() {
             handleNotificationRoute(pendingRoute)
         }
@@ -1258,11 +1389,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         refreshLayoutMetrics()
         updateInteractivePhaseIfNeeded()
         mountBottomBarOverlayIfNeeded()
+        updateBottomBarBottomConstraint()
     }
 
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         refreshLayoutMetrics()
+        updateBottomBarBottomConstraint()
     }
 
     /// Executes viewWillDisappear.
@@ -1831,7 +1964,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let height = view.bounds.height
         let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
         let spacing = tokens.spacing
-        let defaultBottomBarHeight = (spacing.s12 * 2) + 56 + 6
+        let defaultBottomBarHeight = spacing.s12 + 56
         let shouldShowBottomBar = currentLayoutClass == .phone
             && faceCoordinator.shellPhase == .interactive
             && overlayStore.snapshot.replanState.suppressesBottomBar == false
@@ -1977,6 +2110,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 bottomBarHostingController.view.removeFromSuperview()
                 bottomBarHostingController.removeFromParent()
                 self.bottomBarHostingController = nil
+                bottomBarBottomConstraint = nil
             }
             return
         }
@@ -1984,6 +2118,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let root = makeBottomBarRoot()
         if let bottomBarHostingController {
             bottomBarHostingController.rootView = root
+            updateBottomBarBottomConstraint()
             return
         }
 
@@ -1992,11 +2127,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
         addChild(hostingController)
         view.addSubview(hostingController.view)
+        let bottomConstraint = hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        bottomBarBottomConstraint = bottomConstraint
         NSLayoutConstraint.activate([
             hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            bottomConstraint
         ])
+        updateBottomBarBottomConstraint()
         hostingController.didMove(toParent: self)
         bottomBarHostingController = hostingController
     }
@@ -2007,6 +2145,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             shellPhase: faceCoordinator.shellPhase,
             onHome: { [weak self] in
                 self?.returnToTasks(source: "bottom_bar_home")
+            },
+            onCalendar: { [weak self] in
+                self?.presentCalendarSchedule()
             },
             onChartsToggle: { [weak self] in
                 self?.toggleInsights(source: "bottom_bar_analytics")
@@ -2044,6 +2185,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard abs(measuredBottomBarHeight - sanitizedValue) > 0.5 else { return }
         measuredBottomBarHeight = sanitizedValue
         refreshLayoutMetrics()
+    }
+
+    private func resolvedBottomBarDownshift() -> CGFloat {
+        currentLayoutClass == .phone ? max(0, view.safeAreaInsets.bottom - 10) : 0
+    }
+
+    private func updateBottomBarBottomConstraint() {
+        guard let bottomBarBottomConstraint else { return }
+        let downshift = resolvedBottomBarDownshift()
+        guard abs(bottomBarBottomConstraint.constant - downshift) > 0.5 else { return }
+        bottomBarBottomConstraint.constant = downshift
     }
 
     /// Executes mountHomeShell.
@@ -2156,16 +2308,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             onReorderCustomProjects: { [weak self] projectIDs in
                 self?.viewModel?.setCustomProjectOrder(projectIDs)
             },
-            onAddTask: { [weak self] in
-                if self?.isUsingIPadNativeShell == true {
-                    if self?.currentLayoutClass == .padExpanded {
-                        self?.iPadShellState.destination = .addTask
-                    } else {
-                        self?.presentAddTaskSheetForPadFallback()
-                    }
-                } else {
-                    self?.AddTaskAction()
-                }
+            onAddTask: { [weak self] suggestedDate in
+                self?.presentAddTaskFlow(suggestedDate: suggestedDate)
             },
             onOpenChat: { [weak self] in
                 if self?.isUsingIPadNativeShell == true {
@@ -2954,6 +3098,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 for request in requests {
                     _ = try await createTaskDefinition.executeAsync(request: request)
                 }
+                viewModel.invalidateTaskCaches()
             } catch {
                 logError(
                     event: "ui_test_rescue_workspace_seed_failed",
@@ -3411,10 +3556,27 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes AddTaskAction.
     @objc func AddTaskAction() {
+        presentAddTaskFlow(suggestedDate: nil)
+    }
+
+    private func presentAddTaskFlow(suggestedDate: Date?) {
+        if isUsingIPadNativeShell,
+           currentLayoutClass == .padExpanded,
+           suggestedDate == nil {
+            iPadShellState.destination = .addTask
+            return
+        }
+
+        if isUsingIPadNativeShell {
+            presentAddTaskSheetForPadFallback(suggestedDate: suggestedDate)
+            return
+        }
+
         guard let presentationDependencyContainer else {
             fatalError("HomeViewController missing PresentationDependencyContainer")
         }
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
+        applyTimelineSuggestedDate(suggestedDate, to: vm)
         let sheet = AddTaskSheetView(
             viewModel: vm,
             habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
@@ -3433,15 +3595,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
-    private func presentAddTaskSheetForPadFallback() {
+    private func presentAddTaskSheetForPadFallback(suggestedDate: Date? = nil) {
         guard isUsingIPadNativeShell else {
-            AddTaskAction()
+            presentAddTaskFlow(suggestedDate: suggestedDate)
             return
         }
         guard let presentationDependencyContainer else {
             fatalError("HomeViewController missing PresentationDependencyContainer")
         }
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
+        applyTimelineSuggestedDate(suggestedDate, to: vm)
         let sheet = AddTaskSheetView(
             viewModel: vm,
             habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
@@ -3466,6 +3629,18 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(hostingVC, animated: true) {
             TaskerPerformanceTrace.end(interval)
         }
+    }
+
+    private func applyTimelineSuggestedDate(_ suggestedDate: Date?, to viewModel: AddTaskViewModel) {
+        guard let suggestedDate else { return }
+        viewModel.applyPrefill(
+            AddTaskPrefillTemplate(
+                title: "",
+                dueDateIntent: .exact(suggestedDate),
+                expandedSections: [.schedule],
+                showMoreDetails: true
+            )
+        )
     }
 
     @objc private func openProjectCreator() {
@@ -3595,7 +3770,23 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let navController = UINavigationController(rootViewController: chatHostVC)
         navController.modalPresentationStyle = .fullScreen
         navController.navigationBar.prefersLargeTitles = false
+        presentedEvaChatController = navController
+        shouldResetHomeAfterEvaChatDismissal = true
+        navController.presentationController?.delegate = self
         present(navController, animated: true)
+    }
+
+    private func resetHomeSelectionAfterEvaChatDismissalIfNeeded() {
+        guard shouldResetHomeAfterEvaChatDismissal else { return }
+        guard presentedViewController == nil else { return }
+        resetHomeSelectionAfterEvaChatDismissal()
+    }
+
+    private func resetHomeSelectionAfterEvaChatDismissal() {
+        shouldResetHomeAfterEvaChatDismissal = false
+        presentedEvaChatController = nil
+        faceCoordinator.setActiveFace(.tasks)
+        faceCoordinator.bottomBarState.select(.home)
     }
 
     // MARK: - Task Routing
@@ -3905,6 +4096,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             sheet.prefersGrabberVisible = true
             sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
         }
+        presentedCalendarScheduleController = host
+        host.presentationController?.delegate = self
         present(host, animated: true)
     }
 
@@ -5399,6 +5592,12 @@ private struct DailySummaryModalView: View {
 
 extension HomeViewController {
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        if presentationController.presentedViewController === presentedCalendarScheduleController {
+            presentedCalendarScheduleController = nil
+            faceCoordinator.bottomBarState.select(faceCoordinator.activeFace.selectedBottomBarItem)
+        } else if presentationController.presentedViewController === presentedEvaChatController {
+            resetHomeSelectionAfterEvaChatDismissal()
+        }
         resetPendingIPadModalWaitState()
         processPendingIPadModalRequest()
         scheduleOnboardingEvaluationIfNeeded()

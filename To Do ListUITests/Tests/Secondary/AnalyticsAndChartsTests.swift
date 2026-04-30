@@ -71,12 +71,11 @@ class AnalyticsAndChartsTests: BaseUITest {
             "Navigation XP pie chart should be hittable"
         )
         XCTAssertTrue(homePage.projectFilterButton.waitForExistence(timeout: 3), "Quick view selector should be present in top nav")
-        XCTAssertTrue(homePage.topNavSearchButton.waitForExistence(timeout: 3), "Top nav search should be present")
+        XCTAssertFalse(homePage.topNavSearchButton.exists, "Top nav search should be removed")
         XCTAssertTrue(homePage.searchButton.waitForExistence(timeout: 3), "Bottom search should remain present")
         XCTAssertTrue(homePage.homeButton.waitForExistence(timeout: 3), "Bottom home button should remain present")
         XCTAssertTrue(homePage.settingsButton.waitForExistence(timeout: 3), "Settings button should be present in top nav")
         XCTAssertTrue(homePage.projectFilterButton.isHittable, "Quick view selector should be hittable")
-        XCTAssertTrue(homePage.topNavSearchButton.isHittable, "Top nav search should be hittable")
         XCTAssertTrue(homePage.settingsButton.isHittable, "Settings button should be hittable")
         XCTAssertTrue(
             homePage.verifyElementIsFullyVisibleInWindow(
@@ -84,13 +83,6 @@ class AnalyticsAndChartsTests: BaseUITest {
                 description: "Quick view selector"
             ),
             "Quick view selector should be fully visible inside the window"
-        )
-        XCTAssertTrue(
-            homePage.verifyElementIsFullyVisibleInWindow(
-                homePage.topNavSearchButton,
-                description: "Top nav search button"
-            ),
-            "Top nav search should be fully visible inside the window"
         )
         XCTAssertTrue(
             homePage.verifyElementIsFullyVisibleInWindow(
@@ -117,11 +109,6 @@ class AnalyticsAndChartsTests: BaseUITest {
             homePage.settingsButton.frame.maxY,
             homePage.foredropSurface.frame.minY + 1,
             "Settings button should be above the foredrop surface"
-        )
-        XCTAssertLessThan(
-            homePage.topNavSearchButton.frame.maxY,
-            homePage.foredropSurface.frame.minY + 1,
-            "Top search should be above the foredrop surface"
         )
 
         // WHEN: User taps ring once

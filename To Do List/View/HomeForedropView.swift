@@ -46,7 +46,12 @@ private struct EvaRescueSplitComposerState {
 }
 
 private struct NeedsReplanTrayView: View {
-    let summary: NeedsReplanSummary
+    let title: String
+    let subtitle: String
+    let callToAction: String
+    let accessibilityHint: String
+    let accessibilityIdentifier: String
+    let isProminent: Bool
     let onTap: () -> Void
 
     var body: some View {
@@ -60,10 +65,10 @@ private struct NeedsReplanTrayView: View {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(summary.title)
+                    Text(title)
                         .font(.tasker(.headline).weight(.semibold))
                         .foregroundStyle(Color.tasker.textPrimary)
-                    Text(summary.subtitle)
+                    Text(subtitle)
                         .font(.tasker(.support))
                         .foregroundStyle(Color.tasker.textSecondary)
                         .lineLimit(2)
@@ -72,7 +77,7 @@ private struct NeedsReplanTrayView: View {
 
                 Spacer(minLength: 8)
 
-                Text(summary.callToAction)
+                Text(callToAction)
                     .font(.tasker(.support).weight(.semibold))
                     .foregroundStyle(Color.tasker.textPrimary)
                     .padding(.horizontal, 12)
@@ -84,18 +89,18 @@ private struct NeedsReplanTrayView: View {
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.tasker.accentWash.opacity(0.34))
+                    .fill(Color.tasker.accentWash.opacity(isProminent ? 0.34 : 0.18))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.tasker.accentPrimary.opacity(0.12), lineWidth: 1)
+                    .stroke(Color.tasker.accentPrimary.opacity(isProminent ? 0.12 : 0.08), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(summary.title), \(summary.subtitle)")
-        .accessibilityHint("Opens Plan the Day.")
-        .accessibilityIdentifier("home.needsReplan.tray")
+        .accessibilityLabel("\(title), \(subtitle)")
+        .accessibilityHint(accessibilityHint)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 }
 
@@ -113,10 +118,10 @@ private struct NeedsReplanLauncherSheet: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(summary.count == 0 ? "You're all caught up" : "Plan the Day")
+                Text(summary.launcherTitle)
                     .font(.tasker(.title1).weight(.semibold))
                     .foregroundStyle(Color.tasker.textPrimary)
-                Text(summary.count == 0 ? summary.subtitle : "Resolve unfinished tasks from the past before you shape today.")
+                Text(summary.launcherBodyText)
                     .font(.tasker(.body))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .lineSpacing(2)
@@ -126,9 +131,19 @@ private struct NeedsReplanLauncherSheet: View {
             if summary.count > 0 {
                 VStack(alignment: .leading, spacing: 10) {
                     launcherRow(summary.count == 1 ? "1 task needs a decision" : "\(summary.count) tasks need a decision", systemImage: "checklist")
-                    if summary.dayCount <= 1 {
-                        launcherRow("All from the most recent past day", systemImage: "calendar")
-                    } else {
+                    if summary.datedCount > 0 {
+                        let datedLabel = summary.datedCount == 1
+                            ? "1 overdue or carry-over task"
+                            : "\(summary.datedCount) overdue or carry-over tasks"
+                        launcherRow(datedLabel, systemImage: "calendar.badge.exclamationmark")
+                    }
+                    if summary.unscheduledCount > 0 {
+                        let unscheduledLabel = summary.unscheduledCount == 1
+                            ? "1 task has no due date or time"
+                            : "\(summary.unscheduledCount) tasks have no due date or time"
+                        launcherRow(unscheduledLabel, systemImage: "tray")
+                    }
+                    if summary.dayCount > 1 {
                         launcherRow("Spanning \(summary.dayCount) past days", systemImage: "calendar")
                     }
                     if let newestDate = summary.newestDate {
@@ -137,7 +152,7 @@ private struct NeedsReplanLauncherSheet: View {
                 }
             }
 
-            Button(summary.count == 0 ? "Go to Today" : "Start Replan", action: onStart)
+            Button(summary.launcherPrimaryActionTitle, action: onStart)
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("home.needsReplan.start")
 
@@ -284,12 +299,27 @@ private struct NeedsReplanCardOverlay: View {
     }
 
     private func originalLine(for candidate: HomeReplanCandidate) -> String {
-        let start = candidate.originalDate.formatted(.dateTime.weekday(.wide).hour().minute())
-        if let end = candidate.originalEndDate {
-            let durationMinutes = max(Int(end.timeIntervalSince(candidate.originalDate) / 60), 1)
-            return "\(start) • \(durationMinutes)m"
+        switch candidate.kind {
+        case .pastDue:
+            guard let anchorDate = candidate.anchorDate else { return "Due date needs a plan" }
+            if candidate.task.isAllDay || isDateOnly(anchorDate) {
+                return "Due \(anchorDate.formatted(.dateTime.weekday(.wide).month().day()))"
+            }
+            return "Due \(anchorDate.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))"
+        case .scheduledCarryOver:
+            guard let anchorDate = candidate.anchorDate else { return "Scheduled on a past day" }
+            if candidate.task.isAllDay || isDateOnly(anchorDate) {
+                return "Scheduled \(anchorDate.formatted(.dateTime.weekday(.wide).month().day()))"
+            }
+            return "Scheduled \(anchorDate.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))"
+        case .unscheduledBacklog:
+            return "No due date or time • Added \(candidate.task.createdAt.formatted(.dateTime.weekday(.wide).month().day()))"
         }
-        return start
+    }
+
+    private func isDateOnly(_ date: Date) -> Bool {
+        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
+        return (components.hour ?? 0) == 0 && (components.minute ?? 0) == 0 && (components.second ?? 0) == 0
     }
 
     private func fullWidthAction(
@@ -1224,6 +1254,110 @@ struct HomeForedropLayoutMetrics {
         case .fullReveal:
             return fullReveal
         }
+    }
+}
+
+struct HomeDaySwipeResolver {
+    let minimumTranslation: CGFloat
+    let minimumPredictedTranslation: CGFloat
+    let horizontalDominanceRatio: CGFloat
+    let liquidActivationMinimumTranslation: CGFloat
+    let liquidActivationHorizontalDominanceRatio: CGFloat
+
+    static let `default` = HomeDaySwipeResolver(
+        minimumTranslation: 56,
+        minimumPredictedTranslation: 92,
+        horizontalDominanceRatio: 1.35,
+        liquidActivationMinimumTranslation: 8,
+        liquidActivationHorizontalDominanceRatio: 1.0
+    )
+
+    func resolvedDirection(
+        translation: CGSize,
+        predictedEndTranslation: CGSize
+    ) -> HomeDayNavigationDirection? {
+        let horizontal = translation.width
+        let predictedHorizontal = predictedEndTranslation.width
+        let vertical = translation.height
+        let dominantDistance = max(abs(horizontal), abs(predictedHorizontal))
+
+        guard isHorizontallyDominant(translation: translation) else { return nil }
+        guard dominantDistance >= minimumTranslation || abs(predictedHorizontal) >= minimumPredictedTranslation else {
+            return nil
+        }
+
+        let resolvedHorizontal = abs(predictedHorizontal) >= minimumPredictedTranslation
+            ? predictedHorizontal
+            : horizontal
+        guard abs(resolvedHorizontal) >= max(abs(vertical) * horizontalDominanceRatio, minimumTranslation) else {
+            return nil
+        }
+
+        return resolvedHorizontal < 0 ? .next : .previous
+    }
+
+    func isHorizontallyDominant(translation: CGSize) -> Bool {
+        abs(translation.width) > max(abs(translation.height) * horizontalDominanceRatio, 28)
+    }
+
+    func liquidActivationSide(
+        startLocation: CGPoint,
+        translation: CGSize,
+        containerSize: CGSize
+    ) -> HomeDayLiquidSwipeSide? {
+        guard isLiquidActivationCandidate(translation: translation) else { return nil }
+        guard let side = HomeDayLiquidSwipeData.side(
+            forStartLocation: startLocation,
+            containerSize: containerSize
+        ) else {
+            return nil
+        }
+        guard side.horizontalSign * translation.width > 0 else { return nil }
+        return side
+    }
+
+    func liquidActivationSide(
+        startLocation: CGPoint,
+        translation: CGSize,
+        velocity: CGPoint,
+        containerSize: CGSize
+    ) -> HomeDayLiquidSwipeSide? {
+        guard let side = HomeDayLiquidSwipeData.side(
+            forStartLocation: startLocation,
+            containerSize: containerSize
+        ) else {
+            return nil
+        }
+
+        let intent = liquidIntentTranslation(translation: translation, velocity: velocity)
+        guard isLiquidActivationCandidate(translation: intent) else { return nil }
+        guard side.horizontalSign * intent.width > 0 else { return nil }
+        return side
+    }
+
+    func isLiquidActivationCandidate(translation: CGSize) -> Bool {
+        let horizontalDistance = abs(translation.width)
+        let verticalDistance = abs(translation.height)
+        guard horizontalDistance >= liquidActivationMinimumTranslation else { return false }
+        return horizontalDistance > verticalDistance * liquidActivationHorizontalDominanceRatio
+    }
+
+    func predictedEndTranslation(translation: CGSize, velocity: CGPoint) -> CGSize {
+        let projectionDuration: CGFloat = 0.18
+        return CGSize(
+            width: translation.width + velocity.x * projectionDuration,
+            height: translation.height + velocity.y * projectionDuration
+        )
+    }
+
+    private func liquidIntentTranslation(translation: CGSize, velocity: CGPoint) -> CGSize {
+        let horizontal = abs(translation.width) >= liquidActivationMinimumTranslation
+            ? translation.width
+            : velocity.x
+        let vertical = abs(translation.height) >= liquidActivationMinimumTranslation
+            ? translation.height
+            : velocity.y
+        return CGSize(width: horizontal, height: vertical)
     }
 }
 
@@ -2395,6 +2529,16 @@ private final class HomePrimaryWidgetPagerController: UICollectionViewController
     }
 }
 
+private struct HomeCalendarEventDetailSelection: Identifiable, Equatable {
+    let eventID: String
+    let selectedDate: Date
+    let allowsTimelineHide: Bool
+
+    var id: String {
+        "\(eventID):\(HomeTimelineHiddenCalendarEventKey.dayStamp(for: selectedDate)):\(allowsTimelineHide)"
+    }
+}
+
 struct HomeBackdropForedropRootView: View {
     let viewModel: HomeViewModel
     @ObservedObject var chromeStore: HomeChromeStore
@@ -2413,13 +2557,14 @@ struct HomeBackdropForedropRootView: View {
     private var homeBackdropNoiseAmountStorage = V2FeatureFlags.defaultHomeBackdropNoiseAmount
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     let onTaskTap: (TaskDefinition) -> Void
     let onToggleComplete: (TaskDefinition) -> Void
     let onDeleteTask: (TaskDefinition) -> Void
     let onRescheduleTask: (TaskDefinition) -> Void
     let onReorderCustomProjects: ([UUID]) -> Void
-    let onAddTask: () -> Void
+    let onAddTask: (Date?) -> Void
     let onOpenChat: () -> Void
     let onOpenProjectCreator: () -> Void
     let onOpenSettings: () -> Void
@@ -2471,6 +2616,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var hasMountedSearchSurface = false
     @State private var hasMountedAnalyticsSurface = false
     @State private var expandedAgendaTailItemIDs = Set<String>()
+    @State private var selectedHomeCalendarEventDetail: HomeCalendarEventDetailSelection?
+    @State private var suppressNextCalendarScheduleOpen = false
     @State private var showHabitBoardPresented = false
     @State private var showHabitLibraryPresented = false
     @State private var selectedHomeHabitRow: HabitLibraryRow?
@@ -2484,7 +2631,18 @@ struct HomeBackdropForedropRootView: View {
     @State private var measuredTimelineHeaderHeight: CGFloat = 0
     @State private var measuredCalendarCardHeight: CGFloat = 0
     @State private var measuredWeekBackdropHeight: CGFloat = 0
+    @State private var measuredPassiveTrackingRailHeight: CGFloat = 0
+    @State private var measuredNeedsReplanTrayHeight: CGFloat = 0
+    @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
+    @State private var isDaySwipeTracingActive = false
+    @State private var leadingDayLiquidSwipeData = HomeDayLiquidSwipeData(side: .leading)
+    @State private var trailingDayLiquidSwipeData = HomeDayLiquidSwipeData(side: .trailing)
+    @State private var topDayLiquidSwipeSide: HomeDayLiquidSwipeSide = .trailing
+    @State private var activeDayLiquidSwipeSide: HomeDayLiquidSwipeSide?
+    @State private var isDayLiquidSwipeChromeVisible = true
+    @State private var timelineScrollChromeStateTracker = HomeScrollChromeStateTracker()
     @StateObject private var timelineViewModel = HomeTimelineViewModel()
+    private static let dayLiquidSwipeCoordinateSpaceName = "home.dayLiquidSwipe"
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
     private static let foredropHintPeekDuration: TimeInterval = 0.10
@@ -2569,6 +2727,71 @@ struct HomeBackdropForedropRootView: View {
             foredropAnchor: timelineViewModel.foredropAnchor
         )
     }
+    private var isDaySwipeGestureEnabled: Bool {
+        guard isTodayTimelineVisible else { return false }
+        guard showDatePicker == false, showAdvancedFilters == false else { return false }
+        guard overlaySnapshot.replanState.isApplying == false else { return false }
+        if case .placement = overlaySnapshot.replanState.phase {
+            return false
+        }
+        return true
+    }
+    private var isDaySwipeInteractionEnabled: Bool {
+        isDaySwipeGestureEnabled && isDayLiquidSwipeChromeVisible
+    }
+    private var daySwipeAnimation: Animation {
+        if reduceMotion || isUITesting {
+            return .easeOut(duration: 0.12)
+        }
+        return .snappy(duration: 0.22)
+    }
+    private var daySwipeTransition: AnyTransition {
+        guard reduceMotion == false, isUITesting == false else {
+            return .opacity
+        }
+
+        switch committedDaySwipeDirection {
+        case .previous:
+            return .asymmetric(
+                insertion: .move(edge: .leading).combined(with: .opacity),
+                removal: .move(edge: .trailing).combined(with: .opacity)
+            )
+        case .next:
+            return .asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .move(edge: .leading).combined(with: .opacity)
+            )
+        case nil:
+            return .opacity
+        }
+    }
+    private var passiveTrackingRailFallbackHeight: CGFloat {
+        dynamicTypeSize >= .accessibility1 ? 72 : 56
+    }
+    private var needsReplanTrayFallbackHeight: CGFloat {
+        dynamicTypeSize >= .accessibility1 ? 120 : 88
+    }
+    private var isNeedsReplanTrayVisible: Bool {
+        if case .trayVisible = overlaySnapshot.replanState.phase {
+            return true
+        }
+        return false
+    }
+    private var dayLiquidSwipeRestingCenterY: CGFloat {
+        HomeDayLiquidSwipeRestingPosition.centerY(
+            defaultCenterY: HomeDayLiquidSwipeData.timelineHandleCenterY,
+            showsQuietTrackingRail: habitsSnapshot.quietTrackingSummaryState.isVisible,
+            measuredQuietTrackingRailHeight: measuredPassiveTrackingRailHeight,
+            quietTrackingRailFallbackHeight: passiveTrackingRailFallbackHeight,
+            showsNeedsReplanTray: isNeedsReplanTrayVisible,
+            measuredNeedsReplanTrayHeight: measuredNeedsReplanTrayHeight,
+            needsReplanTrayFallbackHeight: needsReplanTrayFallbackHeight,
+            topPadding: spacing.s8,
+            interModuleSpacing: spacing.s12,
+            buttonRadius: HomeDayLiquidSwipeData.buttonRadius,
+            clearance: spacing.s4
+        )
+    }
     @ViewBuilder
     private var needsReplanFloatingOverlay: some View {
         switch overlaySnapshot.replanState.phase {
@@ -2592,7 +2815,7 @@ struct HomeBackdropForedropRootView: View {
                 onReviewSkipped: { viewModel.reviewSkippedReplanCandidates() },
                 onViewToday: {
                     timelineViewModel.syncSelectedDate(Date())
-                    viewModel.selectDate(Date())
+                    viewModel.returnToToday(source: .backToToday)
                     viewModel.dismissNeedsReplanSessionUI()
                 },
                 onDone: { viewModel.dismissNeedsReplanSessionUI() }
@@ -2721,6 +2944,13 @@ struct HomeBackdropForedropRootView: View {
         .onPreferenceChange(TimelineHeaderHeightPreferenceKey.self) { measuredTimelineHeaderHeight = $0 }
         .onPreferenceChange(TimelineCalendarCardHeightPreferenceKey.self) { measuredCalendarCardHeight = $0 }
         .onPreferenceChange(TimelineBackdropWeekHeightPreferenceKey.self) { measuredWeekBackdropHeight = $0 }
+        .onChange(of: dayLiquidSwipeRestingCenterY) { _, newValue in
+            resetIdleDayLiquidSwipeHandles(restingCenterY: newValue)
+        }
+        .onChange(of: isTodayTimelineVisible) { _, isVisible in
+            guard isVisible else { return }
+            resetDayLiquidSwipeChromeVisibility()
+        }
         .onChange(of: habitRenderSignature) { _, _ in
             HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
             activeHabitMutationInterval = nil
@@ -2810,13 +3040,13 @@ struct HomeBackdropForedropRootView: View {
                     HStack(spacing: spacing.s12) {
                         Button("Today") {
                             draftDate = Date()
-                            viewModel.selectDate(Date())
+                            viewModel.returnToToday(source: .datePicker)
                             showDatePicker = false
                         }
                         .buttonStyle(.bordered)
 
                         Button("Apply") {
-                            viewModel.selectDate(draftDate)
+                            viewModel.selectDate(draftDate, source: .datePicker)
                             showDatePicker = false
                         }
                         .buttonStyle(.borderedProminent)
@@ -2855,6 +3085,25 @@ struct HomeBackdropForedropRootView: View {
                     viewModel.deleteSavedView(id: id)
                 }
             )
+        }
+        .sheet(item: $selectedHomeCalendarEventDetail) { selection in
+            EventKitEventDetailView(
+                eventID: selection.eventID,
+                onDismiss: {
+                    selectedHomeCalendarEventDetail = nil
+                },
+                onHideFromTimeline: selection.allowsTimelineHide ? {
+                    viewModel.hideCalendarEventFromTimeline(
+                        eventID: selection.eventID,
+                        on: selection.selectedDate
+                    )
+                    selectedHomeCalendarEventDetail = nil
+                    snackbar = SnackbarData(message: "Hidden from Home timeline for this day.", autoDismissSeconds: 2)
+                } : nil
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Color.tasker(.bgElevated))
         }
         .onAppear {
             if let forcedFaceValue {
@@ -3013,17 +3262,13 @@ struct HomeBackdropForedropRootView: View {
             }
         )) {
             NeedsReplanLauncherSheet(
-                summary: overlaySnapshot.replanState.launcherSummary ?? NeedsReplanSummary(
-                    count: 0,
-                    dayCount: 0,
-                    newestDate: nil,
-                    oldestDate: nil
-                ),
+                summary: overlaySnapshot.replanState.launcherSummary ?? .empty,
                 onStart: {
                     if overlaySnapshot.replanState.launcherSummary?.count == 0 {
-                        timelineViewModel.syncSelectedDate(Date())
-                        viewModel.selectDate(Date())
                         viewModel.dismissNeedsReplanSessionUI()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            onAddTask(nil)
+                        }
                     } else {
                         viewModel.startNeedsReplanSession()
                     }
@@ -3308,7 +3553,7 @@ struct HomeBackdropForedropRootView: View {
                         snapshot: timelineSnapshot,
                         onSelectDate: { date in
                             timelineViewModel.syncSelectedDate(date)
-                            viewModel.selectDate(date)
+                            viewModel.selectDate(date, source: .weekStrip)
                             withAnimation(foredropFlipAnimation) {
                                 timelineViewModel.snap(to: .collapsed)
                             }
@@ -3318,7 +3563,7 @@ struct HomeBackdropForedropRootView: View {
                         },
                         onPlaceReplanAllDay: { candidate, date in
                             timelineViewModel.syncSelectedDate(date)
-                            viewModel.selectDate(date)
+                            viewModel.selectDate(date, source: .replan)
                             viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
                         }
                     )
@@ -3445,7 +3690,7 @@ struct HomeBackdropForedropRootView: View {
                             ]
                         )
                     },
-                    onEmptyStateAction: { onAddTask() },
+                    onEmptyStateAction: { onAddTask(nil) },
                     onToggleAgendaTailItemExpansion: { itemID in
                         if expandedAgendaTailItemIDs.contains(itemID) {
                             expandedAgendaTailItemIDs.remove(itemID)
@@ -3758,7 +4003,7 @@ struct HomeBackdropForedropRootView: View {
                     reduceMotion: reduceMotion,
                     onSelectQuickView: { viewModel.setQuickView($0) },
                     onBackToToday: {
-                        viewModel.setQuickView(.today)
+                        viewModel.returnToToday(source: .backToToday)
                     },
                     onShowDatePicker: {
                         draftDate = chromeSnapshot.selectedDate
@@ -3769,9 +4014,6 @@ struct HomeBackdropForedropRootView: View {
                     },
                     onResetFilters: {
                         viewModel.resetAllFilters()
-                    },
-                    onOpenTopNavSearch: {
-                        openSearch(source: "top_nav_search")
                     },
                     onOpenMenuSearch: {
                         openSearch(source: "scope_menu_search")
@@ -3945,6 +4187,10 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private var timelineHasNextHomeWidget: Bool {
+        true
+    }
+
     @ViewBuilder
     private func timelineColumnContent<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         if let maxWidth = timelineColumnMaxWidth {
@@ -3953,6 +4199,177 @@ struct HomeBackdropForedropRootView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             content()
+        }
+    }
+
+    private func beginDaySwipeTrace() {
+        guard isDaySwipeTracingActive == false else { return }
+        isDaySwipeTracingActive = true
+        TaskerPerformanceTrace.event("HomeDaySwipeStarted")
+    }
+
+    private func cancelDaySwipeTraceIfNeeded() {
+        guard isDaySwipeTracingActive else { return }
+        TaskerPerformanceTrace.event("HomeDaySwipeCancelled")
+        isDaySwipeTracingActive = false
+    }
+
+    private var dayLiquidSwipeContainerSize: CGSize {
+        CGSize(
+            width: max(layoutMetrics.width, 1),
+            height: max(layoutMetrics.height - measuredTimelineHeaderHeight, 1)
+        )
+    }
+
+    private func normalizedDayLiquidSwipeSize(_ size: CGSize) -> CGSize {
+        let fallback = dayLiquidSwipeContainerSize
+        return CGSize(
+            width: max(size.width, fallback.width, 1),
+            height: max(size.height, fallback.height, 1)
+        )
+    }
+
+    private func dayLiquidSwipeData(for side: HomeDayLiquidSwipeSide, size: CGSize) -> HomeDayLiquidSwipeData {
+        let data = side == .leading ? leadingDayLiquidSwipeData : trailingDayLiquidSwipeData
+        return data
+            .resting(at: dayLiquidSwipeRestingCenterY)
+            .sized(to: size)
+    }
+
+    private func setDayLiquidSwipeData(_ data: HomeDayLiquidSwipeData) {
+        switch data.side {
+        case .leading:
+            leadingDayLiquidSwipeData = data
+        case .trailing:
+            trailingDayLiquidSwipeData = data
+        }
+    }
+
+    private func handleTimelineScrollOffsetChange(_ newOffset: CGFloat) {
+        if let nextState = timelineScrollChromeStateTracker.consume(offset: newOffset) {
+            updateDayLiquidSwipeChromeVisibility(for: nextState)
+        }
+    }
+
+    private func updateDayLiquidSwipeChromeVisibility(for state: HomeScrollChromeState) {
+        let nextVisibility = HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+            currentVisibility: isDayLiquidSwipeChromeVisible,
+            for: state
+        )
+        guard nextVisibility != isDayLiquidSwipeChromeVisible else { return }
+        isDayLiquidSwipeChromeVisible = nextVisibility
+        if nextVisibility == false {
+            activeDayLiquidSwipeSide = nil
+            cancelDaySwipeTraceIfNeeded()
+        }
+    }
+
+    private func resetDayLiquidSwipeChromeVisibility() {
+        timelineScrollChromeStateTracker = HomeScrollChromeStateTracker()
+        isDayLiquidSwipeChromeVisible = true
+    }
+
+    private func updateDayLiquidSwipe(
+        side: HomeDayLiquidSwipeSide,
+        translation: CGSize,
+        location: CGPoint,
+        size: CGSize
+    ) {
+        guard isDaySwipeGestureEnabled else { return }
+        let containerSize = normalizedDayLiquidSwipeSize(size)
+        activeDayLiquidSwipeSide = side
+        topDayLiquidSwipeSide = side
+        setDayLiquidSwipeData(
+            dayLiquidSwipeData(for: side, size: containerSize)
+                .drag(translation: translation, location: location)
+        )
+    }
+
+    private func endDayLiquidSwipe(
+        side: HomeDayLiquidSwipeSide,
+        translation: CGSize,
+        predictedEndTranslation: CGSize,
+        size: CGSize
+    ) {
+        activeDayLiquidSwipeSide = nil
+        let containerSize = normalizedDayLiquidSwipeSize(size)
+
+        guard isDaySwipeGestureEnabled else {
+            resetDayLiquidSwipe(side, size: containerSize)
+            return
+        }
+
+        guard let direction = HomeDaySwipeResolver.default.resolvedDirection(
+            translation: translation,
+            predictedEndTranslation: predictedEndTranslation
+        ), direction == side.direction else {
+            cancelDaySwipeTraceIfNeeded()
+            resetDayLiquidSwipe(side, size: containerSize)
+            return
+        }
+
+        commitDayLiquidSwipe(side, size: containerSize)
+    }
+
+    private func cancelDayLiquidSwipe(side: HomeDayLiquidSwipeSide, size: CGSize) {
+        activeDayLiquidSwipeSide = nil
+        cancelDaySwipeTraceIfNeeded()
+        resetDayLiquidSwipe(side, size: normalizedDayLiquidSwipeSize(size))
+    }
+
+    private func resetDayLiquidSwipe(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
+        let data = dayLiquidSwipeData(for: side, size: size).initial()
+        if reduceMotion || isUITesting {
+            setDayLiquidSwipeData(data)
+        } else {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                setDayLiquidSwipeData(data)
+            }
+        }
+    }
+
+    private func resetIdleDayLiquidSwipeHandles(restingCenterY: CGFloat) {
+        guard activeDayLiquidSwipeSide == nil else { return }
+        let size = normalizedDayLiquidSwipeSize(dayLiquidSwipeContainerSize)
+        leadingDayLiquidSwipeData = leadingDayLiquidSwipeData
+            .resting(at: restingCenterY)
+            .sized(to: size)
+            .initial()
+        trailingDayLiquidSwipeData = trailingDayLiquidSwipeData
+            .resting(at: restingCenterY)
+            .sized(to: size)
+            .initial()
+    }
+
+    private func commitDayLiquidSwipe(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
+        topDayLiquidSwipeSide = side
+        if reduceMotion || isUITesting {
+            commitDaySwipe(side.direction)
+            resetDayLiquidSwipe(side, size: size)
+            return
+        }
+
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+            setDayLiquidSwipeData(dayLiquidSwipeData(for: side, size: size).final())
+        } completion: {
+            commitDaySwipe(side.direction)
+            resetDayLiquidSwipe(side, size: size)
+        }
+    }
+
+    private func commitDaySwipe(_ direction: HomeDayNavigationDirection) {
+        guard isDaySwipeGestureEnabled else { return }
+        isDaySwipeTracingActive = false
+        committedDaySwipeDirection = direction
+        let dayOffset = direction == .previous ? -1 : 1
+        TaskerFeedback.selection()
+        withAnimation(daySwipeAnimation) {
+            viewModel.shiftSelectedDay(byDays: dayOffset, source: .swipe)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            if committedDaySwipeDirection == direction {
+                committedDaySwipeDirection = nil
+            }
         }
     }
 
@@ -3974,133 +4391,289 @@ struct HomeBackdropForedropRootView: View {
             .reportHeight(to: TimelineHeaderHeightPreferenceKey.self)
             .padding(.horizontal, spacing.s16)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    if habitsSnapshot.quietTrackingSummaryState.isVisible {
-                        passiveTrackingRail
-                            .padding(.horizontal, passiveTrackingRailHorizontalInset)
-                    }
-
-                    timelineColumnContent {
-                        calendarScheduleModuleCard
-                            .reportHeight(to: TimelineCalendarCardHeightPreferenceKey.self)
-                    }
-
-                    if case .trayVisible(let summary) = overlaySnapshot.replanState.phase {
-                        timelineColumnContent {
-                            NeedsReplanTrayView(summary: summary) {
-                                viewModel.openNeedsReplanLauncher()
-                            }
-                            .padding(.horizontal, spacing.s16)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+            ZStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: spacing.s12) {
+                        if habitsSnapshot.quietTrackingSummaryState.isVisible {
+                            passiveTrackingRail
+                                .padding(.horizontal, passiveTrackingRailHorizontalInset)
                         }
-                    }
 
-                    timelineColumnContent {
-                        TimelineForedropView(
-                            snapshot: timelineSnapshot,
-                            layoutClass: layoutClass,
-                            showsRevealHandle: false,
-                            onSelectDate: { date in
-                                timelineViewModel.syncSelectedDate(date)
-                                viewModel.selectDate(date)
-                            },
-                            onSnapAnchor: { anchor in
-                                withAnimation(foredropFlipAnimation) {
-                                    timelineViewModel.snap(to: anchor)
+                        if case .trayVisible(let summary) = overlaySnapshot.replanState.phase {
+                            timelineColumnContent {
+                                NeedsReplanTrayView(
+                                    title: summary.title,
+                                    subtitle: summary.subtitle,
+                                    callToAction: summary.callToAction,
+                                    accessibilityHint: "Opens Plan the Day.",
+                                    accessibilityIdentifier: "home.needsReplan.tray",
+                                    isProminent: true
+                                ) {
+                                    viewModel.openNeedsReplanLauncher()
                                 }
-                            },
-                            onDragChanged: { translation in
-                                timelineViewModel.updateDrag(translation, metrics: timelineLayoutMetrics)
-                            },
-                            onDragEnded: { translation in
-                                timelineViewModel.endDrag(predictedTranslation: translation, metrics: timelineLayoutMetrics)
-                            },
-                            onTaskTap: { item in
-                                if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
-                                    onTaskTap(task)
+                                .padding(.horizontal, spacing.s16)
+                                .onGeometryChange(for: CGFloat.self) { proxy in
+                                    proxy.size.height
+                                } action: { newHeight in
+                                    guard abs(newHeight - measuredNeedsReplanTrayHeight) > 0.5 else { return }
+                                    measuredNeedsReplanTrayHeight = newHeight
                                 }
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
+
+                        timelineColumnContent {
+                            let snapshot = timelineSnapshot
+                            let selectedDayKey = Int(Calendar.current.startOfDay(for: snapshot.selectedDate).timeIntervalSince1970)
+                            TimelineForedropView(
+                                snapshot: snapshot,
+                                layoutClass: layoutClass,
+                                showsRevealHandle: false,
+                                hasNextHomeWidget: timelineHasNextHomeWidget,
+                                onSelectDate: { date in
+                                    timelineViewModel.syncSelectedDate(date)
+                                    viewModel.selectDate(date, source: .weekStrip)
+                                },
+                                onSnapAnchor: { anchor in
+                                    withAnimation(foredropFlipAnimation) {
+                                        timelineViewModel.snap(to: anchor)
+                                    }
+                                },
+                                onDragChanged: { translation in
+                                    timelineViewModel.updateDrag(translation, metrics: timelineLayoutMetrics)
+                                },
+                                onDragEnded: { translation in
+                                    timelineViewModel.endDrag(predictedTranslation: translation, metrics: timelineLayoutMetrics)
+                                },
+                                onTaskTap: { item in
+                                    if let eventID = item.eventID {
+                                        handleHomeCalendarEventSelection(eventID: eventID, allowsTimelineHide: true)
+                                        return
+                                    }
+                                    if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
+                                        onTaskTap(task)
+                                    }
+                                },
+                                onToggleComplete: { item in
+                                    guard let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) else { return }
+                                    trackTaskToggle(task, source: "timeline")
+                                    onToggleComplete(task)
+                                },
+                                onAddTask: onAddTask,
+                                onScheduleInbox: {
+                                    viewModel.startTriage()
+                                },
+                                onShowCalendarInTimeline: {
+                                    viewModel.showCalendarEventsInTimelineFromHome()
+                                },
+                                onPlaceReplanAtTime: { candidate, date in
+                                    viewModel.placeReplanCandidate(taskID: candidate.taskID, at: date)
+                                },
+                                onPlaceReplanAllDay: { candidate, date in
+                                    viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
+                                },
+                                onCancelReplanPlacement: {
+                                    viewModel.cancelCurrentReplanPlacement()
+                                },
+                                onSkipReplanPlacement: {
+                                    viewModel.skipCurrentReplanCandidate()
+                                },
+                                onClearReplanError: {
+                                    viewModel.clearReplanError()
+                                }
+                            )
+                            .id(selectedDayKey)
+                            .transition(daySwipeTransition)
+                            .animation(daySwipeAnimation, value: selectedDayKey)
+                            .padding(.horizontal, spacing.s16)
+                            .accessibilityAction(named: Text("Previous Day")) {
+                                beginDaySwipeTrace()
+                                commitDaySwipe(.previous)
+                            }
+                            .accessibilityAction(named: Text("Next Day")) {
+                                beginDaySwipeTrace()
+                                commitDaySwipe(.next)
+                            }
+                        }
+
+                        if let entryState = chromeSnapshot.dailyReflectionEntryState {
+                            timelineColumnContent {
+                                HomeDailyReflectionEntryCard(
+                                    state: entryState,
+                                    mode: .compact
+                                ) {
+                                    openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
+                                }
+                                .padding(.horizontal, spacing.s16)
+                            }
+                        }
+
+                        if let footerContent = timelineFooterModules {
+                            footerContent
+                        }
+
+                        if let guidanceState = overlaySnapshot.guidanceState {
+                            HomeOnboardingGuidanceBanner(state: guidanceState)
+                                .padding(.horizontal, spacing.s16)
+                        }
+
+                        timelineColumnContent {
+                            persistentReplanDayEntry
+                                .padding(.horizontal, spacing.s16)
+                        }
+
+                        timelineBottomContentSpacer(taskListBottomInset: taskListBottomInset)
+                    }
+                    .padding(.top, spacing.s8)
+                    .contentShape(Rectangle())
+                    .background {
+                        HomeDayLiquidSwipeGestureSurface(
+                            isEnabled: isDaySwipeInteractionEnabled,
+                            containerSize: dayLiquidSwipeContainerSize,
+                            restingCenterY: dayLiquidSwipeRestingCenterY,
+                            resolver: .default,
+                            onInteractionStarted: beginDaySwipeTrace,
+                            onChanged: { side, translation, location in
+                                updateDayLiquidSwipe(
+                                    side: side,
+                                    translation: translation,
+                                    location: location,
+                                    size: dayLiquidSwipeContainerSize
+                                )
                             },
-                            onToggleComplete: { item in
-                                guard let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) else { return }
-                                trackTaskToggle(task, source: "timeline")
-                                onToggleComplete(task)
+                            onEnded: { side, translation, predictedEndTranslation, _ in
+                                endDayLiquidSwipe(
+                                    side: side,
+                                    translation: translation,
+                                    predictedEndTranslation: predictedEndTranslation,
+                                    size: dayLiquidSwipeContainerSize
+                                )
                             },
-                            onAddTask: onAddTask,
-                            onScheduleInbox: {
-                                viewModel.startTriage()
-                            },
-                            onPlaceReplanAtTime: { candidate, date in
-                                viewModel.placeReplanCandidate(taskID: candidate.taskID, at: date)
-                            },
-                            onPlaceReplanAllDay: { candidate, date in
-                                viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
-                            },
-                            onCancelReplanPlacement: {
-                                viewModel.cancelCurrentReplanPlacement()
-                            },
-                            onSkipReplanPlacement: {
-                                viewModel.skipCurrentReplanCandidate()
-                            },
-                            onClearReplanError: {
-                                viewModel.clearReplanError()
+                            onCancelled: { side in
+                                cancelDayLiquidSwipe(
+                                    side: side,
+                                    size: dayLiquidSwipeContainerSize
+                                )
                             }
                         )
-                        .padding(.horizontal, spacing.s16)
-                    }
-
-                    if let entryState = chromeSnapshot.dailyReflectionEntryState {
-                        timelineColumnContent {
-                            HomeDailyReflectionEntryCard(
-                                state: entryState,
-                                mode: .compact
-                            ) {
-                                openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
-                            }
-                            .padding(.horizontal, spacing.s16)
-                        }
-                    }
-
-                    if let footerContent = timelineFooterModules {
-                        footerContent
-                    }
-
-                    if let guidanceState = overlaySnapshot.guidanceState {
-                        HomeOnboardingGuidanceBanner(state: guidanceState)
-                            .padding(.horizontal, spacing.s16)
+                        .frame(width: 1, height: 1)
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
                     }
                 }
-                .padding(.top, spacing.s8)
-                .padding(.bottom, taskListBottomInset)
+                .scrollIndicators(.hidden)
+                .onScrollGeometryChange(
+                    for: CGFloat.self,
+                    of: { geometry in
+                        geometry.contentOffset.y + geometry.contentInsets.top
+                    },
+                    action: { _, newOffset in
+                        handleTimelineScrollOffsetChange(max(0, newOffset))
+                    }
+                )
+
+                HomeDayLiquidSwipeOverlay(
+                    isEnabled: isDaySwipeGestureEnabled,
+                    isChromeVisible: isDayLiquidSwipeChromeVisible,
+                    reduceMotion: reduceMotion || isUITesting,
+                    restingCenterY: dayLiquidSwipeRestingCenterY,
+                    onInteractionStarted: beginDaySwipeTrace,
+                    onInteractionCancelled: cancelDaySwipeTraceIfNeeded,
+                    onCommit: commitDaySwipe,
+                    onHandleDragChanged: { side, translation, location, size in
+                        updateDayLiquidSwipe(
+                            side: side,
+                            translation: translation,
+                            location: location,
+                            size: size
+                        )
+                    },
+                    onHandleDragEnded: { side, translation, predictedEndTranslation, _, size in
+                        endDayLiquidSwipe(
+                            side: side,
+                            translation: translation,
+                            predictedEndTranslation: predictedEndTranslation,
+                            size: size
+                        )
+                    },
+                    leadingData: $leadingDayLiquidSwipeData,
+                    trailingData: $trailingDayLiquidSwipeData,
+                    topSide: $topDayLiquidSwipeSide
+                )
             }
-            .scrollIndicators(.hidden)
+            .coordinateSpace(name: Self.dayLiquidSwipeCoordinateSpaceName)
         }
         .accessibilityIdentifier("home.timeline.surface")
     }
 
-    private var calendarScheduleModuleCard: some View {
-        Button(action: handleOpenScheduleAction) {
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                calendarSummaryHeader
-                calendarModuleBody
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+    private func timelineBottomContentSpacer(taskListBottomInset: CGFloat) -> some View {
+        Color.clear
+            .frame(height: timelineBottomContentClearance(taskListBottomInset: taskListBottomInset))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    private func timelineBottomContentClearance(taskListBottomInset: CGFloat) -> CGFloat {
+        guard layoutClass == .phone else {
+            return taskListBottomInset
         }
-        .buttonStyle(.plain)
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s12)
-        .background(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .fill(Color.tasker.surfacePrimary)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.calendar.card")
-        .accessibilityLabel(calendarCardAccessibilityLabel)
-        .accessibilityHint(String(localized: "Opens the full calendar schedule"))
+        return max(taskListBottomInset + spacing.s40 + spacing.s8, 132)
+    }
+
+    @ViewBuilder
+    private var calendarScheduleModuleCard: some View {
+        if calendarSnapshot.moduleState == .permissionRequired {
+            calendarCardChrome {
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    calendarSummaryHeader
+                    calendarModuleBody
+                    calendarPermissionCTA
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        } else {
+            calendarCardChrome {
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    calendarSummaryHeader
+                    calendarModuleBody
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
+            .gesture(
+                TapGesture().onEnded {
+                    handleOpenScheduleAction()
+                },
+                including: .gesture
+            )
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(calendarCardAccessibilityLabel)
+            .accessibilityHint(String(localized: "Opens the full calendar schedule"))
+        }
+    }
+
+    @ViewBuilder
+    private func calendarCardChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .modifier(CalendarCardChromeModifier())
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.calendar.card")
+    }
+
+    @ViewBuilder
+    private var calendarPermissionCTA: some View {
+        if shouldShowCalendarPermissionCTA {
+            Button(action: onRequestCalendarPermission) {
+                Text(calendarPermissionButtonTitle)
+                    .font(.tasker(.bodyStrong))
+                    .foregroundStyle(Color.tasker.textInverse)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(Color.tasker.accentPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.calendar.connect")
+        }
     }
 
     private var calendarSummaryHeader: some View {
@@ -4143,6 +4716,7 @@ struct HomeBackdropForedropRootView: View {
                     .foregroundStyle(Color.tasker.textSecondary)
                     .accessibilityIdentifier(calendarPermissionStateAccessibilityID)
             }
+            .accessibilityLabel(calendarPermissionBodyText)
             .accessibilityIdentifier("home.calendar.state.permission")
         case .noCalendarsSelected:
             Text(String(localized: "No calendars selected. Choose at least one calendar for schedule insights."))
@@ -4180,28 +4754,33 @@ struct HomeBackdropForedropRootView: View {
                 date: calendarSnapshot.selectedDate,
                 events: calendarSnapshot.selectedDayEvents,
                 density: .compact,
-                showsDateLabel: false
+                showsDateLabel: false,
+                accessibilityIdentifier: "home.calendar.timelinePreview",
+                accessibilityLabelText: String(localized: "Home calendar timeline preview."),
+                eventAccessibilityIdentifierPrefix: "home.calendar.event",
+                onSelectEvent: handleHomeCalendarEventSelection
             )
             .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityIdentifier("home.calendar.timelinePreview")
         }
     }
 
     private var shouldShowCalendarPermissionCTA: Bool {
         guard calendarSnapshot.moduleState == .permissionRequired else { return false }
-        switch calendarSnapshot.authorizationStatus {
-        case .notDetermined, .denied, .writeOnly:
+        switch calendarSnapshot.accessAction {
+        case .requestPermission, .openSystemSettings:
             return true
-        case .restricted, .authorized:
+        case .unavailable, .noneNeeded:
             return false
         }
     }
 
     private var calendarPermissionButtonTitle: String {
-        switch calendarSnapshot.authorizationStatus {
-        case .denied, .writeOnly:
+        switch calendarSnapshot.accessAction {
+        case .openSystemSettings:
             return String(localized: "Open Settings")
-        case .notDetermined, .restricted, .authorized:
+        case .requestPermission:
+            return String(localized: "Allow Full Calendar Access")
+        case .unavailable, .noneNeeded:
             return String(localized: "Connect")
         }
     }
@@ -4211,11 +4790,11 @@ struct HomeBackdropForedropRootView: View {
         case .notDetermined:
             return String(localized: "Connect Calendar to surface next meetings and free windows.")
         case .denied:
-            return String(localized: "Calendar access is off. Open Settings to re-enable read access.")
+            return String(localized: "Calendar access is denied by iOS. Enable Tasker in Settings > Privacy & Security > Calendars. If Tasker is missing, restart your device, reinstall Tasker, or reset Location & Privacy.")
         case .restricted:
             return String(localized: "Calendar access is restricted by system policy.")
         case .writeOnly:
-            return String(localized: "Tasker currently has write-only access. Open Settings and allow full read access.")
+            return String(localized: "Tasker has write-only access. Allow full calendar access so schedule events can appear.")
         case .authorized:
             return String(localized: "Connect Calendar to surface next meetings and free windows.")
         }
@@ -4236,7 +4815,27 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private func handleHomeCalendarEventSelection(_ event: TaskerCalendarEventSnapshot) {
+        handleHomeCalendarEventSelection(eventID: event.id, allowsTimelineHide: false)
+    }
+
+    private func handleHomeCalendarEventSelection(eventID: String, allowsTimelineHide: Bool) {
+        suppressNextCalendarScheduleOpen = true
+        selectedHomeCalendarEventDetail = HomeCalendarEventDetailSelection(
+            eventID: eventID,
+            selectedDate: viewModel.selectedDate,
+            allowsTimelineHide: allowsTimelineHide
+        )
+        DispatchQueue.main.async {
+            suppressNextCalendarScheduleOpen = false
+        }
+    }
+
     private func handleOpenScheduleAction() {
+        if suppressNextCalendarScheduleOpen {
+            suppressNextCalendarScheduleOpen = false
+            return
+        }
         onOpenCalendarSchedule()
     }
 
@@ -4260,9 +4859,12 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var taskListFooterContent: AnyView? {
-        guard tasksSnapshot.activeQuickView == .today else { return nil }
-
-        return timelineFooterModules
+        guard tasksSnapshot.activeQuickView != .today else { return nil }
+        return AnyView(
+            persistentReplanDayEntry
+                .padding(.horizontal, spacing.s16)
+                .padding(.top, spacing.s8)
+        )
     }
 
     private var timelineFooterModules: AnyView? {
@@ -4291,6 +4893,20 @@ struct HomeBackdropForedropRootView: View {
                 }
             }
         )
+    }
+
+    private var persistentReplanDayEntry: some View {
+        let summary = overlaySnapshot.replanState.persistentSummary
+        return NeedsReplanTrayView(
+            title: summary.persistentTitle,
+            subtitle: summary.persistentSubtitle,
+            callToAction: summary.persistentCallToAction,
+            accessibilityHint: "Opens Replan Day.",
+            accessibilityIdentifier: "home.replanDay.entry",
+            isProminent: false
+        ) {
+            viewModel.openNeedsReplanLauncher()
+        }
     }
 
     private var shouldShowDueTodayAgenda: Bool {
@@ -4331,6 +4947,12 @@ struct HomeBackdropForedropRootView: View {
         } action: { newWidth in
             guard abs(newWidth - passiveTrackingRailViewportWidth) > 0.5 else { return }
             passiveTrackingRailViewportWidth = newWidth
+        }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { newHeight in
+            guard abs(newHeight - measuredPassiveTrackingRailHeight) > 0.5 else { return }
+            measuredPassiveTrackingRailHeight = newHeight
         }
         .accessibilityIdentifier("home.passiveTracking.rail")
     }
@@ -5250,6 +5872,28 @@ struct HomeBackdropForedropRootView: View {
             }
         )
         showDailyReflectPlan = true
+    }
+}
+
+private struct CalendarCardChromeModifier: ViewModifier {
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens {
+        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, spacing.s16)
+            .padding(.vertical, spacing.s12)
+            .background(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                    .fill(Color.tasker.surfacePrimary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+            )
     }
 }
 

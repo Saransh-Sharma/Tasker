@@ -4,6 +4,7 @@ public enum AssistantActionStatus: String, Codable {
     case pending
     case confirmed
     case applied
+    case undone
     case rejected
     case failed
 }
@@ -243,6 +244,87 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     }
 }
 
+public enum AssistantDeferralReason: String, Codable, Equatable, Hashable {
+    case userRequested
+    case runningLate
+    case overload
+    case conflict
+    case needsReview
+}
+
+public enum AssistantDropDestination: String, Codable, Equatable, Hashable {
+    case inbox
+    case later
+    case someday
+
+    var displayLabel: String {
+        switch self {
+        case .inbox: "Inbox"
+        case .later: "Later"
+        case .someday: "Someday"
+        }
+    }
+}
+
+public enum AssistantFieldUpdate<Value: Codable & Hashable>: Codable, Equatable, Hashable {
+    case absent
+    case set(Value)
+    case clear
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .clear
+        } else {
+            self = .set(try container.decode(Value.self))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .absent, .clear:
+            try container.encodeNil()
+        case .set(let value):
+            try container.encode(value)
+        }
+    }
+
+    var setValue: Value? {
+        if case .set(let value) = self { return value }
+        return nil
+    }
+}
+
+private extension KeyedDecodingContainer {
+    func decodeFieldUpdate<Value: Codable & Hashable>(
+        _ type: Value.Type,
+        forKey key: Key
+    ) throws -> AssistantFieldUpdate<Value> {
+        guard contains(key) else { return .absent }
+        if try decodeNil(forKey: key) {
+            return .clear
+        }
+        return .set(try decode(type, forKey: key))
+    }
+}
+
+private extension KeyedEncodingContainer {
+    mutating func encodeFieldUpdate<Value: Codable & Hashable>(
+        _ update: AssistantFieldUpdate<Value>,
+        forKey key: Key
+    ) throws {
+        switch update {
+        case .absent:
+            return
+        case .clear:
+            try encodeNil(forKey: key)
+        case .set(let value):
+            try encode(value, forKey: key)
+        }
+    }
+}
+
 public enum AssistantCommand: Codable, Equatable, Hashable {
     case createTask(projectID: UUID, title: String)
     case restoreTask(taskID: UUID, projectID: UUID, title: String, dueDate: Date?, isComplete: Bool, dateCompleted: Date?)
@@ -252,6 +334,58 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
     case setTaskCompletion(taskID: UUID, isComplete: Bool, dateCompleted: Date?)
     case completeTask(taskID: UUID)
     case moveTask(taskID: UUID, targetProjectID: UUID)
+    case createScheduledTask(
+        projectID: UUID,
+        title: String,
+        scheduledStartAt: Date,
+        scheduledEndAt: Date,
+        estimatedDuration: TimeInterval?,
+        lifeAreaID: UUID?,
+        priority: TaskPriority?,
+        energy: TaskEnergy?,
+        category: TaskCategory?,
+        context: TaskContext?,
+        details: String?,
+        tagIDs: [UUID]
+    )
+    case createInboxTask(
+        projectID: UUID,
+        title: String,
+        estimatedDuration: TimeInterval?,
+        lifeAreaID: UUID?,
+        priority: TaskPriority?,
+        category: TaskCategory?,
+        details: String?,
+        tagIDs: [UUID]
+    )
+    case updateTaskSchedule(
+        taskID: UUID,
+        scheduledStartAt: Date?,
+        scheduledEndAt: Date?,
+        estimatedDuration: TimeInterval?,
+        dueDate: Date?
+    )
+    case updateTaskFields(
+        taskID: UUID,
+        title: AssistantFieldUpdate<String>,
+        details: AssistantFieldUpdate<String>,
+        priority: AssistantFieldUpdate<TaskPriority>,
+        energy: AssistantFieldUpdate<TaskEnergy>,
+        category: AssistantFieldUpdate<TaskCategory>,
+        context: AssistantFieldUpdate<TaskContext>,
+        lifeAreaID: AssistantFieldUpdate<UUID>,
+        tagIDs: AssistantFieldUpdate<[UUID]>
+    )
+    case deferTask(
+        taskID: UUID,
+        targetDate: Date,
+        reason: AssistantDeferralReason
+    )
+    case dropTaskFromToday(
+        taskID: UUID,
+        destination: AssistantDropDestination,
+        reason: String
+    )
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -259,7 +393,20 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
         case projectID
         case targetProjectID
         case title
+        case details
         case dueDate
+        case scheduledStartAt
+        case scheduledEndAt
+        case estimatedDuration
+        case lifeAreaID
+        case priority
+        case energy
+        case category
+        case context
+        case tagIDs
+        case targetDate
+        case reason
+        case destination
         case isComplete
         case dateCompleted
         case snapshot
@@ -274,6 +421,12 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
         case setTaskCompletion
         case completeTask
         case moveTask
+        case createScheduledTask
+        case createInboxTask
+        case updateTaskSchedule
+        case updateTaskFields
+        case deferTask
+        case dropTaskFromToday
     }
 
     /// Initializes a new instance.
@@ -320,6 +473,64 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
                 taskID: try container.decode(UUID.self, forKey: .taskID),
                 targetProjectID: try container.decode(UUID.self, forKey: .targetProjectID)
             )
+        case .createScheduledTask:
+            self = .createScheduledTask(
+                projectID: try container.decode(UUID.self, forKey: .projectID),
+                title: try container.decode(String.self, forKey: .title),
+                scheduledStartAt: try container.decode(Date.self, forKey: .scheduledStartAt),
+                scheduledEndAt: try container.decode(Date.self, forKey: .scheduledEndAt),
+                estimatedDuration: try container.decodeIfPresent(TimeInterval.self, forKey: .estimatedDuration),
+                lifeAreaID: try container.decodeIfPresent(UUID.self, forKey: .lifeAreaID),
+                priority: try container.decodeIfPresent(TaskPriority.self, forKey: .priority),
+                energy: try container.decodeIfPresent(TaskEnergy.self, forKey: .energy),
+                category: try container.decodeIfPresent(TaskCategory.self, forKey: .category),
+                context: try container.decodeIfPresent(TaskContext.self, forKey: .context),
+                details: try container.decodeIfPresent(String.self, forKey: .details),
+                tagIDs: try container.decodeIfPresent([UUID].self, forKey: .tagIDs) ?? []
+            )
+        case .createInboxTask:
+            self = .createInboxTask(
+                projectID: try container.decode(UUID.self, forKey: .projectID),
+                title: try container.decode(String.self, forKey: .title),
+                estimatedDuration: try container.decodeIfPresent(TimeInterval.self, forKey: .estimatedDuration),
+                lifeAreaID: try container.decodeIfPresent(UUID.self, forKey: .lifeAreaID),
+                priority: try container.decodeIfPresent(TaskPriority.self, forKey: .priority),
+                category: try container.decodeIfPresent(TaskCategory.self, forKey: .category),
+                details: try container.decodeIfPresent(String.self, forKey: .details),
+                tagIDs: try container.decodeIfPresent([UUID].self, forKey: .tagIDs) ?? []
+            )
+        case .updateTaskSchedule:
+            self = .updateTaskSchedule(
+                taskID: try container.decode(UUID.self, forKey: .taskID),
+                scheduledStartAt: try container.decodeIfPresent(Date.self, forKey: .scheduledStartAt),
+                scheduledEndAt: try container.decodeIfPresent(Date.self, forKey: .scheduledEndAt),
+                estimatedDuration: try container.decodeIfPresent(TimeInterval.self, forKey: .estimatedDuration),
+                dueDate: try container.decodeIfPresent(Date.self, forKey: .dueDate)
+            )
+        case .updateTaskFields:
+            self = .updateTaskFields(
+                taskID: try container.decode(UUID.self, forKey: .taskID),
+                title: try container.decodeFieldUpdate(String.self, forKey: .title),
+                details: try container.decodeFieldUpdate(String.self, forKey: .details),
+                priority: try container.decodeFieldUpdate(TaskPriority.self, forKey: .priority),
+                energy: try container.decodeFieldUpdate(TaskEnergy.self, forKey: .energy),
+                category: try container.decodeFieldUpdate(TaskCategory.self, forKey: .category),
+                context: try container.decodeFieldUpdate(TaskContext.self, forKey: .context),
+                lifeAreaID: try container.decodeFieldUpdate(UUID.self, forKey: .lifeAreaID),
+                tagIDs: try container.decodeFieldUpdate([UUID].self, forKey: .tagIDs)
+            )
+        case .deferTask:
+            self = .deferTask(
+                taskID: try container.decode(UUID.self, forKey: .taskID),
+                targetDate: try container.decode(Date.self, forKey: .targetDate),
+                reason: try container.decodeIfPresent(AssistantDeferralReason.self, forKey: .reason) ?? .userRequested
+            )
+        case .dropTaskFromToday:
+            self = .dropTaskFromToday(
+                taskID: try container.decode(UUID.self, forKey: .taskID),
+                destination: try container.decode(AssistantDropDestination.self, forKey: .destination),
+                reason: try container.decodeIfPresent(String.self, forKey: .reason) ?? ""
+            )
         }
     }
 
@@ -362,6 +573,90 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
             try container.encode(Kind.moveTask, forKey: .type)
             try container.encode(taskID, forKey: .taskID)
             try container.encode(targetProjectID, forKey: .targetProjectID)
+        case .createScheduledTask(
+            let projectID,
+            let title,
+            let scheduledStartAt,
+            let scheduledEndAt,
+            let estimatedDuration,
+            let lifeAreaID,
+            let priority,
+            let energy,
+            let category,
+            let context,
+            let details,
+            let tagIDs
+        ):
+            try container.encode(Kind.createScheduledTask, forKey: .type)
+            try container.encode(projectID, forKey: .projectID)
+            try container.encode(title, forKey: .title)
+            try container.encode(scheduledStartAt, forKey: .scheduledStartAt)
+            try container.encode(scheduledEndAt, forKey: .scheduledEndAt)
+            try container.encodeIfPresent(estimatedDuration, forKey: .estimatedDuration)
+            try container.encodeIfPresent(lifeAreaID, forKey: .lifeAreaID)
+            try container.encodeIfPresent(priority, forKey: .priority)
+            try container.encodeIfPresent(energy, forKey: .energy)
+            try container.encodeIfPresent(category, forKey: .category)
+            try container.encodeIfPresent(context, forKey: .context)
+            try container.encodeIfPresent(details, forKey: .details)
+            try container.encode(tagIDs, forKey: .tagIDs)
+        case .createInboxTask(
+            let projectID,
+            let title,
+            let estimatedDuration,
+            let lifeAreaID,
+            let priority,
+            let category,
+            let details,
+            let tagIDs
+        ):
+            try container.encode(Kind.createInboxTask, forKey: .type)
+            try container.encode(projectID, forKey: .projectID)
+            try container.encode(title, forKey: .title)
+            try container.encodeIfPresent(estimatedDuration, forKey: .estimatedDuration)
+            try container.encodeIfPresent(lifeAreaID, forKey: .lifeAreaID)
+            try container.encodeIfPresent(priority, forKey: .priority)
+            try container.encodeIfPresent(category, forKey: .category)
+            try container.encodeIfPresent(details, forKey: .details)
+            try container.encode(tagIDs, forKey: .tagIDs)
+        case .updateTaskSchedule(let taskID, let scheduledStartAt, let scheduledEndAt, let estimatedDuration, let dueDate):
+            try container.encode(Kind.updateTaskSchedule, forKey: .type)
+            try container.encode(taskID, forKey: .taskID)
+            try container.encodeIfPresent(scheduledStartAt, forKey: .scheduledStartAt)
+            try container.encodeIfPresent(scheduledEndAt, forKey: .scheduledEndAt)
+            try container.encodeIfPresent(estimatedDuration, forKey: .estimatedDuration)
+            try container.encodeIfPresent(dueDate, forKey: .dueDate)
+        case .updateTaskFields(
+            let taskID,
+            let title,
+            let details,
+            let priority,
+            let energy,
+            let category,
+            let context,
+            let lifeAreaID,
+            let tagIDs
+        ):
+            try container.encode(Kind.updateTaskFields, forKey: .type)
+            try container.encode(taskID, forKey: .taskID)
+            try container.encodeFieldUpdate(title, forKey: .title)
+            try container.encodeFieldUpdate(details, forKey: .details)
+            try container.encodeFieldUpdate(priority, forKey: .priority)
+            try container.encodeFieldUpdate(energy, forKey: .energy)
+            try container.encodeFieldUpdate(category, forKey: .category)
+            try container.encodeFieldUpdate(context, forKey: .context)
+            try container.encodeFieldUpdate(lifeAreaID, forKey: .lifeAreaID)
+            try container.encodeFieldUpdate(tagIDs, forKey: .tagIDs)
+        case .deferTask(let taskID, let targetDate, let reason):
+            try container.encode(Kind.deferTask, forKey: .type)
+            try container.encode(taskID, forKey: .taskID)
+            try container.encode(targetDate, forKey: .targetDate)
+            try container.encode(reason, forKey: .reason)
+        case .dropTaskFromToday(let taskID, let destination, let reason):
+            try container.encode(Kind.dropTaskFromToday, forKey: .type)
+            try container.encode(taskID, forKey: .taskID)
+            try container.encode(destination, forKey: .destination)
+            try container.encode(reason, forKey: .reason)
         }
     }
 }

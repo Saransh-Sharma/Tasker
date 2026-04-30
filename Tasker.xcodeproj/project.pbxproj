@@ -40,6 +40,10 @@
 		3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */; };
 		350E661527174B8BDEE11FCC /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D379A868382E81C83D874E36 /* TaskRowView.swift */; };
 		355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* HomeForedropView.swift */; };
+		A11D5A110000000000000011 /* HomeDayLiquidSwipeSide.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000001 /* HomeDayLiquidSwipeSide.swift */; };
+		A11D5A110000000000000012 /* HomeDayLiquidSwipeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000002 /* HomeDayLiquidSwipeData.swift */; };
+		A11D5A110000000000000013 /* HomeDayLiquidSwipeWaveShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000003 /* HomeDayLiquidSwipeWaveShape.swift */; };
+		A11D5A110000000000000014 /* HomeDayLiquidSwipeOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000004 /* HomeDayLiquidSwipeOverlay.swift */; };
 		36235D01BFCF2D2001A39CCE /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift */; };
 		37A2B8A6A25F06C72606019E /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */; };
 		3A549BEBEF3902410F96971A /* To Do List/View/FocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */; };
@@ -162,6 +166,8 @@
 		75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328B52DFB604000F36C31 /* MLXRandom */; };
 		75A328B92DFB606700F36C31 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328B82DFB606700F36C31 /* MLXLLM */; };
 		75A328BB2DFB606700F36C31 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328BA2DFB606700F36C31 /* MLXLMCommon */; };
+		75A328C12DFB606700F36C31 /* Hub in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328BF2DFB606700F36C31 /* Hub */; };
+		75A328C22DFB606700F36C31 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328C02DFB606700F36C31 /* Tokenizers */; };
 		75A400FD248C57DD002F0E7A /* ToDoAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A400FC248C57DC002F0E7A /* ToDoAnimations.swift */; };
 		75A631602E8BDAB9006EEA59 /* LGSearchViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A6315C2E8BDAB9006EEA59 /* LGSearchViewController.swift */; };
 		75A631612E8BDAB9006EEA59 /* LGSearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A6315D2E8BDAB9006EEA59 /* LGSearchViewModel.swift */; };
@@ -284,6 +290,7 @@
 		A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */; };
 		A1B2C3D52F90000100AA1001 /* TaskEditorSectionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D72F90000100AA1001 /* TaskEditorSectionCard.swift */; };
 		A1C2D3E4F5A60718293B4C5D /* AssistantPlannerServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */; };
+		A1C2D3E4F5A60718293B4C5E /* AssistantEnvelopeValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */; };
 		A1C3D4E5F6A7B8C9D0E1F2A3 /* KeyboardShortcutsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */; };
 		A1D100012F90000100AA2001 /* Shared/ShortcutHandoffStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D100032F90000100AA2001 /* Shared/ShortcutHandoffStore.swift */; };
 		A1D100022F90000100AA2001 /* To Do List/State/DI/TaskerPersistentStoreBootstrapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D100042F90000100AA2001 /* To Do List/State/DI/TaskerPersistentStoreBootstrapService.swift */; };
@@ -321,6 +328,8 @@
 		A6E1D4132F3C120100B1C2D3 /* TaskSemanticIndexStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4142F3C120100B1C2D3 /* TaskSemanticIndexStore.swift */; };
 		A6E1D4152F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4162F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift */; };
 		A6E1D4172F3C120100B1C2D3 /* LLMGenerationProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4182F3C120100B1C2D3 /* LLMGenerationProfile.swift */; };
+		A6E1D4192F3C120100B1C2D3 /* EvaProposalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */; };
+		A6E1D41C2F3C120100B1C2D3 /* EvaDayOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */; };
 		A7B8C9D0E1F20123456789A2 /* HabitBoardPresentationBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */; };
 		A7B8C9D0E1F20123456789A4 /* HomeHabitLastCellInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A3 /* HomeHabitLastCellInteractionTests.swift */; };
 		A7B8C9D0E1F20123456789A6 /* HabitLastCellRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A5 /* HabitLastCellRuntimeTests.swift */; };
@@ -372,6 +381,8 @@
 		B1C2D3E52F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E82F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift */; };
 		B1C2D3E62F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E92F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift */; };
 		B1C2D3EA2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3EB2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift */; };
+		B1C2D3EC2F90000100AA1001 /* TaskerWidgets/HomeCalendarWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3ED2F90000100AA1001 /* TaskerWidgets/HomeCalendarWidgetView.swift */; };
+		B1C2D3EF2F90000100AA1001 /* TaskerWidgets/HomeTimelineWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3F02F90000100AA1001 /* TaskerWidgets/HomeTimelineWidgetView.swift */; };
 		B2E100000000000000000201 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */; };
 		B2E100000000000000000202 /* To Do List/Presentation/Models/HomeTodayRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */; };
 		B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */; };
@@ -419,6 +430,7 @@
 		C4B2E3D5F6A7081C /* To Do List/View/MilestoneCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70B /* To Do List/View/MilestoneCelebrationView.swift */; };
 		C4B2E3D5F6A7081D /* To Do List/View/BadgeDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70C /* To Do List/View/BadgeDetailSheet.swift */; };
 		C4D5E6F70891A2B3C4D5E6F8 /* TaskDetailSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E6F7 /* TaskDetailSheetView.swift */; };
+		C4D5E6F70891A2B3C4D5E701 /* TaskScheduleEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */; };
 		C537950FC6FD78BB996E7CA5 /* To Do List/View/HomeXPHeroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DC0A5BC84D9C6C792B2AB6 /* To Do List/View/HomeXPHeroView.swift */; };
 		C5E24F11E95F5281AFA4E8DD /* UIKit+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A94E5E4F9BB3AA846B56A72 /* UIKit+TokenAdapters.swift */; };
 		C6182C050AFE59B731DAD798 /* TaskerWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F9A8B91DCC93833939CAE3C6 /* TaskerWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -515,6 +527,7 @@
 		E0A10000000000000000000E /* HeroWelcomeHighCompressMb.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */; };
 		E0A100000000000000000301 /* EvaActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000302 /* EvaActivationTests.swift */; };
 		E15729081BE877C1AF53C8C8 /* To Do List/Domain/Models/ExternalSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAA3A6573B0FE5C495C67AC /* To Do List/Domain/Models/ExternalSyncModels.swift */; };
+		E1A100000000000000000001 /* HomeReplanDayUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A200000000000000000001 /* HomeReplanDayUITests.swift */; };
 		E1C5A4B1D2E3F40123456789 /* To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C5A4B1D2E3F4012345678C /* To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift */; };
 		E1C5A4B1D2E3F4012345678A /* To Do List/UseCases/Task/DeleteTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C5A4B1D2E3F4012345678D /* To Do List/UseCases/Task/DeleteTaskDefinitionUseCase.swift */; };
 		E1C5A4B1D2E3F4012345678B /* To Do List/UseCases/Task/RescheduleTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C5A4B1D2E3F4012345678E /* To Do List/UseCases/Task/RescheduleTaskDefinitionUseCase.swift */; };
@@ -870,6 +883,7 @@
 		A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorSection.swift; sourceTree = "<group>"; };
 		A1B2C3D72F90000100AA1001 /* TaskEditorSectionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorSectionCard.swift; sourceTree = "<group>"; };
 		A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPlannerServiceTests.swift; sourceTree = "<group>"; };
+		A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidatorTests.swift; sourceTree = "<group>"; };
 		A1D100032F90000100AA2001 /* Shared/ShortcutHandoffStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Shared/ShortcutHandoffStore.swift; sourceTree = SOURCE_ROOT; };
 		A1D100042F90000100AA2001 /* To Do List/State/DI/TaskerPersistentStoreBootstrapService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/DI/TaskerPersistentStoreBootstrapService.swift"; sourceTree = SOURCE_ROOT; };
 		A1E5C40F2F1A4B9D9C1E8A12 /* To Do List/Domain/Interfaces/AppleRemindersProviderProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/AppleRemindersProviderProtocol.swift"; sourceTree = SOURCE_ROOT; };
@@ -896,6 +910,8 @@
 		A6E1D4142F3C120100B1C2D3 /* TaskSemanticIndexStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticIndexStore.swift; sourceTree = "<group>"; };
 		A6E1D4162F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticRetrievalService.swift; sourceTree = "<group>"; };
 		A6E1D4182F3C120100B1C2D3 /* LLMGenerationProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMGenerationProfile.swift; sourceTree = "<group>"; };
+		A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaProposalCard.swift; sourceTree = "<group>"; };
+		A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaDayOverview.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardPresentationBuilderTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A3 /* HomeHabitLastCellInteractionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeHabitLastCellInteractionTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A5 /* HabitLastCellRuntimeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitLastCellRuntimeTests.swift; sourceTree = "<group>"; };
@@ -941,6 +957,8 @@
 		B1C2D3E82F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetHomeViews.swift; sourceTree = SOURCE_ROOT; };
 		B1C2D3E92F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetAccessoryViews.swift; sourceTree = SOURCE_ROOT; };
 		B1C2D3EB2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetDesignSystemCompat.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3ED2F90000100AA1001 /* TaskerWidgets/HomeCalendarWidgetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/HomeCalendarWidgetView.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3F02F90000100AA1001 /* TaskerWidgets/HomeTimelineWidgetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/HomeTimelineWidgetView.swift; sourceTree = SOURCE_ROOT; };
 		B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutsCard.swift; sourceTree = "<group>"; };
 		B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeTodayRow.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeHabitRow.swift"; sourceTree = SOURCE_ROOT; };
@@ -971,6 +989,10 @@
 		BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		BF5D7161411B42651DF00D60 /* HomeForedropView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeForedropView.swift; sourceTree = "<group>"; };
+		A11D5A110000000000000001 /* HomeDayLiquidSwipeSide.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeSide.swift; sourceTree = "<group>"; };
+		A11D5A110000000000000002 /* HomeDayLiquidSwipeData.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeData.swift; sourceTree = "<group>"; };
+		A11D5A110000000000000003 /* HomeDayLiquidSwipeWaveShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeWaveShape.swift; sourceTree = "<group>"; };
+		A11D5A110000000000000004 /* HomeDayLiquidSwipeOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeOverlay.swift; sourceTree = "<group>"; };
 		C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskerWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
 		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
 		C1A100000000000000000001 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
@@ -994,6 +1016,7 @@
 		C4AF3952DBA8C2ACE185FEF0 /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/DailyXPAggregateDefinition.swift"; sourceTree = SOURCE_ROOT; };
 		C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskReadModelRepositoryProtocol.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E6F7 /* TaskDetailSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailSheetView.swift; sourceTree = "<group>"; };
+		C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskScheduleEditor.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF01 /* AddTaskCreateButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskCreateButton.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF02 /* AddTaskDescriptionField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskDescriptionField.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF03 /* AddTaskInlineCreator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskInlineCreator.swift; sourceTree = "<group>"; };
@@ -1092,6 +1115,7 @@
 		E0A10000000000000000010D /* EvaActivationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationComponents.swift; sourceTree = "<group>"; };
 		E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = HeroWelcomeHighCompressMb.mp4; sourceTree = SOURCE_ROOT; };
 		E0A100000000000000000302 /* EvaActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationTests.swift; sourceTree = "<group>"; };
+		E1A200000000000000000001 /* HomeReplanDayUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReplanDayUITests.swift; sourceTree = "<group>"; };
 		E1C5A4B1D2E3F4012345678C /* To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		E1C5A4B1D2E3F4012345678D /* To Do List/UseCases/Task/DeleteTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Task/DeleteTaskDefinitionUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		E1C5A4B1D2E3F4012345678E /* To Do List/UseCases/Task/RescheduleTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Task/RescheduleTaskDefinitionUseCase.swift"; sourceTree = SOURCE_ROOT; };
@@ -1155,6 +1179,8 @@
 				75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */,
 				75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */,
 				75A328BB2DFB606700F36C31 /* MLXLMCommon in Frameworks */,
+				75A328C12DFB606700F36C31 /* Hub in Frameworks */,
+				75A328C22DFB606700F36C31 /* Tokenizers in Frameworks */,
 				521748F5D68F9EB9E2D40DF8 /* Pods_Tasker.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1213,6 +1239,8 @@
 				B1C2D3E82F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift */,
 				B1C2D3E92F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift */,
 				B1C2D3EB2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift */,
+				B1C2D3ED2F90000100AA1001 /* TaskerWidgets/HomeCalendarWidgetView.swift */,
+				B1C2D3F02F90000100AA1001 /* TaskerWidgets/HomeTimelineWidgetView.swift */,
 				3A74DF0E9DCAEB8A8179F375 /* TaskerWidgets/TodayXPWidget.swift */,
 				B4599EE24B534345B7E5F063 /* TaskerWidgets/WeeklyScoreboardWidget.swift */,
 				89676F376DC27DF3823AB623 /* TaskerWidgets/NextMilestoneWidget.swift */,
@@ -1591,6 +1619,7 @@
 				F1C0A1234B56789000ABCD01 /* TaskDetailViewModelTests.swift */,
 				F5A100022F6A200100ABC001 /* TaskerAppShortcutsTests.swift */,
 				A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */,
+				A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */,
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
 				E0A100000000000000000302 /* EvaActivationTests.swift */,
 				B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */,
@@ -1646,6 +1675,7 @@
 				A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */,
 				B7C8D9E12F6A100100ABC123 /* ChatPlanApplyUndoTests.swift */,
 				CA1A2000000000000000000D /* HomeCalendarModuleUITests.swift */,
+				E1A200000000000000000001 /* HomeReplanDayUITests.swift */,
 				7551BCCC2EAB665F003C6916 /* Tests */,
 			);
 			path = "To Do ListUITests";
@@ -1805,6 +1835,7 @@
 				75A631682E8BDADC006EEA59 /* LiquidGlass */,
 				52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */,
 				C4D5E6F70891A2B3C4D5E6F7 /* TaskDetailSheetView.swift */,
+				C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */,
 				D379A868382E81C83D874E36 /* TaskRowView.swift */,
 				2A7397B50382FF7FB4FAEC5F /* TaskSectionView.swift */,
 				E526F0CB3E9299C87861646E /* TaskListView.swift */,
@@ -1828,6 +1859,10 @@
 				17DC0A5BC84D9C6C792B2AB6 /* To Do List/View/HomeXPHeroView.swift */,
 				D4F10000000000000000010B /* HomeWeeklySummaryCard.swift */,
 				BF5D7161411B42651DF00D60 /* HomeForedropView.swift */,
+				A11D5A110000000000000001 /* HomeDayLiquidSwipeSide.swift */,
+				A11D5A110000000000000002 /* HomeDayLiquidSwipeData.swift */,
+				A11D5A110000000000000003 /* HomeDayLiquidSwipeWaveShape.swift */,
+				A11D5A110000000000000004 /* HomeDayLiquidSwipeOverlay.swift */,
 				D4F400000000000000000202 /* To Do List/View/HomeTimelineSurface.swift */,
 				D2A100000000000000000003 /* To Do List/View/QuietTrackingComposerView.swift */,
 				F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */,
@@ -2230,6 +2265,8 @@
 				A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */,
 				A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */,
 				A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */,
+				A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */,
+				A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */,
 				A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */,
 				A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */,
 				A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */,
@@ -2475,6 +2512,8 @@
 				75F89FB12DFC62C3009EDD8F /* MarkdownUI */,
 				75A328B52DFB604000F36C31 /* MLXRandom */,
 				75A328BA2DFB606700F36C31 /* MLXLMCommon */,
+				75A328BF2DFB606700F36C31 /* Hub */,
+				75A328C02DFB606700F36C31 /* Tokenizers */,
 			);
 			productName = "To Do List";
 			productReference = 753EFC9A2445A24500A739E3 /* This Day.app */;
@@ -2571,6 +2610,7 @@
 			packageReferences = (
 				75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */,
 				75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
+				75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */,
 				75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */,
 			);
@@ -2763,6 +2803,8 @@
 				B1C2D3E52F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift in Sources */,
 				B1C2D3E62F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift in Sources */,
 				B1C2D3EA2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift in Sources */,
+				B1C2D3EC2F90000100AA1001 /* TaskerWidgets/HomeCalendarWidgetView.swift in Sources */,
+				B1C2D3EF2F90000100AA1001 /* TaskerWidgets/HomeTimelineWidgetView.swift in Sources */,
 				CD83FC6E516299A8FB19F781 /* TaskerWidgets/TodayXPWidget.swift in Sources */,
 				7DDFA05C1E835A398268D1EF /* TaskerWidgets/WeeklyScoreboardWidget.swift in Sources */,
 				481A6828453BE977412FD2EB /* TaskerWidgets/NextMilestoneWidget.swift in Sources */,
@@ -2896,6 +2938,8 @@
 				A6E1D4032F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift in Sources */,
 				A6E1D4052F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift in Sources */,
 				A6E1D4072F3C120100B1C2D3 /* AssistantPlannerService.swift in Sources */,
+				A6E1D41C2F3C120100B1C2D3 /* EvaDayOverview.swift in Sources */,
+				A6E1D4192F3C120100B1C2D3 /* EvaProposalCard.swift in Sources */,
 				A6E1D4092F3C120100B1C2D3 /* DailyBriefService.swift in Sources */,
 				A6E1D40B2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift in Sources */,
 				A6E1D40D2F3C120100B1C2D3 /* OverdueTriageService.swift in Sources */,
@@ -2972,6 +3016,7 @@
 				B8E100032F70000100A0A001 /* Effects/TaskerCTABezel.metal in Sources */,
 				B77B0891A4A5B4BF8D6162DC /* TaskDetailComponents.swift in Sources */,
 				C4D5E6F70891A2B3C4D5E6F8 /* TaskDetailSheetView.swift in Sources */,
+				C4D5E6F70891A2B3C4D5E701 /* TaskScheduleEditor.swift in Sources */,
 				350E661527174B8BDEE11FCC /* TaskRowView.swift in Sources */,
 				52EA01C705B92C45F65720CA /* TaskSectionView.swift in Sources */,
 				32CEC1ABC506CDA117F1CB3B /* TaskListView.swift in Sources */,
@@ -3011,6 +3056,10 @@
 				B1A000000000000000000006 /* HomeEvaLegacySheetViews.swift in Sources */,
 				B1A000000000000000000008 /* HomeEvaTriageSprintSheetV2.swift in Sources */,
 				355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */,
+				A11D5A110000000000000011 /* HomeDayLiquidSwipeSide.swift in Sources */,
+				A11D5A110000000000000012 /* HomeDayLiquidSwipeData.swift in Sources */,
+				A11D5A110000000000000013 /* HomeDayLiquidSwipeWaveShape.swift in Sources */,
+				A11D5A110000000000000014 /* HomeDayLiquidSwipeOverlay.swift in Sources */,
 				D4F400000000000000000201 /* To Do List/View/HomeTimelineSurface.swift in Sources */,
 				CA1A10000000000000000006 /* To Do List/View/Calendar/EventKitCalendarChooserSheet.swift in Sources */,
 				CA1A10000000000000000007 /* To Do List/View/Calendar/EventKitEventDetailView.swift in Sources */,
@@ -3203,6 +3252,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1C2D3E4F5A60718293B4C5D /* AssistantPlannerServiceTests.swift in Sources */,
+				A1C2D3E4F5A60718293B4C5E /* AssistantEnvelopeValidatorTests.swift in Sources */,
 				A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */,
 				C1A2B3C4D5E6F70011223348 /* LLMRuntimeCoordinatorTests.swift in Sources */,
 				C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */,
@@ -3287,6 +3337,7 @@
 				C8A4F1023D6E4B7A91C2D304 /* HabitBoardUITests.swift in Sources */,
 				D2A100000000000000000006 /* QuietTrackingUITests.swift in Sources */,
 				CA1A1000000000000000000D /* HomeCalendarModuleUITests.swift in Sources */,
+				E1A100000000000000000001 /* HomeReplanDayUITests.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3354,7 +3405,7 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -3417,7 +3468,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-					TASKER_MARKETING_VERSION = 1.8.9;
+				TASKER_MARKETING_VERSION = 1.8.9;
 			};
 			name = Debug;
 		};
@@ -3472,7 +3523,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-					TASKER_MARKETING_VERSION = 1.8.9;
+				TASKER_MARKETING_VERSION = 1.8.9;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -3484,7 +3535,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -3494,7 +3545,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-					MARKETING_VERSION = "$(TASKER_MARKETING_VERSION)";
+				MARKETING_VERSION = 1.9.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-no_warn_duplicate_libraries",
@@ -3514,7 +3565,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -3524,7 +3575,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-					MARKETING_VERSION = "$(TASKER_MARKETING_VERSION)";
+				MARKETING_VERSION = 1.9.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-no_warn_duplicate_libraries",
@@ -3647,7 +3698,7 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -3712,10 +3763,10 @@
 		};
 		75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/PrismML-Eng/mlx-swift.git";
+			repositoryURL = "https://github.com/ml-explore/mlx-swift.git";
 			requirement = {
-				branch = v0.30.6_prism;
-				kind = branch;
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.31.3;
 			};
 		};
 		75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
@@ -3723,7 +3774,15 @@
 			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
 			requirement = {
 				kind = upToNextMinorVersion;
-				minimumVersion = 2.30.6;
+				minimumVersion = 3.31.3;
+			};
+		};
+		75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-transformers.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
 			};
 		};
 		75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
@@ -3761,6 +3820,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
 			productName = MLXLMCommon;
+		};
+		75A328BF2DFB606700F36C31 /* Hub */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Hub;
+		};
+		75A328C02DFB606700F36C31 /* Tokenizers */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Tokenizers;
 		};
 		75F89FB12DFC62C3009EDD8F /* MarkdownUI */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -274,42 +274,52 @@ final class SettingsViewModel: ObservableObject {
     }
 
     var calendarAccessStatusLabel: String {
+        let accessAction = calendarIntegrationService.accessAction(for: calendarAuthorizationStatus)
         switch calendarAuthorizationStatus {
         case .authorized:
             return String(localized: "Connected")
         case .notDetermined:
             return String(localized: "Not requested")
         case .denied:
-            return String(localized: "Denied")
+            switch accessAction {
+            case .requestPermission:
+                return String(localized: "Needs access")
+            default:
+                return String(localized: "Denied")
+            }
         case .restricted:
             return String(localized: "Restricted")
         case .writeOnly:
-            return String(localized: "Write-only")
+            return String(localized: "Needs full access")
         }
     }
 
     var calendarAccessSubtitle: String {
+        let accessAction = calendarIntegrationService.accessAction(for: calendarAuthorizationStatus)
         switch calendarAuthorizationStatus {
         case .authorized:
             return String(localized: "Tasker can read your selected calendars.")
         case .notDetermined:
-            return String(localized: "Grant access to show schedule context in Home.")
+            return String(localized: "Allow full calendar access to show schedule context in Home.")
         case .denied:
-            return String(localized: "Calendar access is off. Open Settings to re-enable it.")
+            return String(localized: "Calendar access is denied by iOS. Enable Tasker in Settings > Privacy & Security > Calendars. If Tasker is missing, restart iPhone, reinstall Tasker, or reset Location & Privacy.")
         case .restricted:
             return String(localized: "Calendar access is restricted by system policy.")
         case .writeOnly:
-            return String(localized: "Tasker has write-only access. Open Settings to allow read access.")
+            return String(localized: "Tasker has write-only access. Tap to request full calendar access.")
         }
     }
 
     var calendarAccessTone: TaskerSettingsTone {
+        let accessAction = calendarIntegrationService.accessAction(for: calendarAuthorizationStatus)
         switch calendarAuthorizationStatus {
         case .authorized:
             return .success
         case .notDetermined, .writeOnly:
             return .warning
-        case .denied, .restricted:
+        case .denied:
+            return accessAction == .requestPermission ? .warning : .danger
+        case .restricted:
             return .danger
         }
     }
@@ -436,8 +446,15 @@ final class SettingsViewModel: ObservableObject {
 
     func requestCalendarPermission() {
         TaskerFeedback.medium()
-        _ = calendarIntegrationService.performAccessAction(openSystemSettings: openSystemSettings)
+        _ = calendarIntegrationService.performAccessAction(source: "settings", openSystemSettings: openSystemSettings)
     }
+
+    #if DEBUG
+    func copyCalendarDiagnostics() {
+        UIPasteboard.general.string = CalendarDiagnosticsStore.shared.recentEntriesText(limit: 20)
+        TaskerFeedback.selection()
+    }
+    #endif
 
     func openCalendarChooser() {
         guard calendarAuthorizationStatus.isAuthorizedForRead else {

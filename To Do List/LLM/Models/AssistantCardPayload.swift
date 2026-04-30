@@ -6,6 +6,7 @@ enum AssistantCardType: String, Codable {
     case status
     case error
     case commandResult
+    case dayOverview
 }
 
 enum AssistantCardStatus: String, Codable {
@@ -33,6 +34,8 @@ struct AssistantCardPayload: Codable, Equatable {
     var expiresAt: Date?
     var message: String?
     var commandResult: SlashCommandExecutionResult?
+    var evaProposal: EvaProposalReviewPayload?
+    var dayOverview: EvaDayOverviewPayload?
 
     enum CodingKeys: String, CodingKey {
         case cardType = "card_type"
@@ -46,6 +49,8 @@ struct AssistantCardPayload: Codable, Equatable {
         case expiresAt = "expires_at"
         case message
         case commandResult = "command_result"
+        case evaProposal = "eva_proposal"
+        case dayOverview = "day_overview"
     }
 
     /// Initializes a new instance.
@@ -60,7 +65,9 @@ struct AssistantCardPayload: Codable, Equatable {
         affectedTaskCount: Int = 0,
         expiresAt: Date? = nil,
         message: String? = nil,
-        commandResult: SlashCommandExecutionResult? = nil
+        commandResult: SlashCommandExecutionResult? = nil,
+        evaProposal: EvaProposalReviewPayload? = nil,
+        dayOverview: EvaDayOverviewPayload? = nil
     ) {
         self.cardType = cardType
         self.runID = runID
@@ -73,6 +80,8 @@ struct AssistantCardPayload: Codable, Equatable {
         self.expiresAt = expiresAt
         self.message = message
         self.commandResult = commandResult
+        self.evaProposal = evaProposal
+        self.dayOverview = dayOverview
     }
 }
 

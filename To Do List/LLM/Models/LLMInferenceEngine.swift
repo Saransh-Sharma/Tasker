@@ -1,8 +1,10 @@
 import Foundation
+import Hub
 import MLX
 import MLXLLM
 import MLXLMCommon
 import MLXRandom
+import Tokenizers
 
 struct LLMInferencePrepareResult {
     let wasAlreadyLoaded: Bool
@@ -37,6 +39,89 @@ private struct LLMInferenceTokenRunResult: Sendable {
     let terminationReason: String
     let answerPhaseStartTokenCount: Int?
     let lastStopStage: String?
+}
+
+private enum LLMWiredMemoryCoordinator {
+    private static let activeGenerationPolicy = WiredMaxPolicy(
+        id: UUID(uuidString: "7D586D07-61E3-4D3B-A9B7-4A83709C7B7B") ?? UUID()
+    )
+    private static let activeGenerationBytes = 384 * 1024 * 1024
+
+    static func activeGenerationTicket() -> WiredMemoryTicket {
+        WiredMemoryTicket(
+            size: activeGenerationBytes,
+            policy: activeGenerationPolicy,
+            kind: .active
+        )
+    }
+}
+
+private struct HuggingFaceSnapshotDownloader: Downloader {
+    func download(
+        id: String,
+        revision: String?,
+        matching patterns: [String],
+        useLatest _: Bool,
+        progressHandler: @Sendable @escaping (Progress) -> Void
+    ) async throws -> URL {
+        try await HubApi.shared.snapshot(
+            from: Hub.Repo(id: id),
+            revision: revision ?? "main",
+            matching: patterns,
+            progressHandler: progressHandler
+        )
+    }
+}
+
+private struct TransformersTokenizerLoader: MLXLMCommon.TokenizerLoader {
+    func load(from directory: URL) async throws -> any MLXLMCommon.Tokenizer {
+        let upstream = try await Tokenizers.AutoTokenizer.from(modelFolder: directory)
+        return TransformersTokenizerAdapter(upstream: upstream)
+    }
+}
+
+private struct TransformersTokenizerAdapter: MLXLMCommon.Tokenizer {
+    private let upstream: any Tokenizers.Tokenizer
+
+    init(upstream: any Tokenizers.Tokenizer) {
+        self.upstream = upstream
+    }
+
+    func encode(text: String, addSpecialTokens: Bool) -> [Int] {
+        upstream.encode(text: text, addSpecialTokens: addSpecialTokens)
+    }
+
+    func decode(tokenIds: [Int], skipSpecialTokens: Bool) -> String {
+        upstream.decode(tokens: tokenIds, skipSpecialTokens: skipSpecialTokens)
+    }
+
+    func convertTokenToId(_ token: String) -> Int? {
+        upstream.convertTokenToId(token)
+    }
+
+    func convertIdToToken(_ id: Int) -> String? {
+        upstream.convertIdToToken(id)
+    }
+
+    var bosToken: String? { upstream.bosToken }
+    var eosToken: String? { upstream.eosToken }
+    var unknownToken: String? { upstream.unknownToken }
+
+    func applyChatTemplate(
+        messages: [[String: any Sendable]],
+        tools: [[String: any Sendable]]?,
+        additionalContext: [String: any Sendable]?
+    ) throws -> [Int] {
+        do {
+            return try upstream.applyChatTemplate(
+                messages: messages,
+                tools: tools,
+                additionalContext: additionalContext
+            )
+        } catch Tokenizers.TokenizerError.missingChatTemplate {
+            throw MLXLMCommon.TokenizerError.missingChatTemplate
+        }
+    }
 }
 
 struct LLMGenerationRequestOptions {
@@ -182,12 +267,20 @@ actor LLMInferenceEngine {
         let minAnswerTokens = profile.minAnswerTokensAfterAnswerPhase(
             isReasoningModel: isReasoningModel
         )
+        let maxKVSize = 2_048
+        let kvBits = 8
+        let prefillStepSize = 512
         let generateParameters = GenerateParameters(
             maxTokens: maxRawTokens,
+            maxKVSize: maxKVSize,
+            kvBits: kvBits,
+            kvGroupSize: 64,
+            quantizedKVStart: 128,
             temperature: profile.temperature,
             topP: profile.topP,
             repetitionPenalty: profile.repetitionPenalty,
-            repetitionContextSize: profile.repetitionContextSize
+            repetitionContextSize: profile.repetitionContextSize,
+            prefillStepSize: prefillStepSize
         )
 
         logWarning(
@@ -203,6 +296,9 @@ actor LLMInferenceEngine {
                 "min_answer_tokens_after_answer_phase": String(minAnswerTokens),
                 "temperature": String(format: "%.2f", profile.temperature),
                 "top_p": String(format: "%.2f", profile.topP),
+                "max_kv_size": String(maxKVSize),
+                "kv_bits": String(kvBits),
+                "prefill_step_size": String(prefillStepSize),
                 "repetition_penalty": profile.repetitionPenalty.map { String(format: "%.2f", $0) } ?? "nil",
                 "output_token_stride": String(outputTokenStride)
             ]
@@ -237,10 +333,12 @@ actor LLMInferenceEngine {
             var completionInfo: GenerateCompletionInfo?
             var shouldStopEarly = false
 
+            let wiredMemoryTicket = LLMWiredMemoryCoordinator.activeGenerationTicket()
             let (tokenStream, generationTask) = try MLXLMCommon.generateTokensTask(
                 input: input,
                 parameters: generateParameters,
-                context: context
+                context: context,
+                wiredMemoryTicket: wiredMemoryTicket
             )
 
             for await generation in tokenStream {
@@ -281,7 +379,7 @@ actor LLMInferenceEngine {
                         lastOutputUpdateNanoseconds = nowNanoseconds
                         if tokenCount > decodedTokenCount {
                             let deltaTokens = Array(generatedTokens.dropFirst(decodedTokenCount))
-                            streamedOutputText.append(context.tokenizer.decode(tokens: deltaTokens))
+                            streamedOutputText.append(context.tokenizer.decode(tokenIds: deltaTokens))
                             decodedTokenCount = tokenCount
                         }
 
@@ -332,13 +430,13 @@ actor LLMInferenceEngine {
 
             if generatedTokens.count > decodedTokenCount {
                 let deltaTokens = Array(generatedTokens.dropFirst(decodedTokenCount))
-                streamedOutputText.append(context.tokenizer.decode(tokens: deltaTokens))
+                streamedOutputText.append(context.tokenizer.decode(tokenIds: deltaTokens))
                 decodedTokenCount = generatedTokens.count
             }
 
             let finalRawOutput = generatedTokens.isEmpty
                 ? streamedOutputText
-                : context.tokenizer.decode(tokens: generatedTokens)
+                : context.tokenizer.decode(tokenIds: generatedTokens)
             let tokensPerSecond = completionInfo?.tokensPerSecond ?? {
                 let elapsed = max(Date().timeIntervalSince(generationStartedAt), 0.001)
                 return Double(generatedTokens.count) / elapsed
@@ -460,9 +558,14 @@ actor LLMInferenceEngine {
 
         let task = Task.detached(priority: .utility) { () async throws -> ModelContainer in
             try Task.checkCancellation()
-            return try await LLMModelFactory.shared.loadContainer(configuration: model) { progress in
-                onProgress?(progress.fractionCompleted)
-            }
+            return try await LLMModelFactory.shared.loadContainer(
+                from: HuggingFaceSnapshotDownloader(),
+                using: TransformersTokenizerLoader(),
+                configuration: model,
+                progressHandler: { progress in
+                    onProgress?(progress.fractionCompleted)
+                }
+            )
         }
 
         inFlightLoadTask = (modelName, task)

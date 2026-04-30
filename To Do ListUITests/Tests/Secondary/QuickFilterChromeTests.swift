@@ -136,6 +136,41 @@ final class QuickFilterChromeTests: BaseUITest {
         XCTAssertFalse(homePage.reflectionReadyButton.exists, "Reflection CTA should not be visible outside Today")
     }
 
+    func testTimelineHorizontalSwipeNavigatesDaysAndBackToToday() throws {
+        let homePage = HomePage(app: app)
+
+        guard homePage.timelineSurface.waitForExistence(timeout: 5),
+              homePage.headerDateLabel.waitForExistence(timeout: 5) else {
+            throw XCTSkip("Timeline surface and header date are not reachable in the current launch state")
+        }
+
+        let todayLabel = homePage.headerDateLabel.label
+
+        homePage.swipeTimelineLeft()
+
+        XCTAssertTrue(homePage.backToTodayButton.waitForExistence(timeout: 4), "Next-day swipe should show Back to Today")
+        XCTAssertTrue(homePage.headerDateLabel.waitForExistence(timeout: 4), "Custom-day header date should remain visible")
+        XCTAssertTrue(
+            waitForHeaderDate(on: homePage, notEqualTo: todayLabel, timeout: 4),
+            "Left swipe should move the Home timeline to the next day"
+        )
+
+        homePage.swipeTimelineRight()
+        XCTAssertTrue(
+            waitForHeaderDate(on: homePage, equalTo: todayLabel, timeout: 4),
+            "Right swipe from the next day should return the Home timeline to today"
+        )
+
+        homePage.swipeTimelineRight()
+        XCTAssertTrue(homePage.backToTodayButton.waitForExistence(timeout: 4), "Back to Today should reappear after another non-today swipe")
+        XCTAssertTrue(homePage.headerDateLabel.waitForExistence(timeout: 4), "Previous-day header date should remain visible")
+        homePage.backToTodayButton.tap()
+        XCTAssertTrue(
+            waitForHeaderDate(on: homePage, equalTo: todayLabel, timeout: 4),
+            "Back to Today should restore today's header date"
+        )
+    }
+
     func testReflectionReadyButtonOpensReflectionSheet() throws {
         let homePage = HomePage(app: app)
         let reflectionButton = homePage.reflectionReadyButton
@@ -213,5 +248,29 @@ final class QuickFilterChromeTests: BaseUITest {
         }
 
         XCTFail("Unable to find a visible future date to select in the home date picker")
+    }
+
+    private func waitForHeaderDate(
+        on homePage: HomePage,
+        equalTo expectedLabel: String,
+        timeout: TimeInterval
+    ) -> Bool {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", expectedLabel),
+            object: homePage.headerDateLabel
+        )
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func waitForHeaderDate(
+        on homePage: HomePage,
+        notEqualTo initialLabel: String,
+        timeout: TimeInterval
+    ) -> Bool {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label != %@", initialLabel),
+            object: homePage.headerDateLabel
+        )
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 }

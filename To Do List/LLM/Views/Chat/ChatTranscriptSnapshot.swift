@@ -38,13 +38,13 @@ enum ChatPendingResponseStatusText {
         case .idle:
             return nil
         case .buildingContext:
-            return "Reviewing your context..."
+            return "Checking the forecast..."
         case .assemblingPrompt:
-            return "Organizing the big picture..."
+            return "Sorting your timeline..."
         case .preparingModel:
             return "Getting the model ready..."
         case .generating:
-            return "Preparing a focused response..."
+            return "Protecting routines..."
         }
     }
 }
@@ -236,6 +236,7 @@ struct ChatTranscriptSnapshot: Equatable {
 }
 
 struct ChatLiveOutputState: Equatable {
+    let responseID: UUID?
     let threadID: UUID?
     let text: String
     let sourceModelName: String?
@@ -245,6 +246,7 @@ struct ChatLiveOutputState: Equatable {
     let pendingStatusText: String?
 
     static let empty = ChatLiveOutputState(
+        responseID: nil,
         threadID: nil,
         text: "",
         sourceModelName: nil,
@@ -264,6 +266,7 @@ struct ChatLiveOutputState: Equatable {
 
     var renderModel: ChatMessageRenderModel {
         ChatMessageRenderModel(
+            id: responseID ?? threadID ?? UUID(),
             role: .assistant,
             originalContent: text,
             displayContent: text,

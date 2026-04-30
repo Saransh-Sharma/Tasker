@@ -214,6 +214,41 @@ public enum V2FeatureFlags {
         set { defaults.set(newValue, forKey: "feature.eva.rescue") }
     }
 
+    public static var evaPlanWithText: Bool {
+        get { defaults.object(forKey: "feature.eva.plan_with_text") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.eva.plan_with_text") }
+    }
+
+    public static var evaStructuredComposer: Bool {
+        get { defaults.object(forKey: "feature.eva.structured_composer") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.eva.structured_composer") }
+    }
+
+    public static var evaProposalReviewCards: Bool {
+        get { defaults.object(forKey: "feature.eva.proposal_review_cards") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.eva.proposal_review_cards") }
+    }
+
+    public static var evaTimelineInlineDiff: Bool {
+        get { defaults.object(forKey: "feature.eva.timeline_inline_diff") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: "feature.eva.timeline_inline_diff") }
+    }
+
+    public static var evaAppliedRunHistory: Bool {
+        get { defaults.object(forKey: "feature.eva.applied_run_history") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: "feature.eva.applied_run_history") }
+    }
+
+    public static var evaVoiceDeferred: Bool {
+        get { defaults.object(forKey: "feature.eva.voice_deferred") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: "feature.eva.voice_deferred") }
+    }
+
+    public static var evaScanDeferred: Bool {
+        get { defaults.object(forKey: "feature.eva.scan_deferred") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: "feature.eva.scan_deferred") }
+    }
+
     public static var iPadNativeShellEnabled: Bool {
         get { defaults.object(forKey: "feature.ipad.native_shell") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.ipad.native_shell") }

@@ -287,6 +287,22 @@ struct TaskerWidgetBundle: WidgetBundle {
         ) { entry in
             LifeAreasBoardWidgetView(entry: entry)
         }
+        TaskListStaticWidget(
+            kind: "HomeCalendarWidget",
+            displayName: "Home Calendar",
+            description: "See today's calendar layer from your Home timeline.",
+            families: [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge]
+        ) { entry in
+            HomeCalendarWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "HomeTimelineWidget",
+            displayName: "Home Timeline",
+            description: "See your Home timeline with tasks, schedule, and quick capture.",
+            families: [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge]
+        ) { entry in
+            HomeTimelineWidgetView(entry: entry)
+        }
 
         TaskListStaticWidget(
             kind: "InlineNextTaskWidget",
@@ -486,7 +502,65 @@ struct TaskListProvider: TimelineProvider {
                     TaskListWidgetEnergyBucket(energy: "medium", count: 2),
                     TaskListWidgetEnergyBucket(energy: "high", count: 1)
                 ],
-                openTodayCount: 4
+                openTodayCount: 4,
+                calendar: TaskListWidgetCalendarSnapshot(
+                    status: .active,
+                    date: Date(),
+                    selectedCalendarCount: 2,
+                    availableCalendarCount: 4,
+                    eventsTodayCount: 3,
+                    nextMeeting: TaskListWidgetCalendarNextMeeting(
+                        event: TaskListWidgetCalendarEvent(
+                            id: "preview-design-review",
+                            title: "Design review",
+                            calendarTitle: "Work",
+                            calendarColorHex: "#2F7CF6",
+                            startDate: Date().addingTimeInterval(45 * 60),
+                            endDate: Date().addingTimeInterval(105 * 60),
+                            isAllDay: false,
+                            isBusy: true
+                        ),
+                        isInProgress: false,
+                        minutesUntilStart: 45
+                    ),
+                    freeUntil: Date().addingTimeInterval(45 * 60),
+                    timedEvents: [
+                        TaskListWidgetCalendarEvent(
+                            id: "preview-design-review",
+                            title: "Design review",
+                            calendarTitle: "Work",
+                            calendarColorHex: "#2F7CF6",
+                            startDate: Date().addingTimeInterval(45 * 60),
+                            endDate: Date().addingTimeInterval(105 * 60),
+                            isAllDay: false,
+                            isBusy: true
+                        ),
+                        TaskListWidgetCalendarEvent(
+                            id: "preview-planning",
+                            title: "Planning block",
+                            calendarTitle: "Tasker",
+                            calendarColorHex: "#23A36F",
+                            startDate: Date().addingTimeInterval(3 * 60 * 60),
+                            endDate: Date().addingTimeInterval(4 * 60 * 60),
+                            isAllDay: false,
+                            isBusy: true
+                        )
+                    ],
+                    allDayEvents: [
+                        TaskListWidgetCalendarEvent(
+                            id: "preview-launch",
+                            title: "Launch week",
+                            calendarTitle: "Tasker",
+                            calendarColorHex: "#B06AF7",
+                            startDate: Date(),
+                            endDate: Date(),
+                            isAllDay: true,
+                            isBusy: true
+                        )
+                    ],
+                    weekDays: TaskListProvider.previewCalendarWeek()
+                ),
+                timeline: TaskListProvider.previewTimeline()
             ),
             gamificationSnapshot: GamificationWidgetSnapshot()
         )
@@ -510,6 +584,126 @@ struct TaskListProvider: TimelineProvider {
         )
         let nextRefresh = Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date().addingTimeInterval(900)
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+    }
+
+    static func previewCalendarWeek() -> [TaskListWidgetCalendarDay] {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        return (0..<7).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: startOfToday) else {
+                return nil
+            }
+            return TaskListWidgetCalendarDay(
+                date: date,
+                eventCount: offset == 0 ? 3 : (offset % 3),
+                timedEvents: offset == 0 ? [
+                    TaskListWidgetCalendarEvent(
+                        id: "preview-week-\(offset)",
+                        title: "Design review",
+                        calendarTitle: "Work",
+                        calendarColorHex: "#2F7CF6",
+                        startDate: date.addingTimeInterval(10 * 60 * 60),
+                        endDate: date.addingTimeInterval(11 * 60 * 60),
+                        isAllDay: false,
+                        isBusy: true
+                    )
+                ] : [],
+                allDayEvents: []
+            )
+        }
+    }
+
+    static func previewTimeline() -> TaskListWidgetTimelineSnapshot {
+        let calendar = Calendar.current
+        let now = Date()
+        let day = calendar.startOfDay(for: now)
+        let wake = calendar.date(bySettingHour: 8, minute: 0, second: 0, of: day) ?? day
+        let sleep = calendar.date(bySettingHour: 22, minute: 0, second: 0, of: day) ?? day.addingTimeInterval(22 * 60 * 60)
+        let focusStart = calendar.date(byAdding: .minute, value: 30, to: now) ?? now
+        let focusEnd = calendar.date(byAdding: .minute, value: 75, to: focusStart) ?? focusStart.addingTimeInterval(75 * 60)
+        let reviewStart = calendar.date(byAdding: .hour, value: 3, to: now) ?? now
+        let reviewEnd = calendar.date(byAdding: .minute, value: 45, to: reviewStart) ?? reviewStart.addingTimeInterval(45 * 60)
+        let timedItems = [
+            TaskListWidgetTimelineItem(
+                id: "task:preview-focus",
+                source: .task,
+                taskID: UUID(),
+                title: "Draft launch notes",
+                subtitle: "Tasker",
+                startDate: focusStart,
+                endDate: focusEnd,
+                tintHex: "#2F7CF6",
+                systemImageName: "checklist",
+                accessoryText: "45m"
+            ),
+            TaskListWidgetTimelineItem(
+                id: "event:preview-review",
+                source: .calendarEvent,
+                eventID: "preview-review",
+                title: "Design review",
+                subtitle: "Work",
+                startDate: reviewStart,
+                endDate: reviewEnd,
+                tintHex: "#23A36F",
+                systemImageName: "calendar.badge.clock"
+            )
+        ]
+
+        return TaskListWidgetTimelineSnapshot(
+            date: day,
+            updatedAt: now,
+            day: TaskListWidgetTimelineDay(
+                date: day,
+                wakeAnchor: wake,
+                sleepAnchor: sleep,
+                currentTime: now,
+                allDayItems: [
+                    TaskListWidgetTimelineItem(
+                        id: "task:preview-all-day",
+                        source: .task,
+                        taskID: UUID(),
+                        title: "Launch week",
+                        subtitle: "Tasker",
+                        startDate: day,
+                        isAllDay: true,
+                        tintHex: "#B06AF7",
+                        systemImageName: "flag.fill"
+                    )
+                ],
+                inboxItems: [
+                    TaskListWidgetTimelineItem(
+                        id: "inbox:preview",
+                        source: .task,
+                        taskID: UUID(),
+                        title: "Capture follow-up",
+                        subtitle: "Inbox",
+                        tintHex: "#D97706",
+                        systemImageName: "tray"
+                    )
+                ],
+                timedItems: timedItems,
+                gaps: [
+                    TaskListWidgetTimelineGap(
+                        startDate: wake,
+                        endDate: focusStart,
+                        suggestedTaskCount: 1,
+                        supportingText: "Open window before the first focus task."
+                    )
+                ],
+                currentItemID: timedItems.first?.id
+            ),
+            weekDays: previewCalendarWeek().map {
+                TaskListWidgetTimelineWeekDay(
+                    date: $0.date,
+                    dayKey: $0.id,
+                    allDayCount: $0.allDayEvents.count,
+                    timedCount: $0.timedEvents.count,
+                    tintHexes: $0.timedEvents.compactMap(\.calendarColorHex),
+                    loadLevel: $0.eventCount > 2 ? .busy : ($0.eventCount > 0 ? .balanced : .light)
+                )
+            },
+            calendarPlottingEnabled: true
+        )
     }
 
     private func resolvedTaskSnapshot() -> TaskListWidgetSnapshot {
@@ -576,6 +770,7 @@ enum TaskWidgetRoutes {
     static var upcoming: URL { URL(string: "tasker://tasks/upcoming")! }
     static var overdue: URL { URL(string: "tasker://tasks/overdue")! }
     static var weeklyPlanner: URL { URL(string: "tasker://weekly/planner")! }
+    static var calendarSchedule: URL { URL(string: "tasker://calendar/schedule")! }
     static var quickAdd: URL { URL(string: "tasker://quickadd")! }
 
     static func task(_ id: UUID) -> URL {

@@ -107,13 +107,22 @@ struct EvaStarterPrompt: Identifiable, Equatable {
     let style: Style
     let isRecommended: Bool
 
+    static let dayOverviewPrompt = EvaStarterPrompt(
+        id: "day_overview",
+        title: "How is my day?",
+        submissionText: "How is my day looking today?",
+        style: .naturalLanguage,
+        isRecommended: true
+    )
+
     static let activationDefaults: [EvaStarterPrompt] = [
+        dayOverviewPrompt,
         EvaStarterPrompt(
             id: "plan_today",
             title: "Help me plan today",
             submissionText: "Help me plan today.",
             style: .naturalLanguage,
-            isRecommended: true
+            isRecommended: false
         ),
         EvaStarterPrompt(
             id: "focus_first",

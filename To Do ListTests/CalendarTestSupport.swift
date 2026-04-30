@@ -16,6 +16,7 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
     private(set) var fetchCalendarsCallCount = 0
     private(set) var fetchEventsCallCount = 0
     private(set) var resetStoreCallCount = 0
+    private(set) var requestAccessCallCount = 0
     private(set) var lastRequestedStartDate: Date?
     private(set) var lastRequestedEndDate: Date?
     private(set) var lastRequestedCalendarIDs: Set<String> = []
@@ -27,6 +28,7 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
     }
 
     func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+        requestAccessCallCount += 1
         if let nextStatus = authorizationStatusAfterAccess {
             authorizationStatusValue = nextStatus
         }

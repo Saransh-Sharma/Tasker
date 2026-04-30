@@ -600,18 +600,26 @@ struct LLMModelCompatibilityResult: Equatable {
 enum LLMRuntimeSupportMatrix {
     static func compatibility(for model: ModelConfiguration) -> LLMModelCompatibilityResult {
         #if targetEnvironment(simulator)
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            return LLMModelCompatibilityResult(
+                modelName: model.name,
+                availability: .temporarilyUnavailable,
+                statusReason: "Local EVA models are not available in the iOS Simulator."
+            )
+        }
+        #endif
+        if model == .bonsai_1_7b_mlx_1bit {
+            return LLMModelCompatibilityResult(
+                modelName: model.name,
+                availability: .temporarilyUnavailable,
+                statusReason: "Bonsai 1-bit requires Prism-specific MLX kernels and is disabled while EVA uses the stable upstream Qwen runtime."
+            )
+        }
         return LLMModelCompatibilityResult(
-            modelName: model.name,
-            availability: .temporarilyUnavailable,
-            statusReason: "Local EVA models are not available in the iOS Simulator."
-        )
-        #else
-        LLMModelCompatibilityResult(
             modelName: model.name,
             availability: .supported,
             statusReason: nil
         )
-        #endif
     }
 
     static func compatibility(for modelName: String) -> LLMModelCompatibilityResult? {
@@ -641,7 +649,23 @@ struct LLMRuntimeSmokeTestResult: Equatable {
 
 enum LLMRuntimeSmokeTester {
     static func classify(model: ModelConfiguration) -> LLMRuntimeSmokeTestResult {
-        LLMRuntimeSmokeTestResult(
+        let compatibility = LLMRuntimeSupportMatrix.compatibility(for: model)
+        guard compatibility.canActivate else {
+            return LLMRuntimeSmokeTestResult(
+                modelName: model.name,
+                status: .failed,
+                prepareDurationMs: nil,
+                firstTokenLatencyMs: nil,
+                peakMemoryMB: nil,
+                terminationReason: nil,
+                rawOutputPreview: nil,
+                sanitizedOutputPreview: nil,
+                sanitizationEmptiedNonEmptyRaw: nil,
+                fallbackShown: nil,
+                errorDescription: compatibility.prepareFailureMessage
+            )
+        }
+        return LLMRuntimeSmokeTestResult(
             modelName: model.name,
             status: .supported,
             prepareDurationMs: nil,
@@ -935,6 +959,11 @@ public extension ModelConfiguration {
         if let commandResult = payload.commandResult,
            let summary = summarizedSlashCommandResult(commandResult),
            let sanitized = formatForTokenizer(summary) {
+            return sanitized
+        }
+
+        if let dayOverview = payload.dayOverview,
+           let sanitized = formatForTokenizer(dayOverview.summaryMarkdown) {
             return sanitized
         }
 

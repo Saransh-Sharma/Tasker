@@ -869,7 +869,9 @@ struct LLMContextProjectionService {
                 "priority": task.priority.rawValue,
                 "type": task.type.rawValue,
                 "tag_names": tagNames,
-                "due_date": task.dueDate?.ISO8601Format() ?? NSNull()
+                "due_date": task.dueDate?.ISO8601Format() ?? NSNull(),
+                "scheduled_start_at": task.scheduledStartAt?.ISO8601Format() ?? NSNull(),
+                "scheduled_end_at": task.scheduledEndAt?.ISO8601Format() ?? NSNull()
             ]
 
             if compactTaskPayload == false {
@@ -884,7 +886,7 @@ struct LLMContextProjectionService {
             return projected
         }
         let habitPayloads: [[String: Any]] = habits.map { habit in
-            [
+            var payload: [String: Any] = [
                 "id": habit.habitID.uuidString,
                 "title": habit.title,
                 "is_positive": habit.isPositive,
@@ -893,6 +895,8 @@ struct LLMContextProjectionService {
                 "project": habit.projectName ?? "",
                 "icon_symbol": habit.iconSymbolName ?? "",
                 "icon_category": habit.iconCategoryKey ?? "",
+                "color_hex": habit.colorHex ?? "",
+                "cadence": Self.habitCadencePayload(habit.cadence),
                 "due_at": habit.dueAt?.ISO8601Format() ?? NSNull(),
                 "is_due_today": habit.isDueToday,
                 "is_overdue": habit.isOverdue,
@@ -903,6 +907,15 @@ struct LLMContextProjectionService {
                 "occurred_at": habit.occurredAt?.ISO8601Format() ?? NSNull(),
                 "keywords": habit.keywords
             ]
+            if habit.last14Days.isEmpty == false {
+                payload["last_14_days"] = habit.last14Days.map { mark in
+                    [
+                        "date": mark.date.ISO8601Format(),
+                        "state": Self.habitDayStateRaw(mark.state)
+                    ]
+                }
+            }
+            return payload
         }
         var payload: [String: Any] = [
             "context_type": contextType,
@@ -922,6 +935,38 @@ struct LLMContextProjectionService {
             return "{}"
         }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    private static func habitCadencePayload(_ cadence: HabitCadenceDraft?) -> [String: Any] {
+        guard let cadence else {
+            return [:]
+        }
+
+        switch cadence {
+        case .daily(let hour, let minute):
+            var payload: [String: Any] = ["rule_type": "daily"]
+            if let hour { payload["hour"] = hour }
+            if let minute { payload["minute"] = minute }
+            return payload
+        case .weekly(let daysOfWeek, let hour, let minute):
+            var payload: [String: Any] = [
+                "rule_type": "weekly",
+                "days_of_week": daysOfWeek.sorted()
+            ]
+            if let hour { payload["hour"] = hour }
+            if let minute { payload["minute"] = minute }
+            return payload
+        }
+    }
+
+    private static func habitDayStateRaw(_ state: HabitDayState) -> String {
+        switch state {
+        case .success: return "success"
+        case .failure: return "failure"
+        case .skipped: return "skipped"
+        case .none: return "none"
+        case .future: return "future"
+        }
     }
 
     private static func buildListSection(
@@ -1478,9 +1523,10 @@ struct LLMChatContextPartialFlags {
     let todayTimedOut: Bool
     let overdueTimedOut: Bool
     let upcomingTimedOut: Bool
+    let habitsTimedOut: Bool
 
     var contextPartial: Bool {
-        missingService || todayTimedOut || overdueTimedOut || upcomingTimedOut
+        missingService || todayTimedOut || overdueTimedOut || upcomingTimedOut || habitsTimedOut
     }
 
     var partialReasons: [String] {
@@ -1489,6 +1535,7 @@ struct LLMChatContextPartialFlags {
         if todayTimedOut { reasons.append("today_timeout") }
         if overdueTimedOut { reasons.append("overdue_timeout") }
         if upcomingTimedOut { reasons.append("upcoming_timeout") }
+        if habitsTimedOut { reasons.append("habits_timeout") }
         return reasons
     }
 
@@ -1498,6 +1545,7 @@ struct LLMChatContextPartialFlags {
             "today_timed_out": todayTimedOut,
             "overdue_timed_out": overdueTimedOut,
             "upcoming_timed_out": upcomingTimedOut,
+            "habits_timed_out": habitsTimedOut,
             "context_partial": contextPartial
         ]
     }
@@ -1527,6 +1575,7 @@ struct LLMChatContextEnvelope {
     let todayJSON: String
     let overdueJSON: String
     let upcomingJSON: String
+    let habitsJSON: String
     let metadata: LLMChatContextMetadata
     let partialFlags: LLMChatContextPartialFlags
 
@@ -1535,6 +1584,7 @@ struct LLMChatContextEnvelope {
             "today": Self.decodeJSONObject(from: todayJSON),
             "overdue": Self.decodeJSONObject(from: overdueJSON),
             "upcoming": Self.decodeJSONObject(from: upcomingJSON),
+            "habits": Self.decodeJSONObject(from: habitsJSON),
             "metadata": metadata.asDictionary(),
             "partial_flags": partialFlags.asDictionary()
         ]
@@ -1585,7 +1635,8 @@ enum LLMChatContextEnvelopeBuilder {
                 missingService: true,
                 todayTimedOut: false,
                 overdueTimedOut: false,
-                upcomingTimedOut: false
+                upcomingTimedOut: false,
+                habitsTimedOut: false
             )
             let metadata = LLMChatContextMetadata(
                 timezone: TimeZone.current.identifier,
@@ -1599,6 +1650,7 @@ enum LLMChatContextEnvelopeBuilder {
                 todayJSON: "{}",
                 overdueJSON: "{}",
                 upcomingJSON: "{}",
+                habitsJSON: "{}",
                 metadata: metadata,
                 partialFlags: partialFlags
             )
@@ -1620,17 +1672,20 @@ enum LLMChatContextEnvelopeBuilder {
 
         var overdueValue: (payload: String, timedOut: Bool) = ("{}", false)
         var upcomingValue: (payload: String, timedOut: Bool) = ("{}", false)
+        var habitsValue: (payload: String, timedOut: Bool) = ("{}", false)
 
         if Task.isCancelled {
             overdueValue = ("{}", true)
             upcomingValue = ("{}", true)
+            habitsValue = ("{}", true)
         } else if todayValue.timedOut {
             // Under pressure, avoid launching additional projection work this turn.
             overdueValue = ("{}", true)
             upcomingValue = ("{}", true)
+            habitsValue = ("{}", true)
             logWarning(
                 event: "chat_context_slice_short_circuit",
-                message: "Skipped overdue/upcoming context slices after today slice timeout",
+                message: "Skipped overdue/upcoming/habit context slices after today slice timeout",
                 fields: ["slice": "today"]
             )
         } else {
@@ -1651,13 +1706,26 @@ enum LLMChatContextEnvelopeBuilder {
                     await scopedService.buildUpcomingJSON()
                 }
             }
+            if Task.isCancelled || overdueValue.timedOut || upcomingValue.timedOut {
+                habitsValue = ("{}", true)
+                logWarning(
+                    event: "chat_context_slice_short_circuit",
+                    message: "Skipped habits context slice after upstream slice timeout",
+                    fields: ["slice": Task.isCancelled ? "cancelled" : (overdueValue.timedOut ? "overdue" : "upcoming")]
+                )
+            } else {
+                habitsValue = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+                    await scopedService.buildHabitJSON()
+                }
+            }
         }
 
         let partialFlags = LLMChatContextPartialFlags(
             missingService: false,
             todayTimedOut: todayValue.timedOut,
             overdueTimedOut: overdueValue.timedOut,
-            upcomingTimedOut: upcomingValue.timedOut
+            upcomingTimedOut: upcomingValue.timedOut,
+            habitsTimedOut: habitsValue.timedOut
         )
         let metadata = LLMChatContextMetadata(
             timezone: TimeZone.current.identifier,
@@ -1671,6 +1739,7 @@ enum LLMChatContextEnvelopeBuilder {
             todayJSON: todayValue.payload,
             overdueJSON: overdueValue.payload,
             upcomingJSON: upcomingValue.payload,
+            habitsJSON: habitsValue.payload,
             metadata: metadata,
             partialFlags: partialFlags
         )

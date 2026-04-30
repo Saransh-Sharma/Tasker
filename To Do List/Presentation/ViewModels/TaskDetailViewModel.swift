@@ -122,6 +122,7 @@ public final class TaskDetailViewModel: ObservableObject {
     @Published public var selectedType: TaskType
     @Published public var selectedProjectID: UUID
     @Published public var dueDate: Date?
+    @Published public var scheduledStartAt: Date?
     @Published public var reminderTime: Date?
     @Published public var isComplete: Bool
 
@@ -206,6 +207,7 @@ public final class TaskDetailViewModel: ObservableObject {
         self.selectedType = task.type
         self.selectedProjectID = task.projectID
         self.dueDate = task.dueDate
+        self.scheduledStartAt = task.scheduledStartAt
         self.reminderTime = task.alertReminderTime
         self.isComplete = task.isComplete
 
@@ -260,7 +262,9 @@ public final class TaskDetailViewModel: ObservableObject {
 
     public var scheduleSummary: String {
         var parts: [String] = []
-        if let dueDate {
+        if let scheduledStartAt {
+            parts.append(Self.scheduleRangeLabel(start: scheduledStartAt, end: scheduledEndAt))
+        } else if let dueDate {
             parts.append(DateUtils.formatDate(dueDate))
         } else {
             parts.append("No due date")
@@ -275,6 +279,15 @@ public final class TaskDetailViewModel: ObservableObject {
             parts.append(repeatPattern.displayName)
         }
         return parts.joined(separator: ", ")
+    }
+
+    public var scheduledEndAt: Date? {
+        guard let scheduledStartAt else { return nil }
+        return scheduledStartAt.addingTimeInterval(scheduleDuration)
+    }
+
+    public var durationMinutes: Int {
+        max(1, Int((scheduleDuration / 60).rounded()))
     }
 
     public var scheduleExtrasSummary: String {
@@ -497,6 +510,57 @@ public final class TaskDetailViewModel: ObservableObject {
         relationshipMetadataRequestID = UUID()
         childrenRequestID = UUID()
         hasLoadedChildren = false
+    }
+
+    public func setDueDate(_ date: Date?, calendar: Calendar = .current) {
+        guard let date else {
+            dueDate = nil
+            scheduledStartAt = nil
+            return
+        }
+
+        guard let scheduledStartAt else {
+            dueDate = date
+            return
+        }
+
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: scheduledStartAt)
+        let day = calendar.startOfDay(for: date)
+        let updatedStart = calendar.date(
+            bySettingHour: timeComponents.hour ?? 0,
+            minute: timeComponents.minute ?? 0,
+            second: 0,
+            of: day
+        ) ?? date
+        let roundedStart = Self.clearingSubminuteComponents(updatedStart, calendar: calendar)
+        self.scheduledStartAt = roundedStart
+        dueDate = roundedStart
+    }
+
+    public func setScheduledStartDate(_ date: Date?, calendar: Calendar = .current) {
+        guard let date else {
+            scheduledStartAt = nil
+            return
+        }
+
+        let roundedStart = Self.roundedToNearestScheduleSlot(date, intervalMinutes: Self.scheduleIntervalMinutes, calendar: calendar)
+        if estimatedDuration == nil {
+            estimatedDuration = scheduleDuration
+        }
+        scheduledStartAt = roundedStart
+    }
+
+    public func setDurationMinutes(_ minutes: Int) {
+        let boundedMinutes = max(1, minutes)
+        estimatedDuration = TimeInterval(boundedMinutes * 60)
+        if scheduledStartAt == nil {
+            let defaultStart = Self.defaultScheduledStart()
+            scheduledStartAt = defaultStart
+        }
+    }
+
+    public func defaultScheduledStartForEditor(now: Date = Date(), calendar: Calendar = .current) -> Date {
+        Self.defaultScheduledStart(now: now, calendar: calendar)
     }
 
     public func refreshProjectScopedMetadata() {
@@ -1015,6 +1079,11 @@ public final class TaskDetailViewModel: ObservableObject {
         var clearSection = false
         var dueDateChange: Date?
         var clearDueDate = false
+        var scheduledStartAtChange: Date?
+        var clearScheduledStartAt = false
+        var scheduledEndAtChange: Date?
+        var clearScheduledEndAt = false
+        var isAllDayChange: Bool?
         var parentTaskID: UUID?
         var clearParentTaskLink = false
         var tagIDs: [UUID]?
@@ -1062,12 +1131,34 @@ public final class TaskDetailViewModel: ObservableObject {
             }
         }
 
+        let effectiveScheduledEndAt = scheduledEndAtForStorage
+
         if areDatesDifferent(dueDate, persistedTask.dueDate) {
             if let dueDate {
                 dueDateChange = dueDate
             } else if persistedTask.dueDate != nil {
                 clearDueDate = true
             }
+        }
+
+        if areDatesDifferent(scheduledStartAt, persistedTask.scheduledStartAt) {
+            if let scheduledStartAt {
+                scheduledStartAtChange = scheduledStartAt
+            } else if persistedTask.scheduledStartAt != nil {
+                clearScheduledStartAt = true
+            }
+        }
+
+        if areDatesDifferent(effectiveScheduledEndAt, persistedTask.scheduledEndAt) {
+            if let effectiveScheduledEndAt {
+                scheduledEndAtChange = effectiveScheduledEndAt
+            } else if persistedTask.scheduledEndAt != nil {
+                clearScheduledEndAt = true
+            }
+        }
+
+        if scheduledStartAt != nil && persistedTask.isAllDay {
+            isAllDayChange = false
         }
 
         if selectedParentTaskID != persistedTask.parentTaskID {
@@ -1164,6 +1255,11 @@ public final class TaskDetailViewModel: ObservableObject {
             clearSection ||
             dueDateChange != nil ||
             clearDueDate ||
+            scheduledStartAtChange != nil ||
+            clearScheduledStartAt ||
+            scheduledEndAtChange != nil ||
+            clearScheduledEndAt ||
+            isAllDayChange != nil ||
             parentTaskID != nil ||
             clearParentTaskLink ||
             tagIDs != nil ||
@@ -1196,6 +1292,11 @@ public final class TaskDetailViewModel: ObservableObject {
             clearSection: clearSection,
             dueDate: dueDateChange,
             clearDueDate: clearDueDate,
+            scheduledStartAt: scheduledStartAtChange,
+            clearScheduledStartAt: clearScheduledStartAt,
+            scheduledEndAt: scheduledEndAtChange,
+            clearScheduledEndAt: clearScheduledEndAt,
+            isAllDay: isAllDayChange,
             parentTaskID: parentTaskID,
             clearParentTaskLink: clearParentTaskLink,
             tagIDs: tagIDs,
@@ -1229,6 +1330,7 @@ public final class TaskDetailViewModel: ObservableObject {
         selectedType = updatedTask.type
         selectedProjectID = updatedTask.projectID
         dueDate = updatedTask.dueDate
+        scheduledStartAt = updatedTask.scheduledStartAt
         reminderTime = updatedTask.alertReminderTime
         isComplete = updatedTask.isComplete
 
@@ -1257,9 +1359,29 @@ public final class TaskDetailViewModel: ObservableObject {
     private func makeTaskDraftForFitHint() -> TaskDefinition {
         var draft = persistedTask
         draft.dueDate = dueDate
+        draft.scheduledStartAt = scheduledStartAt
+        draft.scheduledEndAt = scheduledEndAt
         draft.estimatedDuration = estimatedDuration
         draft.updatedAt = Date()
         return draft
+    }
+
+    private var scheduleDuration: TimeInterval {
+        if let estimatedDuration, estimatedDuration > 0 {
+            return estimatedDuration
+        }
+        if let start = persistedTask.scheduledStartAt,
+           let end = persistedTask.scheduledEndAt,
+           end > start {
+            return end.timeIntervalSince(start)
+        }
+        return AddTaskViewModel.defaultEstimatedDuration
+    }
+
+    private var scheduledEndAtForStorage: Date? {
+        guard let scheduledStartAt else { return nil }
+        guard estimatedDuration != nil || persistedTask.scheduledEndAt != nil else { return nil }
+        return scheduledStartAt.addingTimeInterval(scheduleDuration)
     }
 
     /// Executes dedupeProjects.
@@ -1338,6 +1460,82 @@ public final class TaskDetailViewModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    nonisolated public static let scheduleIntervalMinutes = 15
+
+    public static func defaultScheduledStart(
+        now: Date = Date(),
+        intervalMinutes: Int = scheduleIntervalMinutes,
+        calendar: Calendar = .current
+    ) -> Date {
+        let intervalSeconds = TimeInterval(max(1, intervalMinutes) * 60)
+        let nextSlot = ceil(now.timeIntervalSinceReferenceDate / intervalSeconds) * intervalSeconds
+        return Date(timeIntervalSinceReferenceDate: nextSlot)
+    }
+
+    public static func roundedToNearestScheduleSlot(
+        _ date: Date,
+        intervalMinutes: Int = scheduleIntervalMinutes,
+        calendar: Calendar = .current
+    ) -> Date {
+        let intervalSeconds = TimeInterval(max(1, intervalMinutes) * 60)
+        let rounded = (date.timeIntervalSinceReferenceDate / intervalSeconds).rounded() * intervalSeconds
+        return clearingSubminuteComponents(Date(timeIntervalSinceReferenceDate: rounded), calendar: calendar)
+    }
+
+    public static func scheduleRangeLabel(start: Date, end: Date?, locale: Locale = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeStyle = .short
+        guard let end else {
+            return normalizedTimeText(formatter.string(from: start))
+        }
+        let startText = normalizedTimeText(formatter.string(from: start))
+        let endText = normalizedTimeText(formatter.string(from: end))
+        if localeUses12HourClock(formatter.locale) {
+            let periodFormatter = DateFormatter()
+            periodFormatter.locale = formatter.locale
+            periodFormatter.calendar = formatter.calendar
+            periodFormatter.timeZone = formatter.timeZone
+            periodFormatter.dateFormat = "a"
+            let startPeriod = normalizedTimeText(periodFormatter.string(from: start))
+            let endPeriod = normalizedTimeText(periodFormatter.string(from: end))
+            if startPeriod.isEmpty == false,
+               startPeriod == endPeriod,
+               startText.hasSuffix(startPeriod),
+               endText.hasSuffix(endPeriod) {
+                let compactStart = startText
+                    .dropLast(startPeriod.count)
+                    .trimmingCharacters(in: .whitespaces)
+                return "\(compactStart)-\(endText)"
+            }
+        }
+        return "\(startText)-\(endText)"
+    }
+
+    public static func scheduleRangeAccessibilityLabel(start: Date, end: Date?) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        guard let end else {
+            return normalizedTimeText(formatter.string(from: start))
+        }
+        return "\(normalizedTimeText(formatter.string(from: start))) to \(normalizedTimeText(formatter.string(from: end)))"
+    }
+
+    private static func clearingSubminuteComponents(_ date: Date, calendar: Calendar = .current) -> Date {
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        return calendar.date(from: components) ?? date
+    }
+
+    private static func normalizedTimeText(_ text: String) -> String {
+        text.replacingOccurrences(of: "\u{202F}", with: " ")
+    }
+
+    private static func localeUses12HourClock(_ locale: Locale) -> Bool {
+        DateFormatter
+            .dateFormat(fromTemplate: "j", options: 0, locale: locale)?
+            .contains("a") == true
     }
 
     private static func durationLabel(for duration: TimeInterval) -> String {

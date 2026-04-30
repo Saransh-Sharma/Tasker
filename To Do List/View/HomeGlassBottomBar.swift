@@ -11,6 +11,7 @@ struct HomeGlassBottomBar: View {
     let shellPhase: HomeShellPhase
 
     let onHome: () -> Void
+    let onCalendar: () -> Void
     let onChartsToggle: () -> Void
     let onSearch: () -> Void
     let onChat: () -> Void
@@ -20,40 +21,35 @@ struct HomeGlassBottomBar: View {
     private var prefersReducedMotion: Bool { shellPhase != .interactive }
 
     var body: some View {
-        barContent
-    }
-
-    private var barContent: some View {
-        HStack(spacing: spacing.s12) {
-            BottomToolCluster(
-                selectedItem: state.selectedItem,
-                shellPhase: shellPhase,
-                onTap: handleToolTap
-            )
-            .opacity(state.isMinimized ? 0 : 1)
-            .scaleEffect(state.isMinimized ? 0.96 : 1.0, anchor: .bottomLeading)
-            .offset(y: state.isMinimized ? spacing.s20 : 0)
-            .allowsHitTesting(!state.isMinimized)
-            .accessibilityHidden(state.isMinimized)
-            .animation(prefersReducedMotion ? .easeOut(duration: 0.14) : TaskerAnimation.snappy, value: state.isMinimized)
-
-            Spacer(minLength: spacing.s2)
-
-            BottomAddTaskCTA(
-                shellPhase: shellPhase,
-                onTap: handleCreateTap
-            )
-        }
+        HomeAnimatedTabBar(
+            selectedItem: state.selectedItem,
+            shellPhase: shellPhase,
+            items: HomeBottomTabDescriptor.homeTabs,
+            onTap: handleItemTap
+        )
         .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s12)
+        .padding(.top, spacing.s12)
+        .padding(.bottom, 0)
+        .scaleEffect(state.isMinimized ? 0.96 : 1.0, anchor: .bottom)
+        .offset(y: state.isMinimized ? spacing.s20 : 0)
+        .animation(prefersReducedMotion ? .easeOut(duration: 0.14) : TaskerAnimation.snappy, value: state.isMinimized)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.bottomBar")
         .accessibilityValue(state.isMinimized ? "minimized" : "expanded")
     }
 
-    /// Executes handleToolTap.
+    private func handleItemTap(_ item: HomeBottomBarItem) {
+        switch item {
+        case .create:
+            handleCreateTap()
+        default:
+            handleToolTap(item)
+        }
+    }
+
     private func handleToolTap(_ item: HomeBottomBarItem) {
         TaskerFeedback.selection()
-        withAnimation(prefersReducedMotion ? .easeOut(duration: 0.14) : .spring(response: 0.38, dampingFraction: 0.86)) {
+        withAnimation(selectionAnimation) {
             state.select(item)
         }
 
@@ -61,6 +57,8 @@ struct HomeGlassBottomBar: View {
             switch item {
             case .home:
                 onHome()
+            case .calendar:
+                onCalendar()
             case .charts:
                 onChartsToggle()
             case .search:
@@ -73,198 +71,423 @@ struct HomeGlassBottomBar: View {
         }
     }
 
-    /// Executes handleCreateTap.
     private func handleCreateTap() {
-        withAnimation(prefersReducedMotion ? .easeOut(duration: 0.14) : .spring(response: 0.38, dampingFraction: 0.86)) {
-            state.select(.create)
+        TaskerFeedback.medium()
+        withAnimation(selectionAnimation) {
+            state.selectMomentaryCreate()
         }
+
         DispatchQueue.main.async {
             onCreate()
         }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + (prefersReducedMotion ? 0.16 : 0.42)) {
+            Task { @MainActor in
+                guard state.selectedItem == .create else { return }
+                withAnimation(selectionAnimation) {
+                    state.restoreAfterMomentaryCreate()
+                }
+            }
+        }
+    }
+
+    private var selectionAnimation: Animation {
+        prefersReducedMotion
+            ? .easeOut(duration: 0.14)
+            : .spring(response: 0.38, dampingFraction: 0.86)
     }
 }
 
-private struct BottomToolDescriptor: Identifiable {
+private struct HomeBottomTabDescriptor: Identifiable {
     let item: HomeBottomBarItem
-    let symbolName: String
+    let staticSymbolName: String?
     let accessibilityID: String
     let accessibilityLabel: String
 
-    var id: String { accessibilityID }
-}
+    var id: HomeBottomBarItem { item }
 
-private struct BottomToolCluster: View {
-    private static let tools: [BottomToolDescriptor] = [
-        BottomToolDescriptor(
+    var symbolName: String {
+        if item == .calendar {
+            return HomeCalendarBottomBarSymbol.symbolName(for: Date())
+        }
+        return staticSymbolName ?? "circle"
+    }
+
+    static let homeTabs: [HomeBottomTabDescriptor] = [
+        HomeBottomTabDescriptor(
             item: .home,
-            symbolName: "house.fill",
+            staticSymbolName: "house.fill",
             accessibilityID: "home.bottomBar.home",
             accessibilityLabel: "Home"
         ),
-        BottomToolDescriptor(
+        HomeBottomTabDescriptor(
+            item: .calendar,
+            staticSymbolName: nil,
+            accessibilityID: "home.bottomBar.calendar",
+            accessibilityLabel: "Schedule"
+        ),
+        HomeBottomTabDescriptor(
+            item: .chat,
+            staticSymbolName: "sparkles",
+            accessibilityID: "home.chatButton",
+            accessibilityLabel: "Chat"
+        ),
+        HomeBottomTabDescriptor(
             item: .charts,
-            symbolName: "chart.bar.xaxis",
+            staticSymbolName: "chart.bar.xaxis",
             accessibilityID: "home.bottomBar.charts",
             accessibilityLabel: "Analytics"
         ),
-        BottomToolDescriptor(
+        HomeBottomTabDescriptor(
             item: .search,
-            symbolName: "magnifyingglass",
+            staticSymbolName: "magnifyingglass",
             accessibilityID: "home.searchButton",
             accessibilityLabel: "Search"
         ),
-        BottomToolDescriptor(
-            item: .chat,
-            symbolName: "sparkles",
-            accessibilityID: "home.chatButton",
-            accessibilityLabel: "Chat"
+        HomeBottomTabDescriptor(
+            item: .create,
+            staticSymbolName: "plus",
+            accessibilityID: "home.addTaskButton",
+            accessibilityLabel: "Add Task"
         )
     ]
+}
 
+private struct HomeAnimatedTabBar: View {
     let selectedItem: HomeBottomBarItem?
     let shellPhase: HomeShellPhase
+    let items: [HomeBottomTabDescriptor]
     let onTap: (HomeBottomBarItem) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.layoutDirection) private var layoutDirection
 
-    private let buttonWidth: CGFloat = 54
-    private let buttonHeight: CGFloat = 44
-    private let clusterHeight: CGFloat = 56
-    private let clusterCornerRadius: CGFloat = 28
-    private let clusterSpacing: CGFloat = 4
-    private let clusterHorizontalPadding: CGFloat = 8
-    private let clusterVerticalPadding: CGFloat = 6
+    @State private var framesByIndex: [Int: CGRect] = [:]
+    @State private var previousSelectedIndex = 0
+    @State private var tBall: CGFloat = 1
+
+    private let barHeight: CGFloat = 64
+    private let buttonSize: CGFloat = 44
+    private let ballSize: CGFloat = 10
+    private let coordinateSpaceName = "HomeAnimatedBottomBarSpace"
+
+    private var selectedIndex: Int {
+        guard let selectedItem,
+              let index = HomeBottomBarItem.visibleAnimatedItems.firstIndex(of: selectedItem) else {
+            return HomeBottomBarItem.visibleAnimatedItems.firstIndex(of: .home) ?? 0
+        }
+        return index
+    }
+
     private var prefersReducedMotion: Bool { shellPhase != .interactive }
 
+    private var ballAnimation: Animation {
+        prefersReducedMotion
+            ? .linear(duration: 0.01)
+            : .easeOut(duration: 0.46)
+    }
+
+    private var indentAnimation: Animation {
+        prefersReducedMotion
+            ? .easeOut(duration: 0.12)
+            : .easeOut(duration: 0.30)
+    }
+
     var body: some View {
-        toolForeground
-            .frame(width: clusterWidth, height: clusterHeight)
-            .taskerPremiumSurface(
-                cornerRadius: clusterCornerRadius,
-                fillColor: Color.tasker.surfacePrimary.opacity(colorScheme == .dark ? 0.76 : 0.70),
-                strokeColor: Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.70 : 0.62),
-                accentColor: Color.tasker.accentSecondary,
-                level: .e2,
-                useNativeGlass: true
-            )
-            .frame(height: clusterHeight)
-    }
+        ZStack(alignment: .topLeading) {
+            background
 
-    private var clusterWidth: CGFloat {
-        let toolCount = CGFloat(Self.tools.count)
-        let gapCount = CGFloat(max(Self.tools.count - 1, 0))
-        return (toolCount * buttonWidth) + (gapCount * clusterSpacing) + (clusterHorizontalPadding * 2)
-    }
+            buttons
 
-    private var toolForeground: some View {
-        HStack(spacing: clusterSpacing) {
-            ForEach(Self.tools) { tool in
-                ZStack {
-                    if selectedItem == tool.item {
-                        selectionHighlight
-                    }
-
-                    Button {
-                        onTap(tool.item)
-                    } label: {
-                        Image(systemName: tool.symbolName)
-                            .font(.system(size: 18, weight: selectedItem == tool.item ? .bold : .semibold))
-                            .frame(width: 44, height: 44)
-                            .foregroundStyle(selectedItem == tool.item ? Color.tasker.textPrimary : Color.tasker.textSecondary)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(BottomToolPressStyle(prefersReducedMotion: prefersReducedMotion))
-                    .accessibilityIdentifier(tool.accessibilityID)
-                    .accessibilityLabel(tool.accessibilityLabel)
-                    .accessibilityValue(selectedItem == tool.item ? "selected" : "unselected")
-                }
-                .frame(width: buttonWidth, height: buttonHeight)
+            if hasMeasuredSelectedFrame {
+                Circle()
+                    .fill(Color.tasker.accentPrimary)
+                    .frame(width: ballSize, height: ballSize)
+                    .modifier(HomeParabolicBallEffect(
+                        t: tBall,
+                        from: ballCoordinate(for: previousSelectedIndex),
+                        to: ballCoordinate(for: selectedIndex),
+                        lift: prefersReducedMotion ? 0 : 58
+                    ))
+                    .shadow(color: Color.tasker.accentPrimary.opacity(colorScheme == .dark ? 0.42 : 0.26), radius: 8, y: 3)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
         }
-        .padding(.horizontal, clusterHorizontalPadding)
-        .padding(.vertical, clusterVerticalPadding)
-        .animation(
-            prefersReducedMotion ? .easeOut(duration: 0.14) : .spring(response: 0.22, dampingFraction: 0.88),
-            value: selectedItem
-        )
+        .frame(height: barHeight)
+        .coordinateSpace(name: coordinateSpaceName)
+        .onPreferenceChange(HomeAnimatedTabFramePreferenceKey.self) { framesByIndex in
+            self.framesByIndex = framesByIndex
+        }
+        .onAppear {
+            previousSelectedIndex = selectedIndex
+            tBall = 1
+        }
+        .onChange(of: selectedIndex) { oldValue, newValue in
+            previousSelectedIndex = oldValue
+            tBall = 0
+            withAnimation(ballAnimation) {
+                tBall = 1
+            }
+        }
     }
 
-    private var selectionHighlight: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.28 : 0.36))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.42 : 0.56), lineWidth: 1)
-            )
-            .frame(width: buttonWidth, height: buttonHeight)
+    private var hasMeasuredSelectedFrame: Bool {
+        framesByIndex[selectedIndex] != nil
+    }
+
+    private var background: some View {
+        HStack(spacing: 0) {
+            ForEach(items.indices, id: \.self) { index in
+                backgroundSegment(for: index)
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.46 : 0.34), lineWidth: 1)
+        )
+        .background {
+            if #available(iOS 26.0, *) {
+                Color.clear
+            } else {
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .fill(Color.tasker.surfaceSecondary.opacity(colorScheme == .dark ? 0.36 : 0.30))
+                    .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.30 : 0.13), radius: 18, y: 8)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .frame(height: barHeight)
+    }
+
+    @ViewBuilder
+    private func backgroundSegment(for index: Int) -> some View {
+        let shape = HomeAnimatedTabIndent(
+            t: selectedIndex == index ? 1 : 0,
+            delay: prefersReducedMotion ? 0 : 0.68
+        )
+
+        if #available(iOS 26.0, *) {
+            shape
+                .fill(.clear)
+                .glassEffect(.clear, in: shape)
+                .animation(indentAnimation, value: selectedIndex)
+        } else {
+            shape
+                .fill(Color.tasker.surfacePrimary.opacity(colorScheme == .dark ? 0.82 : 0.76))
+                .animation(indentAnimation, value: selectedIndex)
+        }
+    }
+
+    private var buttons: some View {
+        HomeAnimatedTabLayout {
+            ForEach(items.indices, id: \.self) { index in
+                let descriptor = items[index]
+                let isSelected = selectedIndex == index
+
+                Button {
+                    onTap(descriptor.item)
+                } label: {
+                    Image(systemName: descriptor.symbolName)
+                        .font(.system(size: descriptor.item == .create ? 20 : 18, weight: isSelected ? .bold : .semibold))
+                        .frame(width: buttonSize, height: buttonSize)
+                        .foregroundStyle(foregroundStyle(isSelected: isSelected, item: descriptor.item))
+                        .scaleEffect(isSelected && descriptor.item == .create ? 1.08 : 1.0)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(HomeAnimatedTabPressStyle(prefersReducedMotion: prefersReducedMotion))
+                .background(HomeAnimatedTabFrameReader(index: index, coordinateSpaceName: coordinateSpaceName))
+                .accessibilityIdentifier(descriptor.accessibilityID)
+                .accessibilityLabel(descriptor.accessibilityLabel)
+                .accessibilityValue(isSelected ? "selected" : "unselected")
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 10)
+        .frame(height: barHeight)
+        .animation(prefersReducedMotion ? .easeOut(duration: 0.14) : .spring(response: 0.24, dampingFraction: 0.86), value: selectedIndex)
+    }
+
+    private func foregroundStyle(isSelected: Bool, item: HomeBottomBarItem) -> Color {
+        if item == .create {
+            return isSelected ? Color.tasker.accentPrimary : Color.tasker.textPrimary
+        }
+        return isSelected ? Color.tasker.accentPrimary : Color.tasker.textSecondary
+    }
+
+    private func ballCoordinate(for index: Int) -> CGPoint {
+        guard let frame = framesByIndex[index] else {
+            return .zero
+        }
+
+        let x = frame.midX - ballSize / 2
+        let y = max(frame.minY - ballSize - 3, 0)
+
+        if layoutDirection == .rightToLeft {
+            let maxX = (framesByIndex.values.map(\.maxX).max() ?? frame.maxX)
+            return CGPoint(x: maxX - x - ballSize, y: y)
+        }
+
+        return CGPoint(x: x, y: y)
     }
 }
 
-private struct BottomAddTaskCTA: View {
-    let shellPhase: HomeShellPhase
-    let onTap: () -> Void
+private struct HomeAnimatedTabLayout: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let idealSizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let height = idealSizes.reduce(0) { max($0, $1.height) }
+        return CGSize(width: proposal.width ?? 0, height: height)
+    }
 
-    @Environment(\.colorScheme) private var colorScheme
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.isEmpty == false else { return }
 
-    private var prefersReducedMotion: Bool { shellPhase != .interactive }
-    private let ctaCornerRadius: CGFloat = 28
+        let widthDelta = bounds.width / CGFloat(subviews.count)
+        var x = bounds.minX
+
+        for subview in subviews {
+            let idealSize = subview.sizeThatFits(.unspecified)
+            let origin = CGPoint(
+                x: x + widthDelta / 2 - idealSize.width / 2,
+                y: bounds.midY - idealSize.height / 2
+            )
+            subview.place(at: origin, anchor: .topLeading, proposal: .unspecified)
+            x += widthDelta
+        }
+    }
+}
+
+private struct HomeAnimatedTabFrameReader: View {
+    let index: Int
+    let coordinateSpaceName: String
 
     var body: some View {
-        Button {
-            TaskerFeedback.medium()
-            onTap()
-        } label: {
-            ctaForeground
-                .taskerPremiumSurface(
-                    cornerRadius: ctaCornerRadius,
-                    fillColor: Color.tasker.surfaceSecondary.opacity(colorScheme == .dark ? 0.78 : 0.72),
-                    strokeColor: Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.72 : 0.64),
-                    accentColor: Color.tasker.accentPrimary,
-                    level: .e2,
-                    useNativeGlass: true
-                )
-                .taskerCTABezel(
-                    style: .fab,
-                    palette: .roseGold,
-                    idleMotion: .staticIdle,
-                    isEnabled: true,
-                    isBusy: false,
-                    isPressed: false
-                )
-        }
-        .buttonStyle(BottomCTAPressStyle(prefersReducedMotion: prefersReducedMotion))
-        .accessibilityIdentifier("home.addTaskButton")
-        .accessibilityLabel("Add Task")
-    }
-
-    private var ctaForeground: some View {
-        Image(systemName: "plus")
-            .font(.system(size: 18, weight: .bold))
-            .foregroundStyle(Color.tasker.textPrimary)
-            .frame(width: 56, height: 56)
-    }
-}
-
-private struct BottomToolPressStyle: ButtonStyle {
-    let prefersReducedMotion: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(prefersReducedMotion ? 1.0 : (configuration.isPressed ? 0.96 : 1.0))
-            .animation(
-                prefersReducedMotion ? .linear(duration: 0.01) : .spring(response: 0.18, dampingFraction: 0.88),
-                value: configuration.isPressed
+        GeometryReader { proxy in
+            Color.clear.preference(
+                key: HomeAnimatedTabFramePreferenceKey.self,
+                value: [index: proxy.frame(in: .named(coordinateSpaceName))]
             )
+        }
     }
 }
 
-private struct BottomCTAPressStyle: ButtonStyle {
+private struct HomeAnimatedTabFramePreferenceKey: PreferenceKey {
+    static let defaultValue: [Int: CGRect] = [:]
+
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
+private struct HomeParabolicBallEffect: GeometryEffect {
+    var t: CGFloat
+    let from: CGPoint
+    let to: CGPoint
+    let lift: CGFloat
+
+    var animatableData: CGFloat {
+        get { t }
+        set { t = newValue }
+    }
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let point = point(at: t)
+        return ProjectionTransform(CGAffineTransform(translationX: point.x, y: point.y))
+    }
+
+    private func point(at t: CGFloat) -> CGPoint {
+        let clampedT = min(max(t, 0), 1)
+        let control = CGPoint(x: (from.x + to.x) / 2, y: min(from.y, to.y) - lift)
+        let inverseT = 1 - clampedT
+        return CGPoint(
+            x: inverseT * inverseT * from.x + 2 * inverseT * clampedT * control.x + clampedT * clampedT * to.x,
+            y: inverseT * inverseT * from.y + 2 * inverseT * clampedT * control.y + clampedT * clampedT * to.y
+        )
+    }
+}
+
+private struct HomeAnimatedTabIndent: Shape {
+    var t: CGFloat
+    var delay: CGFloat = 0
+
+    var animatableData: CGFloat {
+        get { t }
+        set { t = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let normalizedT: CGFloat
+        if t < delay {
+            normalizedT = 0
+        } else {
+            normalizedT = (t - delay) / max(1 - delay, 0.001)
+        }
+
+        let topLeft = rect.origin
+        let topRight = CGPoint(x: rect.maxX, y: rect.minY)
+        let bottomLeft = CGPoint(x: rect.minX, y: rect.maxY)
+        let bottomRight = CGPoint(x: rect.maxX, y: rect.maxY)
+
+        let indentWidth = min(60, rect.width * 0.86)
+        let indentDepth = normalizedT * 14
+        let indentPath = HomeAnimatedTranslatedIndentPath(rect: CGRect(
+            x: rect.midX - indentWidth / 2,
+            y: rect.minY,
+            width: indentWidth,
+            height: indentDepth
+        )).path()
+
+        var path = Path()
+        path.move(to: topLeft)
+        path.addPath(indentPath)
+        path.addLine(to: topRight)
+        path.addLine(to: bottomRight)
+        path.addLine(to: bottomLeft)
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct HomeAnimatedTranslatedIndentPath {
+    let rect: CGRect
+
+    private let maxX = 55.0
+    private let maxY = 17.0
+
+    func path() -> Path {
+        let start = translate(x: 0, y: 0)
+        let middle = translate(x: 27.5, y: 17)
+        let end = translate(x: 55, y: 0)
+
+        var path = Path()
+        path.move(to: start)
+        path.addCurve(
+            to: middle,
+            control1: translate(x: 11.5, y: 0),
+            control2: translate(x: 19.5, y: 17)
+        )
+        path.addCurve(
+            to: end,
+            control1: translate(x: 35.5, y: 17),
+            control2: translate(x: 43.5, y: 0)
+        )
+        return path
+    }
+
+    private func translate(x: CGFloat, y: CGFloat) -> CGPoint {
+        CGPoint(
+            x: x / maxX * rect.width + rect.minX,
+            y: y / maxY * rect.height + rect.minY
+        )
+    }
+}
+
+private struct HomeAnimatedTabPressStyle: ButtonStyle {
     let prefersReducedMotion: Bool
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(prefersReducedMotion ? 1.0 : (configuration.isPressed ? 0.975 : 1.0))
-            .brightness(prefersReducedMotion ? 0 : (configuration.isPressed ? 0.02 : 0))
+            .scaleEffect(prefersReducedMotion ? 1.0 : (configuration.isPressed ? 0.94 : 1.0))
+            .brightness(prefersReducedMotion ? 0 : (configuration.isPressed ? 0.03 : 0))
             .animation(
                 prefersReducedMotion ? .linear(duration: 0.01) : .spring(response: 0.18, dampingFraction: 0.88),
                 value: configuration.isPressed

@@ -23,7 +23,7 @@ public final class AssistantActionPipelineUseCase {
         let traceData: Data?
     }
 
-    private let supportedSchemaVersion = 2
+    private let supportedSchemaVersion = 3
     private let minimumSupportedSchemaVersion = 1
     private let undoWindowSeconds: TimeInterval = 60 * 30
     private let commandTimeoutSeconds: TimeInterval = 10
@@ -50,6 +50,14 @@ public final class AssistantActionPipelineUseCase {
                 domain: "AssistantActionPipelineUseCase",
                 code: 422,
                 userInfo: [NSLocalizedDescriptionKey: "Unsupported assistant schema version \(envelope.schemaVersion)"]
+            )))
+            return
+        }
+        guard envelope.commands.isEmpty == false else {
+            completion(.failure(NSError(
+                domain: "AssistantActionPipelineUseCase",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "Assistant proposal must include at least one command"]
             )))
             return
         }
@@ -85,6 +93,17 @@ public final class AssistantActionPipelineUseCase {
                     completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 404)))
                     return
                 }
+                switch run.status {
+                case .applied, .undone, .rejected, .failed:
+                    completion(.failure(NSError(
+                        domain: "AssistantActionPipelineUseCase",
+                        code: 409,
+                        userInfo: [NSLocalizedDescriptionKey: "Run is already \(run.status.rawValue)"]
+                    )))
+                    return
+                default:
+                    break
+                }
                 run.status = .confirmed
                 run.confirmedAt = Date()
                 logWarning(
@@ -115,6 +134,10 @@ public final class AssistantActionPipelineUseCase {
             case .success(let run):
                 guard var run else {
                     completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 404)))
+                    return
+                }
+                guard run.status != .applied else {
+                    completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 409, userInfo: [NSLocalizedDescriptionKey: "Run has already been applied"])))
                     return
                 }
                 guard run.status == .confirmed else {
@@ -276,9 +299,8 @@ public final class AssistantActionPipelineUseCase {
                 self.executeTransaction(runID: id, commands: undoCommands) { undoResult in
                     switch undoResult {
                     case .success:
-                        run.status = .confirmed
+                        run.status = .undone
                         run.resultSummary = "Undo applied (\(undoCommands.count) commands)"
-                        run.appliedAt = nil
                         run.rollbackStatus = .verified
                         run.rollbackVerifiedAt = Date()
                         run.lastErrorCode = nil
@@ -568,6 +590,202 @@ public final class AssistantActionPipelineUseCase {
             taskMap[taskID] = updated
             touchedTaskIDs.insert(taskID)
             return inverse
+
+        case .createScheduledTask(
+            let projectID,
+            let title,
+            let scheduledStartAt,
+            let scheduledEndAt,
+            let estimatedDuration,
+            let lifeAreaID,
+            let priority,
+            let energy,
+            let category,
+            let context,
+            let details,
+            let tagIDs
+        ):
+            guard scheduledEndAt > scheduledStartAt else {
+                throw NSError(
+                    domain: "AssistantActionPipelineUseCase",
+                    code: 422,
+                    userInfo: [NSLocalizedDescriptionKey: "Scheduled task end must be after start"]
+                )
+            }
+            let duration = estimatedDuration ?? scheduledEndAt.timeIntervalSince(scheduledStartAt)
+            let task = TaskDefinition(
+                projectID: projectID,
+                projectName: projectID == ProjectConstants.inboxProjectID ? ProjectConstants.inboxProjectName : nil,
+                lifeAreaID: lifeAreaID,
+                title: title,
+                details: details,
+                priority: priority ?? .low,
+                energy: energy ?? .medium,
+                category: category ?? .general,
+                context: context ?? .anywhere,
+                dueDate: scheduledStartAt,
+                scheduledStartAt: scheduledStartAt,
+                scheduledEndAt: scheduledEndAt,
+                tagIDs: tagIDs,
+                estimatedDuration: duration,
+                planningBucket: .thisWeek
+            )
+            let createdTask = try await withTimeout(seconds: commandTimeoutSeconds) {
+                try await self.createTaskAsync(task)
+            }
+            taskMap[createdTask.id] = createdTask
+            touchedTaskIDs.insert(createdTask.id)
+            return .deleteTask(taskID: createdTask.id)
+
+        case .createInboxTask(
+            let projectID,
+            let title,
+            let estimatedDuration,
+            let lifeAreaID,
+            let priority,
+            let category,
+            let details,
+            let tagIDs
+        ):
+            let task = TaskDefinition(
+                projectID: projectID,
+                projectName: projectID == ProjectConstants.inboxProjectID ? ProjectConstants.inboxProjectName : nil,
+                lifeAreaID: lifeAreaID,
+                title: title,
+                details: details,
+                priority: priority ?? .low,
+                category: category ?? .general,
+                dueDate: nil,
+                tagIDs: tagIDs,
+                estimatedDuration: estimatedDuration,
+                planningBucket: .thisWeek
+            )
+            let createdTask = try await withTimeout(seconds: commandTimeoutSeconds) {
+                try await self.createTaskAsync(task)
+            }
+            taskMap[createdTask.id] = createdTask
+            touchedTaskIDs.insert(createdTask.id)
+            return .deleteTask(taskID: createdTask.id)
+
+        case .updateTaskSchedule(let taskID, let scheduledStartAt, let scheduledEndAt, let estimatedDuration, let dueDate):
+            guard var task = taskMap[taskID] else {
+                throw NSError(domain: "AssistantActionPipelineUseCase", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found: \(taskID)"])
+            }
+            let effectiveStart = scheduledStartAt ?? task.scheduledStartAt
+            let effectiveEnd = scheduledEndAt ?? task.scheduledEndAt
+            if let effectiveStart, let effectiveEnd, effectiveEnd <= effectiveStart {
+                throw NSError(
+                    domain: "AssistantActionPipelineUseCase",
+                    code: 422,
+                    userInfo: [NSLocalizedDescriptionKey: "Scheduled task end must be after start"]
+                )
+            }
+            let inverse = AssistantCommand.restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: task))
+            task.scheduledStartAt = effectiveStart
+            task.scheduledEndAt = effectiveEnd
+            task.estimatedDuration = estimatedDuration ?? effectiveEnd.flatMap { end in
+                effectiveStart.map { end.timeIntervalSince($0) }
+            } ?? task.estimatedDuration
+            task.dueDate = dueDate ?? effectiveStart ?? task.dueDate
+            task.isAllDay = false
+            task.replanCount = max(0, task.replanCount) + 1
+            task.updatedAt = Date()
+            let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
+                try await self.updateTaskAsync(task)
+            }
+            taskMap[taskID] = updated
+            touchedTaskIDs.insert(taskID)
+            return inverse
+
+        case .updateTaskFields(
+            let taskID,
+            let title,
+            let details,
+            let priority,
+            let energy,
+            let category,
+            let context,
+            let lifeAreaID,
+            let tagIDs
+        ):
+            guard var task = taskMap[taskID] else {
+                throw NSError(domain: "AssistantActionPipelineUseCase", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found: \(taskID)"])
+            }
+            let inverse = AssistantCommand.restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: task))
+            if case .set(let title) = title { task.title = title }
+            switch details {
+            case .set(let details): task.details = details
+            case .clear: task.details = nil
+            case .absent: break
+            }
+            if case .set(let priority) = priority { task.priority = priority }
+            if case .set(let energy) = energy { task.energy = energy }
+            if case .set(let category) = category { task.category = category }
+            if case .set(let context) = context { task.context = context }
+            switch lifeAreaID {
+            case .set(let lifeAreaID): task.lifeAreaID = lifeAreaID
+            case .clear: task.lifeAreaID = nil
+            case .absent: break
+            }
+            switch tagIDs {
+            case .set(let tagIDs): task.tagIDs = tagIDs
+            case .clear: task.tagIDs = []
+            case .absent: break
+            }
+            task.updatedAt = Date()
+            let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
+                try await self.updateTaskAsync(task)
+            }
+            taskMap[taskID] = updated
+            touchedTaskIDs.insert(taskID)
+            return inverse
+
+        case .deferTask(let taskID, let targetDate, _):
+            guard var task = taskMap[taskID] else {
+                throw NSError(domain: "AssistantActionPipelineUseCase", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found: \(taskID)"])
+            }
+            let inverse = AssistantCommand.restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: task))
+            task.dueDate = targetDate
+            task.scheduledStartAt = nil
+            task.scheduledEndAt = nil
+            task.isAllDay = true
+            task.deferredCount = max(0, task.deferredCount) + 1
+            task.replanCount = max(0, task.replanCount) + 1
+            task.updatedAt = Date()
+            let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
+                try await self.updateTaskAsync(task)
+            }
+            taskMap[taskID] = updated
+            touchedTaskIDs.insert(taskID)
+            return inverse
+
+        case .dropTaskFromToday(let taskID, let destination, _):
+            guard var task = taskMap[taskID] else {
+                throw NSError(domain: "AssistantActionPipelineUseCase", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found: \(taskID)"])
+            }
+            let inverse = AssistantCommand.restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: task))
+            task.dueDate = nil
+            task.scheduledStartAt = nil
+            task.scheduledEndAt = nil
+            task.isAllDay = false
+            switch destination {
+            case .inbox:
+                task.projectID = ProjectConstants.inboxProjectID
+                task.projectName = ProjectConstants.inboxProjectName
+            case .later:
+                task.planningBucket = .later
+            case .someday:
+                task.planningBucket = .someday
+            }
+            task.deferredCount = max(0, task.deferredCount) + 1
+            task.replanCount = max(0, task.replanCount) + 1
+            task.updatedAt = Date()
+            let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
+                try await self.updateTaskAsync(task)
+            }
+            taskMap[taskID] = updated
+            touchedTaskIDs.insert(taskID)
+            return inverse
         }
     }
 
@@ -651,7 +869,20 @@ public final class AssistantActionPipelineUseCase {
     private func isAllowlisted(commands: [AssistantCommand]) -> Bool {
         for command in commands {
             switch command {
-            case .createTask, .restoreTask, .restoreTaskSnapshot, .deleteTask, .updateTask, .setTaskCompletion, .completeTask, .moveTask:
+            case .createTask,
+                 .restoreTask,
+                 .restoreTaskSnapshot,
+                 .deleteTask,
+                 .updateTask,
+                 .setTaskCompletion,
+                 .completeTask,
+                 .moveTask,
+                 .createScheduledTask,
+                 .createInboxTask,
+                 .updateTaskSchedule,
+                 .updateTaskFields,
+                 .deferTask,
+                 .dropTaskFromToday:
                 continue
             }
         }

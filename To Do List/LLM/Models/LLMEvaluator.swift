@@ -40,6 +40,59 @@ final class LLMGenerationCancellationToken: @unchecked Sendable {
     }
 }
 
+private actor LLMGenerationSlot {
+    private var isOccupied = false
+    private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, Error>)] = []
+
+    func acquire() async throws -> LLMGenerationSlotLease {
+        if _Concurrency.Task.isCancelled {
+            throw CancellationError()
+        }
+        if isOccupied == false {
+            isOccupied = true
+            return LLMGenerationSlotLease(slot: self)
+        }
+        let waiterID = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                waiters.append((waiterID, continuation))
+            }
+        } onCancel: {
+            _Concurrency.Task {
+                await self.cancelWaiter(id: waiterID)
+            }
+        }
+        if _Concurrency.Task.isCancelled {
+            release()
+            throw CancellationError()
+        }
+        return LLMGenerationSlotLease(slot: self)
+    }
+
+    fileprivate func release() {
+        if waiters.isEmpty {
+            isOccupied = false
+        } else {
+            waiters.removeFirst().continuation.resume()
+        }
+    }
+
+    private func cancelWaiter(id: UUID) {
+        guard let index = waiters.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        waiters.remove(at: index).continuation.resume(throwing: CancellationError())
+    }
+}
+
+private struct LLMGenerationSlotLease: Sendable {
+    fileprivate let slot: LLMGenerationSlot
+
+    func release() async {
+        await slot.release()
+    }
+}
+
 @Observable
 @MainActor
 class LLMEvaluator {
@@ -82,6 +135,7 @@ class LLMEvaluator {
     private var hasPendingVisibleOutput = false
     private var lastVisibleOutputPublishAt = Date.distantPast
     private let inferenceEngine: LLMInferenceEngine
+    private let generationSlot = LLMGenerationSlot()
     private let streamPublishThrottleInterval: TimeInterval = 1.0 / 24.0
 
     var modelConfiguration = ModelConfiguration.defaultModel
@@ -177,6 +231,28 @@ class LLMEvaluator {
         cancelGeneration(reason: "stop_button")
     }
 
+    func beginUserTurn(runID: UUID) {
+        cancelled = false
+        output = ""
+        pendingVisibleOutput = ""
+        hasPendingVisibleOutput = false
+        lastVisibleOutputPublishAt = .distantPast
+        stat = ""
+        thinkingTime = nil
+        lastGenerationTimedOut = false
+        lastTerminationReason = nil
+        lastRawOutput = ""
+        lastGeneratedTokenCount = 0
+        lastVisibleCharacterCount = 0
+        lastSanitizedTemplateArtifacts = false
+        didEmitAnswerPhaseSignalForRun = false
+        logWarning(
+            event: "chat_user_turn_started",
+            message: "Cleared stale evaluator output state for accepted chat turn",
+            fields: ["run_id": runID.uuidString]
+        )
+    }
+
     /// Executes generate.
     func generate(
         modelName: String,
@@ -258,8 +334,34 @@ class LLMEvaluator {
         requestOptions: LLMGenerationRequestOptions?,
         onFirstToken: (@MainActor () -> Void)?
     ) async -> String {
-        guard !running else { return "" }
+        let waitStartedAt = Date()
+        let wasQueued = running
+        if wasQueued {
+            logWarning(
+                event: "chat_generation_queue_waiting",
+                message: "Generation requested while evaluator is busy; waiting for active generation to finish",
+                fields: ["model_name": modelName]
+            )
+        }
+        let slotLease: LLMGenerationSlotLease
+        do {
+            slotLease = try await generationSlot.acquire()
+        } catch {
+            lastTerminationReason = "cancelled_while_waiting_for_generation_slot"
+            return ""
+        }
+        if wasQueued {
+            logWarning(
+                event: "chat_generation_queue_acquired",
+                message: "Queued generation acquired evaluator slot",
+                fields: [
+                    "model_name": modelName,
+                    "wait_ms": String(Int(Date().timeIntervalSince(waitStartedAt) * 1_000))
+                ]
+            )
+        }
         guard let model = ModelConfiguration.getModelByName(modelName) else {
+            await slotLease.release()
             runtimePhase = .failed
             output = "Failed: model not found"
             return output
@@ -284,6 +386,9 @@ class LLMEvaluator {
         var lastRawCapHitStage: String?
 
         defer {
+            _Concurrency.Task {
+                await slotLease.release()
+            }
             runCancellationToken.cancel()
             running = false
             isThinking = false

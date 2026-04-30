@@ -161,6 +161,10 @@ struct TaskDetailSheetView: View {
                 viewModel.refreshTaskFitHint()
                 viewModel.scheduleAutosave(debounced: false)
             }
+            .onChange(of: viewModel.scheduledStartAt) {
+                viewModel.refreshTaskFitHint()
+                viewModel.scheduleAutosave(debounced: false)
+            }
             .onChange(of: viewModel.reminderTime) {
                 viewModel.scheduleAutosave(debounced: false)
             }
@@ -227,19 +231,21 @@ struct TaskDetailSheetView: View {
                     .enhancedStaggeredAppearance(index: 0)
                 scheduleSection
                     .enhancedStaggeredAppearance(index: 1)
-                notesSection
+                scheduleEditingSection
                     .enhancedStaggeredAppearance(index: 2)
-                stepsSection
+                notesSection
                     .enhancedStaggeredAppearance(index: 3)
-                moreDetailsSection
+                stepsSection
                     .enhancedStaggeredAppearance(index: 4)
+                moreDetailsSection
+                    .enhancedStaggeredAppearance(index: 5)
                 if viewModel.shouldShowRelationshipsSection {
                     relationshipsSection
-                        .enhancedStaggeredAppearance(index: 5)
+                        .enhancedStaggeredAppearance(index: 6)
                 }
                 if showsContextSection {
                     contextSection
-                        .enhancedStaggeredAppearance(index: 6)
+                        .enhancedStaggeredAppearance(index: 7)
                 }
                 destructiveSection
                 metadataFooter
@@ -645,7 +651,7 @@ struct TaskDetailSheetView: View {
 
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
                 AddTaskDatePresetRow(
-                    dueDate: $viewModel.dueDate,
+                    dueDate: dueDateBinding,
                     customChipAccessibilityIdentifier: "taskDetail.chip.due"
                 )
 
@@ -656,7 +662,7 @@ struct TaskDetailSheetView: View {
 
                 if viewModel.dueDate != nil {
                     Button("Clear due date") {
-                        viewModel.dueDate = nil
+                        viewModel.setDueDate(nil)
                     }
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.statusWarning)
@@ -680,6 +686,16 @@ struct TaskDetailSheetView: View {
             fillColor: Color.tasker.surfacePrimary,
             strokeColor: Color.tasker.strokeHairline.opacity(0.72)
         )
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+    }
+
+    private var scheduleEditingSection: some View {
+        TaskScheduleEditor(
+            startDate: scheduledStartBinding,
+            durationMinutes: durationMinutesBinding,
+            defaultStartDate: viewModel.defaultScheduledStartForEditor()
+        )
+        .accessibilityIdentifier("taskDetail.scheduleEditor")
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
 
@@ -748,9 +764,6 @@ struct TaskDetailSheetView: View {
 
                 AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
                     .accessibilityIdentifier("taskDetail.priorityControl")
-
-                AddTaskDurationPicker(duration: $viewModel.estimatedDuration)
-                    .accessibilityIdentifier("taskDetail.durationPicker")
 
                 taskFitHintRow
 
@@ -1018,6 +1031,27 @@ struct TaskDetailSheetView: View {
         Binding(
             get: { viewModel.reminderTime ?? Date() },
             set: { viewModel.reminderTime = $0 }
+        )
+    }
+
+    private var dueDateBinding: Binding<Date?> {
+        Binding(
+            get: { viewModel.dueDate },
+            set: { viewModel.setDueDate($0) }
+        )
+    }
+
+    private var scheduledStartBinding: Binding<Date?> {
+        Binding(
+            get: { viewModel.scheduledStartAt },
+            set: { viewModel.setScheduledStartDate($0) }
+        )
+    }
+
+    private var durationMinutesBinding: Binding<Int> {
+        Binding(
+            get: { viewModel.durationMinutes },
+            set: { viewModel.setDurationMinutes($0) }
         )
     }
 

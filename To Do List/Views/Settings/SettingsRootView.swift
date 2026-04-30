@@ -660,6 +660,22 @@ struct SettingsRootView: View {
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
+
+                #if DEBUG
+                TaskerSettingsCard {
+                    SettingsNavigationRow(
+                        descriptor: TaskerSettingsDestinationDescriptor(
+                            iconName: "doc.on.clipboard.fill",
+                            title: "Copy Calendar Diagnostics",
+                            subtitle: "Copy the latest privacy-safe calendar access logs.",
+                            tone: .neutral,
+                            accessibilityIdentifier: "settings.calendarDiagnostics.copyButton"
+                        ),
+                        action: viewModel.copyCalendarDiagnostics
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 2)
+                #endif
             }
         }
     }

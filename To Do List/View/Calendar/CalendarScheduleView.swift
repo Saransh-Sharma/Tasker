@@ -313,12 +313,12 @@ struct CalendarScheduleView: View {
     }
 
     private var permissionButtonTitle: String? {
-        switch service.snapshot.authorizationStatus {
-        case .notDetermined:
-            return String(localized: "Connect Calendar")
-        case .denied, .writeOnly:
+        switch permissionAccessAction {
+        case .requestPermission:
+            return String(localized: "Allow Full Calendar Access")
+        case .openSystemSettings:
             return String(localized: "Open Settings")
-        case .restricted, .authorized:
+        case .unavailable, .noneNeeded:
             return nil
         }
     }
@@ -341,11 +341,11 @@ struct CalendarScheduleView: View {
         case .notDetermined:
             return String(localized: "Grant calendar access to bring Today and Week schedule context into Tasker.")
         case .denied:
-            return String(localized: "Open system Settings and allow Calendar access for Tasker.")
+            return String(localized: "Calendar access is denied by iOS. Enable Tasker in Settings > Privacy & Security > Calendars. If Tasker is missing, restart your device, reinstall Tasker, or reset Location & Privacy.")
         case .restricted:
             return String(localized: "Calendar access is restricted by system policy and cannot be changed here.")
         case .writeOnly:
-            return String(localized: "Tasker only has write-only access. Open Settings and enable read access.")
+            return String(localized: "Tasker has write-only access. Allow full calendar access so schedule events can appear.")
         case .authorized:
             return String(localized: "Calendar access is required.")
         }
@@ -375,7 +375,7 @@ struct CalendarScheduleView: View {
     }
 
     private func performPermissionAction() {
-        _ = service.performAccessAction(openSystemSettings: openSystemSettings)
+        _ = service.performAccessAction(source: "schedule", openSystemSettings: openSystemSettings)
     }
 
     private func openSystemSettings() {
@@ -383,6 +383,10 @@ struct CalendarScheduleView: View {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         openURL(url)
         #endif
+    }
+
+    private var permissionAccessAction: CalendarAccessAction {
+        service.accessAction(for: service.snapshot.authorizationStatus)
     }
 }
 
@@ -1277,6 +1281,7 @@ struct TaskerCalendarTimelineView: View {
     var accessibilityIdentifier: String? = nil
     var accessibilityLabelText: String? = nil
     var initialVisibleHour: Int? = nil
+    var eventAccessibilityIdentifierPrefix = "schedule.event"
     var onSelectEvent: ((TaskerCalendarEventSnapshot) -> Void)? = nil
 
     @Environment(\.taskerLayoutClass) private var layoutClass
@@ -1473,7 +1478,7 @@ struct TaskerCalendarTimelineView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .accessibilityIdentifier("schedule.event.\(positioned.event.id)")
+                        .accessibilityIdentifier("\(eventAccessibilityIdentifierPrefix).\(positioned.event.id)")
                         .accessibilityLabel(timelineEventAccessibilityLabel(for: positioned.event))
                         .accessibilityHint(String(localized: "Open event details"))
                     } else {

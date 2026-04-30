@@ -1097,7 +1097,7 @@ private struct HabitBoardCellView: View {
 
     @ViewBuilder
     private var todayOverlay: some View {
-        if cell.isToday {
+        if cell.isToday, mode != .homeList {
             RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous)
                 .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: mode.isMatrixLike ? 1.35 : 1.2)
                 .padding(mode.isMatrixLike ? 0.5 : 0)

@@ -46,7 +46,7 @@ public struct HabitMetricConfig: Codable, Equatable, Hashable {
     }
 }
 
-public enum HabitCadenceDraft: Codable, Equatable, Hashable {
+public enum HabitCadenceDraft: Codable, Equatable, Hashable, Sendable {
     case daily(hour: Int? = nil, minute: Int? = nil)
     case weekly(daysOfWeek: [Int], hour: Int? = nil, minute: Int? = nil)
 
@@ -67,7 +67,7 @@ public enum HabitOccurrenceAction: String, Codable, CaseIterable, Hashable {
     case lapsed
 }
 
-public enum HabitDayState: Codable, Equatable, Hashable {
+public enum HabitDayState: Codable, Equatable, Hashable, Sendable {
     case success
     case failure
     case skipped
@@ -75,7 +75,7 @@ public enum HabitDayState: Codable, Equatable, Hashable {
     case future
 }
 
-public struct HabitDayMark: Codable, Equatable, Hashable {
+public struct HabitDayMark: Codable, Equatable, Hashable, Sendable {
     public let date: Date
     public let state: HabitDayState
 

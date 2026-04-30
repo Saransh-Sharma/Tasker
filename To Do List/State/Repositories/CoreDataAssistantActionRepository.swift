@@ -4,11 +4,14 @@ import CoreData
 public final class CoreDataAssistantActionRepository: AssistantActionRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
+    private let completionQueue: DispatchQueue
 
     /// Initializes a new instance.
-    public init(container: NSPersistentContainer) {
+    public init(container: NSPersistentContainer, completionQueue: DispatchQueue = .main) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
+        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.completionQueue = completionQueue
     }
 
     /// Executes createRun.
@@ -31,12 +34,12 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
                     entityName: "AssistantActionRun",
                     predicate: NSPredicate(format: "id == %@", id as CVarArg)
                 ) else {
-                    completion(.success(nil))
+                    self.complete(.success(nil), completion: completion)
                     return
                 }
-                completion(.success(Self.map(object)))
+                self.complete(.success(Self.map(object)), completion: completion)
             } catch {
-                completion(.failure(error))
+                self.complete(.failure(error), completion: completion)
             }
         }
     }
@@ -71,10 +74,19 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
                 object.setValue(run.lastErrorCode, forKey: "lastErrorCode")
                 object.setValue(run.createdAt, forKey: "createdAt")
                 try self.backgroundContext.save()
-                completion(.success(run))
+                self.complete(.success(run), completion: completion)
             } catch {
-                completion(.failure(error))
+                self.complete(.failure(error), completion: completion)
             }
+        }
+    }
+
+    private func complete<T>(
+        _ result: Result<T, Error>,
+        completion: @escaping (Result<T, Error>) -> Void
+    ) {
+        completionQueue.async {
+            completion(result)
         }
     }
 

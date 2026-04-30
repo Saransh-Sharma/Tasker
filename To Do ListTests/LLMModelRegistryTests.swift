@@ -90,21 +90,17 @@ final class LLMModelRegistryTests: XCTestCase {
             qwenPointSixName,
             qwenOptiQName,
             qwenNexVeridianName,
-            qwenClaudeDistilledName,
-            bonsaiName
+            qwenClaudeDistilledName
         ] {
             let compatibility = LLMRuntimeSupportMatrix.compatibility(for: try XCTUnwrap(ModelConfiguration.getModelByName(modelName)))
-            #if targetEnvironment(simulator)
-            XCTAssertEqual(
-                compatibility.availability,
-                .temporarilyUnavailable
-            )
-            XCTAssertFalse(compatibility.canActivate)
-            #else
             XCTAssertEqual(compatibility.availability, .supported)
             XCTAssertTrue(compatibility.canActivate)
-            #endif
         }
+
+        let bonsaiCompatibility = LLMRuntimeSupportMatrix.compatibility(for: try XCTUnwrap(ModelConfiguration.getModelByName(bonsaiName)))
+        XCTAssertEqual(bonsaiCompatibility.availability, .temporarilyUnavailable)
+        XCTAssertFalse(bonsaiCompatibility.canActivate)
+        XCTAssertTrue(bonsaiCompatibility.prepareFailureMessage.contains("Prism-specific MLX kernels"))
     }
 
     func testPreferredActiveModelNamePrefersDefaultModelWhenBothAreInstalled() {
@@ -119,6 +115,14 @@ final class LLMModelRegistryTests: XCTestCase {
             AppManager.preferredActiveModelName(from: [qwenOptiQName, qwenNexVeridianName]),
             qwenOptiQName
         )
+    }
+
+    func testPreferredActiveModelNameSkipsTemporarilyUnavailableModels() {
+        XCTAssertEqual(
+            AppManager.preferredActiveModelName(from: [bonsaiName, qwenPointSixName]),
+            qwenPointSixName
+        )
+        XCTAssertNil(AppManager.preferredActiveModelName(from: [bonsaiName]))
     }
 
     func testResolvedBudgetUsesProvidedModelRatherThanDefaultModel() throws {
@@ -200,7 +204,11 @@ final class LLMModelRegistryTests: XCTestCase {
 
         XCTAssertEqual(
             catalog.selectableModels.map(\.name),
-            [qwenPointSixName, qwenOptiQName, qwenNexVeridianName, qwenClaudeDistilledName, bonsaiName]
+            [qwenPointSixName, qwenOptiQName, qwenNexVeridianName, qwenClaudeDistilledName]
+        )
+        XCTAssertEqual(
+            catalog.entries.first(where: { $0.model.name == bonsaiName })?.compatibility.availability,
+            .temporarilyUnavailable
         )
         XCTAssertEqual(catalog.sections.first?.kind, .availableNow)
         XCTAssertEqual(catalog.sections.last?.kind, .additionalTextModels)
@@ -270,14 +278,17 @@ final class LLMModelRegistryTests: XCTestCase {
             qwenPointSixName,
             qwenOptiQName,
             qwenNexVeridianName,
-            qwenClaudeDistilledName,
-            bonsaiName
+            qwenClaudeDistilledName
         ] {
             XCTAssertEqual(
                 LLMRuntimeSmokeTester.classify(model: try XCTUnwrap(ModelConfiguration.getModelByName(modelName))).status,
                 .supported
             )
         }
+        XCTAssertEqual(
+            LLMRuntimeSmokeTester.classify(model: try XCTUnwrap(ModelConfiguration.getModelByName(bonsaiName))).status,
+            .failed
+        )
     }
 
     func testSmokeTesterRunCapturesSuccessMetrics() async throws {

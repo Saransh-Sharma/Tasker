@@ -943,7 +943,7 @@ class Message {
     var sortTimestamp: Date { timestamp }
     
     /// Initializes a new instance.
-    @Relationship(inverse: \Thread.messages) var thread: Thread?
+    @Relationship(deleteRule: .nullify) var thread: Thread?
     
     init(
         role: Role,
@@ -968,7 +968,7 @@ final class Thread {
     var title: String?
     var timestamp: Date
     
-    @Relationship var messages: [Message] = []
+    @Relationship(deleteRule: .cascade, inverse: \Message.thread) var messages: [Message] = []
     
     var sortedMessages: [Message] {
         return messages.sorted { $0.sortTimestamp < $1.sortTimestamp }

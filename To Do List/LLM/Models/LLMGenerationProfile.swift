@@ -101,7 +101,17 @@ struct LLMGenerationProfile {
     static let dailyBrief = LLMGenerationProfile(timeoutSeconds: 8)
     static let topThree = LLMGenerationProfile(timeoutSeconds: 10)
     static let breakdown = LLMGenerationProfile(timeoutSeconds: 10)
-    static let chatPlanJSON = LLMGenerationProfile(timeoutSeconds: 12)
+    static let chatPlanJSON = LLMGenerationProfile(
+        timeoutSeconds: 12,
+        regularMaxRawTokens: 768,
+        reasoningMaxRawTokens: 768,
+        temperature: 0.1,
+        topP: 0.85,
+        repetitionPenalty: 1.05,
+        repetitionContextSize: 64,
+        stripReasoningBlocks: true,
+        stripTemplateArtifacts: true
+    )
 }
 
 struct LLMVisibleTextFormattingResult {
@@ -212,7 +222,13 @@ enum LLMTemplateCompatibility {
             "<|im_start|>",
             "<|im_start|>assistant",
             "<|im_start|>user",
-            "<|im_start|>system"
+            "<|im_start|>system",
+            "<｜Assistant｜>",
+            "<｜assistant｜>",
+            "<｜User｜>",
+            "<｜user｜>",
+            "<｜System｜>",
+            "<｜system｜>"
         ],
         terminalControlMarkers: [
             "<end_of_turn>",
@@ -220,7 +236,9 @@ enum LLMTemplateCompatibility {
             "<|im_end|>",
             "<|end|>",
             "<|eot_id|>",
-            "<start_of_turn>"
+            "<start_of_turn>",
+            "<｜end▁of▁sentence｜>",
+            "<｜begin▁of▁sentence｜>"
         ]
     )
 
@@ -709,7 +727,8 @@ enum LLMVisibleThinkingExtractor {
         "thinking process:",
         "thought process:",
         "reasoning:",
-        "analysis:"
+        "analysis:",
+        "let me think:"
     ]
 
     private static let plainTextAnswerMarkers = [
@@ -748,13 +767,8 @@ enum LLMVisibleThinkingExtractor {
             )
         }
 
-        switch model.thinkingFormat {
-        case .plainTextPreamble:
-            if let plainText = extractPlainTextThinking(from: trimmed, closeOpenThinkingBlock: closeOpenThinkingBlock) {
-                return plainText
-            }
-        case .taggedThinkBlocks, .none:
-            break
+        if let plainText = extractPlainTextThinking(from: trimmed, closeOpenThinkingBlock: closeOpenThinkingBlock) {
+            return plainText
         }
 
         return LLMVisibleThinkingExtractionResult(
@@ -1058,6 +1072,11 @@ enum LLMChatTextSanitizer {
         if let fenceRange = sanitized.range(of: "```", options: .backwards),
            (fenceCount % 2) != 0 {
             sanitized = String(sanitized[..<fenceRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            removed = true
+        }
+
+        while let boundary = trailingTemplateArtifactBoundary(in: sanitized, profile: profile) {
+            sanitized = String(sanitized[..<boundary]).trimmingCharacters(in: .whitespacesAndNewlines)
             removed = true
         }
 

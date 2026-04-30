@@ -6,16 +6,28 @@ struct EvaActivationRootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let onDismiss: () -> Void
+    private let onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)?
     private let onOpenTaskDetail: (TaskDefinition) -> Void
+    private let onOpenHabitDetail: ((UUID) -> Void)?
+    private let onPerformDayTaskAction: EvaDayTaskActionHandler?
+    private let onPerformDayHabitAction: EvaDayHabitActionHandler?
 
     init(
         coordinator: EvaActivationCoordinator,
         onDismiss: @escaping () -> Void,
-        onOpenTaskDetail: @escaping (TaskDefinition) -> Void
+        onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil,
+        onOpenTaskDetail: @escaping (TaskDefinition) -> Void,
+        onOpenHabitDetail: ((UUID) -> Void)? = nil,
+        onPerformDayTaskAction: EvaDayTaskActionHandler? = nil,
+        onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
     ) {
         self.coordinator = coordinator
         self.onDismiss = onDismiss
+        self.onNavigationChromeChange = onNavigationChromeChange
         self.onOpenTaskDetail = onOpenTaskDetail
+        self.onOpenHabitDetail = onOpenHabitDetail
+        self.onPerformDayTaskAction = onPerformDayTaskAction
+        self.onPerformDayHabitAction = onPerformDayHabitAction
     }
 
     var body: some View {
@@ -94,7 +106,11 @@ struct EvaActivationRootView: View {
                 onActivationChatEvent: { event in
                     coordinator.noteChatEvent(event)
                 },
-                onOpenTaskDetail: onOpenTaskDetail
+                onNavigationChromeChange: onNavigationChromeChange,
+                onOpenTaskDetail: onOpenTaskDetail,
+                onOpenHabitDetail: onOpenHabitDetail,
+                onPerformDayTaskAction: onPerformDayTaskAction,
+                onPerformDayHabitAction: onPerformDayHabitAction
             )
         case .unsupportedDevice:
             DeviceNotSupportedView(onDismiss: onDismiss)

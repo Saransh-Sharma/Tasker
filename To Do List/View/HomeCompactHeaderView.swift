@@ -11,7 +11,6 @@ struct HomeCompactHeaderView: View {
     let onShowDatePicker: () -> Void
     let onShowAdvancedFilters: () -> Void
     let onResetFilters: () -> Void
-    let onOpenTopNavSearch: () -> Void
     let onOpenMenuSearch: () -> Void
     let onOpenReflection: () -> Void
     let onOpenSettings: () -> Void
@@ -34,7 +33,6 @@ struct HomeCompactHeaderView: View {
         onShowDatePicker: @escaping () -> Void,
         onShowAdvancedFilters: @escaping () -> Void,
         onResetFilters: @escaping () -> Void,
-        onOpenTopNavSearch: @escaping () -> Void,
         onOpenMenuSearch: @escaping () -> Void,
         onOpenReflection: @escaping () -> Void,
         onOpenSettings: @escaping () -> Void
@@ -49,7 +47,6 @@ struct HomeCompactHeaderView: View {
         self.onShowDatePicker = onShowDatePicker
         self.onShowAdvancedFilters = onShowAdvancedFilters
         self.onResetFilters = onResetFilters
-        self.onOpenTopNavSearch = onOpenTopNavSearch
         self.onOpenMenuSearch = onOpenMenuSearch
         self.onOpenReflection = onOpenReflection
         self.onOpenSettings = onOpenSettings
@@ -100,14 +97,9 @@ struct HomeCompactHeaderView: View {
     }
 
     private var canCenterDate: Bool {
-        let availableCenterWidth = containerWidth
-            - (dateHeroHorizontalInset * 2)
-            - measuredLeadingColumnWidth
-            - measuredTrailingColumnWidth
         return presentation.backgroundDateText != nil
             && presentation.foregroundRelativeLabel != nil
             && containerWidth >= 360
-            && availableCenterWidth >= 120
             && !dynamicTypeSize.isAccessibilitySize
     }
 
@@ -136,14 +128,7 @@ struct HomeCompactHeaderView: View {
                         measuredLeadingHeaderContent
                             .layoutPriority(1)
 
-                        if let dateText = presentation.compactDateText {
-                            Text(dateText)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker.textSecondary)
-                                .lineLimit(1)
-                                .accessibilityLabel(presentation.dateAccessibilityLabel ?? dateText)
-                                .accessibilityIdentifier("home.topChrome.date")
-                        }
+                        compactDateLabel
                     }
 
                     Spacer(minLength: spacing.s4)
@@ -256,6 +241,20 @@ struct HomeCompactHeaderView: View {
         .accessibilityIdentifier("home.topChrome.date")
     }
 
+    @ViewBuilder
+    private var compactDateLabel: some View {
+        if let dateText = presentation.compactDateText {
+            Text(dateText)
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(presentation.dateAccessibilityLabel ?? dateText)
+                .accessibilityIdentifier("home.topChrome.date")
+        }
+    }
+
     private var watermarkDateColor: Color {
         switch colorScheme {
         case .dark:
@@ -323,8 +322,6 @@ struct HomeCompactHeaderView: View {
 
     private var trailingHeaderContent: some View {
         HStack(spacing: spacing.s8) {
-            searchButton
-                .fixedSize()
             settingsButton
                 .fixedSize()
         }
@@ -410,19 +407,6 @@ struct HomeCompactHeaderView: View {
             .accessibilityLabel("Settings")
             .accessibilityHint("Opens settings")
             .accessibilityIdentifier("home.settingsButton")
-    }
-
-    private var searchButton: some View {
-        Button("Search", systemImage: "magnifyingglass", action: onOpenTopNavSearch)
-            .labelStyle(.iconOnly)
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(Color.tasker.statusWarning)
-            .frame(width: 36, height: 36)
-            .buttonStyle(.plain)
-            .scaleOnPress()
-            .accessibilityLabel("Search")
-            .accessibilityHint("Opens search")
-            .accessibilityIdentifier("home.topNav.searchButton")
     }
 
     private var scopeMenuAccessibilityLabel: String {

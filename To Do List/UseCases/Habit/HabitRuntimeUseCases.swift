@@ -2447,6 +2447,7 @@ public final class BuildHabitHomeProjectionUseCase {
         let todayMark = summary.last14Days.first { mark in
             calendar.isDate(mark.date, inSameDayAs: date)
         }
+        let riskState = todayMark?.state == .failure ? HabitRiskState.broken : summary.riskState
         return HomeHabitRow(
             habitID: summary.habitID,
             occurrenceID: summary.occurrenceID,
@@ -2468,7 +2469,7 @@ public final class BuildHabitHomeProjectionUseCase {
             last14Days: summary.last14Days,
             boardCellsCompact: compactCells,
             boardCellsExpanded: expandedCells,
-            riskState: todayMark?.state == .failure ? .broken : .stable,
+            riskState: riskState,
             helperText: nil
         )
     }

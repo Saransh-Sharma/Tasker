@@ -186,8 +186,8 @@ class SearchAndFilteringTests: BaseUITest {
         XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Home tap should collapse search")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after closing search")
 
-        homePage.tapTopNavSearch()
-        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Top-nav search should open search face")
+        homePage.tapSearch()
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Bottom search should reopen search face")
         XCTAssertTrue(homePage.searchBackChip.waitForExistence(timeout: 2), "Back chip should appear on search face")
         homePage.tapSearchBackChip()
         XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Back chip should collapse search")
