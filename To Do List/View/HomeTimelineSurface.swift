@@ -1109,8 +1109,121 @@ struct TimelineCanvasLayoutPlan: Equatable {
               now <= visibleEnd else {
             return nil
         }
-        let minutes = CGFloat(calendar.dateComponents([.minute], from: visibleStart, to: now).minute ?? 0)
-        return wakeAnchor.y + (minutes * pointsPerMinute)
+        return visualTimeY(for: now)
+    }
+
+    private struct VisualTimeAnchor {
+        let date: Date
+        let y: CGFloat
+    }
+
+    private struct VisualTimeSegment {
+        let startDate: Date
+        let endDate: Date
+        let startY: CGFloat
+        let endY: CGFloat
+
+        var anchors: [VisualTimeAnchor] {
+            [
+                VisualTimeAnchor(date: startDate, y: startY),
+                VisualTimeAnchor(date: endDate, y: endY)
+            ]
+        }
+
+        func contains(_ date: Date) -> Bool {
+            startDate <= date && date < endDate
+        }
+
+        func y(for date: Date) -> CGFloat {
+            let duration = max(endDate.timeIntervalSince(startDate), 1)
+            let ratio = min(max(date.timeIntervalSince(startDate) / duration, 0), 1)
+            return startY + ((endY - startY) * CGFloat(ratio))
+        }
+    }
+
+    private func visualTimeY(for date: Date) -> CGFloat? {
+        if date <= visibleStart {
+            return visualRoutineAnchorY(id: wakeAnchor.id)
+        }
+        if date >= visibleEnd {
+            return visualRoutineAnchorY(id: sleepAnchor.id)
+        }
+
+        let segments = visualTimeSegments()
+        if let activeSegment = segments.first(where: { $0.contains(date) }) {
+            return activeSegment.y(for: date)
+        }
+
+        let anchors = visualTimeAnchors(from: segments)
+        guard anchors.isEmpty == false else { return nil }
+
+        let exactAnchors = anchors.filter { abs($0.date.timeIntervalSince(date)) < 0.5 }
+        if let exactY = exactAnchors.map(\.y).max() {
+            return exactY
+        }
+
+        let previous = anchors.last { $0.date < date }
+        let next = anchors.first { $0.date > date }
+
+        switch (previous, next) {
+        case (.some(let previous), .some(let next)):
+            let duration = max(next.date.timeIntervalSince(previous.date), 1)
+            let ratio = min(max(date.timeIntervalSince(previous.date) / duration, 0), 1)
+            let interpolated = previous.y + ((next.y - previous.y) * CGFloat(ratio))
+            return min(max(interpolated, min(previous.y, next.y)), max(previous.y, next.y))
+        case (.some(let previous), .none):
+            return previous.y
+        case (.none, .some(let next)):
+            return next.y
+        case (.none, .none):
+            return nil
+        }
+    }
+
+    private func visualTimeSegments() -> [VisualTimeSegment] {
+        visualElements.compactMap { positioned -> VisualTimeSegment? in
+            switch positioned.element {
+            case .meetingCard, .taskMarker, .taskCard, .flock:
+                let startDate = positioned.element.temporalStart
+                let endDate = positioned.element.temporalEnd
+                guard endDate > startDate else { return nil }
+                return VisualTimeSegment(
+                    startDate: startDate,
+                    endDate: endDate,
+                    startY: positioned.y,
+                    endY: positioned.bottomY
+                )
+            case .routineMarker, .gapPrompt, .emptyState:
+                return nil
+            }
+        }
+        .sorted {
+            if $0.startDate != $1.startDate {
+                return $0.startDate < $1.startDate
+            }
+            return $0.endDate < $1.endDate
+        }
+    }
+
+    private func visualTimeAnchors(from segments: [VisualTimeSegment]) -> [VisualTimeAnchor] {
+        let routineAnchors = visualElements.compactMap { positioned -> VisualTimeAnchor? in
+            guard case .routineMarker(let model) = positioned.element else { return nil }
+            return VisualTimeAnchor(date: model.anchor.time, y: positioned.centerY)
+        }
+        return (routineAnchors + segments.flatMap(\.anchors))
+            .sorted {
+                if $0.date != $1.date {
+                    return $0.date < $1.date
+                }
+                return $0.y < $1.y
+            }
+    }
+
+    private func visualRoutineAnchorY(id: String) -> CGFloat? {
+        visualElements.first { positioned in
+            guard case .routineMarker(let model) = positioned.element else { return false }
+            return model.anchor.id == id
+        }?.centerY
     }
 
     private static func positionedItems(from candidates: [Candidate]) -> [PositionedItem] {
