@@ -30,6 +30,17 @@ struct HomeHabitRowHitTargetMetrics: Equatable {
     }
 }
 
+struct HomeHabitLastCellDecorationPolicy {
+    static func showsDecoration(for state: HomeHabitRowState) -> Bool {
+        switch state {
+        case .due, .overdue, .tracking:
+            return true
+        case .completedToday, .lapsedToday, .skippedToday:
+            return false
+        }
+    }
+}
+
 private struct HomeHabitRowInteractiveButton<Label: View>: View {
     enum Feedback {
         case selection
@@ -74,6 +85,7 @@ private struct HomeHabitRowInteractiveSurface: View {
     let boardCellCount: Int
     let colorScheme: ColorScheme
     let usesExpandedTitle: Bool
+    let showsLastCellDecoration: Bool
     let lastCellInteraction: HomeHabitLastCellInteraction
     let accessibilityHint: String
     let onRowAction: (() -> Void)?
@@ -85,7 +97,7 @@ private struct HomeHabitRowInteractiveSurface: View {
             let metrics = HomeHabitRowHitTargetMetrics(
                 stripWidth: proxy.size.width,
                 cellCount: boardCellCount,
-                showsLastCellDecoration: stripAction != nil,
+                showsLastCellDecoration: stripAction != nil && showsLastCellDecoration,
                 usesExpandedTitle: usesExpandedTitle
             )
 
@@ -199,6 +211,10 @@ struct HomeHabitRowView: View {
         }
     }
 
+    private var showsLastCellDecoration: Bool {
+        HomeHabitLastCellDecorationPolicy.showsDecoration(for: row.state)
+    }
+
     private var lastCellInteraction: HomeHabitLastCellInteraction {
         HomeHabitLastCellInteraction.resolve(for: row)
     }
@@ -288,6 +304,7 @@ struct HomeHabitRowView: View {
                 boardCellCount: boardCellCount,
                 colorScheme: colorScheme,
                 usesExpandedTitle: usesExpandedTitle,
+                showsLastCellDecoration: showsLastCellDecoration,
                 lastCellInteraction: lastCellInteraction,
                 accessibilityHint: accessibilityHint,
                 onRowAction: onRowAction,
