@@ -13,7 +13,20 @@
                     <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <color key="backgroundColor" xcode11CocoaTouchSystemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <subviews>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="TaskerSplashIcon" translatesAutoresizingMaskIntoConstraints="NO" id="Tsk-sp-ico">
+                                <rect key="frame" x="127.5" y="273.5" width="120" height="120"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="120" id="Tsk-sp-width"/>
+                                    <constraint firstAttribute="height" constant="120" id="Tsk-sp-height"/>
+                                </constraints>
+                            </imageView>
+                        </subviews>
+                        <color key="backgroundColor" name="LaunchCanvas"/>
+                        <constraints>
+                            <constraint firstItem="Tsk-sp-ico" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="Tsk-sp-centerX"/>
+                            <constraint firstItem="Tsk-sp-ico" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="Tsk-sp-centerY"/>
+                        </constraints>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                     </view>
                 </viewController>
@@ -22,4 +35,10 @@
             <point key="canvasLocation" x="53" y="375"/>
         </scene>
     </scenes>
+    <resources>
+        <image name="TaskerSplashIcon" width="128" height="128"/>
+        <namedColor name="LaunchCanvas">
+            <color red="1" green="0.97254901960784312" blue="0.93725490196078431" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
 </document>

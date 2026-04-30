@@ -8,6 +8,7 @@
 
 import UIKit
 import UserNotifications
+import SwiftUI
 
 // Import Clean Architecture components
 // These types are defined in the Presentation layer
@@ -417,15 +418,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 private final class TaskerLaunchHostController: UIViewController {
     private let resolveHomeRootController: () -> UIViewController?
 
-    private let canvasView = UIView()
-    private let chromePlaceholderView = UIView()
-    private let foredropPlaceholderView = UIView()
-    private let skeletonStack = UIStackView()
-    private let gradientLayer = CAGradientLayer()
-
     private var hasScheduledHomeAttach = false
     private var pendingHomeController: UIViewController?
     private var attachedHomeController: UIViewController?
+    private var splashHostController: UIHostingController<TaskerLaunchSplashView>?
 
     init(resolveHomeRootController: @escaping () -> UIViewController?) {
         self.resolveHomeRootController = resolveHomeRootController
@@ -439,7 +435,7 @@ private final class TaskerLaunchHostController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupSkeleton()
+        setupSplash()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -449,56 +445,26 @@ private final class TaskerLaunchHostController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        gradientLayer.frame = canvasView.bounds
         attachHomeIfPossible()
     }
 
-    private func setupSkeleton() {
+    private func setupSplash() {
         view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
 
-        canvasView.translatesAutoresizingMaskIntoConstraints = false
-        chromePlaceholderView.translatesAutoresizingMaskIntoConstraints = false
-        foredropPlaceholderView.translatesAutoresizingMaskIntoConstraints = false
-        skeletonStack.translatesAutoresizingMaskIntoConstraints = false
+        let splashHostController = UIHostingController(rootView: TaskerLaunchSplashView())
+        splashHostController.view.backgroundColor = .clear
+        splashHostController.view.translatesAutoresizingMaskIntoConstraints = false
 
-        gradientLayer.colors = [
-            TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas.cgColor,
-            TaskerThemeManager.shared.currentTheme.tokens.color.overlayScrim.withAlphaComponent(0.08).cgColor
-        ]
-        gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
-        gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
-        canvasView.layer.insertSublayer(gradientLayer, at: 0)
-
-        chromePlaceholderView.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.surfaceSecondary
-            .withAlphaComponent(0.78)
-        chromePlaceholderView.layer.cornerRadius = 22
-
-        foredropPlaceholderView.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.surfaceTertiary
-        foredropPlaceholderView.layer.cornerRadius = 28
-
-        skeletonStack.axis = .vertical
-        skeletonStack.spacing = 20
-        skeletonStack.alignment = .fill
-        skeletonStack.addArrangedSubview(chromePlaceholderView)
-        skeletonStack.addArrangedSubview(foredropPlaceholderView)
-
-        view.addSubview(canvasView)
-        view.addSubview(skeletonStack)
-
+        addChild(splashHostController)
+        view.addSubview(splashHostController.view)
         NSLayoutConstraint.activate([
-            canvasView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            canvasView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            canvasView.topAnchor.constraint(equalTo: view.topAnchor),
-            canvasView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
-            skeletonStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            skeletonStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            skeletonStack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
-            skeletonStack.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
-
-            chromePlaceholderView.heightAnchor.constraint(equalToConstant: 112),
-            foredropPlaceholderView.heightAnchor.constraint(greaterThanOrEqualToConstant: 420)
+            splashHostController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            splashHostController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            splashHostController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            splashHostController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        splashHostController.didMove(toParent: self)
+        self.splashHostController = splashHostController
     }
 
     private func scheduleHomeAttachIfNeeded() {
@@ -528,7 +494,11 @@ private final class TaskerLaunchHostController: UIViewController {
         addChild(homeController)
         homeController.view.translatesAutoresizingMaskIntoConstraints = false
         homeController.view.alpha = 1
-        view.addSubview(homeController.view)
+        if let splashView = splashHostController?.view {
+            view.insertSubview(homeController.view, belowSubview: splashView)
+        } else {
+            view.addSubview(homeController.view)
+        }
         NSLayoutConstraint.activate([
             homeController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             homeController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -536,10 +506,35 @@ private final class TaskerLaunchHostController: UIViewController {
             homeController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         homeController.didMove(toParent: self)
-        skeletonStack.alpha = 0
         TaskerPerformanceTrace.end(interval)
-        skeletonStack.removeFromSuperview()
         attachedHomeController = homeController
         pendingHomeController = nil
+        fadeSplashOverAttachedHome()
+    }
+
+    private func fadeSplashOverAttachedHome() {
+        guard let splashHostController else { return }
+
+        UIView.animate(
+            withDuration: UIAccessibility.isReduceMotionEnabled ? 0.12 : 0.22,
+            delay: 0,
+            options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseOut]
+        ) {
+            splashHostController.view.alpha = 0
+        } completion: { [weak self, weak splashHostController] _ in
+            guard let self, let splashHostController else { return }
+            self.removeSplashHostController(splashHostController)
+        }
+    }
+
+    private func removeSplashHostController(
+        _ splashHostController: UIHostingController<TaskerLaunchSplashView>
+    ) {
+        splashHostController.willMove(toParent: nil)
+        splashHostController.view.removeFromSuperview()
+        splashHostController.removeFromParent()
+        if self.splashHostController === splashHostController {
+            self.splashHostController = nil
+        }
     }
 }
