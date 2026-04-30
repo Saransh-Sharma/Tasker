@@ -3,6 +3,253 @@ import XCTest
 
 final class HomeForedropLayoutMetricsTests: XCTestCase {
 
+    func testLiquidSwipeSidesMapToDayDirections() {
+        XCTAssertEqual(HomeDayLiquidSwipeSide.leading.direction, .previous)
+        XCTAssertEqual(HomeDayLiquidSwipeSide.trailing.direction, .next)
+    }
+
+    func testLiquidSwipeEdgeStartMapsLeadingAndTrailingEdges() {
+        let size = CGSize(width: 390, height: 760)
+
+        XCTAssertEqual(
+            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 20, y: 300), containerSize: size),
+            .leading
+        )
+        XCTAssertEqual(
+            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 370, y: 300), containerSize: size),
+            .trailing
+        )
+    }
+
+    func testLiquidSwipeEdgeStartIgnoresCenterDrag() {
+        XCTAssertNil(
+            HomeDayLiquidSwipeData.side(
+                forStartLocation: CGPoint(x: 195, y: 300),
+                containerSize: CGSize(width: 390, height: 760)
+            )
+        )
+    }
+
+    func testLiquidSwipeInitialHandlesShareTimelineStartHeight() {
+        let size = CGSize(width: 390, height: 760)
+        let leading = HomeDayLiquidSwipeData(side: .leading, containerSize: size)
+        let trailing = HomeDayLiquidSwipeData(side: .trailing, containerSize: size)
+
+        XCTAssertEqual(leading.buttonCenter.y, trailing.buttonCenter.y)
+        XCTAssertEqual(leading.buttonCenter.y, HomeDayLiquidSwipeData.timelineHandleCenterY)
+    }
+
+    func testLiquidSwipeInitialHandleHeightIsNearTopAndClampedInsideOverlay() {
+        let size = CGSize(width: 390, height: 760)
+        let leading = HomeDayLiquidSwipeData(side: .leading, containerSize: size)
+        let trailing = HomeDayLiquidSwipeData(side: .trailing, containerSize: size)
+
+        XCTAssertGreaterThanOrEqual(leading.buttonCenter.y, HomeDayLiquidSwipeData.buttonRadius)
+        XCTAssertLessThanOrEqual(leading.buttonCenter.y, 48)
+        XCTAssertGreaterThanOrEqual(trailing.buttonCenter.y, HomeDayLiquidSwipeData.buttonRadius)
+        XCTAssertLessThanOrEqual(trailing.buttonCenter.y, 48)
+    }
+
+    func testLiquidSwipeInitialResetReturnsHandleToTimelineStartHeight() {
+        let data = HomeDayLiquidSwipeData(
+            side: .leading,
+            centerY: 220,
+            progress: 0.24,
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        XCTAssertEqual(data.initial().buttonCenter.y, HomeDayLiquidSwipeData.timelineHandleCenterY)
+        XCTAssertEqual(data.initial().progress, 0)
+    }
+
+    func testLiquidSwipeKeepsVerticalDragAvailableFromEdges() {
+        let side = HomeDayLiquidSwipeData.side(
+            forStartLocation: CGPoint(x: 20, y: 300),
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        XCTAssertEqual(side, .leading)
+        XCTAssertFalse(
+            HomeDaySwipeResolver.default.isHorizontallyDominant(
+                translation: CGSize(width: 18, height: 120)
+            )
+        )
+    }
+
+    func testLiquidSwipeActivatesVisualDragBeforeCommitThreshold() {
+        let resolver = HomeDaySwipeResolver.default
+        let size = CGSize(width: 390, height: 760)
+        let translation = CGSize(width: 12, height: 2)
+
+        let side = resolver.liquidActivationSide(
+            startLocation: CGPoint(x: 20, y: 300),
+            translation: translation,
+            containerSize: size
+        )
+        let direction = resolver.resolvedDirection(
+            translation: translation,
+            predictedEndTranslation: translation
+        )
+        let dragged = HomeDayLiquidSwipeData(side: .leading, containerSize: size)
+            .drag(translation: translation, location: CGPoint(x: 32, y: 304))
+
+        XCTAssertEqual(side, .leading)
+        XCTAssertNil(direction)
+        XCTAssertGreaterThan(dragged.progress, 0)
+    }
+
+    func testLiquidSwipeVisualActivationIgnoresVerticalEdgeDrag() {
+        let side = HomeDaySwipeResolver.default.liquidActivationSide(
+            startLocation: CGPoint(x: 20, y: 300),
+            translation: CGSize(width: 18, height: 120),
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        XCTAssertNil(side)
+    }
+
+    func testLiquidSwipeVisualActivationIgnoresCenterDrag() {
+        let side = HomeDaySwipeResolver.default.liquidActivationSide(
+            startLocation: CGPoint(x: 195, y: 300),
+            translation: CGSize(width: 24, height: 4),
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        XCTAssertNil(side)
+    }
+
+    func testLiquidSwipeGestureActivationUsesVelocityForEarlyHorizontalIntent() {
+        let side = HomeDaySwipeResolver.default.liquidActivationSide(
+            startLocation: CGPoint(x: 20, y: 300),
+            translation: CGSize(width: 2, height: 0),
+            velocity: CGPoint(x: 220, y: 12),
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        XCTAssertEqual(side, .leading)
+    }
+
+    func testLiquidSwipeGestureActivationRejectsOppositeEdgeDirection() {
+        let side = HomeDaySwipeResolver.default.liquidActivationSide(
+            startLocation: CGPoint(x: 20, y: 300),
+            translation: CGSize(width: -24, height: 0),
+            velocity: CGPoint(x: -160, y: 0),
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        XCTAssertNil(side)
+    }
+
+    func testLiquidSwipeProjectedEndKeepsQuickFlickCommitEligible() {
+        let resolver = HomeDaySwipeResolver.default
+        let predicted = resolver.predictedEndTranslation(
+            translation: CGSize(width: -32, height: 2),
+            velocity: CGPoint(x: -620, y: 0)
+        )
+
+        let direction = resolver.resolvedDirection(
+            translation: CGSize(width: -32, height: 2),
+            predictedEndTranslation: predicted
+        )
+
+        XCTAssertEqual(direction, .next)
+    }
+
+    func testLeadingLiquidDataProgressesOnRightwardDrag() {
+        let data = HomeDayLiquidSwipeData(
+            side: .leading,
+            centerY: 180,
+            progress: 0,
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        let dragged = data.drag(
+            translation: CGSize(width: 160, height: 4),
+            location: CGPoint(x: 82, y: 220)
+        )
+
+        XCTAssertGreaterThan(dragged.progress, 0)
+        XCTAssertEqual(dragged.side.direction, .previous)
+        XCTAssertEqual(dragged.centerY, 220)
+    }
+
+    func testTrailingLiquidDataProgressesOnLeftwardDrag() {
+        let data = HomeDayLiquidSwipeData(
+            side: .trailing,
+            centerY: 320,
+            progress: 0,
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        let dragged = data.drag(
+            translation: CGSize(width: -160, height: 4),
+            location: CGPoint(x: 308, y: 260)
+        )
+
+        XCTAssertGreaterThan(dragged.progress, 0)
+        XCTAssertEqual(dragged.side.direction, .next)
+        XCTAssertEqual(dragged.centerY, 260)
+    }
+
+    func testLeadingLiquidDataDoesNotProgressOnOppositeHandleDrag() {
+        let data = HomeDayLiquidSwipeData(
+            side: .leading,
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        let dragged = data.drag(
+            translation: CGSize(width: -160, height: 4),
+            location: CGPoint(x: 20, y: HomeDayLiquidSwipeData.timelineHandleCenterY + 4)
+        )
+
+        XCTAssertEqual(dragged.progress, 0)
+    }
+
+    func testTrailingLiquidDataDoesNotProgressOnOppositeHandleDrag() {
+        let data = HomeDayLiquidSwipeData(
+            side: .trailing,
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        let dragged = data.drag(
+            translation: CGSize(width: 160, height: 4),
+            location: CGPoint(x: 370, y: HomeDayLiquidSwipeData.timelineHandleCenterY + 4)
+        )
+
+        XCTAssertEqual(dragged.progress, 0)
+    }
+
+    func testOppositeHandleDragDoesNotCommitForActiveSide() {
+        let leadingDirection = HomeDaySwipeResolver.default.resolvedDirection(
+            translation: CGSize(width: -74, height: 4),
+            predictedEndTranslation: CGSize(width: -110, height: 6)
+        )
+        let trailingDirection = HomeDaySwipeResolver.default.resolvedDirection(
+            translation: CGSize(width: 74, height: 4),
+            predictedEndTranslation: CGSize(width: 110, height: 6)
+        )
+
+        XCTAssertNotEqual(leadingDirection, HomeDayLiquidSwipeSide.leading.direction)
+        XCTAssertNotEqual(trailingDirection, HomeDayLiquidSwipeSide.trailing.direction)
+    }
+
+    func testLiquidDataCancelsShortDragAndResetsProgress() {
+        let data = HomeDayLiquidSwipeData(
+            side: .leading,
+            centerY: 180,
+            progress: 0.12,
+            containerSize: CGSize(width: 390, height: 760)
+        )
+
+        XCTAssertTrue(
+            data.isCancelled(
+                translation: CGSize(width: 24, height: 2),
+                location: CGPoint(x: 40, y: 180)
+            )
+        )
+        XCTAssertEqual(data.initial().progress, 0)
+    }
+
     func testDaySwipeResolverMapsLeftSwipeToNextDay() {
         let direction = HomeDaySwipeResolver.default.resolvedDirection(
             translation: CGSize(width: -74, height: 8),
