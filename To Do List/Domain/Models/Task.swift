@@ -298,6 +298,18 @@ enum TaskScheduleNormalizer {
             )
         }
 
+        if allDayIntent != false, isDateOnly(deadlineDate, calendar: calendar) {
+            return TaskScheduleNormalizationResult(
+                dueDate: calendar.startOfDay(for: deadlineDate),
+                scheduledStartAt: nil,
+                scheduledEndAt: nil,
+                isAllDay: true,
+                explicitAllDayIntent: allDayIntent,
+                clearScheduledStartAt: true,
+                clearScheduledEndAt: true
+            )
+        }
+
         let resolvedDuration: TimeInterval
         if preserveExistingDuration,
            let existingScheduledStartAt,
