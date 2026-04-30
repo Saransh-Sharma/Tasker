@@ -2299,6 +2299,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             onToggleComplete: { [weak self] task in
                 self?.viewModel?.toggleTaskCompletion(task)
             },
+            onTimelineAnchorTap: { [weak self] anchor in
+                self?.presentTimelineAnchorDetail(for: anchor)
+            },
             onDeleteTask: { [weak self] task in
                 self?.handleTaskDeleteRequested(task)
             },
@@ -3839,6 +3842,37 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
         }
         present(alert, animated: true)
+    }
+
+    private func presentTimelineAnchorDetail(for anchor: TimelineAnchorItem) {
+        guard let selection = TimelineAnchorSelection(anchorID: anchor.id) else { return }
+        viewModel?.trackHomeInteraction(
+            action: "home_timeline_anchor_edit_opened",
+            metadata: ["anchor": selection.rawValue, "layout_class": currentLayoutClass.rawValue]
+        )
+
+        let detailView = TimelineAnchorDetailSheetView(selection: selection)
+        let hostingController = UIHostingController(rootView: detailView.taskerLayoutClass(currentLayoutClass))
+        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+
+        if isUsingIPadNativeShell {
+            hostingController.modalPresentationStyle = .formSheet
+            hostingController.preferredContentSize = CGSize(width: 540, height: 520)
+            if let sheet = hostingController.sheetPresentationController {
+                sheet.detents = [.large()]
+                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+            }
+        } else {
+            hostingController.modalPresentationStyle = .pageSheet
+            if let sheet = hostingController.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            }
+        }
+
+        present(hostingController, animated: true)
     }
 
     /// Executes presentTaskDetailView.
