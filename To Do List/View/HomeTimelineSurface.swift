@@ -2585,6 +2585,7 @@ struct TimelineForedropView: View {
     let onDragEnded: (CGFloat) -> Void
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
+    let onAnchorTap: (TimelineAnchorItem) -> Void
     let onAddTask: (Date?) -> Void
     let onScheduleInbox: () -> Void
     let onShowCalendarInTimeline: () -> Void
@@ -2618,6 +2619,7 @@ struct TimelineForedropView: View {
         onDragEnded: @escaping (CGFloat) -> Void,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
+        onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
         onAddTask: @escaping (Date?) -> Void,
         onScheduleInbox: @escaping () -> Void,
         onShowCalendarInTimeline: @escaping () -> Void,
@@ -2637,6 +2639,7 @@ struct TimelineForedropView: View {
         self.onDragEnded = onDragEnded
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
+        self.onAnchorTap = onAnchorTap
         self.onAddTask = onAddTask
         self.onScheduleInbox = onScheduleInbox
         self.onShowCalendarInTimeline = onShowCalendarInTimeline
@@ -2692,6 +2695,7 @@ struct TimelineForedropView: View {
                     layoutClass: layoutClass,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
+                    onAnchorTap: onAnchorTap,
                     onAddTask: { onAddTask(nil) },
                     onScheduleInbox: onScheduleInbox
                 )
@@ -2701,6 +2705,7 @@ struct TimelineForedropView: View {
                     layoutClass: layoutClass,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
+                    onAnchorTap: onAnchorTap,
                     onAddTask: { onAddTask(nil) },
                     onScheduleInbox: onScheduleInbox
                 )
@@ -2712,6 +2717,7 @@ struct TimelineForedropView: View {
                     placementCandidate: snapshot.placementCandidate,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
+                    onAnchorTap: onAnchorTap,
                     onAddTask: onAddTask,
                     onScheduleInbox: onScheduleInbox,
                     onShowCalendarInTimeline: onShowCalendarInTimeline,
@@ -4186,6 +4192,7 @@ struct DailyTimelineCanvas: View {
     let placementCandidate: TimelinePlacementCandidate?
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
+    let onAnchorTap: (TimelineAnchorItem) -> Void
     let onAddTask: (Date?) -> Void
     let onScheduleInbox: () -> Void
     let onShowCalendarInTimeline: () -> Void
@@ -4201,6 +4208,7 @@ struct DailyTimelineCanvas: View {
         placementCandidate: TimelinePlacementCandidate?,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
+        onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
         onAddTask: @escaping (Date?) -> Void,
         onScheduleInbox: @escaping () -> Void,
         onShowCalendarInTimeline: @escaping () -> Void,
@@ -4211,6 +4219,7 @@ struct DailyTimelineCanvas: View {
         self.placementCandidate = placementCandidate
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
+        self.onAnchorTap = onAnchorTap
         self.onAddTask = onAddTask
         self.onScheduleInbox = onScheduleInbox
         self.onShowCalendarInTimeline = onShowCalendarInTimeline
@@ -4401,7 +4410,8 @@ struct DailyTimelineCanvas: View {
             anchorView(
                 .init(anchor: model.anchor, y: positioned.y + (positioned.height / 2)),
                 row: presentation.row(for: model.anchor),
-                spineCenterX: spineCenterX
+                spineCenterX: spineCenterX,
+                totalWidth: totalWidth
             )
         case .meetingCard(let model):
             let row = presentation.row(for: model.item)
@@ -4515,7 +4525,8 @@ struct DailyTimelineCanvas: View {
     private func anchorView(
         _ anchor: TimelineCanvasLayoutPlan.PositionedAnchor,
         row: TimelineRenderableRow,
-        spineCenterX: CGFloat
+        spineCenterX: CGFloat,
+        totalWidth: CGFloat
     ) -> some View {
         let iconSize = metrics.expandedAnchorCircleSize
         let anchorCenterY = anchor.y
@@ -4550,6 +4561,20 @@ struct DailyTimelineCanvas: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(anchor.anchor.title), \(anchor.anchor.time.formatted(date: .omitted, time: .shortened))")
         .accessibilityValue(anchor.anchor.id == "wake" ? "Timeline start" : "Timeline end")
+
+        Button {
+            onAnchorTap(anchor.anchor)
+        } label: {
+            Color.clear
+                .frame(width: totalWidth, height: max(iconSize, 52))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .offset(x: 0, y: max(anchorCenterY - max(iconSize, 52) / 2, 0))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(anchor.anchor.title), \(anchor.anchor.time.formatted(date: .omitted, time: .shortened))")
+        .accessibilityValue(anchor.anchor.id == "wake" ? "Timeline start" : "Timeline end")
+        .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
     }
 
     private func timelineStem(
@@ -4846,6 +4871,7 @@ private struct DailyTimelineCompactView: View {
     let layoutClass: TaskerLayoutClass
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
+    let onAnchorTap: (TimelineAnchorItem) -> Void
     let onAddTask: () -> Void
     let onScheduleInbox: () -> Void
 
@@ -4857,6 +4883,7 @@ private struct DailyTimelineCompactView: View {
         layoutClass: TaskerLayoutClass,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
+        onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
         onAddTask: @escaping () -> Void,
         onScheduleInbox: @escaping () -> Void
     ) {
@@ -4864,6 +4891,7 @@ private struct DailyTimelineCompactView: View {
         self.layoutClass = layoutClass
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
+        self.onAnchorTap = onAnchorTap
         self.onAddTask = onAddTask
         self.onScheduleInbox = onScheduleInbox
         self.plan = TimelineCompactLayoutPlan(projection: projection, layoutClass: layoutClass)
@@ -4907,7 +4935,8 @@ private struct DailyTimelineCompactView: View {
             TimelineCompactAnchorRow(
                 anchor: anchor.anchor,
                 row: presentation.row(for: anchor.anchor),
-                layoutClass: layoutClass
+                layoutClass: layoutClass,
+                onTap: { onAnchorTap(anchor.anchor) }
             )
             .frame(minHeight: anchor.rowHeight, alignment: .center)
         case .item(let item):
@@ -4965,62 +4994,68 @@ private struct TimelineCompactAnchorRow: View {
     let anchor: TimelineAnchorItem
     let row: TimelineRenderableRow
     let layoutClass: TaskerLayoutClass
+    let onTap: () -> Void
 
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 0) {
-            Text(anchor.time.formatted(date: .omitted, time: .shortened))
-                .font(.tasker(.meta))
-                .foregroundStyle(Color.tasker.textSecondary)
-                .frame(width: metrics.compactTimeGutter, alignment: .trailing)
+        Button(action: onTap) {
+            HStack(alignment: .center, spacing: 0) {
+                Text(anchor.time.formatted(date: .omitted, time: .shortened))
+                    .font(.tasker(.meta))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .frame(width: metrics.compactTimeGutter, alignment: .trailing)
 
-            Color.clear
-                .frame(width: metrics.compactTimeToLaneGap)
-
-            Circle()
-                .fill(TimelineVisualTokens.anchorCapsuleFill)
-                .frame(width: metrics.compactAnchorCircleSize, height: metrics.compactAnchorCircleSize)
-                .overlay {
-                    Image(systemName: anchor.systemImageName)
-                        .font(.system(size: metrics.compactAnchorIconSize, weight: .semibold))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                        .accessibilityHidden(true)
-                }
-                .frame(width: metrics.compactLaneWidth)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(anchor.title)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                if let subtitle = row.subtitle, subtitle.isEmpty == false {
-                    Text(subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(TimelineVisualTokens.utilityText)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: 12)
-
-            if anchor.isActionable {
-                TimelineCompletionRing(
-                    color: Color.tasker.accentPrimary,
-                    isCompleted: false,
-                    isInteractive: false,
-                    label: anchor.title,
-                    action: {}
-                )
-                .frame(width: metrics.compactTrailingLaneWidth, alignment: .center)
-            } else {
                 Color.clear
-                    .frame(width: metrics.compactTrailingLaneWidth, height: 1)
+                    .frame(width: metrics.compactTimeToLaneGap)
+
+                Circle()
+                    .fill(TimelineVisualTokens.anchorCapsuleFill)
+                    .frame(width: metrics.compactAnchorCircleSize, height: metrics.compactAnchorCircleSize)
+                    .overlay {
+                        Image(systemName: anchor.systemImageName)
+                            .font(.system(size: metrics.compactAnchorIconSize, weight: .semibold))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(width: metrics.compactLaneWidth)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(anchor.title)
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                    if let subtitle = row.subtitle, subtitle.isEmpty == false {
+                        Text(subtitle)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(TimelineVisualTokens.utilityText)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 12)
+
+                if anchor.isActionable {
+                    TimelineCompletionRing(
+                        color: Color.tasker.accentPrimary,
+                        isCompleted: false,
+                        isInteractive: false,
+                        label: anchor.title,
+                        action: {}
+                    )
+                    .frame(width: metrics.compactTrailingLaneWidth, alignment: .center)
+                } else {
+                    Color.clear
+                        .frame(width: metrics.compactTrailingLaneWidth, height: 1)
+                }
             }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(anchor.title), \(anchor.time.formatted(date: .omitted, time: .shortened))")
         .accessibilityValue(anchor.id == "wake" ? "Timeline start" : "Timeline end")
+        .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
     }
 }
 
@@ -5177,6 +5212,7 @@ private struct DailyTimelineAgendaView: View {
     let layoutClass: TaskerLayoutClass
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
+    let onAnchorTap: (TimelineAnchorItem) -> Void
     let onAddTask: () -> Void
     let onScheduleInbox: () -> Void
 
@@ -5241,7 +5277,11 @@ private struct DailyTimelineAgendaView: View {
                 ForEach(entries) { entry in
                     switch entry {
                     case .anchor(let anchor):
-                        TimelineAgendaAnchorRow(anchor: anchor, row: presentation.row(for: anchor))
+                        TimelineAgendaAnchorRow(
+                            anchor: anchor,
+                            row: presentation.row(for: anchor),
+                            onTap: { onAnchorTap(anchor) }
+                        )
                             .environment(\.taskerLayoutClass, layoutClass)
                     case .gap(let gap):
                         TimelineGapPrompt(gap: gap, row: presentation.row(for: gap), onAddTask: onAddTask, onPlanBlock: onScheduleInbox)
@@ -5300,37 +5340,43 @@ private struct DailyTimelineAgendaView: View {
 private struct TimelineAgendaAnchorRow: View {
     let anchor: TimelineAnchorItem
     let row: TimelineRenderableRow
+    let onTap: () -> Void
     @Environment(\.taskerLayoutClass) private var layoutClass
 
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Circle()
-                .fill(TimelineVisualTokens.anchorCapsuleFill)
-                .frame(width: metrics.agendaAnchorCircleSize, height: metrics.agendaAnchorCircleSize)
-                .overlay {
-                    Image(systemName: anchor.systemImageName)
-                        .font(.system(size: metrics.agendaAnchorIconSize, weight: .semibold))
+        Button(action: onTap) {
+            HStack(alignment: .top, spacing: 14) {
+                Circle()
+                    .fill(TimelineVisualTokens.anchorCapsuleFill)
+                    .frame(width: metrics.agendaAnchorCircleSize, height: metrics.agendaAnchorCircleSize)
+                    .overlay {
+                        Image(systemName: anchor.systemImageName)
+                            .font(.system(size: metrics.agendaAnchorIconSize, weight: .semibold))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                            .accessibilityHidden(true)
+                    }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(anchor.time.formatted(date: .omitted, time: .shortened))
+                        .font(.tasker(.meta))
                         .foregroundStyle(Color.tasker.textSecondary)
-                        .accessibilityHidden(true)
-                }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(anchor.time.formatted(date: .omitted, time: .shortened))
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.textSecondary)
-                Text(anchor.title)
-                    .font(.tasker(.title3))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                if let subtitle = row.subtitle, subtitle.isEmpty == false {
-                    Text(subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(TimelineVisualTokens.utilityText)
+                    Text(anchor.title)
+                        .font(.tasker(.title3))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                    if let subtitle = row.subtitle, subtitle.isEmpty == false {
+                        Text(subtitle)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(TimelineVisualTokens.utilityText)
+                    }
                 }
             }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(anchor.title), \(anchor.time.formatted(date: .omitted, time: .shortened))")
+        .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
     }
 }
 
