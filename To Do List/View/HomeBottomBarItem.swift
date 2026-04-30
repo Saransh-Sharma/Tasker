@@ -8,7 +8,7 @@ import Foundation
 import UIKit
 #endif
 
-enum HomeBottomBarItem: Equatable {
+enum HomeBottomBarItem: Equatable, Hashable {
     case home
     case calendar
     case charts
@@ -18,6 +18,15 @@ enum HomeBottomBarItem: Equatable {
 }
 
 extension HomeBottomBarItem {
+    static let visibleAnimatedItems: [HomeBottomBarItem] = [
+        .home,
+        .calendar,
+        .chat,
+        .charts,
+        .search,
+        .create
+    ]
+
     var accessibilityValue: String {
         switch self {
         case .home:

@@ -3,6 +3,7 @@ import UIKit
 
 struct HomeDayLiquidSwipeOverlay: View {
     let isEnabled: Bool
+    let isChromeVisible: Bool
     let reduceMotion: Bool
     let restingCenterY: CGFloat
     let onInteractionStarted: () -> Void
@@ -27,15 +28,20 @@ struct HomeDayLiquidSwipeOverlay: View {
                 sideLayer(.trailing, size: size)
             }
         }
-        .accessibilityHidden(!isEnabled)
+        .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.74), value: isChromeVisible)
+        .accessibilityHidden(!isEnabled || !isChromeVisible)
     }
 
     private func sideLayer(_ side: HomeDayLiquidSwipeSide, size: CGSize) -> some View {
         let data = swipeData(for: side, size: size)
+        let isInteractive = isEnabled && isChromeVisible
+        let presentation = HomeDayLiquidSwipeChromePresentation.value(
+            for: side,
+            isChromeVisible: isChromeVisible
+        )
         return ZStack(alignment: .topLeading) {
-            HomeDayLiquidSwipeWaveShape(data: data)
-                .fill(Color.tasker.accentPrimary.opacity(reduceMotion ? 0.18 : 0.74))
-                .opacity(isEnabled ? 1 : 0)
+            waveGlassLayer(data: data)
+                .opacity(isInteractive ? 1 : 0)
                 .allowsHitTesting(false)
 
             Button {
@@ -60,19 +66,39 @@ struct HomeDayLiquidSwipeOverlay: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text(side.accessibilityLabel))
-            .opacity(data.buttonOpacity)
+            .opacity(isInteractive ? data.buttonOpacity : 0)
             .position(data.buttonCenter)
-            .disabled(!isEnabled)
-            .allowsHitTesting(isEnabled)
+            .disabled(!isInteractive)
+            .allowsHitTesting(isInteractive)
             .simultaneousGesture(handleDragGesture(for: side, size: size))
         }
+        .scaleEffect(
+            x: presentation.scaleX,
+            y: presentation.scaleY,
+            anchor: side == .leading ? .leading : .trailing
+        )
+        .offset(x: presentation.offsetX)
         .zIndex(topSide == side ? 1 : 0)
+    }
+
+    @ViewBuilder
+    private func waveGlassLayer(data: HomeDayLiquidSwipeData) -> some View {
+        let shape = HomeDayLiquidSwipeWaveShape(data: data)
+
+        if #available(iOS 26.0, *) {
+            shape
+                .fill(.clear)
+                .glassEffect(.clear, in: shape)
+        } else {
+            shape
+                .fill(.clear)
+        }
     }
 
     private func handleDragGesture(for side: HomeDayLiquidSwipeSide, size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .local)
             .onChanged { value in
-                guard isEnabled else { return }
+                guard isEnabled, isChromeVisible else { return }
                 topSide = side
                 onInteractionStarted()
                 onHandleDragChanged(
@@ -83,7 +109,7 @@ struct HomeDayLiquidSwipeOverlay: View {
                 )
             }
             .onEnded { value in
-                guard isEnabled else { return }
+                guard isEnabled, isChromeVisible else { return }
                 lastDraggedHandleSide = side
                 lastHandleDragEndedAt = Date()
                 onHandleDragEnded(
@@ -113,7 +139,7 @@ struct HomeDayLiquidSwipeOverlay: View {
     }
 
     private func commit(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
-        guard isEnabled else { return }
+        guard isEnabled, isChromeVisible else { return }
         topSide = side
         onInteractionStarted()
         if reduceMotion {
@@ -165,6 +191,7 @@ struct HomeDayLiquidSwipeOverlay: View {
             trailingData = data
         }
     }
+
 }
 
 struct HomeDayLiquidSwipeGestureSurface: UIViewRepresentable {
