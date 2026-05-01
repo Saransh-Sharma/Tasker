@@ -1278,7 +1278,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var syncOutageLabel: UILabel?
     private var currentLayoutClass: TaskerLayoutClass = .phone
     private let iPadShellState = HomeiPadShellState()
-    private let iPadChatAppManager = AppManager()
+    private let homeChatAppManager = AppManager()
     private var iPadShellEpoch = 0
     private var didTrackLayoutClassAtLaunch = false
     private var didTrackIPadShellRendered = false
@@ -1286,6 +1286,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var pendingIPadModalRequest: HomeiPadModalRequest?
     private let onboardingGuidanceModel = HomeOnboardingGuidanceModel()
     private var onboardingCoordinator: AppOnboardingCoordinator?
+    private var isEmbeddedChatRuntimeEntered = false
     private var pendingInsightsLaunchRequest: InsightsLaunchRequest?
     private var pendingInsightsPreparationTask: Task<Void, Never>?
     private var pendingSearchPreparationTask: Task<Void, Never>?
@@ -1481,11 +1482,18 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 case .tasks:
                     self?.scheduleOnboardingEvaluationIfNeeded()
                     self?.scheduleBackgroundSurfacePrewarmIfNeeded()
+                case .schedule:
+                    self?.cancelBackgroundSearchPrewarm()
+                    self?.cancelBackgroundSurfacePrewarm()
                 case .analytics:
                     self?.cancelBackgroundSearchPrewarm()
                 case .search:
                     self?.cancelBackgroundSurfacePrewarm()
+                case .chat:
+                    self?.cancelBackgroundSearchPrewarm()
+                    self?.cancelBackgroundSurfacePrewarm()
                 }
+                self?.setEmbeddedChatRuntimeVisible(activeFace == .chat, trigger: "home_chat_face")
             }
             .store(in: &cancellables)
 
@@ -1620,12 +1628,62 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         switch activeFace {
         case .tasks:
             faceName = "tasks"
+        case .schedule:
+            faceName = "schedule"
         case .analytics:
             faceName = "analytics"
         case .search:
             faceName = "search"
+        case .chat:
+            faceName = "chat"
         }
         logDebug("HOME_RENDER face=\(faceName) phase=\(faceCoordinator.shellPhase.rawValue)")
+    }
+
+    private func setEmbeddedChatRuntimeVisible(_ isVisible: Bool, trigger: String) {
+        if isVisible {
+            guard isEmbeddedChatRuntimeEntered == false else { return }
+            isEmbeddedChatRuntimeEntered = true
+            LLMRuntimeCoordinator.shared.enterChatScreen(trigger: trigger)
+        } else {
+            guard isEmbeddedChatRuntimeEntered else { return }
+            isEmbeddedChatRuntimeEntered = false
+            Task { @MainActor in
+                await LLMRuntimeCoordinator.shared.exitChatScreen(reason: "home_chat_face_exit")
+            }
+        }
+    }
+
+    private func openSchedule(source: String) {
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .schedule
+            return
+        }
+        guard faceCoordinator.activeFace != .schedule else { return }
+        cancelBackgroundSearchPrewarm()
+        cancelBackgroundSurfacePrewarm()
+        pendingOnboardingEvaluationTask?.cancel()
+        pendingOnboardingEvaluationTask = nil
+        if faceCoordinator.activeFace == .search {
+            pendingSearchPreparationTask?.cancel()
+            pendingSearchWarmupTask?.cancel()
+            pendingSearchMutationRefreshTask?.cancel()
+            searchState.releaseResources()
+            retainedHomeSearchEngine = nil
+            viewModel.releaseHomeSearchViewModel()
+            faceCoordinator.setSearchSurfaceState(.idle)
+        }
+        TaskerPerformanceTrace.event("HomeFaceSwitch")
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_schedule_open",
+            message: "Opening schedule surface",
+            fields: ["source": source]
+        )
+        faceCoordinator.setActiveFace(.schedule)
+        viewModel.trackHomeInteraction(
+            action: "home_schedule_flip_open",
+            metadata: ["source": source]
+        )
     }
 
     private func openAnalytics(source: String, launchDefaultInsights: Bool) {
@@ -1783,14 +1841,70 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
+    private func openChat(source: String) {
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .chat
+            return
+        }
+        guard faceCoordinator.activeFace != .chat else { return }
+        cancelBackgroundSearchPrewarm()
+        cancelBackgroundSurfacePrewarm()
+        pendingOnboardingEvaluationTask?.cancel()
+        pendingOnboardingEvaluationTask = nil
+        if faceCoordinator.activeFace == .search {
+            pendingSearchPreparationTask?.cancel()
+            pendingSearchWarmupTask?.cancel()
+            pendingSearchMutationRefreshTask?.cancel()
+            searchState.releaseResources()
+            retainedHomeSearchEngine = nil
+            viewModel.releaseHomeSearchViewModel()
+            faceCoordinator.setSearchSurfaceState(.idle)
+        }
+        TaskerPerformanceTrace.event("HomeFaceSwitch")
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_chat_open",
+            message: "Opening Eva chat surface",
+            fields: ["source": source]
+        )
+        faceCoordinator.setActiveFace(.chat)
+        viewModel.trackHomeInteraction(
+            action: "home_chat_flip_open",
+            metadata: ["source": source]
+        )
+    }
+
+    private func closeChat(source: String) {
+        guard faceCoordinator.activeFace == .chat else { return }
+        TaskerPerformanceTrace.event("HomeFaceSwitch")
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_chat_close",
+            message: "Closing Eva chat surface",
+            fields: ["source": source]
+        )
+        faceCoordinator.setActiveFace(.tasks)
+        viewModel.trackHomeInteraction(
+            action: "home_chat_flip_close",
+            metadata: ["source": source]
+        )
+    }
+
     private func returnToTasks(source: String) {
         switch faceCoordinator.activeFace {
         case .tasks:
             faceCoordinator.bottomBarState.select(.home)
+        case .schedule:
+            TaskerPerformanceTrace.event("HomeFaceSwitch")
+            faceCoordinator.setActiveFace(.tasks)
+            viewModel.trackHomeInteraction(
+                action: "home_schedule_flip_close",
+                metadata: ["source": source]
+            )
         case .analytics:
             closeAnalytics(source: source)
         case .search:
             closeSearch(source: source)
+        case .chat:
+            closeChat(source: source)
         }
     }
 
@@ -2147,7 +2261,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.returnToTasks(source: "bottom_bar_home")
             },
             onCalendar: { [weak self] in
-                self?.presentCalendarSchedule()
+                self?.openSchedule(source: "bottom_bar_schedule")
             },
             onChartsToggle: { [weak self] in
                 self?.toggleInsights(source: "bottom_bar_analytics")
@@ -2156,11 +2270,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.toggleSearch(source: "bottom_bar_search")
             },
             onChat: { [weak self] in
-                if self?.isUsingIPadNativeShell == true {
-                    self?.iPadShellState.destination = .chat
-                } else {
-                    self?.chatButtonTapped()
-                }
+                self?.openChat(source: "bottom_bar_chat")
             },
             onCreate: { [weak self] in
                 if self?.isUsingIPadNativeShell == true {
@@ -2286,6 +2396,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             tasksStore: tasksStore,
             habitsStore: habitsStore,
             calendarStore: calendarStore,
+            calendarIntegrationService: presentationDependencyContainer?.coordinator.calendarIntegrationService,
+            chatAppManager: homeChatAppManager,
             overlayStore: overlayStore,
             faceCoordinator: faceCoordinator,
             searchState: searchState,
@@ -2315,11 +2427,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.presentAddTaskFlow(suggestedDate: suggestedDate)
             },
             onOpenChat: { [weak self] in
-                if self?.isUsingIPadNativeShell == true {
-                    self?.iPadShellState.destination = .chat
-                } else {
-                    self?.chatButtonTapped()
-                }
+                self?.openChat(source: "home_chat_button")
             },
             onOpenProjectCreator: { [weak self] in
                 self?.openProjectCreator()
@@ -2373,14 +2481,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             },
             onOpenCalendarSchedule: { [weak self] in
                 guard let self else { return }
-                if self.isUsingIPadNativeShell {
-                    self.iPadShellState.destination = .schedule
-                } else {
-                    self.presentCalendarSchedule()
-                }
+                self.openSchedule(source: "home_calendar")
             },
             onRetryCalendarContext: { [weak self] in
                 self?.viewModel?.refreshCalendarContext(reason: "home_calendar_retry")
+            },
+            onPerformChatDayTaskAction: { [weak self] action, card, completion in
+                self?.performEmbeddedChatDayTaskAction(action, card: card, completion: completion)
+            },
+            onPerformChatDayHabitAction: { [weak self] action, card, completion in
+                self?.performEmbeddedChatDayHabitAction(action, card: card, completion: completion)
             }
         )
     }
@@ -2517,10 +2627,18 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
 
         return AnyView(
-            ChatContainerView(onOpenTaskDetail: { [weak self] task in
-                self?.handleTaskTap(task)
-            })
-            .environmentObject(iPadChatAppManager)
+            ChatContainerView(
+                onOpenTaskDetail: { [weak self] task in
+                    self?.handleTaskTap(task)
+                },
+                onPerformDayTaskAction: { [weak self] action, card, completion in
+                    self?.performEmbeddedChatDayTaskAction(action, card: card, completion: completion)
+                },
+                onPerformDayHabitAction: { [weak self] action, card, completion in
+                    self?.performEmbeddedChatDayHabitAction(action, card: card, completion: completion)
+                }
+            )
+            .environmentObject(homeChatAppManager)
             .environment(LLMRuntimeCoordinator.shared.evaluator)
             .modelContainer(container)
             .taskerLayoutClass(layoutClass)
@@ -2531,7 +2649,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         AnyView(
             NavigationStack {
                 ModelsSettingsView()
-                    .environmentObject(iPadChatAppManager)
+                    .environmentObject(homeChatAppManager)
                     .environment(LLMRuntimeCoordinator.shared.evaluator)
             }
             .taskerLayoutClass(layoutClass)
@@ -3792,6 +3910,88 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         faceCoordinator.bottomBarState.select(.home)
     }
 
+    private func performEmbeddedChatDayTaskAction(
+        _ action: EvaDayTaskAction,
+        card: EvaDayTaskCard,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let viewModel else {
+            completion(.failure(embeddedChatError(code: 1, message: "Home view model unavailable")))
+            return
+        }
+
+        switch action {
+        case .done:
+            viewModel.setTaskCompletion(taskID: card.taskID, to: true) { result in
+                completion(result.map { _ in })
+            }
+        case .reopen:
+            viewModel.setTaskCompletion(taskID: card.taskID, to: false) { result in
+                completion(result.map { _ in })
+            }
+        case .tomorrow:
+            let calendar = Calendar.current
+            let baseDay = calendar.startOfDay(for: Date())
+            guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: baseDay) else {
+                completion(.failure(embeddedChatError(code: 2, message: "Could not compute tomorrow")))
+                return
+            }
+            viewModel.rescheduleTask(taskID: card.taskID, to: tomorrow) { result in
+                completion(result.map { _ in })
+            }
+        case .open:
+            handleTaskTap(card.taskSnapshot)
+            completion(.success(()))
+        }
+    }
+
+    private func performEmbeddedChatDayHabitAction(
+        _ action: EvaDayHabitAction,
+        card: EvaDayHabitCard,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let coordinator = presentationDependencyContainer?.coordinator else {
+            completion(.failure(embeddedChatError(code: 3, message: "Coordinator unavailable")))
+            return
+        }
+
+        let habitAction: HabitOccurrenceAction
+        switch action {
+        case .done:
+            habitAction = .complete
+        case .skip:
+            habitAction = .skip
+        case .stayedClean:
+            habitAction = .abstained
+        case .lapsed, .logLapse:
+            habitAction = .lapsed
+        case .open:
+            completion(.success(()))
+            return
+        }
+
+        coordinator.resolveHabitOccurrence.execute(
+            habitID: card.habitID,
+            action: habitAction,
+            on: card.dueAt ?? Date()
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                if case .success = result {
+                    self?.viewModel?.refreshCurrentScopeContent(source: "eva_chat_habit_action")
+                }
+                completion(result)
+            }
+        }
+    }
+
+    private func embeddedChatError(code: Int, message: String) -> NSError {
+        NSError(
+            domain: "HomeEmbeddedEvaChat",
+            code: code,
+            userInfo: [NSLocalizedDescriptionKey: message]
+        )
+    }
+
     // MARK: - Task Routing
 
     /// Executes handleTaskTap.
@@ -4181,12 +4381,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         if presentedViewController != nil {
             dismiss(animated: true) { [weak self] in
-                self?.chatButtonTapped()
+                self?.openChat(source: "deeplink_chat")
             }
             return
         }
 
-        chatButtonTapped()
+        openChat(source: "deeplink_chat")
     }
 
     private func consumePendingShortcutHandoffIfNeeded() {
@@ -4351,11 +4551,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         if presentedViewController != nil {
             dismiss(animated: true) { [weak self] in
-                self?.presentCalendarSchedule()
+                self?.openSchedule(source: "deeplink_schedule")
             }
             return
         }
-        presentCalendarSchedule()
+        openSchedule(source: "deeplink_schedule")
     }
 
     private func handleCalendarChooserDeepLink() {
