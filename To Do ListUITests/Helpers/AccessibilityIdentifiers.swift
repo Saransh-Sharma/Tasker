@@ -36,7 +36,7 @@ enum AccessibilityIdentifiers {
         static let settingsButton = "home.settingsButton"
         static let backToTodayButton = "home.backToToday.button"
         static let reflectionReadyButton = "home.reflectionReady.button"
-        static let topChromeXPProgress = "home.topChrome.xpProgress"
+        static let topChromeDayProgress = "home.topChrome.dayProgress"
         static let projectFilterButton = "home.focus.menu.button"
         static let quickFilterMenuButton = "home.focus.menu.button"
         static let quickFilterMenuContainer = "home.focus.menu.container"

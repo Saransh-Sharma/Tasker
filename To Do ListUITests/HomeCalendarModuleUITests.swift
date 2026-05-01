@@ -73,6 +73,40 @@ final class HomeCalendarModuleUITests: XCTestCase {
 
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["schedule.list"].exists)
+        XCTAssertFalse(
+            app.sheets.firstMatch.waitForExistence(timeout: 1),
+            "The bottom-bar schedule should render on the Home foredrop instead of opening a top-level sheet."
+        )
+    }
+
+    func testScheduleFaceLiquidHandlesShiftDisplayedDay() throws {
+        let app = launchApp(calendarMode: "active")
+
+        openScheduleFromBottomBar(from: app)
+
+        let header = scheduleHeaderContext(in: app)
+        XCTAssertTrue(header.waitForExistence(timeout: 8))
+        let initialHeader = header.label
+
+        let nextDay = app.buttons["Next Day"].firstMatch
+        XCTAssertTrue(nextDay.waitForExistence(timeout: 8), "Expected schedule face to keep the next-day liquid handle visible.")
+        tapElement(nextDay, in: app)
+
+        XCTAssertTrue(
+            waitForHeader(header, toDifferFrom: initialHeader, timeout: 6),
+            "Next-day liquid handle should shift the schedule header date."
+        )
+        let nextHeader = header.label
+
+        let previousDay = app.buttons["Previous Day"].firstMatch
+        XCTAssertTrue(previousDay.waitForExistence(timeout: 8), "Expected schedule face to keep the previous-day liquid handle visible.")
+        tapElement(previousDay, in: app)
+
+        XCTAssertTrue(
+            waitForHeader(header, toEqual: initialHeader, timeout: 6),
+            "Previous-day liquid handle should return the schedule header to the original date. Next header was \(nextHeader)."
+        )
+        XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
     }
 
     func testHomeTimelineEventOpensNativeEventDetailWithoutOpeningSchedule() throws {
@@ -397,6 +431,14 @@ final class HomeCalendarModuleUITests: XCTestCase {
         return app.buttons["Week"].firstMatch
     }
 
+    private func scheduleHeaderContext(in app: XCUIApplication) -> XCUIElement {
+        let identified = app.staticTexts["schedule.header.context"]
+        if identified.exists {
+            return identified
+        }
+        return app.descendants(matching: .any)["schedule.header.context"]
+    }
+
     private func scheduleChooserDoneButton(in app: XCUIApplication) -> XCUIElement {
         let identified = app.buttons.matching(identifier: "schedule.chooser.done").firstMatch
         if identified.exists {
@@ -556,6 +598,28 @@ final class HomeCalendarModuleUITests: XCTestCase {
         }
 
         return element.exists
+    }
+
+    private func waitForHeader(_ header: XCUIElement, toDifferFrom originalLabel: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if header.exists, header.label != originalLabel {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return header.exists && header.label != originalLabel
+    }
+
+    private func waitForHeader(_ header: XCUIElement, toEqual expectedLabel: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if header.exists, header.label == expectedLabel {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return header.exists && header.label == expectedLabel
     }
 
     private func tapElement(_ element: XCUIElement, in app: XCUIApplication) {

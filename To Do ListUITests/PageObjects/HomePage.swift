@@ -130,17 +130,17 @@ class HomePage {
         return app.descendants(matching: .any)["home.topChrome"]
     }
 
-    var topChromeXPProgress: XCUIElement {
-        let byOtherElement = app.otherElements[AccessibilityIdentifiers.Home.topChromeXPProgress]
+    var topChromeDayProgress: XCUIElement {
+        let byOtherElement = app.otherElements[AccessibilityIdentifiers.Home.topChromeDayProgress]
         if byOtherElement.exists {
             return byOtherElement
         }
 
-        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.topChromeXPProgress]
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.topChromeDayProgress]
     }
 
-    var topChromeXPLabel: XCUIElement {
-        let predicate = NSPredicate(format: "label CONTAINS[c] 'XP'")
+    var topChromeDayProgressLabel: XCUIElement {
+        let predicate = NSPredicate(format: "label CONTAINS[c] 'done' OR label CONTAINS[c] 'All clear'")
         let inChrome = topChrome.staticTexts.matching(predicate).firstMatch
         if inChrome.exists {
             return inChrome
