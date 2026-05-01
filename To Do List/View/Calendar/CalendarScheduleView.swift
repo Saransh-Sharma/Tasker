@@ -68,8 +68,230 @@ enum CalendarSchedulePresentationMode {
     case embedded
 }
 
+struct CalendarSchedulePresentation: Equatable {
+    let selectedDate: Date
+    let selectedWeekDate: Date
+    let weekStartsOn: Weekday
+    let weekDefaultSelectedDate: Date
+    let currentWeekStart: Date
+    let weekRangeLabel: String
+    let todayEvents: [TaskerCalendarEventSnapshot]
+    let weekAgenda: [TaskerCalendarDayAgenda]
+    let weekDates: [Date]
+    let selectedWeekEvents: [TaskerCalendarEventSnapshot]
+
+    var weekEventCount: Int {
+        weekAgenda.reduce(into: 0) { result, day in
+            result += day.events.count
+        }
+    }
+}
+
+private struct CalendarScheduleEventSignature: Equatable {
+    let id: String
+    let calendarID: String
+    let startDate: Date
+    let endDate: Date
+    let isAllDay: Bool
+    let availability: TaskerCalendarEventAvailability
+    let eventStatus: TaskerCalendarEventStatus
+    let participationStatus: TaskerCalendarEventParticipationStatus
+    let lastModifiedAt: Date?
+
+    init(_ event: TaskerCalendarEventSnapshot) {
+        id = event.id
+        calendarID = event.calendarID
+        startDate = event.startDate
+        endDate = event.endDate
+        isAllDay = event.isAllDay
+        availability = event.availability
+        eventStatus = event.eventStatus
+        participationStatus = event.participationStatus
+        lastModifiedAt = event.lastModifiedAt
+    }
+}
+
+private struct CalendarSchedulePresentationCacheKey: Equatable {
+    let selectedDate: Date
+    let selectedWeekDate: Date
+    let weekStartsOn: Weekday
+    let calendarIdentifier: Calendar.Identifier
+    let calendarTimeZone: TimeZone
+    let authorizationStatus: TaskerCalendarAuthorizationStatus
+    let selectedCalendarIDs: [String]
+    let includeDeclined: Bool
+    let includeCanceled: Bool
+    let includeAllDayInAgenda: Bool
+    let events: [CalendarScheduleEventSignature]
+
+    init(
+        snapshot: TaskerCalendarSnapshot,
+        selectedDate: Date,
+        selectedWeekDate: Date,
+        weekStartsOn: Weekday,
+        calendar: Calendar
+    ) {
+        self.selectedDate = calendar.startOfDay(for: selectedDate)
+        self.selectedWeekDate = calendar.startOfDay(for: selectedWeekDate)
+        self.weekStartsOn = weekStartsOn
+        self.calendarIdentifier = calendar.identifier
+        self.calendarTimeZone = calendar.timeZone
+        self.authorizationStatus = snapshot.authorizationStatus
+        self.selectedCalendarIDs = snapshot.selectedCalendarIDs.sorted()
+        self.includeDeclined = snapshot.includeDeclined
+        self.includeCanceled = snapshot.includeCanceled
+        self.includeAllDayInAgenda = snapshot.includeAllDayInAgenda
+        self.events = snapshot.eventsInRange.map(CalendarScheduleEventSignature.init)
+    }
+}
+
+struct CalendarSchedulePresentationCache {
+    private var cachedKey: CalendarSchedulePresentationCacheKey?
+    private var cachedPresentation: CalendarSchedulePresentation?
+    private(set) var buildCount = 0
+    private(set) var cacheHitCount = 0
+
+    mutating func presentation(
+        snapshot: TaskerCalendarSnapshot,
+        selectedDate: Date,
+        selectedWeekDate: Date,
+        weekStartsOn: Weekday,
+        calendar: Calendar = .current
+    ) -> CalendarSchedulePresentation {
+        let key = CalendarSchedulePresentationCacheKey(
+            snapshot: snapshot,
+            selectedDate: selectedDate,
+            selectedWeekDate: selectedWeekDate,
+            weekStartsOn: weekStartsOn,
+            calendar: calendar
+        )
+        if let cachedKey, cachedKey == key, let cachedPresentation {
+            cacheHitCount += 1
+            return cachedPresentation
+        }
+        let presentation = CalendarSchedulePresentationBuilder.build(
+            snapshot: snapshot,
+            selectedDate: selectedDate,
+            selectedWeekDate: selectedWeekDate,
+            weekStartsOn: weekStartsOn,
+            calendar: calendar
+        )
+        cachedKey = key
+        cachedPresentation = presentation
+        buildCount += 1
+        return presentation
+    }
+}
+
+enum CalendarSchedulePresentationBuilder {
+    static func empty(
+        selectedDate: Date,
+        selectedWeekDate: Date,
+        weekStartsOn: Weekday,
+        calendar: Calendar = .current
+    ) -> CalendarSchedulePresentation {
+        build(
+            snapshot: TaskerCalendarSnapshot.empty,
+            selectedDate: selectedDate,
+            selectedWeekDate: selectedWeekDate,
+            weekStartsOn: weekStartsOn,
+            calendar: calendar
+        )
+    }
+
+    static func build(
+        snapshot: TaskerCalendarSnapshot,
+        selectedDate: Date,
+        selectedWeekDate: Date,
+        weekStartsOn: Weekday,
+        calendar: Calendar = .current
+    ) -> CalendarSchedulePresentation {
+        let interval = TaskerPerformanceTrace.begin("CalendarScheduleProjectionBuild")
+        defer { TaskerPerformanceTrace.end(interval) }
+
+        let weekStart = XPCalculationEngine.startOfWeek(for: selectedDate, startingOn: weekStartsOn)
+        let weekDates = (0..<7).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: weekStart)
+        }
+        let weekDefaultSelectedDate = defaultSelectedWeekDate(
+            selectedDate: selectedDate,
+            weekDates: weekDates,
+            calendar: calendar
+        )
+        let weekRangeLabel = rangeLabel(weekStart: weekStart, calendar: calendar)
+        let weekAgenda = weekDates.map { day in
+            let dayStart = calendar.startOfDay(for: day)
+            return TaskerCalendarDayAgenda(
+                date: dayStart,
+                events: eventsForDay(dayStart, in: snapshot.eventsInRange, calendar: calendar)
+            )
+        }
+
+        return CalendarSchedulePresentation(
+            selectedDate: selectedDate,
+            selectedWeekDate: selectedWeekDate,
+            weekStartsOn: weekStartsOn,
+            weekDefaultSelectedDate: weekDefaultSelectedDate,
+            currentWeekStart: weekStart,
+            weekRangeLabel: weekRangeLabel,
+            todayEvents: eventsForDay(selectedDate, in: snapshot.eventsInRange, calendar: calendar),
+            weekAgenda: weekAgenda,
+            weekDates: weekDates,
+            selectedWeekEvents: eventsForDay(selectedWeekDate, in: snapshot.eventsInRange, calendar: calendar)
+        )
+    }
+
+    private static func eventsForDay(
+        _ day: Date,
+        in events: [TaskerCalendarEventSnapshot],
+        calendar: Calendar
+    ) -> [TaskerCalendarEventSnapshot] {
+        let startOfDay = calendar.startOfDay(for: day)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay
+        return events
+            .filter { $0.endDate > startOfDay && $0.startDate < endOfDay }
+            .sorted { lhs, rhs in
+                if lhs.startDate != rhs.startDate {
+                    return lhs.startDate < rhs.startDate
+                }
+                return lhs.endDate < rhs.endDate
+            }
+    }
+
+    static func defaultSelectedWeekDate(
+        selectedDate: Date,
+        weekStartsOn: Weekday,
+        calendar: Calendar = .current
+    ) -> Date {
+        let weekStart = XPCalculationEngine.startOfWeek(for: selectedDate, startingOn: weekStartsOn)
+        let weekDates = (0..<7).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: weekStart)
+        }
+        return defaultSelectedWeekDate(selectedDate: selectedDate, weekDates: weekDates, calendar: calendar)
+    }
+
+    private static func defaultSelectedWeekDate(
+        selectedDate: Date,
+        weekDates: [Date],
+        calendar: Calendar
+    ) -> Date {
+        if weekDates.contains(where: { calendar.isDate($0, inSameDayAs: selectedDate) }) {
+            return selectedDate
+        }
+        return weekDates.first ?? selectedDate
+    }
+
+    private static func rangeLabel(weekStart: Date, calendar: Calendar) -> String {
+        guard let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) else {
+            return TaskerCalendarPresentation.scheduleDateText(for: weekStart)
+        }
+        return "\(TaskerCalendarPresentation.compactDateText(for: weekStart))-\(TaskerCalendarPresentation.compactDateText(for: weekEnd))"
+    }
+}
+
 struct CalendarScheduleView: View {
     @ObservedObject var service: CalendarIntegrationService
+    @Binding var selectedDate: Date
     let weekStartsOn: Weekday
     let presentationMode: CalendarSchedulePresentationMode
 
@@ -79,44 +301,43 @@ struct CalendarScheduleView: View {
 
     @State private var selectedTab: CalendarScheduleTab = .today
     @State private var presentationState = CalendarSchedulePresentationState()
-    @State private var selectedWeekDate = Date()
+    @State private var selectedWeekDate: Date
+    @State private var presentationCache = CalendarSchedulePresentationCache()
+    @State private var schedulePresentation: CalendarSchedulePresentation
+
+    init(
+        service: CalendarIntegrationService,
+        weekStartsOn: Weekday,
+        presentationMode: CalendarSchedulePresentationMode,
+        selectedDate: Binding<Date> = .constant(Date())
+    ) {
+        let initialSelectedDate = selectedDate.wrappedValue
+        self.service = service
+        self._selectedDate = selectedDate
+        self.weekStartsOn = weekStartsOn
+        self.presentationMode = presentationMode
+        self._selectedWeekDate = State(initialValue: initialSelectedDate)
+        self._schedulePresentation = State(
+            initialValue: CalendarSchedulePresentationBuilder.empty(
+                selectedDate: initialSelectedDate,
+                selectedWeekDate: initialSelectedDate,
+                weekStartsOn: weekStartsOn
+            )
+        )
+    }
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
-    private var todayEvents: [TaskerCalendarEventSnapshot] {
-        service.eventsForDay(Date())
-    }
-
-    private var weekAgenda: [TaskerCalendarDayAgenda] {
-        service.weekAgenda(anchorDate: Date(), weekStartsOn: weekStartsOn)
-    }
-
-    private var weekEventCount: Int {
-        weekAgenda.reduce(into: 0) { result, day in
-            result += day.events.count
-        }
-    }
-
-    private var currentWeekStart: Date {
-        XPCalculationEngine.startOfWeek(for: Date(), startingOn: weekStartsOn)
-    }
-
-    private var weekDates: [Date] {
-        (0..<7).compactMap { offset in
-            Calendar.current.date(byAdding: .day, value: offset, to: currentWeekStart)
-        }
-    }
-
-    private var selectedWeekEvents: [TaskerCalendarEventSnapshot] {
-        service.eventsForDay(selectedWeekDate)
-    }
-
-    private var weekDefaultSelectedDate: Date {
-        let today = Date()
-        if weekDates.contains(where: { Calendar.current.isDate($0, inSameDayAs: today) }) {
-            return today
-        }
-        return weekDates.first ?? today
+    private func makePresentation(selectedWeekDate: Date) -> CalendarSchedulePresentation {
+        var cache = presentationCache
+        let presentation = cache.presentation(
+            snapshot: service.snapshot,
+            selectedDate: selectedDate,
+            selectedWeekDate: selectedWeekDate,
+            weekStartsOn: weekStartsOn
+        )
+        presentationCache = cache
+        return presentation
     }
 
     var body: some View {
@@ -137,8 +358,28 @@ struct CalendarScheduleView: View {
             }
         }
         .task {
-            selectedWeekDate = weekDefaultSelectedDate
-            service.refreshContext(reason: "schedule_appear")
+            let defaultWeekDate = CalendarSchedulePresentationBuilder.defaultSelectedWeekDate(
+                selectedDate: selectedDate,
+                weekStartsOn: weekStartsOn
+            )
+            selectedWeekDate = defaultWeekDate
+            schedulePresentation = makePresentation(selectedWeekDate: defaultWeekDate)
+            service.refreshContext(referenceDate: selectedDate, reason: "schedule_appear")
+        }
+        .onChange(of: selectedDate) { _, newValue in
+            let defaultWeekDate = CalendarSchedulePresentationBuilder.defaultSelectedWeekDate(
+                selectedDate: newValue,
+                weekStartsOn: weekStartsOn
+            )
+            selectedWeekDate = defaultWeekDate
+            schedulePresentation = makePresentation(selectedWeekDate: defaultWeekDate)
+            service.refreshContext(referenceDate: newValue, reason: "schedule_selected_date_changed")
+        }
+        .onChange(of: selectedWeekDate) { _, newValue in
+            schedulePresentation = makePresentation(selectedWeekDate: newValue)
+        }
+        .onChange(of: service.snapshot) { _, _ in
+            schedulePresentation = makePresentation(selectedWeekDate: selectedWeekDate)
         }
         .sheet(item: $presentationState.activeSheet) { sheet in
             switch sheet {
@@ -172,25 +413,26 @@ struct CalendarScheduleView: View {
     }
 
     private var scheduleContent: some View {
-        ScrollView {
+        let currentPresentation = schedulePresentation
+        return ScrollView {
             LazyVStack(alignment: .leading, spacing: spacing.s20) {
                 CalendarScheduleHeaderView(
                     snapshot: service.snapshot,
                     selectedTab: selectedTab,
                     contextLabel: selectedTab == .today
-                        ? "Today \u{00B7} \(TaskerCalendarPresentation.scheduleDateText(for: Date()))"
-                        : "Week \u{00B7} \(weekRangeLabel)",
+                        ? "Today \u{00B7} \(TaskerCalendarPresentation.scheduleDateText(for: selectedDate))"
+                        : "Week \u{00B7} \(currentPresentation.weekRangeLabel)",
                     onSelectTab: { tab in
                         selectedTab = tab
                         if tab == .week {
-                            selectedWeekDate = weekDefaultSelectedDate
+                            selectedWeekDate = currentPresentation.weekDefaultSelectedDate
                         }
                     },
                     onOpenFilters: handleCalendarFilterTap
                 )
                 .enhancedStaggeredAppearance(index: 0)
 
-                content
+                content(presentation: currentPresentation)
                     .enhancedStaggeredAppearance(index: 1)
             }
             .taskerReadableContent(maxWidth: layoutClass.isPad ? 960 : .infinity, alignment: .center)
@@ -199,14 +441,14 @@ struct CalendarScheduleView: View {
             .padding(.bottom, spacing.sectionGap)
         }
         .refreshable {
-            service.refreshContext(reason: "schedule_pull_to_refresh")
+            service.refreshContext(referenceDate: selectedDate, reason: "schedule_pull_to_refresh")
         }
         .accessibilityIdentifier("schedule.list")
         .background(Color.tasker.bgCanvas.ignoresSafeArea())
     }
 
     @ViewBuilder
-    private var content: some View {
+    private func content(presentation: CalendarSchedulePresentation) -> some View {
         if service.snapshot.authorizationStatus.isAuthorizedForRead == false {
             permissionRequiredView
         } else if isInitialLoadingStateVisible {
@@ -216,7 +458,7 @@ struct CalendarScheduleView: View {
         } else if service.snapshot.selectedCalendarIDs.isEmpty {
             noCalendarSelectionView
         } else {
-            activeContent
+            activeContent(presentation: presentation)
         }
     }
 
@@ -242,31 +484,24 @@ struct CalendarScheduleView: View {
     }
 
     @ViewBuilder
-    private var activeContent: some View {
+    private func activeContent(presentation: CalendarSchedulePresentation) -> some View {
         switch selectedTab {
         case .today:
             CalendarScheduleTodayContent(
                 snapshot: service.snapshot,
-                date: Date(),
-                events: todayEvents,
+                date: selectedDate,
+                events: presentation.todayEvents,
                 onSelectEvent: { presentationState.selectEvent(id: $0.id) }
             )
         case .week:
             CalendarScheduleWeekContent(
-                weekDates: weekDates,
+                weekDates: presentation.weekDates,
                 selectedDate: $selectedWeekDate,
-                eventsForSelectedDay: selectedWeekEvents,
-                weekEventCount: weekEventCount,
+                eventsForSelectedDay: presentation.selectedWeekEvents,
+                weekEventCount: presentation.weekEventCount,
                 onSelectEvent: { presentationState.selectEvent(id: $0.id) }
             )
         }
-    }
-
-    private var weekRangeLabel: String {
-        guard let weekEnd = Calendar.current.date(byAdding: .day, value: 6, to: currentWeekStart) else {
-            return TaskerCalendarPresentation.scheduleDateText(for: currentWeekStart)
-        }
-        return "\(TaskerCalendarPresentation.compactDateText(for: currentWeekStart))-\(TaskerCalendarPresentation.compactDateText(for: weekEnd))"
     }
 
     private var permissionRequiredView: some View {
@@ -411,6 +646,7 @@ private struct CalendarScheduleHeaderView: View {
                     Text(contextLabel)
                         .font(layoutClass.isPad ? .tasker(.title2) : .tasker(.title3))
                         .foregroundStyle(Color.tasker.textPrimary)
+                        .accessibilityIdentifier("schedule.header.context")
 
                     Text(selectionLabel)
                         .font(.tasker(.caption1))
@@ -1272,21 +1508,162 @@ enum TaskerCalendarTimelinePlanner {
     }
 }
 
+enum TaskerCalendarTimelineVisibleWindowPolicy: Equatable {
+    case fixed(anchorDate: Date)
+
+    var anchorDate: Date {
+        switch self {
+        case .fixed(let anchorDate):
+            return anchorDate
+        }
+    }
+
+    static func fixedToCurrentMinute(_ date: Date = Date()) -> TaskerCalendarTimelineVisibleWindowPolicy {
+        let minuteStamp = floor(date.timeIntervalSinceReferenceDate / 60.0) * 60.0
+        return .fixed(anchorDate: Date(timeIntervalSinceReferenceDate: minuteStamp))
+    }
+}
+
+struct TaskerCalendarTimelinePlanEventSignature: Equatable {
+    let id: String
+    let calendarID: String
+    let startDate: Date
+    let endDate: Date
+    let isAllDay: Bool
+    let availability: TaskerCalendarEventAvailability
+    let eventStatus: TaskerCalendarEventStatus
+    let participationStatus: TaskerCalendarEventParticipationStatus
+    let lastModifiedAt: Date?
+
+    init(_ event: TaskerCalendarEventSnapshot) {
+        id = event.id
+        calendarID = event.calendarID
+        startDate = event.startDate
+        endDate = event.endDate
+        isAllDay = event.isAllDay
+        availability = event.availability
+        eventStatus = event.eventStatus
+        participationStatus = event.participationStatus
+        lastModifiedAt = event.lastModifiedAt
+    }
+}
+
+struct TaskerCalendarTimelinePlanCacheKey: Equatable {
+    let date: Date
+    let density: TaskerCalendarTimelineDensity
+    let visibleWindowPolicy: TaskerCalendarTimelineVisibleWindowPolicy
+    let calendarIdentifier: Calendar.Identifier
+    let calendarTimeZone: TimeZone
+    let events: [TaskerCalendarTimelinePlanEventSignature]
+
+    init(
+        events: [TaskerCalendarEventSnapshot],
+        date: Date,
+        density: TaskerCalendarTimelineDensity,
+        visibleWindowPolicy: TaskerCalendarTimelineVisibleWindowPolicy,
+        calendar: Calendar = .current
+    ) {
+        self.date = calendar.startOfDay(for: date)
+        self.density = density
+        self.visibleWindowPolicy = visibleWindowPolicy
+        self.calendarIdentifier = calendar.identifier
+        self.calendarTimeZone = calendar.timeZone
+        self.events = events.map(TaskerCalendarTimelinePlanEventSignature.init)
+    }
+}
+
+struct TaskerCalendarTimelinePlanCache {
+    private var cachedKey: TaskerCalendarTimelinePlanCacheKey?
+    private var cachedPlan: TaskerCalendarTimelineLayoutPlan?
+    private(set) var buildCount = 0
+    private(set) var cacheHitCount = 0
+
+    mutating func plan(
+        for events: [TaskerCalendarEventSnapshot],
+        on date: Date,
+        density: TaskerCalendarTimelineDensity,
+        visibleWindowPolicy: TaskerCalendarTimelineVisibleWindowPolicy,
+        calendar: Calendar = .current
+    ) -> TaskerCalendarTimelineLayoutPlan? {
+        let key = TaskerCalendarTimelinePlanCacheKey(
+            events: events,
+            date: date,
+            density: density,
+            visibleWindowPolicy: visibleWindowPolicy,
+            calendar: calendar
+        )
+        if let cachedKey, cachedKey == key {
+            cacheHitCount += 1
+            return cachedPlan
+        }
+
+        let interval = TaskerPerformanceTrace.begin("CalendarTimelinePlanBuild")
+        let plan = TaskerCalendarTimelinePlanner.makePlan(
+            for: events,
+            on: date,
+            density: density,
+            anchorDate: visibleWindowPolicy.anchorDate,
+            calendar: calendar
+        )
+        TaskerPerformanceTrace.end(interval)
+        cachedKey = key
+        cachedPlan = plan
+        buildCount += 1
+        return plan
+    }
+}
+
 struct TaskerCalendarTimelineView: View {
     let date: Date
     let events: [TaskerCalendarEventSnapshot]
-    var density: TaskerCalendarTimelineDensity = .compact
-    var showsDateLabel = true
-    var emptyText = "Nothing in this window"
-    var accessibilityIdentifier: String? = nil
-    var accessibilityLabelText: String? = nil
-    var initialVisibleHour: Int? = nil
-    var eventAccessibilityIdentifierPrefix = "schedule.event"
-    var onSelectEvent: ((TaskerCalendarEventSnapshot) -> Void)? = nil
+    let density: TaskerCalendarTimelineDensity
+    let showsDateLabel: Bool
+    let emptyText: String
+    let accessibilityIdentifier: String?
+    let accessibilityLabelText: String?
+    let initialVisibleHour: Int?
+    let eventAccessibilityIdentifierPrefix: String
+    let onSelectEvent: ((TaskerCalendarEventSnapshot) -> Void)?
+    private let visibleWindowPolicy: TaskerCalendarTimelineVisibleWindowPolicy
+    private let layoutPlanCacheKey: TaskerCalendarTimelinePlanCacheKey
 
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var layoutPlan: TaskerCalendarTimelineLayoutPlan?
+    @State private var layoutPlanCache = TaskerCalendarTimelinePlanCache()
+
+    init(
+        date: Date,
+        events: [TaskerCalendarEventSnapshot],
+        density: TaskerCalendarTimelineDensity = .compact,
+        showsDateLabel: Bool = true,
+        emptyText: String = "Nothing in this window",
+        accessibilityIdentifier: String? = nil,
+        accessibilityLabelText: String? = nil,
+        initialVisibleHour: Int? = nil,
+        eventAccessibilityIdentifierPrefix: String = "schedule.event",
+        onSelectEvent: ((TaskerCalendarEventSnapshot) -> Void)? = nil
+    ) {
+        self.date = date
+        self.events = events
+        self.density = density
+        self.showsDateLabel = showsDateLabel
+        self.emptyText = emptyText
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.accessibilityLabelText = accessibilityLabelText
+        self.initialVisibleHour = initialVisibleHour
+        self.eventAccessibilityIdentifierPrefix = eventAccessibilityIdentifierPrefix
+        self.onSelectEvent = onSelectEvent
+        let visibleWindowPolicy = TaskerCalendarTimelineVisibleWindowPolicy.fixedToCurrentMinute()
+        self.visibleWindowPolicy = visibleWindowPolicy
+        self.layoutPlanCacheKey = TaskerCalendarTimelinePlanCacheKey(
+            events: events,
+            date: date,
+            density: density,
+            visibleWindowPolicy: visibleWindowPolicy
+        )
+    }
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
@@ -1304,16 +1681,26 @@ struct TaskerCalendarTimelineView: View {
                 label: accessibilityLabelText
             )
         )
+        .onAppear(perform: refreshLayoutPlan)
+        .onChange(of: layoutPlanCacheKey) { _, _ in
+            refreshLayoutPlan()
+        }
+    }
+
+    private func refreshLayoutPlan() {
+        var cache = layoutPlanCache
+        layoutPlan = cache.plan(
+            for: events,
+            on: date,
+            density: density,
+            visibleWindowPolicy: visibleWindowPolicy
+        )
+        layoutPlanCache = cache
     }
 
     @ViewBuilder
     private func content(anchorDate: Date) -> some View {
-        if let layoutPlan = TaskerCalendarTimelinePlanner.makePlan(
-            for: events,
-            on: date,
-            density: density,
-            anchorDate: anchorDate
-        ) {
+        if let layoutPlan {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 if showsDateLabel {
                     Text(TaskerCalendarPresentation.compactDateText(for: date))
