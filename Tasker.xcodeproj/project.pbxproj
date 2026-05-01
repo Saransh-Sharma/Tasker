@@ -40,10 +40,6 @@
 		3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */; };
 		350E661527174B8BDEE11FCC /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D379A868382E81C83D874E36 /* TaskRowView.swift */; };
 		355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* HomeForedropView.swift */; };
-		A11D5A110000000000000011 /* HomeDayLiquidSwipeSide.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000001 /* HomeDayLiquidSwipeSide.swift */; };
-		A11D5A110000000000000012 /* HomeDayLiquidSwipeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000002 /* HomeDayLiquidSwipeData.swift */; };
-		A11D5A110000000000000013 /* HomeDayLiquidSwipeWaveShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000003 /* HomeDayLiquidSwipeWaveShape.swift */; };
-		A11D5A110000000000000014 /* HomeDayLiquidSwipeOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000004 /* HomeDayLiquidSwipeOverlay.swift */; };
 		36235D01BFCF2D2001A39CCE /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift */; };
 		37A2B8A6A25F06C72606019E /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */; };
 		3A549BEBEF3902410F96971A /* To Do List/View/FocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */; };
@@ -152,8 +148,6 @@
 		7551BCE52EAB665F003C6916 /* TaskEditingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC12EAB665F003C6916 /* TaskEditingTests.swift */; };
 		7551BCE62EAB665F003C6916 /* AnalyticsAndChartsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC52EAB665F003C6916 /* AnalyticsAndChartsTests.swift */; };
 		7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0124880DAC005CF826 /* AddTaskForedropView.swift */; };
-		D7A500000000000000000102 /* TaskerLaunchSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000101 /* TaskerLaunchSplashView.swift */; };
-		D7A500000000000000000202 /* HomeViewControllerLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */; };
 		7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0524882E94005CF826 /* ToDoFont.swift */; };
 		7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */; };
 		75573CAF2DE88A8000F5A873 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CAE2DE88A8000F5A873 /* SettingsView.swift */; };
@@ -286,6 +280,10 @@
 		988BCDE3365760394848B424 /* SettingsNavigationRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */; };
 		9F8F96DA53998188FCCE898D /* HomeQuickFilterSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D233F155B6A87F62F52F845 /* HomeQuickFilterSummary.swift */; };
 		A11B22C42F10000100ABCDEF /* TaskNotificationDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11B22C32F10000100ABCDEF /* TaskNotificationDispatcher.swift */; };
+		A11D5A110000000000000011 /* HomeDayLiquidSwipeSide.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000001 /* HomeDayLiquidSwipeSide.swift */; };
+		A11D5A110000000000000012 /* HomeDayLiquidSwipeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000002 /* HomeDayLiquidSwipeData.swift */; };
+		A11D5A110000000000000013 /* HomeDayLiquidSwipeWaveShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000003 /* HomeDayLiquidSwipeWaveShape.swift */; };
+		A11D5A110000000000000014 /* HomeDayLiquidSwipeOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11D5A110000000000000004 /* HomeDayLiquidSwipeOverlay.swift */; };
 		A195295E32A95E537E16AF8A /* To Do List/UseCases/Schedule/ResolveOccurrenceUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9EF3524C96CA56E66C86177 /* To Do List/UseCases/Schedule/ResolveOccurrenceUseCase.swift */; };
 		A1B2C3D42F90000100AA1001 /* TaskEditorSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */; };
 		A1B2C3D4E5F607080910AB01 /* GradientTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F607080910AB02 /* GradientTokens.swift */; };
@@ -463,6 +461,7 @@
 		D1A200000000000000000006 /* HomeCompactHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000006 /* HomeCompactHeaderView.swift */; };
 		D1A200000000000000000007 /* HomeMomentumSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000007 /* HomeMomentumSummaryCard.swift */; };
 		D1A200000000000000000008 /* HomeMomentumProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000008 /* HomeMomentumProgressBar.swift */; };
+		D1A200000000000000000009 /* HomeEvaChatTopChromeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000009 /* HomeEvaChatTopChromeView.swift */; };
 		D206E9E48E0AEB00D02CED2D /* SlashCommandCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0633BF8BACC2D4FBC9508866 /* SlashCommandCatalog.swift */; };
 		D2A100000000000000000002 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000001 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift */; };
 		D2A100000000000000000004 /* To Do List/View/QuietTrackingComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000003 /* To Do List/View/QuietTrackingComposerView.swift */; };
@@ -507,6 +506,8 @@
 		D6B2E31F4A5C7890BCDEF0BC /* AddTaskXPPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1D20E3F4B6789ABCDEF0B /* AddTaskXPPreview.swift */; };
 		D6B2E31F4A5C7890BCDEF0CD /* Device+Notch.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1D20E3F4B6789ABCDEF0C /* Device+Notch.swift */; };
 		D6BD60E5C38CC9087DD53FC6 /* SlashCommandExecutionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1371F4BC6B6BB7BF68747A7F /* SlashCommandExecutionService.swift */; };
+		D7A500000000000000000102 /* TaskerLaunchSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000101 /* TaskerLaunchSplashView.swift */; };
+		D7A500000000000000000202 /* HomeViewControllerLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */; };
 		DCC82F690B379131E60A69DA /* TaskerWidgets/TaskerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */; };
 		DCF44651412668651994B7BB /* DarkModeToggleCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D084008D65355970A8ECB504 /* DarkModeToggleCell.swift */; };
 		DE2C698360236D910D116D07 /* TaskerTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB9BE07CCB7761E186498D8C /* TaskerTheme.swift */; };
@@ -880,6 +881,10 @@
 		A10B1C2D3E4F506172839407 /* To Do List/State/Mappers/StateTaskDefinitionMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Mappers/StateTaskDefinitionMapper.swift"; sourceTree = SOURCE_ROOT; };
 		A10B1C2D3E4F506172839408 /* To Do List/State/Mappers/StateProjectMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Mappers/StateProjectMapper.swift"; sourceTree = SOURCE_ROOT; };
 		A11B22C32F10000100ABCDEF /* TaskNotificationDispatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskNotificationDispatcher.swift; sourceTree = "<group>"; };
+		A11D5A110000000000000001 /* HomeDayLiquidSwipeSide.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeSide.swift; sourceTree = "<group>"; };
+		A11D5A110000000000000002 /* HomeDayLiquidSwipeData.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeData.swift; sourceTree = "<group>"; };
+		A11D5A110000000000000003 /* HomeDayLiquidSwipeWaveShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeWaveShape.swift; sourceTree = "<group>"; };
+		A11D5A110000000000000004 /* HomeDayLiquidSwipeOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeOverlay.swift; sourceTree = "<group>"; };
 		A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMModelRegistryTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F607080910AB02 /* GradientTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GradientTokens.swift; sourceTree = "<group>"; };
 		A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorSection.swift; sourceTree = "<group>"; };
@@ -991,10 +996,6 @@
 		BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		BF5D7161411B42651DF00D60 /* HomeForedropView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeForedropView.swift; sourceTree = "<group>"; };
-		A11D5A110000000000000001 /* HomeDayLiquidSwipeSide.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeSide.swift; sourceTree = "<group>"; };
-		A11D5A110000000000000002 /* HomeDayLiquidSwipeData.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeData.swift; sourceTree = "<group>"; };
-		A11D5A110000000000000003 /* HomeDayLiquidSwipeWaveShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeWaveShape.swift; sourceTree = "<group>"; };
-		A11D5A110000000000000004 /* HomeDayLiquidSwipeOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDayLiquidSwipeOverlay.swift; sourceTree = "<group>"; };
 		C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskerWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
 		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
 		C1A100000000000000000001 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
@@ -1062,6 +1063,7 @@
 		D1A100000000000000000006 /* HomeCompactHeaderView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeCompactHeaderView.swift; sourceTree = "<group>"; };
 		D1A100000000000000000007 /* HomeMomentumSummaryCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeMomentumSummaryCard.swift; sourceTree = "<group>"; };
 		D1A100000000000000000008 /* HomeMomentumProgressBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeMomentumProgressBar.swift; sourceTree = "<group>"; };
+		D1A100000000000000000009 /* HomeEvaChatTopChromeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeEvaChatTopChromeView.swift; sourceTree = "<group>"; };
 		D2A100000000000000000001 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift"; sourceTree = SOURCE_ROOT; };
 		D2A100000000000000000003 /* To Do List/View/QuietTrackingComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/QuietTrackingComposerView.swift"; sourceTree = SOURCE_ROOT; };
 		D2A100000000000000000005 /* QuietTrackingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietTrackingUITests.swift; sourceTree = "<group>"; };
@@ -1098,9 +1100,9 @@
 		D5E7A8B92F3C4D5E0067A1B2 /* DailySummaryModalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySummaryModalTests.swift; sourceTree = "<group>"; };
 		D6248E090BE231D70E41F08C /* To Do List/State/Repositories/CoreDataScheduleRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataScheduleRepository.swift"; sourceTree = SOURCE_ROOT; };
 		D69B4ECB89C44E275D829577 /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/TagRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
-		D7C5BD9B9BA76D61F7F044BD /* TaskerSnackbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerSnackbar.swift; sourceTree = "<group>"; };
 		D7A500000000000000000101 /* TaskerLaunchSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerLaunchSplashView.swift; sourceTree = "<group>"; };
 		D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewControllerLifecycleTests.swift; sourceTree = "<group>"; };
+		D7C5BD9B9BA76D61F7F044BD /* TaskerSnackbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerSnackbar.swift; sourceTree = "<group>"; };
 		DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProfileHeaderView.swift; sourceTree = "<group>"; };
 		DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskPriorityPicker.swift; sourceTree = "<group>"; };
 		E06E18805C2401359A9B0F5B /* To Do List/UseCases/LifeArea/ManageLifeAreasUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/LifeArea/ManageLifeAreasUseCase.swift"; sourceTree = SOURCE_ROOT; };
@@ -1853,6 +1855,7 @@
 				B1A000000000000000000013 /* HomeChromeComponents.swift */,
 				D1A100000000000000000001 /* HomeChromeSnapshot+Presentation.swift */,
 				D1A100000000000000000006 /* HomeCompactHeaderView.swift */,
+				D1A100000000000000000009 /* HomeEvaChatTopChromeView.swift */,
 				D1A100000000000000000002 /* HomeScopeSummaryButtonView.swift */,
 				D1A100000000000000000003 /* HomeBackToTodayButtonView.swift */,
 				D1A100000000000000000004 /* HomeMiniMomentumCardView.swift */,
@@ -3054,6 +3057,7 @@
 				B1A000000000000000000003 /* HomeChromeComponents.swift in Sources */,
 				D1A200000000000000000001 /* HomeChromeSnapshot+Presentation.swift in Sources */,
 				D1A200000000000000000006 /* HomeCompactHeaderView.swift in Sources */,
+				D1A200000000000000000009 /* HomeEvaChatTopChromeView.swift in Sources */,
 				D1A200000000000000000002 /* HomeScopeSummaryButtonView.swift in Sources */,
 				D1A200000000000000000003 /* HomeBackToTodayButtonView.swift in Sources */,
 				D1A200000000000000000004 /* HomeMiniMomentumCardView.swift in Sources */,
@@ -3543,7 +3547,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -3553,7 +3557,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.9.0;
+				MARKETING_VERSION = 1.9.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-no_warn_duplicate_libraries",
@@ -3573,7 +3577,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -3583,7 +3587,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.9.0;
+				MARKETING_VERSION = 1.9.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-no_warn_duplicate_libraries",
