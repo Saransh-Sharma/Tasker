@@ -1785,16 +1785,30 @@ private enum TimelineDayRelation {
     case future
 }
 
-private struct TimelineDayPresentation {
+private struct TimelineDayStablePresentation {
+    let projection: TimelineDayProjection
+    let calendar: Calendar
+
+    init(projection: TimelineDayProjection, calendar: Calendar = .current) {
+        let interval = TaskerPerformanceTrace.begin("HomeTimelineStablePresentationBuild")
+        defer { TaskerPerformanceTrace.end(interval) }
+        self.projection = projection
+        self.calendar = calendar
+    }
+}
+
+private struct TimelineDayCurrentState {
     let now: Date
     let dayRelation: TimelineDayRelation
     let currentBoundaryDate: Date?
     let currentTintHex: String?
-    private let taskRowsByID: [String: TimelineRenderableRow]
-    private let gapRowsByID: [String: TimelineRenderableRow]
-    private let anchorRowsByID: [String: TimelineRenderableRow]
+    let activeGapID: String?
 
-    init(projection: TimelineDayProjection, now: Date, calendar: Calendar = .current) {
+    init(stable: TimelineDayStablePresentation, now: Date) {
+        let interval = TaskerPerformanceTrace.begin("HomeTimelineCurrentStateBuild")
+        defer { TaskerPerformanceTrace.end(interval) }
+        let projection = stable.projection
+        let calendar = stable.calendar
         self.now = now
         let selectedDay = calendar.startOfDay(for: projection.date)
         let today = calendar.startOfDay(for: now)
@@ -1806,10 +1820,8 @@ private struct TimelineDayPresentation {
             dayRelation = .today
         }
 
-        let sortedItems = projection.allTimedItems.sorted {
-            ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
-        }
-        let sortedGaps = projection.actionableGaps.sorted { $0.startDate < $1.startDate }
+        let sortedItems = projection.allTimedItems
+        let sortedGaps = projection.actionableGaps
 
         let currentItem = sortedItems.first(where: { item in
             guard let start = item.startDate, let end = item.endDate, item.isComplete == false else { return false }
@@ -1823,142 +1835,96 @@ private struct TimelineDayPresentation {
         currentBoundaryDate = dayRelation == .today ? min(max(now, projection.wakeAnchor.time), projection.sleepAnchor.time) : nil
         currentTintHex = currentItem?.tintHex
             ?? projection.allTimedItems.first(where: { $0.isComplete && $0.tintHex != nil })?.tintHex
+        activeGapID = activeGap?.id
+    }
+}
 
-        var resolvedTaskRows: [String: TimelineRenderableRow] = [:]
-        for item in projection.allTimedItems {
-            let state = TimelineDayPresentation.resolveTaskState(
-                item: item,
-                now: now,
-                dayRelation: dayRelation
-            )
-            let progressRatio = TimelineDayPresentation.progressRatio(for: item, now: now, state: state)
-            let utilityItems = TimelineDayPresentation.utilityItems(for: item)
-            let metadataMode: TimelineMetadataMode?
-            switch state {
-            case .currentTask:
-                if let end = item.endDate {
-                    let remaining = max(1, Int(ceil(end.timeIntervalSince(now) / 60)))
-                    metadataMode = .remainingTime(remaining)
-                } else {
-                    metadataMode = .scheduled
-                }
-            case .pastCompleted:
-                metadataMode = .done
-            case .pastIncomplete, .futureTask:
-                metadataMode = .scheduled
-            default:
-                metadataMode = nil
-            }
+private struct TimelineDayPresentation {
+    private let current: TimelineDayCurrentState
 
-            resolvedTaskRows[item.id] = TimelineRenderableRow(
-                id: item.id,
-                kind: .task,
-                temporalState: state,
-                metadataMode: metadataMode,
-                utilityItems: utilityItems,
-                progressRatio: progressRatio,
-                title: item.title,
-                subtitle: item.subtitle,
-                isInteractiveRing: item.source == .task,
-                stemLeading: TimelineDayPresentation.leadingStemState(for: state, tintHex: item.tintHex, progressRatio: progressRatio),
-                stemTrailing: TimelineDayPresentation.trailingStemState(for: state, tintHex: item.tintHex),
-                isCurrentRailEmphasis: state == .currentTask
-            )
-        }
+    var now: Date { current.now }
+    var dayRelation: TimelineDayRelation { current.dayRelation }
+    var currentBoundaryDate: Date? { current.currentBoundaryDate }
+    var currentTintHex: String? { current.currentTintHex }
 
-        var resolvedGapRows: [String: TimelineRenderableRow] = [:]
-        for gap in projection.actionableGaps {
-            let state: TimelineTemporalState
-            switch dayRelation {
-            case .today:
-                if activeGap?.id == gap.id {
-                    state = .activeGap
-                } else {
-                    state = .futureGap
-                }
-            case .past:
-                state = .activeGap
-            case .future:
-                state = .futureGap
-            }
+    init(projection: TimelineDayProjection, now: Date, calendar: Calendar = .current) {
+        self.init(stable: TimelineDayStablePresentation(projection: projection, calendar: calendar), now: now)
+    }
 
-            resolvedGapRows[gap.id] = TimelineRenderableRow(
-                id: gap.id,
-                kind: .gap,
-                temporalState: state,
-                metadataMode: nil,
-                utilityItems: [],
-                progressRatio: 0,
-                title: gap.headline,
-                subtitle: gap.supportingText,
-                isInteractiveRing: false,
-                stemLeading: TimelineDayPresentation.leadingGapStemState(for: gap, now: now, dayRelation: dayRelation),
-                stemTrailing: TimelineDayPresentation.trailingGapStemState(for: gap, now: now, dayRelation: dayRelation),
-                isCurrentRailEmphasis: activeGap?.id == gap.id
-            )
-        }
-
-        let anchors = [projection.wakeAnchor, projection.sleepAnchor]
-        var resolvedAnchorRows: [String: TimelineRenderableRow] = [:]
-        for anchor in anchors {
-            let pastAnchor = dayRelation == .past || (dayRelation == .today && anchor.time <= now)
-            resolvedAnchorRows[anchor.id] = TimelineRenderableRow(
-                id: anchor.id,
-                kind: .anchor,
-                temporalState: .anchor,
-                metadataMode: .scheduled,
-                utilityItems: [],
-                progressRatio: 0,
-                title: anchor.title,
-                subtitle: anchor.subtitle,
-                isInteractiveRing: anchor.isActionable,
-                stemLeading: pastAnchor ? .gapPastSegment : .futureSegment,
-                stemTrailing: pastAnchor ? .gapPastSegment : .futureSegment,
-                isCurrentRailEmphasis: false
-            )
-        }
-
-        taskRowsByID = resolvedTaskRows
-        gapRowsByID = resolvedGapRows
-        anchorRowsByID = resolvedAnchorRows
+    init(stable: TimelineDayStablePresentation, now: Date) {
+        self.current = TimelineDayCurrentState(stable: stable, now: now)
     }
 
     func row(for item: TimelinePlanItem) -> TimelineRenderableRow {
-        taskRowsByID[item.id] ?? TimelineRenderableRow(
+        let state = TimelineDayPresentation.resolveTaskState(
+            item: item,
+            now: current.now,
+            dayRelation: current.dayRelation
+        )
+        let progressRatio = TimelineDayPresentation.progressRatio(for: item, now: current.now, state: state)
+        let metadataMode: TimelineMetadataMode?
+        switch state {
+        case .currentTask:
+            if let end = item.endDate {
+                let remaining = max(1, Int(ceil(end.timeIntervalSince(current.now) / 60)))
+                metadataMode = .remainingTime(remaining)
+            } else {
+                metadataMode = .scheduled
+            }
+        case .pastCompleted:
+            metadataMode = .done
+        case .pastIncomplete, .futureTask:
+            metadataMode = .scheduled
+        default:
+            metadataMode = nil
+        }
+
+        return TimelineRenderableRow(
             id: item.id,
             kind: .task,
-            temporalState: .futureTask,
-            metadataMode: .scheduled,
-            utilityItems: [],
-            progressRatio: 0,
+            temporalState: state,
+            metadataMode: metadataMode,
+            utilityItems: TimelineDayPresentation.utilityItems(for: item),
+            progressRatio: progressRatio,
             title: item.title,
             subtitle: item.subtitle,
             isInteractiveRing: item.source == .task,
-            stemLeading: .futureSegment,
-            stemTrailing: .futureSegment,
-            isCurrentRailEmphasis: false
+            stemLeading: TimelineDayPresentation.leadingStemState(for: state, tintHex: item.tintHex, progressRatio: progressRatio),
+            stemTrailing: TimelineDayPresentation.trailingStemState(for: state, tintHex: item.tintHex),
+            isCurrentRailEmphasis: state == .currentTask
         )
     }
 
     func row(for gap: TimelineGap) -> TimelineRenderableRow {
-        gapRowsByID[gap.id] ?? TimelineRenderableRow(
+        let state: TimelineTemporalState
+        switch current.dayRelation {
+        case .today:
+            state = current.activeGapID == gap.id ? .activeGap : .futureGap
+        case .past:
+            state = .activeGap
+        case .future:
+            state = .futureGap
+        }
+
+        return TimelineRenderableRow(
             id: gap.id,
             kind: .gap,
-            temporalState: .futureGap,
+            temporalState: state,
             metadataMode: nil,
             utilityItems: [],
             progressRatio: 0,
             title: gap.headline,
             subtitle: gap.supportingText,
             isInteractiveRing: false,
-            stemLeading: .gapFutureSegment,
-            stemTrailing: .gapFutureSegment,
-            isCurrentRailEmphasis: false
+            stemLeading: TimelineDayPresentation.leadingGapStemState(for: gap, now: current.now, dayRelation: current.dayRelation),
+            stemTrailing: TimelineDayPresentation.trailingGapStemState(for: gap, now: current.now, dayRelation: current.dayRelation),
+            isCurrentRailEmphasis: current.activeGapID == gap.id
         )
     }
 
     func row(for anchor: TimelineAnchorItem) -> TimelineRenderableRow {
-        anchorRowsByID[anchor.id] ?? TimelineRenderableRow(
+        let pastAnchor = current.dayRelation == .past || (current.dayRelation == .today && anchor.time <= current.now)
+        return TimelineRenderableRow(
             id: anchor.id,
             kind: .anchor,
             temporalState: .anchor,
@@ -1968,8 +1934,8 @@ private struct TimelineDayPresentation {
             title: anchor.title,
             subtitle: anchor.subtitle,
             isInteractiveRing: anchor.isActionable,
-            stemLeading: .futureSegment,
-            stemTrailing: .futureSegment,
+            stemLeading: pastAnchor ? .gapPastSegment : .futureSegment,
+            stemTrailing: pastAnchor ? .gapPastSegment : .futureSegment,
             isCurrentRailEmphasis: false
         )
     }
@@ -4199,6 +4165,7 @@ struct DailyTimelineCanvas: View {
     let onPlaceReplanAtTime: (TimelinePlacementCandidate, Date) -> Void
 
     private let plan: TimelineCanvasLayoutPlan
+    private let stablePresentation: TimelineDayStablePresentation
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     init(
@@ -4224,12 +4191,15 @@ struct DailyTimelineCanvas: View {
         self.onScheduleInbox = onScheduleInbox
         self.onShowCalendarInTimeline = onShowCalendarInTimeline
         self.onPlaceReplanAtTime = onPlaceReplanAtTime
+        self.stablePresentation = TimelineDayStablePresentation(projection: projection)
         let resolvedMetrics = TimelineSurfaceMetrics.make(for: layoutClass)
+        let interval = TaskerPerformanceTrace.begin("HomeTimelineCanvasPlanBuild")
         self.plan = TimelineCanvasLayoutPlan(
             projection: projection,
             bottomInset: bottomInset ?? resolvedMetrics.timelineBottomPadding,
             maxVisualColumns: TimelineCanvasLayoutPlan.maxVisualColumns(for: layoutClass)
         )
+        TaskerPerformanceTrace.end(interval)
     }
 
     var body: some View {
@@ -4240,7 +4210,7 @@ struct DailyTimelineCanvas: View {
 
     @ViewBuilder
     private func canvasBody(now: Date) -> some View {
-        let presentation = TimelineDayPresentation(projection: projection, now: now)
+        let presentation = TimelineDayPresentation(stable: stablePresentation, now: now)
         GeometryReader { proxy in
             let totalWidth = proxy.size.width
             let railMetrics = TimelineRailMetrics.make(for: layoutClass, surfaceMetrics: metrics)
@@ -4876,6 +4846,7 @@ private struct DailyTimelineCompactView: View {
     let onScheduleInbox: () -> Void
 
     private let plan: TimelineCompactLayoutPlan
+    private let stablePresentation: TimelineDayStablePresentation
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     init(
@@ -4894,13 +4865,16 @@ private struct DailyTimelineCompactView: View {
         self.onAnchorTap = onAnchorTap
         self.onAddTask = onAddTask
         self.onScheduleInbox = onScheduleInbox
+        self.stablePresentation = TimelineDayStablePresentation(projection: projection)
+        let interval = TaskerPerformanceTrace.begin("HomeTimelineCompactPlanBuild")
         self.plan = TimelineCompactLayoutPlan(projection: projection, layoutClass: layoutClass)
+        TaskerPerformanceTrace.end(interval)
     }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
             let now = timelineDisplayedNow(for: projection, timelineDate: timeline.date)
-            let presentation = TimelineDayPresentation(projection: projection, now: now)
+            let presentation = TimelineDayPresentation(stable: stablePresentation, now: now)
 
             let content = VStack(alignment: .leading, spacing: 0) {
                 ForEach(plan.entries.indices, id: \.self) { index in
@@ -5215,6 +5189,7 @@ private struct DailyTimelineAgendaView: View {
     let onAnchorTap: (TimelineAnchorItem) -> Void
     let onAddTask: () -> Void
     let onScheduleInbox: () -> Void
+    private let stablePresentation: TimelineDayStablePresentation
 
     private enum Entry: Identifiable {
         case anchor(TimelineAnchorItem)
@@ -5268,10 +5243,29 @@ private struct DailyTimelineAgendaView: View {
         return result
     }
 
+    init(
+        projection: TimelineDayProjection,
+        layoutClass: TaskerLayoutClass,
+        onTaskTap: @escaping (TimelinePlanItem) -> Void,
+        onToggleComplete: @escaping (TimelinePlanItem) -> Void,
+        onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
+        onAddTask: @escaping () -> Void,
+        onScheduleInbox: @escaping () -> Void
+    ) {
+        self.projection = projection
+        self.layoutClass = layoutClass
+        self.onTaskTap = onTaskTap
+        self.onToggleComplete = onToggleComplete
+        self.onAnchorTap = onAnchorTap
+        self.onAddTask = onAddTask
+        self.onScheduleInbox = onScheduleInbox
+        self.stablePresentation = TimelineDayStablePresentation(projection: projection)
+    }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
             let now = timelineDisplayedNow(for: projection, timelineDate: timeline.date)
-            let presentation = TimelineDayPresentation(projection: projection, now: now)
+            let presentation = TimelineDayPresentation(stable: stablePresentation, now: now)
 
             VStack(alignment: .leading, spacing: 16) {
                 ForEach(entries) { entry in
