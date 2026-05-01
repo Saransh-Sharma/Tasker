@@ -1,6 +1,25 @@
 import SwiftUI
 import UIKit
 
+struct HomeDayLiquidSwipeHandleInteractionState: Equatable {
+    private(set) var isActive = false
+
+    mutating func startIfNeeded(isEnabled: Bool, isChromeVisible: Bool) -> Bool {
+        guard isEnabled, isChromeVisible else {
+            isActive = false
+            return false
+        }
+
+        guard isActive == false else { return false }
+        isActive = true
+        return true
+    }
+
+    mutating func reset() {
+        isActive = false
+    }
+}
+
 struct HomeDayLiquidSwipeOverlay: View {
     let isEnabled: Bool
     let isChromeVisible: Bool
@@ -17,6 +36,7 @@ struct HomeDayLiquidSwipeOverlay: View {
     @Binding var topSide: HomeDayLiquidSwipeSide
     @State private var lastDraggedHandleSide: HomeDayLiquidSwipeSide?
     @State private var lastHandleDragEndedAt: Date?
+    @State private var handleInteractionState = HomeDayLiquidSwipeHandleInteractionState()
 
     private let handleTapSuppressionInterval: TimeInterval = 0.25
 
@@ -102,9 +122,11 @@ struct HomeDayLiquidSwipeOverlay: View {
     private func handleDragGesture(for side: HomeDayLiquidSwipeSide, size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .local)
             .onChanged { value in
-                guard isEnabled, isChromeVisible else { return }
+                guard isEnabled, isChromeVisible else { handleInteractionState.reset(); return }
                 topSide = side
-                onInteractionStarted()
+                if handleInteractionState.startIfNeeded(isEnabled: isEnabled, isChromeVisible: isChromeVisible) {
+                    onInteractionStarted()
+                }
                 onHandleDragChanged(
                     side,
                     value.translation,
@@ -113,9 +135,10 @@ struct HomeDayLiquidSwipeOverlay: View {
                 )
             }
             .onEnded { value in
-                guard isEnabled, isChromeVisible else { return }
+                guard isEnabled, isChromeVisible else { handleInteractionState.reset(); return }
                 lastDraggedHandleSide = side
                 lastHandleDragEndedAt = Date()
+                handleInteractionState.reset()
                 onHandleDragEnded(
                     side,
                     value.translation,
@@ -144,6 +167,8 @@ struct HomeDayLiquidSwipeOverlay: View {
 
     private func commit(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
         guard isEnabled, isChromeVisible else { return }
+        let interval = TaskerPerformanceTrace.begin("HomeDayLiquidSwipeCommit")
+        defer { TaskerPerformanceTrace.end(interval) }
         topSide = side
         onInteractionStarted()
         if reduceMotion {

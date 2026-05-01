@@ -64,6 +64,161 @@ public struct HomeDataRevision: Equatable, Hashable {
     }
 }
 
+private struct HomeRenderInvalidation: OptionSet {
+    let rawValue: Int
+
+    static let chrome = HomeRenderInvalidation(rawValue: 1 << 0)
+    static let tasks = HomeRenderInvalidation(rawValue: 1 << 1)
+    static let habits = HomeRenderInvalidation(rawValue: 1 << 2)
+    static let calendar = HomeRenderInvalidation(rawValue: 1 << 3)
+    static let overlay = HomeRenderInvalidation(rawValue: 1 << 4)
+    static let timeline = HomeRenderInvalidation(rawValue: 1 << 5)
+
+    static let all: HomeRenderInvalidation = [.chrome, .tasks, .habits, .calendar, .overlay, .timeline]
+
+    func includes(_ other: HomeRenderInvalidation) -> Bool {
+        intersection(other).isEmpty == false
+    }
+}
+
+private struct HomeTimelineWorkspacePreferencesSignature: Equatable {
+    let weekStartsOn: Weekday
+    let showCalendarEventsInTimeline: Bool
+    let riseAndShineHour: Int
+    let riseAndShineMinute: Int
+    let windDownHour: Int
+    let windDownMinute: Int
+
+    init(_ preferences: TaskerWorkspacePreferences) {
+        weekStartsOn = preferences.weekStartsOn
+        showCalendarEventsInTimeline = preferences.showCalendarEventsInTimeline
+        riseAndShineHour = preferences.timelineRiseAndShineHour
+        riseAndShineMinute = preferences.timelineRiseAndShineMinute
+        windDownHour = preferences.timelineWindDownHour
+        windDownMinute = preferences.timelineWindDownMinute
+    }
+}
+
+private struct HomeTimelineEventSignature: Equatable {
+    let id: String
+    let calendarID: String
+    let startDate: Date
+    let endDate: Date
+    let isAllDay: Bool
+    let availability: TaskerCalendarEventAvailability
+    let status: TaskerCalendarEventStatus
+    let participationStatus: TaskerCalendarEventParticipationStatus
+    let lastModifiedAt: Date?
+
+    init(_ event: TaskerCalendarEventSnapshot) {
+        id = event.id
+        calendarID = event.calendarID
+        startDate = event.startDate
+        endDate = event.endDate
+        isAllDay = event.isAllDay
+        availability = event.availability
+        status = event.eventStatus
+        participationStatus = event.participationStatus
+        lastModifiedAt = event.lastModifiedAt
+    }
+}
+
+private struct HomeTimelineSnapshotCacheKey: Equatable {
+    let dataRevision: HomeDataRevision
+    let selectedDay: Date
+    let currentMinuteStamp: Int
+    let foredropAnchor: ForedropAnchor
+    let calendarSignature: HomeTimelineCalendarSignature
+    let workspacePreferences: HomeTimelineWorkspacePreferencesSignature
+    let hiddenCalendarEvents: [HomeTimelineHiddenCalendarEventKey]
+    let pinnedFocusTaskIDs: [UUID]
+    let needsReplanCandidates: [HomeTimelineReplanCandidateSignature]
+    let replanState: HomeTimelineReplanStateSignature
+}
+
+private struct HomeTimelineCalendarSignature: Equatable {
+    let moduleState: HomeCalendarModuleState
+    let selectedDate: Date
+    let selectedDayEvents: [HomeTimelineEventSignature]
+    let selectedDayTimelineEvents: [HomeTimelineEventSignature]
+    let isLoading: Bool
+    let errorMessage: String?
+
+    init(_ snapshot: HomeCalendarSnapshot) {
+        moduleState = snapshot.moduleState
+        selectedDate = snapshot.selectedDate
+        selectedDayEvents = snapshot.selectedDayEvents.map(HomeTimelineEventSignature.init)
+        selectedDayTimelineEvents = snapshot.selectedDayTimelineEvents.map(HomeTimelineEventSignature.init)
+        isLoading = snapshot.isLoading
+        errorMessage = snapshot.errorMessage
+    }
+}
+
+private struct HomeTimelineReplanCandidateSignature: Equatable {
+    let taskID: UUID
+    let kind: HomeReplanCandidateKind
+    let anchorDate: Date?
+    let anchorEndDate: Date?
+
+    init(_ candidate: HomeReplanCandidate) {
+        taskID = candidate.task.id
+        kind = candidate.kind
+        anchorDate = candidate.anchorDate
+        anchorEndDate = candidate.anchorEndDate
+    }
+}
+
+private enum HomeTimelineReplanPhaseSignature: Equatable {
+    case trayHidden
+    case trayVisible(total: Int)
+    case launcher(total: Int)
+    case card(candidateIndex: Int)
+    case placement(candidateID: UUID, defaultDay: Date)
+    case summary(totalResolved: Int, skippedCount: Int)
+    case skippedReview
+
+    init(_ phase: HomeReplanSessionPhase) {
+        switch phase {
+        case .trayHidden:
+            self = .trayHidden
+        case .trayVisible(let summary):
+            self = .trayVisible(total: summary.count)
+        case .launcher(let summary):
+            self = .launcher(total: summary.count)
+        case .card(let candidateIndex):
+            self = .card(candidateIndex: candidateIndex)
+        case .placement(let candidate, let defaultDay):
+            self = .placement(candidateID: candidate.id, defaultDay: defaultDay)
+        case .summary(let outcomes, let skippedCount):
+            self = .summary(totalResolved: outcomes.totalResolved, skippedCount: skippedCount)
+        case .skippedReview:
+            self = .skippedReview
+        }
+    }
+}
+
+private struct HomeTimelineReplanStateSignature: Equatable {
+    let phase: HomeTimelineReplanPhaseSignature
+    let currentCandidateID: UUID?
+    let candidateIndex: Int
+    let candidateTotal: Int
+    let isApplying: Bool
+    let applyingAction: HomeReplanApplyingAction?
+    let errorMessage: String?
+    let placementCandidate: TimelinePlacementCandidate?
+
+    init(_ state: HomeReplanSessionState) {
+        phase = HomeTimelineReplanPhaseSignature(state.phase)
+        currentCandidateID = state.currentCandidate?.id
+        candidateIndex = state.candidateIndex
+        candidateTotal = state.candidateTotal
+        isApplying = state.isApplying
+        applyingAction = state.applyingAction
+        errorMessage = state.errorMessage
+        placementCandidate = state.placementCandidate
+    }
+}
+
 private enum HomeReplanResolutionKind: Equatable {
     case rescheduled
     case movedToInbox
@@ -383,7 +538,7 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var selectedDate: Date = Date() {
         didSet {
             refreshPassiveNeedsReplanState()
-            scheduleHomeRenderStateRefresh()
+            scheduleHomeRenderStateRefresh(.all)
         }
     }
     @Published public private(set) var selectedProject: String = "All"
@@ -393,13 +548,13 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var streak: Int = 0
     @Published public private(set) var completionRate: Double = 0.0
     @Published public private(set) var weeklySummary: HomeWeeklySummary? {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.chrome) }
     }
     @Published public private(set) var weeklySummaryIsLoading: Bool = false {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.chrome) }
     }
     @Published public private(set) var weeklySummaryErrorMessage: String? {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.chrome) }
     }
 
     // Gamification v2
@@ -408,7 +563,7 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var totalXP: Int64 = 0
     @Published public private(set) var nextLevelXP: Int64 = 0
     @Published public private(set) var lastXPResult: XPEventResult? {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var insightsLaunchRequest: InsightsLaunchRequest?
     @Published public private(set) var insightsLaunchToken: UUID?
@@ -424,43 +579,43 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var doneTimelineTasks: [TaskDefinition] = []
     @Published public private(set) var lifeAreas: [LifeArea] = []
     @Published public private(set) var dueTodayRows: [HomeTodayRow] = [] {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh([.tasks, .timeline]) }
     }
     @Published public private(set) var dueTodaySection: HomeListSection? {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh([.tasks, .timeline]) }
     }
     @Published public private(set) var todaySections: [HomeListSection] = [] {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh([.tasks, .timeline]) }
     }
     @Published public private(set) var focusNowSectionState = FocusNowSectionState(rows: [], pinnedTaskIDs: []) {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.tasks) }
     }
     @Published public private(set) var todayAgendaSectionState = TodayAgendaSectionState(sections: []) {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.tasks) }
     }
     @Published public private(set) var agendaTailItems: [HomeAgendaTailItem] = [] {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.tasks) }
     }
     @Published public private(set) var habitHomeSectionState = HabitHomeSectionState(primaryRows: [], recoveryRows: []) {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh([.tasks, .habits]) }
     }
     @Published public private(set) var quietTrackingSummaryState = QuietTrackingSummaryState(stableRows: []) {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh([.tasks, .habits]) }
     }
     @Published public private(set) var habitMutationFeedback: HomeHabitMutationFeedback?
     @Published public private(set) var habitMutationErrorMessage: String? {
         didSet {
             guard oldValue != habitMutationErrorMessage else { return }
-            scheduleHomeRenderStateRefresh()
+            scheduleHomeRenderStateRefresh(.habits)
         }
     }
 
     // Focus Engine
     @Published public private(set) var activeFilterState: HomeFilterState = .default {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh([.chrome, .tasks]) }
     }
     @Published public private(set) var savedHomeViews: [SavedHomeView] = [] {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.chrome) }
     }
     @Published public private(set) var quickViewCounts: [HomeQuickView: Int] = [:]
     @Published public private(set) var pointsPotential: Int = 0
@@ -468,54 +623,56 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var focusTasks: [TaskDefinition] = []
     @Published public private(set) var focusWhyShuffleCandidates: [TaskDefinition] = []
     @Published public private(set) var focusRows: [HomeTodayRow] = [] {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh([.tasks, .timeline]) }
     }
-    @Published public private(set) var pinnedFocusTaskIDs: [UUID] = []
+    @Published public private(set) var pinnedFocusTaskIDs: [UUID] = [] {
+        didSet { scheduleHomeRenderStateRefresh([.tasks, .timeline]) }
+    }
     @Published public private(set) var emptyStateMessage: String?
     @Published public private(set) var emptyStateActionTitle: String?
     @Published public private(set) var focusEngineEnabled: Bool = true
     @Published public private(set) var activeScope: HomeListScope = .today {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh([.chrome, .tasks]) }
     }
     @Published public private(set) var evaHomeInsights: EvaHomeInsights?
     @Published public private(set) var evaFocusWhySheetPresented: Bool = false {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaTriageSheetPresented: Bool = false {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaRescueSheetPresented: Bool = false {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaTriageScope: EvaTriageScope = .visible {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaTriageQueueLoading: Bool = false {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaTriageQueueErrorMessage: String? {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaTriageQueue: [EvaTriageQueueItem] = [] {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaRescuePlan: EvaRescuePlan? {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaLastBatchRunID: UUID? {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published private(set) var homeReplanState: HomeReplanSessionState = .hidden {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh([.overlay, .timeline]) }
     }
     @Published private(set) var homeCalendarSnapshot: HomeCalendarSnapshot = .empty {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh([.calendar, .timeline]) }
     }
     @Published private var hiddenHomeTimelineCalendarEvents: Set<HomeTimelineHiddenCalendarEventKey> = [] {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.timeline) }
     }
     @Published private(set) var catchUpDailyReflectionEntryPreview: DailyReflectionEntryState? {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet { scheduleHomeRenderStateRefresh(.chrome) }
     }
 
     @Published private(set) var homeRenderTransaction: HomeRenderTransaction = .empty
@@ -601,6 +758,7 @@ public final class HomeViewModel: ObservableObject {
     private var selfOriginatedHabitMutationContextIDs: Set<UUID> = []
     private var reloadGeneration: Int = 0
     private var dataRevision: HomeDataRevision = .zero
+    private var timelineSnapshotCache: (key: HomeTimelineSnapshotCacheKey, snapshot: HomeTimelineSnapshot)?
     private var suppressCompletionReloadUntil: Date?
     private var lastRecurringTopUpAt: Date?
     private var pendingRecurringTopUpWorkItem: DispatchWorkItem?
@@ -636,6 +794,7 @@ public final class HomeViewModel: ObservableObject {
     private var pendingHomeRenderStateWorkItem: DispatchWorkItem?
     private var homeRenderStateRefreshBatchDepth: Int = 0
     private var needsHomeRenderStateRefresh = false
+    private var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
     private var currentHabitSignals: [TaskerHabitSignal] = []
     private var habitLibraryRowsByID: [UUID: HabitLibraryRow] = [:]
     private var taskRowsDerivationRevision: UInt64 = 0
@@ -744,12 +903,16 @@ public final class HomeViewModel: ObservableObject {
         return nil
     }
 
-    private func scheduleHomeRenderStateRefresh() {
+    private func scheduleHomeRenderStateRefresh(_ invalidation: HomeRenderInvalidation = .all) {
         if Foundation.Thread.isMainThread == false {
             DispatchQueue.main.async { [weak self] in
-                self?.scheduleHomeRenderStateRefresh()
+                self?.scheduleHomeRenderStateRefresh(invalidation)
             }
             return
+        }
+        pendingHomeRenderInvalidation.formUnion(invalidation)
+        if invalidation.includes(.timeline) {
+            timelineSnapshotCache = nil
         }
         if homeRenderStateRefreshBatchDepth > 0 {
             needsHomeRenderStateRefresh = true
@@ -776,17 +939,27 @@ public final class HomeViewModel: ObservableObject {
 
         guard homeRenderStateRefreshBatchDepth == 0, needsHomeRenderStateRefresh else { return }
         needsHomeRenderStateRefresh = false
-        scheduleHomeRenderStateRefresh()
+        scheduleHomeRenderStateRefresh(pendingHomeRenderInvalidation)
     }
 
     private func refreshHomeRenderStates() {
-        refreshDailyReflectionEntryPreviewIfNeeded()
+        let interval = TaskerPerformanceTrace.begin("HomeRenderStateBuild")
+        defer { TaskerPerformanceTrace.end(interval) }
+        let invalidation = pendingHomeRenderInvalidation.isEmpty ? .all : pendingHomeRenderInvalidation
+        pendingHomeRenderInvalidation = []
+        if invalidation.includes(.timeline) {
+            timelineSnapshotCache = nil
+        }
+        if invalidation.includes(.chrome) {
+            refreshDailyReflectionEntryPreviewIfNeeded()
+        }
+        let previousTransaction = homeRenderTransaction
         let transaction = HomeRenderTransaction(
-            chrome: buildHomeChromeState(),
-            tasks: buildHomeTasksState(),
-            habits: buildHomeHabitsState(),
-            calendar: buildHomeCalendarState(),
-            overlay: buildHomeOverlayState()
+            chrome: invalidation.includes(.chrome) ? buildHomeChromeState() : previousTransaction.chrome,
+            tasks: invalidation.includes(.tasks) ? buildHomeTasksState() : previousTransaction.tasks,
+            habits: invalidation.includes(.habits) ? buildHomeHabitsState() : previousTransaction.habits,
+            calendar: invalidation.includes(.calendar) ? buildHomeCalendarState() : previousTransaction.calendar,
+            overlay: invalidation.includes(.overlay) ? buildHomeOverlayState() : previousTransaction.overlay
         )
         guard homeRenderTransaction != transaction else { return }
 
@@ -1173,6 +1346,35 @@ public final class HomeViewModel: ObservableObject {
             return true
         default:
             return false
+        }
+    }
+
+    private func homeRenderInvalidation(forAssignedKeyPath keyPath: AnyKeyPath) -> HomeRenderInvalidation {
+        switch keyPath {
+        case \HomeViewModel.projects,
+             \HomeViewModel.lifeAreas,
+             \HomeViewModel.tags,
+             \HomeViewModel.emptyStateMessage,
+             \HomeViewModel.emptyStateActionTitle:
+            return .tasks
+        case \HomeViewModel.morningTasks,
+             \HomeViewModel.eveningTasks,
+             \HomeViewModel.overdueTasks,
+             \HomeViewModel.upcomingTasks,
+             \HomeViewModel.focusTasks,
+             \HomeViewModel.doneTimelineTasks,
+             \HomeViewModel.dailyCompletedTasks,
+             \HomeViewModel.completedTasks:
+            return [.tasks, .timeline]
+        case \HomeViewModel.quickViewCounts,
+             \HomeViewModel.pointsPotential,
+             \HomeViewModel.completionRate,
+             \HomeViewModel.progressState:
+            return .chrome
+        case \HomeViewModel.focusWhyShuffleCandidates:
+            return .overlay
+        default:
+            return .all
         }
     }
 
@@ -2581,7 +2783,6 @@ public final class HomeViewModel: ObservableObject {
         refreshWeeklySummary()
         loadDailyAnalytics(includeGamificationRefresh: false)
         selectDate(planningDate, source: .dailyReflection)
-        scheduleHomeRenderStateRefresh()
     }
 
     public func launchInsights(_ request: InsightsLaunchRequest = .default) {
@@ -7549,7 +7750,7 @@ public final class HomeViewModel: ObservableObject {
         let erasedKeyPath = keyPath as AnyKeyPath
         invalidateDerivedRowCaches(for: erasedKeyPath)
         if !keyPathTriggersHomeRenderRefreshViaDidSet(erasedKeyPath) {
-            scheduleHomeRenderStateRefresh()
+            scheduleHomeRenderStateRefresh(homeRenderInvalidation(forAssignedKeyPath: erasedKeyPath))
         }
     }
 
@@ -7561,7 +7762,7 @@ public final class HomeViewModel: ObservableObject {
         let erasedKeyPath = keyPath as AnyKeyPath
         invalidateDerivedRowCaches(for: erasedKeyPath)
         if !keyPathTriggersHomeRenderRefreshViaDidSet(erasedKeyPath) {
-            scheduleHomeRenderStateRefresh()
+            scheduleHomeRenderStateRefresh(homeRenderInvalidation(forAssignedKeyPath: erasedKeyPath))
         }
     }
 
@@ -7973,9 +8174,30 @@ extension HomeViewModel {
         calendarSnapshot: HomeCalendarSnapshot,
         foredropAnchor: ForedropAnchor
     ) -> HomeTimelineSnapshot {
+        let interval = TaskerPerformanceTrace.begin("HomeTimelineSnapshotBuild")
+        defer { TaskerPerformanceTrace.end(interval) }
         let workspacePreferences = workspacePreferencesProvider()
         let showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
         let selectedDay = Calendar.current.startOfDay(for: selectedDate)
+        let now = Date()
+        let currentMinuteStamp = Int(now.timeIntervalSinceReferenceDate / 60)
+        let cacheKey = HomeTimelineSnapshotCacheKey(
+            dataRevision: dataRevision,
+            selectedDay: selectedDay,
+            currentMinuteStamp: currentMinuteStamp,
+            foredropAnchor: foredropAnchor,
+            calendarSignature: HomeTimelineCalendarSignature(calendarSnapshot),
+            workspacePreferences: HomeTimelineWorkspacePreferencesSignature(workspacePreferences),
+            hiddenCalendarEvents: hiddenHomeTimelineCalendarEvents.sorted(),
+            pinnedFocusTaskIDs: pinnedFocusTaskIDs,
+            needsReplanCandidates: needsReplanCandidates.map(HomeTimelineReplanCandidateSignature.init),
+            replanState: HomeTimelineReplanStateSignature(homeReplanState)
+        )
+        if let cached = timelineSnapshotCache, cached.key == cacheKey {
+            return cached.snapshot
+        }
+
+        let taskCandidates = timelineTaskCandidates()
         let anchorWindow = resolvedTimelineAnchorWindow(on: selectedDay, preferences: workspacePreferences)
         let wakeAnchor = TimelineAnchorItem(
             id: "wake",
@@ -7991,7 +8213,7 @@ extension HomeViewModel {
             systemImageName: "moon.fill",
             subtitle: "Close the day"
         )
-        let dayTasks = timelineTasksForSelectedDay()
+        let dayTasks = timelineTasksForSelectedDay(candidates: taskCandidates)
         let allDayTasks = dayTasks.filter { task in
             task.isAllDay || timelineIsDateOnlyDueDate(task.dueDate)
         }
@@ -8039,7 +8261,6 @@ extension HomeViewModel {
             wakeAnchor: wakeAnchor,
             sleepAnchor: sleepAnchor
         )
-        let now = Date()
         let allOperationalGaps = timelineOperationalGaps(
             between: timedBuckets.operationalItems,
             wakeAnchor: wakeAnchor,
@@ -8062,7 +8283,7 @@ extension HomeViewModel {
         )
         let currentItemID = timedBuckets.allItems.first(where: { $0.isActive(at: now) })?.id
 
-        return HomeTimelineSnapshot(
+        let snapshot = HomeTimelineSnapshot(
             selectedDate: selectedDay,
             foredropAnchor: foredropAnchor,
             day: TimelineDayProjection(
@@ -8086,10 +8307,13 @@ extension HomeViewModel {
             ),
             week: timelineWeekSummary(
                 weekStartsOn: workspacePreferences.weekStartsOn,
-                includeCalendarEvents: showCalendarEventsInTimeline
+                includeCalendarEvents: showCalendarEventsInTimeline,
+                candidates: taskCandidates
             ),
             placementCandidate: homeReplanState.placementCandidate
         )
+        timelineSnapshotCache = (cacheKey, snapshot)
+        return snapshot
     }
 
     func timelineWeekStartsOn() -> Weekday {
@@ -8164,6 +8388,10 @@ extension HomeViewModel {
     }
 
     func timelineTasksForSelectedDay() -> [TaskDefinition] {
+        timelineTasksForSelectedDay(candidates: timelineTaskCandidates())
+    }
+
+    func timelineTasksForSelectedDay(candidates: [TaskDefinition]) -> [TaskDefinition] {
         let calendar = Calendar.current
         let selectedDay = calendar.startOfDay(for: selectedDate)
         let selectedDayEnd = calendar.date(byAdding: .day, value: 1, to: selectedDay) ?? selectedDay
@@ -8171,7 +8399,7 @@ extension HomeViewModel {
         let previousDay = calendar.date(byAdding: .day, value: -1, to: selectedDay) ?? selectedDay
         let previousWindow = resolvedTimelineAnchorWindow(on: previousDay, preferences: workspacePreferences, calendar: calendar)
 
-        let filtered = timelineTaskCandidates().filter { task in
+        let filtered = candidates.filter { task in
             let relevantDate = timelinePlacementDate(for: task)
             let isScheduledForDay = relevantDate.map { $0 < selectedDayEnd && $0 >= selectedDay } ?? false
             let isPreviousNightContext = relevantDate.map { date in
@@ -8186,7 +8414,11 @@ extension HomeViewModel {
     }
 
     func timelineTasksForWeek(weekStart: Date, weekEnd: Date) -> [TaskDefinition] {
-        let filtered = timelineTaskCandidates().filter { task in
+        timelineTasksForWeek(weekStart: weekStart, weekEnd: weekEnd, candidates: timelineTaskCandidates())
+    }
+
+    func timelineTasksForWeek(weekStart: Date, weekEnd: Date, candidates: [TaskDefinition]) -> [TaskDefinition] {
+        let filtered = candidates.filter { task in
             guard task.scheduledStartAt != nil || task.dueDate != nil else { return false }
             if let placementDate = timelinePlacementDate(for: task) {
                 return placementDate >= weekStart && placementDate < weekEnd
@@ -8210,26 +8442,47 @@ extension HomeViewModel {
     }
 
     func timelineWeekSummary(weekStartsOn: Weekday, includeCalendarEvents: Bool) -> TimelineWeekSummary {
+        timelineWeekSummary(
+            weekStartsOn: weekStartsOn,
+            includeCalendarEvents: includeCalendarEvents,
+            candidates: timelineTaskCandidates()
+        )
+    }
+
+    func timelineWeekSummary(
+        weekStartsOn: Weekday,
+        includeCalendarEvents: Bool,
+        candidates: [TaskDefinition]
+    ) -> TimelineWeekSummary {
         let calendar = Calendar.current
         let weekStart = XPCalculationEngine.startOfWeek(for: selectedDate, startingOn: weekStartsOn)
         let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
         let calendarAgenda = includeCalendarEvents
             ? calendarIntegrationService.weekAgenda(anchorDate: selectedDate, weekStartsOn: weekStartsOn)
             : []
-        let weekTasks = timelineTasksForWeek(weekStart: weekStart, weekEnd: weekEnd)
+        let agendaByDay = Dictionary(uniqueKeysWithValues: calendarAgenda.map {
+            (calendar.startOfDay(for: $0.date), $0)
+        })
+        let weekTasks = timelineTasksForWeek(weekStart: weekStart, weekEnd: weekEnd, candidates: candidates)
+        let tasksByDay = Dictionary(grouping: weekTasks) { task -> Date in
+            if let placementDate = timelinePlacementDate(for: task) {
+                return calendar.startOfDay(for: placementDate)
+            }
+            if let allDayDate = timelineAllDayDate(for: task) {
+                return calendar.startOfDay(for: allDayDate)
+            }
+            return weekStart
+        }
+        let replanCountsByDay = Dictionary(grouping: needsReplanCandidates.compactMap { candidate -> Date? in
+            candidate.anchorDate.map { calendar.startOfDay(for: $0) }
+        }) { $0 }
+            .mapValues(\.count)
+
         let days = (0..<7).compactMap { offset -> TimelineWeekDaySummary? in
             guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return nil }
             let normalizedDay = calendar.startOfDay(for: day)
-            let agenda = calendarAgenda.first(where: { calendar.isDate($0.date, inSameDayAs: normalizedDay) })
-            let tasks = weekTasks.filter {
-                if let placementDate = timelinePlacementDate(for: $0) {
-                    return calendar.isDate(placementDate, inSameDayAs: normalizedDay)
-                }
-                if let allDayDate = timelineAllDayDate(for: $0) {
-                    return calendar.isDate(allDayDate, inSameDayAs: normalizedDay)
-                }
-                return false
-            }
+            let agenda = agendaByDay[normalizedDay]
+            let tasks = tasksByDay[normalizedDay] ?? []
             let taskMarkers = tasks.compactMap { timelinePlacementDate(for: $0) }
             let visibleEvents = includeCalendarEvents
                 ? (agenda?.events.filter { !isCalendarEventHiddenFromHomeTimeline(eventID: $0.id, on: normalizedDay) } ?? [])
@@ -8239,10 +8492,7 @@ extension HomeViewModel {
             let allDayCount = tasks.filter { timelineAllDayDate(for: $0) != nil }.count + visibleEvents.filter(\.isAllDay).count
             let timedCount = taskMarkers.count + eventMarkers.count
             let totalCount = allDayCount + timedCount
-            let replanEligibleCount = needsReplanCandidates.filter {
-                guard let anchorDate = $0.anchorDate else { return false }
-                return calendar.isDate(anchorDate, inSameDayAs: normalizedDay)
-            }.count
+            let replanEligibleCount = replanCountsByDay[normalizedDay] ?? 0
             return TimelineWeekDaySummary(
                 date: normalizedDay,
                 dayKey: timelineDayKey(for: normalizedDay, calendar: calendar),
