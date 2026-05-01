@@ -59,6 +59,8 @@ enum AccessibilityIdentifiers {
         static let calendarStateError = "home.calendar.state.error"
         static let calendarConnect = "home.calendar.connect"
         static let calendarRetry = "home.calendar.retry"
+        static let previousDayHandle = "homeCalendar.previousDayHandle"
+        static let nextDayHandle = "homeCalendar.nextDayHandle"
         static let focusStrip = "home.focus.strip"
         static let focusDropZone = "home.focus.dropzone"
         static let focusTitleTap = "home.focus.titleTap"

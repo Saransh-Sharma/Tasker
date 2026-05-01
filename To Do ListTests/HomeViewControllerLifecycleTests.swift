@@ -33,12 +33,14 @@ final class HomeViewControllerLifecycleTests: XCTestCase {
         XCTAssertTrue(sceneDelegate.window?.rootViewController is BootstrapFailureViewController)
     }
 
-    func testLaunchSplashAssetsResolveFromMainBundle() {
+    func testLaunchSplashAssetsResolveFromMainBundle() throws {
+        let bundle = try XCTUnwrap(mainStoryboardBundle())
+
         XCTAssertNotNil(
-            UIImage(named: "TaskerSplashIcon", in: Bundle.main, compatibleWith: nil)
+            UIImage(named: "TaskerSplashIcon", in: bundle, compatibleWith: nil)
         )
         XCTAssertNotNil(
-            UIColor(named: "LaunchCanvas", in: Bundle.main, compatibleWith: nil)
+            UIColor(named: "LaunchCanvas", in: bundle, compatibleWith: nil)
         )
     }
 
@@ -61,9 +63,14 @@ final class HomeViewControllerLifecycleTests: XCTestCase {
     }
 
     private func mainStoryboard() -> UIStoryboard? {
+        guard let bundle = mainStoryboardBundle() else { return nil }
+        return UIStoryboard(name: "Main", bundle: bundle)
+    }
+
+    private func mainStoryboardBundle() -> Bundle? {
         let bundles = [Bundle.main, Bundle(for: type(of: self))]
         for bundle in bundles where bundle.path(forResource: "Main", ofType: "storyboardc") != nil {
-            return UIStoryboard(name: "Main", bundle: bundle)
+            return bundle
         }
         return nil
     }

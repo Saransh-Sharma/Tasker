@@ -88,7 +88,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
         XCTAssertTrue(header.waitForExistence(timeout: 8))
         let initialHeader = header.label
 
-        let nextDay = app.buttons["Next Day"].firstMatch
+        let nextDay = app.buttons[AccessibilityIdentifiers.Home.nextDayHandle].firstMatch
         XCTAssertTrue(nextDay.waitForExistence(timeout: 8), "Expected schedule face to keep the next-day liquid handle visible.")
         tapElement(nextDay, in: app)
 
@@ -98,7 +98,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
         )
         let nextHeader = header.label
 
-        let previousDay = app.buttons["Previous Day"].firstMatch
+        let previousDay = app.buttons[AccessibilityIdentifiers.Home.previousDayHandle].firstMatch
         XCTAssertTrue(previousDay.waitForExistence(timeout: 8), "Expected schedule face to keep the previous-day liquid handle visible.")
         tapElement(previousDay, in: app)
 

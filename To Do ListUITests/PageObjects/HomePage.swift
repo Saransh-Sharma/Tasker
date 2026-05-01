@@ -141,12 +141,12 @@ class HomePage {
 
     var topChromeDayProgressLabel: XCUIElement {
         let predicate = NSPredicate(format: "label CONTAINS[c] 'done' OR label CONTAINS[c] 'All clear'")
-        let inChrome = topChrome.staticTexts.matching(predicate).firstMatch
-        if inChrome.exists {
-            return inChrome
+        let inDayProgress = topChromeDayProgress.staticTexts.matching(predicate).firstMatch
+        if inDayProgress.exists {
+            return inDayProgress
         }
 
-        return app.staticTexts.matching(predicate).firstMatch
+        return topChrome.staticTexts.matching(predicate).firstMatch
     }
 
     var headerDateLabel: XCUIElement {

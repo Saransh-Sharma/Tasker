@@ -128,6 +128,78 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertTrue(HomeiPadDestination.chat.isPrimaryHomeDestination)
     }
 
+    func testChatBottomBarConcealsWhenPromptFocused() {
+        XCTAssertTrue(HomeBottomBarVisibilityPolicy.isConcealedForChatInput(
+            activeFace: .chat,
+            isPromptFocused: true,
+            keyboardOverlapHeight: 0
+        ))
+    }
+
+    func testChatBottomBarConcealsWhenKeyboardOverlaps() {
+        XCTAssertTrue(HomeBottomBarVisibilityPolicy.isConcealedForChatInput(
+            activeFace: .chat,
+            isPromptFocused: false,
+            keyboardOverlapHeight: 240
+        ))
+    }
+
+    func testIdleChatKeepsBottomBarAvailableAndAppliesComposerClearance() {
+        XCTAssertFalse(HomeBottomBarVisibilityPolicy.isConcealedForChatInput(
+            activeFace: .chat,
+            isPromptFocused: false,
+            keyboardOverlapHeight: 0
+        ))
+
+        XCTAssertEqual(
+            HomeBottomBarVisibilityPolicy.chatComposerBottomInset(
+                layoutClass: .phone,
+                bottomOverlayObstruction: 72,
+                keyboardOverlapHeight: 0,
+                idleSpacing: 16,
+                keyboardSpacing: 12,
+                regularSpacing: 24
+            ),
+            88
+        )
+    }
+
+    func testNonChatFacesDoNotConcealBottomBarForPromptFocusOrKeyboard() {
+        XCTAssertFalse(HomeBottomBarVisibilityPolicy.isConcealedForChatInput(
+            activeFace: .tasks,
+            isPromptFocused: true,
+            keyboardOverlapHeight: 240
+        ))
+    }
+
+    func testChatComposerClearancePrefersKeyboardOverBottomBar() {
+        XCTAssertEqual(
+            HomeBottomBarVisibilityPolicy.chatComposerBottomInset(
+                layoutClass: .phone,
+                bottomOverlayObstruction: 72,
+                keyboardOverlapHeight: 240,
+                idleSpacing: 16,
+                keyboardSpacing: 12,
+                regularSpacing: 24
+            ),
+            252
+        )
+    }
+
+    func testChatComposerClearanceUsesRegularSpacingWhenBottomBarIsNotObstructing() {
+        XCTAssertEqual(
+            HomeBottomBarVisibilityPolicy.chatComposerBottomInset(
+                layoutClass: .phone,
+                bottomOverlayObstruction: 0,
+                keyboardOverlapHeight: 0,
+                idleSpacing: 16,
+                keyboardSpacing: 12,
+                regularSpacing: 24
+            ),
+            24
+        )
+    }
+
     func testCalendarBottomBarSymbolBuildsDaySpecificCalendarSFImageNames() {
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 1), "1.calendar")
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 31), "31.calendar")
