@@ -309,7 +309,7 @@ struct CalendarScheduleView: View {
         service: CalendarIntegrationService,
         weekStartsOn: Weekday,
         presentationMode: CalendarSchedulePresentationMode,
-        selectedDate: Binding<Date> = .constant(Date())
+        selectedDate: Binding<Date>
     ) {
         let initialSelectedDate = selectedDate.wrappedValue
         self.service = service
@@ -420,8 +420,14 @@ struct CalendarScheduleView: View {
                     snapshot: service.snapshot,
                     selectedTab: selectedTab,
                     contextLabel: selectedTab == .today
-                        ? "Today \u{00B7} \(TaskerCalendarPresentation.scheduleDateText(for: selectedDate))"
-                        : "Week \u{00B7} \(currentPresentation.weekRangeLabel)",
+                        ? String(
+                            format: String(localized: "Today \u{00B7} %@"),
+                            TaskerCalendarPresentation.scheduleDateText(for: selectedDate)
+                        )
+                        : String(
+                            format: String(localized: "Week \u{00B7} %@"),
+                            currentPresentation.weekRangeLabel
+                        ),
                     onSelectTab: { tab in
                         selectedTab = tab
                         if tab == .week {
@@ -1624,8 +1630,6 @@ struct TaskerCalendarTimelineView: View {
     let initialVisibleHour: Int?
     let eventAccessibilityIdentifierPrefix: String
     let onSelectEvent: ((TaskerCalendarEventSnapshot) -> Void)?
-    private let visibleWindowPolicy: TaskerCalendarTimelineVisibleWindowPolicy
-    private let layoutPlanCacheKey: TaskerCalendarTimelinePlanCacheKey
 
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
@@ -1655,14 +1659,6 @@ struct TaskerCalendarTimelineView: View {
         self.initialVisibleHour = initialVisibleHour
         self.eventAccessibilityIdentifierPrefix = eventAccessibilityIdentifierPrefix
         self.onSelectEvent = onSelectEvent
-        let visibleWindowPolicy = TaskerCalendarTimelineVisibleWindowPolicy.fixedToCurrentMinute()
-        self.visibleWindowPolicy = visibleWindowPolicy
-        self.layoutPlanCacheKey = TaskerCalendarTimelinePlanCacheKey(
-            events: events,
-            date: date,
-            density: density,
-            visibleWindowPolicy: visibleWindowPolicy
-        )
     }
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
@@ -1673,7 +1669,17 @@ struct TaskerCalendarTimelineView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
+            let visibleWindowPolicy = TaskerCalendarTimelineVisibleWindowPolicy.fixedToCurrentMinute(timeline.date)
+            let layoutPlanCacheKey = TaskerCalendarTimelinePlanCacheKey(
+                events: events,
+                date: date,
+                density: density,
+                visibleWindowPolicy: visibleWindowPolicy
+            )
             content(anchorDate: timeline.date)
+                .task(id: layoutPlanCacheKey) {
+                    refreshLayoutPlan(visibleWindowPolicy: visibleWindowPolicy)
+                }
         }
         .modifier(
             TaskerCalendarTimelineAccessibilityModifier(
@@ -1681,13 +1687,9 @@ struct TaskerCalendarTimelineView: View {
                 label: accessibilityLabelText
             )
         )
-        .onAppear(perform: refreshLayoutPlan)
-        .onChange(of: layoutPlanCacheKey) { _, _ in
-            refreshLayoutPlan()
-        }
     }
 
-    private func refreshLayoutPlan() {
+    private func refreshLayoutPlan(visibleWindowPolicy: TaskerCalendarTimelineVisibleWindowPolicy) {
         var cache = layoutPlanCache
         layoutPlan = cache.plan(
             for: events,
