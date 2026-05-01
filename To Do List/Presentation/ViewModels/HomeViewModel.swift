@@ -585,7 +585,7 @@ public final class HomeViewModel: ObservableObject {
         didSet { scheduleHomeRenderStateRefresh([.tasks, .timeline]) }
     }
     @Published public private(set) var todaySections: [HomeListSection] = [] {
-        didSet { scheduleHomeRenderStateRefresh([.tasks, .timeline]) }
+        didSet { scheduleHomeRenderStateRefresh([.chrome, .tasks, .timeline]) }
     }
     @Published public private(set) var focusNowSectionState = FocusNowSectionState(rows: [], pinnedTaskIDs: []) {
         didSet { scheduleHomeRenderStateRefresh(.tasks) }
@@ -623,7 +623,7 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var focusTasks: [TaskDefinition] = []
     @Published public private(set) var focusWhyShuffleCandidates: [TaskDefinition] = []
     @Published public private(set) var focusRows: [HomeTodayRow] = [] {
-        didSet { scheduleHomeRenderStateRefresh([.tasks, .timeline]) }
+        didSet { scheduleHomeRenderStateRefresh([.chrome, .tasks, .timeline]) }
     }
     @Published public private(set) var pinnedFocusTaskIDs: [UUID] = [] {
         didSet { scheduleHomeRenderStateRefresh([.tasks, .timeline]) }
@@ -1352,8 +1352,9 @@ public final class HomeViewModel: ObservableObject {
     private func homeRenderInvalidation(forAssignedKeyPath keyPath: AnyKeyPath) -> HomeRenderInvalidation {
         switch keyPath {
         case \HomeViewModel.projects,
-             \HomeViewModel.lifeAreas,
-             \HomeViewModel.tags,
+             \HomeViewModel.lifeAreas:
+            return [.chrome, .tasks, .timeline]
+        case \HomeViewModel.tags,
              \HomeViewModel.emptyStateMessage,
              \HomeViewModel.emptyStateActionTitle:
             return .tasks
@@ -1368,9 +1369,10 @@ public final class HomeViewModel: ObservableObject {
             return [.tasks, .timeline]
         case \HomeViewModel.quickViewCounts,
              \HomeViewModel.pointsPotential,
-             \HomeViewModel.completionRate,
-             \HomeViewModel.progressState:
+             \HomeViewModel.completionRate:
             return .chrome
+        case \HomeViewModel.progressState:
+            return [.chrome, .tasks]
         case \HomeViewModel.focusWhyShuffleCandidates:
             return .overlay
         default:

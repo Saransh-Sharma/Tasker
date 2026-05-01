@@ -34,6 +34,7 @@ struct TaskTimeWheelPicker: View {
     let defaultStartDate: Date
     let intervalMinutes: Int
     let showsDurationRange: Bool
+    let accessibilityLabel: String?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var centeredSlotID: Int?
@@ -46,13 +47,15 @@ struct TaskTimeWheelPicker: View {
         durationMinutes: Int,
         defaultStartDate: Date,
         intervalMinutes: Int,
-        showsDurationRange: Bool = true
+        showsDurationRange: Bool = true,
+        accessibilityLabel: String? = nil
     ) {
         self._startDate = startDate
         self.durationMinutes = durationMinutes
         self.defaultStartDate = defaultStartDate
         self.intervalMinutes = intervalMinutes
         self.showsDurationRange = showsDurationRange
+        self.accessibilityLabel = accessibilityLabel
     }
 
     var body: some View {
@@ -115,7 +118,7 @@ struct TaskTimeWheelPicker: View {
                 strokeColor: Color.tasker.strokeHairline.opacity(0.72)
             )
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("Start time")
+            .accessibilityLabel(accessibilityLabel ?? String(localized: "Start time"))
             .accessibilityValue(accessibilityLabel(for: selectedDate))
             .accessibilityAdjustableAction { direction in
                 adjustSelection(direction)
@@ -409,7 +412,11 @@ struct TimelineAnchorDetailSheetView: View {
             durationMinutes: 30,
             defaultStartDate: selection.date(from: preferencesStore.load()),
             intervalMinutes: TaskDetailViewModel.scheduleIntervalMinutes,
-            showsDurationRange: false
+            showsDurationRange: false,
+            accessibilityLabel: String(
+                format: String(localized: "%@ start time"),
+                selection.title
+            )
         )
         .accessibilityIdentifier("timelineAnchorDetail.timePicker")
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
