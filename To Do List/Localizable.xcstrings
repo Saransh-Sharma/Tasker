@@ -1054,7 +1054,6 @@
     },
     "Next Day" : {
       "comment" : "Accessibility label for the Home timeline action that navigates to the next calendar day."
-
     },
     "Next step: complete more tasks to unlock this badge." : {
       "comment" : "A description of the next action required to unlock a badge.",
@@ -1289,7 +1288,6 @@
     },
     "Previous Day" : {
       "comment" : "Accessibility label for the Home timeline action that navigates to the previous calendar day."
-
     },
     "Priority" : {
       "comment" : "A label describing the priority of a task.",
