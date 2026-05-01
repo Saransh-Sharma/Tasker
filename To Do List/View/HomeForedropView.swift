@@ -1407,8 +1407,10 @@ extension ForedropAnchor {
 
 enum HomeForedropFace: Equatable {
     case tasks
+    case schedule
     case analytics
     case search
+    case chat
 
     var isBackFace: Bool {
         self != .tasks
@@ -1418,10 +1420,14 @@ enum HomeForedropFace: Equatable {
         switch self {
         case .tasks:
             return .home
+        case .schedule:
+            return .calendar
         case .analytics:
             return .charts
         case .search:
             return .search
+        case .chat:
+            return .chat
         }
     }
 
@@ -1429,7 +1435,7 @@ enum HomeForedropFace: Equatable {
         switch self {
         case .tasks:
             return "collapsed"
-        case .analytics, .search:
+        case .schedule, .analytics, .search, .chat:
             return "fullReveal"
         }
     }
@@ -2545,6 +2551,8 @@ struct HomeBackdropForedropRootView: View {
     @ObservedObject var tasksStore: HomeTasksStore
     @ObservedObject var habitsStore: HomeHabitsStore
     @ObservedObject var calendarStore: HomeCalendarStore
+    let calendarIntegrationService: CalendarIntegrationService?
+    let chatAppManager: AppManager
     @ObservedObject var overlayStore: HomeOverlayStore
     @ObservedObject var faceCoordinator: HomeFaceCoordinator
     @ObservedObject var searchState: HomeSearchState
@@ -2583,6 +2591,8 @@ struct HomeBackdropForedropRootView: View {
     let onOpenCalendarChooser: () -> Void
     let onOpenCalendarSchedule: () -> Void
     let onRetryCalendarContext: () -> Void
+    let onPerformChatDayTaskAction: EvaDayTaskActionHandler
+    let onPerformChatDayHabitAction: EvaDayHabitActionHandler
 
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
@@ -2616,6 +2626,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var pendingSearchCommitTask: Task<Void, Never>?
     @State private var hasMountedSearchSurface = false
     @State private var hasMountedAnalyticsSurface = false
+    @State private var hasMountedScheduleSurface = false
+    @State private var chatNavigationChromeState = EvaChatNavigationChromeState.empty
     @State private var expandedAgendaTailItemIDs = Set<String>()
     @State private var selectedHomeCalendarEventDetail: HomeCalendarEventDetailSelection?
     @State private var suppressNextCalendarScheduleOpen = false
@@ -2680,7 +2692,9 @@ struct HomeBackdropForedropRootView: View {
         activeFace == .tasks ? timelineViewModel.foredropAnchor : .fullReveal
     }
     private var isSearchOpen: Bool { activeFace == .search }
+    private var isChatOpen: Bool { activeFace == .chat }
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
+    private var isScheduleFaceVisible: Bool { activeFace == .schedule }
     private var isTodayTimelineVisible: Bool {
         activeFace == .tasks && tasksSnapshot.activeQuickView == .today
     }
@@ -2729,7 +2743,7 @@ struct HomeBackdropForedropRootView: View {
         )
     }
     private var isDaySwipeGestureEnabled: Bool {
-        guard isTodayTimelineVisible else { return false }
+        guard isTodayTimelineVisible || isScheduleFaceVisible else { return false }
         guard showDatePicker == false, showAdvancedFilters == false else { return false }
         guard overlaySnapshot.replanState.isApplying == false else { return false }
         if case .placement = overlaySnapshot.replanState.phase {
@@ -2779,7 +2793,10 @@ struct HomeBackdropForedropRootView: View {
         return false
     }
     private var dayLiquidSwipeRestingCenterY: CGFloat {
-        HomeDayLiquidSwipeRestingPosition.centerY(
+        guard isScheduleFaceVisible == false else {
+            return HomeDayLiquidSwipeData.timelineHandleCenterY
+        }
+        return HomeDayLiquidSwipeRestingPosition.centerY(
             defaultCenterY: HomeDayLiquidSwipeData.timelineHandleCenterY,
             showsQuietTrackingRail: habitsSnapshot.quietTrackingSummaryState.isVisible,
             measuredQuietTrackingRailHeight: measuredPassiveTrackingRailHeight,
@@ -2951,6 +2968,11 @@ struct HomeBackdropForedropRootView: View {
         .onChange(of: isTodayTimelineVisible) { _, isVisible in
             guard isVisible else { return }
             resetDayLiquidSwipeChromeVisibility()
+        }
+        .onChange(of: isScheduleFaceVisible) { _, isVisible in
+            guard isVisible else { return }
+            resetDayLiquidSwipeChromeVisibility()
+            resetIdleDayLiquidSwipeHandles(restingCenterY: dayLiquidSwipeRestingCenterY)
         }
         .onChange(of: habitRenderSignature) { _, _ in
             HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
@@ -3323,6 +3345,8 @@ struct HomeBackdropForedropRootView: View {
                     hasMountedSearchSurface = true
                 } else if newValue == .analytics {
                     hasMountedAnalyticsSurface = true
+                } else if newValue == .schedule {
+                    hasMountedScheduleSurface = true
                 }
                 if newValue != .search {
                     isSearchFieldFocused = false
@@ -3585,6 +3609,12 @@ struct HomeBackdropForedropRootView: View {
                 foredropFrontFace(taskListBottomInset: taskListBottomInset)
             }
 
+            if hasMountedScheduleSurface || activeFace == .schedule {
+                persistentFace(.schedule) {
+                    foredropScheduleFace()
+                }
+            }
+
             if hasMountedAnalyticsSurface || activeFace == .analytics {
                 persistentFace(.analytics) {
                     foredropAnalyticsFace()
@@ -3594,6 +3624,12 @@ struct HomeBackdropForedropRootView: View {
             if hasMountedSearchSurface || activeFace == .search {
                 persistentFace(.search) {
                     foredropSearchFace(taskListBottomInset: taskListBottomInset)
+                }
+            }
+
+            if activeFace == .chat {
+                persistentFace(.chat) {
+                    foredropChatFace(taskListBottomInset: taskListBottomInset)
                 }
             }
         }
@@ -3722,6 +3758,32 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private func foredropScheduleFace() -> some View {
+        ZStack {
+            if let calendarIntegrationService {
+                CalendarScheduleView(
+                    service: calendarIntegrationService,
+                    weekStartsOn: calendarIntegrationService.weekStartsOn,
+                    presentationMode: .embedded,
+                    selectedDate: Binding(
+                        get: { viewModel.selectedDate },
+                        set: { date in
+                            viewModel.selectDate(date, source: .datePicker)
+                        }
+                    )
+                )
+            } else {
+                Text("Schedule unavailable")
+                    .font(.tasker(.body))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            }
+
+            dayLiquidSwipeOverlay
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
     private func foredropAnalyticsFace() -> some View {
         VStack(spacing: spacing.s8) {
             HStack(spacing: spacing.s8) {
@@ -3835,6 +3897,42 @@ struct HomeBackdropForedropRootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("search.view")
+    }
+
+    @ViewBuilder
+    private func foredropChatFace(taskListBottomInset: CGFloat) -> some View {
+        if let container = LLMDataController.shared {
+            ChatContainerView(
+                onNavigationChromeChange: { state in
+                    chatNavigationChromeState = state
+                },
+                onOpenTaskDetail: { task in
+                    onTaskTap(task)
+                },
+                onOpenHabitDetail: { habitID in
+                    openHabitDetail(habitID: habitID)
+                },
+                onPerformDayTaskAction: onPerformChatDayTaskAction,
+                onPerformDayHabitAction: { action, card, completion in
+                    if action == .open {
+                        openHabitDetail(habitID: card.habitID)
+                        completion(.success(()))
+                        return
+                    }
+                    onPerformChatDayHabitAction(action, card, completion)
+                }
+            )
+            .environmentObject(chatAppManager)
+            .environment(LLMRuntimeCoordinator.shared.evaluator)
+            .modelContainer(container)
+            .safeAreaInset(edge: .bottom) {
+                Color.clear
+                    .frame(height: max(taskListBottomInset - layoutMetrics.safeAreaBottom, 0))
+                    .accessibilityHidden(true)
+            }
+        } else {
+            LLMStoreUnavailableView()
+        }
     }
 
     private var searchFaceHeader: some View {
@@ -3992,9 +4090,29 @@ struct HomeBackdropForedropRootView: View {
             .padding(.bottom, spacing.s8)
             .ignoresSafeArea(.keyboard)
             .zIndex(1)
+        } else if isChatOpen {
+            HomeEvaChatTopChromeView(
+                chromeState: chatNavigationChromeState,
+                onBack: {
+                    returnToTasks(source: "chat_top_chrome_back")
+                },
+                onSettings: {
+                    NotificationCenter.default.post(name: .requestEvaChatSettings, object: nil)
+                },
+                onHistory: {
+                    NotificationCenter.default.post(name: .toggleChatHistory, object: nil)
+                },
+                onNewChat: {
+                    NotificationCenter.default.post(name: .requestEvaChatNewThread, object: nil)
+                }
+            )
+            .padding(.top, layoutClass.isPad ? 18 : 0)
         } else {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                let headerPresentation = chromeSnapshot.homeHeaderPresentation(tasks: tasksSnapshot)
+                let headerPresentation = chromeSnapshot.homeHeaderPresentation(
+                    tasks: tasksSnapshot,
+                    habits: habitsSnapshot
+                )
 
                 HomeCompactHeaderView(
                     presentation: headerPresentation,
@@ -4574,38 +4692,42 @@ struct HomeBackdropForedropRootView: View {
                     }
                 )
 
-                HomeDayLiquidSwipeOverlay(
-                    isEnabled: isDaySwipeGestureEnabled,
-                    isChromeVisible: isDayLiquidSwipeChromeVisible,
-                    reduceMotion: reduceMotion || isUITesting,
-                    restingCenterY: dayLiquidSwipeRestingCenterY,
-                    onInteractionStarted: beginDaySwipeTrace,
-                    onInteractionCancelled: cancelDaySwipeTraceIfNeeded,
-                    onCommit: commitDaySwipe,
-                    onHandleDragChanged: { side, translation, location, size in
-                        updateDayLiquidSwipe(
-                            side: side,
-                            translation: translation,
-                            location: location,
-                            size: size
-                        )
-                    },
-                    onHandleDragEnded: { side, translation, predictedEndTranslation, _, size in
-                        endDayLiquidSwipe(
-                            side: side,
-                            translation: translation,
-                            predictedEndTranslation: predictedEndTranslation,
-                            size: size
-                        )
-                    },
-                    leadingData: $leadingDayLiquidSwipeData,
-                    trailingData: $trailingDayLiquidSwipeData,
-                    topSide: $topDayLiquidSwipeSide
-                )
+                dayLiquidSwipeOverlay
             }
             .coordinateSpace(name: Self.dayLiquidSwipeCoordinateSpaceName)
         }
         .accessibilityIdentifier("home.timeline.surface")
+    }
+
+    private var dayLiquidSwipeOverlay: some View {
+        HomeDayLiquidSwipeOverlay(
+            isEnabled: isDaySwipeGestureEnabled,
+            isChromeVisible: isDayLiquidSwipeChromeVisible,
+            reduceMotion: reduceMotion || isUITesting,
+            restingCenterY: dayLiquidSwipeRestingCenterY,
+            onInteractionStarted: beginDaySwipeTrace,
+            onInteractionCancelled: cancelDaySwipeTraceIfNeeded,
+            onCommit: commitDaySwipe,
+            onHandleDragChanged: { side, translation, location, size in
+                updateDayLiquidSwipe(
+                    side: side,
+                    translation: translation,
+                    location: location,
+                    size: size
+                )
+            },
+            onHandleDragEnded: { side, translation, predictedEndTranslation, _, size in
+                endDayLiquidSwipe(
+                    side: side,
+                    translation: translation,
+                    predictedEndTranslation: predictedEndTranslation,
+                    size: size
+                )
+            },
+            leadingData: $leadingDayLiquidSwipeData,
+            trailingData: $trailingDayLiquidSwipeData,
+            topSide: $topDayLiquidSwipeSide
+        )
     }
 
     private func timelineBottomContentSpacer(taskListBottomInset: CGFloat) -> some View {
@@ -6025,9 +6147,11 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
     var homeFace: HomeForedropFace? {
         switch self {
         case .tasks: return .tasks
+        case .schedule: return .schedule
         case .search: return .search
         case .analytics: return .analytics
-        case .schedule, .addTask, .settings, .lifeManagement, .projects, .chat, .models: return nil
+        case .chat: return .chat
+        case .addTask, .settings, .lifeManagement, .projects, .models: return nil
         }
     }
 
@@ -6209,6 +6333,15 @@ struct HomeiPadSplitShellView: View {
         shellState.destination.isPrimaryHomeDestination
     }
 
+    private var showsPrimaryHomeTaskToolbarItems: Bool {
+        switch shellState.destination {
+        case .tasks, .search, .analytics:
+            return true
+        case .schedule, .chat, .addTask, .settings, .lifeManagement, .projects, .models:
+            return false
+        }
+    }
+
     var body: some View {
         shellLayout
             .accessibilityIdentifier("home.ipad.shell")
@@ -6340,10 +6473,14 @@ struct HomeiPadSplitShellView: View {
         switch face {
         case .tasks:
             return "tasks"
+        case .schedule:
+            return "schedule"
         case .analytics:
             return "analytics"
         case .search:
             return "search"
+        case .chat:
+            return "chat"
         }
     }
 
@@ -6366,7 +6503,7 @@ struct HomeiPadSplitShellView: View {
 
     @ViewBuilder
     private var detailToolbarItems: some View {
-        if isPrimaryHomeDestination {
+        if showsPrimaryHomeTaskToolbarItems {
             Button {
                 showHabitLibrarySheet = true
             } label: {
@@ -6487,7 +6624,7 @@ struct HomeiPadSplitShellView: View {
     @ViewBuilder
     private var detailContent: some View {
         switch shellState.destination {
-        case .tasks, .search, .analytics:
+        case .tasks, .schedule, .search, .analytics, .chat:
             HomeiPadPrimaryPaneHost(
                 activeFace: $activeHomeFace,
                 layoutClass: layoutClass,
@@ -6510,9 +6647,6 @@ struct HomeiPadSplitShellView: View {
                     monitor: primarySurfaceMonitor
                 )
             }
-        case .schedule:
-            scheduleSurface()
-                .accessibilityIdentifier("home.ipad.detail.schedule")
         case .settings:
             settingsSurface()
                 .accessibilityIdentifier("home.ipad.detail.settings")
@@ -6522,9 +6656,6 @@ struct HomeiPadSplitShellView: View {
         case .projects:
             projectsSurface()
                 .accessibilityIdentifier("home.ipad.detail.projects")
-        case .chat:
-            chatSurface()
-                .accessibilityIdentifier("home.ipad.detail.chat")
         case .models:
             modelsSurface()
                 .accessibilityIdentifier("home.ipad.detail.models")
@@ -6584,10 +6715,14 @@ struct HomeiPadSplitShellView: View {
         switch face {
         case .tasks:
             return .tasks
+        case .schedule:
+            return .schedule
         case .analytics:
             return .analytics
         case .search:
             return .search
+        case .chat:
+            return .chat
         }
     }
 
