@@ -73,12 +73,12 @@ struct HomeCompactHeaderView: View {
 
     @ViewBuilder
     private var headerBottomAccent: some View {
-        if let xpProgress = presentation.xpProgress {
+        if let dayProgress = presentation.dayProgress {
             HomeMomentumProgressBar(
-                progress: xpProgress.progressFraction,
-                colors: xpProgress.isStreakSafeToday
-                    ? [Color.tasker.accentPrimary.opacity(0.78), Color.tasker.accentPrimary]
-                    : [Color.tasker.statusWarning.opacity(0.82), Color.tasker.statusWarning],
+                progress: dayProgress.progressFraction,
+                colors: dayProgress.isComplete
+                    ? [Color.tasker.statusSuccess.opacity(0.78), Color.tasker.statusSuccess]
+                    : [Color.tasker.accentPrimary.opacity(0.78), Color.tasker.accentPrimary],
                 trackColor: Color.tasker.surfaceSecondary.opacity(0.72),
                 height: 3,
                 animate: !reduceMotion
@@ -86,8 +86,8 @@ struct HomeCompactHeaderView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 3)
             .accessibilityElement()
-            .accessibilityLabel(xpProgress.accessibilityLabel)
-            .accessibilityIdentifier("home.topChrome.xpProgress")
+            .accessibilityLabel(dayProgress.accessibilityLabel)
+            .accessibilityIdentifier("home.topChrome.dayProgress")
         } else {
             Rectangle()
                 .fill(Color.tasker.divider.opacity(0.88))
@@ -165,12 +165,6 @@ struct HomeCompactHeaderView: View {
     private var statusContent: some View {
         if let todayStatus = presentation.todayStatus {
             HStack(spacing: spacing.s4) {
-                Text(todayStatus.xpText)
-                    .foregroundStyle(Color.tasker.textSecondary)
-
-                Text("·")
-                    .foregroundStyle(Color.tasker.textTertiary)
-
                 Text(todayStatus.completionText)
                     .foregroundStyle(Color.tasker.textSecondary)
 
