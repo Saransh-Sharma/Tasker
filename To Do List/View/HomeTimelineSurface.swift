@@ -4528,9 +4528,7 @@ struct DailyTimelineCanvas: View {
                 .minimumScaleFactor(0.86)
         }
         .offset(x: railMetrics.routineTextLeadingX(iconSize: iconSize), y: max(anchorCenterY - 22, 0))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(anchor.anchor.title), \(anchor.anchor.time.formatted(date: .omitted, time: .shortened))")
-        .accessibilityValue(anchor.anchor.id == "wake" ? "Timeline start" : "Timeline end")
+        .accessibilityHidden(true)
 
         Button {
             onAnchorTap(anchor.anchor)
