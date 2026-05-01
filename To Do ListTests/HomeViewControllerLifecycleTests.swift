@@ -42,6 +42,24 @@ final class HomeViewControllerLifecycleTests: XCTestCase {
         )
     }
 
+    func testLaunchSplashCoverScaleOverfillsPortraitAndLandscapeViewports() {
+        let portraitSize = CGSize(width: 393, height: 852)
+        let landscapeSize = CGSize(width: 852, height: 393)
+
+        XCTAssertGreaterThanOrEqual(
+            TaskerLaunchSplashMetrics.iconSide
+                * TaskerLaunchSplashMetrics.coverScale(for: portraitSize),
+            max(portraitSize.width, portraitSize.height)
+                * TaskerLaunchSplashMetrics.coverOverscan
+        )
+        XCTAssertGreaterThanOrEqual(
+            TaskerLaunchSplashMetrics.iconSide
+                * TaskerLaunchSplashMetrics.coverScale(for: landscapeSize),
+            max(landscapeSize.width, landscapeSize.height)
+                * TaskerLaunchSplashMetrics.coverOverscan
+        )
+    }
+
     private func mainStoryboard() -> UIStoryboard? {
         let bundles = [Bundle.main, Bundle(for: type(of: self))]
         for bundle in bundles where bundle.path(forResource: "Main", ofType: "storyboardc") != nil {

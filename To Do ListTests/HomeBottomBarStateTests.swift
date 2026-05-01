@@ -117,6 +117,17 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertEqual(state.selectedItem, .home)
     }
 
+    func testChatForedropFaceMapsToChatBottomBarItemAndFullReveal() {
+        XCTAssertEqual(HomeForedropFace.chat.selectedBottomBarItem, .chat)
+        XCTAssertTrue(HomeForedropFace.chat.isBackFace)
+        XCTAssertEqual(HomeForedropFace.chat.surfaceAccessibilityValue, "fullReveal")
+    }
+
+    func testIPadChatDestinationUsesHomeChatFace() {
+        XCTAssertEqual(HomeiPadDestination.chat.homeFace, .chat)
+        XCTAssertTrue(HomeiPadDestination.chat.isPrimaryHomeDestination)
+    }
+
     func testCalendarBottomBarSymbolBuildsDaySpecificCalendarSFImageNames() {
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 1), "1.calendar")
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 31), "31.calendar")

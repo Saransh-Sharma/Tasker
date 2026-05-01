@@ -143,29 +143,24 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
     func testTodayPresentationBuildsCompressedStatusLine() {
         let today = Calendar.current.startOfDay(for: Date())
-        let snapshot = HomeChromeSnapshot(
-            selectedDate: today,
-            activeScope: .today,
-            activeFilterState: .default,
-            savedHomeViews: [],
-            quickViewCounts: [:],
-            progressState: HomeProgressState(
-                earnedXP: 18,
-                remainingPotentialXP: 32,
-                todayTargetXP: 250,
-                streakDays: 1,
-                isStreakSafeToday: true
-            ),
-            dailyScore: 18,
-            completionRate: 1,
-            weeklySummary: nil,
-            projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
-            momentumGuidanceText: ""
+        let snapshot = makeTodayChromeSnapshot(selectedDate: today)
+        let tasks = makeTasksSnapshot(
+            morningTasks: [
+                TaskDefinition(title: "Open task", dueDate: today),
+                TaskDefinition(title: "Second open task", dueDate: today)
+            ],
+            inlineCompletedTasks: [
+                TaskDefinition(title: "Done task", dueDate: today, isComplete: true, dateCompleted: today)
+            ]
+        )
+        let habits = makeHabitsSnapshot(
+            primaryRows: [
+                makeHabitRow(title: "Hydrate", dueAt: today, state: .due),
+                makeHabitRow(title: "Read", dueAt: today, state: .completedToday)
+            ]
         )
 
-        let presentation = snapshot.homeHeaderPresentation(tasks: HomeTasksSnapshot.empty)
+        let presentation = snapshot.homeHeaderPresentation(tasks: tasks, habits: habits)
 
         XCTAssertEqual(presentation.viewLabel, "Today")
         XCTAssertEqual(presentation.compactDateText, today.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
@@ -175,16 +170,16 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertFalse(presentation.showsBackToToday)
         XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.reflectionCTATitle, "Reflect")
-        XCTAssertEqual(presentation.statusText, "18/250 XP · 100% · 1d")
-        XCTAssertEqual(presentation.todayStatus?.xpText, "18/250 XP")
-        XCTAssertEqual(presentation.todayStatus?.completionText, "100%")
+        XCTAssertEqual(presentation.statusText, "40% done · 1d")
+        XCTAssertEqual(presentation.todayStatus?.completionText, "40% done")
         XCTAssertEqual(presentation.todayStatus?.streakText, "1d")
         XCTAssertEqual(presentation.todayStatus?.streakAccessibilityLabel, "1 day streak")
-        XCTAssertEqual(presentation.xpProgress?.earnedXP, 18)
-        XCTAssertEqual(presentation.xpProgress?.targetXP, 250)
-        XCTAssertEqual(presentation.xpProgress?.isStreakSafeToday, true)
-        XCTAssertEqual(presentation.xpProgress?.accessibilityLabel, "XP progress, 18 of 250 XP")
-        XCTAssertEqual(presentation.xpProgress?.progressFraction ?? -1, 18.0 / 250.0, accuracy: 0.0001)
+        XCTAssertEqual(presentation.dayProgress?.completedCount, 2)
+        XCTAssertEqual(presentation.dayProgress?.totalCount, 5)
+        XCTAssertEqual(presentation.dayProgress?.remainingCount, 3)
+        XCTAssertFalse(presentation.dayProgress?.isComplete ?? true)
+        XCTAssertEqual(presentation.dayProgress?.accessibilityLabel, "Today progress, 2 of 5 due items done, 3 left")
+        XCTAssertEqual(presentation.dayProgress?.progressFraction ?? -1, 0.4, accuracy: 0.0001)
     }
 
     func testHomeChromeSnapshotEqualityIncludesRichReflectionPreview() {
@@ -339,7 +334,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.statusText, "1 task · 1 habit")
         XCTAssertNil(presentation.todayStatus)
-        XCTAssertNil(presentation.xpProgress)
+        XCTAssertNil(presentation.dayProgress)
     }
 
     func testCustomDateTodayPresentationSuppressesBackToTodayAsSafetyFallback() {
@@ -424,73 +419,116 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.statusText, "2 overdue tasks")
         XCTAssertNil(presentation.todayStatus)
         XCTAssertFalse(presentation.showsReflectionCTA)
-        XCTAssertNil(presentation.xpProgress)
+        XCTAssertNil(presentation.dayProgress)
     }
 
-    func testTodayPresentationFallsBackToDailyCapWhenTargetIsZeroInGamificationV2() {
+    func testTodayPresentationShowsAllClearWhenNoWorkIsDue() {
         let originalGamificationV2Enabled = V2FeatureFlags.gamificationV2Enabled
         V2FeatureFlags.gamificationV2Enabled = true
         defer { V2FeatureFlags.gamificationV2Enabled = originalGamificationV2Enabled }
 
         let today = Calendar.current.startOfDay(for: Date())
-        let snapshot = HomeChromeSnapshot(
-            selectedDate: today,
-            activeScope: .today,
-            activeFilterState: .default,
-            savedHomeViews: [],
-            quickViewCounts: [:],
-            progressState: HomeProgressState(
-                earnedXP: 18,
-                remainingPotentialXP: 0,
-                todayTargetXP: 0,
-                streakDays: 1,
-                isStreakSafeToday: true
-            ),
-            dailyScore: 18,
-            completionRate: 1,
-            weeklySummary: nil,
-            projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
-            momentumGuidanceText: ""
-        )
+        let snapshot = makeTodayChromeSnapshot(selectedDate: today)
 
         let presentation = snapshot.homeHeaderPresentation(tasks: HomeTasksSnapshot.empty)
 
-        XCTAssertEqual(presentation.statusText, "18/250 XP · 100% · 1d")
+        XCTAssertEqual(presentation.statusText, "All clear · 1d")
+        XCTAssertEqual(presentation.todayStatus?.completionText, "All clear")
         XCTAssertEqual(presentation.todayStatus?.streakText, "1d")
-        XCTAssertEqual(presentation.xpProgress?.targetXP, GamificationTokens.dailyXPCap)
-        XCTAssertEqual(presentation.xpProgress?.accessibilityLabel, "XP progress, 18 of 250 XP")
+        XCTAssertEqual(presentation.dayProgress?.completedCount, 0)
+        XCTAssertEqual(presentation.dayProgress?.totalCount, 0)
+        XCTAssertEqual(presentation.dayProgress?.remainingCount, 0)
+        XCTAssertEqual(presentation.dayProgress?.progressFraction ?? -1, 1, accuracy: 0.0001)
+        XCTAssertEqual(presentation.dayProgress?.accessibilityLabel, "Today progress, nothing due today")
     }
 
-    func testTodayPresentationRoundsCompletionPercentageForHeaderDisplay() {
+    func testTodayPresentationRoundsDueWorkPercentageForHeaderDisplay() {
         let today = Calendar.current.startOfDay(for: Date())
-        let snapshot = HomeChromeSnapshot(
-            selectedDate: today,
-            activeScope: .today,
-            activeFilterState: .default,
-            savedHomeViews: [],
-            quickViewCounts: [:],
-            progressState: HomeProgressState(
-                earnedXP: 18,
-                remainingPotentialXP: 32,
-                todayTargetXP: 250,
-                streakDays: 1,
-                isStreakSafeToday: true
-            ),
-            dailyScore: 18,
-            completionRate: 1.0 / 3.0,
-            weeklySummary: nil,
-            projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
-            momentumGuidanceText: ""
+        let snapshot = makeTodayChromeSnapshot(selectedDate: today)
+        let tasks = makeTasksSnapshot(
+            morningTasks: [
+                TaskDefinition(title: "Open task", dueDate: today),
+                TaskDefinition(title: "Done task", dueDate: today, isComplete: true, dateCompleted: today),
+                TaskDefinition(title: "Second open task", dueDate: today)
+            ]
         )
 
-        let presentation = snapshot.homeHeaderPresentation(tasks: HomeTasksSnapshot.empty)
+        let presentation = snapshot.homeHeaderPresentation(tasks: tasks)
 
-        XCTAssertEqual(presentation.statusText, "18/250 XP · 33% · 1d")
-        XCTAssertEqual(presentation.todayStatus?.completionText, "33%")
+        XCTAssertEqual(presentation.statusText, "33% done · 1d")
+        XCTAssertEqual(presentation.todayStatus?.completionText, "33% done")
+    }
+
+    func testTodayProgressExcludesOverdueWorkFromHeaderDenominator() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today) ?? today
+        let snapshot = makeTodayChromeSnapshot(selectedDate: today)
+        let tasks = makeTasksSnapshot(
+            morningTasks: [
+                TaskDefinition(title: "Due today", dueDate: today)
+            ],
+            overdueTasks: [
+                TaskDefinition(title: "Overdue", dueDate: yesterday)
+            ]
+        )
+        let habits = makeHabitsSnapshot(
+            primaryRows: [
+                makeHabitRow(title: "Due habit", dueAt: today, state: .completedToday)
+            ],
+            recoveryRows: [
+                makeHabitRow(title: "Overdue habit", dueAt: yesterday, state: .overdue)
+            ]
+        )
+
+        let presentation = snapshot.homeHeaderPresentation(tasks: tasks, habits: habits)
+
+        XCTAssertEqual(presentation.dayProgress?.completedCount, 1)
+        XCTAssertEqual(presentation.dayProgress?.totalCount, 2)
+        XCTAssertEqual(presentation.statusText, "50% done · 1d")
+    }
+
+    func testSkippedAndLapsedHabitsStayInDenominatorButAreNotDone() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let snapshot = makeTodayChromeSnapshot(selectedDate: today)
+        let habits = makeHabitsSnapshot(
+            primaryRows: [
+                makeHabitRow(title: "Complete", dueAt: today, state: .completedToday),
+                makeHabitRow(title: "Skipped", dueAt: today, state: .skippedToday)
+            ],
+            recoveryRows: [
+                makeHabitRow(title: "Lapsed", dueAt: today, state: .lapsedToday)
+            ]
+        )
+
+        let presentation = snapshot.homeHeaderPresentation(tasks: .empty, habits: habits)
+
+        XCTAssertEqual(presentation.dayProgress?.completedCount, 1)
+        XCTAssertEqual(presentation.dayProgress?.totalCount, 3)
+        XCTAssertEqual(presentation.dayProgress?.remainingCount, 2)
+        XCTAssertEqual(presentation.statusText, "33% done · 1d")
+    }
+
+    func testHabitOnlySnapshotChangesUpdateTodayHeaderProgress() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let snapshot = makeTodayChromeSnapshot(selectedDate: today)
+        let openHabits = makeHabitsSnapshot(
+            primaryRows: [
+                makeHabitRow(title: "Hydrate", dueAt: today, state: .due)
+            ]
+        )
+        let completedHabits = makeHabitsSnapshot(
+            primaryRows: [
+                makeHabitRow(title: "Hydrate", dueAt: today, state: .completedToday)
+            ]
+        )
+
+        let openPresentation = snapshot.homeHeaderPresentation(tasks: .empty, habits: openHabits)
+        let completedPresentation = snapshot.homeHeaderPresentation(tasks: .empty, habits: completedHabits)
+
+        XCTAssertEqual(openPresentation.statusText, "0% done · 1d")
+        XCTAssertEqual(openPresentation.dayProgress?.progressFraction ?? -1, 0, accuracy: 0.0001)
+        XCTAssertEqual(completedPresentation.statusText, "100% done · 1d")
+        XCTAssertEqual(completedPresentation.dayProgress?.progressFraction ?? -1, 1, accuracy: 0.0001)
     }
 
     func testDateHeaderRelativeLabelsCoverPastAndFutureOffsets() {
@@ -538,5 +576,99 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
                 "offset \(expected.offset)"
             )
         }
+    }
+
+    private func makeTodayChromeSnapshot(
+        selectedDate: Date,
+        streakDays: Int = 1
+    ) -> HomeChromeSnapshot {
+        HomeChromeSnapshot(
+            selectedDate: selectedDate,
+            activeScope: .today,
+            activeFilterState: .default,
+            savedHomeViews: [],
+            quickViewCounts: [:],
+            progressState: HomeProgressState(
+                earnedXP: 18,
+                remainingPotentialXP: 32,
+                todayTargetXP: 250,
+                streakDays: streakDays,
+                isStreakSafeToday: true
+            ),
+            dailyScore: 18,
+            completionRate: 0,
+            weeklySummary: nil,
+            projects: [],
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
+            momentumGuidanceText: ""
+        )
+    }
+
+    private func makeTasksSnapshot(
+        morningTasks: [TaskDefinition] = [],
+        eveningTasks: [TaskDefinition] = [],
+        overdueTasks: [TaskDefinition] = [],
+        inlineCompletedTasks: [TaskDefinition] = [],
+        focusRows: [HomeTodayRow] = []
+    ) -> HomeTasksSnapshot {
+        let base = HomeTasksSnapshot.empty
+        return HomeTasksSnapshot(
+            morningTasks: morningTasks,
+            eveningTasks: eveningTasks,
+            overdueTasks: overdueTasks,
+            dueTodaySection: base.dueTodaySection,
+            todaySections: base.todaySections,
+            focusNowSectionState: base.focusNowSectionState,
+            todayAgendaSectionState: base.todayAgendaSectionState,
+            agendaTailItems: base.agendaTailItems,
+            habitHomeSectionState: base.habitHomeSectionState,
+            quietTrackingSummaryState: base.quietTrackingSummaryState,
+            inlineCompletedTasks: inlineCompletedTasks,
+            doneTimelineTasks: base.doneTimelineTasks,
+            projects: base.projects,
+            projectsByID: base.projectsByID,
+            tagNameByID: base.tagNameByID,
+            activeQuickView: base.activeQuickView,
+            todayXPSoFar: base.todayXPSoFar,
+            projectGroupingMode: base.projectGroupingMode,
+            customProjectOrderIDs: base.customProjectOrderIDs,
+            emptyStateMessage: base.emptyStateMessage,
+            emptyStateActionTitle: base.emptyStateActionTitle,
+            canUseManualFocusDrag: base.canUseManualFocusDrag,
+            focusTasks: base.focusTasks,
+            focusRows: focusRows,
+            pinnedFocusTaskIDs: base.pinnedFocusTaskIDs,
+            todayOpenTaskCount: base.todayOpenTaskCount
+        )
+    }
+
+    private func makeHabitsSnapshot(
+        primaryRows: [HomeHabitRow] = [],
+        recoveryRows: [HomeHabitRow] = [],
+        quietRows: [HomeHabitRow] = []
+    ) -> HomeHabitsSnapshot {
+        HomeHabitsSnapshot(
+            habitHomeSectionState: HabitHomeSectionState(primaryRows: primaryRows, recoveryRows: recoveryRows),
+            quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: quietRows),
+            errorMessage: nil
+        )
+    }
+
+    private func makeHabitRow(
+        title: String,
+        dueAt: Date?,
+        state: HomeHabitRowState
+    ) -> HomeHabitRow {
+        HomeHabitRow(
+            habitID: UUID(),
+            title: title,
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            iconSymbolName: "drop.fill",
+            dueAt: dueAt,
+            state: state
+        )
     }
 }

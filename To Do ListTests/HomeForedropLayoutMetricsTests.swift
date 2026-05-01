@@ -8,6 +8,35 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(HomeDayLiquidSwipeSide.trailing.direction, .next)
     }
 
+    func testLiquidSwipeHandleInteractionStartsOncePerDragSequence() {
+        var state = HomeDayLiquidSwipeHandleInteractionState()
+
+        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
+        XCTAssertFalse(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
+
+        state.reset()
+
+        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
+    }
+
+    func testLiquidSwipeHandleInteractionResetsWhenUnavailable() {
+        var state = HomeDayLiquidSwipeHandleInteractionState()
+
+        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
+        XCTAssertFalse(state.startIfNeeded(isEnabled: false, isChromeVisible: true))
+        XCTAssertFalse(state.isActive)
+
+        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
+        XCTAssertFalse(state.startIfNeeded(isEnabled: true, isChromeVisible: false))
+        XCTAssertFalse(state.isActive)
+    }
+
+    func testScheduleFaceMapsToCalendarBottomBarItem() {
+        XCTAssertEqual(HomeForedropFace.schedule.selectedBottomBarItem, .calendar)
+        XCTAssertTrue(HomeForedropFace.schedule.isBackFace)
+        XCTAssertEqual(HomeForedropFace.schedule.surfaceAccessibilityValue, "fullReveal")
+    }
+
     func testLiquidSwipeEdgeStartMapsLeadingAndTrailingEdges() {
         let size = CGSize(width: 390, height: 760)
 
@@ -1943,6 +1972,7 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
 
     func testSurfaceAccessibilityValueContractRemainsStableForAllFaces() {
         XCTAssertEqual(HomeForedropFace.tasks.surfaceAccessibilityValue, "collapsed")
+        XCTAssertEqual(HomeForedropFace.schedule.surfaceAccessibilityValue, "fullReveal")
         XCTAssertEqual(HomeForedropFace.analytics.surfaceAccessibilityValue, "fullReveal")
         XCTAssertEqual(HomeForedropFace.search.surfaceAccessibilityValue, "fullReveal")
     }
