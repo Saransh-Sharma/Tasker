@@ -90,6 +90,7 @@ struct HomeDayLiquidSwipeOverlay: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text(side.accessibilityLabel))
+            .accessibilityIdentifier(side.accessibilityIdentifier)
             .opacity(isInteractive ? data.buttonOpacity : 0)
             .position(data.buttonCenter)
             .disabled(!isInteractive)

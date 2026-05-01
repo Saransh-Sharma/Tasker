@@ -39,4 +39,13 @@ enum HomeDayLiquidSwipeSide: CaseIterable {
             return "Next Day"
         }
     }
+
+    var accessibilityIdentifier: String {
+        switch self {
+        case .leading:
+            return "homeCalendar.previousDayHandle"
+        case .trailing:
+            return "homeCalendar.nextDayHandle"
+        }
+    }
 }
