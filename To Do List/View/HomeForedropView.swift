@@ -2593,6 +2593,7 @@ struct HomeBackdropForedropRootView: View {
     let onRetryCalendarContext: () -> Void
     let onPerformChatDayTaskAction: EvaDayTaskActionHandler
     let onPerformChatDayHabitAction: EvaDayHabitActionHandler
+    let onChatPromptFocusChange: (Bool) -> Void
 
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
@@ -3138,6 +3139,7 @@ struct HomeBackdropForedropRootView: View {
             searchDraftQuery = searchState.query
             hasMountedSearchSurface = activeFace == .search
             hasMountedAnalyticsSurface = activeFace == .analytics
+            hasMountedScheduleSurface = activeFace == .schedule
             triggerForedropHintIfEligible()
             presentHabitBoardIfRequestedForUITests()
         }
@@ -3347,6 +3349,9 @@ struct HomeBackdropForedropRootView: View {
                     hasMountedAnalyticsSurface = true
                 } else if newValue == .schedule {
                     hasMountedScheduleSurface = true
+                }
+                if newValue != .chat {
+                    chatNavigationChromeState = .empty
                 }
                 if newValue != .search {
                     isSearchFieldFocused = false
@@ -3629,7 +3634,7 @@ struct HomeBackdropForedropRootView: View {
 
             if activeFace == .chat {
                 persistentFace(.chat) {
-                    foredropChatFace(taskListBottomInset: taskListBottomInset)
+                    foredropChatFace()
                 }
             }
         }
@@ -3900,12 +3905,13 @@ struct HomeBackdropForedropRootView: View {
     }
 
     @ViewBuilder
-    private func foredropChatFace(taskListBottomInset: CGFloat) -> some View {
+    private func foredropChatFace() -> some View {
         if let container = LLMDataController.shared {
             ChatContainerView(
                 onNavigationChromeChange: { state in
                     chatNavigationChromeState = state
                 },
+                onPromptFocusChange: onChatPromptFocusChange,
                 onOpenTaskDetail: { task in
                     onTaskTap(task)
                 },
@@ -3925,11 +3931,7 @@ struct HomeBackdropForedropRootView: View {
             .environmentObject(chatAppManager)
             .environment(LLMRuntimeCoordinator.shared.evaluator)
             .modelContainer(container)
-            .safeAreaInset(edge: .bottom) {
-                Color.clear
-                    .frame(height: max(taskListBottomInset - layoutMetrics.safeAreaBottom, 0))
-                    .accessibilityHidden(true)
-            }
+            .padding(.bottom, layoutMetrics.chatComposerBottomInset + spacing.s16)
         } else {
             LLMStoreUnavailableView()
         }

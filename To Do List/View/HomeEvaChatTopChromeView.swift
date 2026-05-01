@@ -7,6 +7,20 @@ struct HomeEvaChatTopChromeView: View {
     let onHistory: () -> Void
     let onNewChat: () -> Void
 
+    init(
+        chromeState: EvaChatNavigationChromeState,
+        onBack: @escaping () -> Void,
+        onSettings: @escaping () -> Void = {},
+        onHistory: @escaping () -> Void = {},
+        onNewChat: @escaping () -> Void = {}
+    ) {
+        self.chromeState = chromeState
+        self.onBack = onBack
+        self.onSettings = onSettings
+        self.onHistory = onHistory
+        self.onNewChat = onNewChat
+    }
+
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {

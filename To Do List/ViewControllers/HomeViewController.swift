@@ -44,6 +44,7 @@ struct HomeLayoutMetrics: Equatable {
     let keyboardOverlapHeight: CGFloat
     let backdropGradientHeight: CGFloat
     let taskListBottomInset: CGFloat
+    let chatComposerBottomInset: CGFloat
     let chartViewportHeight: CGFloat
 
     static let zero = HomeLayoutMetrics(
@@ -54,11 +55,40 @@ struct HomeLayoutMetrics: Equatable {
         keyboardOverlapHeight: 0,
         backdropGradientHeight: 0,
         taskListBottomInset: 80,
+        chatComposerBottomInset: 80,
         chartViewportHeight: 560
     )
 
     var isReady: Bool {
         width > 1 && height > 1
+    }
+}
+
+struct HomeBottomBarVisibilityPolicy {
+    static func isConcealedForChatInput(
+        activeFace: HomeForedropFace,
+        isPromptFocused: Bool,
+        keyboardOverlapHeight: CGFloat
+    ) -> Bool {
+        activeFace == .chat && (isPromptFocused || keyboardOverlapHeight > 0.5)
+    }
+
+    static func chatComposerBottomInset(
+        layoutClass: TaskerLayoutClass,
+        bottomOverlayObstruction: CGFloat,
+        keyboardOverlapHeight: CGFloat,
+        idleSpacing: CGFloat,
+        keyboardSpacing: CGFloat,
+        regularSpacing: CGFloat
+    ) -> CGFloat {
+        guard layoutClass == .phone else { return regularSpacing }
+        if keyboardOverlapHeight > 0.5 {
+            return keyboardOverlapHeight + keyboardSpacing
+        }
+        if bottomOverlayObstruction > 0.5 {
+            return bottomOverlayObstruction + idleSpacing
+        }
+        return regularSpacing
     }
 }
 
@@ -1182,6 +1212,7 @@ private struct HomeHostRootView: View {
 private struct HomeBottomBarContainer: View {
     let state: HomeBottomBarState
     let shellPhase: HomeShellPhase
+    let isConcealed: Bool
     let onHome: () -> Void
     let onCalendar: () -> Void
     let onChartsToggle: () -> Void
@@ -1206,6 +1237,8 @@ private struct HomeBottomBarContainer: View {
         .padding(.bottom, 0)
         .ignoresSafeArea(.container, edges: .bottom)
         .offset(y: 0)
+        .allowsHitTesting(isConcealed == false)
+        .accessibilityHidden(isConcealed)
         .background {
             GeometryReader { proxy in
                 Color.clear
@@ -1287,6 +1320,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private let onboardingGuidanceModel = HomeOnboardingGuidanceModel()
     private var onboardingCoordinator: AppOnboardingCoordinator?
     private var isEmbeddedChatRuntimeEntered = false
+    private var pendingExitChatTask: Task<Void, Never>?
     private var pendingInsightsLaunchRequest: InsightsLaunchRequest?
     private var pendingInsightsPreparationTask: Task<Void, Never>?
     private var pendingSearchPreparationTask: Task<Void, Never>?
@@ -1302,6 +1336,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
     private var keyboardOverlapHeight: CGFloat = 0
     private var measuredBottomBarHeight: CGFloat = 0
+    private var isEmbeddedChatPromptFocused = false
 
 
     // MARK: - Lifecycle
@@ -1413,6 +1448,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingBackgroundSearchPrewarmTask?.cancel()
         pendingBackgroundInsightsPrewarmTask?.cancel()
         pendingOnboardingEvaluationTask?.cancel()
+        pendingExitChatTask?.cancel()
         retainedHomeSearchEngine = nil
         notificationCenter.removeObserver(self)
     }
@@ -1494,6 +1530,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.cancelBackgroundSurfacePrewarm()
                 }
                 self?.setEmbeddedChatRuntimeVisible(activeFace == .chat, trigger: "home_chat_face")
+                if activeFace != .chat {
+                    self?.isEmbeddedChatPromptFocused = false
+                }
+                self?.refreshLayoutMetrics()
+                self?.mountBottomBarOverlayIfNeeded()
             }
             .store(in: &cancellables)
 
@@ -1541,6 +1582,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private var isUsingIPadNativeShell: Bool {
         currentLayoutClass.isPad && V2FeatureFlags.iPadNativeShellEnabled
+    }
+
+    private func calendarScheduleSelectedDateBinding() -> Binding<Date> {
+        Binding(
+            get: { [weak self] in
+                self?.viewModel?.selectedDate ?? Date()
+            },
+            set: { [weak self] date in
+                self?.viewModel?.selectDate(date, source: .datePicker)
+            }
+        )
     }
 
     /// Executes refreshLayoutClassIfNeeded.
@@ -1642,20 +1694,27 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func setEmbeddedChatRuntimeVisible(_ isVisible: Bool, trigger: String) {
         if isVisible {
+            pendingExitChatTask?.cancel()
+            pendingExitChatTask = nil
             guard isEmbeddedChatRuntimeEntered == false else { return }
             isEmbeddedChatRuntimeEntered = true
             LLMRuntimeCoordinator.shared.enterChatScreen(trigger: trigger)
         } else {
             guard isEmbeddedChatRuntimeEntered else { return }
             isEmbeddedChatRuntimeEntered = false
-            Task { @MainActor in
+            pendingExitChatTask?.cancel()
+            pendingExitChatTask = Task { @MainActor [weak self] in
+                guard Task.isCancelled == false else { return }
                 await LLMRuntimeCoordinator.shared.exitChatScreen(reason: "home_chat_face_exit")
+                guard Task.isCancelled == false else { return }
+                self?.pendingExitChatTask = nil
             }
         }
     }
 
     private func openSchedule(source: String) {
         if isUsingIPadNativeShell {
+            unwindActiveFaceForIPadDestination(source: source)
             iPadShellState.destination = .schedule
             return
         }
@@ -1684,6 +1743,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             action: "home_schedule_flip_open",
             metadata: ["source": source]
         )
+    }
+
+    private func unwindActiveFaceForIPadDestination(source: String) {
+        guard faceCoordinator.activeFace != .tasks else { return }
+        returnToTasks(source: source)
     }
 
     private func openAnalytics(source: String, launchDefaultInsights: Bool) {
@@ -2088,6 +2152,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let taskListBottomInset = currentLayoutClass == .phone
             ? bottomOverlayObstruction + spacing.s16
             : spacing.s24
+        let chatBottomOverlayObstruction = isBottomBarConcealedForChatInput ? 0 : bottomOverlayObstruction
+        let chatComposerBottomInset = HomeBottomBarVisibilityPolicy.chatComposerBottomInset(
+            layoutClass: currentLayoutClass,
+            bottomOverlayObstruction: chatBottomOverlayObstruction,
+            keyboardOverlapHeight: keyboardOverlapHeight,
+            idleSpacing: spacing.s16,
+            keyboardSpacing: spacing.s12,
+            regularSpacing: spacing.s24
+        )
         let chartViewportHeight = min(max(height * 0.66, 560), max(560, height - 150))
 
         return HomeLayoutMetrics(
@@ -2098,6 +2171,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             keyboardOverlapHeight: keyboardOverlapHeight,
             backdropGradientHeight: height + safeAreaInsets.top + safeAreaInsets.bottom,
             taskListBottomInset: taskListBottomInset,
+            chatComposerBottomInset: chatComposerBottomInset,
             chartViewportHeight: chartViewportHeight
         )
     }
@@ -2147,6 +2221,22 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard abs(keyboardOverlapHeight - sanitizedValue) > 0.5 else { return }
         keyboardOverlapHeight = sanitizedValue
         refreshLayoutMetrics()
+        mountBottomBarOverlayIfNeeded()
+    }
+
+    private var isBottomBarConcealedForChatInput: Bool {
+        HomeBottomBarVisibilityPolicy.isConcealedForChatInput(
+            activeFace: faceCoordinator.activeFace,
+            isPromptFocused: isEmbeddedChatPromptFocused,
+            keyboardOverlapHeight: keyboardOverlapHeight
+        )
+    }
+
+    private func setEmbeddedChatPromptFocused(_ isFocused: Bool) {
+        guard isEmbeddedChatPromptFocused != isFocused else { return }
+        isEmbeddedChatPromptFocused = isFocused
+        refreshLayoutMetrics()
+        mountBottomBarOverlayIfNeeded()
     }
 
     private func updateInteractivePhaseIfNeeded() {
@@ -2257,6 +2347,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         HomeBottomBarContainer(
             state: faceCoordinator.bottomBarState,
             shellPhase: faceCoordinator.shellPhase,
+            isConcealed: isBottomBarConcealedForChatInput,
             onHome: { [weak self] in
                 self?.returnToTasks(source: "bottom_bar_home")
             },
@@ -2295,10 +2386,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard abs(measuredBottomBarHeight - sanitizedValue) > 0.5 else { return }
         measuredBottomBarHeight = sanitizedValue
         refreshLayoutMetrics()
+        updateBottomBarBottomConstraint()
     }
 
     private func resolvedBottomBarDownshift() -> CGFloat {
-        currentLayoutClass == .phone ? max(0, view.safeAreaInsets.bottom - 10) : 0
+        guard currentLayoutClass == .phone else { return 0 }
+        let restingDownshift = max(0, view.safeAreaInsets.bottom - 10)
+        guard isBottomBarConcealedForChatInput else { return restingDownshift }
+
+        let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
+        let measuredHeight = max(measuredBottomBarHeight, tokens.spacing.s12 + 56)
+        return restingDownshift + measuredHeight + tokens.spacing.s16
     }
 
     private func updateBottomBarBottomConstraint() {
@@ -2306,6 +2404,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let downshift = resolvedBottomBarDownshift()
         guard abs(bottomBarBottomConstraint.constant - downshift) > 0.5 else { return }
         bottomBarBottomConstraint.constant = downshift
+        UIView.animate(
+            withDuration: 0.24,
+            delay: 0,
+            options: [.beginFromCurrentState, .curveEaseInOut]
+        ) {
+            self.view.layoutIfNeeded()
+        }
     }
 
     /// Executes mountHomeShell.
@@ -2491,6 +2596,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             },
             onPerformChatDayHabitAction: { [weak self] action, card, completion in
                 self?.performEmbeddedChatDayHabitAction(action, card: card, completion: completion)
+            },
+            onChatPromptFocusChange: { [weak self] isFocused in
+                self?.setEmbeddedChatPromptFocused(isFocused)
             }
         )
     }
@@ -2563,7 +2671,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             CalendarScheduleView(
                 service: service,
                 weekStartsOn: service.weekStartsOn,
-                presentationMode: .embedded
+                presentationMode: .embedded,
+                selectedDate: calendarScheduleSelectedDateBinding()
             )
             .taskerLayoutClass(layoutClass)
         )
@@ -3950,6 +4059,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         card: EvaDayHabitCard,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
+        if action == .open {
+            handleHabitDetailDeepLink(habitID: card.habitID)
+            completion(.success(()))
+            return
+        }
+
         guard let coordinator = presentationDependencyContainer?.coordinator else {
             completion(.failure(embeddedChatError(code: 3, message: "Coordinator unavailable")))
             return
@@ -3966,6 +4081,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         case .lapsed, .logLapse:
             habitAction = .lapsed
         case .open:
+            handleHabitDetailDeepLink(habitID: card.habitID)
             completion(.success(()))
             return
         }
@@ -4310,6 +4426,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func presentCalendarSchedule() {
         if isUsingIPadNativeShell {
+            unwindActiveFaceForIPadDestination(source: "calendar_schedule_modal")
             iPadShellState.destination = .schedule
             return
         }
@@ -4317,7 +4434,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let view = CalendarScheduleView(
             service: service,
             weekStartsOn: service.weekStartsOn,
-            presentationMode: .modal
+            presentationMode: .modal,
+            selectedDate: calendarScheduleSelectedDateBinding()
         )
         let host = UIHostingController(rootView: AnyView(view.taskerLayoutClass(currentLayoutClass)))
         host.modalPresentationStyle = UIModalPresentationStyle.pageSheet
