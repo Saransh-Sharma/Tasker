@@ -421,6 +421,7 @@ private final class TaskerLaunchHostController: UIViewController {
     private var hasScheduledHomeAttach = false
     private var pendingHomeController: UIViewController?
     private var attachedHomeController: UIViewController?
+    private let splashState = TaskerLaunchSplashState()
     private var splashHostController: UIHostingController<TaskerLaunchSplashView>?
 
     init(resolveHomeRootController: @escaping () -> UIViewController?) {
@@ -451,7 +452,7 @@ private final class TaskerLaunchHostController: UIViewController {
     private func setupSplash() {
         view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
 
-        let splashHostController = UIHostingController(rootView: TaskerLaunchSplashView())
+        let splashHostController = UIHostingController(rootView: TaskerLaunchSplashView(state: splashState))
         splashHostController.view.backgroundColor = .clear
         splashHostController.view.translatesAutoresizingMaskIntoConstraints = false
 
@@ -509,15 +510,40 @@ private final class TaskerLaunchHostController: UIViewController {
         TaskerPerformanceTrace.end(interval)
         attachedHomeController = homeController
         pendingHomeController = nil
-        fadeSplashOverAttachedHome()
+        completeSplashOverAttachedHome()
     }
 
-    private func fadeSplashOverAttachedHome() {
+    private func completeSplashOverAttachedHome() {
+        guard let splashHostController else { return }
+
+        if UIAccessibility.isReduceMotionEnabled {
+            fadeSplashOverAttachedHome(duration: 0.12, delay: 0)
+            return
+        }
+
+        splashState.completeReveal()
+        fadeSplashOverAttachedHome(
+            duration: TaskerLaunchSplashMetrics.finalCrossfadeDuration,
+            delay: max(
+                TaskerLaunchSplashMetrics.revealDuration
+                    - TaskerLaunchSplashMetrics.finalCrossfadeDuration,
+                0
+            ),
+            splashHostController: splashHostController
+        )
+    }
+
+    private func fadeSplashOverAttachedHome(
+        duration: TimeInterval,
+        delay: TimeInterval,
+        splashHostController: UIHostingController<TaskerLaunchSplashView>? = nil
+    ) {
+        let splashHostController = splashHostController ?? self.splashHostController
         guard let splashHostController else { return }
 
         UIView.animate(
-            withDuration: UIAccessibility.isReduceMotionEnabled ? 0.12 : 0.22,
-            delay: 0,
+            withDuration: duration,
+            delay: delay,
             options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseOut]
         ) {
             splashHostController.view.alpha = 0
