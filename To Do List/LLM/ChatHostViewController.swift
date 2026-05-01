@@ -1068,6 +1068,7 @@ struct ChatContainerView: View {
     var presentationMode: ChatPresentationMode = .normal
     var onActivationChatEvent: ((EvaActivationChatEvent) -> Void)? = nil
     var onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil
+    var onPromptFocusChange: ((Bool) -> Void)? = nil
     var onOpenTaskDetail: (TaskDefinition) -> Void
     var onOpenHabitDetail: ((UUID) -> Void)? = nil
     var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
@@ -1105,7 +1106,8 @@ struct ChatContainerView: View {
                         onPerformDayTaskAction: onPerformDayTaskAction,
                         onPerformDayHabitAction: onPerformDayHabitAction,
                         showsHistoryAction: false,
-                        onNavigationChromeChange: onNavigationChromeChange
+                        onNavigationChromeChange: onNavigationChromeChange,
+                        onPromptFocusChange: onPromptFocusChange
                     )
                 }
                 .navigationSplitViewStyle(.balanced)
@@ -1122,7 +1124,8 @@ struct ChatContainerView: View {
                     onPerformDayTaskAction: onPerformDayTaskAction,
                     onPerformDayHabitAction: onPerformDayHabitAction,
                     showsHistoryAction: true,
-                    onNavigationChromeChange: onNavigationChromeChange
+                    onNavigationChromeChange: onNavigationChromeChange,
+                    onPromptFocusChange: onPromptFocusChange
                 )
             }
         }

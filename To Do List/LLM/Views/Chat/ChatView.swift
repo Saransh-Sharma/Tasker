@@ -65,6 +65,7 @@ struct ChatView: View {
     var onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
     var showsHistoryAction: Bool = true
     var onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil
+    var onPromptFocusChange: ((Bool) -> Void)? = nil
 
     @State var thinkingTime: TimeInterval?
 
@@ -474,6 +475,7 @@ struct ChatView: View {
 
     @MainActor
     private func handleChatViewDisappear() {
+        onPromptFocusChange?(false)
         activationFocusTask?.cancel()
         activationFocusTask = nil
         projectLookupTask?.cancel()
@@ -522,6 +524,7 @@ struct ChatView: View {
 
     @MainActor
     private func handlePromptFocusChanged(_ focused: Bool) {
+        onPromptFocusChange?(focused)
         if focused {
             guard generationTask == nil else { return }
             LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_prompt_focus")
