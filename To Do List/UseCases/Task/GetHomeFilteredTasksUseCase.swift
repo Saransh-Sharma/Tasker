@@ -1188,7 +1188,7 @@ public final class ComputeEvaHomeInsightsUseCase {
         }.prefix(3).map(\.key)
         var sections: [String] = []
         if top.isEmpty == false {
-            sections.append("Eva picked for: " + top.joined(separator: " · "))
+            sections.append("\(AssistantIdentityText.currentSnapshot().displayName) picked for: " + top.joined(separator: " · "))
         }
         if let habitSummary = habitSummaryLine(from: habitSignals) {
             sections.append(habitSummary)

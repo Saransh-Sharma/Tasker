@@ -764,7 +764,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
 
     public func requestEvaPreview() {
         guard let homeAIActionCoordinator else {
-            errorMessage = "Eva weekly proposals are unavailable right now."
+            errorMessage = "\(AssistantIdentityText.currentSnapshot().displayName) weekly proposals are unavailable right now."
             return
         }
 
@@ -794,7 +794,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
 
     public func requestEvaSuggestion() {
         guard let homeAIActionCoordinator else {
-            errorMessage = "Eva weekly proposals are unavailable right now."
+            errorMessage = "\(AssistantIdentityText.currentSnapshot().displayName) weekly proposals are unavailable right now."
             return
         }
 

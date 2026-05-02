@@ -2868,7 +2868,7 @@ public final class HomeViewModel: ObservableObject {
             completion?(.failure(NSError(
                 domain: "HomeViewModel",
                 code: 404,
-                userInfo: [NSLocalizedDescriptionKey: "Eva triage disabled"]
+                userInfo: [NSLocalizedDescriptionKey: "Assistant triage disabled"]
             )))
             return
         }
@@ -3113,7 +3113,7 @@ public final class HomeViewModel: ObservableObject {
             completion(.failure(NSError(
                 domain: "HomeViewModel",
                 code: 422,
-                userInfo: [NSLocalizedDescriptionKey: "No Eva mutations to apply"]
+                userInfo: [NSLocalizedDescriptionKey: "No assistant mutations to apply"]
             )))
             return
         }
@@ -3249,7 +3249,7 @@ public final class HomeViewModel: ObservableObject {
             completion(.failure(NSError(
                 domain: "HomeViewModel",
                 code: 404,
-                userInfo: [NSLocalizedDescriptionKey: "No Eva batch run available to undo"]
+                userInfo: [NSLocalizedDescriptionKey: "No assistant batch run available to undo"]
             )))
             return
         }

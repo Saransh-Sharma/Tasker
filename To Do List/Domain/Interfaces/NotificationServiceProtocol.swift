@@ -470,6 +470,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
     public var timelineRiseAndShineMinute: Int
     public var timelineWindDownHour: Int
     public var timelineWindDownMinute: Int
+    public var chiefOfStaffMascotID: AssistantMascotID
 
     public init(
         weekStartsOn: Weekday = .monday,
@@ -482,7 +483,8 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         timelineRiseAndShineHour: Int = 8,
         timelineRiseAndShineMinute: Int = 0,
         timelineWindDownHour: Int = 22,
-        timelineWindDownMinute: Int = 0
+        timelineWindDownMinute: Int = 0,
+        chiefOfStaffMascotID: AssistantMascotID = .eva
     ) {
         self.weekStartsOn = weekStartsOn
         self.selectedCalendarIDs = Self.normalizeSelectedCalendarIDs(selectedCalendarIDs)
@@ -495,6 +497,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         self.timelineRiseAndShineMinute = Self.clampedMinute(timelineRiseAndShineMinute)
         self.timelineWindDownHour = Self.clampedHour(timelineWindDownHour)
         self.timelineWindDownMinute = Self.clampedMinute(timelineWindDownMinute)
+        self.chiefOfStaffMascotID = chiefOfStaffMascotID
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -509,6 +512,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         case timelineRiseAndShineMinute
         case timelineWindDownHour
         case timelineWindDownMinute
+        case chiefOfStaffMascotID
     }
 
     public init(from decoder: Decoder) throws {
@@ -526,6 +530,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         timelineRiseAndShineMinute = Self.clampedMinute(try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineMinute) ?? 0)
         timelineWindDownHour = Self.clampedHour(try container.decodeIfPresent(Int.self, forKey: .timelineWindDownHour) ?? 22)
         timelineWindDownMinute = Self.clampedMinute(try container.decodeIfPresent(Int.self, forKey: .timelineWindDownMinute) ?? 0)
+        chiefOfStaffMascotID = try container.decodeIfPresent(AssistantMascotID.self, forKey: .chiefOfStaffMascotID) ?? .eva
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -541,6 +546,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         try container.encode(timelineRiseAndShineMinute, forKey: .timelineRiseAndShineMinute)
         try container.encode(timelineWindDownHour, forKey: .timelineWindDownHour)
         try container.encode(timelineWindDownMinute, forKey: .timelineWindDownMinute)
+        try container.encode(chiefOfStaffMascotID, forKey: .chiefOfStaffMascotID)
     }
 
     public func normalizedForPersistence() -> TaskerWorkspacePreferences {
@@ -555,7 +561,8 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
             timelineRiseAndShineHour: Self.clampedHour(timelineRiseAndShineHour),
             timelineRiseAndShineMinute: Self.clampedMinute(timelineRiseAndShineMinute),
             timelineWindDownHour: Self.clampedHour(timelineWindDownHour),
-            timelineWindDownMinute: Self.clampedMinute(timelineWindDownMinute)
+            timelineWindDownMinute: Self.clampedMinute(timelineWindDownMinute),
+            chiefOfStaffMascotID: chiefOfStaffMascotID
         )
     }
 
