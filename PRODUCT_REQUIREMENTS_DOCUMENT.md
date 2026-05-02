@@ -142,6 +142,8 @@ Tasker intentionally adopts patterns that reduce day-level overwhelm and increas
 ### Pillar F: Assist Intentionally
 - Support optional assistant-mediated planning actions.
 - Keep confirmation and reversibility as core trust mechanics.
+- Treat Eva's mascot presence as a functional assistant state marker: identity, planning, thinking, review, suggestion, risk, completion, rest, or discovery.
+- Keep mascot use aligned with assistant trust boundaries; Eva can clarify state or reduce friction, but must not imply automatic mutation or replace confirmation copy.
 
 ## Non-Goals For This PRD Cycle
 
@@ -425,6 +427,9 @@ Requirements:
 - Diff preview is mandatory before apply.
 - Undo is visible and bounded by pipeline constraints.
 - Destructive operations require stronger confirmation copy and styling.
+- Eva mascot visuals clarify assistant state without implying automatic action.
+- Eva state ownership is stable: `Thinking` means processing, `Clipboard` means review, `Idea` means suggestion, `Celebration` means confirmed success, and `Worried` means true risk only.
+- Mascot visuals must not replace confirmation, undo, permission, privacy, or destructive-action copy.
 
 ### Insights And Analytics
 Purpose:
@@ -583,6 +588,8 @@ This table maps product surfaces to existing runtime usecases for implementation
 - Drag-only interactions must have non-drag alternatives.
 - Dynamic Type must preserve meaning and actionability at accessibility sizes.
 - Text and status indicators maintain readable contrast.
+- Decorative Eva mascot images are hidden from VoiceOver.
+- Interactive Eva entry and help controls expose concrete labels such as "Ask Eva", "Eva help", or "Open Eva".
 
 ### Performance Targets
 - Cold start to Home visible: under 1.5 seconds on a representative mid-tier device.
@@ -708,6 +715,7 @@ Technical implementation details are intentionally kept out of this PRD. Use the
 - `docs/calendar/data-model-and-runtime.md`
 - `docs/calendar/risk-register.md`
 - `docs/calendar/roadmap.md`
+- `docs/design/EVA_MASCOT_PLACEMENT_GUIDE.md`
 - `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`
 - `docs/architecture/TASKER_V2_ARCHITECTURE_GUIDE.md`
 - `docs/audits/HABITS_IOS_UX_AUDIT_2026-04-17.md`
