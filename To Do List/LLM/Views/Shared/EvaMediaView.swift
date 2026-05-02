@@ -12,6 +12,187 @@ enum EvaMediaAsset {
     static let introLottieName = "EvaLottie00-lite"
 }
 
+enum EvaMascotAsset: String, CaseIterable, Equatable {
+    case neutral = "eva_neutral"
+    case pointRight = "eva_point_right"
+    case pointLeft = "eva_point_left"
+    case celebration = "eva_celebration"
+    case clipboard = "eva_clipboard"
+    case calendar = "eva_calendar"
+    case pencil = "eva_pencil"
+    case thinking = "eva_thinking"
+    case excited = "eva_excited"
+    case focused = "eva_focused"
+    case surprised = "eva_surprised"
+    case sleepy = "eva_sleepy"
+    case worried = "eva_worried"
+    case meditate = "eva_meditate"
+    case running = "eva_running"
+    case sitting = "eva_sitting"
+    case idea = "eva_idea"
+    case peek = "eva_peek"
+}
+
+enum EvaMascotSize: Equatable {
+    case avatar
+    case chip
+    case inline
+    case card
+    case hero
+    case custom(CGFloat)
+
+    var points: CGFloat {
+        switch self {
+        case .avatar:
+            return 40
+        case .chip:
+            return 32
+        case .inline:
+            return 56
+        case .card:
+            return 104
+        case .hero:
+            return 184
+        case .custom(let points):
+            return points
+        }
+    }
+}
+
+enum EvaMascotPlacement: Equatable {
+    case onboardingWelcome
+    case onboardingNextStep
+    case onboardingEvaValue
+    case onboardingCaptureSetup
+    case onboardingProcessing
+    case onboardingCalendarPermission
+    case onboardingNotificationPermission
+    case onboardingSuccess
+    case chatEmptyHeader
+    case chatHelp
+    case chatThinking
+    case chiefOfStaffGuide
+    case dayOverview
+    case proposalReview
+    case proposalApplied
+    case homeEntry
+    case focusRationale
+    case homeInsight
+    case homeOverload
+    case calendarPlanning
+    case calendarConflict
+    case calendarRescheduleThinking
+    case taskCapture
+    case taskTriage
+    case taskDeadlineRisk
+    case habitEmpty
+    case habitWin
+    case habitRecovery
+    case habitStreakWin
+    case habitMilestone
+    case weeklyReflection
+    case weeklyChecklist
+    case weeklySuggestion
+    case weeklyComplete
+    case restReminder
+    case focusStart
+    case focusNextAction
+    case focusComplete
+    case settingsIdentity
+    case timelineEmptySchedule
+    case timelineConflict
+    case timelineFreeSlot
+    case timelineStartPlan
+    case featureDiscovery
+}
+
+enum EvaMascotPlacementResolver {
+    static func asset(for placement: EvaMascotPlacement) -> EvaMascotAsset {
+        switch placement {
+        case .chatEmptyHeader, .homeEntry, .settingsIdentity:
+            return .neutral
+        case .onboardingWelcome, .habitEmpty:
+            return .sitting
+        case .onboardingNextStep:
+            return .pointRight
+        case .featureDiscovery:
+            return .pointLeft
+        case .chatHelp, .onboardingNotificationPermission:
+            return .peek
+        case .chatThinking, .onboardingProcessing, .calendarRescheduleThinking:
+            return .thinking
+        case .chiefOfStaffGuide, .proposalReview, .taskTriage, .weeklyChecklist, .onboardingEvaValue:
+            return .clipboard
+        case .dayOverview, .homeInsight, .weeklySuggestion:
+            return .idea
+        case .proposalApplied, .habitWin, .weeklyComplete, .focusComplete, .habitStreakWin:
+            return .celebration
+        case .onboardingSuccess, .habitMilestone:
+            return .excited
+        case .focusRationale, .focusNextAction:
+            return .focused
+        case .homeOverload, .habitRecovery, .taskDeadlineRisk:
+            return .worried
+        case .calendarPlanning, .onboardingCalendarPermission, .timelineEmptySchedule:
+            return .calendar
+        case .calendarConflict, .timelineConflict, .timelineFreeSlot:
+            return .surprised
+        case .taskCapture, .onboardingCaptureSetup:
+            return .pencil
+        case .weeklyReflection:
+            return .meditate
+        case .restReminder:
+            return .sleepy
+        case .focusStart, .timelineStartPlan:
+            return .running
+        }
+    }
+}
+
+struct EvaMascotView: View {
+    let asset: EvaMascotAsset
+    let size: EvaMascotSize
+    let decorative: Bool
+    let accessibilityLabel: String
+
+    init(
+        _ asset: EvaMascotAsset,
+        size: EvaMascotSize = .inline,
+        decorative: Bool = true,
+        accessibilityLabel: String = "Eva"
+    ) {
+        self.asset = asset
+        self.size = size
+        self.decorative = decorative
+        self.accessibilityLabel = accessibilityLabel
+    }
+
+    init(
+        placement: EvaMascotPlacement,
+        size: EvaMascotSize = .inline,
+        decorative: Bool = true,
+        accessibilityLabel: String = "Eva"
+    ) {
+        self.init(
+            EvaMascotPlacementResolver.asset(for: placement),
+            size: size,
+            decorative: decorative,
+            accessibilityLabel: accessibilityLabel
+        )
+    }
+
+    var body: some View {
+        Image(asset.rawValue)
+            .resizable()
+            .interpolation(.high)
+            .antialiased(true)
+            .scaledToFit()
+            .frame(width: size.points, height: size.points)
+            .accessibilityHidden(decorative)
+            .accessibilityLabel(accessibilityLabel)
+    }
+}
+
 #if os(iOS) || os(visionOS)
 struct EvaLoopingVideoView: UIViewRepresentable {
     let videoName: String
