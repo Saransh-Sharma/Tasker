@@ -51,6 +51,10 @@ struct LLMSettingsView: View {
                 .padding(.horizontal, spacing.screenHorizontal)
                 .padding(.top, spacing.s16)
 
+                evaIdentityCard
+                    .padding(.horizontal, spacing.screenHorizontal)
+                    .padding(.top, spacing.s12)
+
                 if layoutClass.isPad {
                     padContent
                 } else {
@@ -83,6 +87,25 @@ struct LLMSettingsView: View {
                 #endif
             }
         }
+    }
+
+    private var evaIdentityCard: some View {
+        TaskerCard {
+            HStack(alignment: .center, spacing: spacing.s12) {
+                EvaMascotView(placement: .settingsIdentity, size: .inline)
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text("Eva profile")
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                    Text("This assistant manages planning, review, memory, and local model behavior.")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .accessibilityIdentifier("llmSettings.evaIdentity.card")
     }
 
     private var phoneContent: some View {

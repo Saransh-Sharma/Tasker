@@ -291,6 +291,23 @@ struct SettingsRootView: View {
             includeHorizontalPadding: includeHorizontalPadding
         ) {
             VStack(spacing: spacing.cardStackVertical) {
+                TaskerSettingsCard(active: true) {
+                    HStack(alignment: .center, spacing: spacing.s12) {
+                        EvaMascotView(placement: .settingsIdentity, size: .inline)
+                        VStack(alignment: .leading, spacing: spacing.s4) {
+                            Text("Eva")
+                                .font(.tasker(.headline))
+                                .foregroundStyle(Color.tasker(.textPrimary))
+                            Text("Your chief of staff for tasks, habits, calendar, and planning.")
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+                .enhancedStaggeredAppearance(index: baseIndex)
+
                 TaskerSettingsCard(active: viewModel.memoryItemCount > 0) {
                     SettingsNavigationRow(
                         descriptor: TaskerSettingsDestinationDescriptor(
@@ -305,7 +322,7 @@ struct SettingsRootView: View {
                         action: viewModel.onNavigateToAISettings
                     )
                 }
-                .enhancedStaggeredAppearance(index: baseIndex)
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
 
                 TaskerSettingsCard {
                     SettingsNavigationRow(
@@ -320,7 +337,7 @@ struct SettingsRootView: View {
                         action: viewModel.onNavigateToModels
                     )
                 }
-                .enhancedStaggeredAppearance(index: baseIndex + 1)
+                .enhancedStaggeredAppearance(index: baseIndex + 2)
             }
         }
     }
