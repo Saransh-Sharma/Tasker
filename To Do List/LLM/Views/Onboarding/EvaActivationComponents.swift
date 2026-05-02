@@ -300,10 +300,11 @@ struct EvaGoalComposer: View {
 
 struct EvaReviewCard: View {
     let draft: EvaProfileDraft
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     var body: some View {
         EvaSectionCard(
-            title: "Eva will remember",
+            title: "\(assistantIdentity.snapshot.displayName) will remember",
             subtitle: nil,
             accessibilityIdentifier: "eva.activation.review"
         ) {

@@ -19,10 +19,15 @@ struct OnboardingDownloadingModelProgressView: View {
     @State private var currentModelName: String?
     @State private var installStarted = false
     @State private var isInstallInFlight = false
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     private var currentModel: ModelConfiguration? {
         guard let currentModelName else { return nil }
         return ModelConfiguration.getModelByName(currentModelName)
+    }
+
+    private var identity: AssistantIdentitySnapshot {
+        assistantIdentity.snapshot
     }
 
     private var totalCount: Int {
@@ -169,7 +174,7 @@ struct OnboardingDownloadingModelProgressView: View {
         }
         .padding()
         .background(Color.tasker(.bgCanvas))
-        .navigationTitle("Wake Eva")
+        .navigationTitle("Wake \(identity.displayName)")
         .toolbar(canContinue ? .hidden : .visible)
         .navigationBarBackButtonHidden()
         .task {
@@ -196,11 +201,11 @@ struct OnboardingDownloadingModelProgressView: View {
     private var titleText: String {
         switch installOutcome {
         case .installing:
-            return "Getting Eva ready"
+            return "Getting \(identity.displayName) ready"
         case .success:
-            return "Eva is ready"
+            return "\(identity.displayName) is ready"
         case .partialFailure:
-            return "Eva is partly ready"
+            return "\(identity.displayName) is partly ready"
         case .failed:
             return "Couldn't finish setup"
         }
@@ -222,14 +227,16 @@ struct OnboardingDownloadingModelProgressView: View {
             let failed = failedModelNames
                 .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
                 .joined(separator: " • ")
-            return failed.isEmpty ? "Eva couldn't finish installing a local mode." : "Eva couldn't finish installing \(failed)."
+            return failed.isEmpty
+                ? "\(identity.displayName) couldn't finish installing a local mode."
+                : "\(identity.displayName) couldn't finish installing \(failed)."
         case .installing:
             break
         }
         if let currentModel {
             return "Installing \(currentModel.displayName) for private on-device responses."
         }
-        return "Preparing Eva for private on-device help."
+        return "Preparing \(identity.displayName) for private on-device help."
     }
 
     private var progressLabel: String {
