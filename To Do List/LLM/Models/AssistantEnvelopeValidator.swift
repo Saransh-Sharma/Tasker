@@ -366,7 +366,7 @@ struct AssistantEnvelopeValidator {
         let withinFuture = delta <= maximumScheduleHorizon
         let withinPast = allowsPast || delta >= -maximumScheduleHorizon
         guard withinFuture, withinPast else {
-            throw AssistantEnvelopeValidationError.invalidSchedule("Scheduled date is outside EVA's supported planning horizon.")
+            throw AssistantEnvelopeValidationError.invalidSchedule("Scheduled date is outside the assistant’s supported planning horizon.")
         }
     }
 

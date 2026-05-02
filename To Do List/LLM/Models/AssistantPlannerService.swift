@@ -1413,7 +1413,7 @@ struct AssistantDeterministicPlanner {
     }
 
     static func habitClarificationPlan(for prompt: String) -> Output {
-        let message = "I can review habits and include them in planning, but habit changes cannot be applied from this EVA card yet. Tell me if you want a task added to support that habit."
+        let message = "I can review habits and include them in planning, but habit changes cannot be applied from this assistant card yet. Tell me if you want a task added to support that habit."
         let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
         return Output(
             envelope: envelope,
@@ -1511,7 +1511,7 @@ struct AssistantDeterministicPlanner {
         }
 
         if prompt.localizedCaseInsensitiveContains("help me plan") || prompt.localizedCaseInsensitiveContains("plan my day") {
-            let message = "Tell me your timed plans or add a list for Inbox, and EVA will turn them into review cards."
+            let message = "Tell me your timed plans or add a list for Inbox, and your assistant will turn them into review cards."
             let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
             return Output(
                 envelope: envelope,
@@ -1780,7 +1780,7 @@ struct AssistantDeterministicPlanner {
         guard commands.isEmpty == false else {
             return BatchReschedulePlan(
                 commands: [],
-                rationale: "I found matching tasks, but they need a date or time target before EVA can reschedule them.",
+                rationale: "I found matching tasks, but they need a date or time target before \(AssistantIdentityText.currentSnapshot().displayName) can reschedule them.",
                 noOpTitle: "Needs a target"
             )
         }

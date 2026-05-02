@@ -604,7 +604,7 @@ enum LLMRuntimeSupportMatrix {
             return LLMModelCompatibilityResult(
                 modelName: model.name,
                 availability: .temporarilyUnavailable,
-                statusReason: "Local EVA models are not available in the iOS Simulator."
+                statusReason: "Local assistant models are not available in the iOS Simulator."
             )
         }
         #endif
@@ -612,7 +612,7 @@ enum LLMRuntimeSupportMatrix {
             return LLMModelCompatibilityResult(
                 modelName: model.name,
                 availability: .temporarilyUnavailable,
-                statusReason: "Bonsai 1-bit requires Prism-specific MLX kernels and is disabled while EVA uses the stable upstream Qwen runtime."
+                statusReason: "Bonsai 1-bit requires Prism-specific MLX kernels and is disabled while the assistant uses the stable upstream Qwen runtime."
             )
         }
         return LLMModelCompatibilityResult(

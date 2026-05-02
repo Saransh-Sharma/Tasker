@@ -193,8 +193,8 @@ struct AddTaskIntent: AppIntent {
 
 @available(iOS 16.0, macOS 13.0, *)
 struct OpenEvaChatIntent: AppIntent {
-    static var title: LocalizedStringResource = "Ask Eva"
-    static var description = IntentDescription("Opens Eva chat with your question prefilled.")
+    static var title: LocalizedStringResource = "Ask Assistant"
+    static var description = IntentDescription("Opens assistant chat with your question prefilled.")
     static var openAppWhenRun: Bool = true
 
     @Parameter(title: "Question")
@@ -210,7 +210,7 @@ struct OpenEvaChatIntent: AppIntent {
             throw TaskerShortcutRuntimeError.handoffFailed(
                 error.localizedDescription.isEmpty == false
                     ? error.localizedDescription
-                    : "Tasker could not open Eva right now."
+                    : "Tasker could not open assistant chat right now."
             )
         }
     }
@@ -256,11 +256,11 @@ struct TaskerAppShortcutsProvider: AppShortcutsProvider {
         AppShortcut(
             intent: OpenEvaChatIntent(),
             phrases: [
-                "Ask Eva in \(.applicationName)",
+                "Ask assistant in \(.applicationName)",
                 "Ask \(.applicationName)",
-                "Open Eva in \(.applicationName)"
+                "Open assistant in \(.applicationName)"
             ],
-            shortTitle: "Ask Eva",
+            shortTitle: "Ask Assistant",
             systemImageName: "bubble.left.and.bubble.right"
         )
 
