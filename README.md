@@ -49,9 +49,11 @@ Current LLM-backed and planner-backed use cases include:
 
 See `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md` for the LLM/EVA architecture, use cases, decisions, risks, and manual test guide. Use `Tasker.xcworkspace` for iOS builds and tests because CocoaPods dependencies are required.
 
-### Eva Mascot System
+### Assistant Mascot Persona System
 
-Eva is also Tasker's visual Chief of Staff. The app uses pose-specific mascot states for identity, planning, thinking, review, suggestion, warning, completion, rest, and discovery so Eva communicates what kind of help is present without becoming decorative filler. Mascot placement philosophy, asset ownership, accessibility rules, and QA expectations live in `docs/design/EVA_MASCOT_PLACEMENT_GUIDE.md`; LLM behavior and planner architecture remain in `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
+Tasker's visual Chief of Staff is user-selectable. Eva remains the default persona, and users can choose Eva, Cloudlet, Dude, Elon, Friday, Johnny, Maddie, Paperclip, Punch, Retriever, Sato, Steve, Theo, or YesMan during onboarding or from Settings. The selected persona controls the visible assistant name, accessibility labels, and mascot artwork while the local assistant architecture can keep Eva-prefixed internal implementation names.
+
+Eva uses the original static PNG pose set in `Assets.xcassets`; non-Eva personas use bundled sprite assets from `To Do List/LLM/MascotSprites/`. Mascot placement philosophy, sprite ownership, semantic animation mapping, accessibility rules, and QA expectations live in `docs/design/EVA_MASCOT_PLACEMENT_GUIDE.md`; LLM behavior and planner architecture remain in `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
 
 ## Calendar And Timeline
 

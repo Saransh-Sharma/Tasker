@@ -1,7 +1,7 @@
 # Tasker iOS - Product Requirements Document
 
 **Version:** 4.7
-**Last Updated:** April 29, 2026
+**Last Updated:** May 3, 2026
 **Platform:** iOS 16.0+
 **Status:** Active Product Direction
 
@@ -142,8 +142,9 @@ Tasker intentionally adopts patterns that reduce day-level overwhelm and increas
 ### Pillar F: Assist Intentionally
 - Support optional assistant-mediated planning actions.
 - Keep confirmation and reversibility as core trust mechanics.
-- Treat Eva's mascot presence as a functional assistant state marker: identity, planning, thinking, review, suggestion, risk, completion, rest, or discovery.
-- Keep mascot use aligned with assistant trust boundaries; Eva can clarify state or reduce friction, but must not imply automatic mutation or replace confirmation copy.
+- Treat the selected Chief of Staff mascot as a functional assistant state marker: identity, planning, thinking, review, suggestion, risk, completion, rest, or discovery.
+- Let users choose the visible assistant persona while preserving the same trust boundaries, confirmation requirements, and undo expectations.
+- Keep mascot animation aligned with assistant trust boundaries; it can clarify state or reduce friction, but must not imply automatic mutation or replace confirmation copy.
 
 ## Non-Goals For This PRD Cycle
 
