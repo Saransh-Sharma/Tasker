@@ -906,6 +906,10 @@ struct ChatComposerView: View {
         )
         #endif
         .accessibilityIdentifier("chat.composer.container")
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isPromptFocused = true
+        }
         }
     }
 
@@ -977,6 +981,10 @@ struct ChatComposerView: View {
         )
         .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isPromptFocused)
         .accessibilityIdentifier("eva.structured.composer")
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isPromptFocused = true
+        }
     }
 
     private func structuredDeferredIcon(systemName: String, label: String) -> some View {

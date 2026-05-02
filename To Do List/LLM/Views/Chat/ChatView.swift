@@ -64,6 +64,7 @@ struct ChatView: View {
     var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
     var onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
     var showsHistoryAction: Bool = true
+    var promptFocusRequestID: UInt64 = 0
     var onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil
     var onPromptFocusChange: ((Bool) -> Void)? = nil
 
@@ -87,6 +88,7 @@ struct ChatView: View {
     @State private var promptSubmitTraceInterval: TaskerPerformanceInterval?
     @State private var evaSubmittedDraft: EvaSubmittedDraft?
     @State private var hasCompletedInitialTranscriptRender = false
+    @State private var consumedPromptFocusRequestID: UInt64 = 0
     @StateObject private var contextCoordinator = ChatContextCoordinator()
     @FocusState private var isProjectFieldFocused: Bool
 
@@ -348,6 +350,7 @@ struct ChatView: View {
         )
         .onAppear {
             handleChatViewAppear()
+            handlePromptFocusRequestIfNeeded()
         }
         .onChange(of: prompt) { _, newValue in
             handlePromptChanged(newValue)
@@ -364,6 +367,9 @@ struct ChatView: View {
         }
         .onChange(of: isPromptFocused) { _, focused in
             handlePromptFocusChanged(focused)
+        }
+        .onChange(of: promptFocusRequestID) { _, _ in
+            handlePromptFocusRequestIfNeeded()
         }
         .onDisappear {
             handleChatViewDisappear()
@@ -469,6 +475,22 @@ struct ChatView: View {
                 return
             }
             guard generationTask == nil else { return }
+            isPromptFocused = true
+        }
+    }
+
+    @MainActor
+    private func handlePromptFocusRequestIfNeeded() {
+        guard promptFocusRequestID != 0 else { return }
+        guard consumedPromptFocusRequestID != promptFocusRequestID else { return }
+        consumedPromptFocusRequestID = promptFocusRequestID
+
+        _Concurrency.Task { @MainActor in
+            await _Concurrency.Task.yield()
+            await _Concurrency.Task.yield()
+            guard consumedPromptFocusRequestID == promptFocusRequestID else { return }
+            guard generationTask == nil else { return }
+            isProjectFieldFocused = false
             isPromptFocused = true
         }
     }
