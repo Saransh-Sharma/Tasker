@@ -1,20 +1,51 @@
-# Eva Mascot Placement Guide
+# Assistant Mascot Persona Placement Guide
 
-Eva is Tasker's visual Chief of Staff. Her mascot poses communicate product state: present, planning, thinking, reviewing, suggesting, warning, celebrating, helping, or encouraging rest. Eva should make the app feel guided and humane without becoming a decorative sticker layer.
+Tasker's visual Chief of Staff is a selectable mascot persona. Eva remains the default, but users can choose a different assistant identity during onboarding or from Settings. The selected mascot communicates product state: present, planning, thinking, reviewing, suggesting, warning, celebrating, helping, or encouraging rest. Mascots should make the app feel guided and humane without becoming a decorative sticker layer.
 
-This guide owns mascot placement philosophy and visual-state mapping. LLM routing, planner guards, model behavior, and assistant privacy posture are documented separately in `../architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
+This guide owns mascot placement philosophy, persona catalog, asset contracts, and visual-state mapping. LLM routing, planner guards, model behavior, and assistant privacy posture are documented separately in `../architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
 
 ## Product Philosophy
 
-- Eva is a functional companion, not filler art.
-- Every mascot placement should answer what Eva is doing for the user right now.
-- Use one visible Eva emotion per screen region.
-- Keep Eva out of repeated rows, dense lists, and every prompt chip.
-- Reserve large Eva artwork for onboarding, empty states, success screens, and full-screen planning experiences.
+- The mascot is a functional companion, not filler art.
+- Every mascot placement should answer what the selected assistant is doing for the user right now.
+- Use one visible mascot emotion per screen region.
+- Keep mascots out of repeated rows, dense lists, and every prompt chip.
+- Reserve large mascot artwork for onboarding, empty states, success screens, and full-screen planning experiences.
 - Warning poses must feel supportive, not punitive.
-- Eva must never imply that the assistant has mutated user data without explicit confirmation.
+- Mascot animation must never imply that the assistant has mutated user data without explicit confirmation.
 
-## Pose Ownership
+## Persona Catalog
+
+Eva is the default persona and uses Tasker's original static PNG pose set. The sprite-backed personas are Cloudlet, Dude, Elon, Friday, Johnny, Maddie, Paperclip, Punch, Retriever, Sato, Steve, Theo, and YesMan.
+
+The selected persona controls visible assistant naming, accessibility labels, and mascot artwork. Internal code, telemetry keys, persisted legacy keys, and implementation types may keep Eva-prefixed names where those names are not shown to users.
+
+## Sprite Asset Contract
+
+- Eva static assets live in `To Do List/Assets.xcassets/EvaMascot/`.
+- Sprite-backed mascot assets live in `To Do List/LLM/MascotSprites/`.
+- Each sprite persona folder must contain `pet.json` and `spritesheet.webp`.
+- Sprite sheets use an 8-column by 9-row layout with 192x208 cells.
+- Row order is `idle`, `runRight`, `runLeft`, `waving`, `jumping`, `failed`, `waiting`, `running`, and `review`.
+- Reduce Motion should show a static first frame instead of looping animation.
+
+## Semantic Animation Ownership
+
+| Animation | Product Meaning | Primary Use |
+|---|---|---|
+| `idle` | Identity and rest state | Entry point, chat greeting, Settings profile, relaxed empty states |
+| `runRight` | Forward guidance | Onboarding next step, continue planning, right-side coach mark |
+| `runLeft` | Feature discovery | Home guidance, timeline hints, left-side coach mark |
+| `waving` | Help and permission education | Structured chat help, first-time hints, notification permission education |
+| `jumping` | Completion and success | Applied proposal, completed focus session, weekly completion, streak win |
+| `failed` | Risk, failure, and overload | Deadline risk, missed-streak recovery, high overdue load, load failure |
+| `waiting` | Thinking, loading, and deferred states | Live generation, onboarding build step, smart reschedule loading |
+| `running` | Focus and execution momentum | Start focus session, begin today's plan, catch-up mode |
+| `review` | Review, planning, checklists, and insights | Chief of Staff guide, proposal review, task triage, weekly checklist, recommendations |
+
+## Eva Static Fallback Ownership
+
+The following `eva_*` assets apply only to Eva's static PNG fallback mapping. Sprite-backed personas should use the semantic animation ownership table above.
 
 | Asset | Product Meaning | Primary Use |
 |---|---|---|
@@ -109,33 +140,37 @@ This guide owns mascot placement philosophy and visual-state mapping. LLM routin
 
 ### Settings
 
-- Eva profile and AI Assistant identity area: `eva_neutral`.
+- Selected persona profile and AI Assistant identity area: `idle` / `eva_neutral`.
 
 ## Implementation Contract
 
-- Mascot assets live in `To Do List/Assets.xcassets/EvaMascot/`.
+- Eva static assets live in `To Do List/Assets.xcassets/EvaMascot/`.
+- Sprite-backed persona assets live in `To Do List/LLM/MascotSprites/`.
 - SwiftUI call sites should use `EvaMascotView` with `EvaMascotPlacement` whenever the pose is tied to product state.
 - The shared API is:
+  - `AssistantMascotID`
+  - `AssistantMascotPersona`
+  - `MascotAnimation`
   - `EvaMascotAsset`
   - `EvaMascotView`
   - `EvaMascotSize`
   - `EvaMascotPlacement`
   - `EvaMascotPlacementResolver`
-- Add new product states by adding a placement case and resolver mapping; do not scatter raw asset strings through views.
+- Add new product states by adding a placement case and resolver mapping; do not scatter raw asset strings or sprite animation names through views.
 - Use fixed size tiers:
   - `avatar`: 40 pt
   - `chip`: 32 pt
   - `inline`: 56 pt
   - `card`: 104 pt
   - `hero`: 184 pt
-- Decorative Eva images should use `accessibilityHidden(true)`.
-- Interactive Eva controls should expose labels such as "Ask Eva", "Eva help", or "Open Eva".
+- Decorative mascot images should use `accessibilityHidden(true)`.
+- Interactive mascot controls should expose labels based on the selected persona, such as "Ask Eva", "Eva help", or "Open Eva" when Eva is selected.
 
 ## Usage Rules
 
-- Do use Eva for planning, insight, review, completion, empty state, coaching, and permission education.
-- Do not use Eva as random decoration on every card.
-- Do not put Eva inside every prompt chip, task row, habit row, or repeated list item.
+- Do use the selected mascot for planning, insight, review, completion, empty state, coaching, and permission education.
+- Do not use the mascot as random decoration on every card.
+- Do not put the mascot inside every prompt chip, task row, habit row, or repeated list item.
 - Do not show multiple conflicting mascot emotions in the same screen region.
 - Reserve `eva_celebration` for completed work or confirmed apply success.
 - Reserve `eva_excited` for activation, feature reveals, first successful plan generation, and major milestones.
@@ -146,10 +181,10 @@ This guide owns mascot placement philosophy and visual-state mapping. LLM routin
 ## QA Checklist
 
 - Light and dark mode preserve contrast around transparent PNG artwork.
-- Dynamic Type does not cause Eva to crowd titles, buttons, or explanatory text.
+- Dynamic Type does not cause mascot artwork to crowd titles, buttons, or explanatory text.
 - Reduce Motion removes decorative animation without removing state meaning.
 - VoiceOver ignores decorative mascot images.
-- Interactive Eva controls have explicit accessibility labels.
-- iPad split layouts keep Eva aligned with the relevant screen region.
-- High contrast and reduced transparency keep text and controls readable around Eva placements.
+- Interactive mascot controls have explicit accessibility labels using the selected persona's visible name.
+- iPad split layouts keep mascot artwork aligned with the relevant screen region.
+- High contrast and reduced transparency keep text and controls readable around mascot placements.
 - Chat empty state, active generation, proposal review, onboarding success, calendar permission, focus start, habit empty state, missed-streak recovery, and weekly completion are manually checked before release.

@@ -5,7 +5,7 @@ This directory is the navigation hub for product, architecture, audit, and featu
 ## Canonical References
 
 - [Local EVA / LLM architecture](./architecture/LOCAL_LLM_EVA_ARCHITECTURE.md)
-- [Eva mascot placement guide](./design/EVA_MASCOT_PLACEMENT_GUIDE.md) - source of truth for Eva's visual Chief of Staff role, pose mapping, placement philosophy, accessibility rules, and QA checklist.
+- [Assistant mascot persona placement guide](./design/EVA_MASCOT_PLACEMENT_GUIDE.md) - source of truth for selectable Chief of Staff personas, sprite resources, placement mapping, accessibility rules, and QA checklist.
 - [Tasker V2 architecture guide](./architecture/TASKER_V2_ARCHITECTURE_GUIDE.md)
 - [Habit UX audit](./audits/HABITS_IOS_UX_AUDIT_2026-04-17.md)
 

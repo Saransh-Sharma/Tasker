@@ -2,6 +2,8 @@
 
 EVA is Tasker's local assistant layer for chat, task review, and planner-assisted task changes. The runtime is designed around local MLX inference, deterministic guardrails, schema-validated planner output, and the existing V2 task action pipeline.
 
+User-visible assistant identity is separate from the EVA architecture name. Eva remains the default Chief of Staff persona, but the app can render the assistant as the user's selected mascot persona while keeping internal EVA route, planner, telemetry, and persistence names where they are implementation details.
+
 ## Use Cases
 
 - Chat over task context: answer user questions using the current projected task context.
