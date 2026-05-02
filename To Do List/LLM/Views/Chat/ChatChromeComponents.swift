@@ -237,9 +237,13 @@ struct ChatEmptyStateView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
                 VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-                    Text("Hi there!")
-                        .taskerFont(.screenTitle)
-                        .foregroundStyle(Color.tasker(.accentPrimary))
+                    HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+                        EvaMascotView(placement: .chatEmptyHeader, size: .avatar)
+                        Text("Hi there!")
+                            .taskerFont(.screenTitle)
+                            .foregroundStyle(Color.tasker(.accentPrimary))
+                    }
+
                     Text("What do you need to plan?")
                         .taskerFont(.title1)
                         .foregroundStyle(Color.tasker(.textPrimary))
@@ -249,9 +253,8 @@ struct ChatEmptyStateView: View {
                 Spacer(minLength: TaskerTheme.Spacing.md)
 
                 Button(action: onOpenEvaGuide) {
-                    Image(systemName: "questionmark")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                    EvaMascotView(placement: .chatHelp, size: .custom(46))
+                        .padding(5)
                         .frame(width: 56, height: 56)
                         .background(Color.tasker(.surfacePrimary), in: Circle())
                 }
@@ -657,9 +660,7 @@ struct EvaChiefOfStaffGuideView: View {
     private var hero: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
             HStack(spacing: TaskerTheme.Spacing.sm) {
-                Image(systemName: "person.crop.circle.badge.checkmark")
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(Color.tasker(.accentPrimary))
+                EvaMascotView(placement: .chiefOfStaffGuide, size: .custom(42))
                     .frame(width: 48, height: 48)
                     .background(Color.tasker(.accentWash), in: Circle())
 

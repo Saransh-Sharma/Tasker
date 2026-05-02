@@ -123,9 +123,7 @@ private struct EvaLiveWorkingStatusView: View {
 
     var body: some View {
         HStack(spacing: TaskerTheme.Spacing.sm) {
-            Image(systemName: "sparkle")
-                .font(.tasker(.caption2))
-                .foregroundStyle(Color.tasker(.accentPrimary))
+            EvaMascotView(placement: .chatThinking, size: .chip)
             Text(currentStatus)
                 .taskerFont(.caption1)
                 .foregroundStyle(Color.tasker(.textTertiary))
@@ -881,10 +879,16 @@ struct MessageView: View {
             commandResultCardView(commandResult)
         } else {
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-                HStack {
+                HStack(spacing: TaskerTheme.Spacing.sm) {
+                    EvaMascotView(
+                        placement: payload.cardType == .undo ? .proposalApplied : .proposalReview,
+                        size: .chip
+                    )
+
                     Text(payload.cardType == .undo ? "Changes applied" : "Eva's Plan")
                         .font(.tasker(.headline))
                         .foregroundStyle(Color.tasker(.textPrimary))
+
                     Spacer()
                     if payload.cardType == .proposal {
                         Text("Affects \(payload.affectedTaskCount) tasks")
@@ -956,6 +960,22 @@ struct MessageView: View {
         let isApplyable = payload.runID != nil && proposal.cards.contains { $0.commandIndexes.isEmpty == false }
         return VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
             evaPromptCard(prompt: proposal.prompt)
+
+            HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+                EvaMascotView(placement: .proposalReview, size: .inline)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Eva review")
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                    Text("Check the plan before anything changes.")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(TaskerTheme.Spacing.md)
+            .background(Color.tasker(.surfaceSecondary))
+            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
 
             DisclosureGroup {
                 Text(proposal.contextReceipt.sources.isEmpty ? "No additional context receipt." : proposal.contextReceipt.sources.joined(separator: "\n"))
@@ -1146,6 +1166,23 @@ struct MessageView: View {
 
         return VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
             evaPromptCard(prompt: overview.prompt)
+
+            HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+                EvaMascotView(placement: .dayOverview, size: .inline)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Eva noticed")
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                    Text("A grounded brief from your current task and habit context.")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(TaskerTheme.Spacing.md)
+            .background(Color.tasker(.surfaceSecondary))
+            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
 
             if overview.isPartialContext {
                 HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
