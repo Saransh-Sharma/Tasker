@@ -490,9 +490,108 @@ public struct TaskListWidgetTimelineSnapshot: Codable, Equatable, Hashable {
     public static let empty = TaskListWidgetTimelineSnapshot()
 }
 
+public enum TaskListWidgetHabitDayState: String, Codable, Equatable, Hashable {
+    case success
+    case failure
+    case skipped
+    case none
+    case future
+}
+
+public enum TaskListWidgetHabitTodayState: String, Codable, Equatable, Hashable {
+    case due
+    case overdue
+    case completedToday
+    case lapsedToday
+    case skippedToday
+    case tracking
+    case empty
+}
+
+public struct TaskListWidgetHabitDay: Codable, Equatable, Hashable, Identifiable {
+    public var id: String { dayKey }
+
+    public var date: Date
+    public var dayKey: String
+    public var state: TaskListWidgetHabitDayState
+
+    public init(
+        date: Date,
+        dayKey: String,
+        state: TaskListWidgetHabitDayState
+    ) {
+        self.date = date
+        self.dayKey = dayKey
+        self.state = state
+    }
+}
+
+public struct TaskListWidgetHabitPrimary: Codable, Equatable, Hashable, Identifiable {
+    public var id: UUID { habitID }
+
+    public var habitID: UUID
+    public var title: String
+    public var iconSymbolName: String
+    public var accentHex: String?
+    public var currentStreak: Int
+    public var bestStreak: Int
+    public var todayState: TaskListWidgetHabitTodayState
+    public var dueAt: Date?
+    public var week: [TaskListWidgetHabitDay]
+
+    public init(
+        habitID: UUID,
+        title: String,
+        iconSymbolName: String = "repeat",
+        accentHex: String? = nil,
+        currentStreak: Int = 0,
+        bestStreak: Int = 0,
+        todayState: TaskListWidgetHabitTodayState = .empty,
+        dueAt: Date? = nil,
+        week: [TaskListWidgetHabitDay] = []
+    ) {
+        self.habitID = habitID
+        self.title = title
+        self.iconSymbolName = iconSymbolName
+        self.accentHex = accentHex
+        self.currentStreak = currentStreak
+        self.bestStreak = bestStreak
+        self.todayState = todayState
+        self.dueAt = dueAt
+        self.week = week
+    }
+}
+
+public struct TaskListWidgetHabitSnapshot: Codable, Equatable, Hashable {
+    public var date: Date
+    public var updatedAt: Date
+    public var primaryHabit: TaskListWidgetHabitPrimary?
+    public var dueCount: Int
+    public var completedTodayCount: Int
+    public var atRiskCount: Int
+
+    public init(
+        date: Date = Date(),
+        updatedAt: Date = Date(),
+        primaryHabit: TaskListWidgetHabitPrimary? = nil,
+        dueCount: Int = 0,
+        completedTodayCount: Int = 0,
+        atRiskCount: Int = 0
+    ) {
+        self.date = date
+        self.updatedAt = updatedAt
+        self.primaryHabit = primaryHabit
+        self.dueCount = dueCount
+        self.completedTodayCount = completedTodayCount
+        self.atRiskCount = atRiskCount
+    }
+
+    public static let empty = TaskListWidgetHabitSnapshot()
+}
+
 /// Data snapshot for task-list widgets, serialized in the App Group container.
 public struct TaskListWidgetSnapshot: Codable, Equatable {
-    public static let currentSchemaVersion = 4
+    public static let currentSchemaVersion = 5
 
     public var schemaVersion: Int
     public var updatedAt: Date
@@ -511,6 +610,7 @@ public struct TaskListWidgetSnapshot: Codable, Equatable {
     public var snapshotHealth: TaskListWidgetSnapshotHealth
     public var calendar: TaskListWidgetCalendarSnapshot
     public var timeline: TaskListWidgetTimelineSnapshot
+    public var habit: TaskListWidgetHabitSnapshot
 
     public init(
         schemaVersion: Int = TaskListWidgetSnapshot.currentSchemaVersion,
@@ -529,7 +629,8 @@ public struct TaskListWidgetSnapshot: Codable, Equatable {
         completedTodayTasks: [TaskListWidgetTask] = [],
         snapshotHealth: TaskListWidgetSnapshotHealth = TaskListWidgetSnapshotHealth(),
         calendar: TaskListWidgetCalendarSnapshot = .empty,
-        timeline: TaskListWidgetTimelineSnapshot = .empty
+        timeline: TaskListWidgetTimelineSnapshot = .empty,
+        habit: TaskListWidgetHabitSnapshot = .empty
     ) {
         self.schemaVersion = schemaVersion
         self.updatedAt = updatedAt
@@ -548,6 +649,7 @@ public struct TaskListWidgetSnapshot: Codable, Equatable {
         self.snapshotHealth = snapshotHealth
         self.calendar = calendar
         self.timeline = timeline
+        self.habit = habit
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -568,6 +670,7 @@ public struct TaskListWidgetSnapshot: Codable, Equatable {
         case snapshotHealth
         case calendar
         case timeline
+        case habit
     }
 
     public init(from decoder: Decoder) throws {
@@ -589,6 +692,7 @@ public struct TaskListWidgetSnapshot: Codable, Equatable {
         self.snapshotHealth = try container.decodeIfPresent(TaskListWidgetSnapshotHealth.self, forKey: .snapshotHealth) ?? TaskListWidgetSnapshotHealth()
         self.calendar = try container.decodeIfPresent(TaskListWidgetCalendarSnapshot.self, forKey: .calendar) ?? .empty
         self.timeline = try container.decodeIfPresent(TaskListWidgetTimelineSnapshot.self, forKey: .timeline) ?? .empty
+        self.habit = try container.decodeIfPresent(TaskListWidgetHabitSnapshot.self, forKey: .habit) ?? .empty
     }
 
     public static func load() -> TaskListWidgetSnapshot {
