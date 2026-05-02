@@ -885,7 +885,7 @@ struct MessageView: View {
                         size: .chip
                     )
 
-                    Text(payload.cardType == .undo ? "Changes applied" : "Eva's Plan")
+                    Text(payload.cardType == .undo ? "Changes applied" : "\(AssistantIdentityText.currentSnapshot().displayName)'s Plan")
                         .font(.tasker(.headline))
                         .foregroundStyle(Color.tasker(.textPrimary))
 
@@ -964,7 +964,7 @@ struct MessageView: View {
             HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
                 EvaMascotView(placement: .proposalReview, size: .inline)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Eva review")
+                    Text("\(AssistantIdentityText.currentSnapshot().displayName) review")
                         .font(.tasker(.headline))
                         .foregroundStyle(Color.tasker(.textPrimary))
                     Text("Check the plan before anything changes.")
@@ -1048,7 +1048,7 @@ struct MessageView: View {
                 .accessibilityLabel("Helpful")
 
                 Button {
-                    evaApplyMessage = "Thanks. EVA will use this feedback later."
+                    evaApplyMessage = "Thanks. \(AssistantIdentityText.currentSnapshot().displayName) will use this feedback later."
                 } label: {
                     Image(systemName: "hand.thumbsdown")
                 }
@@ -1083,7 +1083,7 @@ struct MessageView: View {
                 } else {
                     if pendingEvaApplyConfirmationIDs == selectedEvaCardIDs {
                         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-                            Text("Confirm before EVA changes your tasks.")
+                            Text("Confirm before \(AssistantIdentityText.currentSnapshot().displayName) changes your tasks.")
                                 .font(.tasker(.caption1))
                                 .foregroundStyle(Color.tasker(.textSecondary))
 
@@ -1170,7 +1170,7 @@ struct MessageView: View {
             HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
                 EvaMascotView(placement: .dayOverview, size: .inline)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Eva noticed")
+                    Text("\(AssistantIdentityText.currentSnapshot().displayName) noticed")
                         .font(.tasker(.headline))
                         .foregroundStyle(Color.tasker(.textPrimary))
                     Text("A grounded brief from your current task and habit context.")
@@ -1188,7 +1188,7 @@ struct MessageView: View {
                 HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color.tasker(.statusWarning))
-                    Text("Context is partial. EVA is only showing grounded tasks and habits from the slices that loaded.")
+                    Text("Context is partial. \(AssistantIdentityText.currentSnapshot().displayName) is only showing grounded tasks and habits from the slices that loaded.")
                         .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
@@ -1666,7 +1666,7 @@ struct MessageView: View {
 
     private func applyEvaProposal(payload: AssistantCardPayload, proposal: EvaProposalReviewPayload) {
         guard let runID = payload.runID, let pipeline = LLMAssistantPipelineProvider.pipeline else {
-            evaApplyMessage = "EVA cannot apply this plan right now."
+            evaApplyMessage = "\(AssistantIdentityText.currentSnapshot().displayName) cannot apply this plan right now."
             return
         }
         guard pendingEvaApplyConfirmationIDs == selectedEvaCardIDs else {
@@ -1694,7 +1694,7 @@ struct MessageView: View {
                     let data = run.proposalData,
                     let envelope = try? JSONDecoder().decode(AssistantCommandEnvelope.self, from: data)
                 else {
-                    finishEvaApply(message: "EVA could not read this proposal.")
+                    finishEvaApply(message: "\(AssistantIdentityText.currentSnapshot().displayName) could not read this proposal.")
                     return
                 }
 
@@ -1761,7 +1761,7 @@ struct MessageView: View {
                             selectedCards: selectedCards
                         )
                         finishEvaApply(
-                            message: "EVA updated \(appliedCount) tasks. Undo for 30 min.",
+                            message: "\(AssistantIdentityText.currentSnapshot().displayName) updated \(appliedCount) tasks. Undo for 30 min.",
                             appliedRunID: runID,
                             payloadRunID: payloadRunID
                         )
@@ -1813,11 +1813,11 @@ struct MessageView: View {
 
     private func undoEvaRun(_ runID: UUID, payloadRunID: UUID?) {
         guard let pipeline = LLMAssistantPipelineProvider.pipeline else {
-            evaApplyMessage = "EVA cannot undo this plan right now."
+            evaApplyMessage = "\(AssistantIdentityText.currentSnapshot().displayName) cannot undo this plan right now."
             return
         }
         isUndoingEvaRun = true
-        evaApplyMessage = "Undoing EVA changes..."
+        evaApplyMessage = "Undoing \(AssistantIdentityText.currentSnapshot().displayName) changes..."
         pipeline.undoAppliedRun(id: runID) { result in
             Task { @MainActor in
                 isUndoingEvaRun = false
@@ -1828,7 +1828,7 @@ struct MessageView: View {
                         appliedEvaRunIDByPayloadRunID[payloadRunID] = nil
                         appliedEvaUndoExpiresAtByPayloadRunID[payloadRunID] = nil
                     }
-                    evaApplyMessage = "EVA reverted those changes."
+                    evaApplyMessage = "\(AssistantIdentityText.currentSnapshot().displayName) reverted those changes."
                 case .failure(let error):
                     evaApplyMessage = error.localizedDescription
                 }

@@ -28,7 +28,7 @@ enum ChatPendingResponseStatusText {
             case .assemblingPrompt:
                 return "Building your first plan..."
             case .preparingModel:
-                return "Getting Eva ready..."
+                return "Getting \(AssistantIdentityText.currentSnapshot().displayName) ready..."
             case .generating:
                 return "Writing your recommendation..."
             }

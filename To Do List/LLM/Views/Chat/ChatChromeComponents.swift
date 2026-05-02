@@ -7,16 +7,19 @@ struct EvaChatNavigationChromeState {
     let showsHistoryAction: Bool
     let showsNewChatAction: Bool
 
-    static let empty = EvaChatNavigationChromeState(
-        title: "Eva",
-        subtitle: "Ask or use / commands",
-        showsUtilityActions: true,
-        showsHistoryAction: true,
-        showsNewChatAction: false
-    )
+    static var empty: EvaChatNavigationChromeState {
+        EvaChatNavigationChromeState(
+            title: AssistantIdentityText.currentSnapshot().displayName,
+            subtitle: "Ask or use / commands",
+            showsUtilityActions: true,
+            showsHistoryAction: true,
+            showsNewChatAction: false
+        )
+    }
 }
 
 struct ChatHeaderView: View {
+    let identity: AssistantIdentitySnapshot
     let title: String
     let subtitle: String
     let showsNewChatAction: Bool
@@ -29,7 +32,7 @@ struct ChatHeaderView: View {
     var body: some View {
         HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Eva")
+                Text(identity.displayName)
                     .taskerFont(.display)
                     .foregroundStyle(Color.tasker(.textPrimary))
 
@@ -125,6 +128,7 @@ struct ChatHeaderView: View {
 }
 
 struct ChatEmptyStateView: View {
+    let identity: AssistantIdentitySnapshot
     let presentationMode: ChatPresentationMode
     let starterPrompts: [EvaStarterPrompt]
     let commandSuggestions: [SlashCommandDescriptor]
@@ -167,7 +171,7 @@ struct ChatEmptyStateView: View {
                 VStack(spacing: TaskerTheme.Spacing.sm) {
                     EvaLoopingLottieContainer(size: 64)
                     VStack(spacing: TaskerTheme.Spacing.xs) {
-                        Text("Ask Eva anything")
+                        Text("\(identity.askAction) anything")
                             .font(.tasker(.title2))
                             .foregroundStyle(Color.tasker(.textPrimary))
                             .accessibilityIdentifier("chat.emptyState.title")
@@ -203,7 +207,7 @@ struct ChatEmptyStateView: View {
                         )
                 }
                 VStack(spacing: TaskerTheme.Spacing.xs) {
-                    Text("Ask Eva anything")
+                    Text("\(identity.askAction) anything")
                         .font(.tasker(.title2))
                         .foregroundStyle(Color.tasker(.textPrimary))
                         .accessibilityIdentifier("chat.emptyState.title")
@@ -259,8 +263,8 @@ struct ChatEmptyStateView: View {
                         .background(Color.tasker(.surfacePrimary), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Eva help")
-                .accessibilityHint("Shows ways to use Eva as your chief of staff.")
+                .accessibilityLabel("\(identity.displayName) help")
+                .accessibilityHint("Shows ways to use \(identity.displayName) as your chief of staff.")
                 .accessibilityIdentifier("eva.structured.help")
                 .taskerPressFeedback(reduceMotion: reduceMotion)
             }
@@ -271,7 +275,7 @@ struct ChatEmptyStateView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: TaskerTheme.Spacing.md) {
-                    ForEach(EvaChiefOfStaffGuideContent.homePromptChips) { chip in
+                    ForEach(EvaChiefOfStaffGuideContent.homePromptChips(for: identity)) { chip in
                         structuredExampleChip(chip)
                     }
                 }
@@ -399,13 +403,13 @@ struct EvaHomePromptChip: Identifiable, Equatable {
 }
 
 enum EvaChiefOfStaffGuideContent {
-    static var sections: [EvaChiefOfStaffGuideSection] {
+    static func sections(for identity: AssistantIdentitySnapshot = AssistantIdentityText.currentSnapshot()) -> [EvaChiefOfStaffGuideSection] {
         [
             EvaChiefOfStaffGuideSection(
                 id: "how_eva_helps",
                 icon: "sparkles",
-                title: "How Eva helps",
-                body: "Eva is your private, on-device chief of staff. She reads your current task context, summarizes what matters, helps you decide what to do next, and proposes changes before anything is applied.",
+                title: "How \(identity.displayName) helps",
+                body: "\(identity.displayName) is your private, on-device chief of staff. They read your current task context, summarize what matters, help you decide what to do next, and propose changes before anything is applied.",
                 prompts: [
                     guidePrompt(
                         id: "how_is_my_day",
@@ -418,7 +422,7 @@ enum EvaChiefOfStaffGuideContent {
                 id: "command_your_day",
                 icon: "sun.max",
                 title: "Command your day",
-                body: "Ask Eva for a quick operating brief, a focus recommendation, or a recovery view when overdue work is crowding the day.",
+                body: "\(identity.askAction) for a quick operating brief, a focus recommendation, or a recovery view when overdue work is crowding the day.",
                 prompts: [
                     guidePrompt(
                         id: "focus_first",
@@ -436,7 +440,7 @@ enum EvaChiefOfStaffGuideContent {
                 id: "plan_and_repair",
                 icon: "arrow.triangle.2.circlepath",
                 title: "Plan and repair",
-                body: "Use Eva when the day needs structure. She can turn your existing tasks and habits into a realistic plan, then explain what should move, wait, or stay protected.",
+                body: "Use \(identity.displayName) when the day needs structure. They can turn your existing tasks and habits into a realistic plan, then explain what should move, wait, or stay protected.",
                 prompts: [
                     guidePrompt(
                         id: "plan_today_existing",
@@ -449,7 +453,7 @@ enum EvaChiefOfStaffGuideContent {
                 id: "reschedule_open_tasks",
                 icon: "calendar.badge.clock",
                 title: "Reschedule open tasks",
-                body: "Ask Eva to carry unfinished work to another day, shift scheduled tasks, or rebuild the order. Eva shows review cards before applying changes.",
+                body: "\(identity.askAction) to carry unfinished work to another day, shift scheduled tasks, or rebuild the order. \(identity.displayName) shows review cards before applying changes.",
                 prompts: [
                     guidePrompt(
                         id: "reschedule_unfinished_tasks",
@@ -482,7 +486,7 @@ enum EvaChiefOfStaffGuideContent {
                 id: "break_work_down",
                 icon: "checklist",
                 title: "Break work down",
-                body: "Bring Eva a vague priority, messy note, or large task. Ask for next steps so the first action is obvious instead of another decision.",
+                body: "Bring \(identity.displayName) a vague priority, messy note, or large task. Ask for next steps so the first action is obvious instead of another decision.",
                 prompts: [
                     guidePrompt(
                         id: "break_top_priority",
@@ -495,7 +499,7 @@ enum EvaChiefOfStaffGuideContent {
                 id: "structured_context",
                 icon: "command",
                 title: "Use structured context",
-                body: "Type commands when you want Eva to pull a specific slice of your system. Commands like /today, /week, /project, /area, /recent, and /overdue can also pin context into the current chat.",
+                body: "Type commands when you want \(identity.displayName) to pull a specific slice of your system. Commands like /today, /week, /project, /area, /recent, and /overdue can also pin context into the current chat.",
                 prompts: [
                     guidePrompt(id: "slash_today", title: "/today", submissionText: "/today", style: .slashCommand),
                     guidePrompt(id: "slash_week", title: "/week", submissionText: "/week", style: .slashCommand),
@@ -507,7 +511,7 @@ enum EvaChiefOfStaffGuideContent {
                 id: "review_before_apply",
                 icon: "checkmark.shield",
                 title: "Review before apply",
-                body: "For task changes, Eva should show proposal cards first. You choose what to apply, use selected apply for safe batches, and undo where the applied action supports it.",
+                body: "For task changes, \(identity.displayName) should show proposal cards first. You choose what to apply, use selected apply for safe batches, and undo where the applied action supports it.",
                 prompts: [
                     guidePrompt(
                         id: "plan_today_for_review",
@@ -519,7 +523,7 @@ enum EvaChiefOfStaffGuideContent {
         ]
     }
 
-    static var homePromptChips: [EvaHomePromptChip] {
+    static func homePromptChips(for identity: AssistantIdentitySnapshot = AssistantIdentityText.currentSnapshot()) -> [EvaHomePromptChip] {
         var seenIDs = Set<String>()
         var seenSubmissionTexts = Set<String>()
         var chips: [EvaHomePromptChip] = []
@@ -531,7 +535,7 @@ enum EvaChiefOfStaffGuideContent {
         }
 
         curatedHomePromptChips.forEach(append)
-        guideHomePromptChips.forEach(append)
+        guideHomePromptChips(for: identity).forEach(append)
 
         return chips
     }
@@ -571,8 +575,8 @@ enum EvaChiefOfStaffGuideContent {
         ]
     }
 
-    private static var guideHomePromptChips: [EvaHomePromptChip] {
-        sections.flatMap { section in
+    private static func guideHomePromptChips(for identity: AssistantIdentitySnapshot) -> [EvaHomePromptChip] {
+        sections(for: identity).flatMap { section in
             section.prompts.map { prompt in
                 EvaHomePromptChip(
                     id: "home_\(prompt.id)",
@@ -621,9 +625,10 @@ struct EvaChiefOfStaffGuideView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     private var sections: [EvaChiefOfStaffGuideSection] {
-        EvaChiefOfStaffGuideContent.sections
+        EvaChiefOfStaffGuideContent.sections(for: assistantIdentity.snapshot)
     }
 
     var body: some View {
@@ -641,7 +646,7 @@ struct EvaChiefOfStaffGuideView: View {
                 .padding(.vertical, TaskerTheme.Spacing.lg)
             }
             .background(Color.tasker(.bgElevated))
-            .navigationTitle("Eva guide")
+            .navigationTitle("\(assistantIdentity.snapshot.displayName) guide")
             #if os(iOS) || os(visionOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -665,7 +670,7 @@ struct EvaChiefOfStaffGuideView: View {
                     .background(Color.tasker(.accentWash), in: Circle())
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Eva as Chief of Staff")
+                    Text("\(assistantIdentity.snapshot.displayName) as Chief of Staff")
                         .font(.tasker(.title2))
                         .foregroundStyle(Color.tasker(.textPrimary))
                     Text("Plan, triage, and apply with confirmation.")
@@ -674,7 +679,7 @@ struct EvaChiefOfStaffGuideView: View {
                 }
             }
 
-            Text("Start with one of these prompts, or read the examples to learn when Eva is strongest.")
+            Text("Start with one of these prompts, or read the examples to learn when \(assistantIdentity.snapshot.displayName) is strongest.")
                 .font(.tasker(.body))
                 .foregroundStyle(Color.tasker(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -772,6 +777,7 @@ private struct FlowPromptChipsView: View {
 }
 
 struct ChatComposerView: View {
+    let identity: AssistantIdentitySnapshot
     let presentationMode: ChatPresentationMode
     let slashDraft: SlashCommandInvocation?
     let activeAttachments: [ThreadContextAttachmentRecord]
@@ -1088,7 +1094,7 @@ struct ChatComposerView: View {
     }
 
     private var composerPlaceholder: String {
-        isActivationPresentation ? "Ask Eva what to focus on..." : "Ask Eva anything"
+        isActivationPresentation ? "\(identity.askAction) what to focus on..." : "\(identity.askAction) anything"
     }
 
     private var activeAttachmentRow: some View {
@@ -1297,6 +1303,7 @@ struct ChatScaffoldView: View {
     @Environment(LLMEvaluator.self) private var llm
     @Environment(\.taskerLayoutClass) private var layoutClass
     @State private var showEvaGuide = false
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     @Binding var currentThread: Thread?
     let transcriptSnapshot: ChatTranscriptSnapshot
@@ -1358,7 +1365,7 @@ struct ChatScaffoldView: View {
 
     private var navigationChromeState: EvaChatNavigationChromeState {
         EvaChatNavigationChromeState(
-            title: "Eva",
+            title: assistantIdentity.snapshot.displayName,
             subtitle: currentThread == nil ? "Ask or use / commands" : chatTitle,
             showsUtilityActions: activationConfiguration?.hideUtilityActions != true,
             showsHistoryAction: showsHistoryAction && isActivationPresentation == false,
@@ -1385,6 +1392,7 @@ struct ChatScaffoldView: View {
                     )
                 } else {
                     ChatEmptyStateView(
+                        identity: assistantIdentity.snapshot,
                         presentationMode: presentationMode,
                         starterPrompts: starterPrompts,
                         commandSuggestions: commandSuggestions,
@@ -1399,6 +1407,7 @@ struct ChatScaffoldView: View {
 
                 HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
                     ChatComposerView(
+                        identity: assistantIdentity.snapshot,
                         presentationMode: presentationMode,
                         slashDraft: slashDraft.wrappedValue,
                         activeAttachments: activeAttachments,
@@ -1446,6 +1455,9 @@ struct ChatScaffoldView: View {
                     publishNavigationChromeState()
                 }
                 .onChange(of: presentationMode) { _ in
+                    publishNavigationChromeState()
+                }
+                .onChange(of: assistantIdentity.snapshot) { _ in
                     publishNavigationChromeState()
                 }
                 .sheet(isPresented: showSettings) {

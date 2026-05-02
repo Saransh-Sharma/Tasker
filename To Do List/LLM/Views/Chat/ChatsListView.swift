@@ -176,7 +176,7 @@ struct ChatsListView: View {
                 Text(threads.isEmpty ? "No chats yet" : "No results")
                     .font(.tasker(.headline))
                     .foregroundColor(Color.tasker(.textPrimary))
-                Text(threads.isEmpty ? "Start a conversation with Eva" : "Try a different search term")
+                Text(threads.isEmpty ? "Start a conversation with \(AssistantIdentityText.currentSnapshot().displayName)" : "Try a different search term")
                     .font(.tasker(.callout))
                     .foregroundColor(Color.tasker(.textSecondary))
             }

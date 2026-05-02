@@ -956,7 +956,7 @@ struct ChatView: View {
             await MainActor.run {
                 _ = deliverEvaPlanPayload(
                     .text(
-                        content: "EVA could not finish this plan. Your prompt is saved; try again or create tasks manually. \(error.localizedDescription)",
+                            content: "\(AssistantIdentityText.currentSnapshot().displayName) could not finish this plan. Your prompt is saved; try again or create tasks manually. \(error.localizedDescription)",
                         sourceModelName: nil
                     ),
                     thread: thread,
@@ -994,7 +994,7 @@ struct ChatView: View {
                 await MainActor.run {
                     _ = deliverEvaPlanPayload(
                         .text(
-                            content: "EVA can preview this plan, but the apply pipeline is unavailable.",
+                            content: "\(AssistantIdentityText.currentSnapshot().displayName) can preview this plan, but the apply pipeline is unavailable.",
                             sourceModelName: plan.modelName
                         ),
                         thread: thread,
@@ -1038,7 +1038,7 @@ struct ChatView: View {
                 case .failure(let error):
                     _ = deliverEvaPlanPayload(
                         .text(
-                            content: "EVA could not save this plan for review. \(error.localizedDescription)",
+                            content: "\(AssistantIdentityText.currentSnapshot().displayName) could not save this plan for review. \(error.localizedDescription)",
                             sourceModelName: plan.modelName
                         ),
                         thread: thread,
