@@ -479,6 +479,7 @@ struct CalendarScheduleView: View {
     private var initialLoadingView: some View {
         CalendarScheduleStatePanel(
             iconName: "calendar.badge.clock",
+            mascotPlacement: .calendarRescheduleThinking,
             title: String(localized: "Loading schedule"),
             message: String(localized: "Fetching calendars and events for this workspace."),
             accentColor: Color.tasker.stateInfo,
@@ -513,6 +514,7 @@ struct CalendarScheduleView: View {
     private var permissionRequiredView: some View {
         CalendarScheduleStatePanel(
             iconName: "calendar.badge.exclamationmark",
+            mascotPlacement: .onboardingCalendarPermission,
             title: permissionTitle,
             message: permissionSubtitle,
             accentColor: Color.tasker.statusWarning,
@@ -526,6 +528,7 @@ struct CalendarScheduleView: View {
     private var noCalendarSelectionView: some View {
         CalendarScheduleStatePanel(
             iconName: "calendar.badge.plus",
+            mascotPlacement: .calendarPlanning,
             title: String(localized: "No calendars selected"),
             message: String(localized: "Choose the calendars that should shape the schedule view and Home day lane."),
             accentColor: Color.tasker.accentSecondary,
@@ -541,6 +544,7 @@ struct CalendarScheduleView: View {
     private func errorView(_ message: String) -> some View {
         CalendarScheduleStatePanel(
             iconName: "wifi.exclamationmark",
+            mascotPlacement: .taskDeadlineRisk,
             title: String(localized: "Unable to load calendar"),
             message: message,
             accentColor: Color.tasker.statusDanger,
@@ -791,6 +795,7 @@ private struct CalendarScheduleWeekContent: View {
             if weekEventCount == 0 {
                 CalendarScheduleStatePanel(
                     iconName: "calendar.badge.clock",
+                    mascotPlacement: .timelineFreeSlot,
                     title: String(localized: "No events this week"),
                     message: String(localized: "The week horizon is clear with the currently selected calendars."),
                     accentColor: Color.tasker.stateInfo,
@@ -978,6 +983,7 @@ private struct CalendarScheduleTimelineSection: View {
 
 private struct CalendarScheduleStatePanel: View {
     let iconName: String
+    let mascotPlacement: EvaMascotPlacement
     let title: String
     let message: String
     let accentColor: Color
@@ -992,9 +998,7 @@ private struct CalendarScheduleStatePanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            Image(systemName: iconName)
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(accentColor)
+            EvaMascotView(placement: mascotPlacement, size: .card)
 
             Text(title)
                 .font(.tasker(.sectionTitle))

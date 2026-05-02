@@ -39,9 +39,7 @@ public struct FocusSessionSummaryView: View {
         VStack(spacing: spacing.s16) {
             Spacer().frame(height: spacing.s8)
 
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48))
-                .foregroundColor(Color.tasker.statusSuccess)
+            EvaMascotView(placement: .focusComplete, size: .card)
 
             Text("Session Complete")
                 .font(.system(size: 22, weight: .bold, design: .rounded))

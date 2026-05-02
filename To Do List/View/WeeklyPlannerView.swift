@@ -1301,6 +1301,18 @@ private struct WeeklyPlannerProposalSheet: View {
                 messageTone: .warning
             ) {
                 WeeklySectionCard(
+                    title: "Eva suggestion",
+                    detail: "Review what Eva wants to change before applying it."
+                ) {
+                    HStack(spacing: 12) {
+                        EvaMascotView(placement: .weeklySuggestion, size: .inline)
+                        Text("Eva has a planning recommendation ready for review.")
+                            .font(.tasker(.support))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                    }
+                }
+
+                WeeklySectionCard(
                     title: "Summary",
                     detail: "Start here before deciding whether to use the suggestion."
                 ) {

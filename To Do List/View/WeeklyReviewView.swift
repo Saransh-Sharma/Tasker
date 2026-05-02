@@ -159,6 +159,8 @@ private struct WeeklyReviewBlockingStateCard: View {
     var body: some View {
         WeeklySectionCard(title: title, detail: message) {
             HStack(spacing: 12) {
+                EvaMascotView(placement: showsProgress ? .weeklyChecklist : .weeklyReflection, size: .inline)
+
                 if showsProgress {
                     ProgressView()
                         .controlSize(.small)
