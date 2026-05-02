@@ -41,7 +41,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         action: #selector(onBackTapped)
     )
     private lazy var historyBarButtonItem = UIBarButtonItem(
-        image: UIImage(systemName: "text.below.folder"),
+        image: UIImage(systemName: "clock.arrow.circlepath") ?? UIImage(systemName: "clock"),
         style: .plain,
         target: self,
         action: #selector(onHistoryTapped)
@@ -1066,6 +1066,7 @@ struct ChatContainerView: View {
     @Environment(\.taskerLayoutClass) private var layoutClass
 
     var presentationMode: ChatPresentationMode = .normal
+    var promptFocusRequestID: UInt64 = 0
     var onActivationChatEvent: ((EvaActivationChatEvent) -> Void)? = nil
     var onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil
     var onPromptFocusChange: ((Bool) -> Void)? = nil
@@ -1106,6 +1107,7 @@ struct ChatContainerView: View {
                         onPerformDayTaskAction: onPerformDayTaskAction,
                         onPerformDayHabitAction: onPerformDayHabitAction,
                         showsHistoryAction: false,
+                        promptFocusRequestID: promptFocusRequestID,
                         onNavigationChromeChange: onNavigationChromeChange,
                         onPromptFocusChange: onPromptFocusChange
                     )
@@ -1124,15 +1126,18 @@ struct ChatContainerView: View {
                     onPerformDayTaskAction: onPerformDayTaskAction,
                     onPerformDayHabitAction: onPerformDayHabitAction,
                     showsHistoryAction: true,
+                    promptFocusRequestID: promptFocusRequestID,
                     onNavigationChromeChange: onNavigationChromeChange,
                     onPromptFocusChange: onPromptFocusChange
                 )
             }
         }
-        .accessibilityIdentifier("home.ipad.detail.chat")
         .environmentObject(appManager)
         .environment(llm)
         .background(Color.tasker(.bgCanvas))
+        .if(useIPadSplitChatLayout) { base in
+            base.accessibilityIdentifier("home.ipad.detail.chat")
+        }
         .if(useIPadSplitChatLayout == false) { base in
             base.sheet(isPresented: $showChats) {
                 ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
