@@ -2725,6 +2725,9 @@ private struct TimelinePlacementPrompt: View {
     let onClearError: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -2800,36 +2803,48 @@ private struct TimelinePlacementPrompt: View {
     private var placementActions: some View {
         if dynamicTypeSize.isAccessibilitySize {
             VStack(spacing: 10) {
-                Button("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", action: onPlaceAtSuggestedTime)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(candidate.isApplying)
-                Button("Move to All Day", action: onPlaceAllDay)
-                    .buttonStyle(.bordered)
-                    .disabled(candidate.isApplying)
-                Button("Skip", action: onSkip)
-                    .buttonStyle(.bordered)
-                    .disabled(candidate.isApplying)
+                placementButton("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", systemImage: "clock.badge.checkmark", emphasized: true, action: onPlaceAtSuggestedTime)
+                placementButton("Move to All Day", systemImage: "calendar.badge.plus", emphasized: false, action: onPlaceAllDay)
+                placementButton("Skip", systemImage: "forward.end.fill", emphasized: false, action: onSkip)
             }
-            .font(.tasker(.support).weight(.semibold))
         } else {
             HStack(spacing: 10) {
-                Button("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", action: onPlaceAtSuggestedTime)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(candidate.isApplying)
-                Button("Move to All Day", action: onPlaceAllDay)
-                    .buttonStyle(.bordered)
-                    .disabled(candidate.isApplying)
-                Button("Skip", action: onSkip)
-                    .buttonStyle(.bordered)
-                    .disabled(candidate.isApplying)
+                placementButton("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", systemImage: "clock.badge.checkmark", emphasized: true, action: onPlaceAtSuggestedTime)
+                placementButton("Move to All Day", systemImage: "calendar.badge.plus", emphasized: false, action: onPlaceAllDay)
+                placementButton("Skip", systemImage: "forward.end.fill", emphasized: false, action: onSkip)
             }
-            .font(.tasker(.support).weight(.semibold))
         }
+    }
+
+    private func placementButton(_ title: String, systemImage: String, emphasized: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            TaskerFeedback.selection()
+            action()
+        }) {
+            Label(title, systemImage: systemImage)
+                .font(.tasker(.support).weight(.semibold))
+                .foregroundStyle(emphasized ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
+                .frame(minHeight: 42)
+                .padding(.horizontal, spacing.s12)
+                .background(emphasized ? Color.tasker.actionPrimary : Color.tasker.surfacePrimary.opacity(0.82), in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
+                        .stroke(emphasized ? Color.tasker.actionPrimary.opacity(0.2) : Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .disabled(candidate.isApplying)
     }
 }
 
 private struct TimelinePlacementDock: View {
     let candidate: TimelinePlacementCandidate
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isDragging = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -2848,12 +2863,29 @@ private struct TimelinePlacementDock: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Color.tasker.surfaceSecondary, in: Capsule())
+        .background(isDragging ? Color.tasker.accentWash.opacity(0.9) : Color.tasker.surfaceSecondary, in: Capsule())
         .overlay(
             Capsule()
-                .stroke(Color.tasker.strokeHairline.opacity(0.7), lineWidth: 1)
+                .stroke(isDragging ? Color.tasker.accentPrimary.opacity(0.42) : Color.tasker.strokeHairline.opacity(0.7), lineWidth: 1)
         )
+        .scaleEffect(isDragging && reduceMotion == false ? 1.018 : 1)
+        .shadow(color: Color.tasker.accentPrimary.opacity(isDragging ? 0.16 : 0), radius: isDragging ? 14 : 0, x: 0, y: 8)
         .draggable(candidate.taskID.uuidString)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 3)
+                .onChanged { _ in
+                    guard isDragging == false else { return }
+                    withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast) {
+                        isDragging = true
+                    }
+                    TaskerFeedback.light()
+                }
+                .onEnded { _ in
+                    withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast) {
+                        isDragging = false
+                    }
+                }
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(candidate.title), drag to place")
         .accessibilityIdentifier("home.needsReplan.placementDock")
@@ -2928,27 +2960,60 @@ private struct TimelinePlanningShelf: View {
     let onScheduleInbox: () -> Void
     let onPlaceReplanAllDay: (TimelinePlacementCandidate, Date) -> Void
 
+    @State private var isAllDayTargeted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let placementCandidate {
                 Button {
+                    TaskerFeedback.selection()
                     onPlaceReplanAllDay(placementCandidate, selectedDate)
                 } label: {
-                    Label("Make All Day", systemImage: "calendar.badge.plus")
-                        .font(.tasker(.support).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    HStack(spacing: 12) {
+                        Image(systemName: isAllDayTargeted ? "calendar.badge.checkmark" : "calendar.badge.plus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color.tasker.accentPrimary)
+                            .frame(width: 34, height: 34)
+                            .background(Color.tasker.accentWash, in: Circle())
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(isAllDayTargeted ? "Drop for All Day" : "Make All Day")
+                                .font(.tasker(.support).weight(.semibold))
+                                .foregroundStyle(Color.tasker.textPrimary)
+                            Text(placementCandidate.title)
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker.textSecondary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(isAllDayTargeted ? Color.tasker.accentWash.opacity(0.82) : Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(isAllDayTargeted ? Color.tasker.accentPrimary.opacity(0.46) : Color.tasker.strokeHairline.opacity(0.62), lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
-                .dropDestination(for: String.self) { items, _ in
+                .scaleOnPress()
+                .scaleEffect(isAllDayTargeted && reduceMotion == false ? 1.012 : 1)
+                .dropDestination(for: String.self, action: { items, _ in
                     guard items.contains(placementCandidate.taskID.uuidString) else { return false }
+                    TaskerFeedback.success()
                     onPlaceReplanAllDay(placementCandidate, selectedDate)
                     return true
+                }, isTargeted: { newValue in
+                    isAllDayTargeted = newValue
+                })
+                .onChange(of: isAllDayTargeted) { _, newValue in
+                    guard newValue else { return }
+                    TaskerFeedback.selection()
                 }
                 .accessibilityHint("Places the replanned task in the all-day row for this date.")
+                .accessibilityIdentifier("home.needsReplan.hotZone.allDay")
             }
 
             if allDayItems.isEmpty == false {
@@ -4278,6 +4343,8 @@ struct DailyTimelineCanvas: View {
 
     private let plan: TimelineCanvasLayoutPlan
     private let stablePresentation: TimelineDayStablePresentation
+    @State private var isCanvasDropTargeted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     init(
@@ -4400,13 +4467,38 @@ struct DailyTimelineCanvas: View {
             }
         }
         .frame(height: plan.contentHeight)
-        .dropDestination(for: String.self) { items, location in
+        .overlay(alignment: .top) {
+            if placementCandidate != nil {
+                HStack(spacing: 8) {
+                    Image(systemName: isCanvasDropTargeted ? "clock.badge.checkmark.fill" : "clock.badge")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(isCanvasDropTargeted ? "Release to schedule" : "Drop on a time")
+                        .font(.tasker(.caption1).weight(.semibold))
+                }
+                .foregroundStyle(Color.tasker.accentPrimary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.tasker.accentWash.opacity(isCanvasDropTargeted ? 0.92 : 0.72), in: Capsule())
+                .overlay(Capsule().stroke(Color.tasker.accentPrimary.opacity(isCanvasDropTargeted ? 0.42 : 0.18), lineWidth: 1))
+                .scaleEffect(isCanvasDropTargeted && reduceMotion == false ? 1.035 : 1)
+                .padding(.top, 8)
+                .accessibilityIdentifier("home.needsReplan.hotZone.timeline")
+            }
+        }
+        .dropDestination(for: String.self, action: { items, location in
             guard let placementCandidate,
                   items.contains(placementCandidate.taskID.uuidString) else {
                 return false
             }
+            TaskerFeedback.success()
             onPlaceReplanAtTime(placementCandidate, plan.date(atY: location.y))
             return true
+        }, isTargeted: { newValue in
+            isCanvasDropTargeted = newValue
+        })
+        .onChange(of: isCanvasDropTargeted) { _, newValue in
+            guard newValue else { return }
+            TaskerFeedback.selection()
         }
     }
 
@@ -5827,6 +5919,9 @@ private struct TimelineWeekDayCell: View {
     let placementCandidate: TimelinePlacementCandidate?
     let onDropPlacement: (TimelinePlacementCandidate) -> Void
 
+    @State private var isDropTargeted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var paletteColor: Color {
         switch day.loadLevel {
         case .light:
@@ -5871,12 +5966,26 @@ private struct TimelineWeekDayCell: View {
         .padding(.horizontal, 4)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(isSelected ? Color.tasker.surfacePrimary : Color.tasker.surfacePrimary.opacity(0.85))
+                .fill(isDropTargeted ? Color.tasker.accentWash.opacity(0.86) : (isSelected ? Color.tasker.surfacePrimary : Color.tasker.surfacePrimary.opacity(0.85)))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(isSelected ? Color.tasker.accentPrimary.opacity(0.25) : Color.tasker.strokeHairline.opacity(0.45), lineWidth: 1)
+                .stroke(isDropTargeted ? Color.tasker.accentPrimary.opacity(0.48) : (isSelected ? Color.tasker.accentPrimary.opacity(0.25) : Color.tasker.strokeHairline.opacity(0.45)), lineWidth: isDropTargeted ? 1.5 : 1)
         )
+        .overlay(alignment: .bottom) {
+            if placementCandidate != nil {
+                Label(isDropTargeted ? "Release" : "Drop", systemImage: isDropTargeted ? "calendar.badge.checkmark" : "calendar.badge.plus")
+                    .font(.tasker(.caption2).weight(.semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.tasker.surfacePrimary.opacity(0.88), in: Capsule())
+                    .opacity(isDropTargeted ? 1 : 0.72)
+                    .padding(.bottom, 6)
+                    .accessibilityIdentifier("home.needsReplan.hotZone.day.\(day.id)")
+            }
+        }
+        .scaleEffect(isDropTargeted && reduceMotion == false ? 1.018 : 1)
         .contextMenu {
             if canStartReplan {
                 Button(replanAccessibilityLabel, systemImage: "arrow.triangle.2.circlepath") {
@@ -5889,13 +5998,20 @@ private struct TimelineWeekDayCell: View {
                 onStartReplan()
             }
         }
-        .dropDestination(for: String.self) { items, _ in
+        .dropDestination(for: String.self, action: { items, _ in
             guard let placementCandidate,
                   items.contains(placementCandidate.taskID.uuidString) else {
                 return false
             }
+            TaskerFeedback.success()
             onDropPlacement(placementCandidate)
             return true
+        }, isTargeted: { newValue in
+            isDropTargeted = newValue
+        })
+        .onChange(of: isDropTargeted) { _, newValue in
+            guard newValue else { return }
+            TaskerFeedback.selection()
         }
     }
 
