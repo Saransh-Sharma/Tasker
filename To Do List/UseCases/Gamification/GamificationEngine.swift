@@ -421,6 +421,7 @@ public final class GamificationEngine {
                     let focusFromSessions = todayFocusSessions.reduce(0) { $0 + max(0, $1.durationSeconds / 60) }
                     snapshot.focusMinutesToday = max(focusFromEvents, focusFromSessions)
                     snapshot.save()
+                    WatchWidgetSnapshotSync.shared.sendGamificationSnapshot(snapshot)
                     self.reloadWidgetTimelines()
                 }
             }
