@@ -128,8 +128,20 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertTrue(HomeiPadDestination.chat.isPrimaryHomeDestination)
     }
 
+    func testChatPromptFocusRequestIncrementsRequestID() {
+        let coordinator = HomeFaceCoordinator()
+
+        XCTAssertEqual(coordinator.chatPromptFocusRequestID, 0)
+
+        coordinator.requestChatPromptFocus()
+        XCTAssertEqual(coordinator.chatPromptFocusRequestID, 1)
+
+        coordinator.requestChatPromptFocus()
+        XCTAssertEqual(coordinator.chatPromptFocusRequestID, 2)
+    }
+
     func testChatBottomBarConcealsWhenPromptFocused() {
-        XCTAssertTrue(HomeBottomBarVisibilityPolicy.isConcealedForChatInput(
+        XCTAssertTrue(HomeBottomBarVisibilityPolicy.shouldConcealBottomBar(
             activeFace: .chat,
             isPromptFocused: true,
             keyboardOverlapHeight: 0
@@ -137,7 +149,7 @@ final class HomeBottomBarStateTests: XCTestCase {
     }
 
     func testChatBottomBarConcealsWhenKeyboardOverlaps() {
-        XCTAssertTrue(HomeBottomBarVisibilityPolicy.isConcealedForChatInput(
+        XCTAssertTrue(HomeBottomBarVisibilityPolicy.shouldConcealBottomBar(
             activeFace: .chat,
             isPromptFocused: false,
             keyboardOverlapHeight: 240
@@ -145,27 +157,29 @@ final class HomeBottomBarStateTests: XCTestCase {
     }
 
     func testIdleChatKeepsBottomBarAvailableAndAppliesComposerClearance() {
-        XCTAssertFalse(HomeBottomBarVisibilityPolicy.isConcealedForChatInput(
+        XCTAssertFalse(HomeBottomBarVisibilityPolicy.shouldConcealBottomBar(
             activeFace: .chat,
             isPromptFocused: false,
             keyboardOverlapHeight: 0
         ))
 
         XCTAssertEqual(
-            HomeBottomBarVisibilityPolicy.chatComposerBottomInset(
+            HomeBottomBarVisibilityPolicy.chatComposerClearance(
                 layoutClass: .phone,
                 bottomOverlayObstruction: 72,
                 keyboardOverlapHeight: 0,
-                idleSpacing: 16,
+                isBottomBarConcealed: false,
+                idleSpacing: 40,
+                idleExtraSpacing: 24,
                 keyboardSpacing: 12,
                 regularSpacing: 24
             ),
-            88
+            136
         )
     }
 
     func testNonChatFacesDoNotConcealBottomBarForPromptFocusOrKeyboard() {
-        XCTAssertFalse(HomeBottomBarVisibilityPolicy.isConcealedForChatInput(
+        XCTAssertFalse(HomeBottomBarVisibilityPolicy.shouldConcealBottomBar(
             activeFace: .tasks,
             isPromptFocused: true,
             keyboardOverlapHeight: 240
@@ -174,29 +188,49 @@ final class HomeBottomBarStateTests: XCTestCase {
 
     func testChatComposerClearancePrefersKeyboardOverBottomBar() {
         XCTAssertEqual(
-            HomeBottomBarVisibilityPolicy.chatComposerBottomInset(
+            HomeBottomBarVisibilityPolicy.chatComposerClearance(
                 layoutClass: .phone,
                 bottomOverlayObstruction: 72,
                 keyboardOverlapHeight: 240,
-                idleSpacing: 16,
-                keyboardSpacing: 12,
+                isBottomBarConcealed: true,
+                idleSpacing: 40,
+                idleExtraSpacing: 24,
+                keyboardSpacing: 16,
                 regularSpacing: 24
             ),
-            252
+            256
         )
     }
 
     func testChatComposerClearanceUsesRegularSpacingWhenBottomBarIsNotObstructing() {
         XCTAssertEqual(
-            HomeBottomBarVisibilityPolicy.chatComposerBottomInset(
+            HomeBottomBarVisibilityPolicy.chatComposerClearance(
                 layoutClass: .phone,
                 bottomOverlayObstruction: 0,
                 keyboardOverlapHeight: 0,
-                idleSpacing: 16,
+                isBottomBarConcealed: false,
+                idleSpacing: 40,
+                idleExtraSpacing: 24,
                 keyboardSpacing: 12,
                 regularSpacing: 24
             ),
             24
+        )
+    }
+
+    func testFocusedChatComposerClearanceKeepsIdleLiftBeforeKeyboardFrameArrives() {
+        XCTAssertEqual(
+            HomeBottomBarVisibilityPolicy.chatComposerClearance(
+                layoutClass: .phone,
+                bottomOverlayObstruction: 72,
+                keyboardOverlapHeight: 0,
+                isBottomBarConcealed: true,
+                idleSpacing: 40,
+                idleExtraSpacing: 24,
+                keyboardSpacing: 12,
+                regularSpacing: 24
+            ),
+            136
         )
     }
 
