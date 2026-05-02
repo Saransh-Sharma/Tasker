@@ -173,6 +173,10 @@ final class ChatCompletedChromeUITests: BaseUITest {
         XCTAssertTrue(app.buttons["chat.header.history"].exists || app.buttons["History"].exists, "History should live in the native navigation bar")
         XCTAssertFalse(app.buttons["chat.header.new_chat"].exists || app.buttons["New chat"].exists, "New chat should be hidden for a fresh empty chat")
         XCTAssertTrue(app.buttons["Back"].exists || app.buttons["Close"].exists, "Back or close should remain in the native navigation bar")
+
+        if app.staticTexts["Hi there!"].exists {
+            XCTAssertTrue(app.buttons["eva.structured.help"].exists, "Structured Eva help should remain reachable after replacing the questionmark artwork")
+        }
     }
 
     func testCompletedChatComposerOpensKeyboardFromBottomBarEntry() throws {

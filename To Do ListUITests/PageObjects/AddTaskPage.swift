@@ -194,6 +194,20 @@ class AddTaskPage {
         return app.buttons[AccessibilityIdentifiers.AddTask.saveButton]
     }
 
+    var createButton: XCUIElement {
+        let directButton = app.buttons[AccessibilityIdentifiers.AddTask.createButton]
+        if directButton.exists {
+            return directButton
+        }
+
+        let descendantButton = app.descendants(matching: .button)[AccessibilityIdentifiers.AddTask.createButton]
+        if descendantButton.exists {
+            return descendantButton
+        }
+
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.createButton]
+    }
+
     var cancelButton: XCUIElement {
         // Try accessibility identifier first
         var button = app.buttons[AccessibilityIdentifiers.AddTask.cancelButton]
@@ -606,10 +620,10 @@ class AddTaskPage {
         let candidates: [XCUIElement] = [
             app.buttons[AccessibilityIdentifiers.AddTask.saveButton],
             addTaskContainer.buttons[AccessibilityIdentifiers.AddTask.saveButton],
-            addTaskContainer.buttons["addTask.createButton"],
+            addTaskContainer.buttons[AccessibilityIdentifiers.AddTask.createButton],
             addTaskContainer.descendants(matching: .button)[AccessibilityIdentifiers.AddTask.saveButton],
-            addTaskContainer.descendants(matching: .button)["addTask.createButton"],
-            addTaskContainer.descendants(matching: .any)["addTask.createButton"],
+            addTaskContainer.descendants(matching: .button)[AccessibilityIdentifiers.AddTask.createButton],
+            addTaskContainer.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.createButton],
             app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.saveButton],
             navBar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
             toolbar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
@@ -782,12 +796,12 @@ class AddTaskPage {
 
     private func tapComposerCreateCTA(in container: XCUIElement) -> Bool {
         let candidates: [XCUIElement] = [
-            container.buttons["addTask.createButton"],
-            container.descendants(matching: .button)["addTask.createButton"],
-            container.descendants(matching: .any)["addTask.createButton"],
-            app.buttons["addTask.createButton"],
-            app.descendants(matching: .button)["addTask.createButton"],
-            app.descendants(matching: .any)["addTask.createButton"]
+            container.buttons[AccessibilityIdentifiers.AddTask.createButton],
+            container.descendants(matching: .button)[AccessibilityIdentifiers.AddTask.createButton],
+            container.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.createButton],
+            app.buttons[AccessibilityIdentifiers.AddTask.createButton],
+            app.descendants(matching: .button)[AccessibilityIdentifiers.AddTask.createButton],
+            app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.createButton]
         ]
 
         for candidate in candidates where candidate.exists {
@@ -1015,11 +1029,17 @@ class AddTaskPage {
 
     /// Verify save button is enabled
     func verifySaveButtonEnabled() -> Bool {
+        if createButton.exists {
+            return createButton.isEnabled
+        }
         return saveButton.isEnabled
     }
 
     /// Verify save button is disabled
     func verifySaveButtonDisabled() -> Bool {
+        if createButton.exists {
+            return !createButton.isEnabled
+        }
         return !saveButton.isEnabled
     }
 

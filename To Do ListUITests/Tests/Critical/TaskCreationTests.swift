@@ -130,6 +130,27 @@ class TaskCreationTests: BaseUITest {
         XCTAssertTrue(addTaskPage.verifySaveButtonDisabled(), "Save button should stay disabled for empty title")
     }
 
+    // MARK: - Regression: Add Task CTA Enables After Title Input
+
+    func testAddTaskCTAEnablesAfterTypingTitle() throws {
+        let addTaskPage = homePage.tapAddTask()
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add Task screen should appear")
+        XCTAssertTrue(addTaskPage.createButton.waitForExistence(timeout: 3), "Add Task CTA should be visible")
+        XCTAssertFalse(addTaskPage.createButton.isEnabled, "Add Task CTA should start disabled with an empty title")
+
+        addTaskPage.enterTitle("Plan quarterly roadmap")
+
+        let enabled = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isEnabled == true"),
+            object: addTaskPage.createButton
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [enabled], timeout: 2),
+            .completed,
+            "Add Task CTA should enable immediately after typing a valid title"
+        )
+    }
+
     // MARK: - Regression: Duplicate Submit Guard While Loading
 
     func testKeyboardDoneRapidSubmitCreatesOnlyOneTask() throws {

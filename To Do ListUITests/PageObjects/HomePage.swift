@@ -1462,7 +1462,14 @@ class HomePage {
     /// Verify home screen is displayed
     @discardableResult
     func verifyIsDisplayed(timeout: TimeInterval = 5) -> Bool {
-        // Check for navigation bar or tab bar
+        if view.waitForExistence(timeout: timeout) {
+            return true
+        }
+
+        if verifyBottomBarExists(timeout: min(timeout, 2)) {
+            return true
+        }
+
         let navBar = app.navigationBars.firstMatch
         let tabBar = app.tabBars.firstMatch
 

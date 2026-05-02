@@ -7510,6 +7510,24 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
         XCTAssertFalse(viewModel.hasUnsavedChanges)
     }
 
+    func testAddTaskViewStateRejectsEmptyTitle() {
+        let viewModel = makeAddTaskScheduleViewModel()
+
+        XCTAssertFalse(viewModel.viewState.canSubmit)
+    }
+
+    func testAddTaskViewStateAllowsValidTitleWithoutWaitingForDebouncedValidation() {
+        let viewModel = makeAddTaskScheduleViewModel()
+
+        XCTAssertFalse(viewModel.validateInput())
+        XCTAssertTrue(viewModel.validationErrors.contains(.emptyTaskName))
+
+        viewModel.taskName = "Write annual report"
+
+        XCTAssertTrue(viewModel.validationErrors.contains(.emptyTaskName))
+        XCTAssertTrue(viewModel.viewState.canSubmit)
+    }
+
     func testChangingDurationUpdatesDerivedScheduledEnd() {
         let calendar = Calendar.current
         let now = calendar.date(from: DateComponents(year: 2026, month: 4, day: 22, hour: 9, minute: 0, second: 15))!
@@ -7660,6 +7678,7 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
 
         XCTAssertFalse(viewModel.validateInput())
         XCTAssertTrue(viewModel.validationErrors.contains(.pastDueDate))
+        XCTAssertFalse(viewModel.viewState.canSubmit)
     }
 
     func testValidateInputUsesInjectedClockForReminderValidation() {
@@ -7673,6 +7692,7 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
 
         XCTAssertFalse(viewModel.validateInput())
         XCTAssertTrue(viewModel.validationErrors.contains(.pastReminderTime))
+        XCTAssertFalse(viewModel.viewState.canSubmit)
     }
 
     func testAddTaskViewModelStartsInAnyAreaStateAfterLifeAreasLoad() {

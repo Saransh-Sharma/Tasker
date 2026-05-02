@@ -164,6 +164,7 @@ enum AccessibilityIdentifiers {
         static let reminderToggle = "addTask.reminderToggle"
         static let reminderTimePicker = "addTask.reminderTimePicker"
         static let saveButton = "addTask.saveButton"
+        static let createButton = "addTask.createButton"
         static let cancelButton = "addTask.cancelButton"
 
         // Validation

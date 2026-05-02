@@ -1404,14 +1404,15 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0)
         let projection = Self.makeProjection(calendar: calendar, wake: wake, sleep: sleep, timedItems: [])
         let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, bottomInset: 120, calendar: calendar)
+        let empty = plan.visualElements.compactMap { positioned -> VisualTimelineElement.EmptyStateModel? in
+            guard case .emptyState(let model) = positioned.element else { return nil }
+            return model
+        }.first
 
         XCTAssertEqual(projection.timelineDensityMode, .sparse)
-        XCTAssertTrue(plan.visualElements.contains { positioned in
-            if case .emptyState(let model) = positioned.element {
-                return model.title == "No meetings today" && model.showsCalendarAction == false
-            }
-            return false
-        })
+        XCTAssertEqual(empty?.title, "No meetings today")
+        XCTAssertEqual(empty?.showsCalendarAction, false)
+        XCTAssertEqual(empty?.height, 96)
         XCTAssertGreaterThan(plan.endMarker.centerY, plan.spineExtent.fadeEndY)
         XCTAssertGreaterThanOrEqual(plan.contentHeight, plan.endMarker.centerY + 22 + 120)
     }
@@ -1454,6 +1455,7 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(empty?.title, "Calendar is hidden")
         XCTAssertEqual(empty?.secondaryTitle, "Show calendar")
         XCTAssertEqual(empty?.showsCalendarAction, true)
+        XCTAssertEqual(empty?.height, 96)
     }
 
     func testLightTimelineAddsOpenDayPromptForOneShortItem() {
@@ -1469,14 +1471,15 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
             ]
         )
         let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let empty = plan.visualElements.compactMap { positioned -> VisualTimelineElement.EmptyStateModel? in
+            guard case .emptyState(let model) = positioned.element else { return nil }
+            return model
+        }.first
 
         XCTAssertEqual(projection.timelineDensityMode, .lightTimeline)
-        XCTAssertTrue(plan.visualElements.contains { positioned in
-            if case .emptyState(let model) = positioned.element {
-                return model.id == "empty:light" && model.title == "Plenty of open time"
-            }
-            return false
-        })
+        XCTAssertEqual(empty?.id, "empty:light")
+        XCTAssertEqual(empty?.title, "Plenty of open time")
+        XCTAssertEqual(empty?.height, 96)
     }
 
     func testLongSingleItemStaysNormalTimelineMode() {

@@ -1,6 +1,9 @@
 import MLXLMCommon
 import XCTest
 @testable import To_Do_List
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @MainActor
 final class EvaActivationTests: XCTestCase {
@@ -81,6 +84,68 @@ final class EvaActivationTests: XCTestCase {
         let homeChip = try XCTUnwrap(chips.first { $0.prompt.id == guidePrompt.id })
         XCTAssertEqual(homeChip.icon, guideSection.icon)
     }
+
+    func testEvaMascotPlacementResolverMapsCoreProductStates() {
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .chatEmptyHeader), .neutral)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .chatHelp), .peek)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .chatThinking), .thinking)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .dayOverview), .idea)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .proposalReview), .clipboard)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .proposalApplied), .celebration)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .calendarPlanning), .calendar)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .calendarConflict), .surprised)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .taskCapture), .pencil)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .habitEmpty), .sitting)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .restReminder), .sleepy)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .weeklyReflection), .meditate)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .focusStart), .running)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .settingsIdentity), .neutral)
+    }
+
+    func testEvaMascotPlacementResolverMapsOnboardingAndCoachingStates() {
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .onboardingWelcome), .sitting)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .onboardingNextStep), .pointRight)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .onboardingEvaValue), .clipboard)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .onboardingCaptureSetup), .pencil)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .onboardingProcessing), .thinking)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .onboardingCalendarPermission), .calendar)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .onboardingNotificationPermission), .peek)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .onboardingSuccess), .excited)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .featureDiscovery), .pointLeft)
+    }
+
+    func testEvaMascotPlacementResolverMapsRiskTimelineAndMilestoneStates() {
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .timelineEmptySchedule), .calendar)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .timelineConflict), .surprised)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .timelineFreeSlot), .surprised)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .timelineStartPlan), .running)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .taskDeadlineRisk), .worried)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .habitStreakWin), .celebration)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .habitMilestone), .excited)
+        XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .calendarRescheduleThinking), .thinking)
+    }
+
+    func testEvaMascotSizeTiersStayInExpectedRanges() {
+        XCTAssertEqual(EvaMascotSize.avatar.points, 40)
+        XCTAssertEqual(EvaMascotSize.chip.points, 32)
+        XCTAssertEqual(EvaMascotSize.inline.points, 56)
+        XCTAssertEqual(EvaMascotSize.card.points, 104)
+        XCTAssertEqual(EvaMascotSize.hero.points, 184)
+        XCTAssertEqual(EvaMascotSize.custom(46).points, 46)
+    }
+
+    #if canImport(UIKit)
+    func testEvaMascotAssetsAreBundled() throws {
+        let appBundle = Bundle(for: AppDelegate.self)
+
+        for asset in EvaMascotAsset.allCases {
+            XCTAssertNotNil(
+                UIImage(named: asset.rawValue, in: appBundle, compatibleWith: nil),
+                "Missing Eva mascot asset named \(asset.rawValue)"
+            )
+        }
+    }
+    #endif
 
     func testThreadChangePolicyPreservesFirstThreadAttachDuringGeneration() {
         let firstThreadID = UUID()
