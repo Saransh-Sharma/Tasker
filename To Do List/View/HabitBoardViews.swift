@@ -538,9 +538,7 @@ struct HabitBoardScreen: View {
 
     private var boardEmptyState: some View {
         VStack(spacing: spacing.s12) {
-            Image(systemName: "square.grid.3x3.topleft.filled")
-                .font(.tasker(.title3))
-                .foregroundStyle(Color.tasker.textSecondary)
+            EvaMascotView(placement: .habitEmpty, size: .card)
 
             Text("No habits yet")
                 .font(.tasker(.headline))

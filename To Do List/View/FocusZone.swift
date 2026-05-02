@@ -160,9 +160,8 @@ public struct FocusZone: View {
 
     private var focusHeaderLabel: some View {
         HStack(spacing: spacing.s4) {
-            Image(systemName: "flame.fill")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(Color.tasker.accentPrimary.opacity(hasTaskRows ? 0.92 : 0.65))
+            EvaMascotView(placement: .focusNextAction, size: .chip)
+                .opacity(hasTaskRows ? 1.0 : 0.72)
 
             Text(LocalizedStringKey("Focus Now"))
                 .font(.tasker(.callout).weight(.semibold))
@@ -173,9 +172,9 @@ public struct FocusZone: View {
 
     private var emptyState: some View {
         VStack(spacing: spacing.s4) {
-            Image(systemName: "scope")
-                .font(.system(size: 20, weight: .regular))
-                .foregroundColor(Color.tasker.accentPrimary.opacity(0.42))
+            EvaMascotView(placement: .focusStart, size: .chip)
+                .opacity(0.72)
+                .accessibilityHidden(true)
 
             Text(LocalizedStringKey(Self.emptyStateMessage(maxVisibleRows: maxVisibleRows)))
                 .font(.tasker(.caption1))

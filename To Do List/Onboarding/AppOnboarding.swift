@@ -374,6 +374,33 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         OnboardingCopy.Header.accessibilitySummary(for: self)
     }
 
+    var evaMascotPlacement: EvaMascotPlacement {
+        switch self {
+        case .welcome:
+            return .onboardingWelcome
+        case .goal, .pain:
+            return .onboardingNextStep
+        case .evaValue, .evaStyle:
+            return .onboardingEvaValue
+        case .lifeAreas, .projects, .habits, .habitSetup, .firstTask:
+            return .onboardingCaptureSetup
+        case .streakPreview, .habitCheckIn:
+            return .habitStreakWin
+        case .processing:
+            return .onboardingProcessing
+        case .focusRoom:
+            return .focusStart
+        case .calendarPermission:
+            return .onboardingCalendarPermission
+        case .notificationPermission:
+            return .onboardingNotificationPermission
+        case .success:
+            return .onboardingSuccess
+        case .blocker:
+            return .taskDeadlineRisk
+        }
+    }
+
     var normalizedForCurrentFlow: OnboardingStep {
         switch self {
         case .blocker:
@@ -5775,6 +5802,9 @@ struct AppOnboardingJourneyView: View {
 
             VStack(alignment: .leading, spacing: spacing.s12) {
                 HStack(alignment: .center, spacing: spacing.s12) {
+                    EvaMascotView(placement: viewModel.step.evaMascotPlacement, size: .chip)
+                        .accessibilityHidden(true)
+
                     OnboardingEyebrowLabel(title: viewModel.step.eyebrowTitle)
                     Spacer(minLength: spacing.s12)
                     Text(viewModel.step.progressLabel)
@@ -5915,6 +5945,12 @@ struct AppOnboardingJourneyView: View {
 
             EvaHeroMediaView(style: .card)
                 .frame(height: layoutClass.isPad ? 320 : 240)
+
+            OnboardingSelectionSummaryCard(
+                title: "Eva acts like your Chief of Staff",
+                message: "She reviews what is on your calendar, what is due, and what needs a decision so your next step is clear.",
+                mascotPlacement: .onboardingEvaValue
+            )
 
             VStack(alignment: .leading, spacing: spacing.s12) {
                 ForEach(evaSolutionBullets, id: \.self) { bullet in
@@ -6121,7 +6157,8 @@ struct AppOnboardingJourneyView: View {
             if viewModel.evaPreparationState.phase == .waitingForCellularConsent {
                 OnboardingSelectionSummaryCard(
                     title: "Mobile data check",
-                    message: "EVA needs your approval before using cellular data. You can defer and keep moving."
+                    message: "EVA needs your approval before using cellular data. You can defer and keep moving.",
+                    mascotPlacement: .onboardingNotificationPermission
                 )
             } else {
                 OnboardingEvaStatusCard(state: viewModel.evaPreparationState)
@@ -6181,8 +6218,8 @@ struct AppOnboardingJourneyView: View {
                 }
             } label: {
                 HStack(spacing: spacing.s12) {
-                    Image(systemName: "square.and.pencil")
-                        .foregroundStyle(OnboardingTheme.accent)
+                    EvaMascotView(placement: .onboardingCaptureSetup, size: .chip)
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Create my own first task")
                             .taskerFont(.bodyEmphasis)
@@ -6275,7 +6312,8 @@ struct AppOnboardingJourneyView: View {
                     title: habit.kind == .positive ? "Build \(habit.title)" : "Protect \(habit.title)",
                     message: habit.kind == .positive
                         ? "Mark it done now or skip today and keep the board honest."
-                        : "Mark a clean day now or log a lapse honestly. The board updates either way."
+                        : "Mark a clean day now or log a lapse honestly. The board updates either way.",
+                    mascotPlacement: habit.kind == .positive ? .habitStreakWin : .habitRecovery
                 )
             }
         }
@@ -6291,7 +6329,8 @@ struct AppOnboardingJourneyView: View {
 
             OnboardingSelectionSummaryCard(
                 title: "Why it matters",
-                message: "When Tasker can see your schedule, your tasks and habits can fit around the day you actually have."
+                message: "When Tasker can see your schedule, your tasks and habits can fit around the day you actually have.",
+                mascotPlacement: .onboardingCalendarPermission
             )
         }
     }
@@ -6306,7 +6345,8 @@ struct AppOnboardingJourneyView: View {
 
             OnboardingSelectionSummaryCard(
                 title: "What you will get",
-                message: "Reminders for your first task, starter habit, and missed check-ins."
+                message: "Reminders for your first task, starter habit, and missed check-ins.",
+                mascotPlacement: .onboardingNotificationPermission
             )
         }
     }
@@ -6710,8 +6750,8 @@ struct HomeOnboardingGuidanceBanner: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "sparkles")
-                .foregroundStyle(OnboardingTheme.accent)
+            EvaMascotView(placement: .featureDiscovery, size: .chip)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 6) {
                 Text(state.title)
                     .taskerFont(.headline)
@@ -7112,6 +7152,9 @@ private struct OnboardingWelcomeCinematicOverlay: View {
 
     private var cinematicCard: some View {
         VStack(spacing: 18) {
+            EvaMascotView(placement: .onboardingWelcome, size: .custom(layoutClass.isPad ? 112 : 92))
+                .accessibilityHidden(true)
+
             OnboardingWelcomeIntroLine(
                 text: "Welcome to Tasker",
                 style: .display,
@@ -7372,12 +7415,28 @@ private struct OnboardingPromptValueCard: View {
 private struct OnboardingSelectionSummaryCard: View {
     let title: String
     let message: String
+    let mascotPlacement: EvaMascotPlacement?
+
+    init(title: String, message: String, mascotPlacement: EvaMascotPlacement? = nil) {
+        self.title = title
+        self.message = message
+        self.mascotPlacement = mascotPlacement
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .taskerFont(.bodyEmphasis)
-                .foregroundStyle(OnboardingTheme.textPrimary)
+            HStack(alignment: .center, spacing: 10) {
+                if let mascotPlacement {
+                    EvaMascotView(placement: mascotPlacement, size: .chip)
+                        .accessibilityHidden(true)
+                }
+
+                Text(title)
+                    .taskerFont(.bodyEmphasis)
+                    .foregroundStyle(OnboardingTheme.textPrimary)
+
+                Spacer(minLength: 0)
+            }
             Text(message)
                 .taskerFont(.caption1)
                 .foregroundStyle(OnboardingTheme.textSecondary)
@@ -7642,8 +7701,11 @@ private struct OnboardingEvaStatusCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label(title, systemImage: iconName)
+            HStack(spacing: 12) {
+                EvaMascotView(placement: mascotPlacement, size: .chip)
+                    .accessibilityHidden(true)
+
+                Text(title)
                     .taskerFont(.bodyEmphasis)
                     .foregroundStyle(OnboardingTheme.textPrimary)
                 Spacer()
@@ -7680,14 +7742,18 @@ private struct OnboardingEvaStatusCard: View {
         }
     }
 
-    private var iconName: String {
+    private var mascotPlacement: EvaMascotPlacement {
         switch state.phase {
-        case .ready: return "checkmark.circle.fill"
-        case .failed: return "exclamationmark.triangle.fill"
-        case .downloading: return "arrow.down.circle.fill"
-        case .waitingForCellularConsent: return "antenna.radiowaves.left.and.right"
-        case .deferred: return "wifi.slash"
-        case .idle: return "brain.head.profile"
+        case .ready:
+            return .onboardingSuccess
+        case .failed:
+            return .taskDeadlineRisk
+        case .downloading:
+            return .onboardingProcessing
+        case .waitingForCellularConsent, .deferred:
+            return .onboardingNotificationPermission
+        case .idle:
+            return .settingsIdentity
         }
     }
 
@@ -8386,10 +8452,17 @@ private struct OnboardingFocusHeroCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(OnboardingCopy.Focus.title)
-                .taskerFont(.title2)
-                .foregroundStyle(OnboardingTheme.textPrimary)
-                .accessibilityIdentifier(AppOnboardingAccessibilityID.focusRoom)
+            HStack(alignment: .center, spacing: 12) {
+                EvaMascotView(placement: isActive ? .focusNextAction : .focusStart, size: .inline)
+                    .accessibilityHidden(true)
+
+                Text(OnboardingCopy.Focus.title)
+                    .taskerFont(.title2)
+                    .foregroundStyle(OnboardingTheme.textPrimary)
+                    .accessibilityIdentifier(AppOnboardingAccessibilityID.focusRoom)
+
+                Spacer(minLength: 0)
+            }
 
             Text(OnboardingCopy.Focus.subtitle)
                 .taskerFont(.body)
@@ -8538,10 +8611,9 @@ private struct OnboardingSuccessHero: View {
                 ZStack {
                     Circle()
                         .fill(OnboardingTheme.success.opacity(pulse ? 0.18 : 0.12))
-                        .frame(width: 68, height: 68)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundStyle(OnboardingTheme.success)
+                        .frame(width: 86, height: 86)
+                    EvaMascotView(placement: .onboardingSuccess, size: .custom(76))
+                        .accessibilityHidden(true)
                 }
                 Spacer()
             }
