@@ -3227,6 +3227,8 @@ private struct TimelineEmptyStateCard: View {
     let primaryAction: () -> Void
     let secondaryAction: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
@@ -3245,14 +3247,7 @@ private struct TimelineEmptyStateCard: View {
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 10) {
-                Button(model.primaryTitle, action: primaryAction)
-                    .buttonStyle(.bordered)
-                Button(model.secondaryTitle, action: secondaryAction)
-                    .buttonStyle(.borderedProminent)
-            }
-            .font(.tasker(.buttonSmall))
-            .controlSize(.small)
+            actionButtons
         }
         .padding(14)
         .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -3262,6 +3257,109 @@ private struct TimelineEmptyStateCard: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(model.showsCalendarAction ? "home.timeline.calendarHidden" : "home.timeline.emptyDay")
+    }
+
+    @ViewBuilder
+    @MainActor
+    private var actionButtons: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            actionButtonColumn
+        } else {
+            ViewThatFits(in: .horizontal) {
+                actionButtonRow
+                actionButtonColumn
+            }
+        }
+    }
+
+    @MainActor
+    private var actionButtonRow: some View {
+        HStack(spacing: 10) {
+            emptyStateActionButton(
+                title: model.primaryTitle,
+                tone: .secondary,
+                action: primaryAction
+            )
+            emptyStateActionButton(
+                title: model.secondaryTitle,
+                tone: .primary,
+                action: secondaryAction
+            )
+        }
+    }
+
+    @MainActor
+    private var actionButtonColumn: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            emptyStateActionButton(
+                title: model.primaryTitle,
+                tone: .secondary,
+                action: primaryAction
+            )
+            emptyStateActionButton(
+                title: model.secondaryTitle,
+                tone: .primary,
+                action: secondaryAction
+            )
+        }
+    }
+
+    @MainActor
+    private func emptyStateActionButton(
+        title: String,
+        tone: TimelineEmptyStateActionTone,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.tasker(.buttonSmall))
+                .lineLimit(1)
+                .minimumScaleFactor(0.86)
+                .foregroundStyle(tone.foreground)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .frame(minHeight: 34)
+                .background(tone.background, in: Capsule())
+                .overlay {
+                    Capsule()
+                        .stroke(tone.border, lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .contentShape(Capsule())
+    }
+}
+
+@MainActor
+private enum TimelineEmptyStateActionTone {
+    case primary
+    case secondary
+
+    var foreground: Color {
+        switch self {
+        case .primary:
+            return Color.tasker.accentOnPrimary
+        case .secondary:
+            return Color.tasker.accentPrimary
+        }
+    }
+
+    var background: Color {
+        switch self {
+        case .primary:
+            return Color.tasker.accentPrimary
+        case .secondary:
+            return Color.tasker.accentWash.opacity(0.76)
+        }
+    }
+
+    var border: Color {
+        switch self {
+        case .primary:
+            return Color.tasker.accentPrimary.opacity(0.18)
+        case .secondary:
+            return Color.tasker.accentMuted.opacity(0.34)
+        }
     }
 }
 

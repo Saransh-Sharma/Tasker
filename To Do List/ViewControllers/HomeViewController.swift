@@ -65,7 +65,7 @@ struct HomeLayoutMetrics: Equatable {
 }
 
 struct HomeBottomBarVisibilityPolicy {
-    static func isConcealedForChatInput(
+    static func shouldConcealBottomBar(
         activeFace: HomeForedropFace,
         isPromptFocused: Bool,
         keyboardOverlapHeight: CGFloat
@@ -73,11 +73,13 @@ struct HomeBottomBarVisibilityPolicy {
         activeFace == .chat && (isPromptFocused || keyboardOverlapHeight > 0.5)
     }
 
-    static func chatComposerBottomInset(
+    static func chatComposerClearance(
         layoutClass: TaskerLayoutClass,
         bottomOverlayObstruction: CGFloat,
         keyboardOverlapHeight: CGFloat,
+        isBottomBarConcealed: Bool,
         idleSpacing: CGFloat,
+        idleExtraSpacing: CGFloat,
         keyboardSpacing: CGFloat,
         regularSpacing: CGFloat
     ) -> CGFloat {
@@ -86,7 +88,10 @@ struct HomeBottomBarVisibilityPolicy {
             return keyboardOverlapHeight + keyboardSpacing
         }
         if bottomOverlayObstruction > 0.5 {
-            return bottomOverlayObstruction + idleSpacing
+            return bottomOverlayObstruction + idleSpacing + idleExtraSpacing
+        }
+        if isBottomBarConcealed {
+            return regularSpacing
         }
         return regularSpacing
     }
@@ -1148,6 +1153,7 @@ final class HomeFaceCoordinator: ObservableObject {
     @Published private(set) var searchMutationRevision: UInt64 = 0
     @Published private(set) var analyticsSurfaceState: HomeAnalyticsSurfaceState = .idle
     @Published private(set) var searchSurfaceState: HomeSearchSurfaceState = .idle
+    @Published private(set) var chatPromptFocusRequestID: UInt64 = 0
     @Published var insightsViewModel: InsightsViewModel?
 
     let bottomBarState = HomeBottomBarState()
@@ -1180,6 +1186,10 @@ final class HomeFaceCoordinator: ObservableObject {
 
     func recordSearchMutation() {
         searchMutationRevision &+= 1
+    }
+
+    func requestChatPromptFocus() {
+        chatPromptFocusRequestID &+= 1
     }
 }
 
@@ -1288,6 +1298,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var homeHostingController: UIHostingController<HomeHostRootView>?
     private var bottomBarHostingController: UIHostingController<HomeBottomBarContainer>?
     private var bottomBarBottomConstraint: NSLayoutConstraint?
+    private var bottomBarHeightConstraint: NSLayoutConstraint?
     private weak var presentedCalendarScheduleController: UIViewController?
     private weak var presentedEvaChatController: UIViewController?
     private var shouldResetHomeAfterEvaChatDismissal = false
@@ -1906,15 +1917,32 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func openChat(source: String) {
+        presentEvaChatScreen(source: source)
+    }
+
+    private func presentEvaChatScreen(source: String) {
         if isUsingIPadNativeShell {
             iPadShellState.destination = .chat
             return
         }
-        guard faceCoordinator.activeFace != .chat else { return }
+
+        if presentedEvaChatController != nil,
+           presentedViewController === presentedEvaChatController {
+            return
+        }
+
+        if presentedViewController != nil {
+            dismiss(animated: true) { [weak self] in
+                self?.presentEvaChatScreen(source: source)
+            }
+            return
+        }
+
         cancelBackgroundSearchPrewarm()
         cancelBackgroundSurfacePrewarm()
         pendingOnboardingEvaluationTask?.cancel()
         pendingOnboardingEvaluationTask = nil
+
         if faceCoordinator.activeFace == .search {
             pendingSearchPreparationTask?.cancel()
             pendingSearchWarmupTask?.cancel()
@@ -1924,17 +1952,34 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             viewModel.releaseHomeSearchViewModel()
             faceCoordinator.setSearchSurfaceState(.idle)
         }
-        TaskerPerformanceTrace.event("HomeFaceSwitch")
+
+        if faceCoordinator.activeFace == .chat {
+            faceCoordinator.setActiveFace(.tasks)
+        }
+        isEmbeddedChatPromptFocused = false
+        setEmbeddedChatRuntimeVisible(false, trigger: "dedicated_chat_screen")
+
+        let chatHostVC = ChatHostViewController()
+        if let presentationDependencyContainer {
+            _ = presentationDependencyContainer.tryInject(into: chatHostVC)
+        }
+        let navController = UINavigationController(rootViewController: chatHostVC)
+        navController.modalPresentationStyle = .fullScreen
+        navController.navigationBar.prefersLargeTitles = false
+        presentedEvaChatController = navController
+        shouldResetHomeAfterEvaChatDismissal = true
+        navController.presentationController?.delegate = self
+
         TaskerMemoryDiagnostics.checkpoint(
             event: "home_chat_open",
-            message: "Opening Eva chat surface",
+            message: "Opening Eva chat screen",
             fields: ["source": source]
         )
-        faceCoordinator.setActiveFace(.chat)
         viewModel.trackHomeInteraction(
-            action: "home_chat_flip_open",
+            action: "home_chat_screen_open",
             metadata: ["source": source]
         )
+        present(navController, animated: true)
     }
 
     private func closeChat(source: String) {
@@ -2152,13 +2197,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let taskListBottomInset = currentLayoutClass == .phone
             ? bottomOverlayObstruction + spacing.s16
             : spacing.s24
-        let chatBottomOverlayObstruction = isBottomBarConcealedForChatInput ? 0 : bottomOverlayObstruction
-        let chatComposerBottomInset = HomeBottomBarVisibilityPolicy.chatComposerBottomInset(
+        let isChatBottomBarConcealed = isBottomBarConcealedForChatInput
+        let chatComposerBottomInset = HomeBottomBarVisibilityPolicy.chatComposerClearance(
             layoutClass: currentLayoutClass,
-            bottomOverlayObstruction: chatBottomOverlayObstruction,
+            bottomOverlayObstruction: bottomOverlayObstruction,
             keyboardOverlapHeight: keyboardOverlapHeight,
-            idleSpacing: spacing.s16,
-            keyboardSpacing: spacing.s12,
+            isBottomBarConcealed: isChatBottomBarConcealed,
+            idleSpacing: spacing.s40,
+            idleExtraSpacing: spacing.s24,
+            keyboardSpacing: spacing.s16,
             regularSpacing: spacing.s24
         )
         let chartViewportHeight = min(max(height * 0.66, 560), max(560, height - 150))
@@ -2222,10 +2269,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         keyboardOverlapHeight = sanitizedValue
         refreshLayoutMetrics()
         mountBottomBarOverlayIfNeeded()
+        updateBottomBarBottomConstraint()
     }
 
     private var isBottomBarConcealedForChatInput: Bool {
-        HomeBottomBarVisibilityPolicy.isConcealedForChatInput(
+        HomeBottomBarVisibilityPolicy.shouldConcealBottomBar(
             activeFace: faceCoordinator.activeFace,
             isPromptFocused: isEmbeddedChatPromptFocused,
             keyboardOverlapHeight: keyboardOverlapHeight
@@ -2233,10 +2281,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func setEmbeddedChatPromptFocused(_ isFocused: Bool) {
-        guard isEmbeddedChatPromptFocused != isFocused else { return }
+        guard isEmbeddedChatPromptFocused != isFocused else {
+            refreshLayoutMetrics()
+            mountBottomBarOverlayIfNeeded()
+            updateBottomBarBottomConstraint()
+            return
+        }
         isEmbeddedChatPromptFocused = isFocused
         refreshLayoutMetrics()
         mountBottomBarOverlayIfNeeded()
+        updateBottomBarBottomConstraint()
     }
 
     private func updateInteractivePhaseIfNeeded() {
@@ -2315,6 +2369,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 bottomBarHostingController.removeFromParent()
                 self.bottomBarHostingController = nil
                 bottomBarBottomConstraint = nil
+                bottomBarHeightConstraint = nil
             }
             return
         }
@@ -2322,6 +2377,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let root = makeBottomBarRoot()
         if let bottomBarHostingController {
             bottomBarHostingController.rootView = root
+            applyBottomBarConcealmentState()
+            updateBottomBarHeightConstraint()
             updateBottomBarBottomConstraint()
             return
         }
@@ -2332,15 +2389,40 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         addChild(hostingController)
         view.addSubview(hostingController.view)
         let bottomConstraint = hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        let heightConstraint = hostingController.view.heightAnchor.constraint(equalToConstant: resolvedBottomBarHostHeight())
         bottomBarBottomConstraint = bottomConstraint
+        bottomBarHeightConstraint = heightConstraint
         NSLayoutConstraint.activate([
             hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottomConstraint
+            bottomConstraint,
+            heightConstraint
         ])
         updateBottomBarBottomConstraint()
         hostingController.didMove(toParent: self)
         bottomBarHostingController = hostingController
+        applyBottomBarConcealmentState()
+    }
+
+    private func applyBottomBarConcealmentState() {
+        guard let bottomBarHostingController else { return }
+        let isConcealed = isBottomBarConcealedForChatInput
+        bottomBarHostingController.view.alpha = isConcealed ? 0 : 1
+        bottomBarHostingController.view.isUserInteractionEnabled = !isConcealed
+        bottomBarHostingController.view.accessibilityElementsHidden = isConcealed
+    }
+
+    private func resolvedBottomBarHostHeight() -> CGFloat {
+        guard currentLayoutClass == .phone else { return 0 }
+        let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
+        return max(measuredBottomBarHeight, tokens.spacing.s12 + 56)
+    }
+
+    private func updateBottomBarHeightConstraint() {
+        guard let bottomBarHeightConstraint else { return }
+        let height = resolvedBottomBarHostHeight()
+        guard abs(bottomBarHeightConstraint.constant - height) > 0.5 else { return }
+        bottomBarHeightConstraint.constant = height
     }
 
     private func makeBottomBarRoot() -> HomeBottomBarContainer {
@@ -2386,6 +2468,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard abs(measuredBottomBarHeight - sanitizedValue) > 0.5 else { return }
         measuredBottomBarHeight = sanitizedValue
         refreshLayoutMetrics()
+        updateBottomBarHeightConstraint()
         updateBottomBarBottomConstraint()
     }
 
@@ -2395,8 +2478,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard isBottomBarConcealedForChatInput else { return restingDownshift }
 
         let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
-        let measuredHeight = max(measuredBottomBarHeight, tokens.spacing.s12 + 56)
-        return restingDownshift + measuredHeight + tokens.spacing.s16
+        return restingDownshift + resolvedBottomBarHostHeight() + tokens.spacing.s16
     }
 
     private func updateBottomBarBottomConstraint() {
@@ -3993,17 +4075,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes chatButtonTapped.
     @objc func chatButtonTapped() {
-        let chatHostVC = ChatHostViewController()
-        if let presentationDependencyContainer {
-            _ = presentationDependencyContainer.tryInject(into: chatHostVC)
-        }
-        let navController = UINavigationController(rootViewController: chatHostVC)
-        navController.modalPresentationStyle = .fullScreen
-        navController.navigationBar.prefersLargeTitles = false
-        presentedEvaChatController = navController
-        shouldResetHomeAfterEvaChatDismissal = true
-        navController.presentationController?.delegate = self
-        present(navController, animated: true)
+        presentEvaChatScreen(source: "legacy_chat_button")
     }
 
     private func resetHomeSelectionAfterEvaChatDismissalIfNeeded() {
@@ -4499,12 +4571,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         if presentedViewController != nil {
             dismiss(animated: true) { [weak self] in
-                self?.openChat(source: "deeplink_chat")
+                self?.presentEvaChatScreen(source: "deeplink_chat")
             }
             return
         }
 
-        openChat(source: "deeplink_chat")
+        presentEvaChatScreen(source: "deeplink_chat")
     }
 
     private func consumePendingShortcutHandoffIfNeeded() {
