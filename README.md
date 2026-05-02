@@ -49,6 +49,10 @@ Current LLM-backed and planner-backed use cases include:
 
 See `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md` for the LLM/EVA architecture, use cases, decisions, risks, and manual test guide. Use `Tasker.xcworkspace` for iOS builds and tests because CocoaPods dependencies are required.
 
+### Eva Mascot System
+
+Eva is also Tasker's visual Chief of Staff. The app uses pose-specific mascot states for identity, planning, thinking, review, suggestion, warning, completion, rest, and discovery so Eva communicates what kind of help is present without becoming decorative filler. Mascot placement philosophy, asset ownership, accessibility rules, and QA expectations live in `docs/design/EVA_MASCOT_PLACEMENT_GUIDE.md`; LLM behavior and planner architecture remain in `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
+
 ## Calendar And Timeline
 
 Tasker's calendar integration is view-only schedule context, not a calendar editing system.

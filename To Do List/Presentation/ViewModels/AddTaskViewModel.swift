@@ -802,29 +802,31 @@ public final class AddTaskViewModel: ObservableObject {
     /// Validate input and update validation errors
     @discardableResult
     public func validateInput() -> Bool {
-        validationErrors = []
-        let now = nowProvider()
-        
-        // Validate task name
+        validationErrors = validationErrorsForCurrentInput(now: nowProvider())
+        return validationErrors.isEmpty
+    }
+
+    private func validationErrorsForCurrentInput(now: Date) -> [ValidationError] {
+        var errors: [ValidationError] = []
+
         if taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            validationErrors.append(.emptyTaskName)
+            errors.append(.emptyTaskName)
         } else if taskName.count > 200 {
-            validationErrors.append(.taskNameTooLong)
+            errors.append(.taskNameTooLong)
         }
-        
+
         // Validate due date/schedule (nil is valid — "Someday")
         if let scheduledStartAt, scheduledStartAt < now {
-            validationErrors.append(.pastDueDate)
+            errors.append(.pastDueDate)
         } else if let dueDate, dueDate < Calendar.current.startOfDay(for: now) {
-            validationErrors.append(.pastDueDate)
+            errors.append(.pastDueDate)
         }
-        
-        // Validate reminder time
+
         if hasReminder && reminderTime < now {
-            validationErrors.append(.pastReminderTime)
+            errors.append(.pastReminderTime)
         }
-        
-        return validationErrors.isEmpty
+
+        return errors
     }
     
     // MARK: - Private Methods
@@ -1650,7 +1652,7 @@ extension AddTaskViewModel {
             lifeAreas: lifeAreas,
             sections: sections,
             tags: tags,
-            canSubmit: validationErrors.isEmpty && !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            canSubmit: validationErrorsForCurrentInput(now: nowProvider()).isEmpty
         )
     }
 }
