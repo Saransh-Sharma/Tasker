@@ -1,0 +1,6 @@
+{
+  "id": "cloudlet",
+  "displayName": "Cloudlet",
+  "description": "A fluffy smiling cloud companion for calm, cheerful workspace days.",
+  "spritesheetPath": "spritesheet.webp"
+}

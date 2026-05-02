@@ -1,0 +1,6 @@
+{
+  "id": "elon",
+  "displayName": "Elon",
+  "description": "A tiny Codex-style digital pet inspired by Elon Musk.",
+  "spritesheetPath": "spritesheet.webp"
+}
