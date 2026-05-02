@@ -231,6 +231,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         defer { TaskerPerformanceTrace.end(launchInterval) }
 
         // Override point for customization after application launch.
+        WatchWidgetSnapshotSync.shared.activate()
 
 //        HomeViewController.setDateForViewValue(dateToSetForView: Date.today())
         let launchArguments = ProcessInfo.processInfo.arguments
