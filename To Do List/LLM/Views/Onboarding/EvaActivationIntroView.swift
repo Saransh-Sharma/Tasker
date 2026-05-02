@@ -7,6 +7,8 @@ struct EvaActivationIntroView: View {
     let onContinue: () -> Void
     let onDismiss: () -> Void
 
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
+
     private let trustChips = ["On-device", "Private", "Ready in a minute"]
 
     private var spacing: TaskerSpacingTokens {
@@ -28,7 +30,7 @@ struct EvaActivationIntroView: View {
             contentTopPaddingOverride: 0,
             footer: {
                 EvaFooterButtons(
-                    primaryTitle: "Activate Eva",
+                    primaryTitle: "Activate \(assistantIdentity.snapshot.displayName)",
                     secondaryTitle: "Not now",
                     isPrimaryDisabled: false,
                     onPrimary: onContinue,
@@ -61,9 +63,9 @@ struct EvaActivationIntroView: View {
     private func copyPanel(alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: spacing.s16) {
             EvaContentHeader(
-                title: "Meet Eva",
+                title: "Meet \(assistantIdentity.snapshot.displayName)",
                 bodyText: "Your private executive assistant for planning, prioritizing, and keeping momentum. Runs entirely on this device.",
-                eyebrow: "EVA"
+                eyebrow: assistantIdentity.snapshot.uppercaseName
             )
             .enhancedStaggeredAppearance(index: 1)
 

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct EvaModelChoiceView: View {
     @Environment(\.taskerLayoutClass) private var layoutClass
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     let selectedModelName: String?
     let onBack: () -> Void
@@ -41,7 +42,7 @@ struct EvaModelChoiceView: View {
         ) {
             VStack(alignment: .leading, spacing: spacing.sectionGap) {
                 EvaContentHeader(
-                    title: "Choose how Eva works",
+                    title: "Choose how \(assistantIdentity.snapshot.displayName) works",
                     bodyText: "Pick a default mode for your private assistant. You can change this later in Models."
                 )
                 .enhancedStaggeredAppearance(index: 0)

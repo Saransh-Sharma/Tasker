@@ -10,6 +10,7 @@ struct EvaAboutYouView: View {
 
     @State private var isWorkingStyleNoteExpanded = false
     @State private var isMomentumNoteExpanded = false
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -42,8 +43,8 @@ struct EvaAboutYouView: View {
     private var mainContent: some View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
             EvaContentHeader(
-                title: "How should Eva help you?",
-                bodyText: "A quick setup so Eva can support your working style and protect your momentum from the start."
+                title: "How should \(assistantIdentity.snapshot.displayName) help you?",
+                bodyText: "A quick setup so \(assistantIdentity.snapshot.displayName) can support your working style and protect your momentum from the start."
             )
             .enhancedStaggeredAppearance(index: 0)
 
@@ -65,7 +66,7 @@ struct EvaAboutYouView: View {
                 }
 
                 EvaCollapsedNoteField(
-                    title: "Anything else about how Eva should help?",
+                    title: "Anything else about how \(assistantIdentity.snapshot.displayName) should help?",
                     collapsedTitle: "Add a note",
                     placeholder: "Example: Push me toward the highest-leverage task first",
                     accessibilityIdentifier: "eva.activation.about_you.working_style_note",
@@ -96,7 +97,7 @@ struct EvaAboutYouView: View {
                 }
 
                 EvaCollapsedNoteField(
-                    title: "Anything Eva should watch for?",
+                    title: "Anything \(assistantIdentity.snapshot.displayName) should watch for?",
                     collapsedTitle: "Add a note",
                     placeholder: "Example: I avoid the hardest task until late in the day",
                     accessibilityIdentifier: "eva.activation.about_you.momentum_note",

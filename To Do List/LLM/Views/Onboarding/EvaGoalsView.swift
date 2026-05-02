@@ -10,6 +10,7 @@ struct EvaGoalsView: View {
     let onContinue: () -> Void
 
     @State private var draftGoalText = ""
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -53,7 +54,7 @@ struct EvaGoalsView: View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
             EvaContentHeader(
                 title: "What matters most this week?",
-                bodyText: "Add 1 to 3 outcomes, not tasks. Eva will keep these in view when helping you decide what to do next."
+                bodyText: "Add 1 to 3 outcomes, not tasks. \(assistantIdentity.snapshot.displayName) will keep these in view when helping you decide what to do next."
             )
             .enhancedStaggeredAppearance(index: 0)
 

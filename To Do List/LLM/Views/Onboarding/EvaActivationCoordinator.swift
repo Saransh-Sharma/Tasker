@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import Metal
 import MLXLMCommon
 import SwiftUI
@@ -49,14 +50,18 @@ struct EvaActivationNavigationChrome: Equatable {
 final class EvaActivationCoordinator: ObservableObject {
     @Published private(set) var state: EvaActivationState
     @Published var profileDraft: EvaProfileDraft
+    @Published var identitySnapshot: AssistantIdentitySnapshot
 
     private let appManager: AppManager
     private let defaults: UserDefaults
+    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
     private let deviceSupportsLocalEvaProvider: () -> Bool
+    private var identityCancellable: AnyCancellable?
 
     init(
         appManager: AppManager,
         defaults: UserDefaults = .standard,
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
         deviceSupportsLocalEvaProvider: @escaping () -> Bool = {
             if ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_EVA_ACTIVATION_COMPLETED") {
                 return true
@@ -71,10 +76,26 @@ final class EvaActivationCoordinator: ObservableObject {
     ) {
         self.appManager = appManager
         self.defaults = defaults
+        self.workspacePreferencesStore = workspacePreferencesStore
         self.deviceSupportsLocalEvaProvider = deviceSupportsLocalEvaProvider
         let loadedState = EvaActivationDefaultsStore.load(defaults: defaults)
         self.state = loadedState
         self.profileDraft = loadedState.profileDraft
+        self.identitySnapshot = AssistantIdentitySnapshot(
+            mascotID: workspacePreferencesStore.load().chiefOfStaffMascotID
+        )
+        self.identityCancellable = NotificationCenter.default.publisher(for: TaskerWorkspacePreferencesStore.didChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self else { return }
+                if let preferences = notification.object as? TaskerWorkspacePreferences {
+                    self.identitySnapshot = AssistantIdentitySnapshot(mascotID: preferences.chiefOfStaffMascotID)
+                } else {
+                    self.identitySnapshot = AssistantIdentitySnapshot(
+                        mascotID: self.workspacePreferencesStore.load().chiefOfStaffMascotID
+                    )
+                }
+            }
         bootstrap()
     }
 
@@ -101,7 +122,7 @@ final class EvaActivationCoordinator: ObservableObject {
         switch state.stage {
         case .intro:
             EvaActivationNavigationChrome(
-                screenTitle: "Meet Eva",
+                screenTitle: "Meet \(identitySnapshot.displayName)",
                 stepIndex: 1,
                 stepCount: 6,
                 showsProgress: true,
@@ -128,7 +149,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .modelChoice:
             EvaActivationNavigationChrome(
-                screenTitle: "Choose Eva's Mode",
+                screenTitle: "Choose \(identitySnapshot.displayName)'s Mode",
                 stepIndex: 4,
                 stepCount: 6,
                 showsProgress: true,
@@ -137,7 +158,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .modelDownload:
             EvaActivationNavigationChrome(
-                screenTitle: "Getting Eva Ready",
+                screenTitle: "Getting \(identitySnapshot.displayName) Ready",
                 stepIndex: 5,
                 stepCount: 6,
                 showsProgress: true,
@@ -164,7 +185,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .completed:
             EvaActivationNavigationChrome(
-                screenTitle: "Eva",
+                screenTitle: identitySnapshot.displayName,
                 stepIndex: 0,
                 stepCount: 6,
                 showsProgress: false,
@@ -173,7 +194,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .unsupportedDevice:
             EvaActivationNavigationChrome(
-                screenTitle: "Eva",
+                screenTitle: identitySnapshot.displayName,
                 stepIndex: 0,
                 stepCount: 6,
                 showsProgress: false,
