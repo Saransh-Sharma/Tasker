@@ -3100,6 +3100,8 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         XCTAssertEqual(snapshot.calendar.status, .permissionRequired)
         XCTAssertTrue(snapshot.calendar.timedEvents.isEmpty)
         XCTAssertTrue(snapshot.timeline.day.timedItems.isEmpty)
+        XCTAssertNil(snapshot.habit.primaryHabit)
+        XCTAssertEqual(snapshot.habit.dueCount, 0)
     }
 
     func testSnapshotV2PayloadDecodesWithCalendarDefaults() throws {
@@ -3133,7 +3135,7 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         XCTAssertTrue(snapshot.timeline.weekDays.isEmpty)
     }
 
-    func testSnapshotV4RoundTripPreservesCalendarAndTimelineFields() throws {
+    func testSnapshotV5RoundTripPreservesCalendarTimelineAndHabitFields() throws {
         let now = Date()
         let task = TaskListWidgetTask(
             id: UUID(),
@@ -3228,6 +3230,30 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
                     )
                 ],
                 calendarPlottingEnabled: true
+            ),
+            habit: TaskListWidgetHabitSnapshot(
+                date: now,
+                updatedAt: now,
+                primaryHabit: TaskListWidgetHabitPrimary(
+                    habitID: UUID(uuidString: "99999999-9999-9999-9999-999999999999")!,
+                    title: "Read",
+                    iconSymbolName: "book.closed",
+                    accentHex: "#F59E0B",
+                    currentStreak: 8,
+                    bestStreak: 21,
+                    todayState: .due,
+                    dueAt: now.addingTimeInterval(3_600),
+                    week: [
+                        TaskListWidgetHabitDay(
+                            date: now,
+                            dayKey: "2026-04-27",
+                            state: .success
+                        )
+                    ]
+                ),
+                dueCount: 2,
+                completedTodayCount: 1,
+                atRiskCount: 1
             )
         )
 
@@ -3246,9 +3272,15 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         XCTAssertEqual(decoded.timeline.day.gaps.count, 1)
         XCTAssertEqual(decoded.timeline.weekDays.first?.timedCount, 1)
         XCTAssertTrue(decoded.timeline.calendarPlottingEnabled)
+        XCTAssertEqual(decoded.habit.primaryHabit?.title, "Read")
+        XCTAssertEqual(decoded.habit.primaryHabit?.currentStreak, 8)
+        XCTAssertEqual(decoded.habit.primaryHabit?.week.first?.state, .success)
+        XCTAssertEqual(decoded.habit.dueCount, 2)
+        XCTAssertEqual(decoded.habit.completedTodayCount, 1)
+        XCTAssertEqual(decoded.habit.atRiskCount, 1)
     }
 
-    func testReloadComparisonIgnoresCalendarAndTimelineTimestamps() {
+    func testReloadComparisonIgnoresCalendarTimelineAndHabitTimestamps() {
         let now = Self.date(hour: 10)
         var lhs = TaskListWidgetSnapshot(
             updatedAt: now,
@@ -3275,6 +3307,7 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         rhs.calendar.updatedAt = now.addingTimeInterval(600)
         rhs.timeline.updatedAt = now.addingTimeInterval(600)
         rhs.timeline.day.currentTime = now.addingTimeInterval(600)
+        rhs.habit.updatedAt = now.addingTimeInterval(600)
 
         XCTAssertEqual(
             TaskListWidgetSnapshotService.normalizedForReloadComparison(lhs),

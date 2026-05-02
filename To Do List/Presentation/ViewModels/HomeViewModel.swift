@@ -9825,6 +9825,11 @@ final class TaskListWidgetSnapshotService {
             now: now,
             calendar: calendar
         )
+        let habitSnapshot = taskListWidgetHabitSnapshot(
+            from: currentAllHabitRows(),
+            now: now,
+            calendar: calendar
+        )
 
         return TaskListWidgetSnapshot(
             schemaVersion: TaskListWidgetSnapshot.currentSchemaVersion,
@@ -9848,8 +9853,142 @@ final class TaskListWidgetSnapshotService {
                 hasCorruptionFallback: false
             ),
             calendar: calendarSnapshot,
-            timeline: timelineSnapshot
+            timeline: timelineSnapshot,
+            habit: habitSnapshot
         )
+    }
+
+    private func taskListWidgetHabitSnapshot(
+        from rows: [HomeHabitRow],
+        now: Date,
+        calendar: Calendar
+    ) -> TaskListWidgetHabitSnapshot {
+        let day = calendar.startOfDay(for: now)
+        let activeRows = rows.filter { row in
+            switch row.state {
+            case .due, .overdue, .completedToday, .lapsedToday, .skippedToday, .tracking:
+                return true
+            }
+        }
+        let dueCount = activeRows.filter { $0.state == .due || $0.state == .overdue }.count
+        let completedCount = activeRows.filter { $0.state == .completedToday }.count
+        let atRiskCount = activeRows.filter { $0.riskState == .atRisk || $0.riskState == .broken }.count
+        let primary = activeRows
+            .sorted { lhs, rhs in
+                let lhsRank = taskListWidgetHabitPriority(lhs)
+                let rhsRank = taskListWidgetHabitPriority(rhs)
+                if lhsRank != rhsRank { return lhsRank < rhsRank }
+                if lhs.currentStreak != rhs.currentStreak { return lhs.currentStreak > rhs.currentStreak }
+                let lhsDue = lhs.dueAt ?? Date.distantFuture
+                let rhsDue = rhs.dueAt ?? Date.distantFuture
+                if lhsDue != rhsDue { return lhsDue < rhsDue }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+            .first
+            .map { row in
+                TaskListWidgetHabitPrimary(
+                    habitID: row.habitID,
+                    title: row.title,
+                    iconSymbolName: row.iconSymbolName,
+                    accentHex: row.accentHex,
+                    currentStreak: row.currentStreak,
+                    bestStreak: row.bestStreak,
+                    todayState: taskListWidgetHabitTodayState(row.state),
+                    dueAt: row.dueAt,
+                    week: taskListWidgetHabitWeek(from: row.last14Days, endingOn: day, calendar: calendar)
+                )
+            }
+
+        return TaskListWidgetHabitSnapshot(
+            date: day,
+            updatedAt: now,
+            primaryHabit: primary,
+            dueCount: dueCount,
+            completedTodayCount: completedCount,
+            atRiskCount: atRiskCount
+        )
+    }
+
+    private func taskListWidgetHabitPriority(_ row: HomeHabitRow) -> Int {
+        switch row.state {
+        case .overdue:
+            return 0
+        case .due:
+            return row.riskState == .atRisk || row.riskState == .broken ? 1 : 2
+        case .lapsedToday:
+            return 3
+        case .tracking:
+            return row.currentStreak > 0 ? 4 : 6
+        case .completedToday:
+            return 5
+        case .skippedToday:
+            return 7
+        }
+    }
+
+    private func taskListWidgetHabitTodayState(_ state: HomeHabitRowState) -> TaskListWidgetHabitTodayState {
+        switch state {
+        case .due:
+            return .due
+        case .overdue:
+            return .overdue
+        case .completedToday:
+            return .completedToday
+        case .lapsedToday:
+            return .lapsedToday
+        case .skippedToday:
+            return .skippedToday
+        case .tracking:
+            return .tracking
+        }
+    }
+
+    private func taskListWidgetHabitWeek(
+        from marks: [HabitDayMark],
+        endingOn date: Date,
+        calendar: Calendar
+    ) -> [TaskListWidgetHabitDay] {
+        let days = (0..<7).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset - 6, to: date)
+        }
+        return days.map { day in
+            let mark = marks.first { calendar.isDate($0.date, inSameDayAs: day) }
+            return TaskListWidgetHabitDay(
+                date: day,
+                dayKey: taskListWidgetHabitDayKey(day, calendar: calendar),
+                state: taskListWidgetHabitDayState(mark?.state, day: day, now: date, calendar: calendar)
+            )
+        }
+    }
+
+    private func taskListWidgetHabitDayState(
+        _ state: HabitDayState?,
+        day: Date,
+        now: Date,
+        calendar: Calendar
+    ) -> TaskListWidgetHabitDayState {
+        if day > now, calendar.isDate(day, inSameDayAs: now) == false {
+            return .future
+        }
+        switch state {
+        case .success:
+            return .success
+        case .failure:
+            return .failure
+        case .skipped:
+            return .skipped
+        case .none:
+            return .none
+        case .future:
+            return .future
+        case nil:
+            return .none
+        }
+    }
+
+    private func taskListWidgetHabitDayKey(_ date: Date, calendar: Calendar) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
     }
 
     private func widgetTask(from task: TaskDefinition) -> TaskListWidgetTask {
@@ -9896,6 +10035,7 @@ final class TaskListWidgetSnapshotService {
             return
         }
         snapshot.save()
+        WatchWidgetSnapshotSync.shared.sendTaskListSnapshot(snapshot)
         reloadTaskListTimelines()
         logDebug("TASK_WIDGET_SNAPSHOT refreshed reason=\(reason)")
     }
@@ -9908,6 +10048,7 @@ final class TaskListWidgetSnapshotService {
         value.calendar.updatedAt = Date(timeIntervalSince1970: 0)
         value.timeline.updatedAt = Date(timeIntervalSince1970: 0)
         value.timeline.day.currentTime = Date(timeIntervalSince1970: 0)
+        value.habit.updatedAt = Date(timeIntervalSince1970: 0)
         return value
     }
 
@@ -9926,6 +10067,7 @@ final class TaskListWidgetSnapshotService {
             "ExecutionDashboardWidget", "DeepWorkAgendaWidget", "AssistantPlanPreviewWidget",
             "LifeAreasBoardWidget",
             "HomeCalendarWidget", "HomeTimelineWidget",
+            "WatchTimelineComplication", "WatchMeetingScheduleComplication", "WatchHabitStreakComplication",
             "InlineNextTaskWidget", "InlineDueSoonWidget",
             "CircularTodayProgressWidget", "CircularQuickAddWidget",
             "RectangularTop2TasksWidget", "RectangularOverdueAlertWidget",
