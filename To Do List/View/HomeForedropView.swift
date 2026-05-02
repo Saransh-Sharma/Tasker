@@ -6559,7 +6559,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .settings: return "Settings"
         case .lifeManagement: return "Life Management"
         case .projects: return "Projects"
-        case .chat: return "Eva"
+        case .chat: return AssistantIdentityText.currentSnapshot().displayName
         case .models: return "Models"
         }
     }

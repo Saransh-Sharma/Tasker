@@ -113,8 +113,8 @@ enum OnboardingCopy {
     }
 
     enum EvaStyle {
-        static let title = String(localized: "Set EVA preferences")
-        static let subtitle = String(localized: "Choose how EVA should support your week.")
+        static let title = String(localized: "Set assistant preferences")
+        static let subtitle = String(localized: "Choose who supports your week and how they should work.")
         static let blockerTitle = String(localized: "Work blockers")
         static let cta = String(localized: "Save preferences")
     }
@@ -160,7 +160,7 @@ enum OnboardingCopy {
         static let title = String(localized: "Setup is ready")
         static let subtitle = String(localized: "You finished one task. Your starter system is in place.")
         static let goHomeCTA = String(localized: "Go to Home")
-        static let nextCTA = String(localized: "Ask EVA")
+        static let nextCTA = String(localized: "Ask assistant")
     }
 
     enum Error {
@@ -168,7 +168,7 @@ enum OnboardingCopy {
         static let choosePain = String(localized: "Choose at least one blocker.")
         static let chooseAreas = String(localized: "Pick 1 to 3 areas to continue.")
         static let chooseHabit = String(localized: "Pick one habit to continue.")
-        static let chooseEvaPreference = String(localized: "Choose at least one EVA preference.")
+        static let chooseEvaPreference = String(localized: "Choose at least one assistant preference.")
         static let firstTaskMissing = String(localized: "Tasker could not prepare your first task.")
         static let starterTaskFailed = String(localized: "Tasker could not create a starter task. Try again.")
         static let customTaskFailed = String(localized: "Tasker could not open the task composer. Try again.")
@@ -182,7 +182,7 @@ enum OnboardingCopy {
         "chief of staff",
         "Relief first",
         "Get your days back under control",
-        "EVA gets ready in the background"
+        "Assistant gets ready in the background"
     ]
 
     static let reviewedStrings: [String] = [
@@ -338,7 +338,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .pain:
             return "Friction"
         case .evaValue:
-            return "EVA"
+            return "Assistant"
         case .blocker:
             return "Setup"
         case .lifeAreas:
@@ -431,7 +431,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .streakPreview:
             return "Preview streak"
         case .evaStyle:
-            return "Set EVA preferences"
+            return "Set assistant preferences"
         case .processing:
             return "Preparing setup"
         case .firstTask:
@@ -468,7 +468,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .streakPreview:
             return "Review your starter streak."
         case .evaStyle:
-            return "Choose how EVA should help."
+            return "Choose how your assistant should help."
         case .processing:
             return "Wait while Tasker prepares your setup."
         case .firstTask:
@@ -3468,6 +3468,7 @@ final class OnboardingFlowModel: ObservableObject {
     private let resolveHabitOccurrence: (UUID, HabitOccurrenceAction, Date) async throws -> Void
     private let evaAppManager: AppManager
     private let evaDefaults: UserDefaults
+    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
     private let isEvaBackgroundPreparationEnabled: Bool
 
     @Published var step: OnboardingStep = .welcome
@@ -3486,6 +3487,7 @@ final class OnboardingFlowModel: ObservableObject {
     @Published var habitPreviewMarks: [HabitDayMark] = []
     @Published var didCompleteStarterHabitCheckIn = false
     @Published var evaProfileDraft = EvaProfileDraft()
+    @Published var selectedMascotID: AssistantMascotID
     @Published var evaPreparationState = OnboardingEvaPreparationState()
     @Published private(set) var resolvedLifeAreas: [ResolvedLifeAreaSelection] = []
     @Published private(set) var resolvedProjects: [ResolvedProjectSelection] = []
@@ -3556,6 +3558,7 @@ final class OnboardingFlowModel: ObservableObject {
         },
         evaAppManager: AppManager = AppManager(),
         evaDefaults: UserDefaults = .standard,
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
         isEvaBackgroundPreparationEnabled: Bool = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
     ) {
         self.stateStore = stateStore
@@ -3573,6 +3576,8 @@ final class OnboardingFlowModel: ObservableObject {
         self.resolveHabitOccurrence = resolveHabitOccurrence
         self.evaAppManager = evaAppManager
         self.evaDefaults = evaDefaults
+        self.workspacePreferencesStore = workspacePreferencesStore
+        self.selectedMascotID = workspacePreferencesStore.load().chiefOfStaffMascotID
         self.isEvaBackgroundPreparationEnabled = isEvaBackgroundPreparationEnabled
         applyDefaults(mode: .guided, frictionProfile: nil)
     }
@@ -3602,6 +3607,10 @@ final class OnboardingFlowModel: ObservableObject {
                 let rhsIndex = orderedAreaIDs.firstIndex(of: rhs.lifeAreaTemplateID) ?? 0
                 return lhsIndex < rhsIndex
             }
+    }
+
+    var selectedMascotPersona: AssistantMascotPersona {
+        AssistantMascotPersona.persona(for: selectedMascotID)
     }
 
     var primaryTaskSuggestions: [StarterTaskTemplate] {
@@ -3830,6 +3839,7 @@ final class OnboardingFlowModel: ObservableObject {
         habitPreviewMarks = snapshot.habitPreviewMarks
         didCompleteStarterHabitCheckIn = snapshot.didCompleteStarterHabitCheckIn
         evaProfileDraft = snapshot.evaProfileDraft
+        selectedMascotID = workspacePreferencesStore.load().chiefOfStaffMascotID
         evaPreparationState = snapshot.evaPreparationState
         resolvedLifeAreas = normalizedResolvedLifeAreas
         resolvedProjects = normalizedResolvedProjects
@@ -3870,6 +3880,7 @@ final class OnboardingFlowModel: ObservableObject {
         habitPreviewMarks = []
         didCompleteStarterHabitCheckIn = false
         evaProfileDraft = EvaProfileDraft()
+        selectedMascotID = workspacePreferencesStore.load().chiefOfStaffMascotID
         evaPreparationState = OnboardingEvaPreparationState()
         resolvedLifeAreas = []
         resolvedProjects = []
@@ -4470,6 +4481,15 @@ final class OnboardingFlowModel: ObservableObject {
         persistJourney()
     }
 
+    func selectChiefOfStaffMascot(_ id: AssistantMascotID) {
+        guard selectedMascotID != id else { return }
+        selectedMascotID = id
+        workspacePreferencesStore.update { preferences in
+            preferences.chiefOfStaffMascotID = id
+        }
+        persistJourney()
+    }
+
     func toggleEvaMomentumBlocker(_ id: String) {
         if let index = evaProfileDraft.selectedMomentumBlockerIDs.firstIndex(of: id) {
             evaProfileDraft.selectedMomentumBlockerIDs.remove(at: index)
@@ -4980,7 +5000,7 @@ final class OnboardingFlowModel: ObservableObject {
 
     func deferEvaDownload() {
         evaPreparationState.phase = .deferred
-        evaPreparationState.statusMessage = "You can keep going. EVA will wait for Wi-Fi."
+        evaPreparationState.statusMessage = "You can keep going. Your assistant will wait for Wi-Fi."
         persistJourney()
     }
 
@@ -4992,7 +5012,7 @@ final class OnboardingFlowModel: ObservableObject {
 
         evaPreparationState.phase = .downloading
         evaPreparationState.progress = 0
-        evaPreparationState.statusMessage = "Getting EVA ready in the background."
+        evaPreparationState.statusMessage = "Getting your assistant ready in the background."
         evaProgressObservationTask?.cancel()
         evaProgressObservationTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -5023,10 +5043,10 @@ final class OnboardingFlowModel: ObservableObject {
             evaPreparationState.phase = .ready
             evaPreparationState.selectedModelName = resolvedModelName
             evaPreparationState.progress = 1
-            evaPreparationState.statusMessage = "EVA is ready."
+            evaPreparationState.statusMessage = "\(selectedMascotPersona.displayName) is ready."
         } else {
             evaPreparationState.phase = .failed
-            evaPreparationState.statusMessage = "EVA setup can finish later from Home."
+            evaPreparationState.statusMessage = "\(selectedMascotPersona.displayName) setup can finish later from Home."
         }
         persistJourney()
     }
@@ -5050,7 +5070,7 @@ final class OnboardingFlowModel: ObservableObject {
         evaPreparationState.progress = 0
         evaPreparationState.selectedModelName = modelName
         let reason = modelName.flatMap { LLMRuntimeSupportMatrix.compatibility(for: $0)?.statusReason }
-        evaPreparationState.statusMessage = reason ?? "EVA setup can finish on a compatible device."
+        evaPreparationState.statusMessage = reason ?? "\(selectedMascotPersona.displayName) setup can finish on a compatible device."
         persistJourney()
     }
 
@@ -5524,12 +5544,12 @@ struct AppOnboardingJourneyView: View {
             bullets.append("Your starter habit gets a visible streak board today.")
         }
         if selectedPainPoints.contains(.hijackedDay) {
-            bullets.append("EVA helps choose a new task when the day changes.")
+            bullets.append("\(viewModel.selectedMascotPersona.displayName) helps choose a new task when the day changes.")
         }
         if bullets.isEmpty {
             bullets = [
                 "Tasker organizes areas, tasks, habits, and calendar context.",
-                "EVA prepares suggestions after your starter setup is ready."
+                "\(viewModel.selectedMascotPersona.displayName) prepares suggestions after your starter setup is ready."
             ]
         }
         return bullets
@@ -5947,8 +5967,8 @@ struct AppOnboardingJourneyView: View {
                 .frame(height: layoutClass.isPad ? 320 : 240)
 
             OnboardingSelectionSummaryCard(
-                title: "Eva acts like your Chief of Staff",
-                message: "She reviews what is on your calendar, what is due, and what needs a decision so your next step is clear.",
+                title: "\(viewModel.selectedMascotPersona.displayName) acts like your Chief of Staff",
+                message: "Your assistant reviews what is on your calendar, what is due, and what needs a decision so your next step is clear.",
                 mascotPlacement: .onboardingEvaValue
             )
 
@@ -6074,6 +6094,22 @@ struct AppOnboardingJourneyView: View {
             )
             .accessibilityIdentifier(AppOnboardingAccessibilityID.evaStyle)
 
+            MascotPersonaSelector(
+                selectedID: viewModel.selectedMascotID,
+                subtitle: "This sets the companion name and mascot shown across Tasker.",
+                cardAccessibilityPrefix: "onboarding.mascot.persona",
+                onSelect: { id in
+                    feedbackController.selection()
+                    viewModel.selectChiefOfStaffMascot(id)
+                }
+            )
+            .padding(spacing.s16)
+            .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+            )
+
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Working style")
                     .taskerFont(.bodyEmphasis)
@@ -6142,7 +6178,7 @@ struct AppOnboardingJourneyView: View {
                 Label("Life areas and projects mapped", systemImage: "checkmark.circle.fill")
                 Label("Starter habit prepared", systemImage: "repeat.circle.fill")
                 Label("First task ready to start", systemImage: "bolt.circle.fill")
-                Label("EVA keeps preparing while you continue", systemImage: "brain.head.profile")
+                Label("\(viewModel.selectedMascotPersona.displayName) keeps preparing while you continue", systemImage: "brain.head.profile")
             }
             .taskerFont(.body)
             .foregroundStyle(OnboardingTheme.textPrimary)
@@ -6157,11 +6193,11 @@ struct AppOnboardingJourneyView: View {
             if viewModel.evaPreparationState.phase == .waitingForCellularConsent {
                 OnboardingSelectionSummaryCard(
                     title: "Mobile data check",
-                    message: "EVA needs your approval before using cellular data. You can defer and keep moving.",
+                    message: "\(viewModel.selectedMascotPersona.displayName) needs your approval before using cellular data. You can defer and keep moving.",
                     mascotPlacement: .onboardingNotificationPermission
                 )
             } else {
-                OnboardingEvaStatusCard(state: viewModel.evaPreparationState)
+                OnboardingEvaStatusCard(state: viewModel.evaPreparationState, assistantName: viewModel.selectedMascotPersona.displayName)
             }
         }
         .task(id: viewModel.step) {
@@ -6367,10 +6403,10 @@ struct AppOnboardingJourneyView: View {
                 OnboardingHabitStreakPreviewCard(presentation: presentation)
             }
 
-            OnboardingEvaStatusCard(state: summary.evaState)
+            OnboardingEvaStatusCard(state: summary.evaState, assistantName: viewModel.selectedMascotPersona.displayName)
 
             if summary.evaState.isReady {
-                Button(OnboardingCopy.Success.nextCTA) {
+                Button(AssistantIdentityText.askAction(for: viewModel.selectedMascotID)) {
                     viewModel.finishOnboarding()
                     onDismissFlow()
                 }
@@ -6475,7 +6511,7 @@ struct AppOnboardingJourneyView: View {
                     .accessibilityIdentifier(AppOnboardingAccessibilityID.goHome)
 
                     if viewModel.evaPreparationState.isReady {
-                        Button(OnboardingCopy.Success.nextCTA) {
+                        Button(AssistantIdentityText.askAction(for: viewModel.selectedMascotID)) {
                             feedbackController.light()
                             viewModel.finishOnboarding()
                             onDismissFlow()
@@ -6571,7 +6607,7 @@ struct AppOnboardingJourneyView: View {
                                 feedbackController.medium()
                                 Task { await viewModel.approveEvaCellularDownload() }
                             } label: {
-                                Text("Use mobile data for EVA")
+                                Text("Use mobile data for \(viewModel.selectedMascotPersona.displayName)")
                                     .frame(maxWidth: .infinity)
                             }
                             .onboardingPrimaryButton()
@@ -7698,6 +7734,7 @@ private struct OnboardingCompactHabitRail: View {
 
 private struct OnboardingEvaStatusCard: View {
     let state: OnboardingEvaPreparationState
+    let assistantName: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -7733,12 +7770,12 @@ private struct OnboardingEvaStatusCard: View {
 
     private var title: String {
         switch state.phase {
-        case .idle: return "EVA not started"
-        case .waitingForCellularConsent: return "EVA waiting for approval"
-        case .downloading: return "EVA is getting ready"
-        case .ready: return "EVA is ready"
-        case .deferred: return "EVA waiting for Wi-Fi"
-        case .failed: return "EVA can finish later"
+        case .idle: return "\(assistantName) not started"
+        case .waitingForCellularConsent: return "\(assistantName) waiting for approval"
+        case .downloading: return "\(assistantName) is getting ready"
+        case .ready: return "\(assistantName) is ready"
+        case .deferred: return "\(assistantName) waiting for Wi-Fi"
+        case .failed: return "\(assistantName) can finish later"
         }
     }
 
@@ -7760,17 +7797,17 @@ private struct OnboardingEvaStatusCard: View {
     private var fallbackMessage: String {
         switch state.phase {
         case .idle:
-            return "EVA will start preparing when you reach the build step."
+            return "\(assistantName) will start preparing when you reach the build step."
         case .waitingForCellularConsent:
             return "Approve mobile data or wait for Wi-Fi."
         case .downloading:
-            return "You can keep onboarding while EVA downloads."
+            return "You can keep onboarding while \(assistantName) downloads."
         case .ready:
-            return "You can ask EVA what matters next as soon as you land on Home."
+            return "You can ask \(assistantName) what matters next as soon as you land on Home."
         case .deferred:
-            return "Tasker will keep your setup moving and resume EVA later."
+            return "Tasker will keep your setup moving and resume \(assistantName) later."
         case .failed:
-            return "The app is ready now. EVA can finish later from Home or Settings."
+            return "The app is ready now. \(assistantName) can finish later from Home or Settings."
         }
     }
 }

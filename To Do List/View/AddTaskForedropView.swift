@@ -50,7 +50,7 @@ struct AddTaskForedropView: View {
                     HStack(alignment: .center, spacing: spacing.s12) {
                         EvaMascotView(placement: .taskCapture, size: .inline)
                         VStack(alignment: .leading, spacing: spacing.s4) {
-                            Text("Capture it with Eva")
+                            Text("Capture it with \(AssistantIdentityText.currentSnapshot().displayName)")
                                 .font(.tasker(.headline))
                                 .foregroundStyle(Color.tasker.textPrimary)
                             Text("Start with the task; details can come after.")

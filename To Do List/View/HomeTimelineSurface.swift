@@ -1513,17 +1513,17 @@ struct TimelineCanvasLayoutPlan: Equatable {
             subtitle = "Add tasks here or turn calendar plotting back on."
         } else if isLightPrompt {
             title = "Plenty of open time"
-            subtitle = "Add a task or let EVA help shape the rest of the day."
+            subtitle = "Add a task or let \(AssistantIdentityText.currentSnapshot().displayName) help shape the rest of the day."
         } else {
             title = "No meetings today"
-            subtitle = "Add a task or let EVA help you shape the day."
+            subtitle = "Add a task or let \(AssistantIdentityText.currentSnapshot().displayName) help you shape the day."
         }
         return .emptyState(.init(
             id: id,
             title: title,
             subtitle: subtitle,
             primaryTitle: "Add task",
-            secondaryTitle: calendarHidden ? "Show calendar" : "Plan with EVA",
+            secondaryTitle: calendarHidden ? "Show calendar" : "Plan with \(AssistantIdentityText.currentSnapshot().displayName)",
             showsCalendarAction: calendarHidden,
             suggestedDate: projection.wakeAnchor.time.addingTimeInterval(60 * 60),
             temporalStart: temporalStart,

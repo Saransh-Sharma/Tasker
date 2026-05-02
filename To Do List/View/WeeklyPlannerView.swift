@@ -1301,12 +1301,12 @@ private struct WeeklyPlannerProposalSheet: View {
                 messageTone: .warning
             ) {
                 WeeklySectionCard(
-                    title: "Eva suggestion",
-                    detail: "Review what Eva wants to change before applying it."
+                    title: "\(AssistantIdentityText.currentSnapshot().displayName) suggestion",
+                    detail: "Review what \(AssistantIdentityText.currentSnapshot().displayName) wants to change before applying it."
                 ) {
                     HStack(spacing: 12) {
                         EvaMascotView(placement: .weeklySuggestion, size: .inline)
-                        Text("Eva has a planning recommendation ready for review.")
+                        Text("\(AssistantIdentityText.currentSnapshot().displayName) has a planning recommendation ready for review.")
                             .font(.tasker(.support))
                             .foregroundStyle(Color.tasker.textSecondary)
                     }
