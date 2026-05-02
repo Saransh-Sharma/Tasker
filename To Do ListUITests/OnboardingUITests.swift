@@ -74,6 +74,25 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(app.descendants(matching: .any)["onboarding.lifeArea.money"].exists)
     }
 
+    func testEvaStyleStepCanSelectChiefOfStaffPersona() {
+        advanceToEvaStyle()
+
+        let personaButton = app.buttons[AccessibilityIdentifiers.Onboarding.mascotPersona("sato")]
+        XCTAssertTrue(personaButton.waitForExistence(timeout: 12), "Sato persona should be available on the assistant preferences step")
+        personaButton.tap()
+
+        XCTAssertTrue(app.staticTexts["Sato"].waitForExistence(timeout: 3), "Selected persona name should remain visible")
+
+        let assistantGoalField = app.textFields.firstMatch
+        XCTAssertTrue(assistantGoalField.waitForExistence(timeout: 12))
+        assistantGoalField.tap()
+        assistantGoalField.typeText("Finish one concrete task")
+        app.buttons["Save preferences"].tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.firstTask].waitForExistence(timeout: 18))
+        XCTAssertTrue(app.buttons["Ask Sato"].waitForExistence(timeout: 6), "Later onboarding assistant copy should use the selected persona")
+    }
+
     func testOnboardingRestoresGoalStepAfterRelaunch() {
         startGuidedOnboarding()
 
@@ -108,16 +127,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
     }
 
     private func advanceToFocusRoom() {
-        advanceToLifeAreas()
-        app.buttons[AccessibilityIdentifiers.Onboarding.useAreas].tap()
-
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habitSetup].waitForExistence(timeout: 12))
-        app.buttons["Set habit"].tap()
-
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.streakPreview].waitForExistence(timeout: 12))
-        app.buttons["Continue"].tap()
-
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.evaStyle].waitForExistence(timeout: 12))
+        advanceToEvaStyle()
         let evaGoalField = app.textFields.firstMatch
         XCTAssertTrue(evaGoalField.waitForExistence(timeout: 12))
         evaGoalField.tap()
@@ -128,6 +138,19 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         app.buttons[AccessibilityIdentifiers.Onboarding.goFinishTask].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.focusRoom].waitForExistence(timeout: 12))
+    }
+
+    private func advanceToEvaStyle() {
+        advanceToLifeAreas()
+        app.buttons[AccessibilityIdentifiers.Onboarding.useAreas].tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habitSetup].waitForExistence(timeout: 12))
+        app.buttons["Set habit"].tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.streakPreview].waitForExistence(timeout: 12))
+        app.buttons["Continue"].tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.evaStyle].waitForExistence(timeout: 12))
     }
 
     private func relaunchAppWithoutReset() -> XCUIApplication {

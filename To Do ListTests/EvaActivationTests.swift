@@ -7,13 +7,26 @@ import UIKit
 
 @MainActor
 final class EvaActivationTests: XCTestCase {
+    private let defaultAssistantIdentity = AssistantIdentitySnapshot(mascotID: .eva)
+
+    func testAssistantIdentityTextFormatsDefaultAndSelectedPersona() {
+        let eva = AssistantIdentitySnapshot(mascotID: .eva)
+        let sato = AssistantIdentitySnapshot(mascotID: .sato)
+
+        XCTAssertEqual(AssistantIdentityText.displayName(for: eva), "Eva")
+        XCTAssertEqual(AssistantIdentityText.uppercaseName(for: eva), "EVA")
+        XCTAssertEqual(AssistantIdentityText.askAction(for: sato), "Ask Sato")
+        XCTAssertEqual(AssistantIdentityText.openAction(for: sato), "Open Sato")
+        XCTAssertEqual(AssistantIdentityText.readyStatus(for: sato), "Sato is ready")
+    }
+
     func testActivationStarterPromptsLeadWithDayOverview() {
         XCTAssertEqual(EvaStarterPrompt.activationDefaults.first, EvaStarterPrompt.dayOverviewPrompt)
         XCTAssertEqual(EvaStarterPrompt.dayOverviewPrompt.submissionText, "How is my day looking today?")
     }
 
     func testChiefOfStaffGuideIncludesReschedulePromptSection() throws {
-        let section = try XCTUnwrap(EvaChiefOfStaffGuideContent.sections.first { $0.id == "reschedule_open_tasks" })
+        let section = try XCTUnwrap(EvaChiefOfStaffGuideContent.sections(for: defaultAssistantIdentity).first { $0.id == "reschedule_open_tasks" })
 
         XCTAssertEqual(section.title, "Reschedule open tasks")
         XCTAssertEqual(section.icon, "calendar.badge.clock")
@@ -36,7 +49,7 @@ final class EvaActivationTests: XCTestCase {
     }
 
     func testHomePromptChipsLeadWithCuratedOrderThenRemainingGuidePrompts() {
-        let chips = EvaChiefOfStaffGuideContent.homePromptChips
+        let chips = EvaChiefOfStaffGuideContent.homePromptChips(for: defaultAssistantIdentity)
 
         XCTAssertEqual(chips.prefix(5).map(\.prompt.title), [
             "How is my day?",
@@ -58,10 +71,10 @@ final class EvaActivationTests: XCTestCase {
     }
 
     func testHomePromptChipsAppendGuidePromptsWithoutDuplicateIDsOrSubmissions() {
-        let chips = EvaChiefOfStaffGuideContent.homePromptChips
+        let chips = EvaChiefOfStaffGuideContent.homePromptChips(for: defaultAssistantIdentity)
         let ids = chips.map(\.prompt.id)
         let submissionTexts = chips.map(\.prompt.submissionText)
-        let guidePromptCount = EvaChiefOfStaffGuideContent.sections.flatMap(\.prompts).count
+        let guidePromptCount = EvaChiefOfStaffGuideContent.sections(for: defaultAssistantIdentity).flatMap(\.prompts).count
         let skippedGuideDuplicateSubmissionCount = 4
         let curatedPromptCount = 5
 
@@ -71,7 +84,7 @@ final class EvaActivationTests: XCTestCase {
     }
 
     func testHomePromptChipsUseCuratedAndInheritedGuideIcons() throws {
-        let chips = EvaChiefOfStaffGuideContent.homePromptChips
+        let chips = EvaChiefOfStaffGuideContent.homePromptChips(for: defaultAssistantIdentity)
 
         XCTAssertEqual(chips[0].icon, "sparkles")
         XCTAssertEqual(chips[1].icon, "arrow.triangle.2.circlepath")
@@ -79,10 +92,21 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertEqual(chips[3].icon, "calendar.badge.clock")
         XCTAssertEqual(chips[4].icon, "calendar.badge.clock")
 
-        let guideSection = try XCTUnwrap(EvaChiefOfStaffGuideContent.sections.first { $0.id == "break_work_down" })
+        let guideSection = try XCTUnwrap(EvaChiefOfStaffGuideContent.sections(for: defaultAssistantIdentity).first { $0.id == "break_work_down" })
         let guidePrompt = try XCTUnwrap(guideSection.prompts.first)
         let homeChip = try XCTUnwrap(chips.first { $0.prompt.id == guidePrompt.id })
         XCTAssertEqual(homeChip.icon, guideSection.icon)
+    }
+
+    func testChiefOfStaffGuideUsesSelectedPersonaCopy() throws {
+        let satoIdentity = AssistantIdentitySnapshot(mascotID: .sato)
+        let sections = EvaChiefOfStaffGuideContent.sections(for: satoIdentity)
+        let visibleCopy = sections.flatMap { [$0.title, $0.body] }.joined(separator: "\n")
+
+        XCTAssertTrue(visibleCopy.contains("Sato"))
+        XCTAssertFalse(visibleCopy.contains("Bring Eva"))
+        XCTAssertFalse(visibleCopy.contains("Eva should"))
+        XCTAssertFalse(visibleCopy.contains("when you want Eva"))
     }
 
     func testEvaMascotPlacementResolverMapsCoreProductStates() {
@@ -125,6 +149,18 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertEqual(EvaMascotPlacementResolver.asset(for: .calendarRescheduleThinking), .thinking)
     }
 
+    func testMascotPlacementResolverMapsSpriteAnimations() {
+        XCTAssertEqual(EvaMascotPlacementResolver.animation(for: .settingsIdentity), .idle)
+        XCTAssertEqual(EvaMascotPlacementResolver.animation(for: .onboardingNextStep), .runRight)
+        XCTAssertEqual(EvaMascotPlacementResolver.animation(for: .featureDiscovery), .runLeft)
+        XCTAssertEqual(EvaMascotPlacementResolver.animation(for: .chatHelp), .waving)
+        XCTAssertEqual(EvaMascotPlacementResolver.animation(for: .onboardingSuccess), .jumping)
+        XCTAssertEqual(EvaMascotPlacementResolver.animation(for: .taskDeadlineRisk), .failed)
+        XCTAssertEqual(EvaMascotPlacementResolver.animation(for: .chatThinking), .waiting)
+        XCTAssertEqual(EvaMascotPlacementResolver.animation(for: .focusStart), .running)
+        XCTAssertEqual(EvaMascotPlacementResolver.animation(for: .proposalReview), .review)
+    }
+
     func testEvaMascotSizeTiersStayInExpectedRanges() {
         XCTAssertEqual(EvaMascotSize.avatar.points, 40)
         XCTAssertEqual(EvaMascotSize.chip.points, 32)
@@ -132,6 +168,34 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertEqual(EvaMascotSize.card.points, 104)
         XCTAssertEqual(EvaMascotSize.hero.points, 184)
         XCTAssertEqual(EvaMascotSize.custom(46).points, 46)
+    }
+
+    func testMascotPersonaCatalogContainsEvaAndSpritePersonas() {
+        XCTAssertEqual(AssistantMascotPersona.all.map(\.id), AssistantMascotID.allCases)
+        XCTAssertFalse(AssistantMascotPersona.persona(for: .eva).usesSprites)
+
+        let spritePersonas = AssistantMascotPersona.all.filter(\.usesSprites)
+        XCTAssertEqual(spritePersonas.map(\.id), [.cloudlet, .dude, .elon, .friday, .johnny, .maddie, .paperclip, .punch, .retriever, .sato, .steve, .theo, .yesman])
+        XCTAssertTrue(spritePersonas.allSatisfy { $0.resourceFolderName?.isEmpty == false })
+    }
+
+    func testMascotSpriteSheetContract() {
+        XCTAssertEqual(MascotSpriteFrameProvider.sheetPixelWidth, 1536)
+        XCTAssertEqual(MascotSpriteFrameProvider.sheetPixelHeight, 1872)
+        XCTAssertEqual(MascotSpriteFrameProvider.columns, 8)
+        XCTAssertEqual(MascotSpriteFrameProvider.rows, 9)
+        XCTAssertEqual(MascotSpriteFrameProvider.cellWidth, 192)
+        XCTAssertEqual(MascotSpriteFrameProvider.cellHeight, 208)
+
+        XCTAssertEqual(MascotAnimation.idle.frameCount, 6)
+        XCTAssertEqual(MascotAnimation.runRight.frameCount, 8)
+        XCTAssertEqual(MascotAnimation.runLeft.frameCount, 8)
+        XCTAssertEqual(MascotAnimation.waving.frameCount, 4)
+        XCTAssertEqual(MascotAnimation.jumping.frameCount, 5)
+        XCTAssertEqual(MascotAnimation.failed.frameCount, 8)
+        XCTAssertEqual(MascotAnimation.waiting.frameCount, 6)
+        XCTAssertEqual(MascotAnimation.running.frameCount, 6)
+        XCTAssertEqual(MascotAnimation.review.frameCount, 6)
     }
 
     #if canImport(UIKit)
@@ -142,6 +206,25 @@ final class EvaActivationTests: XCTestCase {
             XCTAssertNotNil(
                 UIImage(named: asset.rawValue, in: appBundle, compatibleWith: nil),
                 "Missing Eva mascot asset named \(asset.rawValue)"
+            )
+        }
+    }
+
+    func testMascotSpriteAssetsAreBundled() throws {
+        let spritePersonas = AssistantMascotPersona.all.filter(\.usesSprites)
+
+        for persona in spritePersonas {
+            XCTAssertNotNil(
+                MascotSpriteFrameProvider.shared.metadataURL(for: persona),
+                "Missing mascot metadata for \(persona.displayName)"
+            )
+            XCTAssertNotNil(
+                MascotSpriteFrameProvider.shared.spritesheetURL(for: persona),
+                "Missing mascot spritesheet for \(persona.displayName)"
+            )
+            XCTAssertNotNil(
+                MascotSpriteFrameProvider.shared.frame(persona: persona, animation: .idle, index: 0),
+                "Could not crop idle frame for \(persona.displayName)"
             )
         }
     }
@@ -452,6 +535,22 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertEqual(coordinator.navigationChrome.stepIndex, 4)
     }
 
+    func testNavigationChromeUsesSelectedMascotTitle() throws {
+        let defaults = try makeDefaults()
+        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.update { preferences in
+            preferences.chiefOfStaffMascotID = .sato
+        }
+        let coordinator = makeCoordinator(defaults: defaults)
+
+        XCTAssertEqual(coordinator.navigationChrome.screenTitle, "Meet Sato")
+
+        coordinator.continueFromIntro()
+        coordinator.continueFromAboutYou()
+        coordinator.continueFromGoals()
+        XCTAssertEqual(coordinator.navigationChrome.screenTitle, "Choose Sato's Mode")
+    }
+
     func testLeadingNavigationRoutesBackThroughActivationStages() throws {
         let defaults = try makeDefaults()
         let coordinator = makeCoordinator(defaults: defaults)
@@ -560,6 +659,7 @@ final class EvaActivationTests: XCTestCase {
         return EvaActivationCoordinator(
             appManager: appManager,
             defaults: defaults,
+            workspacePreferencesStore: TaskerWorkspacePreferencesStore(defaults: defaults),
             deviceSupportsLocalEvaProvider: { true }
         )
     }

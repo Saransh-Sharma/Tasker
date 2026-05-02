@@ -48,6 +48,46 @@ class SettingsTests: BaseUITest {
         takeScreenshot(named: "settings_primary_rows_visible")
     }
 
+    func testChiefOfStaffPersonaCanBeChangedFromSettings() throws {
+        settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
+
+        let personaButton = app.buttons[AccessibilityIdentifiers.Settings.chiefOfStaffPersona("sato")]
+        XCTAssertTrue(scrollUntilExists(personaButton, direction: .up, maxSwipes: 8), "Sato persona should be available in Settings")
+        personaButton.tap()
+
+        let card = app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.chiefOfStaffCard]
+        XCTAssertTrue(scrollUntilExists(card, direction: .down, maxSwipes: 8), "Chief of Staff card should be visible")
+        XCTAssertTrue(card.label.contains("Sato"), "Selected Chief of Staff card should reflect Sato. Actual label: \(card.label)")
+
+        takeScreenshot(named: "settings_chief_of_staff_sato")
+    }
+
+    private enum ScrollDirection {
+        case up
+        case down
+    }
+
+    private func scrollUntilExists(
+        _ element: XCUIElement,
+        direction: ScrollDirection,
+        maxSwipes: Int,
+        timeout: TimeInterval = 1
+    ) -> Bool {
+        for _ in 0...maxSwipes {
+            if element.waitForExistence(timeout: timeout) {
+                return true
+            }
+            switch direction {
+            case .up:
+                app.swipeUp()
+            case .down:
+                app.swipeDown()
+            }
+        }
+        return false
+    }
+
     func testNavigateToLifeManagementFromSettings() throws {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")

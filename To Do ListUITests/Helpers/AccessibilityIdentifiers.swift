@@ -263,6 +263,9 @@ enum AccessibilityIdentifiers {
         static let appVersionRow = "settings.appVersionRow"
         static let aboutSection = "settings.aboutSection"
         static let onboardingRestartButton = "settings.onboarding.restartButton"
+        static let chiefOfStaffCard = "settings.chiefOfStaff.card"
+        static let chiefOfStaffName = "settings.chiefOfStaff.name"
+        static func chiefOfStaffPersona(_ id: String) -> String { "settings.chiefOfStaff.persona.\(id)" }
     }
 
     // MARK: - Onboarding
@@ -307,6 +310,7 @@ enum AccessibilityIdentifiers {
         static let promptStart = "onboarding.prompt.start"
         static let promptDismiss = "onboarding.prompt.dismiss"
         static let finish = "onboarding.success"
+        static func mascotPersona(_ id: String) -> String { "onboarding.mascot.persona.\(id)" }
     }
 
     // MARK: - Project Management Screen
