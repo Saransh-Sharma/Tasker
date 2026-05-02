@@ -185,6 +185,18 @@ final class SettingsViewModel: ObservableObject {
         currentModelDisplayName.isEmpty ? "No model" : currentModelDisplayName
     }
 
+    var selectedMascotID: AssistantMascotID {
+        workspacePreferences.chiefOfStaffMascotID
+    }
+
+    var selectedMascotPersona: AssistantMascotPersona {
+        AssistantMascotPersona.persona(for: selectedMascotID)
+    }
+
+    var chiefOfStaffSummary: String {
+        selectedMascotPersona.displayName
+    }
+
     var modelsSummary: String {
         currentModelDisplayName.isEmpty ? "System default" : currentModelDisplayName
     }
@@ -488,6 +500,13 @@ final class SettingsViewModel: ObservableObject {
         guard workspacePreferences.showCalendarEventsInTimeline != show else { return }
         showCalendarEventsInTimeline = show
         workspacePreferences.showCalendarEventsInTimeline = show
+        saveWorkspacePreferences()
+        TaskerFeedback.selection()
+    }
+
+    func selectChiefOfStaffMascot(_ id: AssistantMascotID) {
+        guard workspacePreferences.chiefOfStaffMascotID != id else { return }
+        workspacePreferences.chiefOfStaffMascotID = id
         saveWorkspacePreferences()
         TaskerFeedback.selection()
     }

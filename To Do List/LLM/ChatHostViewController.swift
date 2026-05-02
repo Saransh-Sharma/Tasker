@@ -28,7 +28,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     private var hostingController: UIHostingController<AnyView>!
     private var themeCancellable: AnyCancellable?
-    private var activationStateCancellable: AnyCancellable?
+    private var activationCoordinatorCancellable: AnyCancellable?
     private var cachedProjects: [Project] = [Project.createInbox()]
     private var currentLayoutClass: TaskerLayoutClass = .phone
     private let activationTitleView = EvaActivationNavigationTitleView()
@@ -773,7 +773,8 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     private func bindActivationCoordinator() {
-        activationStateCancellable = activationCoordinator.$state
+        activationCoordinatorCancellable = activationCoordinator.$state
+            .combineLatest(activationCoordinator.$identitySnapshot)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.updateNavigationBarChrome()
@@ -853,7 +854,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     deinit {
         themeCancellable?.cancel()
-        activationStateCancellable?.cancel()
+        activationCoordinatorCancellable?.cancel()
     }
 }
 

@@ -51,8 +51,8 @@ struct SettingsRootView: View {
             ),
             TaskerSettingsStatusDescriptor(
                 id: "model",
-                title: "AI model",
-                value: viewModel.aiAssistantSummary,
+                title: "Chief of staff",
+                value: viewModel.chiefOfStaffSummary,
                 systemImage: "brain.head.profile",
                 tone: .accent
             ),
@@ -292,21 +292,18 @@ struct SettingsRootView: View {
         ) {
             VStack(spacing: spacing.cardStackVertical) {
                 TaskerSettingsCard(active: true) {
-                    HStack(alignment: .center, spacing: spacing.s12) {
-                        EvaMascotView(placement: .settingsIdentity, size: .inline)
-                        VStack(alignment: .leading, spacing: spacing.s4) {
-                            Text("Eva")
-                                .font(.tasker(.headline))
-                                .foregroundStyle(Color.tasker(.textPrimary))
-                            Text("Your chief of staff for tasks, habits, calendar, and planning.")
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textSecondary))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer(minLength: 0)
-                    }
+                    chiefOfStaffIdentityCard
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
+
+                TaskerSettingsCard(active: true) {
+                    MascotPersonaSelector(
+                        selectedID: viewModel.selectedMascotID,
+                        cardAccessibilityPrefix: "settings.chiefOfStaff.persona",
+                        onSelect: viewModel.selectChiefOfStaffMascot
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
 
                 TaskerSettingsCard(active: viewModel.memoryItemCount > 0) {
                     SettingsNavigationRow(
@@ -322,14 +319,14 @@ struct SettingsRootView: View {
                         action: viewModel.onNavigateToAISettings
                     )
                 }
-                .enhancedStaggeredAppearance(index: baseIndex + 1)
+                .enhancedStaggeredAppearance(index: baseIndex + 2)
 
                 TaskerSettingsCard {
                     SettingsNavigationRow(
                         descriptor: TaskerSettingsDestinationDescriptor(
                             iconName: "cpu.fill",
                             title: "Models",
-                            subtitle: "Review installed models and choose Eva’s default runtime.",
+                            subtitle: "Review installed models and choose the assistant’s default runtime.",
                             trailingStatus: viewModel.modelsSummary,
                             tone: .accent,
                             accessibilityIdentifier: "settings.aiAssistant.models.row"
@@ -337,9 +334,34 @@ struct SettingsRootView: View {
                         action: viewModel.onNavigateToModels
                     )
                 }
-                .enhancedStaggeredAppearance(index: baseIndex + 2)
+                .enhancedStaggeredAppearance(index: baseIndex + 3)
             }
         }
+    }
+
+    private var chiefOfStaffIdentityCard: some View {
+        HStack(alignment: .center, spacing: spacing.s12) {
+            EvaMascotView(
+                placement: .settingsIdentity,
+                size: .inline,
+                accessibilityLabel: viewModel.selectedMascotPersona.displayName,
+                mascotID: viewModel.selectedMascotID
+            )
+            VStack(alignment: .leading, spacing: spacing.s4) {
+                Text(viewModel.selectedMascotPersona.displayName)
+                    .font(.tasker(.headline))
+                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .accessibilityIdentifier("settings.chiefOfStaff.name")
+                Text("Your chief of staff for tasks, habits, calendar, and planning.")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("settings.chiefOfStaff.card")
+        .accessibilityLabel("\(viewModel.selectedMascotPersona.displayName). Your chief of staff for tasks, habits, calendar, and planning.")
     }
 
     private func timelineSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
