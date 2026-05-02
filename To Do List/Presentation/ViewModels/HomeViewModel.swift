@@ -9712,13 +9712,19 @@ final class TaskListWidgetSnapshotService {
                     weekStartsOn: coordinator.calendarIntegrationService.weekStartsOn
                 )
                 let workspacePreferences = TaskerWorkspacePreferencesStore.shared.load()
-                let snapshot = self.buildSnapshot(
-                    tasks: tasks,
-                    calendarSnapshot: calendarSnapshot,
-                    workspacePreferences: workspacePreferences
-                )
-                self.persistIfChanged(snapshot: snapshot, reason: reason)
-                self.finishRefresh()
+                let now = Date()
+                self.loadHabitRows(coordinator: coordinator, on: now) { [weak self] habitRows in
+                    guard let self else { return }
+                    let snapshot = self.buildSnapshot(
+                        tasks: tasks,
+                        now: now,
+                        habitRows: habitRows,
+                        calendarSnapshot: calendarSnapshot,
+                        workspacePreferences: workspacePreferences
+                    )
+                    self.persistIfChanged(snapshot: snapshot, reason: reason)
+                    self.finishRefresh()
+                }
             }
         }
     }
@@ -9742,6 +9748,7 @@ final class TaskListWidgetSnapshotService {
     private func buildSnapshot(
         tasks: [TaskDefinition],
         now: Date = Date(),
+        habitRows: [HomeHabitRow] = [],
         calendarSnapshot: TaskListWidgetCalendarSnapshot = .empty,
         workspacePreferences: TaskerWorkspacePreferences = TaskerWorkspacePreferences()
     ) -> TaskListWidgetSnapshot {
@@ -9826,7 +9833,7 @@ final class TaskListWidgetSnapshotService {
             calendar: calendar
         )
         let habitSnapshot = taskListWidgetHabitSnapshot(
-            from: currentAllHabitRows(),
+            from: habitRows,
             now: now,
             calendar: calendar
         )
@@ -9856,6 +9863,166 @@ final class TaskListWidgetSnapshotService {
             timeline: timelineSnapshot,
             habit: habitSnapshot
         )
+    }
+
+    private func loadHabitRows(
+        coordinator: UseCaseCoordinator,
+        on date: Date,
+        completion: @escaping ([HomeHabitRow]) -> Void
+    ) {
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: date)
+        let group = DispatchGroup()
+        let stateLock = NSLock()
+        var agendaRows: [HomeHabitRow] = []
+        var trackingRows: [HomeHabitRow] = []
+
+        group.enter()
+        coordinator.buildHabitHomeProjection.execute(date: day) { result in
+            if case .success(let rows) = result {
+                stateLock.lock()
+                agendaRows = rows
+                stateLock.unlock()
+            }
+            group.leave()
+        }
+
+        group.enter()
+        coordinator.getHabitLibrary.execute(includeArchived: false) { [weak self] result in
+            guard let self else {
+                group.leave()
+                return
+            }
+            guard case .success(let libraryRows) = result else {
+                group.leave()
+                return
+            }
+            guard libraryRows.isEmpty == false else {
+                group.leave()
+                return
+            }
+
+            group.enter()
+            coordinator.getHabitHistory.execute(
+                habitIDs: libraryRows.map(\.habitID),
+                endingOn: day,
+                dayCount: 30
+            ) { historyResult in
+                var historyByHabitID: [UUID: [HabitDayMark]] = [:]
+                if case .success(let windows) = historyResult {
+                    historyByHabitID = windows.reduce(into: [:]) { result, window in
+                        result[window.habitID] = window.marks
+                    }
+                }
+                let rows = self.trackingWidgetHabitRows(
+                    from: libraryRows,
+                    historyByHabitID: historyByHabitID,
+                    on: day,
+                    calendar: calendar
+                )
+                stateLock.lock()
+                trackingRows = rows
+                stateLock.unlock()
+                group.leave()
+            }
+            group.leave()
+        }
+
+        group.notify(queue: queue) { [weak self] in
+            guard let self else { return }
+            stateLock.lock()
+            let mergedRows = self.mergeWidgetHabitRows(agenda: agendaRows, tracking: trackingRows)
+            stateLock.unlock()
+            completion(mergedRows)
+        }
+    }
+
+    private func trackingWidgetHabitRows(
+        from rows: [HabitLibraryRow],
+        historyByHabitID: [UUID: [HabitDayMark]],
+        on date: Date,
+        calendar: Calendar
+    ) -> [HomeHabitRow] {
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+
+        return rows.compactMap { row in
+            guard !row.isArchived, !row.isPaused, row.trackingMode == .lapseOnly else {
+                return nil
+            }
+
+            let marks = historyByHabitID[row.habitID] ?? row.last14Days
+            let todayMark = marks.first { mark in
+                let markDate = calendar.startOfDay(for: mark.date)
+                return markDate >= startOfDay && markDate < endOfDay
+            }
+            let state: HomeHabitRowState
+            switch todayMark?.state {
+            case .failure:
+                state = .lapsedToday
+            default:
+                state = .tracking
+            }
+
+            let compactCells = HabitBoardPresentationBuilder.buildCells(
+                marks: marks,
+                cadence: row.cadence,
+                referenceDate: date,
+                dayCount: 7,
+                calendar: calendar
+            )
+            let expandedCells = HabitBoardPresentationBuilder.buildCells(
+                marks: marks,
+                cadence: row.cadence,
+                referenceDate: date,
+                dayCount: 30,
+                calendar: calendar
+            )
+
+            return HomeHabitRow(
+                habitID: row.habitID,
+                title: row.title,
+                kind: row.kind,
+                trackingMode: row.trackingMode,
+                lifeAreaID: row.lifeAreaID,
+                lifeAreaName: row.lifeAreaName,
+                projectID: row.projectID,
+                projectName: row.projectName,
+                iconSymbolName: row.icon?.symbolName ?? "circle.dashed",
+                accentHex: row.colorHex,
+                cadence: row.cadence,
+                cadenceLabel: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar),
+                dueAt: row.nextDueAt,
+                state: state,
+                currentStreak: row.currentStreak,
+                bestStreak: row.bestStreak,
+                last14Days: marks,
+                boardCellsCompact: compactCells,
+                boardCellsExpanded: expandedCells,
+                riskState: todayMark?.state == .failure ? .broken : .stable,
+                helperText: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar)
+            )
+        }
+    }
+
+    private func mergeWidgetHabitRows(
+        agenda: [HomeHabitRow],
+        tracking: [HomeHabitRow]
+    ) -> [HomeHabitRow] {
+        var merged: [String: HomeHabitRow] = [:]
+        for row in agenda {
+            merged[row.id] = row
+        }
+        for row in tracking where merged[row.id] == nil {
+            merged[row.id] = row
+        }
+        return merged.values.sorted { lhs, rhs in
+            if lhs.projectName != rhs.projectName {
+                return (lhs.projectName ?? lhs.lifeAreaName)
+                    .localizedCaseInsensitiveCompare(rhs.projectName ?? rhs.lifeAreaName) == .orderedAscending
+            }
+            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
     }
 
     private func taskListWidgetHabitSnapshot(
@@ -9970,7 +10137,7 @@ final class TaskListWidgetSnapshotService {
         if day > now, calendar.isDate(day, inSameDayAs: now) == false {
             return .future
         }
-        switch state {
+        switch state ?? .none {
         case .success:
             return .success
         case .failure:
@@ -9981,8 +10148,6 @@ final class TaskListWidgetSnapshotService {
             return .none
         case .future:
             return .future
-        case nil:
-            return .none
         }
     }
 
