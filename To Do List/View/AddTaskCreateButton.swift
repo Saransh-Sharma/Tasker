@@ -69,11 +69,12 @@ struct AddTaskCreateButton: View {
             }
             .buttonStyle(.plain)
             .scaleOnPress()
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("addTask.createButton")
             .disabled(!isEnabled || isLoading)
             .animation(TaskerAnimation.quick, value: isEnabled)
             .animation(reduceMotion ? nil : TaskerAnimation.ctaConfirmation, value: successFlash)
             .animation(TaskerAnimation.quick, value: isLoading)
-            .accessibilityIdentifier("addTask.createButton")
 
             if showAddAnother {
                 Button {

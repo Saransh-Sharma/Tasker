@@ -1080,9 +1080,7 @@ struct TaskListView: View {
 
     private var emptyStateView: some View {
         VStack(spacing: TaskerTheme.Spacing.md) {
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 40, weight: .light))
-                .foregroundColor(Color.tasker.accentPrimary.opacity(0.5))
+            EvaMascotView(placement: emptyStateMascotPlacement, size: .card)
                 .breathingPulse(min: 0.4, max: 0.6, duration: 3.0)
 
             Text("All clear")
@@ -1104,6 +1102,15 @@ struct TaskListView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, TaskerTheme.Spacing.xxxl)
+    }
+
+    private var emptyStateMascotPlacement: EvaMascotPlacement {
+        switch activeQuickView {
+        case .evening:
+            return .restReminder
+        default:
+            return .habitEmpty
+        }
     }
 
     private var resolvedEmptyStateMessage: String {

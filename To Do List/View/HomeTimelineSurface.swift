@@ -922,7 +922,7 @@ struct TimelineCanvasLayoutPlan: Equatable {
     static let cardVisualHeight: CGFloat = 84
     static let flockMinHeight: CGFloat = 104
     static let gapPromptHeight: CGFloat = 56
-    static let sparseEmptyCardHeight: CGFloat = 112
+    static let sparseEmptyCardHeight: CGFloat = 96
     static let endMarkerHitArea: CGFloat = 44
     static let endMarkerTopGapAfterFade: CGFloat = 4
     static let spineFadeHeight: CGFloat = 36
@@ -3231,19 +3231,7 @@ private struct TimelineEmptyStateCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(model.title)
-                    .font(.tasker(.headline).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.86)
-
-                Text(model.subtitle)
-                    .font(.tasker(.support))
-                    .foregroundStyle(Color.tasker.textSecondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            header
 
             Spacer(minLength: 0)
 
@@ -3257,6 +3245,32 @@ private struct TimelineEmptyStateCard: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(model.showsCalendarAction ? "home.timeline.calendarHidden" : "home.timeline.emptyDay")
+    }
+
+    @MainActor
+    private var header: some View {
+        HStack(alignment: .top, spacing: 12) {
+            EvaMascotView(
+                placement: model.showsCalendarAction ? .timelineEmptySchedule : .restReminder,
+                size: .inline
+            )
+            .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(model.title)
+                    .font(.tasker(.headline).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.86)
+
+                Text(model.subtitle)
+                    .font(.tasker(.support))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     @ViewBuilder
