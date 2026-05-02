@@ -3907,7 +3907,8 @@ struct HomeBackdropForedropRootView: View {
     @ViewBuilder
     private func foredropChatFace() -> some View {
         if let container = LLMDataController.shared {
-            ChatContainerView(
+            let chatContent = ChatContainerView(
+                promptFocusRequestID: faceCoordinator.chatPromptFocusRequestID,
                 onNavigationChromeChange: { state in
                     chatNavigationChromeState = state
                 },
@@ -3931,7 +3932,19 @@ struct HomeBackdropForedropRootView: View {
             .environmentObject(chatAppManager)
             .environment(LLMRuntimeCoordinator.shared.evaluator)
             .modelContainer(container)
-            .padding(.bottom, layoutMetrics.chatComposerBottomInset + spacing.s16)
+
+            if layoutMetrics.keyboardOverlapHeight > 0.5 {
+                chatContent
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        Color.clear
+                            .frame(height: layoutMetrics.chatComposerBottomInset)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+            } else {
+                chatContent
+                    .padding(.bottom, layoutMetrics.chatComposerBottomInset + spacing.s16)
+            }
         } else {
             LLMStoreUnavailableView()
         }
