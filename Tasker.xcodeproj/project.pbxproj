@@ -528,7 +528,9 @@
 		E0A10000000000000000000C /* EvaLottie00-lite.json in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010C /* EvaLottie00-lite.json */; };
 		E0A10000000000000000000D /* EvaActivationComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010D /* EvaActivationComponents.swift */; };
 		E0A10000000000000000000E /* HeroWelcomeHighCompressMb.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */; };
+		E0A10000000000000000020B /* MascotSprites in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000020A /* MascotSprites */; };
 		E0A100000000000000000301 /* EvaActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000302 /* EvaActivationTests.swift */; };
+		E0A100000000000000000401 /* SettingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000402 /* SettingsViewModelTests.swift */; };
 		E15729081BE877C1AF53C8C8 /* To Do List/Domain/Models/ExternalSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAA3A6573B0FE5C495C67AC /* To Do List/Domain/Models/ExternalSyncModels.swift */; };
 		E1A100000000000000000001 /* HomeReplanDayUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A200000000000000000001 /* HomeReplanDayUITests.swift */; };
 		E1C5A4B1D2E3F40123456789 /* To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C5A4B1D2E3F4012345678C /* To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift */; };
@@ -1120,7 +1122,9 @@
 		E0A10000000000000000010C /* EvaLottie00-lite.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "EvaLottie00-lite.json"; sourceTree = "<group>"; };
 		E0A10000000000000000010D /* EvaActivationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationComponents.swift; sourceTree = "<group>"; };
 		E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = HeroWelcomeHighCompressMb.mp4; sourceTree = SOURCE_ROOT; };
+		E0A10000000000000000020A /* MascotSprites */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MascotSprites; sourceTree = "<group>"; };
 		E0A100000000000000000302 /* EvaActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationTests.swift; sourceTree = "<group>"; };
+		E0A100000000000000000402 /* SettingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModelTests.swift; sourceTree = "<group>"; };
 		E1A200000000000000000001 /* HomeReplanDayUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReplanDayUITests.swift; sourceTree = "<group>"; };
 		E1C5A4B1D2E3F4012345678C /* To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		E1C5A4B1D2E3F4012345678D /* To Do List/UseCases/Task/DeleteTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Task/DeleteTaskDefinitionUseCase.swift"; sourceTree = SOURCE_ROOT; };
@@ -1628,6 +1632,7 @@
 				A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */,
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
 				E0A100000000000000000302 /* EvaActivationTests.swift */,
+				E0A100000000000000000402 /* SettingsViewModelTests.swift */,
 				B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */,
 				A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */,
 				C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */,
@@ -2366,6 +2371,7 @@
 				E0A10000000000000000010C /* EvaLottie00-lite.json */,
 				E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */,
 				7529F7032DFDF7E3000CBE36 /* loading-animation.json */,
+				E0A10000000000000000020A /* MascotSprites */,
 			);
 			path = LLM;
 			sourceTree = "<group>";
@@ -2655,6 +2661,7 @@
 				E0A10000000000000000000B /* EvaIntroVideo.mp4 in Resources */,
 				E0A10000000000000000000C /* EvaLottie00-lite.json in Resources */,
 				E0A10000000000000000000E /* HeroWelcomeHighCompressMb.mp4 in Resources */,
+				E0A10000000000000000020B /* MascotSprites in Resources */,
 				F8C1A0019AB24E01A11C0003 /* TaskIconSymbolManifest.generated.json in Resources */,
 				7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */,
 			);
@@ -3305,6 +3312,7 @@
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
 				E0A100000000000000000301 /* EvaActivationTests.swift in Sources */,
+				E0A100000000000000000401 /* SettingsViewModelTests.swift in Sources */,
 				B8E100052F70000100A0A001 /* TaskerCTABezelResolverTests.swift in Sources */,
 				B8F9A0B1C2D3E4F506172839 /* LLMPersonalMemoryStoreTests.swift in Sources */,
 				B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */,
