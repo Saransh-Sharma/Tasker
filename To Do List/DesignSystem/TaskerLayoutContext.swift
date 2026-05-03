@@ -1,6 +1,6 @@
 import UIKit
 
-public struct TaskerLayoutContext {
+public struct TaskerLayoutContext: Sendable {
     public let metrics: TaskerLayoutMetrics
     public let layoutClass: TaskerLayoutClass
 
@@ -11,12 +11,14 @@ public struct TaskerLayoutContext {
     }
 
     /// Executes from.
+    @MainActor
     public static func from(view: UIView) -> TaskerLayoutContext {
         let metrics = TaskerLayoutResolver.metrics(for: view)
         return TaskerLayoutContext(metrics: metrics)
     }
 
     /// Executes from.
+    @MainActor
     public static func from(windowScene: UIWindowScene?) -> TaskerLayoutContext {
         guard let windowScene else {
             return TaskerLayoutContext(

@@ -1,6 +1,6 @@
 import UIKit
 
-public struct TaskerSpacingTokens: TaskerTokenGroup {
+public struct TaskerSpacingTokens: TaskerTokenGroup, Sendable {
     public let s2: CGFloat
     public let s4: CGFloat
     public let s8: CGFloat

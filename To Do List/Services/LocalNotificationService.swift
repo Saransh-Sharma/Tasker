@@ -2,8 +2,49 @@ import Foundation
 import UserNotifications
 
 public enum TaskerNotificationRuntime {
-    public static var orchestrator: TaskNotificationOrchestrator?
-    public static var actionHandler: TaskerNotificationActionHandler?
+    private final class Storage: @unchecked Sendable {
+        private let lock = NSLock()
+        private var orchestratorStorage: TaskNotificationOrchestrator?
+        private var actionHandlerStorage: TaskerNotificationActionHandler?
+
+        var orchestrator: TaskNotificationOrchestrator? {
+            get {
+                lock.lock()
+                defer { lock.unlock() }
+                return orchestratorStorage
+            }
+            set {
+                lock.lock()
+                orchestratorStorage = newValue
+                lock.unlock()
+            }
+        }
+
+        var actionHandler: TaskerNotificationActionHandler? {
+            get {
+                lock.lock()
+                defer { lock.unlock() }
+                return actionHandlerStorage
+            }
+            set {
+                lock.lock()
+                actionHandlerStorage = newValue
+                lock.unlock()
+            }
+        }
+    }
+
+    private static let storage = Storage()
+
+    public static var orchestrator: TaskNotificationOrchestrator? {
+        get { storage.orchestrator }
+        set { storage.orchestrator = newValue }
+    }
+
+    public static var actionHandler: TaskerNotificationActionHandler? {
+        get { storage.actionHandler }
+        set { storage.actionHandler = newValue }
+    }
 }
 
 public final class LocalNotificationService: NotificationServiceProtocol {
@@ -63,21 +104,21 @@ public final class LocalNotificationService: NotificationServiceProtocol {
     }
 
     /// Executes requestPermission.
-    public func requestPermission(completion: @escaping (Bool) -> Void) {
+    public func requestPermission(completion: @escaping @Sendable (Bool) -> Void) {
         center.requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
             completion(granted)
         }
     }
 
     /// Executes checkAuthorizationStatus.
-    public func checkAuthorizationStatus(completion: @escaping (Bool) -> Void) {
+    public func checkAuthorizationStatus(completion: @escaping @Sendable (Bool) -> Void) {
         fetchAuthorizationStatus { status in
             completion(status == .authorized || status == .provisional || status == .ephemeral)
         }
     }
 
     /// Executes fetchAuthorizationStatus.
-    public func fetchAuthorizationStatus(completion: @escaping (TaskerNotificationAuthorizationStatus) -> Void) {
+    public func fetchAuthorizationStatus(completion: @escaping @Sendable (TaskerNotificationAuthorizationStatus) -> Void) {
         center.getNotificationSettings { settings in
             let mapped: TaskerNotificationAuthorizationStatus
             switch settings.authorizationStatus {
@@ -150,7 +191,7 @@ public final class LocalNotificationService: NotificationServiceProtocol {
     }
 
     /// Executes pendingRequests.
-    public func pendingRequests(completion: @escaping ([TaskerPendingNotificationRequest]) -> Void) {
+    public func pendingRequests(completion: @escaping @Sendable ([TaskerPendingNotificationRequest]) -> Void) {
         center.getPendingNotificationRequests { requests in
             let now = Date()
             let mapped = requests.map { request -> TaskerPendingNotificationRequest in
@@ -293,7 +334,7 @@ public enum TaskerNotificationCategories {
     }
 }
 
-public final class TaskerNotificationRouteBus {
+public final class TaskerNotificationRouteBus: @unchecked Sendable {
     public static let routeDidChange = Notification.Name("TaskerNotificationRouteDidChange")
     public static let shared = TaskerNotificationRouteBus()
 

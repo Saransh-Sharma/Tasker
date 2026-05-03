@@ -1,4 +1,4 @@
-import SwiftUI
+@preconcurrency import SwiftUI
 import UIKit
 
 public struct TaskerSwiftUIColorTokens {
@@ -610,8 +610,13 @@ public struct TaskerTextFieldStyle: TextFieldStyle {
 }
 
 private struct TaskerTextFieldBody<Label: View>: View {
-    let configuration: TextField<Label>
+    nonisolated(unsafe) let configuration: TextField<Label>
     let isFocused: Bool
+
+    nonisolated init(configuration: TextField<Label>, isFocused: Bool) {
+        self.configuration = configuration
+        self.isFocused = isFocused
+    }
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize

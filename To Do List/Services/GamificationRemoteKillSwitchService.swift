@@ -1,11 +1,12 @@
 import Foundation
 
 #if canImport(FirebaseRemoteConfig)
-import FirebaseRemoteConfig
+@preconcurrency import FirebaseRemoteConfig
 #endif
 
 /// Syncs launch-time gamification feature flags from Firebase Remote Config.
 /// This preserves an emergency kill-switch path without requiring a redeploy.
+@MainActor
 final class GamificationRemoteKillSwitchService {
     static let shared = GamificationRemoteKillSwitchService()
 
@@ -52,6 +53,7 @@ final class GamificationRemoteKillSwitchService {
 }
 
 #if canImport(FirebaseRemoteConfig)
+@MainActor
 private extension GamificationRemoteKillSwitchService {
     enum Keys {
         static let killSwitch = "feature_gamification_kill_switch"

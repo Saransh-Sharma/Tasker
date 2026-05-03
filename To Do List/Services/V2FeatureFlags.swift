@@ -12,8 +12,8 @@ public enum LLMChatContextStrategy: String, CaseIterable {
 }
 
 public enum V2FeatureFlags {
-    private static let defaults = UserDefaults.standard
-    private static let sharedDefaults = UserDefaults(suiteName: AppGroupConstants.suiteName)
+    private static var defaults: UserDefaults { .standard }
+    private static var sharedDefaults: UserDefaults? { UserDefaults(suiteName: AppGroupConstants.suiteName) }
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
     private static let decorativeCTAEffectsUserKey = "feature.ui.decorative_cta_effects.user_enabled"
     private static let decorativeCTAEffectsRemoteAllowKey = "feature.ui.decorative_cta_effects.remote_allowed"

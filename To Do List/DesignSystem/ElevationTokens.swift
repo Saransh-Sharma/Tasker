@@ -1,5 +1,6 @@
 import UIKit
 
+@MainActor
 public struct TaskerElevationStyle {
     public let shadowOffsetY: CGFloat
     public let shadowBlur: CGFloat
@@ -10,6 +11,7 @@ public struct TaskerElevationStyle {
     public let blurStyle: UIBlurEffect.Style
 }
 
+@MainActor
 public struct TaskerElevationTokens: TaskerTokenGroup {
     public let e0: TaskerElevationStyle
     public let e1: TaskerElevationStyle

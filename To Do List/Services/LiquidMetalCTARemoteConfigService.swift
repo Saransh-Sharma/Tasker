@@ -1,11 +1,12 @@
 import Foundation
 
 #if canImport(FirebaseRemoteConfig)
-import FirebaseRemoteConfig
+@preconcurrency import FirebaseRemoteConfig
 #endif
 
 /// Syncs the liquid-metal CTA rollback allow-list from Firebase Remote Config.
 /// User preference is stored separately and defaults off.
+@MainActor
 final class LiquidMetalCTARemoteConfigService {
     static let shared = LiquidMetalCTARemoteConfigService()
 
@@ -47,6 +48,7 @@ final class LiquidMetalCTARemoteConfigService {
 }
 
 #if canImport(FirebaseRemoteConfig)
+@MainActor
 private extension LiquidMetalCTARemoteConfigService {
     enum Keys {
         static let enabled = "feature_ui_liquid_metal_cta_enabled"

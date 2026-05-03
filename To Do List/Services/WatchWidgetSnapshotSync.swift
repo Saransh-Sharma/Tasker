@@ -3,7 +3,7 @@ import Foundation
 #if canImport(WatchConnectivity) && os(iOS)
 import WatchConnectivity
 
-final class WatchWidgetSnapshotSync: NSObject, WCSessionDelegate {
+final class WatchWidgetSnapshotSync: NSObject, WCSessionDelegate, @unchecked Sendable {
     static let shared = WatchWidgetSnapshotSync()
 
     private override init() {
