@@ -171,7 +171,7 @@ public struct InsightsWeekProjectionQuery: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyReflectionTaskProjectionQuery: Codable, Equatable, Hashable {
+public struct DailyReflectionTaskProjectionQuery: Codable, Equatable, Hashable, Sendable {
     public var reflectionDate: Date
     public var planningDate: Date
     public var completedLimit: Int
@@ -190,7 +190,7 @@ public struct DailyReflectionTaskProjectionQuery: Codable, Equatable, Hashable {
     }
 }
 
-public struct InsightsTodayTaskProjection: Codable, Equatable, Hashable {
+public struct InsightsTodayTaskProjection: Codable, Equatable, Hashable, Sendable {
     public let dueWindowTasks: [TaskDefinition]
     public let recentTasks: [TaskDefinition]
 
@@ -200,7 +200,7 @@ public struct InsightsTodayTaskProjection: Codable, Equatable, Hashable {
     }
 }
 
-public struct InsightsWeekTaskProjection: Codable, Equatable, Hashable {
+public struct InsightsWeekTaskProjection: Codable, Equatable, Hashable, Sendable {
     public let recentTasks: [TaskDefinition]
     public let dueWindowTasks: [TaskDefinition]
     public let projectScores: [UUID: Int]
@@ -216,7 +216,7 @@ public struct InsightsWeekTaskProjection: Codable, Equatable, Hashable {
     }
 }
 
-public struct WeekChartProjection: Codable, Equatable, Hashable {
+public struct WeekChartProjection: Codable, Equatable, Hashable, Sendable {
     public let weekStart: Date
     public let dayScores: [Date: Int]
     public let projectScores: [UUID: Int]
@@ -232,7 +232,7 @@ public struct WeekChartProjection: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyReflectionTaskProjection: Codable, Equatable, Hashable {
+public struct DailyReflectionTaskProjection: Codable, Equatable, Hashable, Sendable {
     public let reflectionCompletedTasks: [TaskDefinition]
     public let reflectionOpenTasks: [TaskDefinition]
     public let planningOpenTasks: [TaskDefinition]
@@ -248,7 +248,7 @@ public struct DailyReflectionTaskProjection: Codable, Equatable, Hashable {
     }
 }
 
-public struct TaskDefinitionSliceResult: Codable, Equatable, Hashable {
+public struct TaskDefinitionSliceResult: Codable, Equatable, Hashable, Sendable {
     public var tasks: [TaskDefinition]
     public var totalCount: Int
     public var limit: Int

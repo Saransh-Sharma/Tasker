@@ -1,6 +1,6 @@
 import Foundation
 
-public struct TagDefinition: Codable, Equatable, Hashable {
+public struct TagDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var name: String
     public var color: String?

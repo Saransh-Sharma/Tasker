@@ -1,6 +1,6 @@
 import Foundation
 
-public enum OccurrenceState: String, Codable {
+public enum OccurrenceState: String, Codable, Sendable {
     case pending
     case completed
     case skipped
@@ -8,7 +8,7 @@ public enum OccurrenceState: String, Codable {
     case failed
 }
 
-public enum OccurrenceResolutionType: String, Codable {
+public enum OccurrenceResolutionType: String, Codable, Sendable {
     case completed
     case skipped
     case missed
@@ -16,13 +16,13 @@ public enum OccurrenceResolutionType: String, Codable {
     case lapsed
 }
 
-public enum OccurrenceActor: String, Codable {
+public enum OccurrenceActor: String, Codable, Sendable {
     case user
     case system
     case assistant
 }
 
-public struct OccurrenceDefinition: Codable, Equatable, Hashable {
+public struct OccurrenceDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var occurrenceKey: String
     public var scheduleTemplateID: UUID
@@ -37,7 +37,7 @@ public struct OccurrenceDefinition: Codable, Equatable, Hashable {
     public var updatedAt: Date
 }
 
-public struct OccurrenceResolutionDefinition: Codable, Equatable, Hashable {
+public struct OccurrenceResolutionDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var occurrenceID: UUID
     public var resolutionType: OccurrenceResolutionType
@@ -47,7 +47,7 @@ public struct OccurrenceResolutionDefinition: Codable, Equatable, Hashable {
     public var createdAt: Date
 }
 
-public struct ParsedOccurrenceKey: Codable, Equatable, Hashable {
+public struct ParsedOccurrenceKey: Codable, Equatable, Hashable, Sendable {
     public var scheduleTemplateID: UUID
     public var scheduledAt: Date
     public var sourceID: UUID?
@@ -74,7 +74,7 @@ public enum OccurrenceKeyCodec {
         scheduledAt: Date,
         sourceID: UUID
     ) -> String {
-        "\(scheduleTemplateID.uuidString)|\(isoFormatter.string(from: scheduledAt))|\(sourceID.uuidString)"
+        "\(scheduleTemplateID.uuidString)|\(makeISOFormatter().string(from: scheduledAt))|\(sourceID.uuidString)"
     }
 
     /// Executes parse.
@@ -85,7 +85,7 @@ public enum OccurrenceKeyCodec {
         let segments = key.split(separator: "|")
         if segments.count >= 3,
            let templateID = UUID(uuidString: String(segments[0])),
-           let scheduledAt = isoFormatter.date(from: String(segments[1])),
+           let scheduledAt = makeISOFormatter().date(from: String(segments[1])),
            let sourceID = UUID(uuidString: String(segments[2])) {
             return ParsedOccurrenceKey(
                 scheduleTemplateID: templateID,
@@ -99,7 +99,7 @@ public enum OccurrenceKeyCodec {
         let legacyComponents = key.split(separator: "_")
         if legacyComponents.count >= 2,
            let templateID = UUID(uuidString: String(legacyComponents[0])),
-           let scheduledAt = legacyFormatter.date(from: String(legacyComponents[1])) {
+           let scheduledAt = makeLegacyFormatter().date(from: String(legacyComponents[1])) {
             return ParsedOccurrenceKey(
                 scheduleTemplateID: templateID,
                 scheduledAt: scheduledAt,
@@ -129,17 +129,17 @@ public enum OccurrenceKeyCodec {
         )
     }
 
-    private static let isoFormatter: ISO8601DateFormatter = {
+    private static func makeISOFormatter() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         return formatter
-    }()
+    }
 
-    private static let legacyFormatter: DateFormatter = {
+    private static func makeLegacyFormatter() -> DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         return formatter
-    }()
+    }
 }

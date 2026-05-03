@@ -1,6 +1,6 @@
 import Foundation
 
-public enum TaskPlanningBucket: String, Codable, CaseIterable, Hashable {
+public enum TaskPlanningBucket: String, Codable, CaseIterable, Hashable, Sendable {
     case today
     case thisWeek
     case nextWeek

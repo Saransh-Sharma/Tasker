@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum HomeQuickView: String, CaseIterable, Codable {
+public enum HomeQuickView: String, CaseIterable, Codable, Sendable {
     case today
     case upcoming
     case overdue

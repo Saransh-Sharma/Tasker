@@ -8,7 +8,7 @@
 import Foundation
 
 /// Energy levels required for tasks
-public enum TaskEnergy: String, CaseIterable, Codable {
+public enum TaskEnergy: String, CaseIterable, Codable, Sendable {
     case low = "low"
     case medium = "medium"
     case high = "high"

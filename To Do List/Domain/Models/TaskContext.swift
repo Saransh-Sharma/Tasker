@@ -8,7 +8,7 @@
 import Foundation
 
 /// Context where tasks can be performed
-public enum TaskContext: String, CaseIterable, Codable {
+public enum TaskContext: String, CaseIterable, Codable, Sendable {
     case anywhere = "anywhere"
     case home = "home"
     case office = "office"

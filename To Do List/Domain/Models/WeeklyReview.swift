@@ -1,6 +1,6 @@
 import Foundation
 
-public struct WeeklyReview: Codable, Equatable, Hashable, Identifiable {
+public struct WeeklyReview: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public var weeklyPlanID: UUID
     public var wins: String?
@@ -37,7 +37,7 @@ public struct WeeklyReview: Codable, Equatable, Hashable, Identifiable {
     }
 }
 
-public struct WeeklyReviewDraft: Codable, Equatable, Hashable {
+public struct WeeklyReviewDraft: Codable, Equatable, Hashable, Sendable {
     public let weekStartDate: Date
     public var wins: String?
     public var blockers: String?

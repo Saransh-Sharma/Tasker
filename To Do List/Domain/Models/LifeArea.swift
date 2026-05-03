@@ -1,6 +1,6 @@
 import Foundation
 
-public struct LifeArea: Codable, Equatable, Hashable {
+public struct LifeArea: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var name: String
     public var color: String?

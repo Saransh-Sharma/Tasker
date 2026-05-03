@@ -8,7 +8,7 @@
 import Foundation
 
 /// Color schemes for projects
-public enum ProjectColor: String, CaseIterable, Codable {
+public enum ProjectColor: String, CaseIterable, Codable, Sendable {
     case red = "red"
     case orange = "orange"
     case yellow = "yellow"
@@ -42,7 +42,7 @@ public enum ProjectColor: String, CaseIterable, Codable {
 }
 
 /// Project icons for visual identification
-public enum ProjectIcon: String, CaseIterable, Codable {
+public enum ProjectIcon: String, CaseIterable, Codable, Sendable {
     case folder = "folder"
     case inbox = "tray"
     case work = "briefcase"
@@ -95,7 +95,7 @@ public enum ProjectIcon: String, CaseIterable, Codable {
 }
 
 /// Project status lifecycle
-public enum ProjectStatus: String, CaseIterable, Codable {
+public enum ProjectStatus: String, CaseIterable, Codable, Sendable {
     case planning = "planning"
     case active = "active"
     case onHold = "on_hold"
@@ -128,7 +128,7 @@ public enum ProjectStatus: String, CaseIterable, Codable {
 }
 
 /// Project priority levels
-public enum ProjectPriority: Int, CaseIterable, Codable {
+public enum ProjectPriority: Int, CaseIterable, Codable, Sendable {
     case low = 1
     case medium = 2
     case high = 3
@@ -158,7 +158,7 @@ public enum ProjectPriority: Int, CaseIterable, Codable {
 }
 
 /// Project health status
-public enum ProjectHealth: String, CaseIterable, Codable {
+public enum ProjectHealth: String, CaseIterable, Codable, Sendable {
     case excellent = "excellent"
     case good = "good"
     case warning = "warning"
@@ -198,7 +198,7 @@ public enum ProjectHealth: String, CaseIterable, Codable {
 }
 
 /// Project settings and preferences
-public struct ProjectSettings: Codable, Equatable {
+public struct ProjectSettings: Codable, Equatable, Sendable {
     public var autoArchiveCompletedTasks: Bool
     public var defaultTaskPriority: TaskPriority
     public var defaultTaskType: TaskType
@@ -228,7 +228,7 @@ public struct ProjectSettings: Codable, Equatable {
 }
 
 /// Project reminder settings
-public struct ProjectReminderSettings: Codable, Equatable {
+public struct ProjectReminderSettings: Codable, Equatable, Sendable {
     public var enableDueDateReminders: Bool
     public var reminderOffsetDays: Int
     public var enableDailyDigest: Bool
@@ -249,7 +249,7 @@ public struct ProjectReminderSettings: Codable, Equatable {
 }
 
 /// Project view settings
-public struct ProjectViewSettings: Codable, Equatable {
+public struct ProjectViewSettings: Codable, Equatable, Sendable {
     public var defaultSortOrder: ProjectSortOrder
     public var showCompletedTasks: Bool
     public var groupTasksByDate: Bool
@@ -270,7 +270,7 @@ public struct ProjectViewSettings: Codable, Equatable {
 }
 
 /// Project sort orders
-public enum ProjectSortOrder: String, CaseIterable, Codable {
+public enum ProjectSortOrder: String, CaseIterable, Codable, Sendable {
     case name = "name"
     case priority = "priority"
     case dueDate = "due_date"
