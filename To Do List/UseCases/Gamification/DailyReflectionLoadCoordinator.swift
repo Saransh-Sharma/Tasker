@@ -37,15 +37,15 @@ public struct SaveDailyReflectionAndPlanResult {
     }
 }
 
-public final class ResolveDailyReflectionTargetUseCase {
+public final class ResolveDailyReflectionTargetUseCase: @unchecked Sendable {
     private let reflectionStore: DailyReflectionStoreProtocol
     private let calendar: Calendar
-    private let nowProvider: () -> Date
+    private let nowProvider: @Sendable () -> Date
 
     public init(
         reflectionStore: DailyReflectionStoreProtocol,
         calendar: Calendar = .autoupdatingCurrent,
-        nowProvider: @escaping () -> Date = Date.init
+        nowProvider: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.reflectionStore = reflectionStore
         self.calendar = calendar
@@ -373,8 +373,30 @@ actor ReflectionCalendarContextCacheStore: ReflectionCalendarContextCacheStorePr
     }
 }
 
-public final class BuildNextDayPlanSuggestionUseCase {
-    public struct CalendarContext: Equatable {
+public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
+    private final class CalendarContextLoadGate: @unchecked Sendable {
+        private let lock = NSLock()
+        private var didFinish = false
+
+        func finishOnce(_ operation: () -> Void) {
+            lock.lock()
+            guard didFinish == false else {
+                lock.unlock()
+                return
+            }
+            didFinish = true
+            lock.unlock()
+            operation()
+        }
+
+        func shouldContinue() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return didFinish == false
+        }
+    }
+
+    public struct CalendarContext: Equatable, Sendable {
         public let eventCount: Int
         public let busyBlocks: [TaskerCalendarBusyBlock]
         public let bestFocusWindow: DateInterval?
@@ -396,7 +418,7 @@ public final class BuildNextDayPlanSuggestionUseCase {
         }
     }
 
-    public struct CalendarContextLoadResult: Equatable {
+    public struct CalendarContextLoadResult: Equatable, Sendable {
         public let context: CalendarContext?
         public let status: DailyReflectionOptionalLoadStatus
 
@@ -406,7 +428,7 @@ public final class BuildNextDayPlanSuggestionUseCase {
         }
     }
 
-    public enum CachedCalendarContextLookup: Equatable {
+    public enum CachedCalendarContextLookup: Equatable, Sendable {
         case fresh(CalendarContext)
         case stale(CalendarContext)
         case miss
@@ -417,7 +439,7 @@ public final class BuildNextDayPlanSuggestionUseCase {
     private let contextBuildQueue: DispatchQueue
     private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
     private let calendarContextCacheStore: ReflectionCalendarContextCacheStoreProtocol
-    private let nowProvider: () -> Date
+    private let nowProvider: @Sendable () -> Date
     private let mergeGapThreshold: TimeInterval
 
     public init(
@@ -435,7 +457,7 @@ public final class BuildNextDayPlanSuggestionUseCase {
         self.contextBuildQueue = contextBuildQueue
         self.workspacePreferencesStore = .shared
         self.calendarContextCacheStore = ReflectionCalendarContextCacheStore.shared
-        self.nowProvider = Date.init
+        self.nowProvider = { Date() }
         self.mergeGapThreshold = 5 * 60
     }
 
@@ -449,7 +471,7 @@ public final class BuildNextDayPlanSuggestionUseCase {
         workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
         calendarContextCacheStore: ReflectionCalendarContextCacheStoreProtocol = ReflectionCalendarContextCacheStore.shared,
         mergeGapThreshold: TimeInterval = 5 * 60,
-        nowProvider: @escaping () -> Date = Date.init
+        nowProvider: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.calendarEventsProvider = calendarEventsProvider
         self.calendar = calendar
@@ -465,7 +487,7 @@ public final class BuildNextDayPlanSuggestionUseCase {
         carryoverTasks: [TaskDefinition],
         planningDateTasks: [TaskDefinition],
         atRiskHabit: HabitOccurrenceSummary?,
-        completion: @escaping (Result<DailyPlanSuggestion, Error>) -> Void
+        completion: @escaping @Sendable (Result<DailyPlanSuggestion, Error>) -> Void
     ) {
         Task {
             if Task.isCancelled {
@@ -486,7 +508,7 @@ public final class BuildNextDayPlanSuggestionUseCase {
 
     public func buildCalendarSummary(
         for planningDate: Date,
-        completion: @escaping (Result<CalendarReflectionSummary?, Error>) -> Void
+        completion: @escaping @Sendable (Result<CalendarReflectionSummary?, Error>) -> Void
     ) {
         Task {
             if Task.isCancelled {
@@ -519,22 +541,17 @@ public final class BuildNextDayPlanSuggestionUseCase {
         }
         let interval = TaskerPerformanceTrace.begin("ReflectionOptionalLoad")
         return await withCheckedContinuation { continuation in
-            let lock = NSLock()
-            var didFinish = false
+            let gate = CalendarContextLoadGate()
 
-            func finish(_ result: CalendarContextLoadResult) {
-                lock.lock()
-                defer { lock.unlock() }
-                guard didFinish == false else { return }
-                didFinish = true
-                TaskerPerformanceTrace.end(interval)
-                continuation.resume(returning: result)
+            @Sendable func finish(_ result: CalendarContextLoadResult) {
+                gate.finishOnce {
+                    TaskerPerformanceTrace.end(interval)
+                    continuation.resume(returning: result)
+                }
             }
 
-            func shouldContinue() -> Bool {
-                lock.lock()
-                defer { lock.unlock() }
-                return didFinish == false
+            @Sendable func shouldContinue() -> Bool {
+                gate.shouldContinue()
             }
 
             let timeoutNanoseconds = UInt64(max(0.25, timeoutSeconds) * 1_000_000_000)

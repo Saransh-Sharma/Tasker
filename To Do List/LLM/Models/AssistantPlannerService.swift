@@ -661,7 +661,7 @@ final class AssistantPlannerService {
     private func fetchDeterministicTasks(
         for request: AssistantDeterministicPlanner.TaskSelectionRequest
     ) async -> [TaskDefinition]? {
-        guard let taskReadModelRepository else { return nil }
+        guard taskReadModelRepository != nil else { return nil }
         let dueWindow = await fetchTasks(query: TaskReadQuery(
             includeCompleted: false,
             dueDateStart: request.sourceStart,

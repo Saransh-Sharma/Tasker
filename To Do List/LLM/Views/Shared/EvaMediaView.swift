@@ -8,7 +8,7 @@ import Lottie
 import AppKit
 #endif
 
-public enum AssistantMascotID: String, CaseIterable, Codable, Hashable, Identifiable {
+public enum AssistantMascotID: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
     case eva
     case cloudlet
     case dude
@@ -27,7 +27,7 @@ public enum AssistantMascotID: String, CaseIterable, Codable, Hashable, Identifi
     public var id: String { rawValue }
 }
 
-struct AssistantMascotPersona: Identifiable, Equatable {
+struct AssistantMascotPersona: Identifiable, Equatable, Sendable {
     let id: AssistantMascotID
     let displayName: String
     let shortDescription: String
@@ -149,7 +149,7 @@ enum AssistantIdentityText {
 
 }
 
-enum MascotAnimation: String, CaseIterable, Equatable {
+enum MascotAnimation: String, CaseIterable, Equatable, Sendable {
     case idle
     case runRight
     case runLeft
@@ -579,6 +579,7 @@ struct MascotSpriteAnimationView: View {
     }
 }
 
+@MainActor
 final class MascotSpriteFrameProvider {
     static let shared = MascotSpriteFrameProvider()
 
@@ -708,7 +709,9 @@ final class EvaLoopingPlayerUIView: UIView {
     }
 
     deinit {
-        tearDownPlayback()
+        MainActor.assumeIsolated {
+            tearDownPlayback()
+        }
     }
 
     func update(videoName: String) {

@@ -81,7 +81,7 @@ private struct HomeRenderInvalidation: OptionSet {
     }
 }
 
-private struct HomeTimelineWorkspacePreferencesSignature: Equatable {
+struct HomeTimelineWorkspacePreferencesSignature: Equatable {
     let weekStartsOn: Weekday
     let showCalendarEventsInTimeline: Bool
     let riseAndShineHour: Int
@@ -99,7 +99,7 @@ private struct HomeTimelineWorkspacePreferencesSignature: Equatable {
     }
 }
 
-private struct HomeTimelineEventSignature: Equatable {
+struct HomeTimelineEventSignature: Equatable {
     let id: String
     let calendarID: String
     let startDate: Date
@@ -123,7 +123,7 @@ private struct HomeTimelineEventSignature: Equatable {
     }
 }
 
-private struct HomeTimelineSnapshotCacheKey: Equatable {
+struct HomeTimelineSnapshotCacheKey: Equatable {
     let dataRevision: HomeDataRevision
     let selectedDay: Date
     let currentMinuteStamp: Int
@@ -136,7 +136,7 @@ private struct HomeTimelineSnapshotCacheKey: Equatable {
     let replanState: HomeTimelineReplanStateSignature
 }
 
-private struct HomeTimelineCalendarSignature: Equatable {
+struct HomeTimelineCalendarSignature: Equatable {
     let moduleState: HomeCalendarModuleState
     let selectedDate: Date
     let selectedDayEvents: [HomeTimelineEventSignature]
@@ -154,7 +154,7 @@ private struct HomeTimelineCalendarSignature: Equatable {
     }
 }
 
-private struct HomeTimelineReplanCandidateSignature: Equatable {
+struct HomeTimelineReplanCandidateSignature: Equatable {
     let taskID: UUID
     let kind: HomeReplanCandidateKind
     let anchorDate: Date?
@@ -168,7 +168,7 @@ private struct HomeTimelineReplanCandidateSignature: Equatable {
     }
 }
 
-private enum HomeTimelineReplanPhaseSignature: Equatable {
+enum HomeTimelineReplanPhaseSignature: Equatable {
     case trayHidden
     case trayVisible(total: Int)
     case launcher(total: Int)
@@ -197,7 +197,7 @@ private enum HomeTimelineReplanPhaseSignature: Equatable {
     }
 }
 
-private struct HomeTimelineReplanStateSignature: Equatable {
+struct HomeTimelineReplanStateSignature: Equatable {
     let phase: HomeTimelineReplanPhaseSignature
     let currentCandidateID: UUID?
     let candidateIndex: Int
@@ -219,14 +219,14 @@ private struct HomeTimelineReplanStateSignature: Equatable {
     }
 }
 
-private enum HomeReplanResolutionKind: Equatable {
+enum HomeReplanResolutionKind: Equatable {
     case rescheduled
     case movedToInbox
     case completed
     case deleted
 }
 
-private struct HomeReplanUndoEntry: Equatable {
+struct HomeReplanUndoEntry: Equatable {
     let runID: UUID
     let action: HomeReplanResolutionKind
     let candidate: HomeReplanCandidate
@@ -530,7 +530,8 @@ public struct InsightsLaunchRequest: Equatable {
 
 /// ViewModel for the Home screen
 /// Manages all business logic and state for the home view
-public final class HomeViewModel: ObservableObject {
+@MainActor
+public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     // MARK: - Published Properties (Observable State)
 
@@ -718,19 +719,51 @@ public final class HomeViewModel: ObservableObject {
     private let userDefaults: UserDefaults
     private let workspacePreferencesProvider: () -> TaskerWorkspacePreferences
     private let hiddenCalendarEventStore: HomeTimelineHiddenCalendarEventStore
+    private let timelineProjectionBuilder = HomeTimelineProjectionBuilder()
+    private let needsReplanViewModel = HomeNeedsReplanViewModel()
     private var cancellables = Set<AnyCancellable>()
     private var retainedInsightsViewModel: InsightsViewModel?
     private var retainedHomeSearchViewModel: LGSearchViewModel?
-    private var needsReplanCandidates: [HomeReplanCandidate] = []
-    private var activeReplanCandidates: [HomeReplanCandidate] = []
-    private var skippedReplanCandidates: [HomeReplanCandidate] = []
-    private var replanUndoStack: [HomeReplanUndoEntry] = []
-    private var replanOutcomes = HomeReplanOutcomeSummary()
-    private var replanSessionTotal: Int = 0
-    private var replanSessionProgress: Int = 0
-    private var replanScopedDate: Date?
-    private var replanApplyingAction: HomeReplanApplyingAction?
-    private var replanErrorMessage: String?
+    private var needsReplanCandidates: [HomeReplanCandidate] {
+        get { needsReplanViewModel.passiveCandidates }
+        set { needsReplanViewModel.passiveCandidates = newValue }
+    }
+    private var activeReplanCandidates: [HomeReplanCandidate] {
+        get { needsReplanViewModel.activeCandidates }
+        set { needsReplanViewModel.activeCandidates = newValue }
+    }
+    private var skippedReplanCandidates: [HomeReplanCandidate] {
+        get { needsReplanViewModel.skippedCandidates }
+        set { needsReplanViewModel.skippedCandidates = newValue }
+    }
+    private var replanUndoStack: [HomeReplanUndoEntry] {
+        get { needsReplanViewModel.undoStack }
+        set { needsReplanViewModel.undoStack = newValue }
+    }
+    private var replanOutcomes: HomeReplanOutcomeSummary {
+        get { needsReplanViewModel.outcomes }
+        set { needsReplanViewModel.outcomes = newValue }
+    }
+    private var replanSessionTotal: Int {
+        get { needsReplanViewModel.sessionTotal }
+        set { needsReplanViewModel.sessionTotal = newValue }
+    }
+    private var replanSessionProgress: Int {
+        get { needsReplanViewModel.sessionProgress }
+        set { needsReplanViewModel.sessionProgress = newValue }
+    }
+    private var replanScopedDate: Date? {
+        get { needsReplanViewModel.scopedDate }
+        set { needsReplanViewModel.scopedDate = newValue }
+    }
+    private var replanApplyingAction: HomeReplanApplyingAction? {
+        get { needsReplanViewModel.applyingAction }
+        set { needsReplanViewModel.applyingAction = newValue }
+    }
+    private var replanErrorMessage: String? {
+        get { needsReplanViewModel.errorMessage }
+        set { needsReplanViewModel.errorMessage = newValue }
+    }
     private var cachedGlobalReplanRevision: HomeDataRevision?
     private var activeGlobalReplanFetchToken: UUID?
     private var activeGlobalReplanFetchRevision: HomeDataRevision?
@@ -741,7 +774,7 @@ public final class HomeViewModel: ObservableObject {
     private static let lastFilterStateKey = "home.focus.lastFilterState.v2"
     private static let pinnedFocusTaskIDsKey = "home.focus.pinnedTaskIDs.v2"
     private static let recentShuffleTaskIDsKey = "home.eva.recentShuffleTaskIDs.v1"
-    private static let needsReplanDismissedDayKey = "home.needsReplan.dismissedDayKey.v1"
+    private static let needsReplanDismissedDayKey = HomeNeedsReplanViewModel.dismissedDayKey
     private static let maxPinnedFocusTasks = 3
     private static let maxShuffleHistorySize = 10
     private static let defaultShuffleExclusionWindow = 3
@@ -6900,15 +6933,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func beginReplanLauncher(with candidates: [HomeReplanCandidate], scopedTo date: Date?) {
-        activeReplanCandidates = candidates
-        skippedReplanCandidates = []
-        replanUndoStack = []
-        replanOutcomes = HomeReplanOutcomeSummary()
-        replanSessionTotal = candidates.count
-        replanSessionProgress = 0
-        replanScopedDate = date
-        replanApplyingAction = nil
-        replanErrorMessage = nil
+        needsReplanViewModel.beginSession(with: candidates, scopedTo: date)
         let summary = makeNeedsReplanSummary(for: candidates)
         updateReplanState(phase: .launcher(summary))
     }
@@ -6934,11 +6959,18 @@ public final class HomeViewModel: ObservableObject {
         let fetchToken = UUID()
         activeGlobalReplanFetchToken = fetchToken
         activeGlobalReplanFetchRevision = dataRevision
-        fetchGlobalOpenTasks(
-            readModelRepository: readModelRepository,
-            limit: 400,
-            offset: 0,
-            accumulated: []
+        let activeProjectIDs = projects
+            .filter { $0.isArchived == false }
+            .map(\.id)
+        readModelRepository.fetchNeedsReplanCandidates(
+            query: NeedsReplanCandidateQuery(
+                referenceDate: Date(),
+                scopedDate: nil,
+                activeProjectIDs: activeProjectIDs,
+                includeUnscheduledBacklog: true,
+                limit: 400,
+                offset: 0
+            )
         ) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -6955,8 +6987,8 @@ public final class HomeViewModel: ObservableObject {
                     return
                 }
                 switch result {
-                case .success(let tasks):
-                    self.needsReplanCandidates = self.deriveNeedsReplanCandidates(from: tasks, scopedTo: nil)
+                case .success(let projection):
+                    self.needsReplanCandidates = self.deriveNeedsReplanCandidates(from: projection.tasks, scopedTo: nil)
                     self.cachedGlobalReplanRevision = self.dataRevision
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
@@ -6965,45 +6997,6 @@ public final class HomeViewModel: ObservableObject {
                 }
                 self.refreshPassiveNeedsReplanState()
                 self.updateReplanState(phase: self.homeReplanState.phase)
-            }
-        }
-    }
-
-    private func fetchGlobalOpenTasks(
-        readModelRepository: TaskReadModelRepositoryProtocol,
-        limit: Int,
-        offset: Int,
-        accumulated: [TaskDefinition],
-        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
-    ) {
-        readModelRepository.fetchTasks(
-            query: TaskReadQuery(
-                includeCompleted: false,
-                sortBy: .updatedAtDescending,
-                needsTotalCount: false,
-                limit: limit,
-                offset: offset
-            )
-        ) { [weak self] result in
-            guard self != nil else { return }
-            switch result {
-            case .failure(let error):
-                completion(.failure(error))
-            case .success(let slice):
-                let merged = accumulated + slice.tasks
-                let nextOffset = offset + slice.tasks.count
-                let loadedAllTasks = slice.tasks.count < limit || slice.tasks.isEmpty
-                if loadedAllTasks {
-                    completion(.success(merged))
-                    return
-                }
-                self?.fetchGlobalOpenTasks(
-                    readModelRepository: readModelRepository,
-                    limit: limit,
-                    offset: nextOffset,
-                    accumulated: merged,
-                    completion: completion
-                )
             }
         }
     }
@@ -7031,96 +7024,16 @@ public final class HomeViewModel: ObservableObject {
         from tasks: [TaskDefinition],
         scopedTo scopedDate: Date?
     ) -> [HomeReplanCandidate] {
-        let calendar = Calendar.current
-        let todayStart = calendar.startOfDay(for: Date())
-        let scopedStart = scopedDate.map { calendar.startOfDay(for: $0) }
-        var seen: Set<UUID> = []
-
-        return tasks.compactMap { task -> HomeReplanCandidate? in
-            guard seen.insert(task.id).inserted else { return nil }
-            guard task.isComplete == false,
-                  task.parentTaskID == nil,
-                  task.repeatPattern == nil,
-                  task.recurrenceSeriesID == nil,
-                  task.habitDefinitionID == nil else {
-                return nil
-            }
-
-            if let dueDate = task.dueDate,
-               calendar.startOfDay(for: dueDate) < todayStart {
-                if let scopedStart,
-                   calendar.isDate(calendar.startOfDay(for: dueDate), inSameDayAs: scopedStart) == false {
-                    return nil
-                }
-                return HomeReplanCandidate(
-                    task: task,
-                    kind: .pastDue,
-                    anchorDate: dueDate,
-                    anchorEndDate: task.scheduledEndAt,
-                    projectName: task.projectName
-                )
-            }
-
-            if let scheduledStartAt = task.scheduledStartAt,
-               calendar.startOfDay(for: scheduledStartAt) < todayStart {
-                if let scopedStart,
-                   calendar.isDate(calendar.startOfDay(for: scheduledStartAt), inSameDayAs: scopedStart) == false {
-                    return nil
-                }
-                return HomeReplanCandidate(
-                    task: task,
-                    kind: .scheduledCarryOver,
-                    anchorDate: scheduledStartAt,
-                    anchorEndDate: task.scheduledEndAt,
-                    projectName: task.projectName
-                )
-            }
-
-            guard scopedStart == nil,
-                  task.dueDate == nil,
-                  task.scheduledStartAt == nil,
-                  task.scheduledEndAt == nil else {
-                return nil
-            }
-            return HomeReplanCandidate(
-                task: task,
-                kind: .unscheduledBacklog,
-                anchorDate: nil,
-                anchorEndDate: nil,
-                projectName: task.projectName
-            )
-        }
-        .sorted { lhs, rhs in
-            let lhsIsDated = lhs.anchorDate != nil
-            let rhsIsDated = rhs.anchorDate != nil
-            if lhsIsDated != rhsIsDated { return lhsIsDated }
-            if let lhsDay = lhs.anchorDay, let rhsDay = rhs.anchorDay, lhsDay != rhsDay {
-                return lhsDay > rhsDay
-            }
-            if let lhsAnchor = lhs.anchorDate, let rhsAnchor = rhs.anchorDate, lhsAnchor != rhsAnchor {
-                return lhsAnchor > rhsAnchor
-            }
-            if lhs.task.priority.scorePoints != rhs.task.priority.scorePoints {
-                return lhs.task.priority.scorePoints > rhs.task.priority.scorePoints
-            }
-            if lhs.anchorDate == nil, rhs.anchorDate == nil, lhs.task.updatedAt != rhs.task.updatedAt {
-                return lhs.task.updatedAt < rhs.task.updatedAt
-            }
-            return lhs.task.title.localizedStandardCompare(rhs.task.title) == .orderedAscending
-        }
+        let projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return HomeNeedsReplanViewModel.buildCandidates(
+            from: tasks,
+            projectsByID: projectsByID,
+            scopedTo: scopedDate
+        )
     }
 
     private func makeNeedsReplanSummary(for candidates: [HomeReplanCandidate]) -> NeedsReplanSummary {
-        let datedCandidates = candidates.filter { $0.anchorDate != nil }
-        let dayKeys = Set(datedCandidates.compactMap { $0.anchorDate.map(needsReplanDayKey(for:)) })
-        return NeedsReplanSummary(
-            count: candidates.count,
-            datedCount: datedCandidates.count,
-            unscheduledCount: candidates.filter { $0.kind == .unscheduledBacklog }.count,
-            dayCount: dayKeys.count,
-            newestDate: datedCandidates.first?.anchorDate,
-            oldestDate: datedCandidates.last?.anchorDate
-        )
+        HomeNeedsReplanViewModel.summary(for: candidates)
     }
 
     private func updateReplanState(phase: HomeReplanSessionPhase) {
@@ -7157,18 +7070,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func resetReplanSession(keepPassiveCandidates: Bool) {
-        activeReplanCandidates = []
-        skippedReplanCandidates = []
-        replanUndoStack = []
-        replanOutcomes = HomeReplanOutcomeSummary()
-        replanSessionTotal = 0
-        replanSessionProgress = 0
-        replanScopedDate = nil
-        replanApplyingAction = nil
-        replanErrorMessage = nil
-        if keepPassiveCandidates == false {
-            needsReplanCandidates = []
-        }
+        needsReplanViewModel.resetSession(keepPassiveCandidates: keepPassiveCandidates)
         updateReplanState(phase: .trayHidden)
     }
 
@@ -7298,11 +7200,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func defaultReplanPlacementDay(now: Date = Date()) -> Date {
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: now)
-        let today = calendar.startOfDay(for: now)
-        if hour < 17 { return today }
-        return calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        HomeNeedsReplanViewModel.defaultPlacementDay(now: now)
     }
 
     private func roundedToNearestQuarterHour(_ date: Date) -> Date {
@@ -7311,8 +7209,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func needsReplanDayKey(for date: Date) -> String {
-        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
-        return "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+        HomeNeedsReplanViewModel.dayKey(for: date)
     }
 
     /// Executes trackFirstCompletionLatencyIfNeeded.
@@ -8185,22 +8082,22 @@ extension HomeViewModel {
         let selectedDay = Calendar.current.startOfDay(for: selectedDate)
         let now = Date()
         let currentMinuteStamp = Int(now.timeIntervalSinceReferenceDate / 60)
-        let cacheKey = HomeTimelineSnapshotCacheKey(
+        let projectionInput = HomeTimelineProjectionInput(
             dataRevision: dataRevision,
             selectedDay: selectedDay,
             currentMinuteStamp: currentMinuteStamp,
             foredropAnchor: foredropAnchor,
-            calendarSignature: HomeTimelineCalendarSignature(calendarSnapshot),
-            workspacePreferences: HomeTimelineWorkspacePreferencesSignature(workspacePreferences),
+            calendarSnapshot: calendarSnapshot,
+            workspacePreferences: workspacePreferences,
             hiddenCalendarEvents: hiddenHomeTimelineCalendarEvents.sorted(),
             pinnedFocusTaskIDs: pinnedFocusTaskIDs,
-            needsReplanCandidates: needsReplanCandidates.map(HomeTimelineReplanCandidateSignature.init),
-            replanState: HomeTimelineReplanStateSignature(homeReplanState)
+            needsReplanCandidates: needsReplanCandidates,
+            replanState: homeReplanState
         )
-        if let cached = timelineSnapshotCache, cached.key == cacheKey {
-            return cached.snapshot
-        }
-
+        let builtProjection = timelineProjectionBuilder.build(
+            input: projectionInput,
+            cached: timelineSnapshotCache
+        ) {
         let taskCandidates = timelineTaskCandidates()
         let anchorWindow = resolvedTimelineAnchorWindow(on: selectedDay, preferences: workspacePreferences)
         let wakeAnchor = TimelineAnchorItem(
@@ -8287,7 +8184,7 @@ extension HomeViewModel {
         )
         let currentItemID = timedBuckets.allItems.first(where: { $0.isActive(at: now) })?.id
 
-        let snapshot = HomeTimelineSnapshot(
+        return HomeTimelineSnapshot(
             selectedDate: selectedDay,
             foredropAnchor: foredropAnchor,
             day: TimelineDayProjection(
@@ -8316,8 +8213,9 @@ extension HomeViewModel {
             ),
             placementCandidate: homeReplanState.placementCandidate
         )
-        timelineSnapshotCache = (cacheKey, snapshot)
-        return snapshot
+        }
+        timelineSnapshotCache = builtProjection
+        return builtProjection.snapshot
     }
 
     func timelineWeekStartsOn() -> Weekday {
@@ -9439,7 +9337,6 @@ enum TaskListWidgetTimelineProjection {
         now: Date
     ) -> [TaskListWidgetTimelineGap] {
         guard sleepAnchor > wakeAnchor else { return [] }
-        let minimumGap: TimeInterval = 30 * 60
         let intervals = timedItems.compactMap { item -> (start: Date, end: Date)? in
             guard let start = item.startDate, let end = item.endDate else { return nil }
             let clippedStart = max(start, wakeAnchor)
@@ -9742,9 +9639,9 @@ final class TaskListWidgetSnapshotService {
     }
 
     private func currentCoordinator() -> UseCaseCoordinator? {
-        let container = PresentationDependencyContainer.shared
-        guard container.isConfiguredForRuntime else { return nil }
-        return container.coordinator
+        let container = EnhancedDependencyContainer.shared
+        guard let coordinator = container.useCaseCoordinator else { return nil }
+        return coordinator
     }
 
     private func buildSnapshot(

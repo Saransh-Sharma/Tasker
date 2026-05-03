@@ -13,6 +13,7 @@ import UIKit
 /// Dependency container for Clean Architecture ViewModels
 /// Receives dependencies from EnhancedDependencyContainer (State layer)
 /// and provides ViewModels to the Presentation layer
+@MainActor
 public final class PresentationDependencyContainer {
 
     // MARK: - Singleton

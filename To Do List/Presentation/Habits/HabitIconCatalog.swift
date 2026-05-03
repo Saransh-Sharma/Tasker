@@ -1,6 +1,6 @@
 import Foundation
 
-public struct HabitIconOption: Identifiable, Equatable, Hashable {
+public struct HabitIconOption: Identifiable, Equatable, Hashable, Sendable {
     public let symbolName: String
     public let displayName: String
     public let categoryKey: String
@@ -27,7 +27,7 @@ public struct HabitIconOption: Identifiable, Equatable, Hashable {
     }
 }
 
-public final class HabitIconCatalog {
+public final class HabitIconCatalog: Sendable {
     public static let shared = HabitIconCatalog()
 
     public let all: [HabitIconOption] = [

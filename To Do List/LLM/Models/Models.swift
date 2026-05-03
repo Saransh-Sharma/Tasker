@@ -265,17 +265,17 @@ enum LLMSystemPromptComposer {
 }
 
 public extension ModelConfiguration {
-    enum ModelType {
+    enum ModelType: Sendable {
         case regular, reasoning
     }
 
-    enum ThinkingFormat {
+    enum ThinkingFormat: Sendable {
         case none
         case taggedThinkBlocks
         case plainTextPreamble
     }
 
-    enum ModelFamily {
+    enum ModelFamily: Sendable {
         case qwen3
         case qwen3_5Text
         case bonsai

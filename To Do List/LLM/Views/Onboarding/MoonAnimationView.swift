@@ -92,7 +92,9 @@ class LoopingPlayerUIView: UIView {
     }
 
     deinit {
-        tearDownPlayback()
+        MainActor.assumeIsolated {
+            tearDownPlayback()
+        }
     }
 
     func tearDownPlayback() {

@@ -8,7 +8,7 @@
 import Foundation
 
 /// In-memory cache implementation with TTL support
-public final class InMemoryCacheService: CacheServiceProtocol {
+public final class InMemoryCacheService: CacheServiceProtocol, @unchecked Sendable {
     
     // MARK: - Properties
     
@@ -35,7 +35,7 @@ public final class InMemoryCacheService: CacheServiceProtocol {
     
     // MARK: - Cache Operations
     
-    public func set<T: Codable>(_ object: T, forKey key: String, expiration: CacheExpiration?) {
+    public func set<T: Codable & Sendable>(_ object: T, forKey key: String, expiration: CacheExpiration?) {
         queue.async(flags: .barrier) {
             do {
                 let encoder = JSONEncoder()
@@ -53,7 +53,7 @@ public final class InMemoryCacheService: CacheServiceProtocol {
         }
     }
     
-    public func get<T: Codable>(_ type: T.Type, forKey key: String) -> T? {
+    public func get<T: Codable & Sendable>(_ type: T.Type, forKey key: String) -> T? {
         var result: T?
 
         queue.sync {

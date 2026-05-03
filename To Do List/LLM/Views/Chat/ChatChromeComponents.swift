@@ -1482,19 +1482,19 @@ struct ChatScaffoldView: View {
                 .onAppear {
                     publishNavigationChromeState()
                 }
-                .onChange(of: currentThread?.id) { _ in
+                .onChange(of: currentThread?.id) {
                     publishNavigationChromeState()
                 }
-                .onChange(of: chatTitle) { _ in
+                .onChange(of: chatTitle) {
                     publishNavigationChromeState()
                 }
-                .onChange(of: showsHistoryAction) { _ in
+                .onChange(of: showsHistoryAction) {
                     publishNavigationChromeState()
                 }
-                .onChange(of: presentationMode) { _ in
+                .onChange(of: presentationMode) {
                     publishNavigationChromeState()
                 }
-                .onChange(of: assistantIdentity.snapshot) { _ in
+                .onChange(of: assistantIdentity.snapshot) {
                     publishNavigationChromeState()
                 }
                 .sheet(isPresented: showSettings) {

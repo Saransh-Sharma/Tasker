@@ -1,7 +1,7 @@
 import Foundation
 import MLXLMCommon
 #if os(iOS)
-import UIKit
+@preconcurrency import UIKit
 #endif
 
 enum AIFeatureRoute {
@@ -51,6 +51,7 @@ struct AIRuntimeSnapshot {
         )
     }
 
+    @MainActor
     static func from(appManager: AppManager) -> AIRuntimeSnapshot {
         AIRuntimeSnapshot(
             selectedModelName: appManager.currentModelName,
@@ -133,6 +134,7 @@ struct AIChatModeRouter {
         )
     }
 
+    @MainActor
     static func route(for feature: AIFeatureRoute, appManager: AppManager) -> AIModelRoute {
         route(for: feature, snapshot: .from(appManager: appManager))
     }

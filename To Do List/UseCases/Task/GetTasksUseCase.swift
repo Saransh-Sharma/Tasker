@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct SemanticSearchPolicy: Equatable {
+public struct SemanticSearchPolicy: Equatable, Sendable {
     public let minimumQueryLength: Int
     public let minimumResultCount: Int
     public let candidateLimit: Int

@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 #if canImport(EventKit)
-import EventKit
+ import EventKit
 
 public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtocol {
     private let store: EKEventStore
