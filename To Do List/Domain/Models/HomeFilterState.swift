@@ -7,12 +7,12 @@
 
 import Foundation
 
-public enum HomeTagMatchMode: String, Codable {
+public enum HomeTagMatchMode: String, Codable, Sendable {
     case any
     case all
 }
 
-public struct HomeDateRange: Codable, Equatable {
+public struct HomeDateRange: Codable, Equatable, Sendable {
     public let start: Date
     public let end: Date
 
@@ -23,7 +23,7 @@ public struct HomeDateRange: Codable, Equatable {
     }
 }
 
-public struct HomeAdvancedFilter: Codable, Equatable {
+public struct HomeAdvancedFilter: Codable, Equatable, Sendable {
     public let priorities: [TaskPriority]
     public let categories: [TaskCategory]
     public let contexts: [TaskContext]
@@ -73,7 +73,7 @@ public struct HomeAdvancedFilter: Codable, Equatable {
     }
 }
 
-public struct HomeFilterState: Codable, Equatable {
+public struct HomeFilterState: Codable, Equatable, Sendable {
     public static let schemaVersion = 1
 
     public let version: Int

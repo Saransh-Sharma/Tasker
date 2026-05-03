@@ -1,18 +1,18 @@
 import Foundation
 
-public enum ReminderSourceType: String, Codable {
+public enum ReminderSourceType: String, Codable, Sendable {
     case task
     case habit
     case occurrence
 }
 
-public enum ReminderTriggerType: String, Codable {
+public enum ReminderTriggerType: String, Codable, Sendable {
     case absolute
     case relative
     case location
 }
 
-public struct ReminderDefinition: Codable, Equatable, Hashable {
+public struct ReminderDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var sourceType: ReminderSourceType
     public var sourceID: UUID

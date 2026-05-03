@@ -1,6 +1,6 @@
 import Foundation
 
-public enum XPActionCategory: String, Codable, CaseIterable {
+public enum XPActionCategory: String, Codable, CaseIterable, Sendable {
     case complete
     case start
     case decompose
@@ -20,7 +20,7 @@ public enum XPActionCategory: String, Codable, CaseIterable {
     case habitStreakMilestone
 }
 
-public enum XPSource: String, Codable, CaseIterable {
+public enum XPSource: String, Codable, CaseIterable, Sendable {
     case manual
     case notification
     case assistant
@@ -28,7 +28,7 @@ public enum XPSource: String, Codable, CaseIterable {
     case habit
 }
 
-public enum TaskMutationSource: String, Codable, CaseIterable {
+public enum TaskMutationSource: String, Codable, CaseIterable, Sendable {
     case manual
     case notification
     case assistant

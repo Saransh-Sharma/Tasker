@@ -40,7 +40,7 @@ public enum HomeQuickView: String, CaseIterable, Codable, Sendable {
     }
 }
 
-public enum HomeListScope: Equatable, Codable {
+public enum HomeListScope: Equatable, Codable, Sendable {
     case today
     case customDate(Date)
     case upcoming

@@ -1,6 +1,6 @@
 import Foundation
 
-public enum AssistantActionStatus: String, Codable {
+public enum AssistantActionStatus: String, Codable, Sendable {
     case pending
     case confirmed
     case applied
@@ -9,7 +9,7 @@ public enum AssistantActionStatus: String, Codable {
     case failed
 }
 
-public enum AssistantRollbackStatus: String, Codable {
+public enum AssistantRollbackStatus: String, Codable, Sendable {
     case notNeeded
     case pendingVerification
     case verified
@@ -661,7 +661,7 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
     }
 }
 
-public struct AssistantActionRunDefinition: Codable, Equatable, Hashable {
+public struct AssistantActionRunDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var threadID: String?
     public var proposalData: Data?

@@ -1,13 +1,13 @@
 import Foundation
 
-public struct AchievementUnlockDefinition: Codable, Equatable, Hashable {
+public struct AchievementUnlockDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var achievementKey: String
     public var unlockedAt: Date
     public var sourceEventID: UUID?
 }
 
-public struct AchievementProgressState: Codable, Equatable, Hashable, Identifiable {
+public struct AchievementProgressState: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var id: String { key }
     public let key: String
     public let name: String

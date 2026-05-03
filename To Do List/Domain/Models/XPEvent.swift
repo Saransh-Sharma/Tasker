@@ -1,6 +1,6 @@
 import Foundation
 
-public struct XPEventDefinition: Codable, Equatable, Hashable {
+public struct XPEventDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var occurrenceID: UUID?
     public var taskID: UUID?

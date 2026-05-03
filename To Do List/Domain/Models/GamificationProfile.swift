@@ -1,6 +1,6 @@
 import Foundation
 
-public struct GamificationSnapshot: Codable, Equatable, Hashable {
+public struct GamificationSnapshot: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var xpTotal: Int64
     public var level: Int

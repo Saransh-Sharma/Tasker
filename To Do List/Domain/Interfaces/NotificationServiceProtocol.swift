@@ -35,11 +35,11 @@ public protocol NotificationServiceProtocol {
     
     /// Request permission to send notifications
     /// - Parameter completion: Completion handler with permission result
-    func requestPermission(completion: @escaping (Bool) -> Void)
+    func requestPermission(completion: @escaping @Sendable (Bool) -> Void)
     
     /// Check if notifications are authorized
     /// - Parameter completion: Completion handler with authorization status
-    func checkAuthorizationStatus(completion: @escaping (Bool) -> Void)
+    func checkAuthorizationStatus(completion: @escaping @Sendable (Bool) -> Void)
 
     // MARK: - Typed Local Notifications
 
@@ -50,7 +50,7 @@ public protocol NotificationServiceProtocol {
     func cancel(ids: [String])
 
     /// Inspect pending notification requests.
-    func pendingRequests(completion: @escaping ([TaskerPendingNotificationRequest]) -> Void)
+    func pendingRequests(completion: @escaping @Sendable ([TaskerPendingNotificationRequest]) -> Void)
 
     /// Register local notification action categories.
     func registerCategories(_ categories: Set<UNNotificationCategory>)
@@ -59,7 +59,7 @@ public protocol NotificationServiceProtocol {
     func setDelegate(_ delegate: UNUserNotificationCenterDelegate?)
 
     /// Fetch fine-grained authorization status.
-    func fetchAuthorizationStatus(completion: @escaping (TaskerNotificationAuthorizationStatus) -> Void)
+    func fetchAuthorizationStatus(completion: @escaping @Sendable (TaskerNotificationAuthorizationStatus) -> Void)
 }
 
 public extension NotificationServiceProtocol {
@@ -73,7 +73,7 @@ public extension NotificationServiceProtocol {
         fatalError("NotificationServiceProtocol.cancel(ids:) must be implemented by concrete notification services.")
     }
 
-    func pendingRequests(completion: @escaping ([TaskerPendingNotificationRequest]) -> Void) {
+    func pendingRequests(completion: @escaping @Sendable ([TaskerPendingNotificationRequest]) -> Void) {
         _ = completion
         fatalError("NotificationServiceProtocol.pendingRequests(completion:) should be implemented for typed notification reconciliation.")
     }
@@ -86,7 +86,7 @@ public extension NotificationServiceProtocol {
         _ = delegate
     }
 
-    func fetchAuthorizationStatus(completion: @escaping (TaskerNotificationAuthorizationStatus) -> Void) {
+    func fetchAuthorizationStatus(completion: @escaping @Sendable (TaskerNotificationAuthorizationStatus) -> Void) {
         checkAuthorizationStatus { authorized in
             completion(authorized ? .authorized : .denied)
         }
@@ -133,7 +133,7 @@ public enum TaskerNotificationActionID: String, Codable, CaseIterable {
     case snooze60m = "tasker.action.snooze_60m"
 }
 
-public enum TaskerNotificationAuthorizationStatus: String, Equatable {
+public enum TaskerNotificationAuthorizationStatus: String, Equatable, Sendable {
     case notDetermined
     case denied
     case authorized
@@ -587,7 +587,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
     }
 }
 
-public final class TaskerNotificationPreferencesStore {
+public final class TaskerNotificationPreferencesStore: @unchecked Sendable {
     public static let shared = TaskerNotificationPreferencesStore()
 
     private let defaults: UserDefaults
@@ -595,6 +595,7 @@ public final class TaskerNotificationPreferencesStore {
     private let legacyKey = "tasker.notification.preferences.v1"
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    private let lock = NSLock()
 
     /// Initializes a new instance.
     public init(defaults: UserDefaults = .standard) {
@@ -602,13 +603,17 @@ public final class TaskerNotificationPreferencesStore {
     }
 
     public func load() -> TaskerNotificationPreferences {
+        lock.lock()
+        defer { lock.unlock() }
         if let data = defaults.data(forKey: key),
            let preferences = try? decoder.decode(TaskerNotificationPreferences.self, from: data) {
             return preferences
         }
         if let legacyData = defaults.data(forKey: legacyKey),
            let legacyPreferences = try? decoder.decode(TaskerNotificationPreferences.self, from: legacyData) {
-            save(legacyPreferences)
+            if let data = try? encoder.encode(legacyPreferences) {
+                defaults.set(data, forKey: key)
+            }
             defaults.removeObject(forKey: legacyKey)
             return legacyPreferences
         }
@@ -616,6 +621,8 @@ public final class TaskerNotificationPreferencesStore {
     }
 
     public func save(_ preferences: TaskerNotificationPreferences) {
+        lock.lock()
+        defer { lock.unlock() }
         guard let data = try? encoder.encode(preferences) else { return }
         defaults.set(data, forKey: key)
     }
@@ -627,7 +634,7 @@ public final class TaskerNotificationPreferencesStore {
     }
 }
 
-public final class TaskerWorkspacePreferencesStore {
+public final class TaskerWorkspacePreferencesStore: @unchecked Sendable {
     public static let shared = TaskerWorkspacePreferencesStore()
     public static let didChangeNotification = Notification.Name("tasker.workspacePreferences.didChange")
 
@@ -635,12 +642,15 @@ public final class TaskerWorkspacePreferencesStore {
     private let key = "tasker.workspace.preferences.v1"
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    private let lock = NSLock()
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
     }
 
     public func load() -> TaskerWorkspacePreferences {
+        lock.lock()
+        defer { lock.unlock() }
         guard let data = defaults.data(forKey: key),
               let preferences = try? decoder.decode(TaskerWorkspacePreferences.self, from: data) else {
             return TaskerWorkspacePreferences()
@@ -649,8 +659,16 @@ public final class TaskerWorkspacePreferencesStore {
     }
 
     public func save(_ preferences: TaskerWorkspacePreferences) {
+        lock.lock()
+        defer { lock.unlock() }
         let normalized = preferences.normalizedForPersistence()
-        let current = load()
+        guard let currentData = defaults.data(forKey: key),
+              let current = try? decoder.decode(TaskerWorkspacePreferences.self, from: currentData) else {
+            guard let data = try? encoder.encode(normalized) else { return }
+            defaults.set(data, forKey: key)
+            NotificationCenter.default.post(name: Self.didChangeNotification, object: normalized)
+            return
+        }
         guard current != normalized else { return }
         guard let data = try? encoder.encode(normalized) else { return }
         defaults.set(data, forKey: key)
