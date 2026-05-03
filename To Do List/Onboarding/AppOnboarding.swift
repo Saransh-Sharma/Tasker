@@ -6951,19 +6951,19 @@ private struct OnboardingConcentricColorField: View {
         if #available(iOS 26.0, *) {
             Rectangle()
                 .fill(.clear)
-                .glassEffect(.regular, in: Rectangle())
+                .glassEffect(.clear, in: Rectangle())
                 .overlay(colorField)
                 .overlay(
                     Rectangle()
                         .fill(.regularMaterial)
-                        .opacity(0.10)
+                        .opacity(materialVeilOpacity)
                 )
         } else {
             colorField
                 .overlay(
                     Rectangle()
                         .fill(.regularMaterial)
-                        .opacity(0.12)
+                        .opacity(materialVeilOpacity)
                 )
         }
     }
@@ -6974,7 +6974,7 @@ private struct OnboardingConcentricColorField: View {
                 colors: [
                     theme.backdrop.opacity(backdropOpacity),
                     theme.accent.opacity(accentOpacity),
-                    Color.black.opacity(0.24)
+                    Color.black.opacity(gradientFloorOpacity)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -6996,26 +6996,36 @@ private struct OnboardingConcentricColorField: View {
 
     private var backdropOpacity: Double {
         if reduceTransparency { return 0.90 }
-        return colorSchemeContrast == .increased ? 0.84 : 0.78
+        return colorSchemeContrast == .increased ? 0.38 : 0.30
     }
 
     private var accentOpacity: Double {
         if reduceTransparency { return 0.46 }
-        return colorSchemeContrast == .increased ? 0.40 : 0.34
+        return colorSchemeContrast == .increased ? 0.23 : 0.18
     }
 
     private var accentGlowOpacity: Double {
         if reduceTransparency { return 0.30 }
-        return colorSchemeContrast == .increased ? 0.30 : 0.36
+        return colorSchemeContrast == .increased ? 0.28 : 0.24
     }
 
     private var backdropGlowOpacity: Double {
-        reduceTransparency ? 0.34 : 0.42
+        reduceTransparency ? 0.34 : 0.18
+    }
+
+    private var gradientFloorOpacity: Double {
+        if reduceTransparency { return 0.24 }
+        return colorSchemeContrast == .increased ? 0.14 : 0.08
+    }
+
+    private var materialVeilOpacity: Double {
+        if reduceTransparency { return 0.12 }
+        return colorSchemeContrast == .increased ? 0.08 : 0.04
     }
 
     private var darkContrastOpacity: Double {
         if reduceTransparency { return 0.30 }
-        return colorSchemeContrast == .increased ? 0.24 : 0.16
+        return colorSchemeContrast == .increased ? 0.13 : 0.07
     }
 }
 
@@ -7303,11 +7313,11 @@ private struct OnboardingCinematicBackdrop: View {
             switch self {
             case .intro(let phase):
                 let base = phase.showsTitle
-                    ? (colorScheme == .dark ? 0.62 : 0.54)
-                    : (colorScheme == .dark ? 0.30 : 0.24)
+                    ? (colorScheme == .dark ? 0.46 : 0.40)
+                    : (colorScheme == .dark ? 0.20 : 0.16)
                 return max(phase.backdropDimOpacity, base + contrastBoost(colorSchemeContrast))
             case .steady:
-                return (colorScheme == .dark ? 0.76 : 0.66) + contrastBoost(colorSchemeContrast)
+                return (colorScheme == .dark ? 0.48 : 0.40) + contrastBoost(colorSchemeContrast)
             }
         }
 
@@ -7315,11 +7325,11 @@ private struct OnboardingCinematicBackdrop: View {
             switch self {
             case .intro(let phase):
                 let base = phase.showsTitle
-                    ? (colorScheme == .dark ? 0.30 : 0.24)
-                    : (colorScheme == .dark ? 0.16 : 0.12)
+                    ? (colorScheme == .dark ? 0.18 : 0.15)
+                    : (colorScheme == .dark ? 0.09 : 0.07)
                 return max(phase.backdropBlurOpacity, base + contrastBoost(colorSchemeContrast) * 0.5)
             case .steady:
-                return (colorScheme == .dark ? 0.52 : 0.44) + contrastBoost(colorSchemeContrast) * 0.5
+                return (colorScheme == .dark ? 0.24 : 0.20) + contrastBoost(colorSchemeContrast) * 0.5
             }
         }
 
@@ -7327,11 +7337,11 @@ private struct OnboardingCinematicBackdrop: View {
             switch self {
             case .intro(let phase):
                 let base = phase.showsTitle
-                    ? (colorScheme == .dark ? 0.56 : 0.48)
-                    : (colorScheme == .dark ? 0.24 : 0.18)
+                    ? (colorScheme == .dark ? 0.40 : 0.34)
+                    : (colorScheme == .dark ? 0.16 : 0.12)
                 return base + contrastBoost(colorSchemeContrast)
             case .steady:
-                return (colorScheme == .dark ? 0.68 : 0.58) + contrastBoost(colorSchemeContrast)
+                return (colorScheme == .dark ? 0.44 : 0.38) + contrastBoost(colorSchemeContrast)
             }
         }
 
@@ -7339,11 +7349,11 @@ private struct OnboardingCinematicBackdrop: View {
             switch self {
             case .intro(let phase):
                 let base = phase.showsTitle
-                    ? (colorScheme == .dark ? 0.68 : 0.58)
-                    : (colorScheme == .dark ? 0.34 : 0.26)
+                    ? (colorScheme == .dark ? 0.48 : 0.42)
+                    : (colorScheme == .dark ? 0.22 : 0.18)
                 return base + contrastBoost(colorSchemeContrast)
             case .steady:
-                return (colorScheme == .dark ? 0.82 : 0.72) + contrastBoost(colorSchemeContrast)
+                return (colorScheme == .dark ? 0.54 : 0.48) + contrastBoost(colorSchemeContrast)
             }
         }
 
@@ -7361,7 +7371,7 @@ private struct OnboardingCinematicBackdrop: View {
             case .intro:
                 return 0
             case .steady:
-                return (colorScheme == .dark ? 0.36 : 0.30) + contrastBoost(colorSchemeContrast) * 0.5
+                return (colorScheme == .dark ? 0.20 : 0.16) + contrastBoost(colorSchemeContrast) * 0.5
             }
         }
 
@@ -7369,16 +7379,16 @@ private struct OnboardingCinematicBackdrop: View {
             switch self {
             case .intro(let phase):
                 let base = phase.showsTitle
-                    ? (colorScheme == .dark ? 0.22 : 0.18)
-                    : (colorScheme == .dark ? 0.10 : 0.08)
+                    ? (colorScheme == .dark ? 0.12 : 0.10)
+                    : (colorScheme == .dark ? 0.05 : 0.04)
                 return base + contrastBoost(colorSchemeContrast) * 0.5
             case .steady:
-                return (colorScheme == .dark ? 0.32 : 0.24) + contrastBoost(colorSchemeContrast) * 0.5
+                return (colorScheme == .dark ? 0.16 : 0.13) + contrastBoost(colorSchemeContrast) * 0.5
             }
         }
 
         private func contrastBoost(_ colorSchemeContrast: ColorSchemeContrast) -> Double {
-            colorSchemeContrast == .increased ? 0.06 : 0
+            colorSchemeContrast == .increased ? 0.04 : 0
         }
     }
 
