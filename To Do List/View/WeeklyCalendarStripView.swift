@@ -6,7 +6,7 @@
 //  Sits on the backdrop, revealed when foredrop is pulled down.
 //
 
-import SwiftUI
+ import SwiftUI
 
 // MARK: - Calendar Helpers
 
@@ -50,13 +50,14 @@ extension Calendar {
 
 // MARK: - Weekly Calendar Strip
 
+@MainActor
 private struct WeeklyCalendarDayCell: View, Equatable {
     let dayLabel: String
     let dayNumber: Int
     let isSelected: Bool
     let isToday: Bool
 
-    static func == (lhs: WeeklyCalendarDayCell, rhs: WeeklyCalendarDayCell) -> Bool {
+    nonisolated static func == (lhs: WeeklyCalendarDayCell, rhs: WeeklyCalendarDayCell) -> Bool {
         lhs.dayLabel == rhs.dayLabel &&
         lhs.dayNumber == rhs.dayNumber &&
         lhs.isSelected == rhs.isSelected &&

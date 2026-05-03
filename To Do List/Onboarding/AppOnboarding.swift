@@ -36,6 +36,7 @@ enum AppOnboardingAccessibilityID {
     static let notificationPermission = "onboarding.notificationPermission"
     static let success = "onboarding.success"
     static let skipButton = "onboarding.skipButton"
+    static let nextButton = "onboarding.cta.next"
     static let frictionHelper = "onboarding.friction.helper"
     static let useAreas = "onboarding.cta.useAreas"
     static let customHabit = "onboarding.cta.customHabit"
@@ -3452,7 +3453,7 @@ final class OnboardingFeedbackController {
 }
 
 @MainActor
-final class OnboardingFlowModel: ObservableObject {
+final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
     private let stateStore: AppOnboardingStateStore
     private let notificationService: NotificationServiceProtocol?
     private let calendarService: CalendarIntegrationService?
@@ -3860,7 +3861,9 @@ final class OnboardingFlowModel: ObservableObject {
         successSummary = snapshot.successSummary
         if snapshot.hasSeenSuccess, step == .success {
             notificationService?.fetchAuthorizationStatus { [weak self] status in
-                self?.applyReminderPromptState(for: status)
+                Task { @MainActor [weak self] in
+                    self?.applyReminderPromptState(for: status)
+                }
             }
         }
     }
@@ -5573,7 +5576,11 @@ struct AppOnboardingJourneyView: View {
         if shouldShowWelcomeExperience {
             return .intro(welcomeIntroPhase)
         }
-        return .steady
+        return .steady(currentVisualTheme)
+    }
+
+    private var currentVisualTheme: OnboardingStepVisualTheme {
+        OnboardingStepVisualTheme.theme(for: viewModel.step)
     }
 
     var body: some View {
@@ -5581,8 +5588,19 @@ struct AppOnboardingJourneyView: View {
             backgroundLayer
                 .ignoresSafeArea()
 
+            OnboardingConcentricColorField(theme: currentVisualTheme)
+                .ignoresSafeArea()
+
             contentLayer
                 .allowsHitTesting(isWelcomeIntroActive == false)
+
+            OnboardingConcentricTransitionLayer(
+                step: viewModel.step,
+                theme: currentVisualTheme,
+                isEnabled: shouldShowWelcomeExperience == false
+            )
+            .allowsHitTesting(false)
+            .ignoresSafeArea()
 
             if isWelcomeIntroActive {
                 OnboardingWelcomeCinematicOverlay(
@@ -5654,6 +5672,7 @@ struct AppOnboardingJourneyView: View {
                 .padding(.top, spacing.s16)
                 .padding(.bottom, 120)
             }
+            .onboardingConcentricPageMotion(step: viewModel.step, reduceMotion: reduceMotion)
         } else if shouldShowWelcomeExperience {
             welcomeExperienceContent
         } else {
@@ -5667,6 +5686,7 @@ struct AppOnboardingJourneyView: View {
                 .padding(.top, spacing.s16)
                 .padding(.bottom, 120)
             }
+            .onboardingConcentricPageMotion(step: viewModel.step, reduceMotion: reduceMotion)
         }
     }
 
@@ -6497,198 +6517,21 @@ struct AppOnboardingJourneyView: View {
                     .multilineTextAlignment(.center)
             }
 
-            if viewModel.step == .success, viewModel.successSummary != nil {
-                VStack(spacing: spacing.s8) {
-                    Button {
-                        feedbackController.medium()
-                        viewModel.finishOnboarding()
-                        onDismissFlow()
-                    } label: {
-                        Text(OnboardingCopy.Success.goHomeCTA)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .onboardingPrimaryButton()
-                    .accessibilityIdentifier(AppOnboardingAccessibilityID.goHome)
+            HStack(alignment: .bottom, spacing: spacing.s12) {
+                dockSecondaryContent
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if viewModel.evaPreparationState.isReady {
-                        Button(AssistantIdentityText.askAction(for: viewModel.selectedMascotID)) {
-                            feedbackController.light()
-                            viewModel.finishOnboarding()
-                            onDismissFlow()
-                        }
-                        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
-                        .accessibilityIdentifier(AppOnboardingAccessibilityID.breakdownNext)
-                    }
-                }
-            } else {
-                switch viewModel.step {
-                case .welcome:
-                    EmptyView()
-                case .goal:
-                    Button {
-                        feedbackController.medium()
-                        viewModel.continueFromGoal()
-                    } label: {
-                        Text(OnboardingCopy.Goal.cta)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .onboardingPrimaryButton(disabled: viewModel.canContinueGoal == false)
-                case .pain:
-                    Button {
-                        feedbackController.medium()
-                        viewModel.continueFromPain()
-                    } label: {
-                        Text(OnboardingCopy.Pain.cta)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .onboardingPrimaryButton(disabled: viewModel.canContinuePain == false)
-                case .evaValue:
-                    Button {
-                        feedbackController.medium()
-                        viewModel.continueFromEvaValue()
-                    } label: {
-                        Text(OnboardingCopy.EvaValue.cta)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .onboardingPrimaryButton()
-                case .blocker:
-                    EmptyView()
-                case .lifeAreas:
-                    VStack(spacing: spacing.s8) {
-                        Text(OnboardingCopy.LifeAreas.helper)
-                            .taskerFont(.caption1)
-                            .foregroundStyle(OnboardingTheme.textSecondary)
-                            .multilineTextAlignment(.center)
-                        Button {
-                            feedbackController.medium()
-                            Task { await viewModel.continueFromLifeAreas() }
-                        } label: {
-                            Text(viewModel.isWorking ? "Preparing areas..." : OnboardingCopy.LifeAreas.cta)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .onboardingPrimaryButton(disabled: viewModel.canContinueLifeAreas == false || viewModel.isWorking)
-                        .accessibilityIdentifier(AppOnboardingAccessibilityID.useAreas)
-                    }
-                case .projects:
-                    EmptyView()
-                case .habits:
-                    EmptyView()
-                case .habitSetup:
-                    Button {
-                        feedbackController.medium()
-                        viewModel.continueFromHabitSetup()
-                    } label: {
-                        Text(OnboardingCopy.HabitSetup.cta)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .onboardingPrimaryButton(disabled: viewModel.canContinueHabitSetup == false)
-                case .streakPreview:
-                    Button {
-                        feedbackController.medium()
-                        viewModel.continueFromStreakPreview()
-                    } label: {
-                        Text(OnboardingCopy.Streak.cta)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .onboardingPrimaryButton()
-                case .evaStyle:
-                    Button {
-                        feedbackController.medium()
-                        viewModel.continueFromEvaStyle()
-                    } label: {
-                        Text(OnboardingCopy.EvaStyle.cta)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .onboardingPrimaryButton()
-                case .processing:
-                    VStack(spacing: spacing.s8) {
-                        if viewModel.evaPreparationState.phase == .waitingForCellularConsent {
-                            Button {
-                                feedbackController.medium()
-                                Task { await viewModel.approveEvaCellularDownload() }
-                            } label: {
-                                Text("Use mobile data for \(viewModel.selectedMascotPersona.displayName)")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .onboardingPrimaryButton()
-
-                            Button("Wait for Wi-Fi") {
-                                feedbackController.light()
-                                viewModel.deferEvaDownload()
-                            }
-                            .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
-                        } else {
-                            ProgressView()
-                                .tint(OnboardingTheme.accent)
-                        }
-                    }
-                case .firstTask:
-                    VStack(spacing: spacing.s8) {
-                        Button {
-                            feedbackController.medium()
-                            viewModel.continueFromFirstWinReview()
-                        } label: {
-                            Text(viewModel.canContinueToFocus ? OnboardingCopy.FirstTask.ctaReady : OnboardingCopy.FirstTask.ctaMissing)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .onboardingPrimaryButton(disabled: viewModel.canContinueToFocus == false || viewModel.isWorking)
-                        .accessibilityIdentifier(AppOnboardingAccessibilityID.goFinishTask)
-                    }
-                case .focusRoom:
-                    EmptyView()
-                case .habitCheckIn:
-                    VStack(spacing: spacing.s8) {
-                        Button {
-                            feedbackController.medium()
-                            Task { await viewModel.performStarterHabitPrimaryAction() }
-                        } label: {
-                            Text(viewModel.starterHabit?.kind == .positive ? "Done" : "Stayed clean")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .onboardingPrimaryButton(disabled: viewModel.isWorking)
-
-                        Button(viewModel.starterHabit?.kind == .positive ? "Skip today" : "Lapsed") {
-                            feedbackController.light()
-                            Task { await viewModel.performStarterHabitSecondaryAction() }
-                        }
-                        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
-                    }
-                case .calendarPermission:
-                    VStack(spacing: spacing.s8) {
-                        Button {
-                            feedbackController.medium()
-                            Task { await viewModel.continueFromCalendarPermission() }
-                        } label: {
-                            Text(OnboardingCopy.Calendar.cta)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .onboardingPrimaryButton()
-
-                        Button("Skip for now") {
-                            feedbackController.light()
-                            Task { await viewModel.continueFromCalendarPermission(skipped: true) }
-                        }
-                        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
-                    }
-                case .notificationPermission:
-                    VStack(spacing: spacing.s8) {
-                        Button {
-                            feedbackController.medium()
-                            Task { await viewModel.continueFromNotificationPermission() }
-                        } label: {
-                            Text(OnboardingCopy.Notifications.cta)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .onboardingPrimaryButton()
-
-                        Button("Skip for now") {
-                            feedbackController.light()
-                            Task { await viewModel.continueFromNotificationPermission(skipped: true) }
-                        }
-                        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
-                    }
-                case .success:
-                    EmptyView()
+                if let action = floatingPrimaryAction {
+                    OnboardingFloatingNextButton(
+                        action: action,
+                        theme: currentVisualTheme
+                    )
+                } else if viewModel.step == .processing {
+                    ProgressView()
+                        .tint(currentVisualTheme.next)
+                        .padding(18)
+                        .background(.regularMaterial, in: Circle())
+                        .accessibilityLabel("Preparing setup")
                 }
             }
         }
@@ -6708,6 +6551,206 @@ struct AppOnboardingJourneyView: View {
             .padding(.horizontal, horizontalPadding)
             .padding(.top, spacing.s12)
             .padding(.bottom, max(spacing.s8, 8))
+    }
+
+    @ViewBuilder
+    private var dockSecondaryContent: some View {
+        switch viewModel.step {
+        case .lifeAreas:
+            Text(OnboardingCopy.LifeAreas.helper)
+                .taskerFont(.caption1)
+                .foregroundStyle(OnboardingTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        case .processing where viewModel.evaPreparationState.phase == .waitingForCellularConsent:
+            Button("Wait for Wi-Fi") {
+                feedbackController.light()
+                viewModel.deferEvaDownload()
+            }
+            .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
+        case .habitCheckIn:
+            Button(viewModel.starterHabit?.kind == .positive ? "Skip today" : "Lapsed") {
+                feedbackController.light()
+                Task { await viewModel.performStarterHabitSecondaryAction() }
+            }
+            .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
+        case .calendarPermission:
+            Button("Skip for now") {
+                feedbackController.light()
+                Task { await viewModel.continueFromCalendarPermission(skipped: true) }
+            }
+            .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
+        case .notificationPermission:
+            Button("Skip for now") {
+                feedbackController.light()
+                Task { await viewModel.continueFromNotificationPermission(skipped: true) }
+            }
+            .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
+        case .success where viewModel.evaPreparationState.isReady:
+            Button(AssistantIdentityText.askAction(for: viewModel.selectedMascotID)) {
+                feedbackController.light()
+                viewModel.finishOnboarding()
+                onDismissFlow()
+            }
+            .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.breakdownNext)
+        default:
+            EmptyView()
+        }
+    }
+
+    private var floatingPrimaryAction: OnboardingFloatingNextAction? {
+        switch viewModel.step {
+        case .welcome:
+            return nil
+        case .goal:
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.Goal.cta,
+                systemImage: "chevron.forward",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: viewModel.canContinueGoal == false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                viewModel.continueFromGoal()
+            }
+        case .pain:
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.Pain.cta,
+                systemImage: "chevron.forward",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: viewModel.canContinuePain == false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                viewModel.continueFromPain()
+            }
+        case .evaValue:
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.EvaValue.cta,
+                systemImage: "sparkles",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                viewModel.continueFromEvaValue()
+            }
+        case .lifeAreas:
+            return OnboardingFloatingNextAction(
+                title: viewModel.isWorking ? "Preparing areas..." : OnboardingCopy.LifeAreas.cta,
+                systemImage: "square.grid.2x2",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.useAreas,
+                disabled: viewModel.canContinueLifeAreas == false || viewModel.isWorking,
+                showsProgress: viewModel.isWorking
+            ) {
+                feedbackController.medium()
+                Task { await viewModel.continueFromLifeAreas() }
+            }
+        case .habitSetup:
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.HabitSetup.cta,
+                systemImage: "repeat.circle.fill",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: viewModel.canContinueHabitSetup == false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                viewModel.continueFromHabitSetup()
+            }
+        case .streakPreview:
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.Streak.cta,
+                systemImage: "chevron.forward",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                viewModel.continueFromStreakPreview()
+            }
+        case .evaStyle:
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.EvaStyle.cta,
+                systemImage: "checkmark",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                viewModel.continueFromEvaStyle()
+            }
+        case .processing:
+            guard viewModel.evaPreparationState.phase == .waitingForCellularConsent else { return nil }
+            return OnboardingFloatingNextAction(
+                title: "Use mobile data for \(viewModel.selectedMascotPersona.displayName)",
+                systemImage: "antenna.radiowaves.left.and.right",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                Task { await viewModel.approveEvaCellularDownload() }
+            }
+        case .firstTask:
+            return OnboardingFloatingNextAction(
+                title: viewModel.canContinueToFocus ? OnboardingCopy.FirstTask.ctaReady : OnboardingCopy.FirstTask.ctaMissing,
+                systemImage: "play.fill",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.goFinishTask,
+                disabled: viewModel.canContinueToFocus == false || viewModel.isWorking,
+                showsProgress: viewModel.isWorking
+            ) {
+                feedbackController.medium()
+                viewModel.continueFromFirstWinReview()
+            }
+        case .habitCheckIn:
+            return OnboardingFloatingNextAction(
+                title: viewModel.starterHabit?.kind == .positive ? "Done" : "Stayed clean",
+                systemImage: "checkmark",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: viewModel.isWorking,
+                showsProgress: viewModel.isWorking
+            ) {
+                feedbackController.medium()
+                Task { await viewModel.performStarterHabitPrimaryAction() }
+            }
+        case .calendarPermission:
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.Calendar.cta,
+                systemImage: "calendar.badge.checkmark",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                Task { await viewModel.continueFromCalendarPermission() }
+            }
+        case .notificationPermission:
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.Notifications.cta,
+                systemImage: "bell.badge.fill",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                Task { await viewModel.continueFromNotificationPermission() }
+            }
+        case .success:
+            guard viewModel.successSummary != nil else { return nil }
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.Success.goHomeCTA,
+                systemImage: "house.fill",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.goHome,
+                disabled: false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                viewModel.finishOnboarding()
+                onDismissFlow()
+            }
+        case .focusRoom, .blocker, .projects, .habits:
+            return nil
+        }
     }
 }
 
@@ -6810,24 +6853,323 @@ struct HomeOnboardingGuidanceBanner: View {
 
 @MainActor
 private enum OnboardingTheme {
-    static let canvas = Color.tasker(.bgCanvas)
-    static let canvasSecondary = Color.tasker(.bgCanvasSecondary)
-    static let canvasElevated = Color.tasker(.bgElevated)
-    static let surface = Color.tasker(.surfacePrimary).opacity(0.92)
-    static let surfaceElevated = Color.tasker(.surfacePrimary).opacity(0.98)
-    static let surfaceMuted = Color.tasker(.surfaceSecondary).opacity(0.88)
-    static let borderSoft = Color.tasker(.borderSubtle)
-    static let border = Color.tasker(.borderDefault)
-    static let textPrimary = Color.tasker(.textPrimary)
-    static let textSecondary = Color.tasker(.textSecondary)
-    static let textTertiary = Color.tasker(.textTertiary)
+    static let canvas = Color(uiColor: UIColor(taskerHex: "#05070D"))
+    static let canvasSecondary = Color(uiColor: UIColor(taskerHex: "#080C14"))
+    static let canvasElevated = Color(uiColor: UIColor(taskerHex: "#101722"))
+    static let surface = Color(uiColor: UIColor(taskerHex: "#101722")).opacity(0.78)
+    static let surfaceElevated = Color(uiColor: UIColor(taskerHex: "#151E2C")).opacity(0.88)
+    static let surfaceMuted = Color(uiColor: UIColor(taskerHex: "#0D131D")).opacity(0.74)
+    static let borderSoft = Color.white.opacity(0.16)
+    static let border = Color.white.opacity(0.24)
+    static let textPrimary = Color.white.opacity(0.96)
+    static let textSecondary = Color.white.opacity(0.76)
+    static let textTertiary = Color.white.opacity(0.58)
     static let accent = Color.tasker(.actionPrimary)
     static let accentPressed = Color.tasker(.actionPrimaryPressed)
     static let accentSecondary = Color.tasker(.accentSecondary)
     static let accentOnPrimary = Color.tasker(.accentOnPrimary)
-    static let headerAccent = Color.tasker(.actionPrimary)
+    static let headerAccent = Color.white.opacity(0.88)
     static let success = Color.tasker(.statusSuccess)
     static let danger = Color.tasker(.statusDanger)
+}
+
+private struct OnboardingStepVisualTheme: Equatable {
+    let id: String
+    let backdrop: Color
+    let accent: Color
+    let next: Color
+    let nextForeground: Color
+
+    static func == (lhs: OnboardingStepVisualTheme, rhs: OnboardingStepVisualTheme) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    static func theme(for step: OnboardingStep) -> OnboardingStepVisualTheme {
+        switch step.normalizedForCurrentFlow {
+        case .welcome:
+            return theme(id: "welcome", backdrop: "#101827", accent: "#F4C95D", next: "#F4C95D", nextForeground: "#101827")
+        case .goal:
+            return theme(id: "goal", backdrop: "#122B48", accent: "#4FB3FF", next: "#4FB3FF", nextForeground: "#07121F")
+        case .pain:
+            return theme(id: "pain", backdrop: "#3A1833", accent: "#FF7AA8", next: "#FF7AA8", nextForeground: "#230817")
+        case .evaValue:
+            return theme(id: "eva-value", backdrop: "#14352D", accent: "#5FE2B8", next: "#5FE2B8", nextForeground: "#082018")
+        case .lifeAreas:
+            return theme(id: "life-areas", backdrop: "#2E2559", accent: "#B8A7FF", next: "#B8A7FF", nextForeground: "#16102F")
+        case .habitSetup, .streakPreview, .habitCheckIn:
+            return theme(id: "habit", backdrop: "#173B25", accent: "#8FEA8B", next: "#8FEA8B", nextForeground: "#071B0E")
+        case .evaStyle:
+            return theme(id: "eva-style", backdrop: "#38213F", accent: "#DFA7FF", next: "#DFA7FF", nextForeground: "#1D0928")
+        case .processing:
+            return theme(id: "processing", backdrop: "#153544", accent: "#77D6F4", next: "#77D6F4", nextForeground: "#08202B")
+        case .firstTask, .focusRoom:
+            return theme(id: "demo", backdrop: "#402713", accent: "#FFBA6A", next: "#FFBA6A", nextForeground: "#261103")
+        case .calendarPermission:
+            return theme(id: "calendar", backdrop: "#11345B", accent: "#7EC8FF", next: "#7EC8FF", nextForeground: "#061B31")
+        case .notificationPermission:
+            return theme(id: "notifications", backdrop: "#3B244A", accent: "#F8A9FF", next: "#F8A9FF", nextForeground: "#210A2B")
+        case .success:
+            return theme(id: "success", backdrop: "#163A2A", accent: "#9BF3BE", next: "#9BF3BE", nextForeground: "#061A10")
+        case .blocker, .projects, .habits:
+            return theme(for: step.normalizedForCurrentFlow)
+        }
+    }
+
+    private static func theme(id: String, backdrop: String, accent: String, next: String, nextForeground: String) -> OnboardingStepVisualTheme {
+        OnboardingStepVisualTheme(
+            id: id,
+            backdrop: Color(uiColor: UIColor(taskerHex: backdrop)),
+            accent: Color(uiColor: UIColor(taskerHex: accent)),
+            next: Color(uiColor: UIColor(taskerHex: next)),
+            nextForeground: Color(uiColor: UIColor(taskerHex: nextForeground))
+        )
+    }
+}
+
+private struct OnboardingConcentricColorField: View {
+    let theme: OnboardingStepVisualTheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
+    var body: some View {
+        ZStack {
+            if reduceTransparency {
+                colorField
+            } else {
+                liquidGlassField
+            }
+
+            Rectangle()
+                .fill(Color.black.opacity(darkContrastOpacity))
+        }
+        .animation(.easeInOut(duration: 0.34), value: theme.id)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var liquidGlassField: some View {
+        if #available(iOS 26.0, *) {
+            Rectangle()
+                .fill(.clear)
+                .glassEffect(.regular, in: Rectangle())
+                .overlay(colorField)
+                .overlay(
+                    Rectangle()
+                        .fill(.regularMaterial)
+                        .opacity(0.10)
+                )
+        } else {
+            colorField
+                .overlay(
+                    Rectangle()
+                        .fill(.regularMaterial)
+                        .opacity(0.12)
+                )
+        }
+    }
+
+    private var colorField: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    theme.backdrop.opacity(backdropOpacity),
+                    theme.accent.opacity(accentOpacity),
+                    Color.black.opacity(0.24)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            RadialGradient(
+                colors: [
+                    theme.accent.opacity(accentGlowOpacity),
+                    theme.backdrop.opacity(backdropGlowOpacity),
+                    Color.clear
+                ],
+                center: .bottom,
+                startRadius: 18,
+                endRadius: 720
+            )
+            .blendMode(.screen)
+        }
+    }
+
+    private var backdropOpacity: Double {
+        if reduceTransparency { return 0.90 }
+        return colorSchemeContrast == .increased ? 0.84 : 0.78
+    }
+
+    private var accentOpacity: Double {
+        if reduceTransparency { return 0.46 }
+        return colorSchemeContrast == .increased ? 0.40 : 0.34
+    }
+
+    private var accentGlowOpacity: Double {
+        if reduceTransparency { return 0.30 }
+        return colorSchemeContrast == .increased ? 0.30 : 0.36
+    }
+
+    private var backdropGlowOpacity: Double {
+        reduceTransparency ? 0.34 : 0.42
+    }
+
+    private var darkContrastOpacity: Double {
+        if reduceTransparency { return 0.30 }
+        return colorSchemeContrast == .increased ? 0.24 : 0.16
+    }
+}
+
+private struct OnboardingConcentricTransitionLayer: View {
+    let step: OnboardingStep
+    let theme: OnboardingStepVisualTheme
+    let isEnabled: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @State private var expansion: CGFloat = 0
+    @State private var isAnimating = false
+    @State private var pulseColor: Color = .clear
+
+    var body: some View {
+        GeometryReader { proxy in
+            if isAnimating && isEnabled && reduceMotion == false {
+                let diameter = max(proxy.size.width, proxy.size.height) * 2.45 * expansion
+                transitionPulse(diameter: diameter)
+                    .frame(width: diameter, height: diameter)
+                    .position(x: proxy.size.width / 2, y: proxy.size.height - 74)
+                    .opacity(1 - Double(max(0, expansion - 0.72)) / 0.28)
+                    .accessibilityHidden(true)
+            }
+        }
+        .onChange(of: step) { _, _ in
+            guard isEnabled, reduceMotion == false else { return }
+            pulseColor = theme.backdrop
+            expansion = 0.02
+            isAnimating = true
+            withAnimation(.timingCurve(0.65, 0, 0.35, 1, duration: 0.62)) {
+                expansion = 1
+            }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 680_000_000)
+                isAnimating = false
+                expansion = 0
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func transitionPulse(diameter: CGFloat) -> some View {
+        if #available(iOS 26.0, *), reduceTransparency == false {
+            Circle()
+                .fill(pulseColor.opacity(pulseFillOpacity))
+                .glassEffect(.regular, in: Circle())
+                .overlay(
+                    Circle()
+                        .fill(theme.accent.opacity(0.22))
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(colorSchemeContrast == .increased ? 0.34 : 0.22), lineWidth: 1)
+                )
+        } else {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            theme.accent.opacity(0.42),
+                            pulseColor.opacity(pulseFillOpacity),
+                            Color.black.opacity(0.18)
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: max(1, diameter / 2)
+                    )
+                )
+        }
+    }
+
+    private var pulseFillOpacity: Double {
+        if reduceTransparency { return 0.90 }
+        return colorSchemeContrast == .increased ? 0.84 : 0.78
+    }
+}
+
+private struct OnboardingFloatingNextAction {
+    let title: String
+    let systemImage: String
+    let accessibilityIdentifier: String?
+    let disabled: Bool
+    let showsProgress: Bool
+    let action: () -> Void
+}
+
+private struct OnboardingFloatingNextButton: View {
+    let action: OnboardingFloatingNextAction
+    let theme: OnboardingStepVisualTheme
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button(action: action.action) {
+            HStack(spacing: 12) {
+                Text(action.title)
+                    .taskerFont(.buttonSmall)
+                    .foregroundStyle(OnboardingTheme.textPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.trailing)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ZStack {
+                    Circle()
+                        .fill(action.disabled ? OnboardingTheme.textSecondary.opacity(0.32) : theme.next)
+                        .frame(width: 64, height: 64)
+                        .shadow(color: theme.next.opacity(action.disabled ? 0 : 0.32), radius: 22, y: 10)
+
+                    if action.showsProgress {
+                        ProgressView()
+                            .tint(theme.nextForeground)
+                    } else {
+                        Image(systemName: action.systemImage)
+                            .font(.system(size: 21, weight: .bold))
+                            .foregroundStyle(action.disabled ? OnboardingTheme.textSecondary : theme.nextForeground)
+                    }
+                }
+            }
+            .padding(.leading, 18)
+            .padding(.trailing, 6)
+            .padding(.vertical, 6)
+            .background(nextButtonChrome)
+            .overlay(
+                Capsule()
+                    .stroke(theme.next.opacity(action.disabled ? 0.18 : 0.46), lineWidth: 1)
+            )
+        }
+        .disabled(action.disabled)
+        .buttonStyle(OnboardingPressScaleButtonStyle())
+        .accessibilityIdentifier(action.accessibilityIdentifier ?? AppOnboardingAccessibilityID.nextButton)
+        .accessibilityLabel(action.title)
+        .accessibilityInputLabels([action.title])
+        .opacity(action.disabled ? 0.62 : 1)
+        .scaleEffect(action.disabled || reduceMotion ? 1 : 1.01)
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: action.disabled)
+    }
+
+    @ViewBuilder
+    private var nextButtonChrome: some View {
+        if #available(iOS 26.0, *) {
+            Capsule()
+                .fill(.clear)
+                .glassEffect(.regular, in: Capsule())
+                .overlay(
+                    Capsule()
+                        .fill(OnboardingTheme.surfaceElevated.opacity(0.40))
+                )
+        } else {
+            Capsule()
+                .fill(.regularMaterial)
+        }
+    }
 }
 
 private struct AppOnboardingBackground: View {
@@ -6946,7 +7288,7 @@ private enum OnboardingHeroMediaAsset {
 private struct OnboardingCinematicBackdrop: View {
     enum Mode {
         case intro(WelcomeIntroPhase)
-        case steady
+        case steady(OnboardingStepVisualTheme)
 
         var grainAmount: Int {
             switch self {
@@ -6957,44 +7299,92 @@ private struct OnboardingCinematicBackdrop: View {
             }
         }
 
-        var dimOpacity: Double {
+        func dimOpacity(colorScheme: ColorScheme, colorSchemeContrast: ColorSchemeContrast) -> Double {
             switch self {
             case .intro(let phase):
-                phase.backdropDimOpacity
+                let base = phase.showsTitle
+                    ? (colorScheme == .dark ? 0.62 : 0.54)
+                    : (colorScheme == .dark ? 0.30 : 0.24)
+                return max(phase.backdropDimOpacity, base + contrastBoost(colorSchemeContrast))
             case .steady:
-                0.32
+                return (colorScheme == .dark ? 0.76 : 0.66) + contrastBoost(colorSchemeContrast)
             }
         }
 
-        var blurOpacity: Double {
+        func blurOpacity(colorScheme: ColorScheme, colorSchemeContrast: ColorSchemeContrast) -> Double {
             switch self {
             case .intro(let phase):
-                phase.backdropBlurOpacity
+                let base = phase.showsTitle
+                    ? (colorScheme == .dark ? 0.30 : 0.24)
+                    : (colorScheme == .dark ? 0.16 : 0.12)
+                return max(phase.backdropBlurOpacity, base + contrastBoost(colorSchemeContrast) * 0.5)
             case .steady:
-                0.58
+                return (colorScheme == .dark ? 0.52 : 0.44) + contrastBoost(colorSchemeContrast) * 0.5
             }
         }
 
-        var topGradientOpacity: Double {
+        func topGradientOpacity(colorScheme: ColorScheme, colorSchemeContrast: ColorSchemeContrast) -> Double {
             switch self {
             case .intro(let phase):
-                phase.showsWelcomeChrome ? 0.32 : 0.08
+                let base = phase.showsTitle
+                    ? (colorScheme == .dark ? 0.56 : 0.48)
+                    : (colorScheme == .dark ? 0.24 : 0.18)
+                return base + contrastBoost(colorSchemeContrast)
             case .steady:
-                0.32
+                return (colorScheme == .dark ? 0.68 : 0.58) + contrastBoost(colorSchemeContrast)
             }
         }
 
-        var bottomGradientOpacity: Double {
+        func bottomGradientOpacity(colorScheme: ColorScheme, colorSchemeContrast: ColorSchemeContrast) -> Double {
             switch self {
             case .intro(let phase):
-                phase.showsWelcomeChrome ? 0.42 : 0.16
+                let base = phase.showsTitle
+                    ? (colorScheme == .dark ? 0.68 : 0.58)
+                    : (colorScheme == .dark ? 0.34 : 0.26)
+                return base + contrastBoost(colorSchemeContrast)
             case .steady:
-                0.42
+                return (colorScheme == .dark ? 0.82 : 0.72) + contrastBoost(colorSchemeContrast)
             }
+        }
+
+        var accentWash: Color {
+            switch self {
+            case .intro:
+                return .clear
+            case .steady(let theme):
+                return theme.backdrop
+            }
+        }
+
+        func accentWashOpacity(colorScheme: ColorScheme, colorSchemeContrast: ColorSchemeContrast) -> Double {
+            switch self {
+            case .intro:
+                return 0
+            case .steady:
+                return (colorScheme == .dark ? 0.36 : 0.30) + contrastBoost(colorSchemeContrast) * 0.5
+            }
+        }
+
+        func materialDimmingOpacity(colorScheme: ColorScheme, colorSchemeContrast: ColorSchemeContrast) -> Double {
+            switch self {
+            case .intro(let phase):
+                let base = phase.showsTitle
+                    ? (colorScheme == .dark ? 0.22 : 0.18)
+                    : (colorScheme == .dark ? 0.10 : 0.08)
+                return base + contrastBoost(colorSchemeContrast) * 0.5
+            case .steady:
+                return (colorScheme == .dark ? 0.32 : 0.24) + contrastBoost(colorSchemeContrast) * 0.5
+            }
+        }
+
+        private func contrastBoost(_ colorSchemeContrast: ColorSchemeContrast) -> Double {
+            colorSchemeContrast == .increased ? 0.06 : 0
         }
     }
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.colorScheme) private var colorScheme
 
     let mode: Mode
     let includeWelcomeAccessibilityMarkers: Bool
@@ -7017,25 +7407,33 @@ private struct OnboardingCinematicBackdrop: View {
                 .ignoresSafeArea()
 
             Rectangle()
-                .fill(Color.black.opacity(mode.dimOpacity))
+                .fill(Color.black.opacity(mode.dimOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast)))
+                .ignoresSafeArea()
+
+            Rectangle()
+                .fill(mode.accentWash.opacity(mode.accentWashOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast)))
                 .ignoresSafeArea()
 
             if reduceTransparency {
                 Rectangle()
-                    .fill(OnboardingTheme.canvas.opacity(mode.blurOpacity * 0.78))
+                    .fill(OnboardingTheme.canvas.opacity(mode.blurOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast) * 1.15))
                     .ignoresSafeArea()
             } else {
                 Rectangle()
                     .fill(.ultraThinMaterial)
-                    .opacity(mode.blurOpacity)
+                    .opacity(mode.blurOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast))
                     .ignoresSafeArea()
             }
 
+            Rectangle()
+                .fill(Color.black.opacity(mode.materialDimmingOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast)))
+                .ignoresSafeArea()
+
             LinearGradient(
                 colors: [
-                    Color.black.opacity(mode.topGradientOpacity),
+                    Color.black.opacity(mode.topGradientOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast)),
                     Color.clear,
-                    Color.black.opacity(mode.bottomGradientOpacity)
+                    Color.black.opacity(mode.bottomGradientOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast))
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -8771,6 +9169,23 @@ private func onboardingNaturalLanguageList(_ items: [String], fallback: String) 
 }
 
 private extension View {
+    func onboardingConcentricPageMotion(step: OnboardingStep, reduceMotion: Bool) -> some View {
+        self
+            .id(step)
+            .transition(
+                reduceMotion
+                    ? .opacity
+                    : .asymmetric(
+                        insertion: .offset(x: 46, y: 22)
+                            .combined(with: .opacity)
+                            .combined(with: .scale(scale: 0.96, anchor: .bottom)),
+                        removal: .offset(x: -88, y: -18)
+                            .combined(with: .opacity)
+                            .combined(with: .scale(scale: 0.92, anchor: .top))
+                    )
+            )
+    }
+
     func onboardingHeroPanel(cornerRadius: CGFloat) -> some View {
         background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(

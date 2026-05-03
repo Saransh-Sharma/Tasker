@@ -1,4 +1,4 @@
-import SwiftUI
+ import SwiftUI
 
 struct HomeDayLiquidSwipeRestingPosition {
     static func centerY(

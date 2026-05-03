@@ -5,7 +5,7 @@
 //  New SwiftUI Home shell with backdrop/foredrop pattern.
 //
 
-import SwiftUI
+ import SwiftUI
 import UIKit
 import Combine
 
@@ -2314,6 +2314,7 @@ private enum HomePerformanceSignposts {
     }
 }
 
+@MainActor
 private struct HomeHabitSectionCardHost: View, Equatable {
     let title: String
     let summaryLine: String
@@ -2326,7 +2327,7 @@ private struct HomeHabitSectionCardHost: View, Equatable {
     let onLastCellAction: (HomeHabitRow) -> Void
     let onOpenHabit: (HomeHabitRow) -> Void
 
-    static func == (lhs: HomeHabitSectionCardHost, rhs: HomeHabitSectionCardHost) -> Bool {
+    nonisolated static func == (lhs: HomeHabitSectionCardHost, rhs: HomeHabitSectionCardHost) -> Bool {
         lhs.title == rhs.title
             && lhs.summaryLine == rhs.summaryLine
             && lhs.rows == rhs.rows
@@ -2459,7 +2460,7 @@ private struct HomePrimaryWidgetHostedPage: Identifiable {
 }
 
 private struct HomePrimaryWidgetHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: [HomePrimaryWidgetKind: CGFloat] = [:]
+    static let defaultValue: [HomePrimaryWidgetKind: CGFloat] = [:]
 
     static func reduce(value: inout [HomePrimaryWidgetKind: CGFloat], nextValue: () -> [HomePrimaryWidgetKind: CGFloat]) {
         value.merge(nextValue(), uniquingKeysWith: { _, next in next })
@@ -5491,6 +5492,7 @@ struct HomeBackdropForedropRootView: View {
 
     private var passiveTrackingRail: some View {
         let layout = passiveTrackingRailLayout
+        let horizontalPadding = spacing.s16 * 2
 
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: spacing.s8) {
@@ -5502,7 +5504,7 @@ struct HomeBackdropForedropRootView: View {
             .padding(.horizontal, spacing.s16)
         }
         .onGeometryChange(for: CGFloat.self) { proxy in
-            max(proxy.size.width - (spacing.s16 * 2), 0)
+            max(proxy.size.width - horizontalPadding, 0)
         } action: { newWidth in
             guard abs(newWidth - passiveTrackingRailViewportWidth) > 0.5 else { return }
             passiveTrackingRailViewportWidth = newWidth
@@ -6077,7 +6079,7 @@ struct HomeBackdropForedropRootView: View {
     /// Executes loadTaskIDFromDrop.
     private func loadTaskIDFromDrop(
         providers: [NSItemProvider],
-        completion: @escaping (UUID?) -> Void
+        completion: @escaping @Sendable (UUID?) -> Void
     ) -> Bool {
         guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
             completion(nil)

@@ -1,4 +1,4 @@
-import SwiftUI
+ import SwiftUI
 
 struct HomeDayLiquidSwipeWaveShape: Shape {
     let side: HomeDayLiquidSwipeSide

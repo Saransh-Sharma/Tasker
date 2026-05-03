@@ -10,7 +10,7 @@
 //
 
 import Foundation
-import DGCharts
+@preconcurrency import DGCharts
 #if canImport(UIKit)
     import UIKit
 #endif

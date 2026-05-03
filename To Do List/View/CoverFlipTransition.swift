@@ -1,7 +1,7 @@
-import SwiftUI
+@preconcurrency import SwiftUI
 
 /// Reusable cover-style 3D flip for swapping two surfaces.
-struct CoverFlipTransition: AnimatableModifier {
+struct CoverFlipTransition: @preconcurrency AnimatableModifier {
     var progress: Double
     var isInsertion: Bool
     var blurStrength: CGFloat

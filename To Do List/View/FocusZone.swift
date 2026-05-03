@@ -5,7 +5,7 @@
 //  Compact, low-noise Focus Now surface for the Home screen.
 //
 
-import SwiftUI
+ import SwiftUI
 
 // MARK: - Focus Zone
 

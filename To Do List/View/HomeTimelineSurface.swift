@@ -1,4 +1,4 @@
-import SwiftUI
+ import SwiftUI
 
 struct TimelineHeaderHeightPreferenceKey: PreferenceKey {
     static let defaultValue: CGFloat = 0

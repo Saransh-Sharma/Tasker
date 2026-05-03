@@ -150,11 +150,13 @@ public struct FocusTimerView: View {
     private func startTimer() {
         isRunning = true
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            elapsedSeconds += 1
-            if elapsedSeconds >= targetDurationSeconds {
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
-                completeIfNeeded()
+            Task { @MainActor in
+                elapsedSeconds += 1
+                if elapsedSeconds >= targetDurationSeconds {
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+                    completeIfNeeded()
+                }
             }
         }
     }

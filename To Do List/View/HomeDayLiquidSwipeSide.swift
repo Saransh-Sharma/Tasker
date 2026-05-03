@@ -1,4 +1,4 @@
-import SwiftUI
+ import SwiftUI
 
 enum HomeDayLiquidSwipeSide: CaseIterable {
     case leading

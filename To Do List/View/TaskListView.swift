@@ -80,6 +80,7 @@ private struct TaskListTodayLayoutCacheKey: Equatable {
     let customProjectOrderIDs: [UUID]
 }
 
+@MainActor
 private enum TaskListTodayLayoutCache {
     private static var lastEntry: (key: TaskListTodayLayoutCacheKey, layout: HomeTaskTodayLayout)?
 

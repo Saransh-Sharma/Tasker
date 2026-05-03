@@ -1290,8 +1290,6 @@ private final class OnboardingTaskDetailDismissBridge: NSObject, UIAdaptivePrese
 }
 
 final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware, UIAdaptivePresentationControllerDelegate {
-    private static var hasConsumedUITestRoute = false
-    private static var hasConsumedUITestOpenSettings = false
     private static var hasSeededUITestEstablishedWorkspace = false
     private static var hasSeededUITestRescueWorkspace = false
     private static var hasSeededUITestFocusWorkspace = false
@@ -1323,7 +1321,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private let overlayStore = HomeOverlayStore()
     private let faceCoordinator = HomeFaceCoordinator()
     private let navigationCoordinator = HomeNavigationCoordinator()
+    private let navigationEventAdapter = HomeNavigationEventAdapter()
     private let reloadCoordinator = HomeReloadCoordinator()
+    private let launchHarnessService = HomeLaunchHarnessService()
 
     // MARK: - State
 
@@ -1351,6 +1351,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var pendingSearchMutationRefreshTask: Task<Void, Never>?
     private var pendingBackgroundSearchPrewarmTask: Task<Void, Never>?
     private var pendingBackgroundInsightsPrewarmTask: Task<Void, Never>?
+    private let surfacePrewarmPolicy = HomeSurfacePrewarmPolicy()
     private var pendingOnboardingEvaluationTask: Task<Void, Never>?
     private var awaitsAnalyticsFirstInteractiveFrame = false
     private var retainedHomeSearchEngine: LGHomeSearchEngine?
@@ -1370,30 +1371,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         injectDependenciesIfNeeded()
         navigationCoordinator.delegate = self
+        navigationEventAdapter.delegate = self
         reloadCoordinator.delegate = self
         bindTheme()
         bindViewModel()
         bindRenderPipeline()
         mountHomeShell()
         observeMutations()
-        observeNotificationRoutes()
-        observeChatDeepLinks()
-        observeFocusDeepLinks()
-        observeHomeDeepLinks()
-        observeInsightsDeepLinks()
-        observeTaskScopeDeepLinks()
-        observeTaskDetailDeepLinks()
-        observeHabitBoardDeepLinks()
-        observeHabitLibraryDeepLinks()
-        observeHabitDetailDeepLinks()
-        observeQuickAddDeepLinks()
-        observeCalendarScheduleDeepLinks()
-        observeCalendarChooserDeepLinks()
-        observeWeeklyPlannerDeepLinks()
-        observeWeeklyReviewDeepLinks()
-        observeWidgetActionCommands()
+        navigationEventAdapter.start()
         observeTaskCreatedForSnackbar()
-        observePersistentSyncMode()
         observeIPadShellTelemetry()
         observeOnboardingRequests()
         observeKeyboardFrameChanges()
@@ -1422,24 +1408,22 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         super.viewDidAppear(animated)
         resetHomeSelectionAfterEvaChatDismissalIfNeeded()
         if let pendingRoute = TaskerNotificationRouteBus.shared.consumePendingRoute() {
-            handleNotificationRoute(pendingRoute)
+            navigationCoordinator.handle(.notificationRoute(pendingRoute))
         }
-        consumePendingShortcutHandoffIfNeeded()
-        consumeUITestInjectedRouteIfNeeded()
-        consumeUITestOpenSettingsIfNeeded()
-        processPendingWidgetActionCommand()
-        processPendingIPadModalRequest()
-        seedUITestEstablishedWorkspaceIfNeeded { [weak self] in
-            self?.seedUITestRescueWorkspaceIfNeeded {
-                self?.seedUITestFocusWorkspaceIfNeeded {
-                    self?.seedUITestHabitBoardWorkspaceIfNeeded {
-                        self?.seedUITestQuietTrackingWorkspaceIfNeeded {
-                            self?.viewModel.loadTodayTasks()
-                            self?.scheduleOnboardingEvaluationIfNeeded()
-                        }
-                    }
-                }
-            }
+        navigationCoordinator.handle(.pendingShortcutHandoff)
+        navigationCoordinator.handle(.uiTestInjectedRoute)
+        navigationCoordinator.handle(.uiTestOpenSettings)
+        navigationCoordinator.handle(.pendingWidgetActionCommand)
+        navigationCoordinator.handle(.pendingIPadModalRequest)
+        launchHarnessService.seedUITestWorkspacesIfNeeded(
+            establishedSeed: seedUITestEstablishedWorkspaceIfNeeded,
+            rescueSeed: seedUITestRescueWorkspaceIfNeeded,
+            focusSeed: seedUITestFocusWorkspaceIfNeeded,
+            habitBoardSeed: seedUITestHabitBoardWorkspaceIfNeeded,
+            quietTrackingSeed: seedUITestQuietTrackingWorkspaceIfNeeded
+        ) { [weak self] in
+            self?.viewModel.loadTodayTasks()
+            self?.scheduleOnboardingEvaluationIfNeeded()
         }
     }
 
@@ -1577,23 +1561,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.onboardingEvaluationSceneToken &+= 1
-                self.consumePendingShortcutHandoffIfNeeded()
+                self.navigationCoordinator.handle(.pendingShortcutHandoff)
                 self.scheduleOnboardingEvaluationIfNeeded()
-                self.viewModel?.refreshWeeklySummaryNow()
-                self.presentationDependencyContainer?.coordinator.calendarIntegrationService.refreshContext(
-                    reason: "app_did_become_active"
-                )
+                self.reloadCoordinator.handle(.appDidBecomeActive)
             }
             .store(in: &cancellables)
 
         notificationCenter.publisher(for: UIApplication.significantTimeChangeNotification)
             .merge(with: notificationCenter.publisher(for: TaskerWorkspacePreferencesStore.didChangeNotification))
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.viewModel?.refreshWeeklySummaryNow()
-                self?.presentationDependencyContainer?.coordinator.calendarIntegrationService.refreshContext(
-                    reason: "significant_time_change"
-                )
+            .sink { [weak self] notification in
+                self?.reloadCoordinator.handle(.fromTimeOrWorkspaceNotification(notification))
             }
             .store(in: &cancellables)
 
@@ -2082,6 +2060,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             return
         }
         guard faceCoordinator.activeFace == .tasks else { return }
+        guard surfacePrewarmPolicy.isEligible(surface: .homeBackgroundSurfaces) else {
+            cancelBackgroundSurfacePrewarm()
+            return
+        }
 
         if pendingBackgroundSearchPrewarmTask == nil {
             pendingBackgroundSearchPrewarmTask = Task(priority: .utility) { @MainActor [weak self] in
@@ -2093,6 +2075,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 }
                 guard let self, Task.isCancelled == false else { return }
                 guard self.faceCoordinator.activeFace == .tasks else { return }
+                guard self.surfacePrewarmPolicy.isEligible(surface: .search) else { return }
                 self.searchState.configureIfNeeded(
                     makeEngine: {
                         self.resolveHomeSearchEngine()
@@ -2115,6 +2098,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 }
                 guard let self, Task.isCancelled == false else { return }
                 guard self.faceCoordinator.activeFace == .tasks else { return }
+                guard self.surfacePrewarmPolicy.isEligible(surface: .insights) else { return }
                 let resolvedViewModel = self.prepareInsightsViewModelIfNeeded()
                 resolvedViewModel.onAppear()
             }
@@ -2988,176 +2972,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         )
     }
 
-    /// Executes observeNotificationRoutes.
-    private func observeNotificationRoutes() {
-        NotificationCenter.default.publisher(for: TaskerNotificationRouteBus.routeDidChange)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                guard let payload = notification.userInfo?["payload"] as? String else { return }
-                let route = TaskerNotificationRoute.from(payload: payload, fallbackTaskID: nil)
-                self?.handleNotificationRoute(route)
-                _ = TaskerNotificationRouteBus.shared.consumePendingRoute()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeFocusDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenFocusDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.handleFocusDeepLink()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeChatDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenChatDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                let prompt = (notification.userInfo?["prompt"] as? String)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                self?.handleChatDeepLink(prompt: prompt)
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeHomeDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenHomeDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                let notice = notification.userInfo?["notice"] as? String
-                self?.handleHomeDeepLink(notice: notice)
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeInsightsDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenInsightsDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.handleInsightsDeepLink()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeTaskScopeDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenTaskScopeDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                let scope = (notification.userInfo?["scope"] as? String)?.lowercased() ?? "today"
-                let projectID = (notification.userInfo?["projectID"] as? String).flatMap(UUID.init(uuidString:))
-                self?.handleTaskScopeDeepLink(scope: scope, projectID: projectID)
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeTaskDetailDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenTaskDetailDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                guard let taskIDRaw = notification.userInfo?["taskID"] as? String,
-                      let taskID = UUID(uuidString: taskIDRaw) else {
-                    return
-                }
-                self?.handleTaskDetailDeepLink(taskID: taskID)
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeHabitBoardDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenHabitBoardDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.handleHabitBoardDeepLink()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeHabitLibraryDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenHabitLibraryDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.handleHabitLibraryDeepLink()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeHabitDetailDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenHabitDetailDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                guard let taskIDRaw = notification.userInfo?["habitID"] as? String,
-                      let habitID = UUID(uuidString: taskIDRaw) else {
-                    return
-                }
-                self?.handleHabitDetailDeepLink(habitID: habitID)
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeQuickAddDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenQuickAddDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.handleQuickAddDeepLink()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeCalendarScheduleDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenCalendarScheduleDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.handleCalendarScheduleDeepLink()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeCalendarChooserDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenCalendarChooserDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.handleCalendarChooserDeepLink()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeWeeklyPlannerDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenWeeklyPlannerDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.handleWeeklyPlannerDeepLink()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeWeeklyReviewDeepLinks() {
-        NotificationCenter.default.publisher(for: .taskerOpenWeeklyReviewDeepLink)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.handleWeeklyReviewDeepLink()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observeWidgetActionCommands() {
-        NotificationCenter.default.publisher(for: .taskerProcessWidgetActionCommand)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.processPendingWidgetActionCommand()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func observePersistentSyncMode() {
-        NotificationCenter.default.publisher(for: .taskerPersistentSyncModeDidChange)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.refreshPersistentSyncOutageBanner()
-            }
-            .store(in: &cancellables)
-    }
-
     private func refreshPersistentSyncOutageBanner() {
         if AppDelegate.isWriteClosed {
             showPersistentSyncOutageBanner(
@@ -3217,23 +3031,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func consumeUITestInjectedRouteIfNeeded() {
-        guard Self.hasConsumedUITestRoute == false else { return }
-        let prefix = "-TASKER_TEST_ROUTE:"
-        guard let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }) else { return }
-        let payload = String(argument.dropFirst(prefix.count))
-        guard payload.isEmpty == false else { return }
-        Self.hasConsumedUITestRoute = true
-        let route = TaskerNotificationRoute.from(payload: payload, fallbackTaskID: nil)
-        handleNotificationRoute(route)
+        launchHarnessService.consumeUITestInjectedRouteIfNeeded { [weak self] route in
+            self?.navigationCoordinator.handle(.notificationRoute(route))
+        }
     }
 
     private func consumeUITestOpenSettingsIfNeeded() {
-        guard Self.hasConsumedUITestOpenSettings == false else { return }
-        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_OPEN_SETTINGS") else { return }
-        guard presentedViewController == nil else { return }
-
-        Self.hasConsumedUITestOpenSettings = true
-        DispatchQueue.main.async { [weak self] in
+        launchHarnessService.consumeUITestOpenSettingsIfNeeded(
+            canOpenSettings: { [weak self] in
+                self?.presentedViewController == nil
+            }
+        ) { [weak self] in
             guard let self, self.presentedViewController == nil else { return }
             self.onMenuButtonTapped()
         }
@@ -5030,7 +4838,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func handleNotificationRoute(_ route: TaskerNotificationRoute) {
         guard viewModel != nil else { return }
-        navigationCoordinator.handleNotificationRoute(route)
+        navigationCoordinator.handle(.notificationRoute(route))
     }
 
     private func resolveAndPresentTaskDetail(taskID: UUID, attemptsRemaining: Int = 2) {
@@ -5321,7 +5129,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     @objc private func homeTaskMutationReceived(_ notification: Notification) {
-        reloadCoordinator.handleHomeTaskMutation(notification)
+        reloadCoordinator.handle(.taskMutation(HomeTaskMutationReloadEvent(notification: notification)))
     }
 
     // MARK: - Theme
@@ -5348,22 +5156,110 @@ extension HomeViewController: HomeNavigationCoordinatorDelegate {
     }
 
     func homeNavigationResolveAndPresentTaskDetail(taskID: UUID) {
+        guard viewModel != nil else { return }
         resolveAndPresentTaskDetail(taskID: taskID)
     }
 
+    func homeNavigationOpenFocus() {
+        guard viewModel != nil else { return }
+        handleFocusDeepLink()
+    }
+
+    func homeNavigationOpenChat(prompt: String?) {
+        guard viewModel != nil else { return }
+        handleChatDeepLink(prompt: prompt)
+    }
+
+    func homeNavigationOpenHome(notice: String?) {
+        guard viewModel != nil else { return }
+        handleHomeDeepLink(notice: notice)
+    }
+
+    func homeNavigationOpenInsights() {
+        guard viewModel != nil else { return }
+        handleInsightsDeepLink()
+    }
+
+    func homeNavigationOpenTaskScope(scope: String, projectID: UUID?) {
+        guard viewModel != nil else { return }
+        handleTaskScopeDeepLink(scope: scope, projectID: projectID)
+    }
+
+    func homeNavigationOpenHabitBoard() {
+        guard viewModel != nil else { return }
+        handleHabitBoardDeepLink()
+    }
+
+    func homeNavigationOpenHabitLibrary() {
+        guard viewModel != nil else { return }
+        handleHabitLibraryDeepLink()
+    }
+
+    func homeNavigationOpenHabitDetail(habitID: UUID) {
+        guard viewModel != nil else { return }
+        handleHabitDetailDeepLink(habitID: habitID)
+    }
+
+    func homeNavigationOpenQuickAdd() {
+        guard viewModel != nil else { return }
+        handleQuickAddDeepLink()
+    }
+
+    func homeNavigationOpenCalendarSchedule() {
+        guard viewModel != nil else { return }
+        handleCalendarScheduleDeepLink()
+    }
+
+    func homeNavigationOpenCalendarChooser() {
+        guard viewModel != nil else { return }
+        handleCalendarChooserDeepLink()
+    }
+
     func homeNavigationOpenWeeklyPlanner() {
+        guard viewModel != nil else { return }
         handleWeeklyPlannerDeepLink()
     }
 
     func homeNavigationOpenWeeklyReview() {
+        guard viewModel != nil else { return }
         handleWeeklyReviewDeepLink()
     }
 
+    func homeNavigationProcessWidgetActionCommand() {
+        guard viewModel != nil else { return }
+        processPendingWidgetActionCommand()
+    }
+
+    func homeNavigationRefreshPersistentSyncMode() {
+        reloadCoordinator.handle(.persistentSyncModeChanged)
+    }
+
+    func homeNavigationConsumePendingShortcutHandoff() {
+        guard viewModel != nil else { return }
+        consumePendingShortcutHandoffIfNeeded()
+    }
+
+    func homeNavigationConsumeUITestInjectedRoute() {
+        guard viewModel != nil else { return }
+        consumeUITestInjectedRouteIfNeeded()
+    }
+
+    func homeNavigationConsumeUITestOpenSettings() {
+        consumeUITestOpenSettingsIfNeeded()
+    }
+
+    func homeNavigationProcessPendingIPadModalRequest() {
+        guard viewModel != nil else { return }
+        processPendingIPadModalRequest()
+    }
+
     func homeNavigationPresentDailySummary(kind: TaskerDailySummaryKind, dateStamp: String?) {
+        guard viewModel != nil else { return }
         presentDailySummaryModal(kind: kind, dateStamp: dateStamp)
     }
 
     func homeNavigationPresentReflectPlan(preferredReflectionDate: Date?) {
+        guard viewModel != nil else { return }
         presentReflectPlanFlow(preferredReflectionDate: preferredReflectionDate)
     }
 
@@ -5372,13 +5268,75 @@ extension HomeViewController: HomeNavigationCoordinatorDelegate {
     }
 }
 
+extension HomeViewController: HomeNavigationEventAdapterDelegate {
+    func homeNavigationEventAdapter(
+        _ adapter: HomeNavigationEventAdapter,
+        didReceive intent: HomeNavigationIntent
+    ) {
+        navigationCoordinator.handle(intent)
+    }
+}
+
 extension HomeViewController: HomeReloadCoordinatorDelegate {
+    func homeReloadCoordinatorDidReceiveTaskMutation(_ mutation: HomeTaskMutationReloadEvent) {
+        TaskerPerformanceTrace.event("HomeTaskMutationReloadEvent")
+        if let reason = mutation.reason {
+            logDebug("HOME_RELOAD_COORDINATOR mutation reason=\(reason.rawValue) source=\(mutation.source ?? "unknown")")
+        }
+    }
+
     func homeReloadCoordinatorRecordSearchMutation() {
         faceCoordinator.recordSearchMutation()
     }
 
     func homeReloadCoordinatorRefreshCharts(reason: HomeTaskMutationEvent?) {
         refreshChartsAfterTaskMutation(reason: reason)
+    }
+
+    func homeReloadCoordinatorRefreshPersistentSyncMode() {
+        refreshPersistentSyncOutageBanner()
+    }
+
+    func homeReloadCoordinatorRefreshWeeklySummary() {
+        viewModel?.refreshWeeklySummaryNow()
+    }
+
+    func homeReloadCoordinatorRefreshCalendarContext(reason: String) {
+        presentationDependencyContainer?.coordinator.calendarIntegrationService.refreshContext(reason: reason)
+    }
+}
+
+private struct HomeSurfacePrewarmPolicy {
+    enum Surface {
+        case homeBackgroundSurfaces
+        case search
+        case insights
+    }
+
+    func isEligible(surface: Surface) -> Bool {
+        guard ProcessInfo.processInfo.isLowPowerModeEnabled == false else { return false }
+        guard thermalStateAllowsPrewarm(ProcessInfo.processInfo.thermalState) else { return false }
+
+        let physicalMemoryGB = Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824
+        switch surface {
+        case .homeBackgroundSurfaces:
+            return physicalMemoryGB >= 4
+        case .search:
+            return physicalMemoryGB >= 3
+        case .insights:
+            return physicalMemoryGB >= 4
+        }
+    }
+
+    private func thermalStateAllowsPrewarm(_ state: ProcessInfo.ThermalState) -> Bool {
+        switch state {
+        case .nominal, .fair:
+            return true
+        case .serious, .critical:
+            return false
+        @unknown default:
+            return false
+        }
     }
 }
 

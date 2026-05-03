@@ -1,4 +1,4 @@
-import SwiftUI
+ import SwiftUI
 
 struct EventKitCalendarChooserSheet: View {
     @ObservedObject var service: CalendarIntegrationService

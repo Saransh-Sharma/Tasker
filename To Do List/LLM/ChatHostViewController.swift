@@ -854,8 +854,10 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     deinit {
-        themeCancellable?.cancel()
-        activationCoordinatorCancellable?.cancel()
+        MainActor.assumeIsolated {
+            themeCancellable?.cancel()
+            activationCoordinatorCancellable?.cancel()
+        }
     }
 }
 
