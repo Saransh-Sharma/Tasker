@@ -1,6 +1,6 @@
 import UIKit
 
-public enum TaskerLayoutClass: String, CaseIterable {
+public enum TaskerLayoutClass: String, CaseIterable, Sendable {
     case phone
     case padCompact
     case padRegular

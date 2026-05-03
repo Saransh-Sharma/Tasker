@@ -51,7 +51,7 @@ public enum HomeDayNavigationDirection: Equatable {
     case next
 }
 
-public struct HomeDataRevision: Equatable, Hashable {
+public struct HomeDataRevision: Equatable, Hashable, Sendable {
     public static let zero = HomeDataRevision(rawValue: 0)
     public private(set) var rawValue: UInt64
 
@@ -4739,7 +4739,7 @@ public final class HomeViewModel: ObservableObject {
             haptic = .selection
         }
 
-        let dayLabel = Self.habitMutationFeedbackDateFormatter.string(from: calendar.startOfDay(for: date))
+        let dayLabel = Self.makeHabitMutationFeedbackDateFormatter().string(from: calendar.startOfDay(for: date))
         return HomeHabitMutationFeedback(message: "\(dayLabel): \(stateLabel)", haptic: haptic)
     }
 
@@ -7846,13 +7846,13 @@ public final class HomeViewModel: ObservableObject {
         return "[\(summary)] total=\(tasks.count)"
     }
 
-    private static var habitMutationFeedbackDateFormatter: DateFormatter = {
+    private static func makeHabitMutationFeedbackDateFormatter() -> DateFormatter {
         let formatter = DateFormatter()
         formatter.calendar = Calendar.current
         formatter.locale = Locale.current
         formatter.setLocalizedDateFormatFromTemplate("MMM d")
         return formatter
-    }()
+    }
 
     private static func summaryDate(from dateStamp: String?) -> Date? {
         guard let dateStamp, dateStamp.isEmpty == false else { return nil }
@@ -8025,20 +8025,22 @@ public struct HomeViewState {
     public let pinnedProjectIDs: [UUID]
 }
 
-public struct HomeProgressState: Equatable {
+public struct HomeProgressState: Equatable, Sendable {
     public let earnedXP: Int
     public let remainingPotentialXP: Int
     public let todayTargetXP: Int
     public let streakDays: Int
     public let isStreakSafeToday: Bool
 
-    public static let empty = HomeProgressState(
-        earnedXP: 0,
-        remainingPotentialXP: 0,
-        todayTargetXP: 0,
-        streakDays: 0,
-        isStreakSafeToday: false
-    )
+    public static var empty: HomeProgressState {
+        HomeProgressState(
+            earnedXP: 0,
+            remainingPotentialXP: 0,
+            todayTargetXP: 0,
+            streakDays: 0,
+            isStreakSafeToday: false
+        )
+    }
 
     public var progressFraction: Double {
         guard todayTargetXP > 0 else { return 0 }
