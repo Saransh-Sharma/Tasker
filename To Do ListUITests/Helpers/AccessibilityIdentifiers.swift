@@ -296,6 +296,7 @@ enum AccessibilityIdentifiers {
         static let notificationPermission = "onboarding.notificationPermission"
         static let success = "onboarding.success"
         static let skipButton = "onboarding.skipButton"
+        static let nextButton = "onboarding.cta.next"
         static let frictionHelper = "onboarding.friction.helper"
         static let useAreas = "onboarding.cta.useAreas"
         static let customHabit = "onboarding.cta.customHabit"

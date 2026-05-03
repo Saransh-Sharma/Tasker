@@ -134,6 +134,21 @@
             <fetchIndexElement property="isComplete" type="Binary" order="ascending"/>
             <fetchIndexElement property="dueDate" type="Binary" order="ascending"/>
         </fetchIndex>
+        <fetchIndex name="byCompletionDueUpdated">
+            <fetchIndexElement property="isComplete" type="Binary" order="ascending"/>
+            <fetchIndexElement property="dueDate" type="Binary" order="ascending"/>
+            <fetchIndexElement property="updatedAt" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byCompletionScheduledWindow">
+            <fetchIndexElement property="isComplete" type="Binary" order="ascending"/>
+            <fetchIndexElement property="scheduledStartAt" type="Binary" order="ascending"/>
+            <fetchIndexElement property="scheduledEndAt" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byProjectCompletionScheduledStart">
+            <fetchIndexElement property="projectID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="isComplete" type="Binary" order="ascending"/>
+            <fetchIndexElement property="scheduledStartAt" type="Binary" order="ascending"/>
+        </fetchIndex>
         <fetchIndex name="byParentTaskID"><fetchIndexElement property="parentTaskID" type="Binary" order="ascending"/></fetchIndex>
         <fetchIndex name="byUpdatedAt"><fetchIndexElement property="updatedAt" type="Binary" order="ascending"/></fetchIndex>
         <fetchIndex name="byPlanningBucket">

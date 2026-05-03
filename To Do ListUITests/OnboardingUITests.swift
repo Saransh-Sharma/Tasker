@@ -13,6 +13,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         waitForGoalReady(in: app)
         XCTAssertTrue(app.staticTexts["Step 1 of 14"].waitForExistence(timeout: 12))
         XCTAssertFalse(app.staticTexts["Step 1 of 6"].exists)
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.nextButton].waitForExistence(timeout: 8))
         assertCinematicBackdrop(in: app, grain: "100%")
     }
 
