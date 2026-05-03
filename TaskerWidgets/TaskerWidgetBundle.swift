@@ -987,7 +987,7 @@ public enum WidgetSnoozeMinutes: Int, AppEnum {
 }
 
 public struct OpenTaskScopeIntent: AppIntent {
-    public static var title: LocalizedStringResource = "Open Task Scope"
+    public static let title: LocalizedStringResource = "Open Task Scope"
 
     @Parameter(title: "Scope")
     public var scope: TaskWidgetScope
@@ -1007,7 +1007,7 @@ public struct OpenTaskScopeIntent: AppIntent {
 }
 
 public struct CompleteTaskFromWidgetIntent: AppIntent {
-    public static var title: LocalizedStringResource = "Complete Task"
+    public static let title: LocalizedStringResource = "Complete Task"
 
     @Parameter(title: "Task ID")
     public var taskID: String
@@ -1035,7 +1035,7 @@ public struct CompleteTaskFromWidgetIntent: AppIntent {
 }
 
 public struct DeferTaskFromWidgetIntent: AppIntent {
-    public static var title: LocalizedStringResource = "Defer Task"
+    public static let title: LocalizedStringResource = "Defer Task"
 
     @Parameter(title: "Task ID")
     public var taskID: String
