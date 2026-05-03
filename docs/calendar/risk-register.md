@@ -108,6 +108,48 @@ Mitigation:
 - Avoid persistent advice chrome that distracts from current and next actions
 - Clearly separate future EVA planning direction from currently implemented workflows
 
+## Eva Context Drift Risk
+
+Risk:
+Eva builds schedule-aware guidance from a different interpretation of the day than the visible timeline.
+
+Impact:
+The assistant may tell the user a task fits, a window is free, or a period is overloaded in a way that contradicts what Home or the schedule view shows.
+
+Mitigation:
+- Feed Eva bounded calendar and timeline projections instead of raw EventKit data
+- Include context receipts with authorization, selected-calendar, stale, timeout, and partial-state flags
+- Require Eva to acknowledge degraded context rather than guessing
+- Add tests around day overview and timeline-aware prompt routing where schedule context is present, absent, and partial
+
+## Calendar Authority Risk
+
+Risk:
+Assistant copy implies that Tasker can edit meetings or control external calendars.
+
+Impact:
+Users misunderstand the read-only calendar boundary, and trust is damaged when the app cannot perform implied actions.
+
+Mitigation:
+- Keep external calendar event actions read-only
+- Phrase repair suggestions around Tasker-owned tasks, reminders, habits, or planning metadata
+- Use confirmation copy that names the object being changed
+- Treat any external calendar write workflow as a separate future permissioned feature
+
+## Over-Helpful Chief Of Staff Risk
+
+Risk:
+Eva tries to fill every open gap or over-optimizes the user's day.
+
+Impact:
+The product becomes stressful, rigid, or manipulative instead of supportive.
+
+Mitigation:
+- Let free gaps remain intentionally open
+- Surface Eva guidance only for concrete constraints, opportunities, or recovery moments
+- Prefer "leave open" and "protect focus" options alongside task-start suggestions
+- Keep guidance dismissible and non-persistent unless the user engages
+
 ## Visual Time Distortion Risk
 
 Risk:

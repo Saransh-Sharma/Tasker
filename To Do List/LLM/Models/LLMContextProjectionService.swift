@@ -550,38 +550,34 @@ struct LLMContextProjectionService {
     /// Executes fetchTasks.
     private func fetchTasks(query: TaskReadQuery) async -> [TaskDefinition] {
         guard !Task.isCancelled else { return [] }
-        return await withCheckedContinuation { continuation in
+        let tasks: [TaskDefinition] = await withCheckedContinuation { continuation in
             taskReadModelRepository.fetchTasks(query: query) { result in
-                if Task.isCancelled {
-                    continuation.resume(returning: [])
-                    return
-                }
                 let tasks = (try? result.get().tasks) ?? []
                 continuation.resume(returning: tasks)
             }
         }
+        guard !Task.isCancelled else { return [] }
+        return tasks
     }
 
     private func fetchHabitSignals(start: Date, end: Date) async -> [TaskerHabitSignal] {
         guard let habitRuntimeReadRepository else { return [] }
         guard !Task.isCancelled else { return [] }
-        return await withCheckedContinuation { continuation in
+        let signals: [TaskerHabitSignal] = await withCheckedContinuation { continuation in
             habitRuntimeReadRepository.fetchSignals(start: start, end: end) { result in
-                if Task.isCancelled {
-                    continuation.resume(returning: [])
-                    return
-                }
                 let summaries = (try? result.get()) ?? []
                 continuation.resume(
                     returning: summaries.map { TaskerHabitSignal(summary: $0, referenceDate: $0.dueAt ?? Date()) }
                 )
             }
         }
+        guard !Task.isCancelled else { return [] }
+        return signals
     }
 
     private func fetchActiveProjects() async -> [Project] {
         guard !Task.isCancelled else { return [] }
-        return await withCheckedContinuation { continuation in
+        let projects: [Project] = await withCheckedContinuation { continuation in
             projectRepository.fetchAllProjects { result in
                 let activeProjects = ((try? result.get()) ?? []).filter { !$0.isArchived }
                 let inboxProjectCount = activeProjects.filter { $0.id == ProjectConstants.inboxProjectID }.count
@@ -606,17 +602,21 @@ struct LLMContextProjectionService {
                 continuation.resume(returning: activeProjects)
             }
         }
+        guard !Task.isCancelled else { return [] }
+        return projects
     }
 
     private func fetchActiveLifeAreas() async -> [LifeArea] {
         guard let lifeAreaRepository else { return [] }
         guard !Task.isCancelled else { return [] }
-        return await withCheckedContinuation { continuation in
+        let lifeAreas: [LifeArea] = await withCheckedContinuation { continuation in
             lifeAreaRepository.fetchAll { result in
                 let lifeAreas = ((try? result.get()) ?? []).filter { !$0.isArchived }
                 continuation.resume(returning: lifeAreas)
             }
         }
+        guard !Task.isCancelled else { return [] }
+        return lifeAreas
     }
 
     private func buildChatTaskBuckets(
@@ -803,7 +803,7 @@ struct LLMContextProjectionService {
     /// Executes fetchProjectName.
     private func fetchProjectName(id: UUID) async -> String? {
         guard !Task.isCancelled else { return nil }
-        return await withCheckedContinuation { continuation in
+        let name: String? = await withCheckedContinuation { continuation in
             projectRepository.fetchProject(withId: id) { result in
                 switch result {
                 case .success(let project):
@@ -813,6 +813,8 @@ struct LLMContextProjectionService {
                 }
             }
         }
+        guard !Task.isCancelled else { return nil }
+        return name
     }
 
     /// Executes defaultMetadata.
@@ -828,7 +830,7 @@ struct LLMContextProjectionService {
     private func buildTagNameLookup() async -> [UUID: String] {
         guard let tagRepository else { return [:] }
         guard !Task.isCancelled else { return [:] }
-        return await withCheckedContinuation { continuation in
+        let tagNameLookup: [UUID: String] = await withCheckedContinuation { continuation in
             tagRepository.fetchAll { result in
                 guard case .success(let tags) = result else {
                     continuation.resume(returning: [:])
@@ -841,6 +843,8 @@ struct LLMContextProjectionService {
                 ))
             }
         }
+        guard !Task.isCancelled else { return [:] }
+        return tagNameLookup
     }
 
     /// Executes encode.

@@ -9,7 +9,8 @@
 import Foundation
 import MaterialComponents.MaterialRipple
 
-class TinyPieChartRippleDelegate: NSObject, MDCRippleTouchControllerDelegate {
+@MainActor
+class TinyPieChartRippleDelegate: NSObject, @preconcurrency MDCRippleTouchControllerDelegate {
     
     /// Executes rippleTouchController.
     func rippleTouchController(_ rippleTouchController: MDCRippleTouchController,
@@ -25,7 +26,8 @@ class TinyPieChartRippleDelegate: NSObject, MDCRippleTouchControllerDelegate {
     }
 }
 
-class DateViewRippleDelegate: NSObject, MDCRippleTouchControllerDelegate {
+@MainActor
+class DateViewRippleDelegate: NSObject, @preconcurrency MDCRippleTouchControllerDelegate {
     
     //  func rippleTouchController(_ rippleTouchController: MDCRippleTouchController, shouldProcessRippleTouchesAtTouchLocation location: CGPoint) -> Bool {
     //    // Determine if we want to display the ripple
@@ -50,4 +52,3 @@ class DateViewRippleDelegate: NSObject, MDCRippleTouchControllerDelegate {
     
     
 }
-

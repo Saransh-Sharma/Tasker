@@ -271,8 +271,7 @@ struct TaskDetailSheetView: View {
             VStack(spacing: 0) {
                 if let routeBanner = viewModel.aiBreakdownRouteBanner, routeBanner.isEmpty == false {
                     HStack(alignment: .top, spacing: TaskerTheme.Spacing.xs) {
-                        Image(systemName: "cpu")
-                            .foregroundColor(Color.tasker.accentPrimary)
+                        EvaMascotView(placement: .taskCapture, size: .chip)
                         Text(routeBanner)
                             .font(.tasker(.caption1))
                             .foregroundColor(Color.tasker.textSecondary)
@@ -285,7 +284,7 @@ struct TaskDetailSheetView: View {
 
                 if viewModel.isGeneratingAIBreakdown {
                     HStack(spacing: TaskerTheme.Spacing.xs) {
-                        ProgressView()
+                        EvaMascotView(placement: .chatThinking, size: .chip)
                         Text("Refining step suggestions...")
                             .font(.tasker(.caption1))
                             .foregroundColor(Color.tasker.textSecondary)

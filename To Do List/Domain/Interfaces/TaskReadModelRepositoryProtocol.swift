@@ -9,6 +9,16 @@ public protocol TaskReadModelRepositoryProtocol {
     func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void)
     /// Executes fetchHomeProjection.
     func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void)
+    /// Executes fetchNeedsReplanCandidates.
+    func fetchNeedsReplanCandidates(
+        query: NeedsReplanCandidateQuery,
+        completion: @escaping (Result<NeedsReplanCandidateProjection, Error>) -> Void
+    )
+    /// Executes fetchHomeTimelineProjection.
+    func fetchHomeTimelineProjection(
+        query: HomeTimelineTaskProjectionQuery,
+        completion: @escaping (Result<HomeTimelineTaskProjection, Error>) -> Void
+    )
     /// Executes fetchInsightsTodayProjection.
     func fetchInsightsTodayProjection(
         referenceDate: Date,
@@ -119,6 +129,103 @@ public extension TaskReadModelRepositoryProtocol {
             ),
             completion: completion
         )
+    }
+
+    func fetchNeedsReplanCandidates(
+        query: NeedsReplanCandidateQuery,
+        completion: @escaping (Result<NeedsReplanCandidateProjection, Error>) -> Void
+    ) {
+        fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                sortBy: .updatedAtDescending,
+                needsTotalCount: false,
+                limit: query.limit,
+                offset: query.offset
+            )
+        ) { result in
+            completion(result.map { slice in
+                let calendar = Calendar.current
+                let todayStart = calendar.startOfDay(for: query.referenceDate)
+                let scopedStart = query.scopedDate.map { calendar.startOfDay(for: $0) }
+                let filtered = slice.tasks.filter { task in
+                    guard task.isComplete == false,
+                          task.parentTaskID == nil,
+                          task.repeatPattern == nil,
+                          task.recurrenceSeriesID == nil,
+                          task.habitDefinitionID == nil else {
+                        return false
+                    }
+                    if query.activeProjectIDs.isEmpty == false && !query.activeProjectIDs.contains(task.projectID) {
+                        return false
+                    }
+                    if let scopedStart {
+                        let anchor = task.dueDate ?? task.scheduledStartAt
+                        return anchor.map { calendar.isDate($0, inSameDayAs: scopedStart) && calendar.startOfDay(for: $0) < todayStart } ?? false
+                    }
+                    if let dueDate = task.dueDate, calendar.startOfDay(for: dueDate) < todayStart {
+                        return true
+                    }
+                    if let scheduledStartAt = task.scheduledStartAt, calendar.startOfDay(for: scheduledStartAt) < todayStart {
+                        return true
+                    }
+                    return query.includeUnscheduledBacklog
+                        && task.dueDate == nil
+                        && task.scheduledStartAt == nil
+                        && task.scheduledEndAt == nil
+                }
+                return NeedsReplanCandidateProjection(
+                    tasks: filtered,
+                    totalCount: filtered.count,
+                    limit: query.limit,
+                    offset: query.offset
+                )
+            })
+        }
+    }
+
+    func fetchHomeTimelineProjection(
+        query: HomeTimelineTaskProjectionQuery,
+        completion: @escaping (Result<HomeTimelineTaskProjection, Error>) -> Void
+    ) {
+        fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: query.includeCompleted,
+                sortBy: .dueDateAscending,
+                needsTotalCount: false,
+                limit: query.limit,
+                offset: query.offset
+            )
+        ) { result in
+            completion(result.map { slice in
+                let calendar = Calendar.current
+                let selectedStart = calendar.startOfDay(for: query.selectedDay)
+                let selectedEnd = calendar.date(byAdding: .day, value: 1, to: selectedStart) ?? selectedStart
+                let tasks = slice.tasks.filter { task in
+                    if query.projectIDs.isEmpty == false && !query.projectIDs.contains(task.projectID) {
+                        return false
+                    }
+                    if task.parentTaskID != nil {
+                        return false
+                    }
+                    let placement = task.scheduledStartAt ?? task.dueDate
+                    let scheduledForSelectedDay = placement.map { $0 >= selectedStart && $0 < selectedEnd } ?? false
+                    let scheduledForWeek = placement.map { $0 >= query.weekStart && $0 < query.weekEnd } ?? false
+                    let unscheduledInbox = task.isComplete == false
+                        && task.projectID == ProjectConstants.inboxProjectID
+                        && task.scheduledStartAt == nil
+                        && task.scheduledEndAt == nil
+                        && task.dueDate == nil
+                    return scheduledForSelectedDay || scheduledForWeek || unscheduledInbox
+                }
+                return HomeTimelineTaskProjection(
+                    tasks: tasks,
+                    totalCount: tasks.count,
+                    limit: query.limit,
+                    offset: query.offset
+                )
+            })
+        }
     }
 
     func fetchInsightsTodayProjection(

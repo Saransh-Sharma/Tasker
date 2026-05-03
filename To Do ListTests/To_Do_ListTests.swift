@@ -118,6 +118,410 @@ final class HomeSectionStateRegressionTests: XCTestCase {
     }
 }
 
+@MainActor
+final class HomeNavigationCoordinatorTests: XCTestCase {
+    func testNotificationTaskDetailRouteSetsTasksScopeAndResolvesDetail() {
+        let spy = HomeNavigationCoordinatorSpy()
+        let coordinator = HomeNavigationCoordinator(delegate: spy)
+        let taskID = UUID()
+
+        coordinator.handleNotificationRoute(.taskDetail(taskID: taskID))
+
+        XCTAssertEqual(spy.didShowTasksDestinationCount, 1)
+        XCTAssertEqual(spy.quickViews, [.today])
+        XCTAssertEqual(spy.pendingFocusTaskIDs, [taskID])
+        XCTAssertEqual(spy.resolvedTaskDetailIDs, [taskID])
+    }
+
+    func testNightlyDailySummaryRouteOpensReflectPlanWithParsedDate() {
+        let spy = HomeNavigationCoordinatorSpy()
+        let coordinator = HomeNavigationCoordinator(delegate: spy)
+
+        coordinator.handleNotificationRoute(.dailySummary(kind: .nightly, dateStamp: "20260503"))
+
+        XCTAssertEqual(spy.reflectPlanDates.count, 1)
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: spy.reflectPlanDates[0]!)
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 5)
+        XCTAssertEqual(components.day, 3)
+        XCTAssertTrue(spy.dailySummaries.isEmpty)
+    }
+
+    func testMorningDailySummaryRouteOpensSummaryModal() {
+        let spy = HomeNavigationCoordinatorSpy()
+        let coordinator = HomeNavigationCoordinator(delegate: spy)
+
+        coordinator.handleNotificationRoute(.dailySummary(kind: .morning, dateStamp: "20260503"))
+
+        XCTAssertEqual(spy.dailySummaries.count, 1)
+        XCTAssertEqual(spy.dailySummaries.first?.kind, .morning)
+        XCTAssertEqual(spy.dailySummaries.first?.dateStamp, "20260503")
+        XCTAssertTrue(spy.reflectPlanDates.isEmpty)
+    }
+
+    func testTypedIntentOpensTaskDetailThroughNarrowDelegate() {
+        let spy = HomeNavigationCoordinatorSpy()
+        let coordinator = HomeNavigationCoordinator(delegate: spy)
+        let taskID = UUID()
+
+        coordinator.handle(.taskDetailDeepLink(taskID: taskID))
+
+        XCTAssertEqual(spy.resolvedTaskDetailIDs, [taskID])
+        XCTAssertTrue(spy.performedIntents.isEmpty)
+    }
+
+    func testTypedIntentsMapToNarrowDelegateActions() {
+        let spy = HomeNavigationCoordinatorSpy()
+        let coordinator = HomeNavigationCoordinator(delegate: spy)
+        let habitID = UUID()
+        let projectID = UUID()
+
+        coordinator.handle(.focusDeepLink)
+        coordinator.handle(.chatDeepLink(prompt: "plan"))
+        coordinator.handle(.homeDeepLink(notice: "synced"))
+        coordinator.handle(.insightsDeepLink)
+        coordinator.handle(.taskScopeDeepLink(scope: "upcoming", projectID: projectID))
+        coordinator.handle(.habitBoardDeepLink)
+        coordinator.handle(.habitLibraryDeepLink)
+        coordinator.handle(.habitDetailDeepLink(habitID: habitID))
+        coordinator.handle(.quickAddDeepLink)
+        coordinator.handle(.calendarScheduleDeepLink)
+        coordinator.handle(.calendarChooserDeepLink)
+        coordinator.handle(.weeklyPlannerDeepLink)
+        coordinator.handle(.weeklyReviewDeepLink)
+        coordinator.handle(.widgetActionCommand)
+        coordinator.handle(.persistentSyncModeChanged)
+        coordinator.handle(.pendingShortcutHandoff)
+        coordinator.handle(.uiTestInjectedRoute)
+        coordinator.handle(.uiTestOpenSettings)
+        coordinator.handle(.pendingWidgetActionCommand)
+        coordinator.handle(.pendingIPadModalRequest)
+
+        XCTAssertEqual(spy.didOpenFocusCount, 1)
+        XCTAssertEqual(spy.chatPrompts, ["plan"])
+        XCTAssertEqual(spy.homeNotices, ["synced"])
+        XCTAssertEqual(spy.didOpenInsightsCount, 1)
+        XCTAssertEqual(spy.taskScopes.first?.scope, "upcoming")
+        XCTAssertEqual(spy.taskScopes.first?.projectID, projectID)
+        XCTAssertEqual(spy.didOpenHabitBoardCount, 1)
+        XCTAssertEqual(spy.didOpenHabitLibraryCount, 1)
+        XCTAssertEqual(spy.openedHabitIDs, [habitID])
+        XCTAssertEqual(spy.didOpenQuickAddCount, 1)
+        XCTAssertEqual(spy.didOpenCalendarScheduleCount, 1)
+        XCTAssertEqual(spy.didOpenCalendarChooserCount, 1)
+        XCTAssertEqual(spy.didOpenWeeklyPlannerCount, 1)
+        XCTAssertEqual(spy.didOpenWeeklyReviewCount, 1)
+        XCTAssertEqual(spy.didProcessWidgetActionCommandCount, 2)
+        XCTAssertEqual(spy.didRefreshPersistentSyncModeCount, 1)
+        XCTAssertEqual(spy.didConsumePendingShortcutHandoffCount, 1)
+        XCTAssertEqual(spy.didConsumeUITestInjectedRouteCount, 1)
+        XCTAssertEqual(spy.didConsumeUITestOpenSettingsCount, 1)
+        XCTAssertEqual(spy.didProcessPendingIPadModalRequestCount, 1)
+    }
+}
+
+@MainActor
+final class HomeReloadCoordinatorTests: XCTestCase {
+    func testHomeTaskMutationCoalescesChartRefreshAndInvalidatesSearch() async throws {
+        let spy = HomeReloadCoordinatorSpy()
+        let coordinator = HomeReloadCoordinator(delegate: spy, chartRefreshDebounceSeconds: 0.01)
+
+        coordinator.handleHomeTaskMutation(
+            Notification(
+                name: .homeTaskMutation,
+                object: nil,
+                userInfo: HomeTaskMutationPayload(
+                    reason: .completed,
+                    source: "test",
+                    taskID: UUID(),
+                    previousIsComplete: false,
+                    newIsComplete: true
+                ).userInfo
+            )
+        )
+        coordinator.handleHomeTaskMutation(
+            Notification(
+                name: .homeTaskMutation,
+                object: nil,
+                userInfo: HomeTaskMutationPayload(
+                    reason: .created,
+                    source: "test",
+                    taskID: UUID()
+                ).userInfo
+            )
+        )
+
+        let deadline = Date().addingTimeInterval(1)
+        while spy.chartRefreshReasons.isEmpty, Date() < deadline {
+            try await _Concurrency.Task.sleep(nanoseconds: 20_000_000)
+        }
+        withExtendedLifetime(coordinator) {}
+
+        XCTAssertEqual(spy.searchMutationCount, 2)
+        XCTAssertEqual(spy.chartRefreshReasons, [.created])
+    }
+
+    func testAppActiveEventRefreshesWeeklySummaryAndCalendarContext() {
+        let spy = HomeReloadCoordinatorSpy()
+        let coordinator = HomeReloadCoordinator(delegate: spy)
+
+        coordinator.handle(.appDidBecomeActive)
+
+        XCTAssertEqual(spy.weeklySummaryRefreshCount, 1)
+        XCTAssertEqual(spy.calendarRefreshReasons, ["app_did_become_active"])
+        XCTAssertEqual(spy.persistentSyncRefreshCount, 0)
+    }
+
+    func testTaskMutationNotificationIsInterpretedOnce() async throws {
+        let spy = HomeReloadCoordinatorSpy()
+        let coordinator = HomeReloadCoordinator(delegate: spy, chartRefreshDebounceSeconds: 0)
+        let taskID = UUID()
+        let payload = HomeTaskMutationPayload(
+            reason: .deleted,
+            source: "test",
+            taskID: taskID
+        )
+
+        coordinator.handle(.taskMutation(HomeTaskMutationReloadEvent(notification: Notification(
+            name: .homeTaskMutation,
+            object: nil,
+            userInfo: payload.userInfo
+        ))))
+
+        let deadline = Date().addingTimeInterval(1)
+        while spy.chartRefreshReasons.isEmpty, Date() < deadline {
+            try await _Concurrency.Task.sleep(nanoseconds: 20_000_000)
+        }
+
+        XCTAssertEqual(spy.receivedMutations.map(\.reason), [.deleted])
+        XCTAssertEqual(spy.receivedMutations.map(\.taskID), [taskID])
+        XCTAssertEqual(spy.searchMutationCount, 1)
+        XCTAssertEqual(spy.chartRefreshReasons, [.deleted])
+    }
+}
+
+final class BuildNeedsReplanCandidatesUseCaseTests: XCTestCase {
+    func testFiltersCompletedSubtaskRecurringHabitAndArchivedProjectCandidates() {
+        let activeProjectID = UUID()
+        let archivedProjectID = UUID()
+        let now = Date()
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: now))!
+        let useCase = BuildNeedsReplanCandidatesUseCase()
+
+        let valid = TaskDefinition(projectID: activeProjectID, projectName: "Active", title: "Past due", dueDate: yesterday)
+        let completed = TaskDefinition(projectID: activeProjectID, title: "Completed", dueDate: yesterday, isComplete: true)
+        let subtask = TaskDefinition(projectID: activeProjectID, parentTaskID: UUID(), title: "Subtask", dueDate: yesterday)
+        let recurring = TaskDefinition(recurrenceSeriesID: UUID(), projectID: activeProjectID, title: "Recurring", dueDate: yesterday)
+        let habit = TaskDefinition(habitDefinitionID: UUID(), projectID: activeProjectID, title: "Habit", dueDate: yesterday)
+        let archived = TaskDefinition(projectID: archivedProjectID, projectName: "Archived", title: "Archived", dueDate: yesterday)
+
+        let candidates = useCase.execute(
+            tasks: [valid, completed, subtask, recurring, habit, archived],
+            projectsByID: [
+                activeProjectID: Project(id: activeProjectID, name: "Active"),
+                archivedProjectID: Project(id: archivedProjectID, name: "Archived", isArchived: true)
+            ],
+            now: now
+        )
+
+        XCTAssertEqual(candidates.map(\.task.id), [valid.id])
+    }
+
+    func testScopesDatedCandidatesAndKeepsUnscheduledBacklogOutOfScopedResults() {
+        let projectID = UUID()
+        let calendar = Calendar.current
+        let now = Date()
+        let scopedDay = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: now))!
+        let otherDay = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now))!
+        let scoped = TaskDefinition(projectID: projectID, title: "Scoped", dueDate: scopedDay)
+        let other = TaskDefinition(projectID: projectID, title: "Other", dueDate: otherDay)
+        let backlog = TaskDefinition(projectID: projectID, title: "Backlog")
+
+        let candidates = BuildNeedsReplanCandidatesUseCase().execute(
+            tasks: [scoped, other, backlog],
+            projectsByID: [projectID: Project(id: projectID, name: "Active")],
+            now: now,
+            calendar: calendar,
+            scopedTo: scopedDay
+        )
+
+        XCTAssertEqual(candidates.map(\.task.id), [scoped.id])
+    }
+}
+
+@MainActor
+private final class HomeReloadCoordinatorSpy: HomeReloadCoordinatorDelegate {
+    private(set) var receivedMutations: [HomeTaskMutationReloadEvent] = []
+    private(set) var searchMutationCount = 0
+    private(set) var chartRefreshReasons: [HomeTaskMutationEvent?] = []
+    private(set) var persistentSyncRefreshCount = 0
+    private(set) var weeklySummaryRefreshCount = 0
+    private(set) var calendarRefreshReasons: [String] = []
+
+    func homeReloadCoordinatorDidReceiveTaskMutation(_ mutation: HomeTaskMutationReloadEvent) {
+        receivedMutations.append(mutation)
+    }
+
+    func homeReloadCoordinatorRecordSearchMutation() {
+        searchMutationCount += 1
+    }
+
+    func homeReloadCoordinatorRefreshCharts(reason: HomeTaskMutationEvent?) {
+        chartRefreshReasons.append(reason)
+    }
+
+    func homeReloadCoordinatorRefreshPersistentSyncMode() {
+        persistentSyncRefreshCount += 1
+    }
+
+    func homeReloadCoordinatorRefreshWeeklySummary() {
+        weeklySummaryRefreshCount += 1
+    }
+
+    func homeReloadCoordinatorRefreshCalendarContext(reason: String) {
+        calendarRefreshReasons.append(reason)
+    }
+}
+
+@MainActor
+private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDelegate {
+    private(set) var didShowTasksDestinationCount = 0
+    private(set) var quickViews: [HomeQuickView] = []
+    private(set) var pendingFocusTaskIDs: [UUID?] = []
+    private(set) var resolvedTaskDetailIDs: [UUID] = []
+    private(set) var didOpenWeeklyPlannerCount = 0
+    private(set) var didOpenWeeklyReviewCount = 0
+    private(set) var didOpenFocusCount = 0
+    private(set) var chatPrompts: [String?] = []
+    private(set) var homeNotices: [String?] = []
+    private(set) var didOpenInsightsCount = 0
+    private(set) var taskScopes: [(scope: String, projectID: UUID?)] = []
+    private(set) var didOpenHabitBoardCount = 0
+    private(set) var didOpenHabitLibraryCount = 0
+    private(set) var openedHabitIDs: [UUID] = []
+    private(set) var didOpenQuickAddCount = 0
+    private(set) var didOpenCalendarScheduleCount = 0
+    private(set) var didOpenCalendarChooserCount = 0
+    private(set) var didProcessWidgetActionCommandCount = 0
+    private(set) var didRefreshPersistentSyncModeCount = 0
+    private(set) var didConsumePendingShortcutHandoffCount = 0
+    private(set) var didConsumeUITestInjectedRouteCount = 0
+    private(set) var didConsumeUITestOpenSettingsCount = 0
+    private(set) var didProcessPendingIPadModalRequestCount = 0
+    private(set) var dailySummaries: [(kind: TaskerDailySummaryKind, dateStamp: String?)] = []
+    private(set) var reflectPlanDates: [Date?] = []
+    private(set) var performedIntents: [HomeNavigationIntent] = []
+
+    func homeNavigationShowTasksDestination() {
+        didShowTasksDestinationCount += 1
+    }
+
+    func homeNavigationSetQuickView(_ quickView: HomeQuickView) {
+        quickViews.append(quickView)
+    }
+
+    func homeNavigationSetPendingNotificationFocusTaskID(_ taskID: UUID?) {
+        pendingFocusTaskIDs.append(taskID)
+    }
+
+    func homeNavigationResolveAndPresentTaskDetail(taskID: UUID) {
+        resolvedTaskDetailIDs.append(taskID)
+    }
+
+    func homeNavigationOpenFocus() {
+        didOpenFocusCount += 1
+    }
+
+    func homeNavigationOpenChat(prompt: String?) {
+        chatPrompts.append(prompt)
+    }
+
+    func homeNavigationOpenHome(notice: String?) {
+        homeNotices.append(notice)
+    }
+
+    func homeNavigationOpenInsights() {
+        didOpenInsightsCount += 1
+    }
+
+    func homeNavigationOpenTaskScope(scope: String, projectID: UUID?) {
+        taskScopes.append((scope, projectID))
+    }
+
+    func homeNavigationOpenHabitBoard() {
+        didOpenHabitBoardCount += 1
+    }
+
+    func homeNavigationOpenHabitLibrary() {
+        didOpenHabitLibraryCount += 1
+    }
+
+    func homeNavigationOpenHabitDetail(habitID: UUID) {
+        openedHabitIDs.append(habitID)
+    }
+
+    func homeNavigationOpenQuickAdd() {
+        didOpenQuickAddCount += 1
+    }
+
+    func homeNavigationOpenCalendarSchedule() {
+        didOpenCalendarScheduleCount += 1
+    }
+
+    func homeNavigationOpenCalendarChooser() {
+        didOpenCalendarChooserCount += 1
+    }
+
+    func homeNavigationOpenWeeklyPlanner() {
+        didOpenWeeklyPlannerCount += 1
+    }
+
+    func homeNavigationOpenWeeklyReview() {
+        didOpenWeeklyReviewCount += 1
+    }
+
+    func homeNavigationProcessWidgetActionCommand() {
+        didProcessWidgetActionCommandCount += 1
+    }
+
+    func homeNavigationRefreshPersistentSyncMode() {
+        didRefreshPersistentSyncModeCount += 1
+    }
+
+    func homeNavigationConsumePendingShortcutHandoff() {
+        didConsumePendingShortcutHandoffCount += 1
+    }
+
+    func homeNavigationConsumeUITestInjectedRoute() {
+        didConsumeUITestInjectedRouteCount += 1
+    }
+
+    func homeNavigationConsumeUITestOpenSettings() {
+        didConsumeUITestOpenSettingsCount += 1
+    }
+
+    func homeNavigationProcessPendingIPadModalRequest() {
+        didProcessPendingIPadModalRequestCount += 1
+    }
+
+    func homeNavigationPresentDailySummary(kind: TaskerDailySummaryKind, dateStamp: String?) {
+        dailySummaries.append((kind, dateStamp))
+    }
+
+    func homeNavigationPresentReflectPlan(preferredReflectionDate: Date?) {
+        reflectPlanDates.append(preferredReflectionDate)
+    }
+
+    func homeNavigationDate(from stamp: String?) -> Date? {
+        guard let stamp, stamp.count == 8 else { return nil }
+        var components = DateComponents()
+        components.year = Int(stamp.prefix(4))
+        components.month = Int(stamp.dropFirst(4).prefix(2))
+        components.day = Int(stamp.suffix(2))
+        return Calendar.current.date(from: components)
+    }
+}
+
 final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     func testCurrentCompiledTaskModelIncludesHabitRuntimeAndGamificationSchema() throws {
         let model = try currentCompiledTaskModel()
@@ -170,6 +574,90 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let contents = try String(contentsOf: currentVersionFile, encoding: .utf8)
 
         XCTAssertTrue(contents.contains("TaskModelV3_TaskIcons.xcdatamodel"))
+    }
+
+    func testCoreDataNeedsReplanCandidatesFiltersRepeatPatternDataWithoutUnknownKeypathCrash() throws {
+        let container = try makeContainer(
+            name: "TaskModelV3",
+            model: try currentCompiledTaskModel(),
+            storeType: NSInMemoryStoreType
+        )
+        defer { unloadPersistentStores(from: container) }
+
+        let readRepository = CoreDataTaskReadModelRepository(container: container)
+        let projectID = UUID()
+        let now = Date(timeIntervalSince1970: 1_704_153_600)
+        let yesterday = Calendar.current.date(
+            byAdding: .day,
+            value: -1,
+            to: Calendar.current.startOfDay(for: now)
+        )!
+        let validID = UUID()
+        let recurringID = UUID()
+        let habitID = UUID()
+        let completedID = UUID()
+        let repeatPatternData = try JSONEncoder().encode(TaskRepeatPattern.daily)
+
+        var seedError: Error?
+        container.viewContext.performAndWait {
+            func insertTask(
+                id: UUID,
+                title: String,
+                isComplete: Bool = false,
+                repeatPatternData: Data? = nil,
+                habitDefinitionID: UUID? = nil
+            ) {
+                let task = NSEntityDescription.insertNewObject(
+                    forEntityName: "TaskDefinition",
+                    into: container.viewContext
+                )
+                task.setValue(id, forKey: "id")
+                task.setValue(id, forKey: "taskID")
+                task.setValue(projectID, forKey: "projectID")
+                task.setValue(title, forKey: "title")
+                task.setValue(Int32(TaskPriority.low.rawValue), forKey: "priority")
+                task.setValue(Int32(TaskType.morning.rawValue), forKey: "taskType")
+                task.setValue(yesterday, forKey: "dueDate")
+                task.setValue(isComplete, forKey: "isComplete")
+                task.setValue(isComplete ? "completed" : "pending", forKey: "status")
+                task.setValue(false, forKey: "isEveningTask")
+                task.setValue(now, forKey: "dateAdded")
+                task.setValue(now, forKey: "createdAt")
+                task.setValue(now, forKey: "updatedAt")
+                task.setValue(repeatPatternData, forKey: "repeatPatternData")
+                task.setValue(habitDefinitionID, forKey: "habitDefinitionID")
+            }
+
+            insertTask(id: validID, title: "Past due")
+            insertTask(id: recurringID, title: "Recurring", repeatPatternData: repeatPatternData)
+            insertTask(id: habitID, title: "Habit", habitDefinitionID: UUID())
+            insertTask(id: completedID, title: "Completed", isComplete: true)
+
+            do {
+                try container.viewContext.save()
+            } catch {
+                seedError = error
+            }
+        }
+        if let seedError {
+            throw seedError
+        }
+
+        let projection = try awaitResult { completion in
+            readRepository.fetchNeedsReplanCandidates(
+                query: NeedsReplanCandidateQuery(
+                    referenceDate: now,
+                    activeProjectIDs: [projectID],
+                    includeUnscheduledBacklog: false,
+                    limit: 20,
+                    offset: 0
+                ),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(projection.tasks.map(\.id), [validID])
+        XCTAssertNil(projection.tasks.first?.repeatPattern)
     }
 
     func testBootstrapSchemaValidationRejectsMissingHabitRuntimeFields() {
@@ -2295,7 +2783,7 @@ final class LaunchResilienceTests: XCTestCase {
         XCTAssertEqual(message, expectedMessage)
     }
 
-    func testTryInjectDoesNotCrashWhenContainerMayBeUnconfigured() {
+    @MainActor func testTryInjectDoesNotCrashWhenContainerMayBeUnconfigured() {
         let dependencyContainer = PresentationDependencyContainer.shared
         let injected = dependencyContainer.tryInject(into: UIViewController())
         XCTAssertEqual(injected, dependencyContainer.isConfiguredForRuntime)
@@ -3100,6 +3588,8 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         XCTAssertEqual(snapshot.calendar.status, .permissionRequired)
         XCTAssertTrue(snapshot.calendar.timedEvents.isEmpty)
         XCTAssertTrue(snapshot.timeline.day.timedItems.isEmpty)
+        XCTAssertNil(snapshot.habit.primaryHabit)
+        XCTAssertEqual(snapshot.habit.dueCount, 0)
     }
 
     func testSnapshotV2PayloadDecodesWithCalendarDefaults() throws {
@@ -3133,7 +3623,7 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         XCTAssertTrue(snapshot.timeline.weekDays.isEmpty)
     }
 
-    func testSnapshotV4RoundTripPreservesCalendarAndTimelineFields() throws {
+    func testSnapshotV5RoundTripPreservesCalendarTimelineAndHabitFields() throws {
         let now = Date()
         let task = TaskListWidgetTask(
             id: UUID(),
@@ -3228,6 +3718,30 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
                     )
                 ],
                 calendarPlottingEnabled: true
+            ),
+            habit: TaskListWidgetHabitSnapshot(
+                date: now,
+                updatedAt: now,
+                primaryHabit: TaskListWidgetHabitPrimary(
+                    habitID: UUID(uuidString: "99999999-9999-9999-9999-999999999999")!,
+                    title: "Read",
+                    iconSymbolName: "book.closed",
+                    accentHex: "#F59E0B",
+                    currentStreak: 8,
+                    bestStreak: 21,
+                    todayState: .due,
+                    dueAt: now.addingTimeInterval(3_600),
+                    week: [
+                        TaskListWidgetHabitDay(
+                            date: now,
+                            dayKey: "2026-04-27",
+                            state: .success
+                        )
+                    ]
+                ),
+                dueCount: 2,
+                completedTodayCount: 1,
+                atRiskCount: 1
             )
         )
 
@@ -3246,9 +3760,15 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         XCTAssertEqual(decoded.timeline.day.gaps.count, 1)
         XCTAssertEqual(decoded.timeline.weekDays.first?.timedCount, 1)
         XCTAssertTrue(decoded.timeline.calendarPlottingEnabled)
+        XCTAssertEqual(decoded.habit.primaryHabit?.title, "Read")
+        XCTAssertEqual(decoded.habit.primaryHabit?.currentStreak, 8)
+        XCTAssertEqual(decoded.habit.primaryHabit?.week.first?.state, .success)
+        XCTAssertEqual(decoded.habit.dueCount, 2)
+        XCTAssertEqual(decoded.habit.completedTodayCount, 1)
+        XCTAssertEqual(decoded.habit.atRiskCount, 1)
     }
 
-    func testReloadComparisonIgnoresCalendarAndTimelineTimestamps() {
+    func testReloadComparisonIgnoresCalendarTimelineAndHabitTimestamps() {
         let now = Self.date(hour: 10)
         var lhs = TaskListWidgetSnapshot(
             updatedAt: now,
@@ -3275,6 +3795,7 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         rhs.calendar.updatedAt = now.addingTimeInterval(600)
         rhs.timeline.updatedAt = now.addingTimeInterval(600)
         rhs.timeline.day.currentTime = now.addingTimeInterval(600)
+        rhs.habit.updatedAt = now.addingTimeInterval(600)
 
         XCTAssertEqual(
             TaskListWidgetSnapshotService.normalizedForReloadComparison(lhs),
@@ -4138,6 +4659,76 @@ final class TombstoneRetentionTests: XCTestCase {
 }
 
 final class V2RepositoryInvariantTests: XCTestCase {
+    func testTaskDefinitionUpsertRepairsDuplicateIDsDeterministically() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTaskDefinitionRepository(container: container)
+        let taskID = UUID()
+        let projectID = UUID()
+        let olderDate = Date(timeIntervalSince1970: 1_704_000_000)
+        let newerDate = olderDate.addingTimeInterval(60)
+
+        container.viewContext.performAndWait {
+            insertTaskDefinitionObject(
+                in: container.viewContext,
+                id: taskID,
+                projectID: projectID,
+                title: "Older duplicate",
+                createdAt: olderDate,
+                updatedAt: olderDate
+            )
+            insertTaskDefinitionObject(
+                in: container.viewContext,
+                id: taskID,
+                projectID: projectID,
+                title: "Newer duplicate",
+                createdAt: newerDate,
+                updatedAt: newerDate
+            )
+            try? container.viewContext.save()
+        }
+
+        let repaired = try awaitResult { completion in
+            repository.create(
+                request: CreateTaskDefinitionRequest(
+                    id: taskID,
+                    title: "Canonical update",
+                    projectID: projectID,
+                    projectName: "Repair target",
+                    createdAt: newerDate
+                ),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(repaired.id, taskID)
+        XCTAssertEqual(repaired.title, "Canonical update")
+
+        let fetched = try awaitResult { completion in
+            repository.fetchAll(query: nil, completion: completion)
+        }
+        XCTAssertEqual(fetched.filter { $0.id == taskID }.count, 1)
+    }
+
+    func testMalformedTaskDefinitionMappingUsesDeterministicRepairs() throws {
+        let container = try makeInMemoryV2Container()
+        let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: container.viewContext)
+        task.setValue("Malformed row", forKey: "title")
+        task.setValue(Int32(TaskPriority.low.rawValue), forKey: "priority")
+        task.setValue(Int32(TaskType.morning.rawValue), forKey: "taskType")
+        task.setValue(false, forKey: "isComplete")
+        task.setValue(false, forKey: "isEveningTask")
+        task.setValue("pending", forKey: "status")
+
+        let first = CoreDataTaskDefinitionRepository.mapTaskDefinition(task)
+        let second = CoreDataTaskDefinitionRepository.mapTaskDefinition(task)
+
+        XCTAssertEqual(first.id, second.id)
+        XCTAssertEqual(first.projectID, ProjectConstants.inboxProjectID)
+        XCTAssertEqual(first.dateAdded, Date(timeIntervalSinceReferenceDate: 0))
+        XCTAssertEqual(first.createdAt, Date(timeIntervalSinceReferenceDate: 0))
+        XCTAssertEqual(first.updatedAt, Date(timeIntervalSinceReferenceDate: 0))
+    }
+
     func testTaskTagLinkUniquenessRejectsDuplicateTaskTagPairs() throws {
         let container = try makeInMemoryV2Container()
         let repository = CoreDataTaskTagLinkRepository(container: container)
@@ -4287,6 +4878,29 @@ final class V2RepositoryInvariantTests: XCTestCase {
             throw loadError
         }
         return container
+    }
+
+    private func insertTaskDefinitionObject(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        projectID: UUID,
+        title: String,
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+        task.setValue(id, forKey: "id")
+        task.setValue(id, forKey: "taskID")
+        task.setValue(projectID, forKey: "projectID")
+        task.setValue(title, forKey: "title")
+        task.setValue(Int32(TaskPriority.low.rawValue), forKey: "priority")
+        task.setValue(Int32(TaskType.morning.rawValue), forKey: "taskType")
+        task.setValue(false, forKey: "isComplete")
+        task.setValue(createdAt, forKey: "dateAdded")
+        task.setValue(false, forKey: "isEveningTask")
+        task.setValue(createdAt, forKey: "createdAt")
+        task.setValue(updatedAt, forKey: "updatedAt")
+        task.setValue("pending", forKey: "status")
     }
 }
 
@@ -7510,6 +8124,24 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
         XCTAssertFalse(viewModel.hasUnsavedChanges)
     }
 
+    func testAddTaskViewStateRejectsEmptyTitle() {
+        let viewModel = makeAddTaskScheduleViewModel()
+
+        XCTAssertFalse(viewModel.viewState.canSubmit)
+    }
+
+    func testAddTaskViewStateAllowsValidTitleWithoutWaitingForDebouncedValidation() {
+        let viewModel = makeAddTaskScheduleViewModel()
+
+        XCTAssertFalse(viewModel.validateInput())
+        XCTAssertTrue(viewModel.validationErrors.contains(.emptyTaskName))
+
+        viewModel.taskName = "Write annual report"
+
+        XCTAssertTrue(viewModel.validationErrors.contains(.emptyTaskName))
+        XCTAssertTrue(viewModel.viewState.canSubmit)
+    }
+
     func testChangingDurationUpdatesDerivedScheduledEnd() {
         let calendar = Calendar.current
         let now = calendar.date(from: DateComponents(year: 2026, month: 4, day: 22, hour: 9, minute: 0, second: 15))!
@@ -7570,6 +8202,41 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
         XCTAssertEqual(request?.scheduledEndAt, viewModel.scheduledEndAt)
         XCTAssertEqual(request?.estimatedDuration, 90 * 60)
         XCTAssertEqual(request?.isAllDay, false)
+    }
+
+    func testCreateTaskUsesSelectedProjectIDWhenProjectNamesAreDuplicated() {
+        let selectedProjectID = UUID()
+        let projects = [
+            Project.createInbox(),
+            Project(id: UUID(), name: "Shared Name", color: .blue),
+            Project(id: selectedProjectID, name: "Shared Name", color: .green)
+        ]
+        let repository = CapturingAddTaskRepository()
+        let viewModel = makeAddTaskScheduleViewModel(repository: repository, projects: projects)
+        var cancellables = Set<AnyCancellable>()
+
+        let projectsLoaded = expectation(description: "projects loaded")
+        viewModel.$projects
+            .filter { loadedProjects in
+                loadedProjects.contains(where: { $0.id == selectedProjectID })
+            }
+            .first()
+            .sink { _ in projectsLoaded.fulfill() }
+            .store(in: &cancellables)
+
+        wait(for: [projectsLoaded], timeout: 1.0)
+
+        let expectation = expectation(description: "task created in selected duplicate-name project")
+        DispatchQueue.main.async {
+            viewModel.selectProject(id: selectedProjectID)
+            viewModel.taskName = "Create launch checklist"
+            repository.onCreateRequest = { _ in expectation.fulfill() }
+            viewModel.createTask()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repository.lastCreateRequest?.projectID, selectedProjectID)
+        XCTAssertEqual(repository.lastCreateRequest?.projectName, "Shared Name")
     }
 
     func testClearingScheduleCreatesUnscheduledTask() {
@@ -7660,6 +8327,7 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
 
         XCTAssertFalse(viewModel.validateInput())
         XCTAssertTrue(viewModel.validationErrors.contains(.pastDueDate))
+        XCTAssertFalse(viewModel.viewState.canSubmit)
     }
 
     func testValidateInputUsesInjectedClockForReminderValidation() {
@@ -7673,6 +8341,7 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
 
         XCTAssertFalse(viewModel.validateInput())
         XCTAssertTrue(viewModel.validationErrors.contains(.pastReminderTime))
+        XCTAssertFalse(viewModel.viewState.canSubmit)
     }
 
     func testAddTaskViewModelStartsInAnyAreaStateAfterLifeAreasLoad() {

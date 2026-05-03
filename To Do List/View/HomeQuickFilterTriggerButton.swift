@@ -5,7 +5,7 @@
 //  Header trigger button for the quick filter dropdown.
 //
 
-import SwiftUI
+ import SwiftUI
 
 /// Button that appears in the Home header to trigger the filter dropdown.
 /// Shows summary of current filter state and indicates when filters are active.

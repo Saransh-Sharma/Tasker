@@ -65,18 +65,18 @@ enum ChatContextInjectionPolicy {
     }
 }
 
-enum ThreadContextAttachmentKind: String, Codable {
+enum ThreadContextAttachmentKind: String, Codable, Sendable {
     case slashCommand
 }
 
-enum ThreadContextAttachmentCategory: String, Codable, CaseIterable {
+enum ThreadContextAttachmentCategory: String, Codable, CaseIterable, Sendable {
     case timeSlice
     case project
     case lifeArea
     case backlog
 }
 
-struct ThreadContextAttachmentRecord: Codable, Equatable, Identifiable {
+struct ThreadContextAttachmentRecord: Codable, Equatable, Identifiable, Sendable {
     let id: UUID
     let threadID: UUID
     let kind: ThreadContextAttachmentKind
@@ -127,7 +127,7 @@ extension SlashCommandID {
     }
 }
 
-private struct ThreadContextAttachmentStoreFile: Codable {
+private struct ThreadContextAttachmentStoreFile: Codable, Sendable {
     var version: Int = 1
     var threads: [String: [ThreadContextAttachmentRecord]] = [:]
 }

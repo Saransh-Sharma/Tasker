@@ -6,7 +6,7 @@
 //  Compact design for seamless nav bar integration.
 //
 
-import SwiftUI
+ import SwiftUI
 
 // MARK: - Quick View Selector
 

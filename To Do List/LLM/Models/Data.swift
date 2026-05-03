@@ -3,7 +3,7 @@
 //
 //
 
-import SwiftUI
+@preconcurrency import SwiftUI
 import SwiftData
 import MLXLMCommon
 import Security
@@ -413,6 +413,7 @@ enum AssistantChatMode: String, CaseIterable {
     case plan
 }
 
+@MainActor
 class AppManager: ObservableObject {
     static let previousDefaultSystemPrompt = """
     You are Eva, the user’s private executive assistant for execution, focus, and momentum.
@@ -566,7 +567,7 @@ class AppManager: ObservableObject {
         currentModelName = normalizedModelName
     }
 
-    static func preferredActiveModelName(from installedModelNames: [String]) -> String? {
+    nonisolated static func preferredActiveModelName(from installedModelNames: [String]) -> String? {
         let installedSet = Set(installedModelNames)
         let preferredOrder = ModelConfiguration.availableModels.map(\.name)
         for candidate in preferredOrder
@@ -926,7 +927,7 @@ enum LLMPersonalMemoryDefaultsStore {
     }
 }
 
-enum Role: String, Codable {
+enum Role: String, Codable, Sendable {
     case assistant
     case user
     case system
@@ -982,5 +983,25 @@ final class Thread {
     init() {
         self.id = UUID()
         self.timestamp = Date()
+    }
+}
+
+enum LLMChatSchemaV1: VersionedSchema {
+    static var versionIdentifier: Schema.Version {
+        Schema.Version(1, 0, 0)
+    }
+
+    static var models: [any PersistentModel.Type] {
+        [Thread.self, Message.self]
+    }
+}
+
+enum LLMChatMigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [LLMChatSchemaV1.self]
+    }
+
+    static var stages: [MigrationStage] {
+        []
     }
 }

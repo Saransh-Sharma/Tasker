@@ -1,4 +1,4 @@
-import SwiftUI
+ import SwiftUI
 
 struct QuietTrackingComposerView: View {
     let snapshot: QuietTrackingComposerSnapshot
@@ -342,6 +342,7 @@ struct QuietTrackingComposerView: View {
     }
 }
 
+@MainActor
 private struct QuietTrackingHabitPickerRow: View, Equatable {
     let entry: QuietTrackingComposerEntry
     let isSelected: Bool
@@ -351,7 +352,7 @@ private struct QuietTrackingHabitPickerRow: View, Equatable {
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
-    static func == (lhs: QuietTrackingHabitPickerRow, rhs: QuietTrackingHabitPickerRow) -> Bool {
+    nonisolated static func == (lhs: QuietTrackingHabitPickerRow, rhs: QuietTrackingHabitPickerRow) -> Bool {
         lhs.entry == rhs.entry && lhs.isSelected == rhs.isSelected
     }
 

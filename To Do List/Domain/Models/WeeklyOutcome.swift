@@ -1,13 +1,13 @@
 import Foundation
 
-public enum WeeklyOutcomeStatus: String, Codable, CaseIterable, Hashable {
+public enum WeeklyOutcomeStatus: String, Codable, CaseIterable, Hashable, Sendable {
     case planned
     case inProgress
     case completed
     case dropped
 }
 
-public struct WeeklyOutcome: Codable, Equatable, Hashable, Identifiable {
+public struct WeeklyOutcome: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public var weeklyPlanID: UUID
     public var sourceProjectID: UUID?

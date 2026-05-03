@@ -7,7 +7,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
 
     public init(container: NSPersistentContainer) {
         self.context = container.newBackgroundContext()
-        self.context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     public func fetchAgendaHabits(

@@ -5,7 +5,7 @@
 //  New SwiftUI Home shell with backdrop/foredrop pattern.
 //
 
-import SwiftUI
+ import SwiftUI
 import UIKit
 import Combine
 
@@ -32,6 +32,54 @@ private enum EvaRescueMoveChoice: String, CaseIterable {
         case .weekend: return "Weekend"
         case .custom: return "Custom"
         }
+    }
+}
+
+private enum ReplanHotZone: String, CaseIterable {
+    case planToday
+    case moveToInbox
+    case complete
+    case delete
+
+    var title: String {
+        switch self {
+        case .planToday: return "Plan Today"
+        case .moveToInbox: return "Inbox"
+        case .complete: return "Complete"
+        case .delete: return "Delete"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .planToday: return "Drop to place"
+        case .moveToInbox: return "Clear date"
+        case .complete: return "Done"
+        case .delete: return "Remove"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .planToday: return "calendar.badge.plus"
+        case .moveToInbox: return "tray.fill"
+        case .complete: return "checkmark.circle.fill"
+        case .delete: return "trash.fill"
+        }
+    }
+
+    @MainActor
+    var tint: Color {
+        switch self {
+        case .planToday: return Color.tasker.accentPrimary
+        case .moveToInbox: return Color.tasker.stateInfo
+        case .complete: return Color.tasker.statusSuccess
+        case .delete: return Color.tasker.statusDanger
+        }
+    }
+
+    var accessibilityIdentifier: String {
+        "home.needsReplan.hotZone.\(rawValue)"
     }
 }
 
@@ -97,7 +145,6 @@ private struct NeedsReplanTrayView: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(subtitle)")
         .accessibilityHint(accessibilityHint)
         .accessibilityIdentifier(accessibilityIdentifier)
@@ -109,27 +156,47 @@ private struct NeedsReplanLauncherSheet: View {
     let onStart: () -> Void
     let onLater: () -> Void
 
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: spacing.s20) {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("home.needsReplan.launcher")
+
             Capsule()
                 .fill(Color.tasker.strokeHairline.opacity(0.7))
                 .frame(width: 44, height: 5)
                 .frame(maxWidth: .infinity)
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(summary.launcherTitle)
-                    .font(.tasker(.title1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                Text(summary.launcherBodyText)
-                    .font(.tasker(.body))
-                    .foregroundStyle(Color.tasker.textSecondary)
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                HStack(alignment: .top, spacing: spacing.s12) {
+                    Image(systemName: summary.count == 0 ? "checkmark.seal.fill" : "sunrise.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(summary.count == 0 ? Color.tasker.statusSuccess : Color.tasker.statusWarning)
+                        .frame(width: 46, height: 46)
+                        .background(Color.tasker.accentWash.opacity(0.9), in: Circle())
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: spacing.s4) {
+                        Text(summary.launcherTitle)
+                            .font(.tasker(.screenTitle))
+                            .foregroundStyle(Color.tasker.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(summary.launcherBodyText)
+                            .font(.tasker(.body))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                            .lineSpacing(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
 
             if summary.count > 0 {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: spacing.s12) {
                     launcherRow(summary.count == 1 ? "1 task needs a decision" : "\(summary.count) tasks need a decision", systemImage: "checklist")
                     if summary.datedCount > 0 {
                         let datedLabel = summary.datedCount == 1
@@ -150,30 +217,130 @@ private struct NeedsReplanLauncherSheet: View {
                         launcherRow("Start with \(newestDate.formatted(.dateTime.weekday(.wide).month().day()))", systemImage: "arrow.forward.circle")
                     }
                 }
+                .padding(spacing.s12)
+                .background(Color.tasker.surfaceSecondary.opacity(0.86), in: RoundedRectangle(cornerRadius: corner.card, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: corner.card, style: .continuous)
+                        .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+                )
             }
 
-            Button(summary.launcherPrimaryActionTitle, action: onStart)
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("home.needsReplan.start")
+            Button(action: {
+                TaskerFeedback.selection()
+                onStart()
+            }) {
+                Label(summary.launcherPrimaryActionTitle, systemImage: summary.count == 0 ? "plus.circle.fill" : "arrow.triangle.2.circlepath")
+                    .font(.tasker(.button))
+                    .foregroundStyle(Color.tasker.accentOnPrimary)
+                    .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
+                    .background(Color.tasker.actionPrimary, in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+                    .accessibilityIdentifier("home.needsReplan.start")
+            }
+            .accessibilityIdentifier("home.needsReplan.start")
+            .buttonStyle(.plain)
+            .scaleOnPress()
 
             HStack {
-                Button("Later", action: onLater)
+                Button("Later") {
+                    TaskerFeedback.light()
+                    onLater()
+                }
                     .font(.tasker(.body).weight(.semibold))
                 Spacer()
             }
             .foregroundStyle(Color.tasker.textSecondary)
         }
         .padding(24)
-        .presentationDetents([.medium])
+        .background(Color.tasker.bgCanvas)
+        .presentationDetents([.large])
         .presentationDragIndicator(.hidden)
-        .accessibilityIdentifier("home.needsReplan.launcher")
     }
 
     private func launcherRow(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
-            .font(.tasker(.support))
-            .foregroundStyle(Color.tasker.textSecondary)
-            .labelStyle(.titleAndIcon)
+        HStack(spacing: spacing.s12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.tasker.accentPrimary)
+                .frame(width: 26, height: 26)
+                .background(Color.tasker.accentWash, in: Circle())
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.tasker(.support))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct ReplanHotZoneTarget: View {
+    let zone: ReplanHotZone
+    let axis: Axis
+    let isVisible: Bool
+    let acceptsTaskID: UUID
+    let onDrop: (ReplanHotZone) -> Void
+
+    @Binding var isTargeted: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+
+    var body: some View {
+        zoneContent
+            .frame(maxWidth: axis == .horizontal ? nil : .infinity)
+            .frame(width: axis == .horizontal ? 82 : nil)
+            .frame(minHeight: axis == .horizontal ? 184 : 70)
+            .opacity(isVisible ? 1 : 0)
+            .scaleEffect(isVisible && isTargeted && reduceMotion == false ? 1.035 : 1)
+            .background(backgroundShape)
+            .overlay(borderShape)
+            .allowsHitTesting(isVisible)
+            .dropDestination(for: String.self, action: { items, _ in
+                guard items.contains(acceptsTaskID.uuidString) else { return false }
+                onDrop(zone)
+                return true
+            }, isTargeted: { newValue in
+                isTargeted = newValue
+            })
+            .onChange(of: isTargeted) { _, newValue in
+                guard newValue else { return }
+                TaskerFeedback.selection()
+            }
+            .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast, value: isVisible)
+            .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast, value: isTargeted)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(zone.title), \(zone.subtitle)")
+            .accessibilityIdentifier(zone.accessibilityIdentifier)
+    }
+
+    private var zoneContent: some View {
+        VStack(spacing: 5) {
+            Image(systemName: zone.systemImage)
+                .font(.system(size: 18, weight: .semibold))
+                .scaleEffect(isTargeted && reduceMotion == false ? 1.08 : 1)
+            Text(zone.title)
+                .font(.tasker(.caption1).weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Text(zone.subtitle)
+                .font(.tasker(.caption2))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .foregroundStyle(zone.tint)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 10)
+    }
+
+    private var backgroundShape: some View {
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(zone.tint.opacity(isTargeted ? 0.18 : 0.1))
+    }
+
+    private var borderShape: some View {
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .stroke(
+                differentiateWithoutColor || isTargeted ? zone.tint.opacity(0.72) : zone.tint.opacity(0.24),
+                style: StrokeStyle(lineWidth: isTargeted ? 1.5 : 1, dash: differentiateWithoutColor ? [5, 4] : [])
+            )
     }
 }
 
@@ -186,13 +353,54 @@ private struct NeedsReplanCardOverlay: View {
     let onCheckOff: () -> Void
     let onDelete: () -> Void
     let onClearError: () -> Void
+    let onFeedback: (String) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isDraggingTask = false
+    @State private var planTargeted = false
+    @State private var inboxTargeted = false
+    @State private var completeTargeted = false
+    @State private var deleteTargeted = false
 
     var body: some View {
         if let candidate = state.currentCandidate {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
+            ZStack {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement()
+                    .accessibilityIdentifier("home.needsReplan.card")
+
+                if dynamicTypeSize.isAccessibilitySize == false {
+                    hotZoneLayer(for: candidate)
+                }
+
+                cardContent(for: candidate)
+                    .scaleEffect(isDraggingTask && reduceMotion == false ? 1.018 : 1)
+                    .shadow(color: Color.tasker.accentPrimary.opacity(isDraggingTask ? 0.16 : 0), radius: isDraggingTask ? 18 : 0, x: 0, y: 10)
+                    .draggable(candidate.task.id.uuidString) {
+                        dragPreview(for: candidate)
+                    }
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 3)
+                            .onChanged { _ in
+                                guard isDraggingTask == false else { return }
+                                withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.panelIn) {
+                                    isDraggingTask = true
+                                }
+                                TaskerFeedback.light()
+                            }
+                            .onEnded { _ in
+                                resetDragState()
+                            }
+                    )
+            }
+        }
+    }
+
+    private func cardContent(for candidate: HomeReplanCandidate) -> some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         Button("Undo", action: onUndo)
                             .disabled(state.canUndo == false || state.isApplying)
@@ -267,13 +475,104 @@ private struct NeedsReplanCardOverlay: View {
                 .padding(18)
             }
             .frame(maxHeight: maxCardHeight)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .background(Color.tasker.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .stroke(Color.tasker.strokeHairline.opacity(0.6), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.12), radius: 24, x: 0, y: 12)
-            .accessibilityIdentifier("home.needsReplan.card")
+            .accessibilityIdentifier("home.needsReplan.dragSource")
+    }
+
+    private func hotZoneLayer(for candidate: HomeReplanCandidate) -> some View {
+        VStack(spacing: 10) {
+            ReplanHotZoneTarget(
+                zone: .planToday,
+                axis: .vertical,
+                isVisible: isDraggingTask,
+                acceptsTaskID: candidate.task.id,
+                onDrop: performDrop,
+                isTargeted: $planTargeted
+            )
+
+            HStack {
+                ReplanHotZoneTarget(
+                    zone: .moveToInbox,
+                    axis: .horizontal,
+                    isVisible: isDraggingTask,
+                    acceptsTaskID: candidate.task.id,
+                    onDrop: performDrop,
+                    isTargeted: $inboxTargeted
+                )
+                Spacer(minLength: 112)
+                ReplanHotZoneTarget(
+                    zone: .complete,
+                    axis: .horizontal,
+                    isVisible: isDraggingTask,
+                    acceptsTaskID: candidate.task.id,
+                    onDrop: performDrop,
+                    isTargeted: $completeTargeted
+                )
+            }
+
+            ReplanHotZoneTarget(
+                zone: .delete,
+                axis: .vertical,
+                isVisible: isDraggingTask,
+                acceptsTaskID: candidate.task.id,
+                onDrop: performDrop,
+                isTargeted: $deleteTargeted
+            )
+        }
+        .padding(.horizontal, 4)
+        .zIndex(2)
+    }
+
+    private func dragPreview(for candidate: HomeReplanCandidate) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Color.tasker.textSecondary)
+            Text(candidate.task.title)
+                .font(.tasker(.headline))
+                .foregroundStyle(Color.tasker.textPrimary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Color.tasker.surfacePrimary, in: Capsule())
+        .overlay(Capsule().stroke(Color.tasker.accentPrimary.opacity(0.26), lineWidth: 1))
+    }
+
+    private func performDrop(_ zone: ReplanHotZone) {
+        resetDragState()
+        switch zone {
+        case .planToday:
+            TaskerFeedback.selection()
+            onFeedback("Drag into a time or All Day.")
+            onReschedule()
+        case .moveToInbox:
+            TaskerFeedback.success()
+            onFeedback("Moved to Inbox")
+            onMoveToInbox()
+        case .complete:
+            TaskerFeedback.success()
+            onFeedback("Marked complete")
+            onCheckOff()
+        case .delete:
+            TaskerFeedback.warning()
+            onFeedback("Deleted")
+            onDelete()
+        }
+    }
+
+    private func resetDragState() {
+        withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast) {
+            isDraggingTask = false
+            planTargeted = false
+            inboxTargeted = false
+            completeTargeted = false
+            deleteTargeted = false
         }
     }
 
@@ -331,9 +630,20 @@ private struct NeedsReplanCardOverlay: View {
     ) -> some View {
         Button(role: role, action: action) {
             Label(title, systemImage: systemImage)
+                .font(.tasker(.buttonSmall))
+                .foregroundStyle(role == .destructive ? Color.tasker.statusDanger : Color.tasker.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .frame(minHeight: 46)
+                .background(actionFill(role: role, emphasized: title == "Reschedule"), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(actionStroke(role: role, emphasized: title == "Reschedule"), lineWidth: 1)
+                )
+                .accessibilityIdentifier(actionAccessibilityIdentifier(title))
         }
-        .buttonStyle(.borderedProminent)
+        .accessibilityIdentifier(actionAccessibilityIdentifier(title))
+        .buttonStyle(.plain)
+        .scaleOnPress()
         .disabled(disabled)
     }
 
@@ -350,19 +660,53 @@ private struct NeedsReplanCardOverlay: View {
                 Button(role: role, action: action) {
                     Label(title, systemImage: systemImage)
                         .font(.tasker(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.tasker.accentOnPrimary)
                         .frame(maxWidth: .infinity, minHeight: 42)
+                        .background(Color.tasker.actionPrimary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .accessibilityIdentifier(actionAccessibilityIdentifier(title))
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.plain)
             } else {
                 Button(role: role, action: action) {
                     Label(title, systemImage: systemImage)
                         .font(.tasker(.caption1).weight(.semibold))
+                        .foregroundStyle(role == .destructive ? Color.tasker.statusDanger : Color.tasker.textPrimary)
                         .frame(maxWidth: .infinity, minHeight: 42)
+                        .background(actionFill(role: role, emphasized: false), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(actionStroke(role: role, emphasized: false), lineWidth: 1)
+                        )
+                        .accessibilityIdentifier(actionAccessibilityIdentifier(title))
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
             }
         }
+        .accessibilityIdentifier(actionAccessibilityIdentifier(title))
         .disabled(disabled)
+        .scaleOnPress()
+    }
+
+    private func actionFill(role: ButtonRole?, emphasized: Bool) -> Color {
+        if emphasized { return Color.tasker.actionPrimary }
+        if role == .destructive { return Color.tasker.statusDanger.opacity(0.1) }
+        return Color.tasker.surfaceSecondary
+    }
+
+    private func actionStroke(role: ButtonRole?, emphasized: Bool) -> Color {
+        if emphasized { return Color.tasker.actionPrimary.opacity(0.24) }
+        if role == .destructive { return Color.tasker.statusDanger.opacity(0.28) }
+        return Color.tasker.strokeHairline.opacity(0.78)
+    }
+
+    private func actionAccessibilityIdentifier(_ title: String) -> String {
+        switch title {
+        case "Move to Inbox": return "home.needsReplan.action.inbox"
+        case "Reschedule": return "home.needsReplan.action.planToday"
+        case "Check Off": return "home.needsReplan.action.complete"
+        case "Delete": return "home.needsReplan.action.delete"
+        default: return "home.needsReplan.action.\(title)"
+        }
     }
 
     private func errorBanner(_ message: String) -> some View {
@@ -389,41 +733,54 @@ private struct NeedsReplanSummaryOverlay: View {
     let onViewToday: () -> Void
     let onDone: () -> Void
 
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(state.skippedCount > 0 ? "You skipped \(state.skippedCount) tasks" : "All caught up")
-                    .font(.tasker(.title1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(state.skippedCount > 0 ? "You can review them now or leave them for later." : "You've resolved your unfinished tasks.")
-                    .font(.tasker(.body))
-                    .foregroundStyle(Color.tasker.textSecondary)
-                    .lineSpacing(2)
+            VStack(alignment: .leading, spacing: spacing.s16) {
+                HStack(alignment: .top, spacing: spacing.s12) {
+                    Image(systemName: state.skippedCount > 0 ? "clock.badge.exclamationmark.fill" : "checkmark.seal.fill")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(state.skippedCount > 0 ? Color.tasker.statusWarning : Color.tasker.statusSuccess)
+                        .frame(width: 48, height: 48)
+                        .background(Color.tasker.accentWash.opacity(0.9), in: Circle())
+                        .taskerSuccessPulse(isActive: state.skippedCount == 0)
+                        .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: spacing.s4) {
+                        Text(state.skippedCount > 0 ? "You skipped \(state.skippedCount) tasks" : "All caught up")
+                            .font(.tasker(.title1).weight(.semibold))
+                            .foregroundStyle(Color.tasker.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(state.skippedCount > 0 ? "You can review them now or leave them for later." : "You've resolved your unfinished tasks.")
+                            .font(.tasker(.body))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                            .lineSpacing(2)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: spacing.s8) {
                     metric("rescheduled", state.outcomes.rescheduled)
                     metric("moved to Inbox", state.outcomes.movedToInbox)
                     metric("completed", state.outcomes.completed)
                     metric("deleted", state.outcomes.deleted)
                 }
+                .padding(spacing.s12)
+                .background(Color.tasker.surfaceSecondary.opacity(0.82), in: RoundedRectangle(cornerRadius: corner.card, style: .continuous))
 
                 if state.skippedCount > 0 {
-                    Button("Review skipped", action: onReviewSkipped)
-                        .buttonStyle(.borderedProminent)
-                    Button("Finish", action: onDone)
-                        .font(.tasker(.body).weight(.semibold))
+                    summaryPrimaryButton("Review skipped", systemImage: "arrow.uturn.backward.circle.fill", action: onReviewSkipped)
+                    summarySecondaryButton("Finish", action: onDone)
                 } else {
-                    Button("View Today", action: onViewToday)
-                        .buttonStyle(.borderedProminent)
-                    Button("Done", action: onDone)
-                        .font(.tasker(.body).weight(.semibold))
+                    summaryPrimaryButton("View Today", systemImage: "sun.max.fill", action: onViewToday)
+                    summarySecondaryButton("Done", action: onDone)
                 }
             }
             .padding(20)
         }
         .frame(maxHeight: min(UIScreen.main.bounds.height * 0.52, 420))
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .background(Color.tasker.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(Color.tasker.strokeHairline.opacity(0.6), lineWidth: 1)
@@ -433,9 +790,39 @@ private struct NeedsReplanSummaryOverlay: View {
     }
 
     private func metric(_ label: String, _ count: Int) -> some View {
-        Text("\(count) \(label)")
-            .font(.tasker(.support).weight(.semibold))
+        HStack {
+            Text("\(count)")
+                .font(.tasker(.metric))
+                .foregroundStyle(count > 0 ? Color.tasker.accentPrimary : Color.tasker.textQuaternary)
+                .contentTransition(.numericText())
+            Text(label)
+                .font(.tasker(.support).weight(.semibold))
+                .foregroundStyle(Color.tasker.textSecondary)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func summaryPrimaryButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            TaskerFeedback.selection()
+            action()
+        }) {
+            Label(title, systemImage: systemImage)
+                .font(.tasker(.button))
+                .foregroundStyle(Color.tasker.accentOnPrimary)
+                .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
+                .background(Color.tasker.actionPrimary, in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+    }
+
+    private func summarySecondaryButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .font(.tasker(.body).weight(.semibold))
             .foregroundStyle(Color.tasker.textSecondary)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .buttonStyle(.plain)
     }
 }
 
@@ -1407,8 +1794,10 @@ extension ForedropAnchor {
 
 enum HomeForedropFace: Equatable {
     case tasks
+    case schedule
     case analytics
     case search
+    case chat
 
     var isBackFace: Bool {
         self != .tasks
@@ -1418,10 +1807,14 @@ enum HomeForedropFace: Equatable {
         switch self {
         case .tasks:
             return .home
+        case .schedule:
+            return .calendar
         case .analytics:
             return .charts
         case .search:
             return .search
+        case .chat:
+            return .chat
         }
     }
 
@@ -1429,7 +1822,7 @@ enum HomeForedropFace: Equatable {
         switch self {
         case .tasks:
             return "collapsed"
-        case .analytics, .search:
+        case .schedule, .analytics, .search, .chat:
             return "fullReveal"
         }
     }
@@ -1921,6 +2314,7 @@ private enum HomePerformanceSignposts {
     }
 }
 
+@MainActor
 private struct HomeHabitSectionCardHost: View, Equatable {
     let title: String
     let summaryLine: String
@@ -1933,7 +2327,7 @@ private struct HomeHabitSectionCardHost: View, Equatable {
     let onLastCellAction: (HomeHabitRow) -> Void
     let onOpenHabit: (HomeHabitRow) -> Void
 
-    static func == (lhs: HomeHabitSectionCardHost, rhs: HomeHabitSectionCardHost) -> Bool {
+    nonisolated static func == (lhs: HomeHabitSectionCardHost, rhs: HomeHabitSectionCardHost) -> Bool {
         lhs.title == rhs.title
             && lhs.summaryLine == rhs.summaryLine
             && lhs.rows == rhs.rows
@@ -2066,7 +2460,7 @@ private struct HomePrimaryWidgetHostedPage: Identifiable {
 }
 
 private struct HomePrimaryWidgetHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: [HomePrimaryWidgetKind: CGFloat] = [:]
+    static let defaultValue: [HomePrimaryWidgetKind: CGFloat] = [:]
 
     static func reduce(value: inout [HomePrimaryWidgetKind: CGFloat], nextValue: () -> [HomePrimaryWidgetKind: CGFloat]) {
         value.merge(nextValue(), uniquingKeysWith: { _, next in next })
@@ -2545,6 +2939,8 @@ struct HomeBackdropForedropRootView: View {
     @ObservedObject var tasksStore: HomeTasksStore
     @ObservedObject var habitsStore: HomeHabitsStore
     @ObservedObject var calendarStore: HomeCalendarStore
+    let calendarIntegrationService: CalendarIntegrationService?
+    let chatAppManager: AppManager
     @ObservedObject var overlayStore: HomeOverlayStore
     @ObservedObject var faceCoordinator: HomeFaceCoordinator
     @ObservedObject var searchState: HomeSearchState
@@ -2561,6 +2957,7 @@ struct HomeBackdropForedropRootView: View {
 
     let onTaskTap: (TaskDefinition) -> Void
     let onToggleComplete: (TaskDefinition) -> Void
+    let onTimelineAnchorTap: (TimelineAnchorItem) -> Void
     let onDeleteTask: (TaskDefinition) -> Void
     let onRescheduleTask: (TaskDefinition) -> Void
     let onReorderCustomProjects: ([UUID]) -> Void
@@ -2582,6 +2979,9 @@ struct HomeBackdropForedropRootView: View {
     let onOpenCalendarChooser: () -> Void
     let onOpenCalendarSchedule: () -> Void
     let onRetryCalendarContext: () -> Void
+    let onPerformChatDayTaskAction: EvaDayTaskActionHandler
+    let onPerformChatDayHabitAction: EvaDayHabitActionHandler
+    let onChatPromptFocusChange: (Bool) -> Void
 
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
@@ -2615,6 +3015,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var pendingSearchCommitTask: Task<Void, Never>?
     @State private var hasMountedSearchSurface = false
     @State private var hasMountedAnalyticsSurface = false
+    @State private var hasMountedScheduleSurface = false
+    @State private var chatNavigationChromeState = EvaChatNavigationChromeState.empty
     @State private var expandedAgendaTailItemIDs = Set<String>()
     @State private var selectedHomeCalendarEventDetail: HomeCalendarEventDetailSelection?
     @State private var suppressNextCalendarScheduleOpen = false
@@ -2679,7 +3081,9 @@ struct HomeBackdropForedropRootView: View {
         activeFace == .tasks ? timelineViewModel.foredropAnchor : .fullReveal
     }
     private var isSearchOpen: Bool { activeFace == .search }
+    private var isChatOpen: Bool { activeFace == .chat }
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
+    private var isScheduleFaceVisible: Bool { activeFace == .schedule }
     private var isTodayTimelineVisible: Bool {
         activeFace == .tasks && tasksSnapshot.activeQuickView == .today
     }
@@ -2728,7 +3132,7 @@ struct HomeBackdropForedropRootView: View {
         )
     }
     private var isDaySwipeGestureEnabled: Bool {
-        guard isTodayTimelineVisible else { return false }
+        guard isTodayTimelineVisible || isScheduleFaceVisible else { return false }
         guard showDatePicker == false, showAdvancedFilters == false else { return false }
         guard overlaySnapshot.replanState.isApplying == false else { return false }
         if case .placement = overlaySnapshot.replanState.phase {
@@ -2778,7 +3182,10 @@ struct HomeBackdropForedropRootView: View {
         return false
     }
     private var dayLiquidSwipeRestingCenterY: CGFloat {
-        HomeDayLiquidSwipeRestingPosition.centerY(
+        guard isScheduleFaceVisible == false else {
+            return HomeDayLiquidSwipeData.timelineHandleCenterY
+        }
+        return HomeDayLiquidSwipeRestingPosition.centerY(
             defaultCenterY: HomeDayLiquidSwipeData.timelineHandleCenterY,
             showsQuietTrackingRail: habitsSnapshot.quietTrackingSummaryState.isVisible,
             measuredQuietTrackingRailHeight: measuredPassiveTrackingRailHeight,
@@ -2804,7 +3211,10 @@ struct HomeBackdropForedropRootView: View {
                 onReschedule: { viewModel.beginCurrentReplanPlacement() },
                 onCheckOff: { viewModel.checkOffCurrentReplanCandidate() },
                 onDelete: { viewModel.deleteCurrentReplanCandidate() },
-                onClearError: { viewModel.clearReplanError() }
+                onClearError: { viewModel.clearReplanError() },
+                onFeedback: { message in
+                    snackbar = SnackbarData(message: message, autoDismissSeconds: 2)
+                }
             )
             .padding(.horizontal, spacing.s16)
             .padding(.bottom, layoutMetrics.safeAreaBottom + spacing.s20)
@@ -2950,6 +3360,11 @@ struct HomeBackdropForedropRootView: View {
         .onChange(of: isTodayTimelineVisible) { _, isVisible in
             guard isVisible else { return }
             resetDayLiquidSwipeChromeVisibility()
+        }
+        .onChange(of: isScheduleFaceVisible) { _, isVisible in
+            guard isVisible else { return }
+            resetDayLiquidSwipeChromeVisibility()
+            resetIdleDayLiquidSwipeHandles(restingCenterY: dayLiquidSwipeRestingCenterY)
         }
         .onChange(of: habitRenderSignature) { _, _ in
             HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
@@ -3115,6 +3530,7 @@ struct HomeBackdropForedropRootView: View {
             searchDraftQuery = searchState.query
             hasMountedSearchSurface = activeFace == .search
             hasMountedAnalyticsSurface = activeFace == .analytics
+            hasMountedScheduleSurface = activeFace == .schedule
             triggerForedropHintIfEligible()
             presentHabitBoardIfRequestedForUITests()
         }
@@ -3322,6 +3738,11 @@ struct HomeBackdropForedropRootView: View {
                     hasMountedSearchSurface = true
                 } else if newValue == .analytics {
                     hasMountedAnalyticsSurface = true
+                } else if newValue == .schedule {
+                    hasMountedScheduleSurface = true
+                }
+                if newValue != .chat {
+                    chatNavigationChromeState = .empty
                 }
                 if newValue != .search {
                     isSearchFieldFocused = false
@@ -3564,7 +3985,17 @@ struct HomeBackdropForedropRootView: View {
                         onPlaceReplanAllDay: { candidate, date in
                             timelineViewModel.syncSelectedDate(date)
                             viewModel.selectDate(date, source: .replan)
+                            TaskerFeedback.success()
                             viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
+                            snackbar = SnackbarData(
+                                message: "Added to \(date.formatted(.dateTime.weekday(.abbreviated).month().day()))",
+                                actions: [
+                                    SnackbarAction(title: "Undo") {
+                                        viewModel.undoLastReplanAction()
+                                    }
+                                ],
+                                autoDismissSeconds: 3
+                            )
                         }
                     )
                     .padding(.horizontal, spacing.s16)
@@ -3584,6 +4015,12 @@ struct HomeBackdropForedropRootView: View {
                 foredropFrontFace(taskListBottomInset: taskListBottomInset)
             }
 
+            if hasMountedScheduleSurface || activeFace == .schedule {
+                persistentFace(.schedule) {
+                    foredropScheduleFace()
+                }
+            }
+
             if hasMountedAnalyticsSurface || activeFace == .analytics {
                 persistentFace(.analytics) {
                     foredropAnalyticsFace()
@@ -3593,6 +4030,12 @@ struct HomeBackdropForedropRootView: View {
             if hasMountedSearchSurface || activeFace == .search {
                 persistentFace(.search) {
                     foredropSearchFace(taskListBottomInset: taskListBottomInset)
+                }
+            }
+
+            if activeFace == .chat {
+                persistentFace(.chat) {
+                    foredropChatFace()
                 }
             }
         }
@@ -3721,6 +4164,32 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private func foredropScheduleFace() -> some View {
+        ZStack {
+            if let calendarIntegrationService {
+                CalendarScheduleView(
+                    service: calendarIntegrationService,
+                    weekStartsOn: calendarIntegrationService.weekStartsOn,
+                    presentationMode: .embedded,
+                    selectedDate: Binding(
+                        get: { viewModel.selectedDate },
+                        set: { date in
+                            viewModel.selectDate(date, source: .datePicker)
+                        }
+                    )
+                )
+            } else {
+                Text("Schedule unavailable")
+                    .font(.tasker(.body))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            }
+
+            dayLiquidSwipeOverlay
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
     private func foredropAnalyticsFace() -> some View {
         VStack(spacing: spacing.s8) {
             HStack(spacing: spacing.s8) {
@@ -3834,6 +4303,52 @@ struct HomeBackdropForedropRootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("search.view")
+    }
+
+    @ViewBuilder
+    private func foredropChatFace() -> some View {
+        if let container = LLMDataController.shared {
+            let chatContent = ChatContainerView(
+                promptFocusRequestID: faceCoordinator.chatPromptFocusRequestID,
+                onNavigationChromeChange: { state in
+                    chatNavigationChromeState = state
+                },
+                onPromptFocusChange: onChatPromptFocusChange,
+                onOpenTaskDetail: { task in
+                    onTaskTap(task)
+                },
+                onOpenHabitDetail: { habitID in
+                    openHabitDetail(habitID: habitID)
+                },
+                onPerformDayTaskAction: onPerformChatDayTaskAction,
+                onPerformDayHabitAction: { action, card, completion in
+                    if action == .open {
+                        openHabitDetail(habitID: card.habitID)
+                        completion(.success(()))
+                        return
+                    }
+                    onPerformChatDayHabitAction(action, card, completion)
+                }
+            )
+            .environmentObject(chatAppManager)
+            .environment(LLMRuntimeCoordinator.shared.evaluator)
+            .modelContainer(container)
+
+            if layoutMetrics.keyboardOverlapHeight > 0.5 {
+                chatContent
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        Color.clear
+                            .frame(height: layoutMetrics.chatComposerBottomInset)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+            } else {
+                chatContent
+                    .padding(.bottom, layoutMetrics.chatComposerBottomInset + spacing.s16)
+            }
+        } else {
+            LLMStoreUnavailableView()
+        }
     }
 
     private var searchFaceHeader: some View {
@@ -3991,9 +4506,29 @@ struct HomeBackdropForedropRootView: View {
             .padding(.bottom, spacing.s8)
             .ignoresSafeArea(.keyboard)
             .zIndex(1)
+        } else if isChatOpen {
+            HomeEvaChatTopChromeView(
+                chromeState: chatNavigationChromeState,
+                onBack: {
+                    returnToTasks(source: "chat_top_chrome_back")
+                },
+                onSettings: {
+                    NotificationCenter.default.post(name: .requestEvaChatSettings, object: nil)
+                },
+                onHistory: {
+                    NotificationCenter.default.post(name: .toggleChatHistory, object: nil)
+                },
+                onNewChat: {
+                    NotificationCenter.default.post(name: .requestEvaChatNewThread, object: nil)
+                }
+            )
+            .padding(.top, layoutClass.isPad ? 18 : 0)
         } else {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                let headerPresentation = chromeSnapshot.homeHeaderPresentation(tasks: tasksSnapshot)
+                let headerPresentation = chromeSnapshot.homeHeaderPresentation(
+                    tasks: tasksSnapshot,
+                    habits: habitsSnapshot
+                )
 
                 HomeCompactHeaderView(
                     presentation: headerPresentation,
@@ -4459,6 +4994,7 @@ struct HomeBackdropForedropRootView: View {
                                     trackTaskToggle(task, source: "timeline")
                                     onToggleComplete(task)
                                 },
+                                onAnchorTap: onTimelineAnchorTap,
                                 onAddTask: onAddTask,
                                 onScheduleInbox: {
                                     viewModel.startTriage()
@@ -4467,10 +5003,30 @@ struct HomeBackdropForedropRootView: View {
                                     viewModel.showCalendarEventsInTimelineFromHome()
                                 },
                                 onPlaceReplanAtTime: { candidate, date in
+                                    TaskerFeedback.success()
                                     viewModel.placeReplanCandidate(taskID: candidate.taskID, at: date)
+                                    snackbar = SnackbarData(
+                                        message: "Scheduled for \(date.formatted(date: .omitted, time: .shortened))",
+                                        actions: [
+                                            SnackbarAction(title: "Undo") {
+                                                viewModel.undoLastReplanAction()
+                                            }
+                                        ],
+                                        autoDismissSeconds: 3
+                                    )
                                 },
                                 onPlaceReplanAllDay: { candidate, date in
+                                    TaskerFeedback.success()
                                     viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
+                                    snackbar = SnackbarData(
+                                        message: "Added to \(date.formatted(.dateTime.weekday(.abbreviated).month().day()))",
+                                        actions: [
+                                            SnackbarAction(title: "Undo") {
+                                                viewModel.undoLastReplanAction()
+                                            }
+                                        ],
+                                        autoDismissSeconds: 3
+                                    )
                                 },
                                 onCancelReplanPlacement: {
                                     viewModel.cancelCurrentReplanPlacement()
@@ -4572,38 +5128,42 @@ struct HomeBackdropForedropRootView: View {
                     }
                 )
 
-                HomeDayLiquidSwipeOverlay(
-                    isEnabled: isDaySwipeGestureEnabled,
-                    isChromeVisible: isDayLiquidSwipeChromeVisible,
-                    reduceMotion: reduceMotion || isUITesting,
-                    restingCenterY: dayLiquidSwipeRestingCenterY,
-                    onInteractionStarted: beginDaySwipeTrace,
-                    onInteractionCancelled: cancelDaySwipeTraceIfNeeded,
-                    onCommit: commitDaySwipe,
-                    onHandleDragChanged: { side, translation, location, size in
-                        updateDayLiquidSwipe(
-                            side: side,
-                            translation: translation,
-                            location: location,
-                            size: size
-                        )
-                    },
-                    onHandleDragEnded: { side, translation, predictedEndTranslation, _, size in
-                        endDayLiquidSwipe(
-                            side: side,
-                            translation: translation,
-                            predictedEndTranslation: predictedEndTranslation,
-                            size: size
-                        )
-                    },
-                    leadingData: $leadingDayLiquidSwipeData,
-                    trailingData: $trailingDayLiquidSwipeData,
-                    topSide: $topDayLiquidSwipeSide
-                )
+                dayLiquidSwipeOverlay
             }
             .coordinateSpace(name: Self.dayLiquidSwipeCoordinateSpaceName)
         }
         .accessibilityIdentifier("home.timeline.surface")
+    }
+
+    private var dayLiquidSwipeOverlay: some View {
+        HomeDayLiquidSwipeOverlay(
+            isEnabled: isDaySwipeGestureEnabled,
+            isChromeVisible: isDayLiquidSwipeChromeVisible,
+            reduceMotion: reduceMotion || isUITesting,
+            restingCenterY: dayLiquidSwipeRestingCenterY,
+            onInteractionStarted: beginDaySwipeTrace,
+            onInteractionCancelled: cancelDaySwipeTraceIfNeeded,
+            onCommit: commitDaySwipe,
+            onHandleDragChanged: { side, translation, location, size in
+                updateDayLiquidSwipe(
+                    side: side,
+                    translation: translation,
+                    location: location,
+                    size: size
+                )
+            },
+            onHandleDragEnded: { side, translation, predictedEndTranslation, _, size in
+                endDayLiquidSwipe(
+                    side: side,
+                    translation: translation,
+                    predictedEndTranslation: predictedEndTranslation,
+                    size: size
+                )
+            },
+            leadingData: $leadingDayLiquidSwipeData,
+            trailingData: $trailingDayLiquidSwipeData,
+            topSide: $topDayLiquidSwipeSide
+        )
     }
 
     private func timelineBottomContentSpacer(taskListBottomInset: CGFloat) -> some View {
@@ -4932,6 +5492,7 @@ struct HomeBackdropForedropRootView: View {
 
     private var passiveTrackingRail: some View {
         let layout = passiveTrackingRailLayout
+        let horizontalPadding = spacing.s16 * 2
 
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: spacing.s8) {
@@ -4943,7 +5504,7 @@ struct HomeBackdropForedropRootView: View {
             .padding(.horizontal, spacing.s16)
         }
         .onGeometryChange(for: CGFloat.self) { proxy in
-            max(proxy.size.width - (spacing.s16 * 2), 0)
+            max(proxy.size.width - horizontalPadding, 0)
         } action: { newWidth in
             guard abs(newWidth - passiveTrackingRailViewportWidth) > 0.5 else { return }
             passiveTrackingRailViewportWidth = newWidth
@@ -5518,7 +6079,7 @@ struct HomeBackdropForedropRootView: View {
     /// Executes loadTaskIDFromDrop.
     private func loadTaskIDFromDrop(
         providers: [NSItemProvider],
-        completion: @escaping (UUID?) -> Void
+        completion: @escaping @Sendable (UUID?) -> Void
     ) -> Bool {
         guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
             completion(nil)
@@ -6000,7 +6561,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .settings: return "Settings"
         case .lifeManagement: return "Life Management"
         case .projects: return "Projects"
-        case .chat: return "Eva"
+        case .chat: return AssistantIdentityText.currentSnapshot().displayName
         case .models: return "Models"
         }
     }
@@ -6023,9 +6584,11 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
     var homeFace: HomeForedropFace? {
         switch self {
         case .tasks: return .tasks
+        case .schedule: return .schedule
         case .search: return .search
         case .analytics: return .analytics
-        case .schedule, .addTask, .settings, .lifeManagement, .projects, .chat, .models: return nil
+        case .chat: return .chat
+        case .addTask, .settings, .lifeManagement, .projects, .models: return nil
         }
     }
 
@@ -6207,6 +6770,15 @@ struct HomeiPadSplitShellView: View {
         shellState.destination.isPrimaryHomeDestination
     }
 
+    private var showsPrimaryHomeTaskToolbarItems: Bool {
+        switch shellState.destination {
+        case .tasks, .search, .analytics:
+            return true
+        case .schedule, .chat, .addTask, .settings, .lifeManagement, .projects, .models:
+            return false
+        }
+    }
+
     var body: some View {
         shellLayout
             .accessibilityIdentifier("home.ipad.shell")
@@ -6338,10 +6910,14 @@ struct HomeiPadSplitShellView: View {
         switch face {
         case .tasks:
             return "tasks"
+        case .schedule:
+            return "schedule"
         case .analytics:
             return "analytics"
         case .search:
             return "search"
+        case .chat:
+            return "chat"
         }
     }
 
@@ -6364,7 +6940,7 @@ struct HomeiPadSplitShellView: View {
 
     @ViewBuilder
     private var detailToolbarItems: some View {
-        if isPrimaryHomeDestination {
+        if showsPrimaryHomeTaskToolbarItems {
             Button {
                 showHabitLibrarySheet = true
             } label: {
@@ -6485,7 +7061,7 @@ struct HomeiPadSplitShellView: View {
     @ViewBuilder
     private var detailContent: some View {
         switch shellState.destination {
-        case .tasks, .search, .analytics:
+        case .tasks, .schedule, .search, .analytics, .chat:
             HomeiPadPrimaryPaneHost(
                 activeFace: $activeHomeFace,
                 layoutClass: layoutClass,
@@ -6508,9 +7084,6 @@ struct HomeiPadSplitShellView: View {
                     monitor: primarySurfaceMonitor
                 )
             }
-        case .schedule:
-            scheduleSurface()
-                .accessibilityIdentifier("home.ipad.detail.schedule")
         case .settings:
             settingsSurface()
                 .accessibilityIdentifier("home.ipad.detail.settings")
@@ -6520,9 +7093,6 @@ struct HomeiPadSplitShellView: View {
         case .projects:
             projectsSurface()
                 .accessibilityIdentifier("home.ipad.detail.projects")
-        case .chat:
-            chatSurface()
-                .accessibilityIdentifier("home.ipad.detail.chat")
         case .models:
             modelsSurface()
                 .accessibilityIdentifier("home.ipad.detail.models")
@@ -6582,10 +7152,14 @@ struct HomeiPadSplitShellView: View {
         switch face {
         case .tasks:
             return .tasks
+        case .schedule:
+            return .schedule
         case .analytics:
             return .analytics
         case .search:
             return .search
+        case .chat:
+            return .chat
         }
     }
 

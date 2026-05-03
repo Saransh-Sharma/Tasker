@@ -302,7 +302,7 @@ public enum TaskerTaskFitClassification: String, Codable, Equatable, Sendable {
     case unknown
 }
 
-public struct TaskerTaskFitHintResult: Equatable {
+public struct TaskerTaskFitHintResult: Equatable, Sendable {
     public let classification: TaskerTaskFitClassification
     public let message: String
     public let freeWindowStart: Date?
@@ -350,7 +350,7 @@ public struct TaskerCalendarDayAgenda: Equatable, Identifiable {
     }
 }
 
-public struct TaskerCalendarSnapshot: Equatable {
+public struct TaskerCalendarSnapshot: Equatable, Sendable {
     public var authorizationStatus: TaskerCalendarAuthorizationStatus
     public var availableCalendars: [TaskerCalendarSourceSnapshot]
     public var selectedCalendarIDs: [String]

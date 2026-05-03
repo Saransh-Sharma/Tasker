@@ -55,18 +55,18 @@ private enum WeeklyUseCaseCalendar {
     }
 }
 
-public enum WeeklyHomeCTAState: String, Equatable {
+public enum WeeklyHomeCTAState: String, Equatable, Sendable {
     case planThisWeek
     case planUpcomingWeek
     case reviewWeek
 }
 
-public enum WeeklyPlannerPresentationMode: String, Equatable {
+public enum WeeklyPlannerPresentationMode: String, Equatable, Sendable {
     case thisWeek
     case upcomingWeek
 }
 
-public struct HomeWeeklySummary: Equatable {
+public struct HomeWeeklySummary: Equatable, Sendable {
     public let weekStartDate: Date
     public let ctaState: WeeklyHomeCTAState
     public let plannerPresentation: WeeklyPlannerPresentationMode
@@ -97,7 +97,7 @@ public struct HomeWeeklySummary: Equatable {
     }
 }
 
-public struct WeeklyPlanSnapshot: Equatable {
+public struct WeeklyPlanSnapshot: Equatable, Sendable {
     public let weekStartDate: Date
     public let plan: WeeklyPlan?
     public let outcomes: [WeeklyOutcome]
@@ -128,7 +128,7 @@ public struct WeeklyPlanSnapshot: Equatable {
     }
 }
 
-public struct RecoveryInsights: Equatable {
+public struct RecoveryInsights: Equatable, Sendable {
     public let headline: String
     public let carryForwardCount: Int
     public let laterCount: Int
@@ -150,13 +150,13 @@ public struct RecoveryInsights: Equatable {
     }
 }
 
-public enum WeeklyReviewTaskDisposition: String, Codable, CaseIterable, Equatable, Hashable {
+public enum WeeklyReviewTaskDisposition: String, Codable, CaseIterable, Equatable, Hashable, Sendable {
     case carry
     case later
     case drop
 }
 
-public struct WeeklyReviewTaskDecision: Codable, Equatable, Hashable {
+public struct WeeklyReviewTaskDecision: Codable, Equatable, Hashable, Sendable {
     public let taskID: UUID
     public let disposition: WeeklyReviewTaskDisposition
 
@@ -166,7 +166,7 @@ public struct WeeklyReviewTaskDecision: Codable, Equatable, Hashable {
     }
 }
 
-public struct CompleteWeeklyReviewRequest: Equatable {
+public struct CompleteWeeklyReviewRequest: Equatable, Sendable {
     public let weeklyPlanID: UUID
     public let wins: String?
     public let blockers: String?
@@ -200,7 +200,7 @@ public struct CompleteWeeklyReviewRequest: Equatable {
     }
 }
 
-public struct CompleteWeeklyReviewResult: Equatable {
+public struct CompleteWeeklyReviewResult: Equatable, Sendable {
     public let review: WeeklyReview
     public let skippedTaskIDs: [UUID]
     public let skippedOutcomeIDs: [UUID]
@@ -216,7 +216,7 @@ public struct CompleteWeeklyReviewResult: Equatable {
     }
 }
 
-public struct SaveWeeklyPlanOutcomeInput: Equatable, Hashable, Identifiable {
+public struct SaveWeeklyPlanOutcomeInput: Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public var title: String
     public var sourceProjectID: UUID?
@@ -238,7 +238,7 @@ public struct SaveWeeklyPlanOutcomeInput: Equatable, Hashable, Identifiable {
     }
 }
 
-public struct SaveWeeklyPlanTaskAssignment: Equatable, Hashable {
+public struct SaveWeeklyPlanTaskAssignment: Equatable, Hashable, Sendable {
     public let task: TaskDefinition
     public let planningBucket: TaskPlanningBucket
     public let weeklyOutcomeID: UUID?
@@ -254,7 +254,7 @@ public struct SaveWeeklyPlanTaskAssignment: Equatable, Hashable {
     }
 }
 
-public struct SaveWeeklyPlanRequest: Equatable {
+public struct SaveWeeklyPlanRequest: Equatable, Sendable {
     public let weekStartDate: Date
     public let focusStatement: String?
     public let selectedHabitIDs: [UUID]

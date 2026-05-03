@@ -10,7 +10,7 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
     public init(container: NSPersistentContainer, completionQueue: DispatchQueue = .main) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
         self.completionQueue = completionQueue
     }
 

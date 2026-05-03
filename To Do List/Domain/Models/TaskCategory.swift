@@ -8,7 +8,7 @@
 import Foundation
 
 /// Task categories for better organization and filtering
-public enum TaskCategory: String, CaseIterable, Codable {
+public enum TaskCategory: String, CaseIterable, Codable, Sendable {
     case general = "general"
     case work = "work"
     case personal = "personal"

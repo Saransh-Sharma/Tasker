@@ -31,6 +31,7 @@ struct EvaWakeEvaInstallView: View {
     @State private var displayedProgress = 0.0
     @State private var progressSamples: [EvaActivationInstallSample] = []
     @State private var etaState: EvaActivationInstallETAState = .calculating
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     init(
         model: ModelConfiguration,
@@ -78,7 +79,9 @@ struct EvaWakeEvaInstallView: View {
     }
 
     private var titleText: String {
-        installSucceeded ? "Eva is ready" : "Getting Eva ready"
+        installSucceeded
+            ? "\(assistantIdentity.snapshot.displayName) is ready"
+            : "Getting \(assistantIdentity.snapshot.displayName) ready"
     }
 
     private var statusText: String {
@@ -128,7 +131,7 @@ struct EvaWakeEvaInstallView: View {
         ) {
             VStack(alignment: .leading, spacing: spacing.sectionGap) {
                 EvaContentHeader(
-                    title: "Getting Eva ready",
+                    title: "Getting \(assistantIdentity.snapshot.displayName) ready",
                     bodyText: "Preparing a private on-device mode for your first planning session."
                 )
                 .enhancedStaggeredAppearance(index: 0)
@@ -234,7 +237,7 @@ struct EvaWakeEvaInstallView: View {
             }
             .enhancedStaggeredAppearance(index: 2)
 
-            Text("Keep this screen open while Eva finishes getting ready.")
+            Text("Keep this screen open while \(assistantIdentity.snapshot.displayName) finishes getting ready.")
                 .font(.tasker(.caption1))
                 .foregroundStyle(Color.tasker(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: layoutClass.isPad ? .leading : .center)
@@ -386,6 +389,7 @@ struct EvaActivationRecoveryView: View {
     let onRetry: () -> Void
     let onSwitchToFast: () -> Void
     let onOpenModels: () -> Void
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     var body: some View {
         EvaActivationStageView(
@@ -393,7 +397,7 @@ struct EvaActivationRecoveryView: View {
         ) {
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xl) {
                 EvaContentHeader(
-                    title: "Eva couldn’t finish getting ready",
+                    title: "\(assistantIdentity.snapshot.displayName) couldn’t finish getting ready",
                     bodyText: "The selected mode did not prepare correctly. Try again, or switch to Fast for a lighter setup."
                 )
                 .enhancedStaggeredAppearance(index: 0)

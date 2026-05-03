@@ -17,6 +17,7 @@ extension Notification.Name {
     static let requestEvaChatNewThread = Notification.Name("requestEvaChatNewThread")
 }
 
+@MainActor
 class ChatHostViewController: UIViewController, PresentationDependencyContainerAware, UseCaseCoordinatorInjectable {
     var presentationDependencyContainer: PresentationDependencyContainer?
     var useCaseCoordinator: UseCaseCoordinator!
@@ -28,7 +29,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     private var hostingController: UIHostingController<AnyView>!
     private var themeCancellable: AnyCancellable?
-    private var activationStateCancellable: AnyCancellable?
+    private var activationCoordinatorCancellable: AnyCancellable?
     private var cachedProjects: [Project] = [Project.createInbox()]
     private var currentLayoutClass: TaskerLayoutClass = .phone
     private let activationTitleView = EvaActivationNavigationTitleView()
@@ -41,7 +42,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         action: #selector(onBackTapped)
     )
     private lazy var historyBarButtonItem = UIBarButtonItem(
-        image: UIImage(systemName: "text.below.folder"),
+        image: UIImage(systemName: "clock.arrow.circlepath") ?? UIImage(systemName: "clock"),
         style: .plain,
         target: self,
         action: #selector(onHistoryTapped)
@@ -773,7 +774,8 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     private func bindActivationCoordinator() {
-        activationStateCancellable = activationCoordinator.$state
+        activationCoordinatorCancellable = activationCoordinator.$state
+            .combineLatest(activationCoordinator.$identitySnapshot)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.updateNavigationBarChrome()
@@ -852,8 +854,10 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     deinit {
-        themeCancellable?.cancel()
-        activationStateCancellable?.cancel()
+        MainActor.assumeIsolated {
+            themeCancellable?.cancel()
+            activationCoordinatorCancellable?.cancel()
+        }
     }
 }
 
@@ -1066,8 +1070,10 @@ struct ChatContainerView: View {
     @Environment(\.taskerLayoutClass) private var layoutClass
 
     var presentationMode: ChatPresentationMode = .normal
+    var promptFocusRequestID: UInt64 = 0
     var onActivationChatEvent: ((EvaActivationChatEvent) -> Void)? = nil
     var onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil
+    var onPromptFocusChange: ((Bool) -> Void)? = nil
     var onOpenTaskDetail: (TaskDefinition) -> Void
     var onOpenHabitDetail: ((UUID) -> Void)? = nil
     var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
@@ -1105,7 +1111,12 @@ struct ChatContainerView: View {
                         onPerformDayTaskAction: onPerformDayTaskAction,
                         onPerformDayHabitAction: onPerformDayHabitAction,
                         showsHistoryAction: false,
-                        onNavigationChromeChange: onNavigationChromeChange
+                        promptFocusRequestID: promptFocusRequestID,
+                        storageDegradedReason: LLMDataController.isDegradedModeActive
+                            ? LLMDataController.degradedModeReason ?? "unknown"
+                            : nil,
+                        onNavigationChromeChange: onNavigationChromeChange,
+                        onPromptFocusChange: onPromptFocusChange
                     )
                 }
                 .navigationSplitViewStyle(.balanced)
@@ -1122,14 +1133,21 @@ struct ChatContainerView: View {
                     onPerformDayTaskAction: onPerformDayTaskAction,
                     onPerformDayHabitAction: onPerformDayHabitAction,
                     showsHistoryAction: true,
-                    onNavigationChromeChange: onNavigationChromeChange
+                    promptFocusRequestID: promptFocusRequestID,
+                    storageDegradedReason: LLMDataController.isDegradedModeActive
+                        ? LLMDataController.degradedModeReason ?? "unknown"
+                        : nil,
+                    onNavigationChromeChange: onNavigationChromeChange,
+                    onPromptFocusChange: onPromptFocusChange
                 )
             }
         }
-        .accessibilityIdentifier("home.ipad.detail.chat")
         .environmentObject(appManager)
         .environment(llm)
         .background(Color.tasker(.bgCanvas))
+        .if(useIPadSplitChatLayout) { base in
+            base.accessibilityIdentifier("home.ipad.detail.chat")
+        }
         .if(useIPadSplitChatLayout == false) { base in
             base.sheet(isPresented: $showChats) {
                 ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)

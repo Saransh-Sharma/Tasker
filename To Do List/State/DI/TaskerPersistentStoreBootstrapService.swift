@@ -416,7 +416,7 @@ struct TaskerPersistentRuntimeInitializer {
         completion: (() -> Void)? = nil
     ) {
         let context = container.newBackgroundContext()
-        context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
         context.perform {
             self.performInitialization(in: context)
             if let completion {
@@ -1175,7 +1175,7 @@ final class TaskerPersistentStoreBootstrapService {
 
         container.persistentStoreDescriptions = [cloudDescription, localDescription]
         container.viewContext.automaticallyMergesChangesFromParent = true
-        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        container.viewContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
         return container
     }
 
@@ -1194,7 +1194,7 @@ final class TaskerPersistentStoreBootstrapService {
 
         container.persistentStoreDescriptions = [localDescription]
         container.viewContext.automaticallyMergesChangesFromParent = true
-        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        container.viewContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
         return container
     }
 
@@ -1663,7 +1663,18 @@ final class TaskerPersistentStoreBootstrapService {
         ]
 
         for candidate in candidates where fileManager.fileExists(atPath: candidate.path) {
-            try? fileManager.removeItem(at: candidate)
+            do {
+                try fileManager.removeItem(at: candidate)
+            } catch {
+                logWarning(
+                    event: "persistent_store_artifact_removal_failed",
+                    message: "Failed to remove persistent store artifact during recovery",
+                    fields: [
+                        "path": candidate.path,
+                        "error": error.localizedDescription
+                    ]
+                )
+            }
         }
     }
 

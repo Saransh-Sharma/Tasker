@@ -24,7 +24,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         
         // Configure contexts
         self.viewContext.automaticallyMergesChangesFromParent = true
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
     
     // MARK: - Fetch Operations
@@ -121,9 +121,18 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
 
                 // Persist to database
                 self.backgroundContext.perform {
-                    _ = ProjectMapper.toEntity(from: project, in: self.backgroundContext)
-
                     do {
+                        if try self.findProjectNamed(project.name, excludingId: nil, in: self.backgroundContext) != nil {
+                            logWarning(
+                                event: "cloudkit_project_uniqueness_rejected",
+                                message: "Rejected duplicate project name before Core Data write",
+                                fields: ["project_name": project.name]
+                            )
+                            DispatchQueue.main.async { completion(.failure(ProjectValidationError.duplicateName)) }
+                            return
+                        }
+
+                        _ = ProjectMapper.toEntity(from: project, in: self.backgroundContext)
                         try self.backgroundContext.save()
                         logDebug("✅ Created project '\(project.name)' with UUID: \(project.id)")
                         DispatchQueue.main.async { completion(.success(project)) }
@@ -266,10 +275,22 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         backgroundContext.perform {
             // Find the existing entity
             if let entity = ProjectMapper.findEntity(byId: project.id, in: self.backgroundContext) {
-                // Update the entity with new data
-                ProjectMapper.updateEntity(entity, from: project)
-
                 do {
+                    if try self.findProjectNamed(project.name, excludingId: project.id, in: self.backgroundContext) != nil {
+                        logWarning(
+                            event: "cloudkit_project_uniqueness_rejected",
+                            message: "Rejected duplicate project name before Core Data update",
+                            fields: [
+                                "project_id": project.id.uuidString,
+                                "project_name": project.name
+                            ]
+                        )
+                        DispatchQueue.main.async { completion(.failure(ProjectValidationError.duplicateName)) }
+                        return
+                    }
+
+                    // Update the entity with new data
+                    ProjectMapper.updateEntity(entity, from: project)
                     try self.backgroundContext.save()
                     logDebug("✅ Updated project '\(project.name)' with UUID: \(project.id)")
                     DispatchQueue.main.async { completion(.success(project)) }
@@ -305,6 +326,19 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                     request.fetchLimit = 1
 
                     do {
+                        if try self?.findProjectNamed(newName, excludingId: id, in: self?.backgroundContext) != nil {
+                            logWarning(
+                                event: "cloudkit_project_uniqueness_rejected",
+                                message: "Rejected duplicate project name before Core Data rename",
+                                fields: [
+                                    "project_id": id.uuidString,
+                                    "project_name": newName
+                                ]
+                            )
+                            DispatchQueue.main.async { completion(.failure(ProjectValidationError.duplicateName)) }
+                            return
+                        }
+
                         guard let entity = try self?.backgroundContext.fetch(request).first else {
                             let notFound = NSError(
                                 domain: "ProjectRepository",
@@ -667,29 +701,32 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     /// Executes isProjectNameAvailable.
     public func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
         viewContext.perform {
-            let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
-            request.predicate = NSPredicate(format: "name ==[c] %@", name)
-            request.fetchLimit = 1
-
             do {
-                let existingProjects = try self.viewContext.fetch(request)
-
-                if let existingProject = existingProjects.first {
-                    // Name exists, check if we're excluding this ID
-                    if let excludingId = excludingId, existingProject.id == excludingId {
-                        // It's the same project, name is available
-                        DispatchQueue.main.async { completion(.success(true)) }
-                    } else {
-                        // Different project has this name
-                        DispatchQueue.main.async { completion(.success(false)) }
-                    }
-                } else {
-                    // Name doesn't exist, it's available
-                    DispatchQueue.main.async { completion(.success(true)) }
-                }
+                let existingProject = try self.findProjectNamed(name, excludingId: excludingId, in: self.viewContext)
+                DispatchQueue.main.async { completion(.success(existingProject == nil)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
+        }
+    }
+
+    private func findProjectNamed(
+        _ name: String,
+        excludingId: UUID?,
+        in context: NSManagedObjectContext?
+    ) throws -> ProjectEntity? {
+        guard let context, let normalized = normalizedName(name) else {
+            return nil
+        }
+        let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+        request.returnsObjectsAsFaults = false
+        let projects = try context.fetch(request)
+        return projects.first { project in
+            guard project.id != excludingId,
+                  let candidate = normalizedName(project.name) else {
+                return false
+            }
+            return candidate.caseInsensitiveCompare(normalized) == .orderedSame
         }
     }
 

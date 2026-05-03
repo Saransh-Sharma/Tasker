@@ -5,7 +5,7 @@
 //  Dropdown menu containing all quick filter options.
 //
 
-import SwiftUI
+ import SwiftUI
 
 // MARK: - HomeQuickFilterDropdown
 

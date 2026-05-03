@@ -5,6 +5,7 @@ struct ChatsSettingsView: View {
     @Environment(\.taskerLayoutClass) private var layoutClass
     @State private var isEditingPrompt = false
     @State private var draftPrompt = ""
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     @Binding var currentThread: Thread?
 
@@ -17,7 +18,7 @@ struct ChatsSettingsView: View {
             VStack(spacing: 0) {
                 SettingsSectionHeader(
                     title: "Chat Behavior",
-                    subtitle: "Set the prompt and feedback touches that shape Eva’s replies."
+                    subtitle: "Set the prompt and feedback touches that shape \(assistantIdentity.snapshot.displayName)’s replies."
                 )
                 .padding(.top, spacing.s16)
 
@@ -62,7 +63,7 @@ struct ChatsSettingsView: View {
     private var promptCard: some View {
         TaskerSettingsFieldCard(
             title: "System Prompt",
-            subtitle: "Sets Eva’s baseline tone before task context is added.",
+            subtitle: "Sets \(assistantIdentity.snapshot.displayName)’s baseline tone before task context is added.",
             footer: "Use Default for concise planning help."
         ) {
             VStack(alignment: .leading, spacing: spacing.s12) {
@@ -114,7 +115,7 @@ struct ChatsSettingsView: View {
             TaskerSettingsToggleRow(
                 iconName: "waveform.path",
                 title: "Chat Haptics",
-                subtitle: "Play light haptic feedback when Eva switches models or finishes key actions.",
+                subtitle: "Play light haptic feedback when \(assistantIdentity.snapshot.displayName) switches models or finishes key actions.",
                 isOn: $appManager.shouldPlayHaptics
             )
         }

@@ -1,4 +1,4 @@
-import SwiftUI
+ import SwiftUI
 
 enum HomeDayLiquidSwipeSide: CaseIterable {
     case leading
@@ -37,6 +37,15 @@ enum HomeDayLiquidSwipeSide: CaseIterable {
             return "Previous Day"
         case .trailing:
             return "Next Day"
+        }
+    }
+
+    var accessibilityIdentifier: String {
+        switch self {
+        case .leading:
+            return "homeCalendar.previousDayHandle"
+        case .trailing:
+            return "homeCalendar.nextDayHandle"
         }
     }
 }

@@ -1,10 +1,11 @@
-import SwiftUI
+ import SwiftUI
 
 #if canImport(EventKitUI)
 import UIKit
 import EventKit
 import EventKitUI
 
+@MainActor
 struct EventKitEventDetailView: UIViewControllerRepresentable {
     let eventID: String
     let onDismiss: () -> Void
@@ -22,7 +23,8 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
         context.coordinator.update(eventID: eventID, onHideFromTimeline: onHideFromTimeline)
     }
 
-    final class Coordinator: NSObject, EKEventViewDelegate {
+    @MainActor
+    final class Coordinator: NSObject, @preconcurrency EKEventViewDelegate {
         private let store = EKEventStore()
         private let onDismiss: () -> Void
         private var onHideFromTimeline: (() -> Void)?

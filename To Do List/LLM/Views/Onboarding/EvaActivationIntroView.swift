@@ -7,6 +7,8 @@ struct EvaActivationIntroView: View {
     let onContinue: () -> Void
     let onDismiss: () -> Void
 
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
+
     private let trustChips = ["On-device", "Private", "Ready in a minute"]
 
     private var spacing: TaskerSpacingTokens {
@@ -28,7 +30,7 @@ struct EvaActivationIntroView: View {
             contentTopPaddingOverride: 0,
             footer: {
                 EvaFooterButtons(
-                    primaryTitle: "Activate Eva",
+                    primaryTitle: "Activate \(assistantIdentity.snapshot.displayName)",
                     secondaryTitle: "Not now",
                     isPrimaryDisabled: false,
                     onPrimary: onContinue,
@@ -45,11 +47,42 @@ struct EvaActivationIntroView: View {
     }
 
     private var mediaPanel: some View {
-        EvaHeroMediaView(style: layoutClass.isPad ? .card : .fullBleed)
-            .accessibilityIdentifier("eva.activation.intro.hero")
-            .frame(maxWidth: .infinity)
-            .frame(height: heroHeight)
-            .enhancedStaggeredAppearance(index: 0)
+        ZStack {
+            RoundedRectangle(cornerRadius: layoutClass.isPad ? TaskerTheme.CornerRadius.modal : 0, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.tasker(.surfacePrimary),
+                            Color.tasker(.accentWash).opacity(0.62),
+                            Color.tasker(.surfacePrimary)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            EvaMascotView(
+                placement: .chatHelp,
+                size: .custom(layoutClass.isPad ? 240 : 204),
+                decorative: false,
+                accessibilityLabel: assistantIdentity.snapshot.displayName,
+                mascotID: assistantIdentity.snapshot.mascotID
+            )
+
+            if reduceMotion == false {
+                EvaLoopingLottieContainer(size: 76)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(TaskerTheme.Spacing.md)
+            }
+        }
+        .accessibilityIdentifier("eva.activation.intro.hero")
+        .frame(maxWidth: .infinity)
+        .frame(height: heroHeight)
+        .overlay(
+            RoundedRectangle(cornerRadius: layoutClass.isPad ? TaskerTheme.CornerRadius.modal : 0, style: .continuous)
+                .stroke(Color.tasker(.strokeHairline), lineWidth: layoutClass.isPad ? 1 : 0)
+        )
+        .enhancedStaggeredAppearance(index: 0)
     }
 
     private var copySection: some View {
@@ -61,9 +94,9 @@ struct EvaActivationIntroView: View {
     private func copyPanel(alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: spacing.s16) {
             EvaContentHeader(
-                title: "Meet Eva",
+                title: "Meet \(assistantIdentity.snapshot.displayName)",
                 bodyText: "Your private executive assistant for planning, prioritizing, and keeping momentum. Runs entirely on this device.",
-                eyebrow: "EVA"
+                eyebrow: assistantIdentity.snapshot.uppercaseName
             )
             .enhancedStaggeredAppearance(index: 1)
 

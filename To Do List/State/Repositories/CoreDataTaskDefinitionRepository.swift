@@ -1,6 +1,65 @@
 import Foundation
 import CoreData
 
+private enum TaskDefinitionRowRepair {
+    static let sentinelDate = Date(timeIntervalSinceReferenceDate: 0)
+
+    static func repairedUUID(for entity: NSManagedObject, field: String, repairs: inout [String]) -> UUID {
+        repairs.append(field)
+        let entityURI = entity.objectID.uriRepresentation().absoluteString
+        return deterministicUUID(seed: "TaskDefinition:\(field):\(entityURI)")
+    }
+
+    static func repairedDate(
+        _ value: Date?,
+        fallbacks: [Date?],
+        field: String,
+        repairs: inout [String]
+    ) -> Date {
+        if let value {
+            return value
+        }
+        repairs.append(field)
+        return fallbacks.compactMap { $0 }.first ?? sentinelDate
+    }
+
+    static func logIfNeeded(repairs: [String], entity: NSManagedObject, path: String) {
+        guard repairs.isEmpty == false else { return }
+        logWarning(
+            event: "task_definition_row_repaired",
+            message: "Repaired malformed TaskDefinition row while mapping",
+            component: "CoreDataTaskDefinitionRepository",
+            fields: [
+                "fields": repairs.joined(separator: ","),
+                "object_id": entity.objectID.uriRepresentation().absoluteString,
+                "path": path
+            ]
+        )
+    }
+
+    private static func deterministicUUID(seed: String) -> UUID {
+        var first = UInt64(14_695_981_039_346_656_037)
+        var second = UInt64(10_995_116_282_11)
+
+        for byte in seed.utf8 {
+            first ^= UInt64(byte)
+            first &*= 1_099_511_628_211
+            second &+= UInt64(byte)
+            second &*= 1_099_511_628_211
+        }
+
+        let bytes = withUnsafeBytes(of: first.bigEndian, Array.init)
+            + withUnsafeBytes(of: second.bigEndian, Array.init)
+
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], (bytes[6] & 0x0F) | 0x50, bytes[7],
+            (bytes[8] & 0x3F) | 0x80, bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
+    }
+}
+
 private struct TaskEntitySnapshot {
     private static let keys = [
         "id",
@@ -85,8 +144,16 @@ private struct TaskEntitySnapshot {
 
     init(entity: NSManagedObject) {
         let values = Self.snapshotValues(from: entity)
-        self.taskID = (values["taskID"] as? UUID) ?? (values["id"] as? UUID) ?? UUID()
-        self.projectID = (values["projectID"] as? UUID) ?? ProjectConstants.inboxProjectID
+        var repairs: [String] = []
+        self.taskID = (values["taskID"] as? UUID)
+            ?? (values["id"] as? UUID)
+            ?? TaskDefinitionRowRepair.repairedUUID(for: entity, field: "taskID", repairs: &repairs)
+        if let projectID = values["projectID"] as? UUID {
+            self.projectID = projectID
+        } else {
+            repairs.append("projectID")
+            self.projectID = ProjectConstants.inboxProjectID
+        }
         self.iconSymbolName = values["iconSymbolName"] as? String
         self.recurrenceSeriesID = values["recurrenceSeriesID"] as? UUID
         self.habitDefinitionID = values["habitDefinitionID"] as? UUID
@@ -105,7 +172,15 @@ private struct TaskEntitySnapshot {
         self.scheduledEndAt = values["scheduledEndAt"] as? Date
         self.isAllDay = (values["isAllDay"] as? Bool) ?? false
         self.isComplete = (values["isComplete"] as? Bool) ?? false
-        self.dateAdded = (values["dateAdded"] as? Date) ?? Date()
+        let dateAdded = values["dateAdded"] as? Date
+        let createdAt = values["createdAt"] as? Date
+        let updatedAt = values["updatedAt"] as? Date
+        self.dateAdded = TaskDefinitionRowRepair.repairedDate(
+            dateAdded,
+            fallbacks: [createdAt, updatedAt],
+            field: "dateAdded",
+            repairs: &repairs
+        )
         self.dateCompleted = values["dateCompleted"] as? Date
         self.isEveningTask = (values["isEveningTask"] as? Bool) ?? false
         self.alertReminderTime = values["alertReminderTime"] as? Date
@@ -117,8 +192,18 @@ private struct TaskEntitySnapshot {
         self.deferredFromWeekStart = values["deferredFromWeekStart"] as? Date
         self.deferredCount = max(0, (values["deferredCount"] as? Int32).map(Int.init) ?? 0)
         self.replanCount = max(0, (values["replanCount"] as? Int32).map(Int.init) ?? 0)
-        self.createdAt = (values["createdAt"] as? Date) ?? Date()
-        self.updatedAt = (values["updatedAt"] as? Date) ?? Date()
+        self.createdAt = TaskDefinitionRowRepair.repairedDate(
+            createdAt,
+            fallbacks: [dateAdded, updatedAt],
+            field: "createdAt",
+            repairs: &repairs
+        )
+        self.updatedAt = TaskDefinitionRowRepair.repairedDate(
+            updatedAt,
+            fallbacks: [createdAt, dateAdded],
+            field: "updatedAt",
+            repairs: &repairs
+        )
 
         if entity.entity.relationshipsByName["projectRef"] != nil,
            let projectRef = entity.value(forKey: "projectRef") as? NSManagedObject {
@@ -127,6 +212,7 @@ private struct TaskEntitySnapshot {
         } else {
             self.fallbackProjectName = nil
         }
+        TaskDefinitionRowRepair.logIfNeeded(repairs: repairs, entity: entity, path: "snapshot")
     }
 }
 
@@ -351,7 +437,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     /// Executes fetchAll.
@@ -703,8 +789,39 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             return mapTaskDefinition(from: TaskEntitySnapshot(entity: entity))
         }
 
-        let taskID = attributeValue("taskID", from: entity) ?? attributeValue("id", from: entity) ?? UUID()
-        let projectID = attributeValue("projectID", from: entity) ?? ProjectConstants.inboxProjectID
+        var repairs: [String] = []
+        let taskID = attributeValue("taskID", from: entity)
+            ?? attributeValue("id", from: entity)
+            ?? TaskDefinitionRowRepair.repairedUUID(for: entity, field: "taskID", repairs: &repairs)
+        let projectID: UUID
+        if let storedProjectID: UUID = attributeValue("projectID", from: entity) {
+            projectID = storedProjectID
+        } else {
+            repairs.append("projectID")
+            projectID = ProjectConstants.inboxProjectID
+        }
+        let storedDateAdded: Date? = attributeValue("dateAdded", from: entity)
+        let storedCreatedAt: Date? = attributeValue("createdAt", from: entity)
+        let storedUpdatedAt: Date? = attributeValue("updatedAt", from: entity)
+        let dateAdded = TaskDefinitionRowRepair.repairedDate(
+            storedDateAdded,
+            fallbacks: [storedCreatedAt, storedUpdatedAt],
+            field: "dateAdded",
+            repairs: &repairs
+        )
+        let createdAt = TaskDefinitionRowRepair.repairedDate(
+            storedCreatedAt,
+            fallbacks: [storedDateAdded, storedUpdatedAt],
+            field: "createdAt",
+            repairs: &repairs
+        )
+        let updatedAt = TaskDefinitionRowRepair.repairedDate(
+            storedUpdatedAt,
+            fallbacks: [storedCreatedAt, storedDateAdded],
+            field: "updatedAt",
+            repairs: &repairs
+        )
+        TaskDefinitionRowRepair.logIfNeeded(repairs: repairs, entity: entity, path: "managed_object")
         let title = attributeValue("title", from: entity) ?? "Untitled Task"
         let details: String? = attributeValue("notes", from: entity)
         let typeRaw: Int32 = attributeValue("taskType", from: entity) ?? 1
@@ -742,7 +859,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             scheduledEndAt: attributeValue("scheduledEndAt", from: entity),
             isAllDay: attributeValue("isAllDay", from: entity) ?? false,
             isComplete: attributeValue("isComplete", from: entity) ?? false,
-            dateAdded: attributeValue("dateAdded", from: entity) ?? Date(),
+            dateAdded: dateAdded,
             dateCompleted: attributeValue("dateCompleted", from: entity),
             isEveningTask: attributeValue("isEveningTask", from: entity) ?? false,
             alertReminderTime: attributeValue("alertReminderTime", from: entity),
@@ -756,8 +873,8 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             deferredFromWeekStart: attributeValue("deferredFromWeekStart", from: entity),
             deferredCount: deferredCount,
             replanCount: replanCount,
-            createdAt: attributeValue("createdAt", from: entity) ?? Date(),
-            updatedAt: attributeValue("updatedAt", from: entity) ?? Date()
+            createdAt: createdAt,
+            updatedAt: updatedAt
         )
     }
 
@@ -1019,7 +1136,7 @@ public final class CoreDataTaskTagLinkRepository: TaskTagLinkRepositoryProtocol 
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     /// Executes fetchTagIDs.
@@ -1108,7 +1225,7 @@ public final class CoreDataTaskDependencyRepository: TaskDependencyRepositoryPro
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     /// Executes fetchDependencies.

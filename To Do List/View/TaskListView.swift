@@ -80,6 +80,7 @@ private struct TaskListTodayLayoutCacheKey: Equatable {
     let customProjectOrderIDs: [UUID]
 }
 
+@MainActor
 private enum TaskListTodayLayoutCache {
     private static var lastEntry: (key: TaskListTodayLayoutCacheKey, layout: HomeTaskTodayLayout)?
 
@@ -807,9 +808,6 @@ struct TaskListView: View {
             return calendar.startOfDay(for: completionDate)
         }
 
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-
         return grouped.keys.sorted(by: >).map { day in
             let dayTasks = (grouped[day] ?? []).sorted { lhs, rhs in
                 if lhs.priority.scorePoints != rhs.priority.scorePoints {
@@ -821,8 +819,8 @@ struct TaskListView: View {
             }
 
             let project = Project(
-                id: UUID(),
-                name: formatter.string(from: day),
+                id: deterministicSectionID(for: "done_timeline:\(Int(day.timeIntervalSinceReferenceDate))"),
+                name: day.formatted(date: .abbreviated, time: .omitted),
                 icon: .folder
             )
             return ProjectSection(project: project, tasks: dayTasks)
@@ -900,7 +898,9 @@ struct TaskListView: View {
     }
 
     private func deterministicSectionID(for value: String) -> UUID {
-        let hash = UInt64(bitPattern: Int64(value.hashValue))
+        let hash = value.utf8.reduce(UInt64(0xcbf29ce484222325)) { partial, byte in
+            (partial ^ UInt64(byte)) &* 0x100000001b3
+        }
         let tail = String(format: "%012llx", hash & 0xFFFFFFFFFFFF)
         return UUID(uuidString: "00000000-0000-0000-0000-\(tail)") ?? ProjectConstants.inboxProjectID
     }
@@ -1080,9 +1080,7 @@ struct TaskListView: View {
 
     private var emptyStateView: some View {
         VStack(spacing: TaskerTheme.Spacing.md) {
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 40, weight: .light))
-                .foregroundColor(Color.tasker.accentPrimary.opacity(0.5))
+            EvaMascotView(placement: emptyStateMascotPlacement, size: .card)
                 .breathingPulse(min: 0.4, max: 0.6, duration: 3.0)
 
             Text("All clear")
@@ -1104,6 +1102,15 @@ struct TaskListView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, TaskerTheme.Spacing.xxxl)
+    }
+
+    private var emptyStateMascotPlacement: EvaMascotPlacement {
+        switch activeQuickView {
+        case .evening:
+            return .restReminder
+        default:
+            return .habitEmpty
+        }
     }
 
     private var resolvedEmptyStateMessage: String {

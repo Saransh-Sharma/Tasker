@@ -82,13 +82,15 @@ final class LLMRuntimeCoordinator {
     }
 
     deinit {
-        for observer in observers {
-            notificationCenter.removeObserver(observer)
+        MainActor.assumeIsolated {
+            for observer in observers {
+                notificationCenter.removeObserver(observer)
+            }
+            inFlightPrewarmTask?.cancel()
+            deferredPrewarmTask?.cancel()
+            backgroundUnloadTask?.cancel()
+            idleUnloadTask?.cancel()
         }
-        inFlightPrewarmTask?.cancel()
-        deferredPrewarmTask?.cancel()
-        backgroundUnloadTask?.cancel()
-        idleUnloadTask?.cancel()
     }
 
     func enterChatScreen(trigger: String) {

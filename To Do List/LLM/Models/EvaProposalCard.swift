@@ -1,6 +1,6 @@
 import Foundation
 
-enum EvaProposalKind: String, Codable, Equatable, Hashable {
+enum EvaProposalKind: String, Codable, Equatable, Hashable, Sendable {
     case create
     case edit
     case move
@@ -13,7 +13,7 @@ enum EvaProposalKind: String, Codable, Equatable, Hashable {
     case needsReview
 }
 
-enum EvaProposalTone: String, Codable, Equatable, Hashable {
+enum EvaProposalTone: String, Codable, Equatable, Hashable, Sendable {
     case create
     case edit
     case neutral
@@ -21,13 +21,13 @@ enum EvaProposalTone: String, Codable, Equatable, Hashable {
     case destructive
 }
 
-enum EvaProposalRisk: String, Codable, Equatable, Hashable {
+enum EvaProposalRisk: String, Codable, Equatable, Hashable, Sendable {
     case safe
     case needsReview
     case destructive
 }
 
-enum EvaProposalAction: String, Codable, Equatable, Hashable {
+enum EvaProposalAction: String, Codable, Equatable, Hashable, Sendable {
     case add = "Add"
     case save = "Save"
     case edit = "Edit"
@@ -35,14 +35,14 @@ enum EvaProposalAction: String, Codable, Equatable, Hashable {
     case show = "Show"
 }
 
-struct EvaContextReceipt: Codable, Equatable, Hashable {
+struct EvaContextReceipt: Codable, Equatable, Hashable, Sendable {
     var sources: [String]
 
     static let empty = EvaContextReceipt(sources: [])
 
     var collapsedText: String {
-        guard sources.isEmpty == false else { return "EVA used task context" }
-        return "EVA used \(sources.joined(separator: ", "))"
+        guard sources.isEmpty == false else { return "\(AssistantIdentityText.currentSnapshot().displayName) used task context" }
+        return "\(AssistantIdentityText.currentSnapshot().displayName) used \(sources.joined(separator: ", "))"
     }
 
     var compactSourceText: String {
@@ -84,7 +84,7 @@ struct EvaTaskCardSnapshot: Codable, Equatable, Hashable {
     var estimatedDuration: TimeInterval?
 }
 
-struct EvaProposalCard: Identifiable, Codable, Equatable, Hashable {
+struct EvaProposalCard: Identifiable, Codable, Equatable, Hashable, Sendable {
     var id: UUID
     var runID: UUID?
     var commandIndexes: [Int]
@@ -102,13 +102,13 @@ struct EvaProposalCard: Identifiable, Codable, Equatable, Hashable {
     var isSelectedByDefault: Bool
 }
 
-struct EvaProposalGroup: Identifiable, Codable, Equatable, Hashable {
+struct EvaProposalGroup: Identifiable, Codable, Equatable, Hashable, Sendable {
     var id: String { title }
     var title: String
     var cards: [EvaProposalCard]
 }
 
-struct EvaProposalReviewPayload: Codable, Equatable {
+struct EvaProposalReviewPayload: Codable, Equatable, Sendable {
     var prompt: String
     var summary: String
     var contextReceipt: EvaContextReceipt
@@ -144,7 +144,7 @@ enum EvaProposalApplyGate: Equatable {
             return .blocked(message: "Select at least one card to apply.")
         }
         if selectedCards.contains(where: { $0.kind == .drop || $0.kind == .delete || $0.riskLevel == .destructive }) {
-            return .blocked(message: "Drop and delete changes need a separate confirmation before EVA can apply them.")
+            return .blocked(message: "Drop and delete changes need a separate confirmation before \(AssistantIdentityText.currentSnapshot().displayName) can apply them.")
         }
         if selectedCards.contains(where: { $0.riskLevel != .safe }) {
             return .blocked(message: "This plan includes high-impact changes. Deselect those cards before applying selected changes.")
@@ -425,7 +425,7 @@ enum EvaProposalCardBuilder {
             primaryAction: .save,
             secondaryActions: [.show, .edit, .discard],
             riskLevel: .safe,
-            contextExplanation: "You asked EVA to update this task.",
+            contextExplanation: "You asked \(AssistantIdentityText.currentSnapshot().displayName) to update this task.",
             isSelectedByDefault: true
         )
     }
@@ -446,7 +446,7 @@ enum EvaProposalCardBuilder {
             primaryAction: .save,
             secondaryActions: [.show, .edit, .discard],
             riskLevel: isDeferral ? .safe : .destructive,
-            contextExplanation: isDeferral ? "You asked EVA to move this task." : "EVA needs confirmation before applying this change.",
+            contextExplanation: isDeferral ? "You asked \(AssistantIdentityText.currentSnapshot().displayName) to move this task." : "\(AssistantIdentityText.currentSnapshot().displayName) needs confirmation before applying this change.",
             isSelectedByDefault: isDeferral
         )
     }

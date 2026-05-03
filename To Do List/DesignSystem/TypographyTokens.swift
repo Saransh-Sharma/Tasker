@@ -34,7 +34,7 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
     public let layoutScale: CGFloat
 
     private static let cacheLock = NSLock()
-    private static var cacheByLayoutClass: [TaskerLayoutClass: TaskerTypographyTokens] = [:]
+    nonisolated(unsafe) private static var cacheByLayoutClass: [TaskerLayoutClass: TaskerTypographyTokens] = [:]
 
     /// Executes font.
     public func font(for style: TaskerTextStyle) -> UIFont {

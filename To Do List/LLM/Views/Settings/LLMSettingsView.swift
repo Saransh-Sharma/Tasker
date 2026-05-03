@@ -8,6 +8,7 @@ struct LLMSettingsView: View {
 
     @Binding var currentThread: Thread?
     var showsCloseButton: Bool = false
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -43,13 +44,17 @@ struct LLMSettingsView: View {
         ScrollView {
             VStack(spacing: 0) {
                 TaskerSettingsHeroCard(
-                    eyebrow: "EVA",
-                    title: "Run your day with Eva",
+                    eyebrow: assistantIdentity.snapshot.uppercaseName,
+                    title: "Run your day with \(assistantIdentity.snapshot.displayName)",
                     subtitle: "Manage behavior, local models, and memory for your private executive assistant.",
                     statusItems: heroItems
                 )
                 .padding(.horizontal, spacing.screenHorizontal)
                 .padding(.top, spacing.s16)
+
+                evaIdentityCard
+                    .padding(.horizontal, spacing.screenHorizontal)
+                    .padding(.top, spacing.s12)
 
                 if layoutClass.isPad {
                     padContent
@@ -62,7 +67,7 @@ struct LLMSettingsView: View {
             .padding(.bottom, spacing.s24)
         }
         .background(Color.tasker(.bgCanvas))
-        .navigationTitle("Eva")
+        .navigationTitle(assistantIdentity.snapshot.displayName)
         .accessibilityIdentifier("llmSettings.view")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -83,6 +88,25 @@ struct LLMSettingsView: View {
                 #endif
             }
         }
+    }
+
+    private var evaIdentityCard: some View {
+        TaskerCard {
+            HStack(alignment: .center, spacing: spacing.s12) {
+                EvaMascotView(placement: .settingsIdentity, size: .inline)
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text("\(assistantIdentity.snapshot.displayName) profile")
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                    Text("This assistant manages planning, review, memory, and local model behavior.")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .accessibilityIdentifier("llmSettings.evaIdentity.card")
     }
 
     private var phoneContent: some View {
@@ -115,7 +139,7 @@ struct LLMSettingsView: View {
         VStack(spacing: 0) {
             SettingsSectionHeader(
                 title: "Behavior & Memory",
-                subtitle: "Shape how direct, structured, and momentum-focused Eva feels."
+                subtitle: "Shape how direct, structured, and momentum-focused \(assistantIdentity.snapshot.displayName) feels."
             )
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
@@ -130,7 +154,7 @@ struct LLMSettingsView: View {
                             descriptor: TaskerSettingsDestinationDescriptor(
                                 iconName: "text.bubble.fill",
                                 title: "Chat Behavior",
-                                subtitle: "Tune how direct, structured, and momentum-focused Eva feels.",
+                                subtitle: "Tune how direct, structured, and momentum-focused \(assistantIdentity.snapshot.displayName) feels.",
                                 trailingStatus: promptStatus,
                                 inlineBadge: layoutClass == .phone ? TaskerSettingsInlineBadge(title: hapticsStatus) : nil,
                                 tone: .accent,
@@ -150,7 +174,7 @@ struct LLMSettingsView: View {
                             descriptor: TaskerSettingsDestinationDescriptor(
                                 iconName: "person.text.rectangle.fill",
                                 title: "Personal Memory",
-                                subtitle: "Save stable context so Eva can support your goals, routines, and working style.",
+                                subtitle: "Save stable context so \(assistantIdentity.snapshot.displayName) can support your goals, routines, and working style.",
                                 trailingStatus: memorySummary,
                                 tone: .accent,
                                 accessibilityIdentifier: "llmSettings.memorySettingsRow"
@@ -170,7 +194,7 @@ struct LLMSettingsView: View {
         VStack(spacing: 0) {
             SettingsSectionHeader(
                 title: "Models",
-                subtitle: "Choose Eva’s default local model and review compatibility."
+                subtitle: "Choose \(assistantIdentity.snapshot.displayName)’s default local model and review compatibility."
             )
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
@@ -185,7 +209,7 @@ struct LLMSettingsView: View {
                         descriptor: TaskerSettingsDestinationDescriptor(
                             iconName: "cpu.fill",
                             title: "Models",
-                            subtitle: "Choose Eva’s default local model and manage installed models.",
+                            subtitle: "Choose \(assistantIdentity.snapshot.displayName)’s default local model and manage installed models.",
                             trailingStatus: appManager.compactModelDisplayName(appManager.currentModelName ?? ""),
                             inlineBadge: appManager.installedModels.isEmpty ? TaskerSettingsInlineBadge(title: "None installed") : TaskerSettingsInlineBadge(title: "\(appManager.installedModels.count) installed"),
                             tone: .accent,
@@ -218,7 +242,7 @@ struct LLMSettingsView: View {
                         descriptor: TaskerSettingsDestinationDescriptor(
                             iconName: "trash.fill",
                             title: "Data & Privacy",
-                            subtitle: "Delete chat history and review Eva’s local-only data.",
+                            subtitle: "Delete chat history and review \(assistantIdentity.snapshot.displayName)’s local-only data.",
                             trailingStatus: "Transcripts",
                             tone: .danger,
                             accessibilityIdentifier: "llmSettings.privacySettingsRow"
@@ -239,7 +263,7 @@ struct LLMSettingsView: View {
                 .font(.tasker(.caption2))
                 .foregroundStyle(Color.tasker(.textQuaternary))
 
-            Text("Tune behavior carefully so Eva stays clear, useful, and brief.")
+            Text("Tune behavior carefully so \(assistantIdentity.snapshot.displayName) stays clear, useful, and brief.")
                 .font(.tasker(.caption2))
                 .foregroundStyle(Color.tasker(.textQuaternary))
         }
@@ -278,6 +302,7 @@ struct LLMSettingsView: View {
 struct LLMPersonalMemorySettingsView: View {
     @State private var store = LLMPersonalMemoryDefaultsStore.load()
     @Environment(\.taskerLayoutClass) private var layoutClass
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -288,7 +313,7 @@ struct LLMPersonalMemorySettingsView: View {
             VStack(spacing: 0) {
                 SettingsSectionHeader(
                     title: "Personal Memory",
-                    subtitle: "Save durable context Eva should remember across chats."
+                    subtitle: "Save durable context \(assistantIdentity.snapshot.displayName) should remember across chats."
                 )
                 .padding(.top, spacing.s16)
 
@@ -301,7 +326,7 @@ struct LLMPersonalMemorySettingsView: View {
 
                     TaskerSettingsDangerZoneCard(
                         title: "Clear All Personal Memory",
-                        subtitle: "Remove every saved preference, routine, and goal from Eva’s memory.",
+                        subtitle: "Remove every saved preference, routine, and goal from \(assistantIdentity.snapshot.displayName)’s memory.",
                         buttonTitle: "Clear all memory"
                     ) {
                         store = LLMPersonalMemoryStoreV1()
@@ -426,6 +451,7 @@ struct LLMDataPrivacySettingsView: View {
     @Environment(\.taskerLayoutClass) private var layoutClass
 
     @State private var deleteAllChats = false
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
     @Binding var currentThread: Thread?
 
     private var spacing: TaskerSpacingTokens {
@@ -443,7 +469,7 @@ struct LLMDataPrivacySettingsView: View {
 
                 TaskerSettingsDangerZoneCard(
                     title: "Delete All Chats",
-                    subtitle: "Permanently delete every saved Eva thread and message from this device. This cannot be undone.",
+                    subtitle: "Permanently delete every saved \(assistantIdentity.snapshot.displayName) thread and message from this device. This cannot be undone.",
                     buttonTitle: "Delete all chats",
                     accessibilityIdentifier: "llmSettings.deleteAllChatsButton"
                 ) {
@@ -502,18 +528,18 @@ private extension LLMPersonalMemorySection {
         case .routines:
             return "Save recurring patterns like workout windows or shutdown routines."
         case .currentGoals:
-            return "Save active priorities Eva should keep in view."
+            return "Save active priorities \(AssistantIdentityText.currentSnapshot().displayName) should keep in view."
         }
     }
 
     var emptyStateCopy: String {
         switch self {
         case .preferences:
-            return "No preferences saved yet. Add the communication style, planning bias, or defaults Eva should remember."
+            return "No preferences saved yet. Add the communication style, planning bias, or defaults \(AssistantIdentityText.currentSnapshot().displayName) should remember."
         case .routines:
             return "No routines saved yet. Add recurring rhythms like workout windows, review habits, or shutdown rituals."
         case .currentGoals:
-            return "No goals saved yet. Add what matters most right now so Eva can keep advice aligned."
+            return "No goals saved yet. Add what matters most right now so \(AssistantIdentityText.currentSnapshot().displayName) can keep advice aligned."
         }
     }
 

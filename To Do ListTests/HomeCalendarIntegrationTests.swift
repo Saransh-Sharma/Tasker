@@ -1597,6 +1597,180 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 }
 
 final class CalendarSchedulePresentationStateTests: XCTestCase {
+    func testPresentationBuilderProjectsTodayWeekAndSelectedWeekEventsFromSnapshot() {
+        let selectedDate = CalendarTestClock.date(day: 15, hour: 10)
+        let selectedWeekDate = CalendarTestClock.date(day: 16, hour: 12)
+        let spanningEvent = event(
+            id: "spanning",
+            start: CalendarTestClock.date(day: 14, hour: 23),
+            end: CalendarTestClock.date(day: 15, hour: 1)
+        )
+        let earlyEvent = event(
+            id: "early",
+            start: CalendarTestClock.date(day: 15, hour: 9),
+            end: CalendarTestClock.date(day: 15, hour: 10)
+        )
+        let lateEvent = event(
+            id: "late",
+            start: CalendarTestClock.date(day: 15, hour: 13),
+            end: CalendarTestClock.date(day: 15, hour: 14)
+        )
+        let nextDayEvent = event(
+            id: "next-day",
+            start: CalendarTestClock.date(day: 16, hour: 11),
+            end: CalendarTestClock.date(day: 16, hour: 12)
+        )
+        let outsideWeekEvent = event(
+            id: "outside",
+            start: CalendarTestClock.date(day: 25, hour: 11),
+            end: CalendarTestClock.date(day: 25, hour: 12)
+        )
+
+        let presentation = CalendarSchedulePresentationBuilder.build(
+            snapshot: snapshot(events: [lateEvent, outsideWeekEvent, nextDayEvent, earlyEvent, spanningEvent]),
+            selectedDate: selectedDate,
+            selectedWeekDate: selectedWeekDate,
+            weekStartsOn: .monday,
+            calendar: CalendarTestClock.calendar
+        )
+
+        XCTAssertEqual(presentation.todayEvents.map(\.id), ["spanning", "early", "late"])
+        XCTAssertEqual(presentation.selectedWeekEvents.map(\.id), ["next-day"])
+        XCTAssertEqual(presentation.weekDates.count, 7)
+        XCTAssertEqual(presentation.weekDefaultSelectedDate, selectedDate)
+        XCTAssertTrue(presentation.weekAgenda.contains { day in
+            CalendarTestClock.calendar.isDate(day.date, inSameDayAs: selectedWeekDate)
+                && day.events.map(\.id) == ["next-day"]
+        })
+    }
+
+    func testPresentationBuilderWeekEventCountCountsVisibleDayOccurrences() {
+        let selectedDate = CalendarTestClock.date(day: 15, hour: 10)
+        let spanningEvent = event(
+            id: "overnight",
+            start: CalendarTestClock.date(day: 15, hour: 23),
+            end: CalendarTestClock.date(day: 16, hour: 1)
+        )
+        let singleDayEvent = event(
+            id: "single-day",
+            start: CalendarTestClock.date(day: 17, hour: 9),
+            end: CalendarTestClock.date(day: 17, hour: 10)
+        )
+
+        let presentation = CalendarSchedulePresentationBuilder.build(
+            snapshot: snapshot(events: [singleDayEvent, spanningEvent]),
+            selectedDate: selectedDate,
+            selectedWeekDate: selectedDate,
+            weekStartsOn: .monday,
+            calendar: CalendarTestClock.calendar
+        )
+
+        XCTAssertEqual(presentation.weekEventCount, 3)
+    }
+
+    func testPresentationCacheReusesIdenticalInputsAndRebuildsWhenWeekSelectionChanges() {
+        let selectedDate = CalendarTestClock.date(day: 15, hour: 10)
+        let selectedWeekDate = CalendarTestClock.date(day: 16, hour: 12)
+        let nextWeekDate = CalendarTestClock.date(day: 17, hour: 12)
+        let snapshot = snapshot(events: [
+            event(
+                id: "planning",
+                start: CalendarTestClock.date(day: 16, hour: 11),
+                end: CalendarTestClock.date(day: 16, hour: 12)
+            )
+        ])
+        var cache = CalendarSchedulePresentationCache()
+
+        let first = cache.presentation(
+            snapshot: snapshot,
+            selectedDate: selectedDate,
+            selectedWeekDate: selectedWeekDate,
+            weekStartsOn: .monday,
+            calendar: CalendarTestClock.calendar
+        )
+        let second = cache.presentation(
+            snapshot: snapshot,
+            selectedDate: selectedDate,
+            selectedWeekDate: selectedWeekDate,
+            weekStartsOn: .monday,
+            calendar: CalendarTestClock.calendar
+        )
+
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(cache.buildCount, 1)
+        XCTAssertEqual(cache.cacheHitCount, 1)
+
+        _ = cache.presentation(
+            snapshot: snapshot,
+            selectedDate: selectedDate,
+            selectedWeekDate: nextWeekDate,
+            weekStartsOn: .monday,
+            calendar: CalendarTestClock.calendar
+        )
+
+        XCTAssertEqual(cache.buildCount, 2)
+    }
+
+    func testCalendarTimelinePlanCacheReusesIdenticalInputsAndRebuildsForPlanInputs() {
+        let selectedDate = CalendarTestClock.date(day: 15, hour: 10)
+        let anchor = CalendarTestClock.date(day: 15, hour: 9)
+        let alternateAnchor = CalendarTestClock.date(day: 15, hour: 15)
+        let planning = event(
+            id: "planning",
+            start: CalendarTestClock.date(day: 15, hour: 11),
+            end: CalendarTestClock.date(day: 15, hour: 12)
+        )
+        let review = event(
+            id: "review",
+            start: CalendarTestClock.date(day: 15, hour: 13),
+            end: CalendarTestClock.date(day: 15, hour: 14)
+        )
+        var cache = TaskerCalendarTimelinePlanCache()
+
+        let first = cache.plan(
+            for: [planning],
+            on: selectedDate,
+            density: .compact,
+            visibleWindowPolicy: .fixed(anchorDate: anchor),
+            calendar: CalendarTestClock.calendar
+        )
+        let second = cache.plan(
+            for: [planning],
+            on: selectedDate,
+            density: .compact,
+            visibleWindowPolicy: .fixed(anchorDate: anchor),
+            calendar: CalendarTestClock.calendar
+        )
+
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(cache.buildCount, 1)
+        XCTAssertEqual(cache.cacheHitCount, 1)
+
+        _ = cache.plan(
+            for: [planning],
+            on: selectedDate,
+            density: .expanded,
+            visibleWindowPolicy: .fixed(anchorDate: anchor),
+            calendar: CalendarTestClock.calendar
+        )
+        _ = cache.plan(
+            for: [planning],
+            on: selectedDate,
+            density: .compact,
+            visibleWindowPolicy: .fixed(anchorDate: alternateAnchor),
+            calendar: CalendarTestClock.calendar
+        )
+        _ = cache.plan(
+            for: [planning, review],
+            on: selectedDate,
+            density: .compact,
+            visibleWindowPolicy: .fixed(anchorDate: alternateAnchor),
+            calendar: CalendarTestClock.calendar
+        )
+
+        XCTAssertEqual(cache.buildCount, 4)
+    }
+
     func testChooserCancelClearsPresentationState() {
         var state = CalendarSchedulePresentationState(activeSheet: .chooser)
 
@@ -1620,5 +1794,44 @@ final class CalendarSchedulePresentationStateTests: XCTestCase {
         state.dismissEventDetail()
 
         XCTAssertNil(state.activeSheet)
+    }
+
+    private func snapshot(events: [TaskerCalendarEventSnapshot]) -> TaskerCalendarSnapshot {
+        TaskerCalendarSnapshot(
+            authorizationStatus: .authorized,
+            availableCalendars: [],
+            selectedCalendarIDs: ["work"],
+            includeDeclined: false,
+            includeCanceled: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            eventsInRange: events,
+            busyBlocks: [],
+            nextMeeting: nil,
+            freeUntil: nil,
+            isLoading: false,
+            errorMessage: nil
+        )
+    }
+
+    private func event(
+        id: String,
+        start: Date,
+        end: Date,
+        isAllDay: Bool = false
+    ) -> TaskerCalendarEventSnapshot {
+        TaskerCalendarEventSnapshot(
+            id: id,
+            calendarID: "work",
+            calendarTitle: "Work",
+            calendarColorHex: "#007AFF",
+            title: id,
+            startDate: start,
+            endDate: end,
+            isAllDay: isAllDay,
+            availability: .busy,
+            eventStatus: .unknown,
+            participationStatus: .accepted
+        )
     }
 }

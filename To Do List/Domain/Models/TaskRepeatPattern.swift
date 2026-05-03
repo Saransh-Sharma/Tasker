@@ -8,7 +8,7 @@
 import Foundation
 
 /// Repeat patterns for recurring tasks
-public enum TaskRepeatPattern: Codable, Equatable, Hashable {
+public enum TaskRepeatPattern: Codable, Equatable, Hashable, Sendable {
     case daily
     case weekdays // Monday to Friday
     case weekly(DaysOfWeek)
@@ -17,7 +17,7 @@ public enum TaskRepeatPattern: Codable, Equatable, Hashable {
     case yearly(YearlyPattern)
     case custom(CustomPattern)
     
-    public struct DaysOfWeek: OptionSet, Codable, Hashable {
+    public struct DaysOfWeek: OptionSet, Codable, Hashable, Sendable {
         public let rawValue: Int
         
         /// Initializes a new instance.
@@ -38,18 +38,18 @@ public enum TaskRepeatPattern: Codable, Equatable, Hashable {
         public static let allDays: DaysOfWeek = [.sunday, .monday, .tuesday, .wednesday, .thursday, .friday, .saturday]
     }
     
-    public enum MonthlyPattern: Codable, Equatable, Hashable {
+    public enum MonthlyPattern: Codable, Equatable, Hashable, Sendable {
         case onDate(Int) // e.g., 15th of every month
         case onWeekday(weekOfMonth: Int, dayOfWeek: Int) // e.g., 2nd Tuesday
         case lastWeekday(dayOfWeek: Int) // e.g., last Friday
     }
     
-    public enum YearlyPattern: Codable, Equatable, Hashable {
+    public enum YearlyPattern: Codable, Equatable, Hashable, Sendable {
         case onDate(month: Int, day: Int) // e.g., January 15th
         case onWeekday(month: Int, weekOfMonth: Int, dayOfWeek: Int) // e.g., 2nd Tuesday of March
     }
     
-    public struct CustomPattern: Codable, Equatable, Hashable {
+    public struct CustomPattern: Codable, Equatable, Hashable, Sendable {
         public let intervalDays: Int
         public let endDate: Date?
         public let maxOccurrences: Int?

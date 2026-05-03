@@ -10,6 +10,7 @@ import SwiftUI
 
 // MARK: - LGFilterButton
 
+@MainActor
 class LGFilterButton: LGBaseView {
 
     // MARK: - Properties
@@ -122,6 +123,7 @@ class LGFilterButton: LGBaseView {
 
 // MARK: - LGSearchViewController
 
+@MainActor
 class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, PresentationDependencyContainerAware {
 
     // MARK: - Properties
@@ -1126,6 +1128,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
 
 // MARK: - LGSearchBarDelegate
 
+@MainActor
 extension LGSearchViewController: LGSearchBarDelegate {
     /// Executes searchBar.
     func searchBar(_ searchBar: LGSearchBar, textDidChange text: String) {

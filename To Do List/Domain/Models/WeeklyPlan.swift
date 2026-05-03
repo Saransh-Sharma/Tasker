@@ -1,12 +1,12 @@
 import Foundation
 
-public enum WeeklyPlanReviewStatus: String, Codable, CaseIterable, Hashable {
+public enum WeeklyPlanReviewStatus: String, Codable, CaseIterable, Hashable, Sendable {
     case notStarted
     case ready
     case completed
 }
 
-public struct WeeklyPlan: Codable, Equatable, Hashable, Identifiable {
+public struct WeeklyPlan: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public var weekStartDate: Date
     public var weekEndDate: Date

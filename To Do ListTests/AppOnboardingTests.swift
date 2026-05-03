@@ -91,15 +91,15 @@ final class AppOnboardingTests: XCTestCase {
     func testOnboardingStepOrderUsesExplicitReorderedFlow() {
         XCTAssertEqual(
             OnboardingStep.orderedFlow,
-            [.goal, .pain, .evaValue, .lifeAreas, .habitSetup, .streakPreview, .evaStyle, .processing, .firstTask, .focusRoom, .habitCheckIn, .calendarPermission, .notificationPermission, .success]
+            [.goal, .pain, .evaValue, .lifeAreas, .habitSetup, .evaStyle, .workBlockers, .weeklyOutcomes, .firstTask, .homeDemo, .calendarPermission, .notificationPermission, .success]
         )
     }
 
     func testOnboardingProgressUsesOrderedFlowAsSingleSource() {
-        XCTAssertEqual(OnboardingProgress(step: .goal)?.label, "Step 1 of 14")
-        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 14 of 14")
-        XCTAssertEqual(OnboardingStep.goal.accessibilitySummary, "Choose goal. Step 1 of 14. Select one goal to continue.")
-        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 14 of 14. Go to Home.")
+        XCTAssertEqual(OnboardingProgress(step: .goal)?.label, "Step 1 of 13")
+        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 13 of 13")
+        XCTAssertEqual(OnboardingStep.goal.accessibilitySummary, "Choose goal. Step 1 of 13. Select one goal to continue.")
+        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 13 of 13. Go to Home.")
         XCTAssertNil(OnboardingProgress(step: .welcome))
     }
 
@@ -107,6 +107,10 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(OnboardingStep.blocker.normalizedForCurrentFlow, .goal)
         XCTAssertEqual(OnboardingStep.projects.normalizedForCurrentFlow, .lifeAreas)
         XCTAssertEqual(OnboardingStep.habits.normalizedForCurrentFlow, .habitSetup)
+        XCTAssertEqual(OnboardingStep.streakPreview.normalizedForCurrentFlow, .evaStyle)
+        XCTAssertEqual(OnboardingStep.processing.normalizedForCurrentFlow, .firstTask)
+        XCTAssertEqual(OnboardingStep.focusRoom.normalizedForCurrentFlow, .homeDemo)
+        XCTAssertEqual(OnboardingStep.habitCheckIn.normalizedForCurrentFlow, .homeDemo)
     }
 
     func testOnboardingCopyAvoidsGenericAIPhrases() {
@@ -120,6 +124,7 @@ final class AppOnboardingTests: XCTestCase {
                 )
             }
         }
+        XCTAssertEqual(OnboardingCopy.Welcome.changeLaterChip, "Change this later")
     }
 
     func testOnboardingAccentPairsMeetWCAGContrast() {
@@ -154,6 +159,104 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(OnboardingStep(rawValue: 4), .firstTask)
         XCTAssertEqual(OnboardingStep(rawValue: 5), .focusRoom)
         XCTAssertEqual(OnboardingStep(rawValue: 6), .blocker)
+    }
+
+    @MainActor
+    func testDefaultOnboardingMascotIsYesManAndEvaTransitionIsNonBlocking() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let viewModel = OnboardingFlowModel(
+            stateStore: context.store,
+            isEvaBackgroundPreparationEnabled: false
+        )
+
+        viewModel.prepareForPresentation(snapshot: nil)
+        viewModel.begin(mode: .guided)
+
+        XCTAssertEqual(viewModel.selectedMascotID, .yesman)
+        viewModel.selectGoal(.dailyExecution)
+        viewModel.continueFromGoal()
+        viewModel.togglePainPoint(.overwhelm)
+        viewModel.continueFromPain()
+        viewModel.continueFromEvaValue()
+
+        XCTAssertEqual(viewModel.step, .lifeAreas)
+        XCTAssertEqual(viewModel.evaPreparationState.phase, .idle)
+    }
+
+    @MainActor
+    func testAssistantPreferenceScreensAcceptCustomValuesAndAdvance() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let viewModel = OnboardingFlowModel(stateStore: context.store)
+        viewModel.prepareForPresentation(
+            snapshot: OnboardingJourneySnapshot(step: .evaStyle, mode: .guided)
+        )
+
+        viewModel.addCustomEvaWorkingStyle("Deep work mornings")
+        viewModel.continueFromEvaStyle()
+        XCTAssertEqual(viewModel.step, .workBlockers)
+
+        viewModel.addCustomEvaMomentumBlocker("Too many pings")
+        viewModel.continueFromWorkBlockers()
+        XCTAssertEqual(viewModel.step, .weeklyOutcomes)
+
+        viewModel.updateEvaGoal(at: 0, text: "Finish the launch checklist")
+        viewModel.continueFromWeeklyOutcomes()
+        XCTAssertEqual(viewModel.step, .firstTask)
+        XCTAssertEqual(viewModel.evaProfileDraft.selectedWorkingStyleIDs, ["Deep work mornings"])
+        XCTAssertEqual(viewModel.evaProfileDraft.selectedMomentumBlockerIDs, ["Too many pings"])
+        XCTAssertEqual(viewModel.evaProfileDraft.goals, ["Finish the launch checklist"])
+    }
+
+    @MainActor
+    func testReplaceEvaGoalsTrimsEmptyValuesAndPersists() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let viewModel = OnboardingFlowModel(stateStore: context.store)
+        viewModel.prepareForPresentation(
+            snapshot: OnboardingJourneySnapshot(step: .weeklyOutcomes, mode: .guided)
+        )
+
+        viewModel.replaceEvaGoals(["  Ship launch  ", "", " Protect workouts "])
+
+        XCTAssertEqual(viewModel.evaProfileDraft.goals, ["Ship launch", "Protect workouts"])
+        XCTAssertEqual(context.store.load().journeySnapshot?.evaProfileDraft.goals, ["Ship launch", "Protect workouts"])
+    }
+
+    func testHomeDemoSnapshotFactoryUsesHomeTimelineAndHabitModels() {
+        let snapshot = OnboardingHomeDemoSnapshotFactory.snapshot(taskDone: false)
+        let habitRows = OnboardingHomeDemoSnapshotFactory.habitRows(habitDone: false)
+
+        XCTAssertEqual(snapshot.day.wakeAnchor.title, "Rise and shine")
+        XCTAssertEqual(snapshot.day.sleepAnchor.title, "Wind down")
+        XCTAssertGreaterThanOrEqual(snapshot.day.timedItems.filter { $0.source == .calendarEvent }.count, 2)
+        XCTAssertGreaterThanOrEqual(snapshot.day.timedItems.filter { $0.source == .task }.count, 2)
+        XCTAssertTrue(snapshot.day.timedItems.contains { $0.taskID == OnboardingHomeDemoSnapshotFactory.demoTaskID })
+        XCTAssertGreaterThanOrEqual(habitRows.count, 2)
+        XCTAssertTrue(habitRows.contains { $0.habitID == OnboardingHomeDemoSnapshotFactory.demoHabitID })
+    }
+
+    @MainActor
+    func testNotificationPermissionRequestsOnlyFromNotificationStep() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let notificationService = TestNotificationService(status: .notDetermined)
+        let viewModel = OnboardingFlowModel(
+            stateStore: context.store,
+            notificationService: notificationService
+        )
+
+        await viewModel.continueFromCalendarPermission(skipped: true)
+        XCTAssertEqual(notificationService.requestPermissionCallCount, 0)
+
+        await viewModel.continueFromNotificationPermission()
+        XCTAssertEqual(notificationService.requestPermissionCallCount, 1)
+        XCTAssertEqual(viewModel.step, .success)
     }
 
     @MainActor
@@ -855,18 +958,18 @@ final class AppOnboardingTests: XCTestCase {
 
         await viewModel.skipToFocusRoom()
 
-        XCTAssertEqual(viewModel.step, .focusRoom)
+        XCTAssertEqual(viewModel.step, .homeDemo)
         XCTAssertFalse(createdLifeAreas.isEmpty)
         XCTAssertFalse(createdProjects.isEmpty)
         XCTAssertEqual(createdTasks.count, 1)
         XCTAssertEqual(viewModel.createdTasks.count, 1)
         XCTAssertEqual(viewModel.focusTaskID, createdTasks.first?.id)
-        XCTAssertEqual(context.store.load().journeySnapshot?.step, .focusRoom)
+        XCTAssertEqual(context.store.load().journeySnapshot?.step, .homeDemo)
     }
 
     #if targetEnvironment(simulator)
     @MainActor
-    func testSkipToFocusRoomDefersEvaPreparationOnSimulator() async {
+    func testSkipToFocusRoomBypassesBlockingEvaPreparationOnSimulator() async {
         let context = makeStoreContext()
         defer { context.cleanup() }
 
@@ -886,9 +989,8 @@ final class AppOnboardingTests: XCTestCase {
 
         await viewModel.skipToFocusRoom()
 
-        XCTAssertEqual(viewModel.step, .focusRoom)
-        XCTAssertEqual(viewModel.evaPreparationState.phase, .deferred)
-        XCTAssertEqual(viewModel.evaPreparationState.statusMessage, "EVA setup can finish on a compatible device.")
+        XCTAssertEqual(viewModel.step, .homeDemo)
+        XCTAssertEqual(viewModel.evaPreparationState.phase, .idle)
         XCTAssertEqual(createdTasks.count, 1)
     }
     #endif
@@ -1014,7 +1116,7 @@ final class AppOnboardingTests: XCTestCase {
 
         await viewModel.completeFocusTask()
 
-        XCTAssertEqual(viewModel.step, .habitCheckIn)
+        XCTAssertEqual(viewModel.step, .calendarPermission)
         XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Fill your water bottle")
         XCTAssertEqual(viewModel.successSummary?.completedTaskCount, 1)
         XCTAssertNil(viewModel.successSummary?.nextTaskTitle)
@@ -1069,6 +1171,7 @@ private struct StoreContext {
 private final class TestNotificationService: NotificationServiceProtocol {
     var status: TaskerNotificationAuthorizationStatus
     var permissionGranted = true
+    private(set) var requestPermissionCallCount = 0
 
     init(status: TaskerNotificationAuthorizationStatus) {
         self.status = status
@@ -1078,7 +1181,10 @@ private final class TestNotificationService: NotificationServiceProtocol {
     func cancelTaskReminder(taskId: UUID) {}
     func cancelAllReminders() {}
     func send(_ notification: CollaborationNotification) {}
-    func requestPermission(completion: @escaping (Bool) -> Void) { completion(permissionGranted) }
+    func requestPermission(completion: @escaping (Bool) -> Void) {
+        requestPermissionCallCount += 1
+        completion(permissionGranted)
+    }
     func checkAuthorizationStatus(completion: @escaping (Bool) -> Void) {
         completion(status == .authorized || status == .provisional || status == .ephemeral)
     }

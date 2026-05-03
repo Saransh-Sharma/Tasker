@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct TaskDefinition: Codable, Equatable, Hashable {
+public struct TaskDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var recurrenceSeriesID: UUID?
     public var habitDefinitionID: UUID?
@@ -424,12 +424,12 @@ extension TaskDefinition {
     }
 }
 
-public enum TaskDependencyKind: String, Codable, CaseIterable {
+public enum TaskDependencyKind: String, Codable, CaseIterable, Sendable {
     case blocks
     case related
 }
 
-public struct TaskDependencyLinkDefinition: Codable, Equatable, Hashable {
+public struct TaskDependencyLinkDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var taskID: UUID
     public var dependsOnTaskID: UUID
@@ -452,7 +452,7 @@ public struct TaskDependencyLinkDefinition: Codable, Equatable, Hashable {
     }
 }
 
-public struct TaskTagLinkDefinition: Codable, Equatable, Hashable {
+public struct TaskTagLinkDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var taskID: UUID
     public var tagID: UUID
@@ -472,7 +472,7 @@ public struct TaskTagLinkDefinition: Codable, Equatable, Hashable {
     }
 }
 
-public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
+public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var recurrenceSeriesID: UUID?
     public var habitDefinitionID: UUID?
@@ -620,7 +620,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
     }
 }
 
-public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
+public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var recurrenceSeriesID: UUID?
     public var habitDefinitionID: UUID?
@@ -763,7 +763,7 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
     }
 }
 
-public struct TaskDefinitionQuery: Codable, Equatable, Hashable {
+public struct TaskDefinitionQuery: Codable, Equatable, Hashable, Sendable {
     public var projectID: UUID?
     public var sectionID: UUID?
     public var parentTaskID: UUID?
@@ -814,7 +814,7 @@ public enum TaskDeleteScope: String, Codable, Equatable, Hashable {
 
 // MARK: - Validation Errors
 
-public enum TaskValidationError: LocalizedError {
+public enum TaskValidationError: LocalizedError, Sendable {
     case emptyName
     case nameTooLong
     case detailsTooLong

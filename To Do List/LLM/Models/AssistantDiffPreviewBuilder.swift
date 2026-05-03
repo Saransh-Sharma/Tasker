@@ -1,6 +1,6 @@
 import Foundation
 
-struct AssistantDiffLine: Codable, Equatable, Hashable {
+struct AssistantDiffLine: Codable, Equatable, Hashable, Sendable {
     let text: String
     let isDestructive: Bool
 }

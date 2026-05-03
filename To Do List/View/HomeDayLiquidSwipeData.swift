@@ -1,4 +1,4 @@
-import SwiftUI
+ import SwiftUI
 
 struct HomeDayLiquidSwipeRestingPosition {
     static func centerY(
@@ -77,12 +77,14 @@ struct HomeDayLiquidSwipeChromePresentation: Equatable {
 
 struct HomeDayLiquidSwipeData: Equatable {
     static let buttonRadius: CGFloat = 24
+    static let buttonVisualScale: CGFloat = 0.8
+    static let buttonVisualRadius: CGFloat = buttonRadius * buttonVisualScale
     static let timelineHandleCenterY: CGFloat = buttonRadius + 16
     static let buttonMargin: CGFloat = 8
     static let swipeVelocity: CGFloat = 0.45
     static let cancelThreshold: CGFloat = 0.15
-    static let edgeActivationWidth: CGFloat = 88
-    static let waveMinLedge: CGFloat = 15
+    static let edgeActivationWidth: CGFloat = (buttonVisualRadius * 2) + (buttonMargin * 4)
+    static let waveMinLedge: CGFloat = 8
     static let waveMinHorizontalRadius: CGFloat = 48
     static let waveMinVerticalRadius: CGFloat = 82
 

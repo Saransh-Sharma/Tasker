@@ -1,17 +1,17 @@
 import Foundation
 
-public enum ScheduleSourceType: String, Codable {
+public enum ScheduleSourceType: String, Codable, Sendable {
     case task
     case habit
     case reminder
 }
 
-public enum TemporalReference: String, Codable {
+public enum TemporalReference: String, Codable, Sendable {
     case floating
     case anchored
 }
 
-public struct ScheduleTemplateDefinition: Codable, Equatable, Hashable {
+public struct ScheduleTemplateDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var sourceType: ScheduleSourceType
     public var sourceID: UUID
@@ -52,7 +52,7 @@ public struct ScheduleTemplateDefinition: Codable, Equatable, Hashable {
     }
 }
 
-public struct ScheduleRuleDefinition: Codable, Equatable, Hashable {
+public struct ScheduleRuleDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var scheduleTemplateID: UUID
     public var ruleType: String
@@ -65,13 +65,13 @@ public struct ScheduleRuleDefinition: Codable, Equatable, Hashable {
     public var createdAt: Date
 }
 
-public enum ScheduleExceptionAction: String, Codable {
+public enum ScheduleExceptionAction: String, Codable, Sendable {
     case skip
     case move
     case modify
 }
 
-public struct ScheduleExceptionDefinition: Codable, Equatable, Hashable {
+public struct ScheduleExceptionDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var scheduleTemplateID: UUID
     public var occurrenceKey: String

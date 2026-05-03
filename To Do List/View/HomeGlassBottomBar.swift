@@ -287,12 +287,19 @@ private struct HomeAnimatedTabBar: View {
                 Button {
                     onTap(descriptor.item)
                 } label: {
-                    Image(systemName: descriptor.symbolName)
-                        .font(.system(size: descriptor.item == .create ? 20 : 18, weight: isSelected ? .bold : .semibold))
-                        .frame(width: buttonSize, height: buttonSize)
-                        .foregroundStyle(foregroundStyle(isSelected: isSelected, item: descriptor.item))
-                        .scaleEffect(isSelected && descriptor.item == .create ? 1.08 : 1.0)
-                        .contentShape(Rectangle())
+                    if descriptor.item == .chat {
+                        EvaMascotView(placement: .homeEntry, size: .custom(isSelected ? 36 : 32))
+                            .frame(width: buttonSize, height: buttonSize)
+                            .scaleEffect(isSelected ? 1.08 : 1.0)
+                            .contentShape(Rectangle())
+                    } else {
+                        Image(systemName: descriptor.symbolName)
+                            .font(.system(size: descriptor.item == .create ? 20 : 18, weight: isSelected ? .bold : .semibold))
+                            .frame(width: buttonSize, height: buttonSize)
+                            .foregroundStyle(foregroundStyle(isSelected: isSelected, item: descriptor.item))
+                            .scaleEffect(isSelected && descriptor.item == .create ? 1.08 : 1.0)
+                            .contentShape(Rectangle())
+                    }
                 }
                 .buttonStyle(HomeAnimatedTabPressStyle(prefersReducedMotion: prefersReducedMotion))
                 .background(HomeAnimatedTabFrameReader(index: index, coordinateSpaceName: coordinateSpaceName))

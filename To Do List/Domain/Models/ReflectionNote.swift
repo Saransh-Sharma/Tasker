@@ -1,6 +1,6 @@
 import Foundation
 
-public enum ReflectionNoteKind: String, Codable, CaseIterable, Hashable {
+public enum ReflectionNoteKind: String, Codable, CaseIterable, Hashable, Sendable {
     case taskCompletion
     case weeklyReview
     case projectReflection
@@ -8,7 +8,7 @@ public enum ReflectionNoteKind: String, Codable, CaseIterable, Hashable {
     case freeform
 }
 
-public struct ReflectionNote: Codable, Equatable, Hashable, Identifiable {
+public struct ReflectionNote: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public var kind: ReflectionNoteKind
     public var linkedTaskID: UUID?
@@ -51,7 +51,7 @@ public struct ReflectionNote: Codable, Equatable, Hashable, Identifiable {
     }
 }
 
-public struct ReflectionNoteQuery: Codable, Equatable, Hashable {
+public struct ReflectionNoteQuery: Codable, Equatable, Hashable, Sendable {
     public var linkedTaskID: UUID?
     public var linkedProjectID: UUID?
     public var linkedHabitID: UUID?
@@ -81,12 +81,12 @@ public struct ReflectionNoteQuery: Codable, Equatable, Hashable {
 
 import Foundation
 
-public enum DailyReflectionMode: String, Codable, CaseIterable, Hashable {
+public enum DailyReflectionMode: String, Codable, CaseIterable, Hashable, Sendable {
     case sameDay
     case catchUpYesterday
 }
 
-public enum ReflectionMood: String, Codable, CaseIterable, Hashable {
+public enum ReflectionMood: String, Codable, CaseIterable, Hashable, Sendable {
     case great
     case good
     case mixed
@@ -104,7 +104,7 @@ public enum ReflectionMood: String, Codable, CaseIterable, Hashable {
     }
 }
 
-public enum ReflectionEnergy: String, Codable, CaseIterable, Hashable {
+public enum ReflectionEnergy: String, Codable, CaseIterable, Hashable, Sendable {
     case high
     case okay
     case low
@@ -118,7 +118,7 @@ public enum ReflectionEnergy: String, Codable, CaseIterable, Hashable {
     }
 }
 
-public enum ReflectionFrictionTag: String, Codable, CaseIterable, Hashable {
+public enum ReflectionFrictionTag: String, Codable, CaseIterable, Hashable, Sendable {
     case meetings
     case distractions
     case lowEnergy
@@ -138,7 +138,7 @@ public enum ReflectionFrictionTag: String, Codable, CaseIterable, Hashable {
     }
 }
 
-public enum DailyPlanRisk: String, Codable, CaseIterable, Hashable {
+public enum DailyPlanRisk: String, Codable, CaseIterable, Hashable, Sendable {
     case overdueBacklogPressure
     case carryoverPressure
     case meetingCongestion
@@ -154,12 +154,12 @@ public enum DailyPlanRisk: String, Codable, CaseIterable, Hashable {
     }
 }
 
-public enum DailyPlanSource: String, Codable, CaseIterable, Hashable {
+public enum DailyPlanSource: String, Codable, CaseIterable, Hashable, Sendable {
     case reflection
     case manual
 }
 
-public struct DailyReflectionTarget: Codable, Equatable, Hashable {
+public struct DailyReflectionTarget: Codable, Equatable, Hashable, Sendable {
     public let mode: DailyReflectionMode
     public let reflectionDate: Date
     public let planningDate: Date
@@ -171,7 +171,7 @@ public struct DailyReflectionTarget: Codable, Equatable, Hashable {
     }
 }
 
-public struct ReflectionHighlight: Codable, Equatable, Hashable, Identifiable {
+public struct ReflectionHighlight: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public let title: String
     public let detail: String?
@@ -183,7 +183,7 @@ public struct ReflectionHighlight: Codable, Equatable, Hashable, Identifiable {
     }
 }
 
-public struct ReflectionTaskMiniRow: Codable, Equatable, Hashable, Identifiable {
+public struct ReflectionTaskMiniRow: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public let title: String
     public let projectName: String?
@@ -195,7 +195,7 @@ public struct ReflectionTaskMiniRow: Codable, Equatable, Hashable, Identifiable 
     }
 }
 
-public struct ReflectionHabitMiniRow: Codable, Equatable, Hashable, Identifiable {
+public struct ReflectionHabitMiniRow: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public let title: String
     public let colorFamily: HabitColorFamily
@@ -217,7 +217,7 @@ public struct ReflectionHabitMiniRow: Codable, Equatable, Hashable, Identifiable
     }
 }
 
-public struct ReflectionNarrativeSummary: Codable, Equatable, Hashable {
+public struct ReflectionNarrativeSummary: Codable, Equatable, Hashable, Sendable {
     public let homeCardLine: String
     public let planCardLine: String
 
@@ -302,7 +302,7 @@ public struct ReflectionNarrativeSummary: Codable, Equatable, Hashable {
     }
 }
 
-public struct TaskReflectionSummary: Codable, Equatable, Hashable {
+public struct TaskReflectionSummary: Codable, Equatable, Hashable, Sendable {
     public let completedCount: Int
     public let scheduledCount: Int
     public let carryOverCount: Int
@@ -316,7 +316,7 @@ public struct TaskReflectionSummary: Codable, Equatable, Hashable {
     }
 }
 
-public struct HabitReflectionSummary: Codable, Equatable, Hashable {
+public struct HabitReflectionSummary: Codable, Equatable, Hashable, Sendable {
     public let keptCount: Int
     public let targetCount: Int
     public let missedCount: Int
@@ -341,7 +341,7 @@ public struct HabitReflectionSummary: Codable, Equatable, Hashable {
     }
 }
 
-public struct CalendarReflectionSummary: Codable, Equatable, Hashable {
+public struct CalendarReflectionSummary: Codable, Equatable, Hashable, Sendable {
     public let eventCount: Int
     public let meetingMinutes: Int
     public let bestFocusWindow: DateInterval?
@@ -355,7 +355,7 @@ public struct CalendarReflectionSummary: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyPlanTaskOption: Codable, Equatable, Hashable, Identifiable {
+public struct DailyPlanTaskOption: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public let title: String
     public let projectName: String?
@@ -383,7 +383,7 @@ public struct DailyPlanTaskOption: Codable, Equatable, Hashable, Identifiable {
     }
 }
 
-public struct DailyPlanSuggestion: Codable, Equatable, Hashable {
+public struct DailyPlanSuggestion: Codable, Equatable, Hashable, Sendable {
     public let topTasks: [DailyPlanTaskOption]
     public let swapPoolsBySlot: [String: [DailyPlanTaskOption]]
     public let focusWindow: DateInterval?
@@ -418,7 +418,7 @@ public struct DailyPlanSuggestion: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyPlanDraft: Codable, Equatable, Hashable {
+public struct DailyPlanDraft: Codable, Equatable, Hashable, Sendable {
     public let date: Date
     public let topTasks: [DailyPlanTaskOption]
     public let suggestedFocusBlock: DateInterval?
@@ -459,7 +459,7 @@ public struct DailyPlanDraft: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyReflectionSnapshot: Codable, Equatable, Hashable {
+public struct DailyReflectionSnapshot: Codable, Equatable, Hashable, Sendable {
     public let reflectionDate: Date
     public let planningDate: Date
     public let mode: DailyReflectionMode
@@ -493,7 +493,7 @@ public struct DailyReflectionSnapshot: Codable, Equatable, Hashable {
     }
 }
 
-public enum DailyReflectionLoadState: String, Codable, Equatable, Hashable {
+public enum DailyReflectionLoadState: String, Codable, Equatable, Hashable, Sendable {
     case idle
     case loadingCore
     case coreLoaded
@@ -501,7 +501,7 @@ public enum DailyReflectionLoadState: String, Codable, Equatable, Hashable {
     case coreFailed
 }
 
-public enum DailyReflectionOptionalLoadStatus: Codable, Equatable, Hashable {
+public enum DailyReflectionOptionalLoadStatus: Codable, Equatable, Hashable, Sendable {
     case loading
     case loaded
     case degraded(String)
@@ -516,7 +516,7 @@ public enum DailyReflectionOptionalLoadStatus: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyReflectionCoreSnapshot: Codable, Equatable, Hashable {
+public struct DailyReflectionCoreSnapshot: Codable, Equatable, Hashable, Sendable {
     public let reflectionDate: Date
     public let planningDate: Date
     public let mode: DailyReflectionMode
@@ -570,7 +570,7 @@ public struct DailyReflectionCoreSnapshot: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyReflectionOptionalContext: Codable, Equatable, Hashable {
+public struct DailyReflectionOptionalContext: Codable, Equatable, Hashable, Sendable {
     public let calendarSummary: CalendarReflectionSummary?
     public let suggestedPlan: DailyPlanSuggestion
     public let status: DailyReflectionOptionalLoadStatus
@@ -586,7 +586,7 @@ public struct DailyReflectionOptionalContext: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyReflectionInput: Codable, Equatable, Hashable {
+public struct DailyReflectionInput: Codable, Equatable, Hashable, Sendable {
     public let mood: ReflectionMood?
     public let energy: ReflectionEnergy?
     public let frictionTags: [ReflectionFrictionTag]
@@ -605,7 +605,7 @@ public struct DailyReflectionInput: Codable, Equatable, Hashable {
     }
 }
 
-public struct ReflectionPayload: Codable, Equatable, Hashable {
+public struct ReflectionPayload: Codable, Equatable, Hashable, Sendable {
     public let reflectionDate: Date
     public let planningDate: Date
     public let mode: DailyReflectionMode
@@ -639,7 +639,7 @@ public struct ReflectionPayload: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyReflectionEntryState: Codable, Equatable, Hashable, Identifiable {
+public struct DailyReflectionEntryState: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let mode: DailyReflectionMode
     public let reflectionDate: Date
     public let planningDate: Date
@@ -683,7 +683,7 @@ public struct DailyReflectionEntryState: Codable, Equatable, Hashable, Identifia
     }
 }
 
-public struct EditableDailyPlan: Equatable {
+public struct EditableDailyPlan: Equatable, Sendable {
     public var planningDate: Date
     public var topTasks: [DailyPlanTaskOption]
     public var swapPoolsBySlot: [String: [DailyPlanTaskOption]]

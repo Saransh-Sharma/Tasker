@@ -1,7 +1,7 @@
-import SwiftUI
+ import SwiftUI
 
 struct TimelineHeaderHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+    static let defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
@@ -9,7 +9,7 @@ struct TimelineHeaderHeightPreferenceKey: PreferenceKey {
 }
 
 struct TimelineCalendarCardHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+    static let defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
@@ -17,7 +17,7 @@ struct TimelineCalendarCardHeightPreferenceKey: PreferenceKey {
 }
 
 struct TimelineBackdropWeekHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+    static let defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
@@ -922,7 +922,7 @@ struct TimelineCanvasLayoutPlan: Equatable {
     static let cardVisualHeight: CGFloat = 84
     static let flockMinHeight: CGFloat = 104
     static let gapPromptHeight: CGFloat = 56
-    static let sparseEmptyCardHeight: CGFloat = 112
+    static let sparseEmptyCardHeight: CGFloat = 96
     static let endMarkerHitArea: CGFloat = 44
     static let endMarkerTopGapAfterFade: CGFloat = 4
     static let spineFadeHeight: CGFloat = 36
@@ -1513,17 +1513,17 @@ struct TimelineCanvasLayoutPlan: Equatable {
             subtitle = "Add tasks here or turn calendar plotting back on."
         } else if isLightPrompt {
             title = "Plenty of open time"
-            subtitle = "Add a task or let EVA help shape the rest of the day."
+            subtitle = "Add a task or let \(AssistantIdentityText.currentSnapshot().displayName) help shape the rest of the day."
         } else {
             title = "No meetings today"
-            subtitle = "Add a task or let EVA help you shape the day."
+            subtitle = "Add a task or let \(AssistantIdentityText.currentSnapshot().displayName) help you shape the day."
         }
         return .emptyState(.init(
             id: id,
             title: title,
             subtitle: subtitle,
             primaryTitle: "Add task",
-            secondaryTitle: calendarHidden ? "Show calendar" : "Plan with EVA",
+            secondaryTitle: calendarHidden ? "Show calendar" : "Plan with \(AssistantIdentityText.currentSnapshot().displayName)",
             showsCalendarAction: calendarHidden,
             suggestedDate: projection.wakeAnchor.time.addingTimeInterval(60 * 60),
             temporalStart: temporalStart,
@@ -1785,16 +1785,30 @@ private enum TimelineDayRelation {
     case future
 }
 
-private struct TimelineDayPresentation {
+private struct TimelineDayStablePresentation {
+    let projection: TimelineDayProjection
+    let calendar: Calendar
+
+    init(projection: TimelineDayProjection, calendar: Calendar = .current) {
+        let interval = TaskerPerformanceTrace.begin("HomeTimelineStablePresentationBuild")
+        defer { TaskerPerformanceTrace.end(interval) }
+        self.projection = projection
+        self.calendar = calendar
+    }
+}
+
+private struct TimelineDayCurrentState {
     let now: Date
     let dayRelation: TimelineDayRelation
     let currentBoundaryDate: Date?
     let currentTintHex: String?
-    private let taskRowsByID: [String: TimelineRenderableRow]
-    private let gapRowsByID: [String: TimelineRenderableRow]
-    private let anchorRowsByID: [String: TimelineRenderableRow]
+    let activeGapID: String?
 
-    init(projection: TimelineDayProjection, now: Date, calendar: Calendar = .current) {
+    init(stable: TimelineDayStablePresentation, now: Date) {
+        let interval = TaskerPerformanceTrace.begin("HomeTimelineCurrentStateBuild")
+        defer { TaskerPerformanceTrace.end(interval) }
+        let projection = stable.projection
+        let calendar = stable.calendar
         self.now = now
         let selectedDay = calendar.startOfDay(for: projection.date)
         let today = calendar.startOfDay(for: now)
@@ -1806,10 +1820,8 @@ private struct TimelineDayPresentation {
             dayRelation = .today
         }
 
-        let sortedItems = projection.allTimedItems.sorted {
-            ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
-        }
-        let sortedGaps = projection.actionableGaps.sorted { $0.startDate < $1.startDate }
+        let sortedItems = projection.allTimedItems
+        let sortedGaps = projection.actionableGaps
 
         let currentItem = sortedItems.first(where: { item in
             guard let start = item.startDate, let end = item.endDate, item.isComplete == false else { return false }
@@ -1823,142 +1835,96 @@ private struct TimelineDayPresentation {
         currentBoundaryDate = dayRelation == .today ? min(max(now, projection.wakeAnchor.time), projection.sleepAnchor.time) : nil
         currentTintHex = currentItem?.tintHex
             ?? projection.allTimedItems.first(where: { $0.isComplete && $0.tintHex != nil })?.tintHex
+        activeGapID = activeGap?.id
+    }
+}
 
-        var resolvedTaskRows: [String: TimelineRenderableRow] = [:]
-        for item in projection.allTimedItems {
-            let state = TimelineDayPresentation.resolveTaskState(
-                item: item,
-                now: now,
-                dayRelation: dayRelation
-            )
-            let progressRatio = TimelineDayPresentation.progressRatio(for: item, now: now, state: state)
-            let utilityItems = TimelineDayPresentation.utilityItems(for: item)
-            let metadataMode: TimelineMetadataMode?
-            switch state {
-            case .currentTask:
-                if let end = item.endDate {
-                    let remaining = max(1, Int(ceil(end.timeIntervalSince(now) / 60)))
-                    metadataMode = .remainingTime(remaining)
-                } else {
-                    metadataMode = .scheduled
-                }
-            case .pastCompleted:
-                metadataMode = .done
-            case .pastIncomplete, .futureTask:
-                metadataMode = .scheduled
-            default:
-                metadataMode = nil
-            }
+private struct TimelineDayPresentation {
+    private let current: TimelineDayCurrentState
 
-            resolvedTaskRows[item.id] = TimelineRenderableRow(
-                id: item.id,
-                kind: .task,
-                temporalState: state,
-                metadataMode: metadataMode,
-                utilityItems: utilityItems,
-                progressRatio: progressRatio,
-                title: item.title,
-                subtitle: item.subtitle,
-                isInteractiveRing: item.source == .task,
-                stemLeading: TimelineDayPresentation.leadingStemState(for: state, tintHex: item.tintHex, progressRatio: progressRatio),
-                stemTrailing: TimelineDayPresentation.trailingStemState(for: state, tintHex: item.tintHex),
-                isCurrentRailEmphasis: state == .currentTask
-            )
-        }
+    var now: Date { current.now }
+    var dayRelation: TimelineDayRelation { current.dayRelation }
+    var currentBoundaryDate: Date? { current.currentBoundaryDate }
+    var currentTintHex: String? { current.currentTintHex }
 
-        var resolvedGapRows: [String: TimelineRenderableRow] = [:]
-        for gap in projection.actionableGaps {
-            let state: TimelineTemporalState
-            switch dayRelation {
-            case .today:
-                if activeGap?.id == gap.id {
-                    state = .activeGap
-                } else {
-                    state = .futureGap
-                }
-            case .past:
-                state = .activeGap
-            case .future:
-                state = .futureGap
-            }
+    init(projection: TimelineDayProjection, now: Date, calendar: Calendar = .current) {
+        self.init(stable: TimelineDayStablePresentation(projection: projection, calendar: calendar), now: now)
+    }
 
-            resolvedGapRows[gap.id] = TimelineRenderableRow(
-                id: gap.id,
-                kind: .gap,
-                temporalState: state,
-                metadataMode: nil,
-                utilityItems: [],
-                progressRatio: 0,
-                title: gap.headline,
-                subtitle: gap.supportingText,
-                isInteractiveRing: false,
-                stemLeading: TimelineDayPresentation.leadingGapStemState(for: gap, now: now, dayRelation: dayRelation),
-                stemTrailing: TimelineDayPresentation.trailingGapStemState(for: gap, now: now, dayRelation: dayRelation),
-                isCurrentRailEmphasis: activeGap?.id == gap.id
-            )
-        }
-
-        let anchors = [projection.wakeAnchor, projection.sleepAnchor]
-        var resolvedAnchorRows: [String: TimelineRenderableRow] = [:]
-        for anchor in anchors {
-            let pastAnchor = dayRelation == .past || (dayRelation == .today && anchor.time <= now)
-            resolvedAnchorRows[anchor.id] = TimelineRenderableRow(
-                id: anchor.id,
-                kind: .anchor,
-                temporalState: .anchor,
-                metadataMode: .scheduled,
-                utilityItems: [],
-                progressRatio: 0,
-                title: anchor.title,
-                subtitle: anchor.subtitle,
-                isInteractiveRing: anchor.isActionable,
-                stemLeading: pastAnchor ? .gapPastSegment : .futureSegment,
-                stemTrailing: pastAnchor ? .gapPastSegment : .futureSegment,
-                isCurrentRailEmphasis: false
-            )
-        }
-
-        taskRowsByID = resolvedTaskRows
-        gapRowsByID = resolvedGapRows
-        anchorRowsByID = resolvedAnchorRows
+    init(stable: TimelineDayStablePresentation, now: Date) {
+        self.current = TimelineDayCurrentState(stable: stable, now: now)
     }
 
     func row(for item: TimelinePlanItem) -> TimelineRenderableRow {
-        taskRowsByID[item.id] ?? TimelineRenderableRow(
+        let state = TimelineDayPresentation.resolveTaskState(
+            item: item,
+            now: current.now,
+            dayRelation: current.dayRelation
+        )
+        let progressRatio = TimelineDayPresentation.progressRatio(for: item, now: current.now, state: state)
+        let metadataMode: TimelineMetadataMode?
+        switch state {
+        case .currentTask:
+            if let end = item.endDate {
+                let remaining = max(1, Int(ceil(end.timeIntervalSince(current.now) / 60)))
+                metadataMode = .remainingTime(remaining)
+            } else {
+                metadataMode = .scheduled
+            }
+        case .pastCompleted:
+            metadataMode = .done
+        case .pastIncomplete, .futureTask:
+            metadataMode = .scheduled
+        default:
+            metadataMode = nil
+        }
+
+        return TimelineRenderableRow(
             id: item.id,
             kind: .task,
-            temporalState: .futureTask,
-            metadataMode: .scheduled,
-            utilityItems: [],
-            progressRatio: 0,
+            temporalState: state,
+            metadataMode: metadataMode,
+            utilityItems: TimelineDayPresentation.utilityItems(for: item),
+            progressRatio: progressRatio,
             title: item.title,
             subtitle: item.subtitle,
             isInteractiveRing: item.source == .task,
-            stemLeading: .futureSegment,
-            stemTrailing: .futureSegment,
-            isCurrentRailEmphasis: false
+            stemLeading: TimelineDayPresentation.leadingStemState(for: state, tintHex: item.tintHex, progressRatio: progressRatio),
+            stemTrailing: TimelineDayPresentation.trailingStemState(for: state, tintHex: item.tintHex),
+            isCurrentRailEmphasis: state == .currentTask
         )
     }
 
     func row(for gap: TimelineGap) -> TimelineRenderableRow {
-        gapRowsByID[gap.id] ?? TimelineRenderableRow(
+        let state: TimelineTemporalState
+        switch current.dayRelation {
+        case .today:
+            state = current.activeGapID == gap.id ? .activeGap : .futureGap
+        case .past:
+            state = .activeGap
+        case .future:
+            state = .futureGap
+        }
+
+        return TimelineRenderableRow(
             id: gap.id,
             kind: .gap,
-            temporalState: .futureGap,
+            temporalState: state,
             metadataMode: nil,
             utilityItems: [],
             progressRatio: 0,
             title: gap.headline,
             subtitle: gap.supportingText,
             isInteractiveRing: false,
-            stemLeading: .gapFutureSegment,
-            stemTrailing: .gapFutureSegment,
-            isCurrentRailEmphasis: false
+            stemLeading: TimelineDayPresentation.leadingGapStemState(for: gap, now: current.now, dayRelation: current.dayRelation),
+            stemTrailing: TimelineDayPresentation.trailingGapStemState(for: gap, now: current.now, dayRelation: current.dayRelation),
+            isCurrentRailEmphasis: current.activeGapID == gap.id
         )
     }
 
     func row(for anchor: TimelineAnchorItem) -> TimelineRenderableRow {
-        anchorRowsByID[anchor.id] ?? TimelineRenderableRow(
+        let pastAnchor = current.dayRelation == .past || (current.dayRelation == .today && anchor.time <= current.now)
+        return TimelineRenderableRow(
             id: anchor.id,
             kind: .anchor,
             temporalState: .anchor,
@@ -1968,8 +1934,8 @@ private struct TimelineDayPresentation {
             title: anchor.title,
             subtitle: anchor.subtitle,
             isInteractiveRing: anchor.isActionable,
-            stemLeading: .futureSegment,
-            stemTrailing: .futureSegment,
+            stemLeading: pastAnchor ? .gapPastSegment : .futureSegment,
+            stemTrailing: pastAnchor ? .gapPastSegment : .futureSegment,
             isCurrentRailEmphasis: false
         )
     }
@@ -2585,6 +2551,7 @@ struct TimelineForedropView: View {
     let onDragEnded: (CGFloat) -> Void
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
+    let onAnchorTap: (TimelineAnchorItem) -> Void
     let onAddTask: (Date?) -> Void
     let onScheduleInbox: () -> Void
     let onShowCalendarInTimeline: () -> Void
@@ -2618,6 +2585,7 @@ struct TimelineForedropView: View {
         onDragEnded: @escaping (CGFloat) -> Void,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
+        onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
         onAddTask: @escaping (Date?) -> Void,
         onScheduleInbox: @escaping () -> Void,
         onShowCalendarInTimeline: @escaping () -> Void,
@@ -2637,6 +2605,7 @@ struct TimelineForedropView: View {
         self.onDragEnded = onDragEnded
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
+        self.onAnchorTap = onAnchorTap
         self.onAddTask = onAddTask
         self.onScheduleInbox = onScheduleInbox
         self.onShowCalendarInTimeline = onShowCalendarInTimeline
@@ -2692,6 +2661,7 @@ struct TimelineForedropView: View {
                     layoutClass: layoutClass,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
+                    onAnchorTap: onAnchorTap,
                     onAddTask: { onAddTask(nil) },
                     onScheduleInbox: onScheduleInbox
                 )
@@ -2701,6 +2671,7 @@ struct TimelineForedropView: View {
                     layoutClass: layoutClass,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
+                    onAnchorTap: onAnchorTap,
                     onAddTask: { onAddTask(nil) },
                     onScheduleInbox: onScheduleInbox
                 )
@@ -2712,6 +2683,7 @@ struct TimelineForedropView: View {
                     placementCandidate: snapshot.placementCandidate,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
+                    onAnchorTap: onAnchorTap,
                     onAddTask: onAddTask,
                     onScheduleInbox: onScheduleInbox,
                     onShowCalendarInTimeline: onShowCalendarInTimeline,
@@ -2753,6 +2725,9 @@ private struct TimelinePlacementPrompt: View {
     let onClearError: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -2828,36 +2803,48 @@ private struct TimelinePlacementPrompt: View {
     private var placementActions: some View {
         if dynamicTypeSize.isAccessibilitySize {
             VStack(spacing: 10) {
-                Button("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", action: onPlaceAtSuggestedTime)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(candidate.isApplying)
-                Button("Move to All Day", action: onPlaceAllDay)
-                    .buttonStyle(.bordered)
-                    .disabled(candidate.isApplying)
-                Button("Skip", action: onSkip)
-                    .buttonStyle(.bordered)
-                    .disabled(candidate.isApplying)
+                placementButton("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", systemImage: "clock.badge.checkmark", emphasized: true, action: onPlaceAtSuggestedTime)
+                placementButton("Move to All Day", systemImage: "calendar.badge.plus", emphasized: false, action: onPlaceAllDay)
+                placementButton("Skip", systemImage: "forward.end.fill", emphasized: false, action: onSkip)
             }
-            .font(.tasker(.support).weight(.semibold))
         } else {
             HStack(spacing: 10) {
-                Button("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", action: onPlaceAtSuggestedTime)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(candidate.isApplying)
-                Button("Move to All Day", action: onPlaceAllDay)
-                    .buttonStyle(.bordered)
-                    .disabled(candidate.isApplying)
-                Button("Skip", action: onSkip)
-                    .buttonStyle(.bordered)
-                    .disabled(candidate.isApplying)
+                placementButton("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", systemImage: "clock.badge.checkmark", emphasized: true, action: onPlaceAtSuggestedTime)
+                placementButton("Move to All Day", systemImage: "calendar.badge.plus", emphasized: false, action: onPlaceAllDay)
+                placementButton("Skip", systemImage: "forward.end.fill", emphasized: false, action: onSkip)
             }
-            .font(.tasker(.support).weight(.semibold))
         }
+    }
+
+    private func placementButton(_ title: String, systemImage: String, emphasized: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            TaskerFeedback.selection()
+            action()
+        }) {
+            Label(title, systemImage: systemImage)
+                .font(.tasker(.support).weight(.semibold))
+                .foregroundStyle(emphasized ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
+                .frame(minHeight: 42)
+                .padding(.horizontal, spacing.s12)
+                .background(emphasized ? Color.tasker.actionPrimary : Color.tasker.surfacePrimary.opacity(0.82), in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
+                        .stroke(emphasized ? Color.tasker.actionPrimary.opacity(0.2) : Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .disabled(candidate.isApplying)
     }
 }
 
 private struct TimelinePlacementDock: View {
     let candidate: TimelinePlacementCandidate
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isDragging = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -2876,12 +2863,29 @@ private struct TimelinePlacementDock: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Color.tasker.surfaceSecondary, in: Capsule())
+        .background(isDragging ? Color.tasker.accentWash.opacity(0.9) : Color.tasker.surfaceSecondary, in: Capsule())
         .overlay(
             Capsule()
-                .stroke(Color.tasker.strokeHairline.opacity(0.7), lineWidth: 1)
+                .stroke(isDragging ? Color.tasker.accentPrimary.opacity(0.42) : Color.tasker.strokeHairline.opacity(0.7), lineWidth: 1)
         )
+        .scaleEffect(isDragging && reduceMotion == false ? 1.018 : 1)
+        .shadow(color: Color.tasker.accentPrimary.opacity(isDragging ? 0.16 : 0), radius: isDragging ? 14 : 0, x: 0, y: 8)
         .draggable(candidate.taskID.uuidString)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 3)
+                .onChanged { _ in
+                    guard isDragging == false else { return }
+                    withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast) {
+                        isDragging = true
+                    }
+                    TaskerFeedback.light()
+                }
+                .onEnded { _ in
+                    withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast) {
+                        isDragging = false
+                    }
+                }
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(candidate.title), drag to place")
         .accessibilityIdentifier("home.needsReplan.placementDock")
@@ -2956,27 +2960,60 @@ private struct TimelinePlanningShelf: View {
     let onScheduleInbox: () -> Void
     let onPlaceReplanAllDay: (TimelinePlacementCandidate, Date) -> Void
 
+    @State private var isAllDayTargeted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let placementCandidate {
                 Button {
+                    TaskerFeedback.selection()
                     onPlaceReplanAllDay(placementCandidate, selectedDate)
                 } label: {
-                    Label("Make All Day", systemImage: "calendar.badge.plus")
-                        .font(.tasker(.support).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    HStack(spacing: 12) {
+                        Image(systemName: isAllDayTargeted ? "calendar.badge.checkmark" : "calendar.badge.plus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color.tasker.accentPrimary)
+                            .frame(width: 34, height: 34)
+                            .background(Color.tasker.accentWash, in: Circle())
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(isAllDayTargeted ? "Drop for All Day" : "Make All Day")
+                                .font(.tasker(.support).weight(.semibold))
+                                .foregroundStyle(Color.tasker.textPrimary)
+                            Text(placementCandidate.title)
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker.textSecondary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(isAllDayTargeted ? Color.tasker.accentWash.opacity(0.82) : Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(isAllDayTargeted ? Color.tasker.accentPrimary.opacity(0.46) : Color.tasker.strokeHairline.opacity(0.62), lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
-                .dropDestination(for: String.self) { items, _ in
+                .scaleOnPress()
+                .scaleEffect(isAllDayTargeted && reduceMotion == false ? 1.012 : 1)
+                .dropDestination(for: String.self, action: { items, _ in
                     guard items.contains(placementCandidate.taskID.uuidString) else { return false }
+                    TaskerFeedback.success()
                     onPlaceReplanAllDay(placementCandidate, selectedDate)
                     return true
+                }, isTargeted: { newValue in
+                    isAllDayTargeted = newValue
+                })
+                .onChange(of: isAllDayTargeted) { _, newValue in
+                    guard newValue else { return }
+                    TaskerFeedback.selection()
                 }
                 .accessibilityHint("Places the replanned task in the all-day row for this date.")
+                .accessibilityIdentifier("home.needsReplan.hotZone.allDay")
             }
 
             if allDayItems.isEmpty == false {
@@ -3255,8 +3292,35 @@ private struct TimelineEmptyStateCard: View {
     let primaryAction: () -> Void
     let secondaryAction: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            header
+
+            Spacer(minLength: 0)
+
+            actionButtons
+        }
+        .padding(14)
+        .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.tasker.strokeHairline.opacity(0.62), lineWidth: 1)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(model.showsCalendarAction ? "home.timeline.calendarHidden" : "home.timeline.emptyDay")
+    }
+
+    @MainActor
+    private var header: some View {
+        HStack(alignment: .top, spacing: 12) {
+            EvaMascotView(
+                placement: model.showsCalendarAction ? .timelineEmptySchedule : .restReminder,
+                size: .inline
+            )
+            .accessibilityHidden(true)
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(model.title)
                     .font(.tasker(.headline).weight(.semibold))
@@ -3270,26 +3334,111 @@ private struct TimelineEmptyStateCard: View {
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
 
-            Spacer(minLength: 0)
-
-            HStack(spacing: 10) {
-                Button(model.primaryTitle, action: primaryAction)
-                    .buttonStyle(.bordered)
-                Button(model.secondaryTitle, action: secondaryAction)
-                    .buttonStyle(.borderedProminent)
+    @ViewBuilder
+    @MainActor
+    private var actionButtons: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            actionButtonColumn
+        } else {
+            ViewThatFits(in: .horizontal) {
+                actionButtonRow
+                actionButtonColumn
             }
-            .font(.tasker(.buttonSmall))
-            .controlSize(.small)
         }
-        .padding(14)
-        .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.62), lineWidth: 1)
+    }
+
+    @MainActor
+    private var actionButtonRow: some View {
+        HStack(spacing: 10) {
+            emptyStateActionButton(
+                title: model.primaryTitle,
+                tone: .secondary,
+                action: primaryAction
+            )
+            emptyStateActionButton(
+                title: model.secondaryTitle,
+                tone: .primary,
+                action: secondaryAction
+            )
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(model.showsCalendarAction ? "home.timeline.calendarHidden" : "home.timeline.emptyDay")
+    }
+
+    @MainActor
+    private var actionButtonColumn: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            emptyStateActionButton(
+                title: model.primaryTitle,
+                tone: .secondary,
+                action: primaryAction
+            )
+            emptyStateActionButton(
+                title: model.secondaryTitle,
+                tone: .primary,
+                action: secondaryAction
+            )
+        }
+    }
+
+    @MainActor
+    private func emptyStateActionButton(
+        title: String,
+        tone: TimelineEmptyStateActionTone,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.tasker(.buttonSmall))
+                .lineLimit(1)
+                .minimumScaleFactor(0.86)
+                .foregroundStyle(tone.foreground)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .frame(minHeight: 34)
+                .background(tone.background, in: Capsule())
+                .overlay {
+                    Capsule()
+                        .stroke(tone.border, lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .contentShape(Capsule())
+    }
+}
+
+@MainActor
+private enum TimelineEmptyStateActionTone {
+    case primary
+    case secondary
+
+    var foreground: Color {
+        switch self {
+        case .primary:
+            return Color.tasker.accentOnPrimary
+        case .secondary:
+            return Color.tasker.accentPrimary
+        }
+    }
+
+    var background: Color {
+        switch self {
+        case .primary:
+            return Color.tasker.accentPrimary
+        case .secondary:
+            return Color.tasker.accentWash.opacity(0.76)
+        }
+    }
+
+    var border: Color {
+        switch self {
+        case .primary:
+            return Color.tasker.accentPrimary.opacity(0.18)
+        case .secondary:
+            return Color.tasker.accentMuted.opacity(0.34)
+        }
     }
 }
 
@@ -4186,12 +4335,16 @@ struct DailyTimelineCanvas: View {
     let placementCandidate: TimelinePlacementCandidate?
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
+    let onAnchorTap: (TimelineAnchorItem) -> Void
     let onAddTask: (Date?) -> Void
     let onScheduleInbox: () -> Void
     let onShowCalendarInTimeline: () -> Void
     let onPlaceReplanAtTime: (TimelinePlacementCandidate, Date) -> Void
 
     private let plan: TimelineCanvasLayoutPlan
+    private let stablePresentation: TimelineDayStablePresentation
+    @State private var isCanvasDropTargeted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     init(
@@ -4201,6 +4354,7 @@ struct DailyTimelineCanvas: View {
         placementCandidate: TimelinePlacementCandidate?,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
+        onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
         onAddTask: @escaping (Date?) -> Void,
         onScheduleInbox: @escaping () -> Void,
         onShowCalendarInTimeline: @escaping () -> Void,
@@ -4211,16 +4365,20 @@ struct DailyTimelineCanvas: View {
         self.placementCandidate = placementCandidate
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
+        self.onAnchorTap = onAnchorTap
         self.onAddTask = onAddTask
         self.onScheduleInbox = onScheduleInbox
         self.onShowCalendarInTimeline = onShowCalendarInTimeline
         self.onPlaceReplanAtTime = onPlaceReplanAtTime
+        self.stablePresentation = TimelineDayStablePresentation(projection: projection)
         let resolvedMetrics = TimelineSurfaceMetrics.make(for: layoutClass)
+        let interval = TaskerPerformanceTrace.begin("HomeTimelineCanvasPlanBuild")
         self.plan = TimelineCanvasLayoutPlan(
             projection: projection,
             bottomInset: bottomInset ?? resolvedMetrics.timelineBottomPadding,
             maxVisualColumns: TimelineCanvasLayoutPlan.maxVisualColumns(for: layoutClass)
         )
+        TaskerPerformanceTrace.end(interval)
     }
 
     var body: some View {
@@ -4231,7 +4389,7 @@ struct DailyTimelineCanvas: View {
 
     @ViewBuilder
     private func canvasBody(now: Date) -> some View {
-        let presentation = TimelineDayPresentation(projection: projection, now: now)
+        let presentation = TimelineDayPresentation(stable: stablePresentation, now: now)
         GeometryReader { proxy in
             let totalWidth = proxy.size.width
             let railMetrics = TimelineRailMetrics.make(for: layoutClass, surfaceMetrics: metrics)
@@ -4309,13 +4467,38 @@ struct DailyTimelineCanvas: View {
             }
         }
         .frame(height: plan.contentHeight)
-        .dropDestination(for: String.self) { items, location in
+        .overlay(alignment: .top) {
+            if placementCandidate != nil {
+                HStack(spacing: 8) {
+                    Image(systemName: isCanvasDropTargeted ? "clock.badge.checkmark.fill" : "clock.badge")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(isCanvasDropTargeted ? "Release to schedule" : "Drop on a time")
+                        .font(.tasker(.caption1).weight(.semibold))
+                }
+                .foregroundStyle(Color.tasker.accentPrimary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.tasker.accentWash.opacity(isCanvasDropTargeted ? 0.92 : 0.72), in: Capsule())
+                .overlay(Capsule().stroke(Color.tasker.accentPrimary.opacity(isCanvasDropTargeted ? 0.42 : 0.18), lineWidth: 1))
+                .scaleEffect(isCanvasDropTargeted && reduceMotion == false ? 1.035 : 1)
+                .padding(.top, 8)
+                .accessibilityIdentifier("home.needsReplan.hotZone.timeline")
+            }
+        }
+        .dropDestination(for: String.self, action: { items, location in
             guard let placementCandidate,
                   items.contains(placementCandidate.taskID.uuidString) else {
                 return false
             }
+            TaskerFeedback.success()
             onPlaceReplanAtTime(placementCandidate, plan.date(atY: location.y))
             return true
+        }, isTargeted: { newValue in
+            isCanvasDropTargeted = newValue
+        })
+        .onChange(of: isCanvasDropTargeted) { _, newValue in
+            guard newValue else { return }
+            TaskerFeedback.selection()
         }
     }
 
@@ -4401,7 +4584,8 @@ struct DailyTimelineCanvas: View {
             anchorView(
                 .init(anchor: model.anchor, y: positioned.y + (positioned.height / 2)),
                 row: presentation.row(for: model.anchor),
-                spineCenterX: spineCenterX
+                spineCenterX: spineCenterX,
+                totalWidth: totalWidth
             )
         case .meetingCard(let model):
             let row = presentation.row(for: model.item)
@@ -4515,7 +4699,8 @@ struct DailyTimelineCanvas: View {
     private func anchorView(
         _ anchor: TimelineCanvasLayoutPlan.PositionedAnchor,
         row: TimelineRenderableRow,
-        spineCenterX: CGFloat
+        spineCenterX: CGFloat,
+        totalWidth: CGFloat
     ) -> some View {
         let iconSize = metrics.expandedAnchorCircleSize
         let anchorCenterY = anchor.y
@@ -4547,9 +4732,21 @@ struct DailyTimelineCanvas: View {
                 .minimumScaleFactor(0.86)
         }
         .offset(x: railMetrics.routineTextLeadingX(iconSize: iconSize), y: max(anchorCenterY - 22, 0))
+        .accessibilityHidden(true)
+
+        Button {
+            onAnchorTap(anchor.anchor)
+        } label: {
+            Color.clear
+                .frame(width: totalWidth, height: max(iconSize, 52))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .offset(x: 0, y: max(anchorCenterY - max(iconSize, 52) / 2, 0))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(anchor.anchor.title), \(anchor.anchor.time.formatted(date: .omitted, time: .shortened))")
         .accessibilityValue(anchor.anchor.id == "wake" ? "Timeline start" : "Timeline end")
+        .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
     }
 
     private func timelineStem(
@@ -4846,10 +5043,12 @@ private struct DailyTimelineCompactView: View {
     let layoutClass: TaskerLayoutClass
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
+    let onAnchorTap: (TimelineAnchorItem) -> Void
     let onAddTask: () -> Void
     let onScheduleInbox: () -> Void
 
     private let plan: TimelineCompactLayoutPlan
+    private let stablePresentation: TimelineDayStablePresentation
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     init(
@@ -4857,6 +5056,7 @@ private struct DailyTimelineCompactView: View {
         layoutClass: TaskerLayoutClass,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
+        onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
         onAddTask: @escaping () -> Void,
         onScheduleInbox: @escaping () -> Void
     ) {
@@ -4864,15 +5064,19 @@ private struct DailyTimelineCompactView: View {
         self.layoutClass = layoutClass
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
+        self.onAnchorTap = onAnchorTap
         self.onAddTask = onAddTask
         self.onScheduleInbox = onScheduleInbox
+        self.stablePresentation = TimelineDayStablePresentation(projection: projection)
+        let interval = TaskerPerformanceTrace.begin("HomeTimelineCompactPlanBuild")
         self.plan = TimelineCompactLayoutPlan(projection: projection, layoutClass: layoutClass)
+        TaskerPerformanceTrace.end(interval)
     }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
             let now = timelineDisplayedNow(for: projection, timelineDate: timeline.date)
-            let presentation = TimelineDayPresentation(projection: projection, now: now)
+            let presentation = TimelineDayPresentation(stable: stablePresentation, now: now)
 
             let content = VStack(alignment: .leading, spacing: 0) {
                 ForEach(plan.entries.indices, id: \.self) { index in
@@ -4907,7 +5111,8 @@ private struct DailyTimelineCompactView: View {
             TimelineCompactAnchorRow(
                 anchor: anchor.anchor,
                 row: presentation.row(for: anchor.anchor),
-                layoutClass: layoutClass
+                layoutClass: layoutClass,
+                onTap: { onAnchorTap(anchor.anchor) }
             )
             .frame(minHeight: anchor.rowHeight, alignment: .center)
         case .item(let item):
@@ -4965,62 +5170,68 @@ private struct TimelineCompactAnchorRow: View {
     let anchor: TimelineAnchorItem
     let row: TimelineRenderableRow
     let layoutClass: TaskerLayoutClass
+    let onTap: () -> Void
 
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 0) {
-            Text(anchor.time.formatted(date: .omitted, time: .shortened))
-                .font(.tasker(.meta))
-                .foregroundStyle(Color.tasker.textSecondary)
-                .frame(width: metrics.compactTimeGutter, alignment: .trailing)
+        Button(action: onTap) {
+            HStack(alignment: .center, spacing: 0) {
+                Text(anchor.time.formatted(date: .omitted, time: .shortened))
+                    .font(.tasker(.meta))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .frame(width: metrics.compactTimeGutter, alignment: .trailing)
 
-            Color.clear
-                .frame(width: metrics.compactTimeToLaneGap)
-
-            Circle()
-                .fill(TimelineVisualTokens.anchorCapsuleFill)
-                .frame(width: metrics.compactAnchorCircleSize, height: metrics.compactAnchorCircleSize)
-                .overlay {
-                    Image(systemName: anchor.systemImageName)
-                        .font(.system(size: metrics.compactAnchorIconSize, weight: .semibold))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                        .accessibilityHidden(true)
-                }
-                .frame(width: metrics.compactLaneWidth)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(anchor.title)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                if let subtitle = row.subtitle, subtitle.isEmpty == false {
-                    Text(subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(TimelineVisualTokens.utilityText)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: 12)
-
-            if anchor.isActionable {
-                TimelineCompletionRing(
-                    color: Color.tasker.accentPrimary,
-                    isCompleted: false,
-                    isInteractive: false,
-                    label: anchor.title,
-                    action: {}
-                )
-                .frame(width: metrics.compactTrailingLaneWidth, alignment: .center)
-            } else {
                 Color.clear
-                    .frame(width: metrics.compactTrailingLaneWidth, height: 1)
+                    .frame(width: metrics.compactTimeToLaneGap)
+
+                Circle()
+                    .fill(TimelineVisualTokens.anchorCapsuleFill)
+                    .frame(width: metrics.compactAnchorCircleSize, height: metrics.compactAnchorCircleSize)
+                    .overlay {
+                        Image(systemName: anchor.systemImageName)
+                            .font(.system(size: metrics.compactAnchorIconSize, weight: .semibold))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(width: metrics.compactLaneWidth)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(anchor.title)
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                    if let subtitle = row.subtitle, subtitle.isEmpty == false {
+                        Text(subtitle)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(TimelineVisualTokens.utilityText)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 12)
+
+                if anchor.isActionable {
+                    TimelineCompletionRing(
+                        color: Color.tasker.accentPrimary,
+                        isCompleted: false,
+                        isInteractive: false,
+                        label: anchor.title,
+                        action: {}
+                    )
+                    .frame(width: metrics.compactTrailingLaneWidth, alignment: .center)
+                } else {
+                    Color.clear
+                        .frame(width: metrics.compactTrailingLaneWidth, height: 1)
+                }
             }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(anchor.title), \(anchor.time.formatted(date: .omitted, time: .shortened))")
         .accessibilityValue(anchor.id == "wake" ? "Timeline start" : "Timeline end")
+        .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
     }
 }
 
@@ -5177,8 +5388,10 @@ private struct DailyTimelineAgendaView: View {
     let layoutClass: TaskerLayoutClass
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
+    let onAnchorTap: (TimelineAnchorItem) -> Void
     let onAddTask: () -> Void
     let onScheduleInbox: () -> Void
+    private let stablePresentation: TimelineDayStablePresentation
 
     private enum Entry: Identifiable {
         case anchor(TimelineAnchorItem)
@@ -5232,16 +5445,39 @@ private struct DailyTimelineAgendaView: View {
         return result
     }
 
+    init(
+        projection: TimelineDayProjection,
+        layoutClass: TaskerLayoutClass,
+        onTaskTap: @escaping (TimelinePlanItem) -> Void,
+        onToggleComplete: @escaping (TimelinePlanItem) -> Void,
+        onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
+        onAddTask: @escaping () -> Void,
+        onScheduleInbox: @escaping () -> Void
+    ) {
+        self.projection = projection
+        self.layoutClass = layoutClass
+        self.onTaskTap = onTaskTap
+        self.onToggleComplete = onToggleComplete
+        self.onAnchorTap = onAnchorTap
+        self.onAddTask = onAddTask
+        self.onScheduleInbox = onScheduleInbox
+        self.stablePresentation = TimelineDayStablePresentation(projection: projection)
+    }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
             let now = timelineDisplayedNow(for: projection, timelineDate: timeline.date)
-            let presentation = TimelineDayPresentation(projection: projection, now: now)
+            let presentation = TimelineDayPresentation(stable: stablePresentation, now: now)
 
             VStack(alignment: .leading, spacing: 16) {
                 ForEach(entries) { entry in
                     switch entry {
                     case .anchor(let anchor):
-                        TimelineAgendaAnchorRow(anchor: anchor, row: presentation.row(for: anchor))
+                        TimelineAgendaAnchorRow(
+                            anchor: anchor,
+                            row: presentation.row(for: anchor),
+                            onTap: { onAnchorTap(anchor) }
+                        )
                             .environment(\.taskerLayoutClass, layoutClass)
                     case .gap(let gap):
                         TimelineGapPrompt(gap: gap, row: presentation.row(for: gap), onAddTask: onAddTask, onPlanBlock: onScheduleInbox)
@@ -5300,37 +5536,43 @@ private struct DailyTimelineAgendaView: View {
 private struct TimelineAgendaAnchorRow: View {
     let anchor: TimelineAnchorItem
     let row: TimelineRenderableRow
+    let onTap: () -> Void
     @Environment(\.taskerLayoutClass) private var layoutClass
 
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Circle()
-                .fill(TimelineVisualTokens.anchorCapsuleFill)
-                .frame(width: metrics.agendaAnchorCircleSize, height: metrics.agendaAnchorCircleSize)
-                .overlay {
-                    Image(systemName: anchor.systemImageName)
-                        .font(.system(size: metrics.agendaAnchorIconSize, weight: .semibold))
+        Button(action: onTap) {
+            HStack(alignment: .top, spacing: 14) {
+                Circle()
+                    .fill(TimelineVisualTokens.anchorCapsuleFill)
+                    .frame(width: metrics.agendaAnchorCircleSize, height: metrics.agendaAnchorCircleSize)
+                    .overlay {
+                        Image(systemName: anchor.systemImageName)
+                            .font(.system(size: metrics.agendaAnchorIconSize, weight: .semibold))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                            .accessibilityHidden(true)
+                    }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(anchor.time.formatted(date: .omitted, time: .shortened))
+                        .font(.tasker(.meta))
                         .foregroundStyle(Color.tasker.textSecondary)
-                        .accessibilityHidden(true)
-                }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(anchor.time.formatted(date: .omitted, time: .shortened))
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.textSecondary)
-                Text(anchor.title)
-                    .font(.tasker(.title3))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                if let subtitle = row.subtitle, subtitle.isEmpty == false {
-                    Text(subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(TimelineVisualTokens.utilityText)
+                    Text(anchor.title)
+                        .font(.tasker(.title3))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                    if let subtitle = row.subtitle, subtitle.isEmpty == false {
+                        Text(subtitle)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(TimelineVisualTokens.utilityText)
+                    }
                 }
             }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(anchor.title), \(anchor.time.formatted(date: .omitted, time: .shortened))")
+        .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
     }
 }
 
@@ -5677,6 +5919,9 @@ private struct TimelineWeekDayCell: View {
     let placementCandidate: TimelinePlacementCandidate?
     let onDropPlacement: (TimelinePlacementCandidate) -> Void
 
+    @State private var isDropTargeted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var paletteColor: Color {
         switch day.loadLevel {
         case .light:
@@ -5721,12 +5966,26 @@ private struct TimelineWeekDayCell: View {
         .padding(.horizontal, 4)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(isSelected ? Color.tasker.surfacePrimary : Color.tasker.surfacePrimary.opacity(0.85))
+                .fill(isDropTargeted ? Color.tasker.accentWash.opacity(0.86) : (isSelected ? Color.tasker.surfacePrimary : Color.tasker.surfacePrimary.opacity(0.85)))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(isSelected ? Color.tasker.accentPrimary.opacity(0.25) : Color.tasker.strokeHairline.opacity(0.45), lineWidth: 1)
+                .stroke(isDropTargeted ? Color.tasker.accentPrimary.opacity(0.48) : (isSelected ? Color.tasker.accentPrimary.opacity(0.25) : Color.tasker.strokeHairline.opacity(0.45)), lineWidth: isDropTargeted ? 1.5 : 1)
         )
+        .overlay(alignment: .bottom) {
+            if placementCandidate != nil {
+                Label(isDropTargeted ? "Release" : "Drop", systemImage: isDropTargeted ? "calendar.badge.checkmark" : "calendar.badge.plus")
+                    .font(.tasker(.caption2).weight(.semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.tasker.surfacePrimary.opacity(0.88), in: Capsule())
+                    .opacity(isDropTargeted ? 1 : 0.72)
+                    .padding(.bottom, 6)
+                    .accessibilityIdentifier("home.needsReplan.hotZone.day.\(day.id)")
+            }
+        }
+        .scaleEffect(isDropTargeted && reduceMotion == false ? 1.018 : 1)
         .contextMenu {
             if canStartReplan {
                 Button(replanAccessibilityLabel, systemImage: "arrow.triangle.2.circlepath") {
@@ -5739,13 +5998,20 @@ private struct TimelineWeekDayCell: View {
                 onStartReplan()
             }
         }
-        .dropDestination(for: String.self) { items, _ in
+        .dropDestination(for: String.self, action: { items, _ in
             guard let placementCandidate,
                   items.contains(placementCandidate.taskID.uuidString) else {
                 return false
             }
+            TaskerFeedback.success()
             onDropPlacement(placementCandidate)
             return true
+        }, isTargeted: { newValue in
+            isDropTargeted = newValue
+        })
+        .onChange(of: isDropTargeted) { _, newValue in
+            guard newValue else { return }
+            TaskerFeedback.selection()
         }
     }
 

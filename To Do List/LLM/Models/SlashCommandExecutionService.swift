@@ -1,6 +1,6 @@
 import Foundation
 
-struct SlashCommandTaskItem: Codable, Equatable {
+struct SlashCommandTaskItem: Codable, Equatable, Sendable {
     let taskID: UUID
     let title: String
     let projectName: String
@@ -9,14 +9,14 @@ struct SlashCommandTaskItem: Codable, Equatable {
     let taskSnapshot: TaskDefinition
 }
 
-struct SlashCommandTaskSection: Codable, Equatable {
+struct SlashCommandTaskSection: Codable, Equatable, Sendable {
     let id: String
     let title: String
     let tasks: [SlashCommandTaskItem]
     let totalCount: Int
 }
 
-struct SlashCommandExecutionResult: Codable, Equatable {
+struct SlashCommandExecutionResult: Codable, Equatable, Sendable {
     let commandID: SlashCommandID
     let commandLabel: String
     let summary: String
@@ -25,7 +25,7 @@ struct SlashCommandExecutionResult: Codable, Equatable {
     let generatedAtISO: String
 }
 
-enum SlashCommandExecutionError: LocalizedError {
+enum SlashCommandExecutionError: LocalizedError, Sendable {
     case repositoriesUnavailable
     case missingArgument(commandID: SlashCommandID)
     case entityNotFound(commandID: SlashCommandID, query: String)

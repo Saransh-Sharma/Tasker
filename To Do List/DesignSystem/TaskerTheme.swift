@@ -1,7 +1,7 @@
 import UIKit
 import Combine
 
-public struct TaskerTokenTraitContext: Hashable {
+public struct TaskerTokenTraitContext: Hashable, Sendable {
     public let colorScheme: UIUserInterfaceStyle
     public let contentSizeCategory: UIContentSizeCategory
     public let accessibilityContrast: UIAccessibilityContrast
@@ -45,6 +45,7 @@ public struct TaskerBrandPalette: Equatable {
     public let inkDark: UIColor
     public let parchmentLight: UIColor
 
+    @MainActor
     public static let sarvam = TaskerBrandPalette(
         brandEmerald: UIColor(taskerHex: "#293A18"),
         brandMagenta: UIColor(taskerHex: "#B1205F"),
@@ -124,6 +125,7 @@ public struct TaskerWidgetTokens: Equatable {
     }
 }
 
+@MainActor
 public struct TaskerTheme {
     public let index: Int
     public let palette: TaskerBrandPalette

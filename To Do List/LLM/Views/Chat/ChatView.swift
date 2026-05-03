@@ -64,7 +64,10 @@ struct ChatView: View {
     var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
     var onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
     var showsHistoryAction: Bool = true
+    var promptFocusRequestID: UInt64 = 0
+    var storageDegradedReason: String? = nil
     var onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil
+    var onPromptFocusChange: ((Bool) -> Void)? = nil
 
     @State var thinkingTime: TimeInterval?
 
@@ -79,6 +82,7 @@ struct ChatView: View {
     @State private var generationTask: _Concurrency.Task<Void, Never>?
     @State private var activationFocusTask: _Concurrency.Task<Void, Never>?
     @State private var contextInvalidationTask: _Concurrency.Task<Void, Never>?
+    @State private var slashCommandTask: _Concurrency.Task<Void, Never>?
     @State private var generationRunID: UUID?
     @State private var transcriptSnapshot: ChatTranscriptSnapshot = .empty
     @State private var pendingResponsePhase: ChatPendingResponsePhase = .idle
@@ -86,6 +90,7 @@ struct ChatView: View {
     @State private var promptSubmitTraceInterval: TaskerPerformanceInterval?
     @State private var evaSubmittedDraft: EvaSubmittedDraft?
     @State private var hasCompletedInitialTranscriptRender = false
+    @State private var consumedPromptFocusRequestID: UInt64 = 0
     @StateObject private var contextCoordinator = ChatContextCoordinator()
     @FocusState private var isProjectFieldFocused: Bool
 
@@ -292,6 +297,7 @@ struct ChatView: View {
             slashDraft: $slashDraft,
             slashPickerQuery: $slashPickerQuery,
             commandFeedback: commandFeedback,
+            storageDegradedReason: storageDegradedReason,
             projectQuery: projectQueryBinding,
             commandSuggestions: commandSuggestions,
             recentCommands: recentPickerCommands,
@@ -347,6 +353,7 @@ struct ChatView: View {
         )
         .onAppear {
             handleChatViewAppear()
+            handlePromptFocusRequestIfNeeded()
         }
         .onChange(of: prompt) { _, newValue in
             handlePromptChanged(newValue)
@@ -363,6 +370,9 @@ struct ChatView: View {
         }
         .onChange(of: isPromptFocused) { _, focused in
             handlePromptFocusChanged(focused)
+        }
+        .onChange(of: promptFocusRequestID) { _, _ in
+            handlePromptFocusRequestIfNeeded()
         }
         .onDisappear {
             handleChatViewDisappear()
@@ -473,10 +483,29 @@ struct ChatView: View {
     }
 
     @MainActor
+    private func handlePromptFocusRequestIfNeeded() {
+        guard promptFocusRequestID != 0 else { return }
+        guard consumedPromptFocusRequestID != promptFocusRequestID else { return }
+        consumedPromptFocusRequestID = promptFocusRequestID
+
+        _Concurrency.Task { @MainActor in
+            await _Concurrency.Task.yield()
+            await _Concurrency.Task.yield()
+            guard consumedPromptFocusRequestID == promptFocusRequestID else { return }
+            guard generationTask == nil else { return }
+            isProjectFieldFocused = false
+            isPromptFocused = true
+        }
+    }
+
+    @MainActor
     private func handleChatViewDisappear() {
+        onPromptFocusChange?(false)
         activationFocusTask?.cancel()
         activationFocusTask = nil
         projectLookupTask?.cancel()
+        slashCommandTask?.cancel()
+        slashCommandTask = nil
         contextInvalidationTask?.cancel()
         contextInvalidationTask = nil
         if let chatOpenTraceInterval {
@@ -494,6 +523,8 @@ struct ChatView: View {
         activationFocusTask?.cancel()
         activationFocusTask = nil
         projectLookupTask?.cancel()
+        slashCommandTask?.cancel()
+        slashCommandTask = nil
         contextInvalidationTask?.cancel()
         contextInvalidationTask = nil
         let threadChangeDecision = ChatThreadChangeCancellationPolicy.decision(
@@ -522,6 +553,7 @@ struct ChatView: View {
 
     @MainActor
     private func handlePromptFocusChanged(_ focused: Bool) {
+        onPromptFocusChange?(focused)
         if focused {
             guard generationTask == nil else { return }
             LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_prompt_focus")
@@ -738,9 +770,7 @@ struct ChatView: View {
                 return
             }
 
-            _Concurrency.Task {
-                await executeSlashCommand(invocation)
-            }
+            startSlashCommandTask(invocation)
             return
         }
 
@@ -764,9 +794,7 @@ struct ChatView: View {
                 return
             }
 
-            _Concurrency.Task {
-                await executeSlashCommand(invocation)
-            }
+            startSlashCommandTask(invocation)
             return
 
         case .missingRequiredArgument(let commandID, _):
@@ -931,7 +959,7 @@ struct ChatView: View {
             await MainActor.run {
                 _ = deliverEvaPlanPayload(
                     .text(
-                        content: "EVA could not finish this plan. Your prompt is saved; try again or create tasks manually. \(error.localizedDescription)",
+                            content: "\(AssistantIdentityText.currentSnapshot().displayName) could not finish this plan. Your prompt is saved; try again or create tasks manually. \(error.localizedDescription)",
                         sourceModelName: nil
                     ),
                     thread: thread,
@@ -969,7 +997,7 @@ struct ChatView: View {
                 await MainActor.run {
                     _ = deliverEvaPlanPayload(
                         .text(
-                            content: "EVA can preview this plan, but the apply pipeline is unavailable.",
+                            content: "\(AssistantIdentityText.currentSnapshot().displayName) can preview this plan, but the apply pipeline is unavailable.",
                             sourceModelName: plan.modelName
                         ),
                         thread: thread,
@@ -1013,7 +1041,7 @@ struct ChatView: View {
                 case .failure(let error):
                     _ = deliverEvaPlanPayload(
                         .text(
-                            content: "EVA could not save this plan for review. \(error.localizedDescription)",
+                            content: "\(AssistantIdentityText.currentSnapshot().displayName) could not save this plan for review. \(error.localizedDescription)",
                             sourceModelName: plan.modelName
                         ),
                         thread: thread,
@@ -1065,6 +1093,7 @@ struct ChatView: View {
 
     @MainActor
     private func executeSlashCommand(_ invocation: SlashCommandInvocation) async {
+        guard !Task.isCancelled else { return }
         guard let thread = ensureCurrentThread() else { return }
 
         let commandLabel = invocation.commandLabel
@@ -1086,12 +1115,14 @@ struct ChatView: View {
                 ?? invocation.argumentQuery?.trimmingCharacters(in: .whitespacesAndNewlines)
                 ?? ""
             if let resolvedName = await service.resolveArgumentName(for: invocation.id, matching: query) {
+                guard !Task.isCancelled else { return }
                 resolvedInvocation.resolvedArgument = resolvedName
             }
         }
 
         do {
             let result = try await service.execute(invocation: resolvedInvocation)
+            guard !Task.isCancelled else { return }
             let cardPayload = AssistantCardPayload(
                 cardType: .commandResult,
                 threadID: thread.id.uuidString,
@@ -1114,6 +1145,7 @@ struct ChatView: View {
                 ]
             )
         } catch {
+            guard !Task.isCancelled else { return }
             let failureMessage = (error as? LocalizedError)?.errorDescription ?? "Unable to run command right now."
             let recoveryQuery: String?
             if let slashError = error as? SlashCommandExecutionError {
@@ -1149,6 +1181,17 @@ struct ChatView: View {
                     "error": failureMessage
                 ]
             )
+        }
+    }
+
+    @MainActor
+    private func startSlashCommandTask(_ invocation: SlashCommandInvocation) {
+        slashCommandTask?.cancel()
+        slashCommandTask = _Concurrency.Task { @MainActor in
+            defer {
+                slashCommandTask = nil
+            }
+            await executeSlashCommand(invocation)
         }
     }
 
@@ -1770,13 +1813,33 @@ struct ChatView: View {
     @MainActor
     private func cancelActiveGeneration(reason: String) {
         let cancelledRunID = generationRunID
+        let hadGenerationTask = generationTask != nil
+        let hadSlashCommandTask = slashCommandTask != nil
         let shouldCancelEvaluator = llm.running ||
             llm.runtimePhase == .preparing ||
             llm.runtimePhase == .thinking ||
             llm.runtimePhase == .answering ||
             llm.runtimePhase == .stopping
+        if hadGenerationTask || hadSlashCommandTask || shouldCancelEvaluator {
+            TaskerPerformanceTrace.event("ChatGenerationCancelled")
+            logWarning(
+                event: "chat_generation_cancelled",
+                message: "Cancelled active chat generation or slash-command work",
+                component: "ChatView",
+                fields: [
+                    "reason": reason,
+                    "had_generation_task": hadGenerationTask ? "true" : "false",
+                    "had_slash_command_task": hadSlashCommandTask ? "true" : "false",
+                    "cancelled_evaluator": shouldCancelEvaluator ? "true" : "false",
+                    "run_id": cancelledRunID?.uuidString ?? "none",
+                    "thread_id": generatingThreadID?.uuidString ?? currentThread?.id.uuidString ?? "none"
+                ]
+            )
+        }
         generationTask?.cancel()
         generationTask = nil
+        slashCommandTask?.cancel()
+        slashCommandTask = nil
         generationRunID = nil
         generatingThreadID = nil
         if let promptSubmitTraceInterval {

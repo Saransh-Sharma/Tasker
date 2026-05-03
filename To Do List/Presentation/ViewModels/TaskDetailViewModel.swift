@@ -242,10 +242,12 @@ public final class TaskDetailViewModel: ObservableObject {
     }
 
     deinit {
-        autosaveWorkItem?.cancel()
-        pendingEditingMetadataTask?.cancel()
-        pendingSecondaryEnrichmentTask?.cancel()
-        pendingProjectScopedRefreshWorkItem?.cancel()
+        MainActor.assumeIsolated {
+            autosaveWorkItem?.cancel()
+            pendingEditingMetadataTask?.cancel()
+            pendingSecondaryEnrichmentTask?.cancel()
+            pendingProjectScopedRefreshWorkItem?.cancel()
+        }
     }
 
     public var selectedProjectName: String {

@@ -265,17 +265,17 @@ enum LLMSystemPromptComposer {
 }
 
 public extension ModelConfiguration {
-    enum ModelType {
+    enum ModelType: Sendable {
         case regular, reasoning
     }
 
-    enum ThinkingFormat {
+    enum ThinkingFormat: Sendable {
         case none
         case taggedThinkBlocks
         case plainTextPreamble
     }
 
-    enum ModelFamily {
+    enum ModelFamily: Sendable {
         case qwen3
         case qwen3_5Text
         case bonsai
@@ -604,7 +604,7 @@ enum LLMRuntimeSupportMatrix {
             return LLMModelCompatibilityResult(
                 modelName: model.name,
                 availability: .temporarilyUnavailable,
-                statusReason: "Local EVA models are not available in the iOS Simulator."
+                statusReason: "Local assistant models are not available in the iOS Simulator."
             )
         }
         #endif
@@ -612,7 +612,7 @@ enum LLMRuntimeSupportMatrix {
             return LLMModelCompatibilityResult(
                 modelName: model.name,
                 availability: .temporarilyUnavailable,
-                statusReason: "Bonsai 1-bit requires Prism-specific MLX kernels and is disabled while EVA uses the stable upstream Qwen runtime."
+                statusReason: "Bonsai 1-bit requires Prism-specific MLX kernels and is disabled while the assistant uses the stable upstream Qwen runtime."
             )
         }
         return LLMModelCompatibilityResult(
@@ -680,6 +680,7 @@ enum LLMRuntimeSmokeTester {
         )
     }
 
+    @MainActor
     static func run(
         model: ModelConfiguration,
         probe: (String) async throws -> LLMRuntimeSmokeMetrics
@@ -772,7 +773,7 @@ public extension ModelConfiguration {
         id: "prism-ml/Bonsai-1.7B-mlx-1bit"
     )
 
-    static var availableModels: [ModelConfiguration] = [
+    static let availableModels: [ModelConfiguration] = [
         qwen_3_0_6b_4bit,
         qwen_3_5_0_8b_optiq_4bit,
         qwen_3_5_0_8b_nexveridian_4bit,

@@ -1,13 +1,13 @@
 import Foundation
 
-enum SlashCommandCategory: String, Codable {
+enum SlashCommandCategory: String, Codable, Sendable {
     case planning
     case project
     case lifeArea
     case housekeeping
 }
 
-enum SlashCommandID: String, Codable, CaseIterable {
+enum SlashCommandID: String, Codable, CaseIterable, Sendable {
     case today
     case tomorrow
     case week
@@ -139,7 +139,7 @@ enum SlashCommandID: String, Codable, CaseIterable {
     }
 }
 
-struct SlashCommandDescriptor: Identifiable, Codable, Equatable {
+struct SlashCommandDescriptor: Identifiable, Codable, Equatable, Sendable {
     let id: SlashCommandID
     let shortDescription: String
     let example: String
@@ -150,7 +150,7 @@ struct SlashCommandDescriptor: Identifiable, Codable, Equatable {
     }
 }
 
-struct SlashCommandInvocation: Codable, Equatable {
+struct SlashCommandInvocation: Codable, Equatable, Sendable {
     var id: SlashCommandID
     var argumentQuery: String?
     var resolvedArgument: String?
@@ -201,7 +201,7 @@ struct SlashCommandInvocation: Codable, Equatable {
     }
 }
 
-enum SlashCommandParseResult: Equatable {
+enum SlashCommandParseResult: Equatable, Sendable {
     case notCommand
     case unknown(command: String)
     case missingRequiredArgument(commandID: SlashCommandID, partial: String?)

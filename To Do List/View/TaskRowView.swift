@@ -253,6 +253,7 @@ private struct TaskRowDerivedStateCacheKey: Hashable {
     let tagDisplaySignature: [String]
 }
 
+@MainActor
 private enum TaskRowDerivedStateCache {
     private static let lock = NSLock()
     private static let cacheLimit = 512
@@ -396,6 +397,7 @@ private enum TaskRowDerivedStateCache {
     }
 }
 
+@MainActor
 struct TaskRowView: View, Equatable {
     let task: TaskDefinition
     let fallbackIconSymbolName: String?
@@ -486,7 +488,7 @@ struct TaskRowView: View, Equatable {
         TaskerThemeManager.shared.tokens(for: layoutClass).color
     }
 
-    static func == (lhs: TaskRowView, rhs: TaskRowView) -> Bool {
+    nonisolated static func == (lhs: TaskRowView, rhs: TaskRowView) -> Bool {
         lhs.task.id == rhs.task.id &&
         lhs.task.updatedAt == rhs.task.updatedAt &&
         lhs.task.isComplete == rhs.task.isComplete &&

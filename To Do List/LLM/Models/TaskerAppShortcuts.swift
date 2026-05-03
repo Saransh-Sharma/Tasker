@@ -151,9 +151,9 @@ enum TaskerShortcutDependencyResolver {
 
 @available(iOS 16.0, macOS 13.0, *)
 struct AddTaskIntent: AppIntent {
-    static var title: LocalizedStringResource = "Add Task"
-    static var description = IntentDescription("Creates a new Inbox task without opening the app.")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "Add Task"
+    static let description = IntentDescription("Creates a new Inbox task without opening the app.")
+    static let openAppWhenRun = false
 
     @Parameter(title: "Title", requestValueDialog: IntentDialog("What task do you want to add?"))
     var taskTitle: String
@@ -193,9 +193,9 @@ struct AddTaskIntent: AppIntent {
 
 @available(iOS 16.0, macOS 13.0, *)
 struct OpenEvaChatIntent: AppIntent {
-    static var title: LocalizedStringResource = "Ask Eva"
-    static var description = IntentDescription("Opens Eva chat with your question prefilled.")
-    static var openAppWhenRun: Bool = true
+    static let title: LocalizedStringResource = "Ask Assistant"
+    static let description = IntentDescription("Opens assistant chat with your question prefilled.")
+    static let openAppWhenRun = true
 
     @Parameter(title: "Question")
     var prompt: String?
@@ -210,7 +210,7 @@ struct OpenEvaChatIntent: AppIntent {
             throw TaskerShortcutRuntimeError.handoffFailed(
                 error.localizedDescription.isEmpty == false
                     ? error.localizedDescription
-                    : "Tasker could not open Eva right now."
+                    : "Tasker could not open assistant chat right now."
             )
         }
     }
@@ -218,9 +218,9 @@ struct OpenEvaChatIntent: AppIntent {
 
 @available(iOS 16.0, macOS 13.0, *)
 struct StartFocusSessionIntent: AppIntent {
-    static var title: LocalizedStringResource = "Start Focus Session"
-    static var description = IntentDescription("Starts a 25-minute focus session using your current focus lane.")
-    static var openAppWhenRun: Bool = true
+    static let title: LocalizedStringResource = "Start Focus Session"
+    static let description = IntentDescription("Starts a 25-minute focus session using your current focus lane.")
+    static let openAppWhenRun = true
 
     func perform() async throws -> some IntentResult {
         do {
@@ -256,11 +256,11 @@ struct TaskerAppShortcutsProvider: AppShortcutsProvider {
         AppShortcut(
             intent: OpenEvaChatIntent(),
             phrases: [
-                "Ask Eva in \(.applicationName)",
+                "Ask assistant in \(.applicationName)",
                 "Ask \(.applicationName)",
-                "Open Eva in \(.applicationName)"
+                "Open assistant in \(.applicationName)"
             ],
-            shortTitle: "Ask Eva",
+            shortTitle: "Ask Assistant",
             systemImageName: "bubble.left.and.bubble.right"
         )
 

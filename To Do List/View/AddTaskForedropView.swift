@@ -47,6 +47,22 @@ struct AddTaskForedropView: View {
 
             ScrollView {
                 VStack(spacing: spacing.s16) {
+                    HStack(alignment: .center, spacing: spacing.s12) {
+                        EvaMascotView(placement: .taskCapture, size: .inline)
+                        VStack(alignment: .leading, spacing: spacing.s4) {
+                            Text("Capture it with \(AssistantIdentityText.currentSnapshot().displayName)")
+                                .font(.tasker(.headline))
+                                .foregroundStyle(Color.tasker.textPrimary)
+                            Text("Start with the task; details can come after.")
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker.textSecondary)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(spacing.s12)
+                    .background(Color.tasker.surfaceSecondary.opacity(0.72), in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+                    .enhancedStaggeredAppearance(index: 0)
+
                     AddTaskTitleField(
                         text: $viewModel.taskName,
                         isFocused: $titleFieldFocused,
@@ -57,13 +73,13 @@ struct AddTaskForedropView: View {
                         helperText: "Keep it short. You can clarify later.",
                         onSubmit: submitTask
                     )
-                    .enhancedStaggeredAppearance(index: 0)
+                    .enhancedStaggeredAppearance(index: 1)
 
                     AddTaskScheduleQuickEditor(viewModel: viewModel)
-                        .enhancedStaggeredAppearance(index: 1)
+                        .enhancedStaggeredAppearance(index: 2)
 
                     baseComposerSections
-                        .enhancedStaggeredAppearance(index: 2)
+                        .enhancedStaggeredAppearance(index: 3)
 
                     if viewModel.isCoreDetailsExpanded {
                         detailedSections
@@ -97,8 +113,17 @@ struct AddTaskForedropView: View {
             .padding(.horizontal, spacing.s16)
             .padding(.bottom, spacing.s16)
         }
-        .background(Color.tasker.surfacePrimary)
-        .accessibilityIdentifier("addTask.view")
+        .background {
+            ZStack(alignment: .topLeading) {
+                Color.tasker.surfacePrimary
+                Rectangle()
+                    .fill(Color.clear)
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Add Task")
+                    .accessibilityIdentifier("addTask.view")
+            }
+        }
         .sheet(isPresented: $isTaskIconPickerPresented) {
             AddTaskIconPickerSheet(
                 viewModel: viewModel,
@@ -187,15 +212,15 @@ struct AddTaskForedropView: View {
                 title: "Project",
                 helperText: "Choose a project or leave this in Inbox.",
                 options: viewModel.filteredProjectsForSelectedLifeArea.map {
-                    TaskerComposerOption(id: $0.name, title: $0.name, icon: nil, accentHex: nil)
+                    TaskerComposerOption(id: $0.id, title: $0.name, icon: nil, accentHex: nil)
                 },
-                selectedID: viewModel.selectedProject == ProjectConstants.inboxProjectName ? nil : viewModel.selectedProject,
+                selectedID: viewModel.selectedProjectID == ProjectConstants.inboxProjectID ? nil : viewModel.selectedProjectID,
                 noneOptionTitle: "Inbox",
                 emptyStateText: viewModel.filteredProjectsForSelectedLifeArea.isEmpty ? "No projects in this area." : nil,
                 accessibilityIdentifier: "addTask.projectSelector"
-            ) { selectedProject in
+            ) { selectedProjectID in
                 withAnimation(TaskerAnimation.snappy) {
-                    viewModel.selectedProject = selectedProject ?? ProjectConstants.inboxProjectName
+                    viewModel.selectProject(id: selectedProjectID)
                 }
             }
         }

@@ -271,7 +271,7 @@ struct EvaFocusWhyTaskCardPresentation: Equatable {
     static func make(task: TaskDefinition, insight: EvaFocusTaskInsight?) -> EvaFocusWhyTaskCardPresentation {
         let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
         let rationale = insight?.rationale.map(\.label).filter { !$0.isEmpty } ?? []
-        let summaryText = rationale.first ?? String(localized: "Eva selected this using urgency and effort balance.")
+        let summaryText = rationale.first ?? "\(AssistantIdentityText.currentSnapshot().displayName) selected this using urgency and effort balance."
 
         return EvaFocusWhyTaskCardPresentation(
             title: task.title,

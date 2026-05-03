@@ -471,9 +471,24 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             dueDate: dueDate,
             estimatedDuration: 30 * 60
         )
+        let contextLoaded = expectation(description: "Calendar context loaded with busy blocks")
+        contextLoaded.assertForOverFulfill = false
+        var didLoadContext = false
+        service.$snapshot
+            .sink { snapshot in
+                guard didLoadContext == false,
+                      provider.fetchEventsCallCount > 0,
+                      snapshot.isLoading == false,
+                      snapshot.busyBlocks.isEmpty == false else {
+                    return
+                }
+                didLoadContext = true
+                contextLoaded.fulfill()
+            }
+            .store(in: &cancellables)
 
         service.refreshContext(referenceDate: now, reason: "all_day_pipeline_independence")
-        waitForMainQueue(seconds: 0.2)
+        wait(for: [contextLoaded], timeout: 2.0)
 
         XCTAssertTrue(service.snapshot.eventsInRange.isEmpty, "Agenda should hide all-day events when toggle is disabled.")
         let hint = service.taskFitHint(for: task, now: now)
@@ -806,9 +821,27 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         let store = TaskerWorkspacePreferencesStore(defaults: defaults)
         store.save(TaskerWorkspacePreferences(selectedCalendarIDs: ["work"]))
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+        let diagnosticsRecorded = expectation(description: "Calendar load diagnostics recorded")
+        diagnosticsRecorded.assertForOverFulfill = false
+        var didRecordDiagnostics = false
+        service.$snapshot
+            .sink { snapshot in
+                guard didRecordDiagnostics == false,
+                      snapshot.isLoading == false,
+                      snapshot.eventsInRange.count == 1 else {
+                    return
+                }
+                DispatchQueue.main.async {
+                    let diagnostics = CalendarDiagnosticsStore.shared.recentEntriesText(limit: 20)
+                    guard diagnostics.contains("calendar_context_loaded") else { return }
+                    didRecordDiagnostics = true
+                    diagnosticsRecorded.fulfill()
+                }
+            }
+            .store(in: &cancellables)
 
         service.refreshContext(referenceDate: todayDate(hour: 8), reason: "diagnostics_counts")
-        waitForMainQueue(seconds: 0.2)
+        wait(for: [diagnosticsRecorded], timeout: 2.0)
 
         let diagnostics = CalendarDiagnosticsStore.shared.recentEntriesText(limit: 20)
         XCTAssertTrue(diagnostics.contains("calendar_context_loaded"))

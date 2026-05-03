@@ -1,5 +1,5 @@
 import Foundation
-import NaturalLanguage
+ import NaturalLanguage
 
 private final class TaskEmbeddingVectorBox: NSObject {
     let vector: [Double]
@@ -9,15 +9,35 @@ private final class TaskEmbeddingVectorBox: NSObject {
     }
 }
 
-struct TaskEmbeddingEngine {
-    typealias VectorProvider = (String) -> [Double]?
-
-    private static let sentenceEmbedding = NLEmbedding.sentenceEmbedding(for: .english)
-    private static let vectorCache: NSCache<NSString, TaskEmbeddingVectorBox> = {
+private final class TaskEmbeddingStorage: @unchecked Sendable {
+    private let lock = NSLock()
+    private let sentenceEmbedding = NLEmbedding.sentenceEmbedding(for: .english)
+    private let vectorCache: NSCache<NSString, TaskEmbeddingVectorBox> = {
         let cache = NSCache<NSString, TaskEmbeddingVectorBox>()
         cache.countLimit = 512
         return cache
     }()
+
+    func vector(for text: String) -> [Double]? {
+        let key = text as NSString
+        lock.lock()
+        if let cached = vectorCache.object(forKey: key) {
+            lock.unlock()
+            return cached.vector
+        }
+        let vector = sentenceEmbedding?.vector(for: text)
+        if let vector {
+            vectorCache.setObject(TaskEmbeddingVectorBox(vector: vector), forKey: key)
+        }
+        lock.unlock()
+        return vector
+    }
+}
+
+struct TaskEmbeddingEngine {
+    typealias VectorProvider = (String) -> [Double]?
+
+    private static let storage = TaskEmbeddingStorage()
 
     private let vectorProvider: VectorProvider
 
@@ -28,14 +48,7 @@ struct TaskEmbeddingEngine {
             return
         }
         self.vectorProvider = { text in
-            if let cached = Self.vectorCache.object(forKey: text as NSString) {
-                return cached.vector
-            }
-            guard let vector = Self.sentenceEmbedding?.vector(for: text) else {
-                return nil
-            }
-            Self.vectorCache.setObject(TaskEmbeddingVectorBox(vector: vector), forKey: text as NSString)
-            return vector
+            Self.storage.vector(for: text)
         }
     }
 

@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 enum LLMAssistantPipelineProvider {
     private static var pipelineStorage: AssistantActionPipelineUseCase?
 

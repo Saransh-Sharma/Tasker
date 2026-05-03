@@ -173,6 +173,31 @@ final class ChatCompletedChromeUITests: BaseUITest {
         XCTAssertTrue(app.buttons["chat.header.history"].exists || app.buttons["History"].exists, "History should live in the native navigation bar")
         XCTAssertFalse(app.buttons["chat.header.new_chat"].exists || app.buttons["New chat"].exists, "New chat should be hidden for a fresh empty chat")
         XCTAssertTrue(app.buttons["Back"].exists || app.buttons["Close"].exists, "Back or close should remain in the native navigation bar")
+
+        if app.staticTexts["Hi there!"].exists {
+            XCTAssertTrue(app.buttons["eva.structured.help"].exists, "Structured Eva help should remain reachable after replacing the questionmark artwork")
+        }
+    }
+
+    func testCompletedChatComposerOpensKeyboardFromBottomBarEntry() throws {
+        try openCompletedChatSurface()
+
+        let composer = waitForCompletedChatComposer(timeout: 5)
+        XCTAssertTrue(composer.exists, "Completed chat composer should be visible after opening Eva from the home chat button")
+
+        let textField = composer.textFields.firstMatch.exists
+            ? composer.textFields.firstMatch
+            : app.textFields.firstMatch
+        XCTAssertTrue(textField.waitForExistence(timeout: 2), "Chat composer text field should be reachable")
+
+        if textField.isHittable {
+            textField.tap()
+        } else {
+            textField.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "Chat composer should open the keyboard on the dedicated Eva screen")
+        textField.typeText("Plan my focus block")
     }
 
     @discardableResult
@@ -208,5 +233,16 @@ final class ChatCompletedChromeUITests: BaseUITest {
         }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func waitForCompletedChatComposer(timeout: TimeInterval) -> XCUIElement {
+        let structuredComposer = app.descendants(matching: .any)["eva.structured.composer"]
+        if structuredComposer.waitForExistence(timeout: timeout) {
+            return structuredComposer
+        }
+
+        let composer = app.descendants(matching: .any)["chat.composer.container"]
+        _ = composer.waitForExistence(timeout: timeout)
+        return composer
     }
 }

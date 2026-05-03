@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum HomeProjectGroupingMode: String, Codable, CaseIterable {
+public enum HomeProjectGroupingMode: String, Codable, CaseIterable, Sendable {
     case prioritizeOverdue
     case groupByProjects
 

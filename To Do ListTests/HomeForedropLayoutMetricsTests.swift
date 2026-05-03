@@ -8,6 +8,35 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(HomeDayLiquidSwipeSide.trailing.direction, .next)
     }
 
+    func testLiquidSwipeHandleInteractionStartsOncePerDragSequence() {
+        var state = HomeDayLiquidSwipeHandleInteractionState()
+
+        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
+        XCTAssertFalse(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
+
+        state.reset()
+
+        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
+    }
+
+    func testLiquidSwipeHandleInteractionResetsWhenUnavailable() {
+        var state = HomeDayLiquidSwipeHandleInteractionState()
+
+        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
+        XCTAssertFalse(state.startIfNeeded(isEnabled: false, isChromeVisible: true))
+        XCTAssertFalse(state.isActive)
+
+        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
+        XCTAssertFalse(state.startIfNeeded(isEnabled: true, isChromeVisible: false))
+        XCTAssertFalse(state.isActive)
+    }
+
+    func testScheduleFaceMapsToCalendarBottomBarItem() {
+        XCTAssertEqual(HomeForedropFace.schedule.selectedBottomBarItem, .calendar)
+        XCTAssertTrue(HomeForedropFace.schedule.isBackFace)
+        XCTAssertEqual(HomeForedropFace.schedule.surfaceAccessibilityValue, "fullReveal")
+    }
+
     func testLiquidSwipeEdgeStartMapsLeadingAndTrailingEdges() {
         let size = CGSize(width: 390, height: 760)
 
@@ -21,6 +50,34 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         )
     }
 
+    func testLiquidSwipeEdgeActivationWidthUsesTwentyPercentReduction() {
+        XCTAssertEqual(HomeDayLiquidSwipeData.edgeActivationWidth, 70.4, accuracy: 0.001)
+    }
+
+    func testLiquidSwipeEdgeStartUsesReducedLeadingBoundary() {
+        let size = CGSize(width: 390, height: 760)
+
+        XCTAssertEqual(
+            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 70.4, y: 300), containerSize: size),
+            .leading
+        )
+        XCTAssertNil(
+            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 70.5, y: 300), containerSize: size)
+        )
+    }
+
+    func testLiquidSwipeEdgeStartUsesReducedTrailingBoundary() {
+        let size = CGSize(width: 390, height: 760)
+
+        XCTAssertNil(
+            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 319.5, y: 300), containerSize: size)
+        )
+        XCTAssertEqual(
+            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 319.6, y: 300), containerSize: size),
+            .trailing
+        )
+    }
+
     func testLiquidSwipeEdgeStartIgnoresCenterDrag() {
         XCTAssertNil(
             HomeDayLiquidSwipeData.side(
@@ -28,6 +85,23 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
                 containerSize: CGSize(width: 390, height: 760)
             )
         )
+    }
+
+    func testLiquidSwipeRestingLedgeUsesCompactEightPointInset() {
+        let size = CGSize(width: 390, height: 760)
+        let leading = HomeDayLiquidSwipeData(side: .leading, containerSize: size)
+        let trailing = HomeDayLiquidSwipeData(side: .trailing, containerSize: size)
+
+        XCTAssertEqual(HomeDayLiquidSwipeData.waveMinLedge, 8, accuracy: 0.001)
+        XCTAssertEqual(leading.waveLedgeX, 8, accuracy: 0.001)
+        XCTAssertEqual(trailing.waveLedgeX, size.width - 8, accuracy: 0.001)
+    }
+
+    func testLiquidSwipeVisibleHandleUsesTwentyPercentReduction() {
+        XCTAssertEqual(HomeDayLiquidSwipeData.buttonRadius, 24, accuracy: 0.001)
+        XCTAssertEqual(HomeDayLiquidSwipeData.buttonVisualScale, 0.8, accuracy: 0.001)
+        XCTAssertEqual(HomeDayLiquidSwipeData.buttonVisualRadius, 19.2, accuracy: 0.001)
+        XCTAssertEqual(HomeDayLiquidSwipeData.buttonVisualRadius * 2, 38.4, accuracy: 0.001)
     }
 
     func testLiquidSwipeInitialHandlesShareTimelineStartHeight() {
@@ -1330,14 +1404,15 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0)
         let projection = Self.makeProjection(calendar: calendar, wake: wake, sleep: sleep, timedItems: [])
         let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, bottomInset: 120, calendar: calendar)
+        let empty = plan.visualElements.compactMap { positioned -> VisualTimelineElement.EmptyStateModel? in
+            guard case .emptyState(let model) = positioned.element else { return nil }
+            return model
+        }.first
 
         XCTAssertEqual(projection.timelineDensityMode, .sparse)
-        XCTAssertTrue(plan.visualElements.contains { positioned in
-            if case .emptyState(let model) = positioned.element {
-                return model.title == "No meetings today" && model.showsCalendarAction == false
-            }
-            return false
-        })
+        XCTAssertEqual(empty?.title, "No meetings today")
+        XCTAssertEqual(empty?.showsCalendarAction, false)
+        XCTAssertEqual(empty?.height, 96)
         XCTAssertGreaterThan(plan.endMarker.centerY, plan.spineExtent.fadeEndY)
         XCTAssertGreaterThanOrEqual(plan.contentHeight, plan.endMarker.centerY + 22 + 120)
     }
@@ -1380,6 +1455,7 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(empty?.title, "Calendar is hidden")
         XCTAssertEqual(empty?.secondaryTitle, "Show calendar")
         XCTAssertEqual(empty?.showsCalendarAction, true)
+        XCTAssertEqual(empty?.height, 96)
     }
 
     func testLightTimelineAddsOpenDayPromptForOneShortItem() {
@@ -1395,14 +1471,15 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
             ]
         )
         let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let empty = plan.visualElements.compactMap { positioned -> VisualTimelineElement.EmptyStateModel? in
+            guard case .emptyState(let model) = positioned.element else { return nil }
+            return model
+        }.first
 
         XCTAssertEqual(projection.timelineDensityMode, .lightTimeline)
-        XCTAssertTrue(plan.visualElements.contains { positioned in
-            if case .emptyState(let model) = positioned.element {
-                return model.id == "empty:light" && model.title == "Plenty of open time"
-            }
-            return false
-        })
+        XCTAssertEqual(empty?.id, "empty:light")
+        XCTAssertEqual(empty?.title, "Plenty of open time")
+        XCTAssertEqual(empty?.height, 96)
     }
 
     func testLongSingleItemStaysNormalTimelineMode() {
@@ -1898,6 +1975,7 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
 
     func testSurfaceAccessibilityValueContractRemainsStableForAllFaces() {
         XCTAssertEqual(HomeForedropFace.tasks.surfaceAccessibilityValue, "collapsed")
+        XCTAssertEqual(HomeForedropFace.schedule.surfaceAccessibilityValue, "fullReveal")
         XCTAssertEqual(HomeForedropFace.analytics.surfaceAccessibilityValue, "fullReveal")
         XCTAssertEqual(HomeForedropFace.search.surfaceAccessibilityValue, "fullReveal")
     }

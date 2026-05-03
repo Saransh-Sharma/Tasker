@@ -7,7 +7,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
     /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.context = container.newBackgroundContext()
-        self.context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     /// Executes fetchTasks.
@@ -125,6 +125,72 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                 )
                 completion(.success(TaskDefinitionSliceResult(
                     tasks: definitions,
+                    totalCount: totalCount,
+                    limit: query.limit,
+                    offset: query.offset
+                )))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func fetchNeedsReplanCandidates(
+        query: NeedsReplanCandidateQuery,
+        completion: @escaping (Result<NeedsReplanCandidateProjection, Error>) -> Void
+    ) {
+        context.perform {
+            do {
+                let predicate = self.needsReplanCandidatePredicate(for: query)
+                let entities = try self.fetchTaskEntities(
+                    predicate: predicate,
+                    sortDescriptors: self.needsReplanSortDescriptors(),
+                    limit: query.limit,
+                    offset: query.offset
+                )
+                let tasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(entities, context: self.context)
+                let totalCount = try self.totalCount(
+                    needsTotalCount: false,
+                    predicate: predicate,
+                    loadedCount: tasks.count,
+                    limit: query.limit,
+                    offset: query.offset
+                )
+                completion(.success(NeedsReplanCandidateProjection(
+                    tasks: tasks,
+                    totalCount: totalCount,
+                    limit: query.limit,
+                    offset: query.offset
+                )))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func fetchHomeTimelineProjection(
+        query: HomeTimelineTaskProjectionQuery,
+        completion: @escaping (Result<HomeTimelineTaskProjection, Error>) -> Void
+    ) {
+        context.perform {
+            do {
+                let predicate = self.homeTimelineProjectionPredicate(for: query)
+                let entities = try self.fetchTaskEntities(
+                    predicate: predicate,
+                    sortDescriptors: self.homeTimelineSortDescriptors(),
+                    limit: query.limit,
+                    offset: query.offset
+                )
+                let tasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(entities, context: self.context)
+                let totalCount = try self.totalCount(
+                    needsTotalCount: false,
+                    predicate: predicate,
+                    loadedCount: tasks.count,
+                    limit: query.limit,
+                    offset: query.offset
+                )
+                completion(.success(HomeTimelineTaskProjection(
+                    tasks: tasks,
                     totalCount: totalCount,
                     limit: query.limit,
                     offset: query.offset
@@ -580,6 +646,120 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
 
         guard predicates.isEmpty == false else { return nil }
         return NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+    }
+
+    private func needsReplanCandidatePredicate(for query: NeedsReplanCandidateQuery) -> NSPredicate {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: query.referenceDate)
+        var predicates: [NSPredicate] = [
+            NSPredicate(format: "isComplete == NO"),
+            NSPredicate(format: "parentTaskID == nil"),
+            NSPredicate(format: "repeatPatternData == nil"),
+            NSPredicate(format: "recurrenceSeriesID == nil"),
+            NSPredicate(format: "habitDefinitionID == nil")
+        ]
+
+        if query.activeProjectIDs.isEmpty == false {
+            predicates.append(NSPredicate(format: "projectID IN %@", query.activeProjectIDs))
+        }
+
+        let datedPredicate: NSPredicate
+        if let scopedDate = query.scopedDate {
+            let scopedStart = calendar.startOfDay(for: scopedDate)
+            let scopedEnd = calendar.date(byAdding: .day, value: 1, to: scopedStart) ?? scopedStart
+            datedPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    NSPredicate(format: "dueDate >= %@", scopedStart as NSDate),
+                    NSPredicate(format: "dueDate < %@", scopedEnd as NSDate),
+                    NSPredicate(format: "dueDate < %@", todayStart as NSDate)
+                ]),
+                NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    NSPredicate(format: "scheduledStartAt >= %@", scopedStart as NSDate),
+                    NSPredicate(format: "scheduledStartAt < %@", scopedEnd as NSDate),
+                    NSPredicate(format: "scheduledStartAt < %@", todayStart as NSDate)
+                ])
+            ])
+        } else {
+            var candidatePredicates: [NSPredicate] = [
+                NSPredicate(format: "dueDate < %@", todayStart as NSDate),
+                NSPredicate(format: "scheduledStartAt < %@", todayStart as NSDate)
+            ]
+            if query.includeUnscheduledBacklog {
+                candidatePredicates.append(NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    NSPredicate(format: "dueDate == nil"),
+                    NSPredicate(format: "scheduledStartAt == nil"),
+                    NSPredicate(format: "scheduledEndAt == nil")
+                ]))
+            }
+            datedPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: candidatePredicates)
+        }
+
+        predicates.append(datedPredicate)
+        return NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+    }
+
+    private func homeTimelineProjectionPredicate(for query: HomeTimelineTaskProjectionQuery) -> NSPredicate {
+        let calendar = Calendar.current
+        let selectedDay = calendar.startOfDay(for: query.selectedDay)
+        let selectedDayEnd = calendar.date(byAdding: .day, value: 1, to: selectedDay) ?? selectedDay
+        var predicates: [NSPredicate] = [
+            NSPredicate(format: "parentTaskID == nil")
+        ]
+
+        if query.includeCompleted == false {
+            predicates.append(NSPredicate(format: "isComplete == NO"))
+        }
+        if query.projectIDs.isEmpty == false {
+            predicates.append(NSPredicate(format: "projectID IN %@", query.projectIDs))
+        }
+
+        let rangePredicates: [NSPredicate] = [
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "scheduledStartAt >= %@", selectedDay as NSDate),
+                NSPredicate(format: "scheduledStartAt < %@", selectedDayEnd as NSDate)
+            ]),
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "dueDate >= %@", selectedDay as NSDate),
+                NSPredicate(format: "dueDate < %@", selectedDayEnd as NSDate)
+            ]),
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "scheduledStartAt >= %@", query.weekStart as NSDate),
+                NSPredicate(format: "scheduledStartAt < %@", query.weekEnd as NSDate)
+            ]),
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "dueDate >= %@", query.weekStart as NSDate),
+                NSPredicate(format: "dueDate < %@", query.weekEnd as NSDate)
+            ]),
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "projectID == %@", ProjectConstants.inboxProjectID as CVarArg),
+                NSPredicate(format: "isComplete == NO"),
+                NSPredicate(format: "dueDate == nil"),
+                NSPredicate(format: "scheduledStartAt == nil"),
+                NSPredicate(format: "scheduledEndAt == nil")
+            ])
+        ]
+
+        predicates.append(NSCompoundPredicate(orPredicateWithSubpredicates: rangePredicates))
+        return NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+    }
+
+    private func needsReplanSortDescriptors() -> [NSSortDescriptor] {
+        [
+            NSSortDescriptor(key: "dueDate", ascending: false),
+            NSSortDescriptor(key: "scheduledStartAt", ascending: false),
+            NSSortDescriptor(key: "priority", ascending: false),
+            NSSortDescriptor(key: "updatedAt", ascending: true),
+            NSSortDescriptor(key: "title", ascending: true, selector: #selector(NSString.localizedStandardCompare(_:)))
+        ]
+    }
+
+    private func homeTimelineSortDescriptors() -> [NSSortDescriptor] {
+        [
+            NSSortDescriptor(key: "scheduledStartAt", ascending: true),
+            NSSortDescriptor(key: "dueDate", ascending: true),
+            NSSortDescriptor(key: "updatedAt", ascending: false),
+            NSSortDescriptor(key: "title", ascending: true, selector: #selector(NSString.localizedStandardCompare(_:)))
+        ]
     }
 
     private func projectCompletionScoreTotals(from startDate: Date, to endDate: Date) throws -> [UUID: Int] {

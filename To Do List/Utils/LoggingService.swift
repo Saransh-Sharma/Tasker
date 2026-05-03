@@ -36,7 +36,7 @@ public enum LogLevel: Int {
 }
 
 /// Logging service for consistent application-wide logging
-final class LoggingService {
+final class LoggingService: @unchecked Sendable {
     // MARK: - Properties
 
     /// Singleton instance for global access
@@ -56,14 +56,15 @@ final class LoggingService {
 
     /// System logger object
     private let osLog: OSLog
+    private let stateLock = NSLock()
 
-    /// Timestamp formatter (UTC, fixed precision for stable logs)
-    private static let timestampFormatter: ISO8601DateFormatter = {
+    /// Timestamp formatter factory (UTC, fixed precision for stable logs)
+    private static func makeTimestampFormatter() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
-    }()
+    }
 
     static let defaultLogPreviewLength = 160
 
@@ -87,6 +88,8 @@ final class LoggingService {
     /// Set the minimum log level to display
     /// - Parameter level: The minimum log level
     func setMinimumLogLevel(_ level: LogLevel) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
         self.minimumLogLevel = level
     }
 
@@ -96,6 +99,8 @@ final class LoggingService {
     func configureFromLaunchArguments(_ arguments: [String]) {
         if arguments.contains("-TASKER_VERBOSE_LOGS")
             || arguments.contains("-TASKER_VERBOSE_PERF_TRACE") {
+            stateLock.lock()
+            defer { stateLock.unlock() }
             minimumLogLevel = .debug
         }
     }
@@ -105,6 +110,8 @@ final class LoggingService {
     ///   - enabled: Whether to log to a file
     ///   - fileURL: Optional custom file URL; if nil, uses default location
     func configureFileLogging(enabled: Bool, fileURL: URL? = nil) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
         self.logToFile = enabled
 
         if let customURL = fileURL {
@@ -128,10 +135,17 @@ final class LoggingService {
         function: String = #function,
         line: Int = #line
     ) {
+        stateLock.lock()
+        let minimumLogLevel = self.minimumLogLevel
+        let logToConsole = self.logToConsole
+        let logToFile = self.logToFile
+        let logFileURL = self.logFileURL
+        stateLock.unlock()
+
         guard level.rawValue >= minimumLogLevel.rawValue else { return }
 
         let cmp = component ?? Self.componentName(from: file)
-        let ts = Self.timestampFormatter.string(from: Date())
+        let ts = Self.makeTimestampFormatter().string(from: Date())
 
         var chunks: [String] = [
             "ts=\(ts)",
@@ -331,6 +345,9 @@ final class LoggingService {
         let fullMessage = message + "\n"
         guard let data = fullMessage.data(using: .utf8) else { return }
 
+        stateLock.lock()
+        defer { stateLock.unlock() }
+
         // Append to log file or create it if it doesn't exist
         if FileManager.default.fileExists(atPath: fileURL.path) {
             do {
@@ -348,7 +365,7 @@ final class LoggingService {
     }
 }
 
-public struct TaskerPerformanceInterval {
+public struct TaskerPerformanceInterval: Sendable {
     fileprivate let name: StaticString
     fileprivate let signpostID: OSSignpostID?
     fileprivate let isEnabled: Bool
@@ -428,14 +445,14 @@ public enum TaskerPerformanceTrace {
 
 enum TaskerMemoryDiagnostics {
     #if DEBUG
-    private static let byteFormatter: ByteCountFormatter = {
+    private static func makeByteFormatter() -> ByteCountFormatter {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useMB]
         formatter.countStyle = .memory
         formatter.includesUnit = true
         formatter.isAdaptive = true
         return formatter
-    }()
+    }
     #endif
 
     static func checkpoint(
@@ -449,11 +466,11 @@ enum TaskerMemoryDiagnostics {
         var resolvedFields = fields
         if let residentBytes = residentFootprintBytes() {
             resolvedFields["resident_mb"] = String(format: "%.1f", Double(residentBytes) / 1_048_576)
-            resolvedFields["resident_human"] = byteFormatter.string(fromByteCount: Int64(residentBytes))
+            resolvedFields["resident_human"] = makeByteFormatter().string(fromByteCount: Int64(residentBytes))
         }
         if let physFootprintBytes = physicalFootprintBytes() {
             resolvedFields["phys_footprint_mb"] = String(format: "%.1f", Double(physFootprintBytes) / 1_048_576)
-            resolvedFields["phys_footprint_human"] = byteFormatter.string(fromByteCount: Int64(physFootprintBytes))
+            resolvedFields["phys_footprint_human"] = makeByteFormatter().string(fromByteCount: Int64(physFootprintBytes))
         }
         for key in counts.keys.sorted() {
             resolvedFields[key] = String(counts[key] ?? 0)

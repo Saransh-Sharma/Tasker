@@ -1,22 +1,22 @@
 import Foundation
 
-public enum HabitKind: String, Codable, CaseIterable, Hashable {
+public enum HabitKind: String, Codable, CaseIterable, Hashable, Sendable {
     case positive
     case negative
 }
 
-public enum HabitTrackingMode: String, Codable, CaseIterable, Hashable {
+public enum HabitTrackingMode: String, Codable, CaseIterable, Hashable, Sendable {
     case dailyCheckIn
     case lapseOnly
 }
 
-public enum HabitRiskState: String, Codable, CaseIterable, Hashable {
+public enum HabitRiskState: String, Codable, CaseIterable, Hashable, Sendable {
     case stable
     case atRisk
     case broken
 }
 
-public struct HabitIconMetadata: Codable, Equatable, Hashable {
+public struct HabitIconMetadata: Codable, Equatable, Hashable, Sendable {
     public var symbolName: String
     public var categoryKey: String
 
@@ -26,7 +26,7 @@ public struct HabitIconMetadata: Codable, Equatable, Hashable {
     }
 }
 
-public struct HabitTargetConfig: Codable, Equatable, Hashable {
+public struct HabitTargetConfig: Codable, Equatable, Hashable, Sendable {
     public var notes: String?
     public var targetCountPerDay: Int?
 
@@ -36,7 +36,7 @@ public struct HabitTargetConfig: Codable, Equatable, Hashable {
     }
 }
 
-public struct HabitMetricConfig: Codable, Equatable, Hashable {
+public struct HabitMetricConfig: Codable, Equatable, Hashable, Sendable {
     public var unitLabel: String?
     public var showNotesOnCompletion: Bool
 
@@ -60,7 +60,7 @@ public enum HabitCadenceDraft: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-public enum HabitOccurrenceAction: String, Codable, CaseIterable, Hashable {
+public enum HabitOccurrenceAction: String, Codable, CaseIterable, Hashable, Sendable {
     case complete
     case skip
     case abstained
@@ -85,7 +85,7 @@ public struct HabitDayMark: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-public enum HabitColorFamily: String, Codable, CaseIterable, Hashable {
+public enum HabitColorFamily: String, Codable, CaseIterable, Hashable, Sendable {
     case green
     case blue
     case orange
@@ -287,7 +287,7 @@ public struct HabitBoardRowPresentation: Equatable, Hashable, Identifiable {
     }
 }
 
-public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable {
+public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let habitID: UUID
     public let occurrenceID: UUID?
     public var title: String
@@ -350,7 +350,7 @@ public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable
     }
 }
 
-public struct HabitHistoryWindow: Codable, Equatable, Hashable {
+public struct HabitHistoryWindow: Codable, Equatable, Hashable, Sendable {
     public let habitID: UUID
     public let marks: [HabitDayMark]
 

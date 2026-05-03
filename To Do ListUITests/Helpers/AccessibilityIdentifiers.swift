@@ -36,7 +36,7 @@ enum AccessibilityIdentifiers {
         static let settingsButton = "home.settingsButton"
         static let backToTodayButton = "home.backToToday.button"
         static let reflectionReadyButton = "home.reflectionReady.button"
-        static let topChromeXPProgress = "home.topChrome.xpProgress"
+        static let topChromeDayProgress = "home.topChrome.dayProgress"
         static let projectFilterButton = "home.focus.menu.button"
         static let quickFilterMenuButton = "home.focus.menu.button"
         static let quickFilterMenuContainer = "home.focus.menu.container"
@@ -59,6 +59,8 @@ enum AccessibilityIdentifiers {
         static let calendarStateError = "home.calendar.state.error"
         static let calendarConnect = "home.calendar.connect"
         static let calendarRetry = "home.calendar.retry"
+        static let previousDayHandle = "homeCalendar.previousDayHandle"
+        static let nextDayHandle = "homeCalendar.nextDayHandle"
         static let focusStrip = "home.focus.strip"
         static let focusDropZone = "home.focus.dropzone"
         static let focusTitleTap = "home.focus.titleTap"
@@ -162,6 +164,7 @@ enum AccessibilityIdentifiers {
         static let reminderToggle = "addTask.reminderToggle"
         static let reminderTimePicker = "addTask.reminderTimePicker"
         static let saveButton = "addTask.saveButton"
+        static let createButton = "addTask.createButton"
         static let cancelButton = "addTask.cancelButton"
 
         // Validation
@@ -260,6 +263,9 @@ enum AccessibilityIdentifiers {
         static let appVersionRow = "settings.appVersionRow"
         static let aboutSection = "settings.aboutSection"
         static let onboardingRestartButton = "settings.onboarding.restartButton"
+        static let chiefOfStaffCard = "settings.chiefOfStaff.card"
+        static let chiefOfStaffName = "settings.chiefOfStaff.name"
+        static func chiefOfStaffPersona(_ id: String) -> String { "settings.chiefOfStaff.persona.\(id)" }
     }
 
     // MARK: - Onboarding
@@ -280,16 +286,21 @@ enum AccessibilityIdentifiers {
         static let evaValue = "onboarding.evaValue"
         static let lifeAreas = "onboarding.lifeAreas"
         static let habitSetup = "onboarding.habitSetup"
+        static let workStyle = "onboarding.workStyle"
+        static let workBlockers = "onboarding.workBlockers"
+        static let weeklyOutcomes = "onboarding.weeklyOutcomes"
         static let streakPreview = "onboarding.streakPreview"
         static let evaStyle = "onboarding.evaStyle"
         static let processing = "onboarding.processing"
         static let firstTask = "onboarding.firstTask"
+        static let homeDemo = "onboarding.homeDemo"
         static let focusRoom = "onboarding.focusRoom"
         static let habitCheckIn = "onboarding.habitCheckIn"
         static let calendarPermission = "onboarding.calendarPermission"
         static let notificationPermission = "onboarding.notificationPermission"
         static let success = "onboarding.success"
         static let skipButton = "onboarding.skipButton"
+        static let nextButton = "onboarding.cta.next"
         static let frictionHelper = "onboarding.friction.helper"
         static let useAreas = "onboarding.cta.useAreas"
         static let customHabit = "onboarding.cta.customHabit"
@@ -304,6 +315,13 @@ enum AccessibilityIdentifiers {
         static let promptStart = "onboarding.prompt.start"
         static let promptDismiss = "onboarding.prompt.dismiss"
         static let finish = "onboarding.success"
+        static let calendarPermissionHero = "onboarding.calendarPermission.hero"
+        static let notificationPermissionHero = "onboarding.notificationPermission.hero"
+        static let weeklyOutcomeAdd = "onboarding.weeklyOutcomes.add"
+        static let homeDemoTimeline = "onboarding.homeDemo.timeline"
+        static let homeDemoHabits = "onboarding.homeDemo.habits"
+        static func mascotPersona(_ id: String) -> String { "onboarding.mascot.persona.\(id)" }
+        static func weeklyOutcomeField(_ index: Int) -> String { "onboarding.weeklyOutcomes.field.\(index)" }
     }
 
     // MARK: - Project Management Screen

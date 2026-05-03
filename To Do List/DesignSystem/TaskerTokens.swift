@@ -1,6 +1,6 @@
 import UIKit
 
-public enum TaskerLayoutClass: String, CaseIterable {
+public enum TaskerLayoutClass: String, CaseIterable, Sendable {
     case phone
     case padCompact
     case padRegular
@@ -11,7 +11,7 @@ public enum TaskerLayoutClass: String, CaseIterable {
     }
 }
 
-public struct TaskerLayoutMetrics {
+public struct TaskerLayoutMetrics: Sendable {
     public let width: CGFloat
     public let height: CGFloat
     public let idiom: UIUserInterfaceIdiom
@@ -54,6 +54,7 @@ public enum TaskerLayoutResolver {
     }
 
     /// Executes classify.
+    @MainActor
     public static func classify(windowScene: UIWindowScene?) -> TaskerLayoutClass {
         guard let windowScene else { return .phone }
         let size = windowScene.coordinateSpace.bounds.size
@@ -72,10 +73,12 @@ public enum TaskerLayoutResolver {
     }
 
     /// Executes classify.
+    @MainActor
     public static func classify(view: UIView) -> TaskerLayoutClass {
         classify(metrics: metrics(for: view))
     }
 
+    @MainActor
     static func metrics(for view: UIView) -> TaskerLayoutMetrics {
         let bounds = view.bounds
         let fallbackBounds = view.window?.windowScene?.coordinateSpace.bounds ?? view.window?.bounds

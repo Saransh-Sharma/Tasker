@@ -5,7 +5,7 @@
 //  Ultra-compact contextual guidance row.
 //
 
-import SwiftUI
+ import SwiftUI
 
 struct NextActionModule: View {
     let openTaskCount: Int

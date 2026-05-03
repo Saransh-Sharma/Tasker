@@ -124,8 +124,8 @@ private struct TransformersTokenizerAdapter: MLXLMCommon.Tokenizer {
     }
 }
 
-struct LLMGenerationRequestOptions {
-    enum ChatMode {
+struct LLMGenerationRequestOptions: Sendable {
+    enum ChatMode: Sendable {
         case answerOnly
         case thinkingThenAnswer
     }

@@ -7,9 +7,10 @@
 //
 
 import Foundation
-import DGCharts
+@preconcurrency import DGCharts
 
-public class DayAxisValueFormatter: NSObject, AxisValueFormatter {
+@MainActor
+public class DayAxisValueFormatter: NSObject, @preconcurrency AxisValueFormatter {
     weak var chart: BarLineChartViewBase?
     let months = ["Jan", "Feb", "Mar",
                   "Apr", "May", "Jun",
@@ -116,4 +117,3 @@ public class DayAxisValueFormatter: NSObject, AxisValueFormatter {
         }
     }
 }
-

@@ -7,6 +7,7 @@ struct ModelsSettingsView: View {
     @Environment(\.taskerLayoutClass) private var layoutClass
 
     @State private var showOnboardingInstallModelView = false
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -49,7 +50,7 @@ struct ModelsSettingsView: View {
             VStack(spacing: 0) {
                 TaskerSettingsHeroCard(
                     eyebrow: "Models",
-                    title: "Choose Eva’s model",
+                    title: "Choose \(assistantIdentity.snapshot.displayName)’s model",
                     subtitle: "Keep the default model fast, or install stronger local models when needed.",
                     statusItems: heroItems
                 )

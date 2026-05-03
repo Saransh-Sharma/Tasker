@@ -8,15 +8,15 @@
 import Foundation
 
 /// Protocol defining caching operations for performance optimization
-public protocol CacheServiceProtocol {
+public protocol CacheServiceProtocol: Sendable {
     
     // MARK: - Cache Operations
     
     /// Store an object in cache
-    func set<T: Codable>(_ object: T, forKey key: String, expiration: CacheExpiration?)
+    func set<T: Codable & Sendable>(_ object: T, forKey key: String, expiration: CacheExpiration?)
     
     /// Retrieve an object from cache
-    func get<T: Codable>(_ type: T.Type, forKey key: String) -> T?
+    func get<T: Codable & Sendable>(_ type: T.Type, forKey key: String) -> T?
     
     /// Remove an object from cache
     func remove(forKey key: String)
@@ -67,7 +67,7 @@ public protocol CacheServiceProtocol {
 // MARK: - Supporting Types
 
 /// Cache expiration policy
-public enum CacheExpiration {
+public enum CacheExpiration: Sendable {
     case never
     case seconds(TimeInterval)
     case minutes(Int)
@@ -94,7 +94,7 @@ public enum CacheExpiration {
 }
 
 /// Cache statistics
-public struct CacheStatistics {
+public struct CacheStatistics: Sendable {
     public let totalRequests: Int
     public let cacheHits: Int
     public let cacheMisses: Int

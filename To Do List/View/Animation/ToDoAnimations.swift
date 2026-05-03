@@ -7,8 +7,9 @@
 //
 
 import Foundation
-import DGCharts
+@preconcurrency import DGCharts
 
+@MainActor
 class ToDoAnimations  {
     
     /// Executes animateTinyPieChartAtHome.

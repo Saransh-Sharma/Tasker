@@ -660,7 +660,7 @@ public struct UpdateProjectRequest {
 
 // MARK: - Result Models
 
-public struct ProjectWithStats {
+public struct ProjectWithStats: Sendable {
     public let project: Project
     public let taskCount: Int
     public let completedTaskCount: Int

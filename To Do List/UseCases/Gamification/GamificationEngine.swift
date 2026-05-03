@@ -134,7 +134,7 @@ public extension Notification {
 }
 
 /// Result returned after recording an XP event, used by UI for celebrations.
-public struct XPCelebrationPayload {
+public struct XPCelebrationPayload: Sendable {
     public let awardedXP: Int
     public let level: Int
     public let didLevelUp: Bool
@@ -143,7 +143,7 @@ public struct XPCelebrationPayload {
     public let occurredAt: Date
 }
 
-public struct XPEventResult {
+public struct XPEventResult: Sendable {
     public let awardedXP: Int
     public let totalXP: Int64
     public let level: Int
@@ -421,6 +421,7 @@ public final class GamificationEngine {
                     let focusFromSessions = todayFocusSessions.reduce(0) { $0 + max(0, $1.durationSeconds / 60) }
                     snapshot.focusMinutesToday = max(focusFromEvents, focusFromSessions)
                     snapshot.save()
+                    WatchWidgetSnapshotSync.shared.sendGamificationSnapshot(snapshot)
                     self.reloadWidgetTimelines()
                 }
             }

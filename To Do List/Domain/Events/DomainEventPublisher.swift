@@ -18,6 +18,7 @@ public protocol DomainEventHandler {
 }
 
 /// Domain event publisher using Combine for reactive event handling
+@MainActor
 public final class DomainEventPublisher: ObservableObject {
     
     // MARK: - Singleton

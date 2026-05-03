@@ -1,6 +1,6 @@
 import Foundation
 
-public struct FocusSessionDefinition: Codable, Equatable, Hashable {
+public struct FocusSessionDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var taskID: UUID?
     public var startedAt: Date

@@ -1,6 +1,7 @@
 import UIKit
 
 @discardableResult
+@MainActor
 func addBrandPalettePreview(to contentView: UIView, theme: TaskerTheme) -> BrandPalettePreviewView {
     let preview = BrandPalettePreviewView(theme: theme)
     contentView.addSubview(preview)

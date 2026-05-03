@@ -1,6 +1,6 @@
 import Foundation
 
-struct TaskIconOption: Identifiable, Equatable, Hashable, Decodable {
+struct TaskIconOption: Identifiable, Equatable, Hashable, Decodable, Sendable {
     let symbolName: String
     let displayName: String
     let searchTerms: [String]
@@ -10,19 +10,19 @@ struct TaskIconOption: Identifiable, Equatable, Hashable, Decodable {
     var id: String { symbolName }
 }
 
-enum TaskIconSelectionSource: Equatable {
+enum TaskIconSelectionSource: Equatable, Sendable {
     case auto
     case manual
 }
 
-enum TaskIconFallbackReason: String, Equatable {
+enum TaskIconFallbackReason: String, Equatable, Sendable {
     case semantic
     case project
     case category
     case checklist
 }
 
-struct TaskIconResolution: Equatable {
+struct TaskIconResolution: Equatable, Sendable {
     let selectedSymbolName: String
     let autoSuggestedSymbolName: String?
     let rankedSuggestions: [TaskIconOption]
@@ -46,10 +46,10 @@ protocol TaskIconResolver {
     func option(for symbolName: String) -> TaskIconOption?
 }
 
-final class DefaultTaskIconResolver: TaskIconResolver {
+final class DefaultTaskIconResolver: TaskIconResolver, @unchecked Sendable {
     static let shared = DefaultTaskIconResolver()
 
-    private struct Storage {
+    private struct Storage: Sendable {
         let options: [TaskIconOption]
         let optionsBySymbol: [String: TaskIconOption]
         let optionIndexBySymbol: [String: Int]

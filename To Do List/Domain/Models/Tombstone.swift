@@ -1,6 +1,6 @@
 import Foundation
 
-public struct TombstoneDefinition: Codable, Equatable, Hashable {
+public struct TombstoneDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var entityType: String
     public var entityID: UUID

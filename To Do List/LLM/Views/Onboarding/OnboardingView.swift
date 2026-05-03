@@ -41,6 +41,7 @@ private struct EvaFeatureRow: View {
 
 struct OnboardingView: View {
     @Binding var showOnboarding: Bool
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     private let features: [(icon: String, title: String, subtitle: String)] = [
         ("bolt.fill", "fast", "optimized for apple silicon"),
@@ -72,7 +73,7 @@ struct OnboardingView: View {
                     }
 
                     VStack(spacing: TaskerTheme.Spacing.xs) {
-                        Text("I am Eva !")
+                        Text("I am \(assistantIdentity.snapshot.displayName)")
                             .font(.tasker(.display))
                             .foregroundColor(Color.tasker(.textPrimary))
                         Text("your personal AI assistant")

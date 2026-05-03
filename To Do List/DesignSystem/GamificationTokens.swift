@@ -72,7 +72,7 @@ public enum GamificationTokens {
 
     // MARK: - Spring Parameters
 
-    public struct SpringConfig {
+    public struct SpringConfig: Sendable {
         public let response: Double
         public let dampingFraction: Double
 

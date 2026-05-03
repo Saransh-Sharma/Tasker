@@ -7,21 +7,21 @@
 
 import Foundation
 
-class LGSearchViewModel {
+final class LGSearchViewModel: @unchecked Sendable {
 
-    enum StatusFilterType: Hashable {
+    enum StatusFilterType: Hashable, Sendable {
         case all
         case today
         case overdue
         case completed
     }
 
-    private struct CorpusCacheKey: Hashable {
+    private struct CorpusCacheKey: Hashable, Sendable {
         let revision: Int
         let status: StatusFilterType
     }
 
-    private struct SearchCacheKey: Hashable {
+    private struct SearchCacheKey: Hashable, Sendable {
         let cacheRevision: Int
         let status: StatusFilterType
         let normalizedQuery: String
@@ -29,7 +29,7 @@ class LGSearchViewModel {
         let priorities: [Int32]
     }
 
-    private struct PreparedTask {
+    private struct PreparedTask: Sendable {
         let task: TaskDefinition
         let normalizedTitle: String
         let normalizedDetails: String
@@ -37,20 +37,20 @@ class LGSearchViewModel {
         let mappedPriority: Int32
     }
 
-    private final class SearchComputationWorker {
+    private final class SearchComputationWorker: @unchecked Sendable {
         private let queue = DispatchQueue(label: "tasker.search.computation", qos: .userInitiated)
 
         func compute(
             preparedTasks: [PreparedTask],
             cacheKey: SearchCacheKey,
-            filter: @escaping ([PreparedTask], SearchCacheKey) -> [PreparedTask],
-            group: @escaping ([PreparedTask]) -> [(project: String, tasks: [TaskDefinition])],
-            completion: @escaping ([PreparedTask], [(project: String, tasks: [TaskDefinition])]) -> Void
+            filter: @escaping @Sendable ([PreparedTask], SearchCacheKey) -> [PreparedTask],
+            group: @escaping @Sendable ([PreparedTask]) -> [(project: String, tasks: [TaskDefinition])],
+            completion: @escaping @Sendable ([PreparedTask], [(project: String, tasks: [TaskDefinition])]) -> Void
         ) {
             queue.async {
                 let filteredPreparedTasks = filter(preparedTasks, cacheKey)
                 let groupedResults = group(filteredPreparedTasks)
-                DispatchQueue.main.async {
+                OperationQueue.main.addOperation {
                     completion(filteredPreparedTasks, groupedResults)
                 }
             }
@@ -183,7 +183,7 @@ class LGSearchViewModel {
     /// Executes loadProjects.
     func loadProjects(completion: (() -> Void)? = nil) {
         useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
-            DispatchQueue.main.async {
+            OperationQueue.main.addOperation {
                 if case .success(let projectsWithStats) = result {
                     let nextProjects = projectsWithStats.map(\.project)
                     if self?.projects != nextProjects {
@@ -244,7 +244,7 @@ class LGSearchViewModel {
             return
         }
         useCaseCoordinator.gamificationEngine.fetchTodayXP { result in
-            DispatchQueue.main.async {
+            OperationQueue.main.addOperation {
                 let resolvedXP = (try? result.get()).map { max(0, $0) }
                 completion(resolvedXP)
             }
@@ -257,7 +257,7 @@ class LGSearchViewModel {
             taskID: taskID,
             to: isComplete
         ) { result in
-            DispatchQueue.main.async {
+            OperationQueue.main.addOperation {
                 if case .failure(let error) = result {
                     logError(
                         event: "search_toggle_completion_failed",
@@ -276,7 +276,7 @@ class LGSearchViewModel {
     /// Executes deleteTask.
     func deleteTask(taskID: UUID, scope: TaskDeleteScope = .single, completion: @escaping (Bool) -> Void) {
         useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID, scope: scope) { result in
-            DispatchQueue.main.async {
+            OperationQueue.main.addOperation {
                 if case .failure(let error) = result {
                     logError(
                         event: "search_delete_task_failed",
@@ -295,7 +295,7 @@ class LGSearchViewModel {
     /// Executes rescheduleTask.
     func rescheduleTask(taskID: UUID, to newDate: Date?, completion: @escaping (Bool) -> Void) {
         useCaseCoordinator.rescheduleTaskDefinition.execute(taskID: taskID, newDate: newDate) { result in
-            DispatchQueue.main.async {
+            OperationQueue.main.addOperation {
                 if case .failure(let error) = result {
                     logError(
                         event: "search_reschedule_task_failed",
@@ -320,7 +320,7 @@ class LGSearchViewModel {
         var normalizedRequest = request
         normalizedRequest.updatedAt = Date()
         useCaseCoordinator.updateTaskDefinition.execute(request: normalizedRequest) { result in
-            DispatchQueue.main.async {
+            OperationQueue.main.addOperation {
                 if case .failure(let error) = result {
                     logError(
                         event: "search_update_task_failed",
@@ -465,7 +465,7 @@ class LGSearchViewModel {
         completion: @escaping (Result<[TaskDefinition], Error>) -> Void
     ) {
         useCaseCoordinator.getTaskChildren.execute(parentTaskID: parentTaskID) { result in
-            DispatchQueue.main.async {
+            OperationQueue.main.addOperation {
                 completion(result)
             }
         }
@@ -477,7 +477,7 @@ class LGSearchViewModel {
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
     ) {
         useCaseCoordinator.createTaskDefinition.execute(request: request) { result in
-            DispatchQueue.main.async {
+            OperationQueue.main.addOperation {
                 completion(result.mapError { $0 as Error })
             }
         }
@@ -489,7 +489,7 @@ class LGSearchViewModel {
         completion: @escaping (Result<TagDefinition, Error>) -> Void
     ) {
         useCaseCoordinator.manageTags.create(name: name, color: nil, icon: nil) { result in
-            DispatchQueue.main.async {
+            OperationQueue.main.addOperation {
                 completion(result.mapError { $0 as Error })
             }
         }
@@ -501,7 +501,7 @@ class LGSearchViewModel {
         completion: @escaping (Result<Project, Error>) -> Void
     ) {
         useCaseCoordinator.manageProjects.createProject(request: CreateProjectRequest(name: name)) { result in
-            DispatchQueue.main.async {
+            OperationQueue.main.addOperation {
                 completion(result.mapError { $0 as Error })
             }
         }
@@ -568,7 +568,7 @@ class LGSearchViewModel {
     }
 
     private func clearSearchResultsIfCurrent(revision: Int, requestID: Int) {
-        DispatchQueue.main.async { [weak self] in
+        OperationQueue.main.addOperation { [weak self] in
             guard let self else { return }
             guard requestID == self.latestSearchRequestID else { return }
             self.searchResults = []
@@ -583,7 +583,7 @@ class LGSearchViewModel {
         revision: Int,
         requestID: Int
     ) {
-        DispatchQueue.main.async { [weak self] in
+        OperationQueue.main.addOperation { [weak self] in
             guard let self else { return }
             guard requestID == self.latestSearchRequestID else { return }
             self.searchResults = filteredTasks
@@ -643,7 +643,7 @@ class LGSearchViewModel {
             switch result {
             case .success(let tasks):
                 let preparedTasks = self.prepareTasks(tasks)
-                DispatchQueue.main.async {
+                OperationQueue.main.addOperation {
                     self.corpusCache[cacheKey] = preparedTasks
                     completion(preparedTasks)
                 }
@@ -653,7 +653,7 @@ class LGSearchViewModel {
                     message: "Failed to fetch tasks for search",
                     fields: ["error": error.localizedDescription]
                 )
-                DispatchQueue.main.async {
+                OperationQueue.main.addOperation {
                     completion([])
                 }
             }

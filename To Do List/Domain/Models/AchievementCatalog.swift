@@ -1,13 +1,13 @@
 import Foundation
 
-public struct AchievementDefinition {
+public struct AchievementDefinition: Sendable {
     public let key: String
     public let name: String
     public let description: String
     public let sfSymbol: String
     public let category: AchievementCategory
 
-    public enum AchievementCategory: String, CaseIterable {
+    public enum AchievementCategory: String, CaseIterable, Sendable {
         case completion
         case streak
         case xp

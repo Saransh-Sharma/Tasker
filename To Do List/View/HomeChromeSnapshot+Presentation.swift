@@ -14,26 +14,26 @@ struct HomeHeaderMetadataItem: Equatable, Identifiable {
     let tone: Tone
 }
 
-struct HomeHeaderXPProgressModel: Equatable {
-    let earnedXP: Int
-    let targetXP: Int
+struct HomeHeaderDayProgressModel: Equatable {
+    let completedCount: Int
+    let totalCount: Int
+    let remainingCount: Int
     let progressFraction: Double
-    let isStreakSafeToday: Bool
+    let isComplete: Bool
     let accessibilityLabel: String
 }
 
 struct HomeHeaderTodayStatusModel: Equatable {
-    let xpText: String
     let completionText: String
     let streakText: String
     let streakAccessibilityLabel: String
 
     var displayText: String {
-        [xpText, completionText, streakText].joined(separator: " · ")
+        [completionText, streakText].joined(separator: " · ")
     }
 
     var accessibilityLabel: String {
-        "\(xpText), \(completionText), \(streakAccessibilityLabel)"
+        "\(completionText), \(streakAccessibilityLabel)"
     }
 }
 
@@ -48,13 +48,18 @@ struct HomeHeaderPresentationModel: Equatable {
     let todayStatus: HomeHeaderTodayStatusModel?
     let showsReflectionCTA: Bool
     let reflectionCTATitle: String
-    let xpProgress: HomeHeaderXPProgressModel?
+    let dayProgress: HomeHeaderDayProgressModel?
     let hasActiveFilters: Bool
 }
 
 extension HomeChromeSnapshot {
-    func homeHeaderPresentation(tasks: HomeTasksSnapshot) -> HomeHeaderPresentationModel {
+    func homeHeaderPresentation(
+        tasks: HomeTasksSnapshot,
+        habits: HomeHabitsSnapshot = .empty
+    ) -> HomeHeaderPresentationModel {
         let datePresentation = homeHeaderDatePresentation
+        let dayProgress = headerDayProgress(tasks: tasks, habits: habits)
+        let todayStatus = headerTodayStatus(progress: dayProgress)
         return HomeHeaderPresentationModel(
             viewLabel: activeScope.quickView.title,
             compactDateText: datePresentation?.compactDateText,
@@ -62,11 +67,11 @@ extension HomeChromeSnapshot {
             foregroundRelativeLabel: datePresentation?.foregroundRelativeLabel,
             dateAccessibilityLabel: datePresentation?.dateAccessibilityLabel,
             showsBackToToday: shouldShowBackToToday,
-            statusText: headerStatusText(tasks: tasks),
-            todayStatus: headerTodayStatus,
+            statusText: headerStatusText(tasks: tasks, todayStatus: todayStatus),
+            todayStatus: todayStatus,
             showsReflectionCTA: shouldShowReflectionCTA,
             reflectionCTATitle: "Reflect",
-            xpProgress: headerXPProgress,
+            dayProgress: dayProgress,
             hasActiveFilters: homeActiveFilterCount > 0
         )
     }
@@ -97,27 +102,44 @@ extension HomeChromeSnapshot {
         return false
     }
 
-    private var headerXPProgress: HomeHeaderXPProgressModel? {
+    private func headerDayProgress(
+        tasks: HomeTasksSnapshot,
+        habits: HomeHabitsSnapshot
+    ) -> HomeHeaderDayProgressModel? {
         guard case .today = activeScope else {
             return nil
         }
 
-        let targetXP = resolvedTodayTargetXP
-        guard targetXP > 0 else { return nil }
+        let taskCounts = tasks.dueTodayTaskProgress(on: selectedDate)
+        let habitCounts = habits.dueTodayHabitProgress(on: selectedDate)
+        let completedCount = taskCounts.completed + habitCounts.completed
+        let totalCount = taskCounts.total + habitCounts.total
+        let remainingCount = max(0, totalCount - completedCount)
+        let progressFraction = totalCount > 0
+            ? min(1, Double(completedCount) / Double(totalCount))
+            : 1
 
-        return HomeHeaderXPProgressModel(
-            earnedXP: progressState.earnedXP,
-            targetXP: targetXP,
-            progressFraction: min(1, Double(progressState.earnedXP) / Double(max(targetXP, 1))),
-            isStreakSafeToday: progressState.isStreakSafeToday,
-            accessibilityLabel: "XP progress, \(progressState.earnedXP) of \(targetXP) XP"
+        return HomeHeaderDayProgressModel(
+            completedCount: completedCount,
+            totalCount: totalCount,
+            remainingCount: remainingCount,
+            progressFraction: progressFraction,
+            isComplete: remainingCount == 0,
+            accessibilityLabel: dayProgressAccessibilityLabel(
+                completedCount: completedCount,
+                totalCount: totalCount,
+                remainingCount: remainingCount
+            )
         )
     }
 
-    private func headerStatusText(tasks: HomeTasksSnapshot) -> String? {
+    private func headerStatusText(
+        tasks: HomeTasksSnapshot,
+        todayStatus: HomeHeaderTodayStatusModel?
+    ) -> String? {
         switch activeScope {
         case .today:
-            return headerTodayStatus?.displayText
+            return todayStatus?.displayText
         case .customDate:
             return selectedDateStatusText(tasks: tasks)
         case .upcoming:
@@ -133,31 +155,35 @@ extension HomeChromeSnapshot {
         }
     }
 
-    private var headerTodayStatus: HomeHeaderTodayStatusModel? {
+    private func headerTodayStatus(progress: HomeHeaderDayProgressModel?) -> HomeHeaderTodayStatusModel? {
         guard case .today = activeScope else { return nil }
+        guard let progress else { return nil }
 
-        let completionPercent = Int((completionRate * 100).rounded())
-        let xpTarget = resolvedTodayTargetXP
-        let xpText = xpTarget > 0
-            ? "\(progressState.earnedXP)/\(xpTarget) XP"
-            : "\(dailyScore) XP"
+        let completionText: String
+        if progress.totalCount == 0 {
+            completionText = "All clear"
+        } else {
+            let completionPercent = Int((progress.progressFraction * 100).rounded())
+            completionText = "\(completionPercent)% done"
+        }
 
         return HomeHeaderTodayStatusModel(
-            xpText: xpText,
-            completionText: "\(completionPercent)%",
+            completionText: completionText,
             streakText: "\(progressState.streakDays)d",
             streakAccessibilityLabel: "\(progressState.streakDays) day streak"
         )
     }
 
-    private var resolvedTodayTargetXP: Int {
-        if progressState.todayTargetXP > 0 {
-            return progressState.todayTargetXP
+    private func dayProgressAccessibilityLabel(
+        completedCount: Int,
+        totalCount: Int,
+        remainingCount: Int
+    ) -> String {
+        guard totalCount > 0 else {
+            return "Today progress, nothing due today"
         }
-        if V2FeatureFlags.gamificationV2Enabled {
-            return GamificationTokens.dailyXPCap
-        }
-        return 0
+
+        return "Today progress, \(completedCount) of \(totalCount) due items done, \(remainingCount) left"
     }
 
     private func selectedDateStatusText(tasks: HomeTasksSnapshot) -> String {
@@ -241,6 +267,31 @@ private struct HomeHeaderDatePresentation: Equatable {
 }
 
 private extension HomeTasksSnapshot {
+    func dueTodayTaskProgress(on date: Date) -> (completed: Int, total: Int) {
+        var tasksByID: [UUID: TaskDefinition] = [:]
+
+        let sectionRows = todayAgendaSectionState.sections.flatMap(\.rows)
+        let fallbackRows = dueTodaySection?.rows ?? []
+        let taskRows = (sectionRows + fallbackRows + focusRows).compactMap { row -> TaskDefinition? in
+            guard case .task(let task) = row else { return nil }
+            return task
+        }
+
+        for task in morningTasks + eveningTasks + taskRows + inlineCompletedTasks {
+            tasksByID[task.id] = task
+        }
+
+        let dueTodayTasks = tasksByID.values.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return Calendar.current.isDate(dueDate, inSameDayAs: date)
+        }
+
+        return (
+            completed: dueTodayTasks.filter(\.isComplete).count,
+            total: dueTodayTasks.count
+        )
+    }
+
     var selectedDateMixedCounts: (taskCount: Int, habitCount: Int) {
         let todayRows = todayAgendaSectionState.sections.flatMap(\.rows)
         let rows = todayRows.isEmpty
@@ -254,6 +305,41 @@ private extension HomeTasksSnapshot {
             case .habit:
                 result.habitCount += 1
             }
+        }
+    }
+}
+
+private extension HomeHabitsSnapshot {
+    func dueTodayHabitProgress(on date: Date) -> (completed: Int, total: Int) {
+        var rowsByHabitID: [UUID: HomeHabitRow] = [:]
+        let rows = habitHomeSectionState.primaryRows
+            + habitHomeSectionState.recoveryRows
+            + quietTrackingSummaryState.stableRows
+
+        for row in rows {
+            rowsByHabitID[row.habitID] = row
+        }
+
+        let dueTodayRows = rowsByHabitID.values.filter { row in
+            guard row.isHeaderDueTodayCandidate else { return false }
+            guard let dueAt = row.dueAt else { return true }
+            return Calendar.current.isDate(dueAt, inSameDayAs: date)
+        }
+
+        return (
+            completed: dueTodayRows.filter { $0.state == .completedToday }.count,
+            total: dueTodayRows.count
+        )
+    }
+}
+
+private extension HomeHabitRow {
+    var isHeaderDueTodayCandidate: Bool {
+        switch state {
+        case .due, .completedToday, .lapsedToday, .skippedToday:
+            return true
+        case .overdue, .tracking:
+            return false
         }
     }
 }

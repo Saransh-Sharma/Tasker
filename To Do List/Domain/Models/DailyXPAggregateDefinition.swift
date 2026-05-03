@@ -1,6 +1,6 @@
 import Foundation
 
-public struct DailyXPAggregateDefinition: Codable, Equatable, Hashable {
+public struct DailyXPAggregateDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var dateKey: String
     public var totalXP: Int

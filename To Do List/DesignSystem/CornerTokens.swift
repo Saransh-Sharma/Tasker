@@ -1,6 +1,6 @@
 import UIKit
 
-public struct TaskerCornerTokens: TaskerTokenGroup {
+public struct TaskerCornerTokens: TaskerTokenGroup, Sendable {
     public let r0: CGFloat
     public let r1: CGFloat
     public let r2: CGFloat

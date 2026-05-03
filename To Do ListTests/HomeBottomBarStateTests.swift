@@ -117,6 +117,123 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertEqual(state.selectedItem, .home)
     }
 
+    func testChatForedropFaceMapsToChatBottomBarItemAndFullReveal() {
+        XCTAssertEqual(HomeForedropFace.chat.selectedBottomBarItem, .chat)
+        XCTAssertTrue(HomeForedropFace.chat.isBackFace)
+        XCTAssertEqual(HomeForedropFace.chat.surfaceAccessibilityValue, "fullReveal")
+    }
+
+    func testIPadChatDestinationUsesHomeChatFace() {
+        XCTAssertEqual(HomeiPadDestination.chat.homeFace, .chat)
+        XCTAssertTrue(HomeiPadDestination.chat.isPrimaryHomeDestination)
+    }
+
+    func testChatPromptFocusRequestIncrementsRequestID() {
+        let coordinator = HomeFaceCoordinator()
+
+        XCTAssertEqual(coordinator.chatPromptFocusRequestID, 0)
+
+        coordinator.requestChatPromptFocus()
+        XCTAssertEqual(coordinator.chatPromptFocusRequestID, 1)
+
+        coordinator.requestChatPromptFocus()
+        XCTAssertEqual(coordinator.chatPromptFocusRequestID, 2)
+    }
+
+    func testChatBottomBarConcealsWhenPromptFocused() {
+        XCTAssertTrue(HomeBottomBarVisibilityPolicy.shouldConcealBottomBar(
+            activeFace: .chat,
+            isPromptFocused: true,
+            keyboardOverlapHeight: 0
+        ))
+    }
+
+    func testChatBottomBarConcealsWhenKeyboardOverlaps() {
+        XCTAssertTrue(HomeBottomBarVisibilityPolicy.shouldConcealBottomBar(
+            activeFace: .chat,
+            isPromptFocused: false,
+            keyboardOverlapHeight: 240
+        ))
+    }
+
+    func testIdleChatKeepsBottomBarAvailableAndAppliesComposerClearance() {
+        XCTAssertFalse(HomeBottomBarVisibilityPolicy.shouldConcealBottomBar(
+            activeFace: .chat,
+            isPromptFocused: false,
+            keyboardOverlapHeight: 0
+        ))
+
+        XCTAssertEqual(
+            HomeBottomBarVisibilityPolicy.chatComposerClearance(
+                layoutClass: .phone,
+                bottomOverlayObstruction: 72,
+                keyboardOverlapHeight: 0,
+                isBottomBarConcealed: false,
+                idleSpacing: 40,
+                idleExtraSpacing: 24,
+                keyboardSpacing: 12,
+                regularSpacing: 24
+            ),
+            136
+        )
+    }
+
+    func testNonChatFacesDoNotConcealBottomBarForPromptFocusOrKeyboard() {
+        XCTAssertFalse(HomeBottomBarVisibilityPolicy.shouldConcealBottomBar(
+            activeFace: .tasks,
+            isPromptFocused: true,
+            keyboardOverlapHeight: 240
+        ))
+    }
+
+    func testChatComposerClearancePrefersKeyboardOverBottomBar() {
+        XCTAssertEqual(
+            HomeBottomBarVisibilityPolicy.chatComposerClearance(
+                layoutClass: .phone,
+                bottomOverlayObstruction: 72,
+                keyboardOverlapHeight: 240,
+                isBottomBarConcealed: true,
+                idleSpacing: 40,
+                idleExtraSpacing: 24,
+                keyboardSpacing: 16,
+                regularSpacing: 24
+            ),
+            256
+        )
+    }
+
+    func testChatComposerClearanceUsesRegularSpacingWhenBottomBarIsNotObstructing() {
+        XCTAssertEqual(
+            HomeBottomBarVisibilityPolicy.chatComposerClearance(
+                layoutClass: .phone,
+                bottomOverlayObstruction: 0,
+                keyboardOverlapHeight: 0,
+                isBottomBarConcealed: false,
+                idleSpacing: 40,
+                idleExtraSpacing: 24,
+                keyboardSpacing: 12,
+                regularSpacing: 24
+            ),
+            24
+        )
+    }
+
+    func testFocusedChatComposerClearanceKeepsIdleLiftBeforeKeyboardFrameArrives() {
+        XCTAssertEqual(
+            HomeBottomBarVisibilityPolicy.chatComposerClearance(
+                layoutClass: .phone,
+                bottomOverlayObstruction: 72,
+                keyboardOverlapHeight: 0,
+                isBottomBarConcealed: true,
+                idleSpacing: 40,
+                idleExtraSpacing: 24,
+                keyboardSpacing: 12,
+                regularSpacing: 24
+            ),
+            136
+        )
+    }
+
     func testCalendarBottomBarSymbolBuildsDaySpecificCalendarSFImageNames() {
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 1), "1.calendar")
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 31), "31.calendar")

@@ -661,7 +661,7 @@ final class AssistantPlannerService {
     private func fetchDeterministicTasks(
         for request: AssistantDeterministicPlanner.TaskSelectionRequest
     ) async -> [TaskDefinition]? {
-        guard let taskReadModelRepository else { return nil }
+        guard taskReadModelRepository != nil else { return nil }
         let dueWindow = await fetchTasks(query: TaskReadQuery(
             includeCompleted: false,
             dueDateStart: request.sourceStart,
@@ -1413,7 +1413,7 @@ struct AssistantDeterministicPlanner {
     }
 
     static func habitClarificationPlan(for prompt: String) -> Output {
-        let message = "I can review habits and include them in planning, but habit changes cannot be applied from this EVA card yet. Tell me if you want a task added to support that habit."
+        let message = "I can review habits and include them in planning, but habit changes cannot be applied from this assistant card yet. Tell me if you want a task added to support that habit."
         let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
         return Output(
             envelope: envelope,
@@ -1511,7 +1511,7 @@ struct AssistantDeterministicPlanner {
         }
 
         if prompt.localizedCaseInsensitiveContains("help me plan") || prompt.localizedCaseInsensitiveContains("plan my day") {
-            let message = "Tell me your timed plans or add a list for Inbox, and EVA will turn them into review cards."
+            let message = "Tell me your timed plans or add a list for Inbox, and your assistant will turn them into review cards."
             let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
             return Output(
                 envelope: envelope,
@@ -1780,7 +1780,7 @@ struct AssistantDeterministicPlanner {
         guard commands.isEmpty == false else {
             return BatchReschedulePlan(
                 commands: [],
-                rationale: "I found matching tasks, but they need a date or time target before EVA can reschedule them.",
+                rationale: "I found matching tasks, but they need a date or time target before \(AssistantIdentityText.currentSnapshot().displayName) can reschedule them.",
                 noOpTitle: "Needs a target"
             )
         }
@@ -2217,10 +2217,10 @@ struct AssistantDeterministicPlanner {
 
     private static func parseDate(_ value: Any?) -> Date? {
         guard let string = value as? String else { return nil }
-        if let date = ISO8601DateFormatter.taskerPlannerWithFraction.date(from: string) {
+        if let date = ISO8601DateFormatter.makeTaskerPlannerWithFraction().date(from: string) {
             return date
         }
-        return ISO8601DateFormatter.taskerPlanner.date(from: string)
+        return ISO8601DateFormatter.makeTaskerPlanner().date(from: string)
     }
 
     private static func timeInterval(from value: Any?) -> TimeInterval? {
@@ -2251,15 +2251,15 @@ struct AssistantDeterministicPlanner {
 }
 
 private extension ISO8601DateFormatter {
-    static let taskerPlanner: ISO8601DateFormatter = {
+    static func makeTaskerPlanner() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         return formatter
-    }()
+    }
 
-    static let taskerPlannerWithFraction: ISO8601DateFormatter = {
+    static func makeTaskerPlannerWithFraction() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
-    }()
+    }
 }

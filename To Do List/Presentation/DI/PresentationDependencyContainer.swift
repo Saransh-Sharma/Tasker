@@ -13,6 +13,7 @@ import UIKit
 /// Dependency container for Clean Architecture ViewModels
 /// Receives dependencies from EnhancedDependencyContainer (State layer)
 /// and provides ViewModels to the Presentation layer
+@MainActor
 public final class PresentationDependencyContainer {
 
     // MARK: - Singleton
@@ -64,6 +65,8 @@ public final class PresentationDependencyContainer {
     ) {
         logDebug("🔧 PresentationDependencyContainer: Starting configuration (Clean Architecture)...")
 
+        resetCachedViewModelsForRuntimeReconfiguration()
+
         self.taskReadModelRepository = taskReadModelRepository
         self.projectRepository = projectRepository
         self.useCaseCoordinator = useCaseCoordinator
@@ -72,6 +75,23 @@ public final class PresentationDependencyContainer {
 
         self.isConfigured = true
         logDebug("✅ PresentationDependencyContainer: Configuration completed (Clean Architecture)")
+    }
+
+    private func resetCachedViewModelsForRuntimeReconfiguration() {
+        guard isConfigured else { return }
+
+        _homeViewModel = nil
+        _addTaskViewModel = nil
+        _addHabitViewModel = nil
+        _addItemViewModel = nil
+        _projectManagementViewModel = nil
+        _lifeManagementViewModel = nil
+        _chartCardViewModel = nil
+        _radarChartCardViewModel = nil
+        _projectSelectionViewModel = nil
+        _habitLibraryViewModel = nil
+
+        logDebug("♻️ PresentationDependencyContainer: Reset cached ViewModels for runtime reconfiguration")
     }
 
     /// Configure using EnhancedDependencyContainer (convenience method)
@@ -429,7 +449,7 @@ public final class PresentationDependencyContainer {
     // MARK: - View Controller Injection
 
     /// Inject dependencies into a view controller
-    public func inject(into viewController: UIViewController) {
+    @MainActor public func inject(into viewController: UIViewController) {
         assertConfigured()
         let vcType = String(describing: type(of: viewController))
         logDebug("💉 PresentationDependencyContainer: Injecting into \(vcType)")
@@ -469,7 +489,7 @@ public final class PresentationDependencyContainer {
     /// Attempts dependency injection without crashing when the container is not configured.
     /// Returns true when injection succeeded.
     @discardableResult
-    public func tryInject(into viewController: UIViewController) -> Bool {
+    @MainActor public func tryInject(into viewController: UIViewController) -> Bool {
         guard isConfigured else {
             let vcType = String(describing: type(of: viewController))
             logWarning(
@@ -495,24 +515,24 @@ public final class PresentationDependencyContainer {
 // MARK: - View Controller Protocols
 
 /// Protocol for HomeViewController to receive ViewModel
-public protocol HomeViewControllerProtocol: AnyObject {
+@MainActor public protocol HomeViewControllerProtocol: AnyObject {
     var viewModel: HomeViewModel! { get set }
 }
 
-public protocol HomeAnalyticsViewModelsInjectable: AnyObject {
+@MainActor public protocol HomeAnalyticsViewModelsInjectable: AnyObject {
     var chartCardViewModel: ChartCardViewModel! { get set }
     var radarChartCardViewModel: RadarChartCardViewModel! { get set }
 }
 
 /// Protocol for ProjectManagementViewController to receive ViewModel
-public protocol ProjectManagementViewControllerProtocol: AnyObject {
+@MainActor public protocol ProjectManagementViewControllerProtocol: AnyObject {
     var viewModel: ProjectManagementViewModel! { get set }
 }
 
-public protocol PresentationDependencyContainerAware: AnyObject {
+@MainActor public protocol PresentationDependencyContainerAware: AnyObject {
     var presentationDependencyContainer: PresentationDependencyContainer? { get set }
 }
 
-public protocol UseCaseCoordinatorInjectable: AnyObject {
+@MainActor public protocol UseCaseCoordinatorInjectable: AnyObject {
     var useCaseCoordinator: UseCaseCoordinator! { get set }
 }

@@ -67,8 +67,32 @@ final class HomeReplanDayUITests: BaseUITest {
 
         let launcher = app.otherElements["home.needsReplan.launcher"]
         XCTAssertTrue(launcher.waitForExistence(timeout: 5), "Replan launcher should open")
-        XCTAssertTrue(app.staticTexts["3 tasks need a decision"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["Spanning 3 past days"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["4 tasks need a decision"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Spanning 4 past days"].waitForExistence(timeout: 3))
+    }
+
+    func testReplanCardExposesTaskerActionsAndHotZones() {
+        let tray = app.buttons["home.needsReplan.tray"]
+        XCTAssertTrue(tray.waitForExistence(timeout: 8), "Needs Replan tray should be visible")
+        tray.tap()
+
+        let startButton = app.buttons["home.needsReplan.start"]
+        XCTAssertTrue(startButton.waitForExistence(timeout: 5), "Start Replan should be available")
+        startButton.tap()
+
+        let card = app.descendants(matching: .any)["home.needsReplan.card"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "Replan card should be visible")
+        XCTAssertTrue(app.descendants(matching: .any)["home.needsReplan.dragSource"].waitForExistence(timeout: 3), "Replan task should expose a drag source")
+
+        XCTAssertTrue(app.buttons["home.needsReplan.action.inbox"].exists, "Move to Inbox fallback action should be accessible")
+        XCTAssertTrue(app.buttons["home.needsReplan.action.planToday"].exists, "Plan Today fallback action should be accessible")
+        XCTAssertTrue(app.buttons["home.needsReplan.action.complete"].exists, "Complete fallback action should be accessible")
+        XCTAssertTrue(app.buttons["home.needsReplan.action.delete"].exists, "Delete fallback action should be accessible")
+
+        XCTAssertTrue(app.descendants(matching: .any)["home.needsReplan.hotZone.planToday"].exists, "Plan Today hot zone should be present for drag targeting")
+        XCTAssertTrue(app.descendants(matching: .any)["home.needsReplan.hotZone.moveToInbox"].exists, "Inbox hot zone should be present for drag targeting")
+        XCTAssertTrue(app.descendants(matching: .any)["home.needsReplan.hotZone.complete"].exists, "Complete hot zone should be present for drag targeting")
+        XCTAssertTrue(app.descendants(matching: .any)["home.needsReplan.hotZone.delete"].exists, "Delete hot zone should be present for drag targeting")
     }
 
     private func bottomChromeTopEdge() -> CGFloat {

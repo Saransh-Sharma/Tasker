@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum HomeQuickView: String, CaseIterable, Codable {
+public enum HomeQuickView: String, CaseIterable, Codable, Sendable {
     case today
     case upcoming
     case overdue
@@ -40,7 +40,7 @@ public enum HomeQuickView: String, CaseIterable, Codable {
     }
 }
 
-public enum HomeListScope: Equatable, Codable {
+public enum HomeListScope: Equatable, Codable, Sendable {
     case today
     case customDate(Date)
     case upcoming

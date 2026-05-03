@@ -9,8 +9,9 @@ The current flow is:
 1. `CalendarIntegrationService` asks the provider for authorization state, calendars, and events
 2. Selected calendar IDs are persisted locally through workspace preferences
 3. EventKit changes trigger a debounced refresh
-4. Raw calendar snapshots are projected into Home and schedule-specific view state
-5. Home and task detail consume those projections for next-meeting, free-until, and fit hints
+4. Raw calendar snapshots are filtered into selected, readable, locally relevant schedule context
+5. Schedule context is projected into Home, schedule-specific view state, task-fit hints, and timeline render models
+6. Eva consumes the same bounded projections through LLM context receipts when a chat or planning turn needs schedule awareness
 
 The implementation is read-only from Tasker's point of view.
 
@@ -129,6 +130,59 @@ It should classify a task into one of:
 
 Unknown is the fallback when the app does not have enough context to evaluate fit safely.
 
+### Schedule Views
+
+Day, week, and month schedule surfaces should be built from the filtered calendar snapshot and derived busy-block model, not raw EventKit records.
+
+Day schedule projection should include:
+
+- Current block
+- Next meeting
+- In-progress meeting
+- Busy blocks
+- Open gaps
+- All-day event summaries
+- Degraded or empty states
+
+Week schedule projection should include:
+
+- Per-day load summaries
+- Overloaded periods
+- Usable planning windows
+- Deadline or commitment clusters where available from Tasker task metadata and selected calendar context
+
+Month schedule projection should include:
+
+- Density summaries
+- Planning anchors
+- Sparse stretches
+- Degraded or no-data states
+
+These projections are for orientation. They should not expose write commands for external calendar events.
+
+### Eva Context Receipts
+
+Eva should receive schedule context through bounded, explicit context receipts. The receipt should make it possible for chat and planner code to know what context was available, what was filtered out by policy or preference, and where the projection is partial.
+
+A timeline-aware Eva context receipt should capture, when available:
+
+- Selected day and current time basis
+- Authorization status
+- Selected-calendar state
+- Next meeting and in-progress meeting summaries
+- Busy blocks and free gaps
+- Overloaded timeline flocks
+- Task-fit classifications for relevant candidate tasks
+- Empty, stale, timeout, or partial-projection status
+
+The receipt should not include more raw event detail than the assistant turn needs. Title, time range, source, availability, and participation status are generally enough for day-management guidance; notes, attendees, URLs, and other sensitive event metadata should stay out unless a future explicitly scoped feature needs them.
+
+Assistant outputs should use the receipt to distinguish:
+
+- observed facts, such as "meeting from 2:00 PM to 2:30 PM"
+- inferred advice, such as "this task looks tight before that meeting"
+- missing-context caveats, such as "I cannot see your calendar right now"
+
 ## Timeline Contract
 
 The timeline is not a calendar clone.
@@ -144,6 +198,8 @@ The timeline should:
 - Distinguish anchored commitments, flexible tasks, routines, busy flocks, and usable free gaps in the presentation layer
 
 If timeline surfaces need to present calendar-derived context, they should consume the same resolved state that Home does rather than inferring a separate interpretation.
+
+Timeline render state should also be suitable for assistant grounding. The LLM layer should not separately recalculate the visible day from raw data because that can make Eva contradict the timeline. If Eva needs to reference overloaded windows, free gaps, or task-fit opportunities, it should use the same projection vocabulary that the timeline and Home modules use.
 
 ### Phone Render Model
 

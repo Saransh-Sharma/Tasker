@@ -7,6 +7,7 @@ import SwiftUI
 
 struct DeviceNotSupportedView: View {
     var onDismiss: (() -> Void)? = nil
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     var body: some View {
         VStack(spacing: TaskerTheme.Spacing.xl) {
@@ -22,12 +23,12 @@ struct DeviceNotSupportedView: View {
             }
 
             VStack(spacing: TaskerTheme.Spacing.sm) {
-                Text(String(localized: "eva.device_not_supported.title", defaultValue: "Eva isn't available on this device"))
+                Text("\(assistantIdentity.snapshot.displayName) isn't available on this device")
                     .font(.tasker(.title1))
                     .foregroundStyle(Color.tasker(.textPrimary))
                     .multilineTextAlignment(.center)
 
-                Text(String(localized: "eva.device_not_supported.body", defaultValue: "Eva's local model needs a newer Apple GPU feature set to run on-device."))
+                Text("\(assistantIdentity.snapshot.displayName)'s local model needs a newer Apple GPU feature set to run on-device.")
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker(.textSecondary))
                     .multilineTextAlignment(.center)
@@ -37,7 +38,7 @@ struct DeviceNotSupportedView: View {
                 Text(String(localized: "eva.device_not_supported.why", defaultValue: "Why this happens"))
                     .font(.tasker(.headline))
                     .foregroundStyle(Color.tasker(.textPrimary))
-                Text(String(localized: "eva.device_not_supported.why_body", defaultValue: "This device does not support the local runtime Eva needs for private on-device responses."))
+                Text("This device does not support the local runtime \(assistantIdentity.snapshot.displayName) needs for private on-device responses.")
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker(.textSecondary))
             }
@@ -65,7 +66,7 @@ struct DeviceNotSupportedView: View {
                 .padding(.horizontal, TaskerTheme.Spacing.xl)
             }
 
-            Text(String(localized: "eva.device_not_supported.footer", defaultValue: "You can continue using Tasker as usual while Eva stays unavailable on this device."))
+            Text("You can continue using Tasker as usual while \(assistantIdentity.snapshot.displayName) stays unavailable on this device.")
                 .font(.tasker(.caption1))
                 .foregroundStyle(Color.tasker(.textQuaternary))
 

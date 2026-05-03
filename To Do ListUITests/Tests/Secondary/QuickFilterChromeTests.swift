@@ -205,11 +205,11 @@ final class QuickFilterChromeTests: BaseUITest {
         )
     }
 
-    func testTodayShowsXPStatusAndOtherQuickViewsHideIt() throws {
+    func testTodayShowsDayProgressStatusAndOtherQuickViewsHideIt() throws {
         let homePage = HomePage(app: app)
-        let xpLabel = homePage.topChromeXPLabel
+        let dayProgressLabel = homePage.topChromeDayProgressLabel
 
-        XCTAssertTrue(xpLabel.waitForExistence(timeout: 10), "Today view should show the top chrome XP status")
+        XCTAssertTrue(dayProgressLabel.waitForExistence(timeout: 10), "Today view should show the top chrome day progress status")
 
         let quickFilterButton = homePage.projectFilterButton
         guard quickFilterButton.waitForExistence(timeout: 3) else {
@@ -222,7 +222,7 @@ final class QuickFilterChromeTests: BaseUITest {
         XCTAssertTrue(overdueButton.waitForExistence(timeout: 3), "Overdue quick view should be visible in the menu")
         overdueButton.tap()
 
-        XCTAssertTrue(waitForElementToDisappear(xpLabel, timeout: 3), "Non-Today quick views should hide the top chrome XP status")
+        XCTAssertTrue(waitForElementToDisappear(dayProgressLabel, timeout: 3), "Non-Today quick views should hide the top chrome day progress status")
     }
 
     private func selectVisibleFutureDate(in root: XCUIElement, preferredDate: Date) {

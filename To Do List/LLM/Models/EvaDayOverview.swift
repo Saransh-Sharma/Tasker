@@ -1,6 +1,6 @@
 import Foundation
 
-enum EvaDayOverviewSectionKind: String, Codable, Equatable, Hashable {
+enum EvaDayOverviewSectionKind: String, Codable, Equatable, Hashable, Sendable {
     case overdueTasks
     case todayTasks
     case focusCandidates
@@ -10,14 +10,14 @@ enum EvaDayOverviewSectionKind: String, Codable, Equatable, Hashable {
     case emptyState
 }
 
-enum EvaDayTaskAction: String, Codable, Equatable, Hashable {
+enum EvaDayTaskAction: String, Codable, Equatable, Hashable, Sendable {
     case done
     case reopen
     case tomorrow
     case open
 }
 
-enum EvaDayHabitAction: String, Codable, Equatable, Hashable {
+enum EvaDayHabitAction: String, Codable, Equatable, Hashable, Sendable {
     case done
     case skip
     case stayedClean
@@ -26,12 +26,12 @@ enum EvaDayHabitAction: String, Codable, Equatable, Hashable {
     case open
 }
 
-struct EvaDayStatusChip: Codable, Equatable, Hashable {
+struct EvaDayStatusChip: Codable, Equatable, Hashable, Sendable {
     let text: String
     let tone: String
 }
 
-struct EvaDayTaskCard: Codable, Equatable, Hashable, Identifiable {
+struct EvaDayTaskCard: Codable, Equatable, Hashable, Identifiable, Sendable {
     let taskID: UUID
     let taskSnapshot: TaskDefinition
     let title: String
@@ -49,7 +49,7 @@ struct EvaDayTaskCard: Codable, Equatable, Hashable, Identifiable {
     var id: UUID { taskID }
 }
 
-struct EvaDayHabitCard: Codable, Equatable, Hashable, Identifiable {
+struct EvaDayHabitCard: Codable, Equatable, Hashable, Identifiable, Sendable {
     let habitID: UUID
     let title: String
     let kind: HabitKind
@@ -72,7 +72,7 @@ struct EvaDayHabitCard: Codable, Equatable, Hashable, Identifiable {
     var id: UUID { habitID }
 }
 
-struct EvaDayOverviewSection: Codable, Equatable, Hashable, Identifiable {
+struct EvaDayOverviewSection: Codable, Equatable, Hashable, Identifiable, Sendable {
     let kind: EvaDayOverviewSectionKind
     let title: String
     let subtitle: String?
@@ -83,7 +83,7 @@ struct EvaDayOverviewSection: Codable, Equatable, Hashable, Identifiable {
     var id: String { kind.rawValue }
 }
 
-struct EvaDayOverviewPayload: Codable, Equatable {
+struct EvaDayOverviewPayload: Codable, Equatable, Sendable {
     let prompt: String
     let summaryMarkdown: String
     let contextReceipt: EvaContextReceipt

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct HabitDefinitionRecord: Codable, Equatable, Hashable {
+public struct HabitDefinitionRecord: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var lifeAreaID: UUID?
     public var projectID: UUID?

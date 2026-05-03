@@ -754,7 +754,6 @@ enum HabitDetailCalendarBuilder {
             )
         }
 
-        let formatter = monthFormatter
         var previousMonthAnchor: Date?
 
         return stride(from: 0, to: days.count, by: 7).compactMap { index in
@@ -768,7 +767,7 @@ enum HabitDetailCalendarBuilder {
                 if let previousMonthAnchor, calendar.isDate(monthAnchor, equalTo: previousMonthAnchor, toGranularity: .month) {
                     monthLabel = nil
                 } else {
-                    monthLabel = formatter.string(from: monthAnchor)
+                    monthLabel = monthAnchor.formatted(.dateTime.month(.wide).year())
                     previousMonthAnchor = monthAnchor
                 }
             } else {
@@ -916,7 +915,7 @@ enum HabitDetailCalendarBuilder {
             haptic = .selection
         }
 
-        let dayLabel = feedbackDateFormatter.string(from: calendar.startOfDay(for: date))
+        let dayLabel = calendar.startOfDay(for: date).formatted(.dateTime.month(.abbreviated).day())
         return HabitDetailMutationFeedback(
             message: "\(dayLabel): \(stateLabel)",
             haptic: haptic
@@ -1028,22 +1027,6 @@ enum HabitDetailCalendarBuilder {
 
         return streakDepthByDate
     }
-
-    private static var monthFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar.current
-        formatter.locale = Locale.current
-        formatter.setLocalizedDateFormatFromTemplate("MMMM yyyy")
-        return formatter
-    }()
-
-    private static var feedbackDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar.current
-        formatter.locale = Locale.current
-        formatter.setLocalizedDateFormatFromTemplate("MMM d")
-        return formatter
-    }()
 
     private static let fullDateFormatter: DateFormatter = {
         let formatter = DateFormatter()

@@ -363,8 +363,33 @@ final class ManageProjectsLifeAreaRoutingTests: XCTestCase {
 }
 
 final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
+    @MainActor
+    func testCreateProjectRejectsDuplicateNameAtRepositoryWriteBoundary() throws {
+        let container = try Self.makeInMemoryContainer()
+        let context = container.viewContext
+
+        context.performAndWait {
+            Self.makeProject(in: context, id: UUID(), name: "Health", lifeAreaID: nil, isDefault: false)
+            try? context.save()
+        }
+
+        let repository = CoreDataProjectRepository(container: container)
+        let expectation = expectation(description: "reject duplicate project")
+        repository.createProject(Project(name: " health ")) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected duplicate project name to be rejected")
+            case .failure(let error):
+                XCTAssertEqual(error as? ProjectValidationError, .duplicateName)
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
     func testMoveProjectToLifeAreaRemapsProjectAndAllTasks() throws {
-        let container = try makeInMemoryContainer()
+        let container = try Self.makeInMemoryContainer()
         let context = container.viewContext
 
         let generalID = UUID()
@@ -372,11 +397,11 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
         let projectID = UUID()
 
         context.performAndWait {
-            makeLifeArea(in: context, id: generalID, name: "General")
-            makeLifeArea(in: context, id: targetAreaID, name: "Career")
-            makeProject(in: context, id: projectID, name: "Portfolio", lifeAreaID: generalID, isDefault: false)
-            makeTask(in: context, id: UUID(), title: "Task A", projectID: projectID, lifeAreaID: generalID)
-            makeTask(in: context, id: UUID(), title: "Task B", projectID: projectID, lifeAreaID: generalID)
+            Self.makeLifeArea(in: context, id: generalID, name: "General")
+            Self.makeLifeArea(in: context, id: targetAreaID, name: "Career")
+            Self.makeProject(in: context, id: projectID, name: "Portfolio", lifeAreaID: generalID, isDefault: false)
+            Self.makeTask(in: context, id: UUID(), title: "Task A", projectID: projectID, lifeAreaID: generalID)
+            Self.makeTask(in: context, id: UUID(), title: "Task B", projectID: projectID, lifeAreaID: generalID)
             try? context.save()
         }
 
@@ -412,7 +437,7 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
     }
 
     func testBackfillProjectsWithoutLifeAreaAssignsGeneralAndPinsInbox() throws {
-        let container = try makeInMemoryContainer()
+        let container = try Self.makeInMemoryContainer()
         let context = container.viewContext
 
         let generalID = UUID()
@@ -421,22 +446,22 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
         let assignedProjectID = UUID()
 
         context.performAndWait {
-            makeLifeArea(in: context, id: generalID, name: "General")
-            makeLifeArea(in: context, id: assignedAreaID, name: "Learning")
+            Self.makeLifeArea(in: context, id: generalID, name: "General")
+            Self.makeLifeArea(in: context, id: assignedAreaID, name: "Learning")
 
-            makeProject(
+            Self.makeProject(
                 in: context,
                 id: ProjectConstants.inboxProjectID,
                 name: ProjectConstants.inboxProjectName,
                 lifeAreaID: nil,
                 isDefault: true
             )
-            makeProject(in: context, id: customProjectID, name: "Health Sprint", lifeAreaID: nil, isDefault: false)
-            makeProject(in: context, id: assignedProjectID, name: "Study", lifeAreaID: assignedAreaID, isDefault: false)
+            Self.makeProject(in: context, id: customProjectID, name: "Health Sprint", lifeAreaID: nil, isDefault: false)
+            Self.makeProject(in: context, id: assignedProjectID, name: "Study", lifeAreaID: assignedAreaID, isDefault: false)
 
-            makeTask(in: context, id: UUID(), title: "Inbox Task", projectID: ProjectConstants.inboxProjectID, lifeAreaID: nil)
-            makeTask(in: context, id: UUID(), title: "Custom Task", projectID: customProjectID, lifeAreaID: nil)
-            makeTask(in: context, id: UUID(), title: "Assigned Task", projectID: assignedProjectID, lifeAreaID: assignedAreaID)
+            Self.makeTask(in: context, id: UUID(), title: "Inbox Task", projectID: ProjectConstants.inboxProjectID, lifeAreaID: nil)
+            Self.makeTask(in: context, id: UUID(), title: "Custom Task", projectID: customProjectID, lifeAreaID: nil)
+            Self.makeTask(in: context, id: UUID(), title: "Assigned Task", projectID: assignedProjectID, lifeAreaID: assignedAreaID)
 
             try? context.save()
         }
@@ -2063,8 +2088,8 @@ private final class NoOpExternalSyncRepositoryStub: ExternalSyncRepositoryProtoc
 }
 
 private extension CoreDataProjectRepositoryLifeAreaMutationTests {
-    func makeInMemoryContainer() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
+    static func makeInMemoryContainer() throws -> NSPersistentContainer {
+        let bundles = [Bundle.main, Bundle(for: Self.self)]
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
               model.entitiesByName["TaskDefinition"] != nil else {
             throw NSError(
@@ -2091,7 +2116,7 @@ private extension CoreDataProjectRepositoryLifeAreaMutationTests {
     }
 
     @discardableResult
-    func makeLifeArea(in context: NSManagedObjectContext, id: UUID, name: String) -> NSManagedObject {
+    static func makeLifeArea(in context: NSManagedObjectContext, id: UUID, name: String) -> NSManagedObject {
         let object = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
         object.setValue(id, forKey: "id")
         object.setValue(name, forKey: "name")
@@ -2103,7 +2128,7 @@ private extension CoreDataProjectRepositoryLifeAreaMutationTests {
     }
 
     @discardableResult
-    func makeProject(
+    static func makeProject(
         in context: NSManagedObjectContext,
         id: UUID,
         name: String,
@@ -2124,7 +2149,7 @@ private extension CoreDataProjectRepositoryLifeAreaMutationTests {
     }
 
     @discardableResult
-    func makeTask(
+    static func makeTask(
         in context: NSManagedObjectContext,
         id: UUID,
         title: String,

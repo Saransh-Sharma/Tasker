@@ -1,5 +1,24 @@
-import SwiftUI
+ import SwiftUI
 import UIKit
+
+struct HomeDayLiquidSwipeHandleInteractionState: Equatable {
+    private(set) var isActive = false
+
+    mutating func startIfNeeded(isEnabled: Bool, isChromeVisible: Bool) -> Bool {
+        guard isEnabled, isChromeVisible else {
+            isActive = false
+            return false
+        }
+
+        guard isActive == false else { return false }
+        isActive = true
+        return true
+    }
+
+    mutating func reset() {
+        isActive = false
+    }
+}
 
 struct HomeDayLiquidSwipeOverlay: View {
     let isEnabled: Bool
@@ -17,6 +36,7 @@ struct HomeDayLiquidSwipeOverlay: View {
     @Binding var topSide: HomeDayLiquidSwipeSide
     @State private var lastDraggedHandleSide: HomeDayLiquidSwipeSide?
     @State private var lastHandleDragEndedAt: Date?
+    @State private var handleInteractionState = HomeDayLiquidSwipeHandleInteractionState()
 
     private let handleTapSuppressionInterval: TimeInterval = 0.25
 
@@ -50,22 +70,27 @@ struct HomeDayLiquidSwipeOverlay: View {
             } label: {
                 Label(side.accessibilityLabel, systemImage: side.systemImage)
                     .labelStyle(.iconOnly)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 14 * HomeDayLiquidSwipeData.buttonVisualScale, weight: .bold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Color.tasker.accentOnPrimary)
                     .frame(
-                        width: HomeDayLiquidSwipeData.buttonRadius * 2,
-                        height: HomeDayLiquidSwipeData.buttonRadius * 2
+                        width: HomeDayLiquidSwipeData.buttonVisualRadius * 2,
+                        height: HomeDayLiquidSwipeData.buttonVisualRadius * 2
                     )
                     .background {
                         Circle()
                             .stroke(Color.tasker.accentOnPrimary.opacity(0.28), lineWidth: 1)
                             .background(Color.tasker.accentPrimary.opacity(0.38), in: Circle())
                     }
+                    .frame(
+                        width: HomeDayLiquidSwipeData.buttonRadius * 2,
+                        height: HomeDayLiquidSwipeData.buttonRadius * 2
+                    )
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text(side.accessibilityLabel))
+            .accessibilityIdentifier(side.accessibilityIdentifier)
             .opacity(isInteractive ? data.buttonOpacity : 0)
             .position(data.buttonCenter)
             .disabled(!isInteractive)
@@ -98,9 +123,11 @@ struct HomeDayLiquidSwipeOverlay: View {
     private func handleDragGesture(for side: HomeDayLiquidSwipeSide, size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .local)
             .onChanged { value in
-                guard isEnabled, isChromeVisible else { return }
+                guard isEnabled, isChromeVisible else { handleInteractionState.reset(); return }
                 topSide = side
-                onInteractionStarted()
+                if handleInteractionState.startIfNeeded(isEnabled: isEnabled, isChromeVisible: isChromeVisible) {
+                    onInteractionStarted()
+                }
                 onHandleDragChanged(
                     side,
                     value.translation,
@@ -109,9 +136,10 @@ struct HomeDayLiquidSwipeOverlay: View {
                 )
             }
             .onEnded { value in
-                guard isEnabled, isChromeVisible else { return }
+                guard isEnabled, isChromeVisible else { handleInteractionState.reset(); return }
                 lastDraggedHandleSide = side
                 lastHandleDragEndedAt = Date()
+                handleInteractionState.reset()
                 onHandleDragEnded(
                     side,
                     value.translation,
@@ -140,6 +168,8 @@ struct HomeDayLiquidSwipeOverlay: View {
 
     private func commit(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
         guard isEnabled, isChromeVisible else { return }
+        let interval = TaskerPerformanceTrace.begin("HomeDayLiquidSwipeCommit")
+        defer { TaskerPerformanceTrace.end(interval) }
         topSide = side
         onInteractionStarted()
         if reduceMotion {

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct TaskReadQuery: Codable, Equatable, Hashable {
+public struct TaskReadQuery: Codable, Equatable, Hashable, Sendable {
     public var projectID: UUID?
     public var includeCompleted: Bool
     public var dueDateStart: Date?
@@ -41,7 +41,7 @@ public struct TaskReadQuery: Codable, Equatable, Hashable {
     }
 }
 
-public enum TaskReadSort: String, Codable, Equatable, Hashable {
+public enum TaskReadSort: String, Codable, Equatable, Hashable, Sendable {
     case dueDateAscending
     case dueDateDescending
     case updatedAtDescending
@@ -120,7 +120,7 @@ public struct TaskRepositorySearchQuery: Codable, Equatable, Hashable {
     }
 }
 
-public struct HomeProjectionQuery: Codable, Equatable {
+public struct HomeProjectionQuery: Codable, Equatable, Sendable {
     public var state: HomeFilterState
     public var scope: HomeListScope
     public var limit: Int
@@ -139,7 +139,88 @@ public struct HomeProjectionQuery: Codable, Equatable {
     }
 }
 
-public struct InsightsTodayProjectionQuery: Codable, Equatable, Hashable {
+public struct NeedsReplanCandidateQuery: Codable, Equatable, Hashable, Sendable {
+    public var referenceDate: Date
+    public var scopedDate: Date?
+    public var activeProjectIDs: [UUID]
+    public var includeUnscheduledBacklog: Bool
+    public var limit: Int
+    public var offset: Int
+
+    public init(
+        referenceDate: Date = Date(),
+        scopedDate: Date? = nil,
+        activeProjectIDs: [UUID] = [],
+        includeUnscheduledBacklog: Bool = true,
+        limit: Int = 400,
+        offset: Int = 0
+    ) {
+        self.referenceDate = referenceDate
+        self.scopedDate = scopedDate
+        self.activeProjectIDs = activeProjectIDs
+        self.includeUnscheduledBacklog = includeUnscheduledBacklog
+        self.limit = max(1, limit)
+        self.offset = max(0, offset)
+    }
+}
+
+public struct NeedsReplanCandidateProjection: Codable, Equatable, Hashable, Sendable {
+    public let tasks: [TaskDefinition]
+    public let totalCount: Int
+    public let limit: Int
+    public let offset: Int
+
+    public init(tasks: [TaskDefinition], totalCount: Int, limit: Int, offset: Int) {
+        self.tasks = tasks
+        self.totalCount = totalCount
+        self.limit = limit
+        self.offset = offset
+    }
+}
+
+public struct HomeTimelineTaskProjectionQuery: Codable, Equatable, Hashable, Sendable {
+    public var selectedDay: Date
+    public var weekStart: Date
+    public var weekEnd: Date
+    public var projectIDs: [UUID]
+    public var includeCompleted: Bool
+    public var limit: Int
+    public var offset: Int
+
+    public init(
+        selectedDay: Date,
+        weekStart: Date,
+        weekEnd: Date,
+        projectIDs: [UUID] = [],
+        includeCompleted: Bool = true,
+        limit: Int = 500,
+        offset: Int = 0
+    ) {
+        self.selectedDay = selectedDay
+        self.weekStart = weekStart
+        self.weekEnd = weekEnd
+        self.projectIDs = projectIDs
+        self.includeCompleted = includeCompleted
+        self.limit = max(1, limit)
+        self.offset = max(0, offset)
+    }
+}
+
+public struct HomeTimelineTaskProjection: Codable, Equatable, Hashable, Sendable {
+    public let tasks: [TaskDefinition]
+    public let totalCount: Int
+    public let limit: Int
+    public let offset: Int
+
+    public init(tasks: [TaskDefinition], totalCount: Int, limit: Int, offset: Int) {
+        self.tasks = tasks
+        self.totalCount = totalCount
+        self.limit = limit
+        self.offset = offset
+    }
+}
+
+public struct InsightsTodayProjectionQuery: Codable, Equatable, Hashable, Sendable {
     public var referenceDate: Date
     public var dueWindowLimit: Int
     public var recentLimit: Int
@@ -171,7 +252,7 @@ public struct InsightsWeekProjectionQuery: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyReflectionTaskProjectionQuery: Codable, Equatable, Hashable {
+public struct DailyReflectionTaskProjectionQuery: Codable, Equatable, Hashable, Sendable {
     public var reflectionDate: Date
     public var planningDate: Date
     public var completedLimit: Int
@@ -190,7 +271,7 @@ public struct DailyReflectionTaskProjectionQuery: Codable, Equatable, Hashable {
     }
 }
 
-public struct InsightsTodayTaskProjection: Codable, Equatable, Hashable {
+public struct InsightsTodayTaskProjection: Codable, Equatable, Hashable, Sendable {
     public let dueWindowTasks: [TaskDefinition]
     public let recentTasks: [TaskDefinition]
 
@@ -200,7 +281,7 @@ public struct InsightsTodayTaskProjection: Codable, Equatable, Hashable {
     }
 }
 
-public struct InsightsWeekTaskProjection: Codable, Equatable, Hashable {
+public struct InsightsWeekTaskProjection: Codable, Equatable, Hashable, Sendable {
     public let recentTasks: [TaskDefinition]
     public let dueWindowTasks: [TaskDefinition]
     public let projectScores: [UUID: Int]
@@ -216,7 +297,7 @@ public struct InsightsWeekTaskProjection: Codable, Equatable, Hashable {
     }
 }
 
-public struct WeekChartProjection: Codable, Equatable, Hashable {
+public struct WeekChartProjection: Codable, Equatable, Hashable, Sendable {
     public let weekStart: Date
     public let dayScores: [Date: Int]
     public let projectScores: [UUID: Int]
@@ -232,7 +313,7 @@ public struct WeekChartProjection: Codable, Equatable, Hashable {
     }
 }
 
-public struct DailyReflectionTaskProjection: Codable, Equatable, Hashable {
+public struct DailyReflectionTaskProjection: Codable, Equatable, Hashable, Sendable {
     public let reflectionCompletedTasks: [TaskDefinition]
     public let reflectionOpenTasks: [TaskDefinition]
     public let planningOpenTasks: [TaskDefinition]
@@ -248,7 +329,7 @@ public struct DailyReflectionTaskProjection: Codable, Equatable, Hashable {
     }
 }
 
-public struct TaskDefinitionSliceResult: Codable, Equatable, Hashable {
+public struct TaskDefinitionSliceResult: Codable, Equatable, Hashable, Sendable {
     public var tasks: [TaskDefinition]
     public var totalCount: Int
     public var limit: Int

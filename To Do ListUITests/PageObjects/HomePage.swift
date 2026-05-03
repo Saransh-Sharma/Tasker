@@ -130,23 +130,23 @@ class HomePage {
         return app.descendants(matching: .any)["home.topChrome"]
     }
 
-    var topChromeXPProgress: XCUIElement {
-        let byOtherElement = app.otherElements[AccessibilityIdentifiers.Home.topChromeXPProgress]
+    var topChromeDayProgress: XCUIElement {
+        let byOtherElement = app.otherElements[AccessibilityIdentifiers.Home.topChromeDayProgress]
         if byOtherElement.exists {
             return byOtherElement
         }
 
-        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.topChromeXPProgress]
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.topChromeDayProgress]
     }
 
-    var topChromeXPLabel: XCUIElement {
-        let predicate = NSPredicate(format: "label CONTAINS[c] 'XP'")
-        let inChrome = topChrome.staticTexts.matching(predicate).firstMatch
-        if inChrome.exists {
-            return inChrome
+    var topChromeDayProgressLabel: XCUIElement {
+        let predicate = NSPredicate(format: "label CONTAINS[c] 'done' OR label CONTAINS[c] 'All clear'")
+        let inDayProgress = topChromeDayProgress.staticTexts.matching(predicate).firstMatch
+        if inDayProgress.exists {
+            return inDayProgress
         }
 
-        return app.staticTexts.matching(predicate).firstMatch
+        return topChrome.staticTexts.matching(predicate).firstMatch
     }
 
     var headerDateLabel: XCUIElement {
@@ -1462,7 +1462,14 @@ class HomePage {
     /// Verify home screen is displayed
     @discardableResult
     func verifyIsDisplayed(timeout: TimeInterval = 5) -> Bool {
-        // Check for navigation bar or tab bar
+        if view.waitForExistence(timeout: timeout) {
+            return true
+        }
+
+        if verifyBottomBarExists(timeout: min(timeout, 2)) {
+            return true
+        }
+
         let navBar = app.navigationBars.firstMatch
         let tabBar = app.tabBars.firstMatch
 

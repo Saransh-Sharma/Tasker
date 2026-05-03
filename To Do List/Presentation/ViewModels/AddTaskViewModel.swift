@@ -91,7 +91,8 @@ public struct AddTaskPrefillTemplate: Equatable {
 
 /// ViewModel for the Add Task screen
 /// Manages task creation state and validation
-public final class AddTaskViewModel: ObservableObject {
+@MainActor
+public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
     public static let defaultEstimatedDuration: TimeInterval = 15 * 60
 
     private struct TaskIconSearchCacheKey: Equatable {
@@ -126,6 +127,7 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var selectedPriority: TaskPriority = .low
     @Published public var selectedType: TaskType = .morning
     @Published public var selectedProject: String = "Inbox"
+    @Published public var selectedProjectID: UUID = ProjectConstants.inboxProjectID
     @Published public var dueDate: Date?
     @Published public var scheduledStartAt: Date?
     @Published public var hasReminder: Bool = false
@@ -176,7 +178,7 @@ public final class AddTaskViewModel: ObservableObject {
         || !taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         || selectedPriority != .low
         || selectedType != .morning
-        || selectedProject != "Inbox"
+        || selectedProjectID != ProjectConstants.inboxProjectID
         || areDatesDifferent(scheduledStartAt, pristineScheduledStartAt)
         || hasReminder
         || selectedLifeAreaID != nil
@@ -300,7 +302,7 @@ public final class AddTaskViewModel: ObservableObject {
     }
 
     var selectedProjectObject: Project? {
-        projects.first(where: { $0.name == selectedProject })
+        projects.first(where: { $0.id == selectedProjectID })
     }
 
     var categoryFallbackTaskIconSymbolName: String? {
@@ -334,6 +336,17 @@ public final class AddTaskViewModel: ObservableObject {
             guard let selectedLifeAreaID else { return true }
             return project.lifeAreaID == selectedLifeAreaID
         }
+    }
+
+    public func selectProject(id: UUID?) {
+        guard let id else {
+            selectedProjectID = ProjectConstants.inboxProjectID
+            selectedProject = ProjectConstants.inboxProjectName
+            return
+        }
+
+        selectedProjectID = id
+        selectedProject = projects.first(where: { $0.id == id })?.name ?? ProjectConstants.inboxProjectName
     }
     
     // MARK: - Dependencies
@@ -481,8 +494,10 @@ public final class AddTaskViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        // Resolve projectID from selectedProject name
-        let projectID = projects.first(where: { $0.name == selectedProject })?.id ?? ProjectConstants.inboxProjectID
+        let selectedProjectObject = selectedProjectObject
+        let projectID = selectedProjectObject?.id ?? selectedProjectID
+        let projectName = selectedProjectObject?.name
+            ?? (projectID == ProjectConstants.inboxProjectID ? ProjectConstants.inboxProjectName : nil)
 
         let resolvedTagIDs = selectedTagIDs.isEmpty ? parseImplicitTagIDs(from: taskName) : selectedTagIDs
         let requestID = UUID()
@@ -493,7 +508,7 @@ public final class AddTaskViewModel: ObservableObject {
             title: taskName,
             details: taskDetails.isEmpty ? nil : taskDetails,
             projectID: projectID,
-            projectName: selectedProject,
+            projectName: projectName,
             iconSymbolName: V2FeatureFlags.autoTaskIconsEnabled ? displayedTaskIconSymbolName : nil,
             lifeAreaID: selectedLifeAreaID,
             sectionID: selectedSectionID,
@@ -573,13 +588,12 @@ public final class AddTaskViewModel: ObservableObject {
                         )
                     }
                     self?.projects = dedupedProjects
-                    if self?.selectedProject == "Inbox",
-                       let inbox = self?.projects.first(where: { $0.id == ProjectConstants.inboxProjectID }) {
-                        self?.selectedProject = inbox.name
+                    if let strongSelf = self {
+                        strongSelf.reconcileSelectedProjectAfterProjectsLoad()
                     }
                     if let strongSelf = self,
-                       let selectedProjectID = strongSelf.projects.first(where: { $0.name == strongSelf.selectedProject })?.id {
-                        strongSelf.loadSections(projectID: selectedProjectID)
+                       strongSelf.projects.contains(where: { $0.id == strongSelf.selectedProjectID }) || strongSelf.selectedProjectID == ProjectConstants.inboxProjectID {
+                        strongSelf.loadSections(projectID: strongSelf.selectedProjectID)
                     } else {
                         self?.clearDeferredTaskMetadataOptions()
                     }
@@ -600,8 +614,8 @@ public final class AddTaskViewModel: ObservableObject {
         manageProjectsUseCase.createProject(request: request) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
-                case .success:
-                    self?.selectedProject = name
+                case .success(let project):
+                    self?.selectProject(id: project.id)
                     self?.loadProjects()
                     
                 case .failure(let error):
@@ -698,7 +712,7 @@ public final class AddTaskViewModel: ObservableObject {
         taskDetails = ""
         selectedPriority = .low
         selectedType = .morning
-        selectedProject = "Inbox"
+        selectProject(id: nil)
         selectedLifeAreaID = nil
         selectedSectionID = nil
         selectedTagIDs = []
@@ -791,40 +805,42 @@ public final class AddTaskViewModel: ObservableObject {
     }
 
     public func loadRelationshipTaskOptionsIfNeeded() {
-        guard let projectID = projects.first(where: { $0.name == selectedProject })?.id else {
+        guard selectedProjectID != ProjectConstants.inboxProjectID || projects.contains(where: { $0.id == selectedProjectID }) else {
             clearDeferredTaskMetadataOptions()
             return
         }
-        guard loadedTaskMetadataProjectID != projectID else { return }
-        loadTaskMetadataOptions(projectID: projectID)
+        guard loadedTaskMetadataProjectID != selectedProjectID else { return }
+        loadTaskMetadataOptions(projectID: selectedProjectID)
     }
     
     /// Validate input and update validation errors
     @discardableResult
     public func validateInput() -> Bool {
-        validationErrors = []
-        let now = nowProvider()
-        
-        // Validate task name
+        validationErrors = validationErrorsForCurrentInput(now: nowProvider())
+        return validationErrors.isEmpty
+    }
+
+    private func validationErrorsForCurrentInput(now: Date) -> [ValidationError] {
+        var errors: [ValidationError] = []
+
         if taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            validationErrors.append(.emptyTaskName)
+            errors.append(.emptyTaskName)
         } else if taskName.count > 200 {
-            validationErrors.append(.taskNameTooLong)
+            errors.append(.taskNameTooLong)
         }
-        
+
         // Validate due date/schedule (nil is valid — "Someday")
         if let scheduledStartAt, scheduledStartAt < now {
-            validationErrors.append(.pastDueDate)
+            errors.append(.pastDueDate)
         } else if let dueDate, dueDate < Calendar.current.startOfDay(for: now) {
-            validationErrors.append(.pastDueDate)
+            errors.append(.pastDueDate)
         }
-        
-        // Validate reminder time
+
         if hasReminder && reminderTime < now {
-            validationErrors.append(.pastReminderTime)
+            errors.append(.pastReminderTime)
         }
-        
-        return validationErrors.isEmpty
+
+        return errors
     }
     
     // MARK: - Private Methods
@@ -843,20 +859,21 @@ public final class AddTaskViewModel: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] projectName in
                 guard let self else { return }
-                if let project = self.projects.first(where: { $0.name == projectName }),
+                self.reconcileSelectedProjectFromLegacyName(projectName)
+                if let project = self.selectedProjectObject,
                    project.id != ProjectConstants.inboxProjectID,
                    let projectLifeAreaID = project.lifeAreaID,
                    self.selectedLifeAreaID != projectLifeAreaID {
                     self.selectedLifeAreaID = projectLifeAreaID
                 }
-                guard let projectID = self.projects.first(where: { $0.name == projectName })?.id else {
+                guard self.selectedProjectID == ProjectConstants.inboxProjectID || self.selectedProjectObject != nil else {
                     self.sections = []
                     self.selectedSectionID = nil
                     self.clearDeferredTaskMetadataOptions()
                     return
                 }
-                self.loadSections(projectID: projectID)
-                if self.loadedTaskMetadataProjectID != projectID {
+                self.loadSections(projectID: self.selectedProjectID)
+                if self.loadedTaskMetadataProjectID != self.selectedProjectID {
                     self.clearDeferredTaskMetadataOptions()
                     if self.expandedSections.contains(.relationships) {
                         self.loadRelationshipTaskOptionsIfNeeded()
@@ -1304,7 +1321,7 @@ public final class AddTaskViewModel: ObservableObject {
         }
 
         if let project = resolveProjectForPrefill(template) {
-            selectedProject = project.name
+            selectProject(id: project.id)
             if let projectLifeAreaID = project.lifeAreaID {
                 selectedLifeAreaID = template.lifeAreaID ?? projectLifeAreaID
             }
@@ -1344,7 +1361,7 @@ public final class AddTaskViewModel: ObservableObject {
             sections.insert(.schedule)
         }
 
-        if selectedProject != ProjectConstants.inboxProjectName
+        if selectedProjectID != ProjectConstants.inboxProjectID
             || selectedLifeAreaID != nil
             || selectedSectionID != nil
             || selectedTagIDs.isEmpty == false {
@@ -1478,14 +1495,42 @@ public final class AddTaskViewModel: ObservableObject {
     }
 
     private func normalizeProjectSelectionForSelectedLifeArea() {
-        guard selectedProject != ProjectConstants.inboxProjectName else { return }
-        guard let selectedProjectModel = projects.first(where: { $0.name == selectedProject }) else {
-            selectedProject = ProjectConstants.inboxProjectName
+        guard selectedProjectID != ProjectConstants.inboxProjectID else { return }
+        guard let selectedProjectModel = selectedProjectObject else {
+            selectProject(id: nil)
             return
         }
         guard let selectedLifeAreaID else { return }
         if selectedProjectModel.lifeAreaID != selectedLifeAreaID {
-            selectedProject = ProjectConstants.inboxProjectName
+            selectProject(id: nil)
+        }
+    }
+
+    private func reconcileSelectedProjectAfterProjectsLoad() {
+        if let project = projects.first(where: { $0.id == selectedProjectID }) {
+            selectedProject = project.name
+            return
+        }
+
+        reconcileSelectedProjectFromLegacyName(selectedProject)
+        if selectedProjectID == ProjectConstants.inboxProjectID,
+           let inbox = projects.first(where: { $0.id == ProjectConstants.inboxProjectID }) {
+            selectedProject = inbox.name
+        }
+    }
+
+    private func reconcileSelectedProjectFromLegacyName(_ projectName: String) {
+        if projects.contains(where: { $0.id == selectedProjectID && $0.name == projectName }) {
+            return
+        }
+
+        if projectName == ProjectConstants.inboxProjectName {
+            selectedProjectID = ProjectConstants.inboxProjectID
+            return
+        }
+
+        if let project = projects.first(where: { $0.name == projectName }) {
+            selectedProjectID = project.id
         }
     }
 
@@ -1650,7 +1695,7 @@ extension AddTaskViewModel {
             lifeAreas: lifeAreas,
             sections: sections,
             tags: tags,
-            canSubmit: validationErrors.isEmpty && !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            canSubmit: validationErrorsForCurrentInput(now: nowProvider()).isEmpty
         )
     }
 }
