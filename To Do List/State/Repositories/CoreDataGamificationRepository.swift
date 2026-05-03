@@ -12,7 +12,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         self.backgroundContext = container.newBackgroundContext()
         self.readContext.mergePolicy = NSMergeByPropertyStoreTrumpMergePolicy
         self.readContext.automaticallyMergesChangesFromParent = true
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
         self.backgroundContext.transactionAuthor = "tasker.gamification.local"
         self.schemaValidationError = Self.schemaValidationError(in: container.managedObjectModel)
         if let schemaValidationError {

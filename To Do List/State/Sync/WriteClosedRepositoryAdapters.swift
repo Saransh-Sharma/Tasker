@@ -3,7 +3,7 @@ import Foundation
 struct SyncWriteGate {
     private let modeProvider: () -> PersistentSyncMode
 
-    init(modeProvider: @escaping () -> PersistentSyncMode = { AppDelegate.persistentSyncMode }) {
+    init(modeProvider: @escaping () -> PersistentSyncMode = AppDelegate.persistentSyncModeSnapshot) {
         self.modeProvider = modeProvider
     }
 

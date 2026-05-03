@@ -8,9 +8,9 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
     /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.readContext = container.newBackgroundContext()
-        self.readContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.readContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
         self.backgroundContext = container.newBackgroundContext()
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     /// Executes fetchInRange.

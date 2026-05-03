@@ -59,8 +59,8 @@ struct V2CoreDataRepositorySupport {
         return try context.fetch(request)
     }
 
-    /// Fetches matching rows in deterministic order and prunes duplicates,
-    /// keeping the first row as canonical.
+    /// Fetches matching rows in deterministic order and repairs duplicates,
+    /// keeping the first row as canonical while logging the repair.
     @discardableResult
     static func canonicalObject(
         in context: NSManagedObjectContext,
@@ -75,7 +75,20 @@ struct V2CoreDataRepositorySupport {
         let matches = try context.fetch(request)
 
         if let first = matches.first {
-            for duplicate in matches.dropFirst() {
+            let duplicates = Array(matches.dropFirst())
+            if duplicates.isEmpty == false {
+                logWarning(
+                    event: "core_data_duplicate_rows_repaired",
+                    message: "Repaired duplicate Core Data rows during canonical object lookup",
+                    component: "V2CoreDataRepositorySupport",
+                    fields: [
+                        "entity": entityName,
+                        "canonical_object_id": first.objectID.uriRepresentation().absoluteString,
+                        "duplicate_count": String(duplicates.count)
+                    ]
+                )
+            }
+            for duplicate in duplicates {
                 context.delete(duplicate)
             }
             return first
@@ -130,10 +143,31 @@ struct V2CoreDataRepositorySupport {
             in: context,
             entityName: entityName,
             predicate: predicate,
-            sort: [NSSortDescriptor(key: "id", ascending: true)]
+            sort: repairSortDescriptors(for: entityName, in: context)
         ) {
             return existing
         }
         return NSEntityDescription.insertNewObject(forEntityName: entityName, into: context)
+    }
+
+    private static func repairSortDescriptors(
+        for entityName: String,
+        in context: NSManagedObjectContext
+    ) -> [NSSortDescriptor] {
+        guard let entity = NSEntityDescription.entity(forEntityName: entityName, in: context) else {
+            return [NSSortDescriptor(key: "id", ascending: true)]
+        }
+
+        var descriptors: [NSSortDescriptor] = []
+        if entity.attributesByName["updatedAt"] != nil {
+            descriptors.append(NSSortDescriptor(key: "updatedAt", ascending: false))
+        }
+        if entity.attributesByName["createdAt"] != nil {
+            descriptors.append(NSSortDescriptor(key: "createdAt", ascending: true))
+        }
+        if entity.attributesByName["id"] != nil {
+            descriptors.append(NSSortDescriptor(key: "id", ascending: true))
+        }
+        return descriptors
     }
 }

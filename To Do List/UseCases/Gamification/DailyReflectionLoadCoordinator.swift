@@ -159,7 +159,7 @@ protocol ReflectionCalendarContextCacheStoreProtocol: Sendable {
 }
 
 @Model
-private final class ReflectionCalendarContextCacheRecord {
+final class ReflectionCalendarContextCacheRecord {
     var storageKey: String
     var dayStart: Date
     var dayEnd: Date
@@ -187,18 +187,61 @@ private final class ReflectionCalendarContextCacheRecord {
     }
 }
 
-private enum ReflectionCalendarContextCacheDataController {
+enum ReflectionCalendarContextCacheSchemaV1: VersionedSchema {
+    static var versionIdentifier: Schema.Version {
+        Schema.Version(1, 0, 0)
+    }
+
+    static var models: [any PersistentModel.Type] {
+        [ReflectionCalendarContextCacheRecord.self]
+    }
+}
+
+enum ReflectionCalendarContextCacheMigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [ReflectionCalendarContextCacheSchemaV1.self]
+    }
+
+    static var stages: [MigrationStage] {
+        []
+    }
+}
+
+enum ReflectionCalendarContextCacheDataController {
+    private static func makeModelContainer(configuration: ModelConfiguration) throws -> ModelContainer {
+        try ModelContainer(
+            for: Schema(ReflectionCalendarContextCacheSchemaV1.models),
+            migrationPlan: ReflectionCalendarContextCacheMigrationPlan.self,
+            configurations: [configuration]
+        )
+    }
+
     static let shared: ModelContainer? = {
         let fileManager = FileManager.default
         let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        try? fileManager.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        do {
+            try fileManager.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        } catch {
+            logWarning(
+                event: "reflection_cache_directory_create_failed",
+                message: "Failed to create reflection cache directory; using in-memory fallback",
+                fields: ["error": error.localizedDescription]
+            )
+            return nil
+        }
         let storeURL = appSupportURL.appendingPathComponent("reflection-calendar-context.store")
         let configuration = ModelConfiguration(url: storeURL, cloudKitDatabase: .none)
-        return try? ModelContainer(
-            for: ReflectionCalendarContextCacheRecord.self,
-            configurations: configuration
-        )
+        do {
+            return try makeModelContainer(configuration: configuration)
+        } catch {
+            logWarning(
+                event: "reflection_cache_swiftdata_degraded",
+                message: "Reflection calendar context cache fell back to in-memory storage",
+                fields: ["error": error.localizedDescription]
+            )
+            return nil
+        }
     }()
 }
 
@@ -285,7 +328,15 @@ actor ReflectionCalendarContextCacheStore: ReflectionCalendarContextCacheStorePr
                 context.delete(record)
             }
 
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                logWarning(
+                    event: "reflection_cache_save_failed",
+                    message: "Failed to persist reflection calendar context cache; retaining in-memory fallback",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
         }
 
         inMemoryFallback[key.storageKey] = (snapshot: snapshot, cachedAt: cachedAt)
@@ -296,11 +347,29 @@ actor ReflectionCalendarContextCacheStore: ReflectionCalendarContextCacheStorePr
         guard let container else { return }
         let context = ModelContext(container)
         let descriptor = FetchDescriptor<ReflectionCalendarContextCacheRecord>()
-        guard let records = try? context.fetch(descriptor) else { return }
+        let records: [ReflectionCalendarContextCacheRecord]
+        do {
+            records = try context.fetch(descriptor)
+        } catch {
+            logWarning(
+                event: "reflection_cache_clear_fetch_failed",
+                message: "Failed to fetch reflection calendar context cache records for clearing",
+                fields: ["error": error.localizedDescription]
+            )
+            return
+        }
         for record in records {
             context.delete(record)
         }
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            logWarning(
+                event: "reflection_cache_clear_failed",
+                message: "Failed to clear reflection calendar context cache",
+                fields: ["error": error.localizedDescription]
+            )
+        }
     }
 }
 
@@ -925,7 +994,7 @@ public final class BuildNextDayPlanSuggestionUseCase {
     }
 }
 
-public struct DailyReflectionCoreLoadBundle {
+public struct DailyReflectionCoreLoadBundle: Sendable {
     public let target: DailyReflectionTarget
     public let coreSnapshot: DailyReflectionCoreSnapshot
     public let carryoverTasks: [TaskDefinition]
@@ -947,7 +1016,7 @@ public struct DailyReflectionCoreLoadBundle {
     }
 }
 
-public struct DailyReflectionCachedOptionalContext: Equatable {
+public struct DailyReflectionCachedOptionalContext: Equatable, Sendable {
     public let optionalContext: DailyReflectionOptionalContext
     public let isStale: Bool
 
@@ -957,7 +1026,7 @@ public struct DailyReflectionCachedOptionalContext: Equatable {
     }
 }
 
-public protocol DailyReflectionLoadCoordinatorProtocol {
+public protocol DailyReflectionLoadCoordinatorProtocol: Sendable {
     func resolveTarget(preferredReflectionDate: Date?) async -> DailyReflectionTarget?
     func loadCore(target: DailyReflectionTarget) async throws -> DailyReflectionCoreLoadBundle
     func makeBaselineOptionalContext(

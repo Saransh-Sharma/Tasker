@@ -7,7 +7,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
     /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.context = container.newBackgroundContext()
-        self.context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     /// Executes fetchTasks.

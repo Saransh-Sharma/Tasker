@@ -123,7 +123,7 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     public func fetchPlan(id: UUID, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) {
@@ -307,7 +307,7 @@ public final class CoreDataWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProto
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     public func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) {
@@ -449,7 +449,7 @@ public final class CoreDataWeeklyReviewRepository: WeeklyReviewRepositoryProtoco
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     public func fetchReview(weeklyPlanID: UUID, completion: @escaping (Result<WeeklyReview?, Error>) -> Void) {
@@ -521,7 +521,7 @@ public final class CoreDataReflectionNoteRepository: ReflectionNoteRepositoryPro
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     public func fetchNotes(query: ReflectionNoteQuery, completion: @escaping (Result<[ReflectionNote], Error>) -> Void) {
@@ -639,7 +639,7 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
-        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
     public func finalizeReview(
