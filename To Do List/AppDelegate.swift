@@ -7,7 +7,7 @@
 //
 
 import UIKit
-import CoreData
+ import CoreData
 import CloudKit
 import Firebase
 import BackgroundTasks

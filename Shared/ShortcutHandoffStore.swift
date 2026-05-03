@@ -4,7 +4,7 @@ extension Notification.Name {
     static let taskerEvaChatLaunchRequestDidChange = Notification.Name("TaskerEvaChatLaunchRequestDidChange")
 }
 
-struct EvaChatLaunchRequest: Codable, Equatable {
+struct EvaChatLaunchRequest: Codable, Equatable, Sendable {
     let id: UUID
     let prompt: String?
     let createdAt: Date
@@ -17,12 +17,12 @@ struct EvaChatLaunchRequest: Codable, Equatable {
     }
 }
 
-enum PendingShortcutLaunchActionKind: String, Codable {
+enum PendingShortcutLaunchActionKind: String, Codable, Sendable {
     case askEva
     case startFocus
 }
 
-struct PendingShortcutLaunchAction: Codable, Equatable {
+struct PendingShortcutLaunchAction: Codable, Equatable, Sendable {
     let id: UUID
     let kind: PendingShortcutLaunchActionKind
     let prompt: String?
@@ -42,11 +42,11 @@ struct PendingShortcutLaunchAction: Codable, Equatable {
     }
 }
 
-enum ShortcutMutationSignalKind: String, Codable {
+enum ShortcutMutationSignalKind: String, Codable, Sendable {
     case taskCreated
 }
 
-struct ShortcutMutationSignal: Codable, Equatable {
+struct ShortcutMutationSignal: Codable, Equatable, Sendable {
     let id: UUID
     let kind: ShortcutMutationSignalKind
     let taskID: UUID?
@@ -85,15 +85,16 @@ private enum ShortcutHandoffStoreKey {
     static let mutationSignal = "tasker.shortcut.mutationSignal.v1"
 }
 
-private final class ShortcutHandoffCodableStore {
+private final class ShortcutHandoffCodableStore: @unchecked Sendable {
     private let defaults: UserDefaults
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
-    private let now: () -> Date
+    private let lock = NSLock()
+    private let now: @Sendable () -> Date
 
     init(
         defaults: UserDefaults = UserDefaults(suiteName: AppGroupConstants.suiteName) ?? UserDefaults.standard,
-        now: @escaping () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.defaults = defaults
         self.now = now
@@ -102,6 +103,8 @@ private final class ShortcutHandoffCodableStore {
     func save<T: Encodable>(_ value: T, key: String) throws {
         let data: Data
         do {
+            lock.lock()
+            defer { lock.unlock() }
             data = try encoder.encode(value)
         } catch {
             throw ShortcutHandoffStoreError.encodeFailed
@@ -112,6 +115,8 @@ private final class ShortcutHandoffCodableStore {
 
     func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
         guard let data = defaults.data(forKey: key) else { return nil }
+        lock.lock()
+        defer { lock.unlock() }
         return try? decoder.decode(type, from: data)
     }
 
@@ -136,7 +141,7 @@ private final class ShortcutHandoffCodableStore {
     }
 }
 
-final class EvaChatLaunchRequestStore {
+final class EvaChatLaunchRequestStore: @unchecked Sendable {
     static let shared = EvaChatLaunchRequestStore()
     private static let maxAge: TimeInterval = 10 * 60
 
@@ -144,7 +149,7 @@ final class EvaChatLaunchRequestStore {
 
     init(
         defaults: UserDefaults = UserDefaults(suiteName: AppGroupConstants.suiteName) ?? UserDefaults.standard,
-        now: @escaping () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.store = ShortcutHandoffCodableStore(defaults: defaults, now: now)
     }
@@ -164,7 +169,7 @@ final class EvaChatLaunchRequestStore {
     }
 }
 
-final class PendingShortcutLaunchActionStore {
+final class PendingShortcutLaunchActionStore: @unchecked Sendable {
     static let shared = PendingShortcutLaunchActionStore()
     private static let maxAge: TimeInterval = 10 * 60
 
@@ -172,7 +177,7 @@ final class PendingShortcutLaunchActionStore {
 
     init(
         defaults: UserDefaults = UserDefaults(suiteName: AppGroupConstants.suiteName) ?? UserDefaults.standard,
-        now: @escaping () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.store = ShortcutHandoffCodableStore(defaults: defaults, now: now)
     }
@@ -191,7 +196,7 @@ final class PendingShortcutLaunchActionStore {
     }
 }
 
-final class ShortcutMutationSignalStore {
+final class ShortcutMutationSignalStore: @unchecked Sendable {
     static let shared = ShortcutMutationSignalStore()
     private static let maxAge: TimeInterval = 10 * 60
 
@@ -199,7 +204,7 @@ final class ShortcutMutationSignalStore {
 
     init(
         defaults: UserDefaults = UserDefaults(suiteName: AppGroupConstants.suiteName) ?? UserDefaults.standard,
-        now: @escaping () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.store = ShortcutHandoffCodableStore(defaults: defaults, now: now)
     }

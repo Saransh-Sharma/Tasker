@@ -80,7 +80,7 @@ public struct GamificationWidgetSnapshot: Codable {
 }
 
 /// A compact task row projection consumed by task-list widgets.
-public struct TaskListWidgetTask: Codable, Equatable, Hashable, Identifiable {
+public struct TaskListWidgetTask: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public var title: String
     public var projectID: UUID?
@@ -123,7 +123,7 @@ public struct TaskListWidgetTask: Codable, Equatable, Hashable, Identifiable {
     }
 }
 
-public struct TaskListWidgetProjectSlice: Codable, Equatable, Hashable, Identifiable {
+public struct TaskListWidgetProjectSlice: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var id: String {
         projectID?.uuidString ?? projectName.lowercased()
     }
@@ -146,7 +146,7 @@ public struct TaskListWidgetProjectSlice: Codable, Equatable, Hashable, Identifi
     }
 }
 
-public struct TaskListWidgetEnergyBucket: Codable, Equatable, Hashable, Identifiable {
+public struct TaskListWidgetEnergyBucket: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var id: String { energy }
 
     public var energy: String
@@ -158,7 +158,7 @@ public struct TaskListWidgetEnergyBucket: Codable, Equatable, Hashable, Identifi
     }
 }
 
-public struct TaskListWidgetSnapshotHealth: Codable, Equatable {
+public struct TaskListWidgetSnapshotHealth: Codable, Equatable, Sendable {
     public var source: String
     public var generatedAt: Date
     public var isStale: Bool
@@ -177,7 +177,7 @@ public struct TaskListWidgetSnapshotHealth: Codable, Equatable {
     }
 }
 
-public enum TaskListWidgetCalendarStatus: String, Codable, Equatable, Hashable {
+public enum TaskListWidgetCalendarStatus: String, Codable, Equatable, Hashable, Sendable {
     case permissionRequired
     case noCalendarsSelected
     case empty
@@ -186,7 +186,7 @@ public enum TaskListWidgetCalendarStatus: String, Codable, Equatable, Hashable {
     case active
 }
 
-public struct TaskListWidgetCalendarEvent: Codable, Equatable, Hashable, Identifiable {
+public struct TaskListWidgetCalendarEvent: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var id: String
     public var title: String
     public var calendarTitle: String
@@ -223,7 +223,7 @@ public struct TaskListWidgetCalendarEvent: Codable, Equatable, Hashable, Identif
     }
 }
 
-public struct TaskListWidgetCalendarNextMeeting: Codable, Equatable, Hashable {
+public struct TaskListWidgetCalendarNextMeeting: Codable, Equatable, Hashable, Sendable {
     public var event: TaskListWidgetCalendarEvent
     public var isInProgress: Bool
     public var minutesUntilStart: Int
@@ -239,7 +239,7 @@ public struct TaskListWidgetCalendarNextMeeting: Codable, Equatable, Hashable {
     }
 }
 
-public struct TaskListWidgetCalendarDay: Codable, Equatable, Hashable, Identifiable {
+public struct TaskListWidgetCalendarDay: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var id: String
     public var date: Date
     public var eventCount: Int
@@ -269,7 +269,7 @@ public struct TaskListWidgetCalendarDay: Codable, Equatable, Hashable, Identifia
     }
 }
 
-public struct TaskListWidgetCalendarSnapshot: Codable, Equatable {
+public struct TaskListWidgetCalendarSnapshot: Codable, Equatable, Sendable {
     public var status: TaskListWidgetCalendarStatus
     public var date: Date
     public var updatedAt: Date
@@ -317,18 +317,18 @@ public struct TaskListWidgetCalendarSnapshot: Codable, Equatable {
     public static let empty = TaskListWidgetCalendarSnapshot()
 }
 
-public enum TaskListWidgetTimelineItemSource: String, Codable, Equatable, Hashable {
+public enum TaskListWidgetTimelineItemSource: String, Codable, Equatable, Hashable, Sendable {
     case task
     case calendarEvent
 }
 
-public enum TaskListWidgetTimelineLoadLevel: String, Codable, Equatable, Hashable {
+public enum TaskListWidgetTimelineLoadLevel: String, Codable, Equatable, Hashable, Sendable {
     case light
     case balanced
     case busy
 }
 
-public struct TaskListWidgetTimelineItem: Codable, Equatable, Hashable, Identifiable {
+public struct TaskListWidgetTimelineItem: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var id: String
     public var source: TaskListWidgetTimelineItemSource
     public var taskID: UUID?
@@ -377,7 +377,7 @@ public struct TaskListWidgetTimelineItem: Codable, Equatable, Hashable, Identifi
     }
 }
 
-public struct TaskListWidgetTimelineGap: Codable, Equatable, Hashable, Identifiable {
+public struct TaskListWidgetTimelineGap: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var id: String
     public var startDate: Date
     public var endDate: Date
@@ -405,7 +405,7 @@ public struct TaskListWidgetTimelineGap: Codable, Equatable, Hashable, Identifia
     }
 }
 
-public struct TaskListWidgetTimelineWeekDay: Codable, Equatable, Hashable, Identifiable {
+public struct TaskListWidgetTimelineWeekDay: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var id: String { dayKey }
 
     public var date: Date
@@ -432,7 +432,7 @@ public struct TaskListWidgetTimelineWeekDay: Codable, Equatable, Hashable, Ident
     }
 }
 
-public struct TaskListWidgetTimelineDay: Codable, Equatable, Hashable {
+public struct TaskListWidgetTimelineDay: Codable, Equatable, Hashable, Sendable {
     public var date: Date
     public var wakeAnchor: Date
     public var sleepAnchor: Date
@@ -466,7 +466,7 @@ public struct TaskListWidgetTimelineDay: Codable, Equatable, Hashable {
     }
 }
 
-public struct TaskListWidgetTimelineSnapshot: Codable, Equatable, Hashable {
+public struct TaskListWidgetTimelineSnapshot: Codable, Equatable, Hashable, Sendable {
     public var date: Date
     public var updatedAt: Date
     public var day: TaskListWidgetTimelineDay
@@ -490,7 +490,7 @@ public struct TaskListWidgetTimelineSnapshot: Codable, Equatable, Hashable {
     public static let empty = TaskListWidgetTimelineSnapshot()
 }
 
-public enum TaskListWidgetHabitDayState: String, Codable, Equatable, Hashable {
+public enum TaskListWidgetHabitDayState: String, Codable, Equatable, Hashable, Sendable {
     case success
     case failure
     case skipped
@@ -498,7 +498,7 @@ public enum TaskListWidgetHabitDayState: String, Codable, Equatable, Hashable {
     case future
 }
 
-public enum TaskListWidgetHabitTodayState: String, Codable, Equatable, Hashable {
+public enum TaskListWidgetHabitTodayState: String, Codable, Equatable, Hashable, Sendable {
     case due
     case overdue
     case completedToday
@@ -508,7 +508,7 @@ public enum TaskListWidgetHabitTodayState: String, Codable, Equatable, Hashable 
     case empty
 }
 
-public struct TaskListWidgetHabitDay: Codable, Equatable, Hashable, Identifiable {
+public struct TaskListWidgetHabitDay: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var id: String { dayKey }
 
     public var date: Date
@@ -526,7 +526,7 @@ public struct TaskListWidgetHabitDay: Codable, Equatable, Hashable, Identifiable
     }
 }
 
-public struct TaskListWidgetHabitPrimary: Codable, Equatable, Hashable, Identifiable {
+public struct TaskListWidgetHabitPrimary: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var id: UUID { habitID }
 
     public var habitID: UUID
@@ -562,7 +562,7 @@ public struct TaskListWidgetHabitPrimary: Codable, Equatable, Hashable, Identifi
     }
 }
 
-public struct TaskListWidgetHabitSnapshot: Codable, Equatable, Hashable {
+public struct TaskListWidgetHabitSnapshot: Codable, Equatable, Hashable, Sendable {
     public var date: Date
     public var updatedAt: Date
     public var primaryHabit: TaskListWidgetHabitPrimary?
@@ -590,7 +590,7 @@ public struct TaskListWidgetHabitSnapshot: Codable, Equatable, Hashable {
 }
 
 /// Data snapshot for task-list widgets, serialized in the App Group container.
-public struct TaskListWidgetSnapshot: Codable, Equatable {
+public struct TaskListWidgetSnapshot: Codable, Equatable, Sendable {
     public static let currentSchemaVersion = 5
 
     public var schemaVersion: Int
@@ -731,13 +731,13 @@ public struct TaskListWidgetSnapshot: Codable, Equatable {
     }
 }
 
-public enum TaskListWidgetActionType: String, Codable, Equatable {
+public enum TaskListWidgetActionType: String, Codable, Equatable, Sendable {
     case complete
     case defer15m
     case defer60m
 }
 
-public struct TaskListWidgetActionCommand: Codable, Equatable {
+public struct TaskListWidgetActionCommand: Codable, Equatable, Sendable {
     public var commandID: UUID
     public var taskID: UUID
     public var action: TaskListWidgetActionType

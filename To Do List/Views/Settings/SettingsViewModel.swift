@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 @MainActor
-final class SettingsViewModel: ObservableObject {
+final class SettingsViewModel: ObservableObject, Sendable {
 
     // MARK: - Notifications
 
@@ -307,7 +307,6 @@ final class SettingsViewModel: ObservableObject {
     }
 
     var calendarAccessSubtitle: String {
-        let accessAction = calendarIntegrationService.accessAction(for: calendarAuthorizationStatus)
         switch calendarAuthorizationStatus {
         case .authorized:
             return String(localized: "Tasker can read your selected calendars.")
