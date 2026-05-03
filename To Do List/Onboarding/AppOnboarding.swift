@@ -26,10 +26,14 @@ enum AppOnboardingAccessibilityID {
     static let evaValue = "onboarding.evaValue"
     static let lifeAreas = "onboarding.lifeAreas"
     static let habitSetup = "onboarding.habitSetup"
+    static let workStyle = "onboarding.workStyle"
+    static let workBlockers = "onboarding.workBlockers"
+    static let weeklyOutcomes = "onboarding.weeklyOutcomes"
     static let streakPreview = "onboarding.streakPreview"
     static let evaStyle = "onboarding.evaStyle"
     static let processing = "onboarding.processing"
     static let firstTask = "onboarding.firstTask"
+    static let homeDemo = "onboarding.homeDemo"
     static let focusRoom = "onboarding.focusRoom"
     static let habitCheckIn = "onboarding.habitCheckIn"
     static let calendarPermission = "onboarding.calendarPermission"
@@ -51,10 +55,17 @@ enum AppOnboardingAccessibilityID {
     static let prompt = "onboarding.prompt"
     static let promptStart = "onboarding.prompt.start"
     static let promptDismiss = "onboarding.prompt.dismiss"
+    static let calendarPermissionHero = "onboarding.calendarPermission.hero"
+    static let notificationPermissionHero = "onboarding.notificationPermission.hero"
+    static let weeklyOutcomeAdd = "onboarding.weeklyOutcomes.add"
+    static let homeDemoTimeline = "onboarding.homeDemo.timeline"
+    static let homeDemoHabits = "onboarding.homeDemo.habits"
 
     static func lifeArea(_ id: String) -> String { "onboarding.lifeArea.\(id)" }
     static func taskTemplate(_ id: String) -> String { "onboarding.taskTemplate.\(id)" }
     static func habitTemplate(_ id: String) -> String { "onboarding.habitTemplate.\(id)" }
+    static func mascotPersona(_ id: String) -> String { "onboarding.mascot.persona.\(id)" }
+    static func weeklyOutcomeField(_ index: Int) -> String { "onboarding.weeklyOutcomes.field.\(index)" }
 }
 
 enum OnboardingCopy {
@@ -62,7 +73,7 @@ enum OnboardingCopy {
         static let primaryCTA = String(localized: "Start setup")
         static let setupChip = String(localized: "Guided setup")
         static let durationChip = String(localized: "~2 min")
-        static let changeLaterChip = String(localized: "Easy to edit")
+        static let changeLaterChip = String(localized: "Change this later")
     }
 
     enum Header {
@@ -89,9 +100,9 @@ enum OnboardingCopy {
     }
 
     enum EvaValue {
-        static let title = String(localized: "What Tasker sets up")
-        static let subtitle = String(localized: "You will leave with areas, one habit, and one task ready.")
-        static let cta = String(localized: "Build setup")
+        static let title = String(localized: "Pick your chief of staff")
+        static let subtitle = String(localized: "Choose the mascot that will guide your day, habits, and priorities.")
+        static let cta = String(localized: "Choose chief")
     }
 
     enum LifeAreas {
@@ -103,7 +114,7 @@ enum OnboardingCopy {
 
     enum HabitSetup {
         static let title = String(localized: "Pick one habit")
-        static let subtitle = String(localized: "This becomes the first streak on your board.")
+        static let subtitle = String(localized: "Start with a routine you want visible on Home.")
         static let cta = String(localized: "Set habit")
     }
 
@@ -114,10 +125,22 @@ enum OnboardingCopy {
     }
 
     enum EvaStyle {
-        static let title = String(localized: "Set assistant preferences")
-        static let subtitle = String(localized: "Choose who supports your week and how they should work.")
+        static let title = String(localized: "How do you work best?")
+        static let subtitle = String(localized: "Pick the style your chief of staff should respect.")
         static let blockerTitle = String(localized: "Work blockers")
-        static let cta = String(localized: "Save preferences")
+        static let cta = String(localized: "Save style")
+    }
+
+    enum WorkBlockers {
+        static let title = String(localized: "What blocks your work?")
+        static let subtitle = String(localized: "Choose the patterns your chief of staff should watch for.")
+        static let cta = String(localized: "Save blockers")
+    }
+
+    enum WeeklyOutcomes {
+        static let title = String(localized: "This week, I want to…")
+        static let subtitle = String(localized: "Name the outcomes worth protecting this week.")
+        static let cta = String(localized: "Save outcomes")
     }
 
     enum Processing {
@@ -126,10 +149,16 @@ enum OnboardingCopy {
     }
 
     enum FirstTask {
-        static let title = String(localized: "Start your first task")
-        static let subtitle = String(localized: "Choose the task you want to finish first.")
-        static let ctaReady = String(localized: "Start task")
+        static let title = String(localized: "Add a task for today")
+        static let subtitle = String(localized: "Pick a suggestion or create the exact task you want to move.")
+        static let ctaReady = String(localized: "Use task")
         static let ctaMissing = String(localized: "Choose task")
+    }
+
+    enum HomeDemo {
+        static let title = String(localized: "Try your day")
+        static let subtitle = String(localized: "Mark one task and one habit done to see how Home works.")
+        static let cta = String(localized: "Continue")
     }
 
     enum Focus {
@@ -159,7 +188,7 @@ enum OnboardingCopy {
 
     enum Success {
         static let title = String(localized: "Setup is ready")
-        static let subtitle = String(localized: "You finished one task. Your starter system is in place.")
+        static let subtitle = String(localized: "Your chief of staff, habit, task, and day view are ready.")
         static let goHomeCTA = String(localized: "Go to Home")
         static let nextCTA = String(localized: "Ask assistant")
     }
@@ -212,12 +241,21 @@ enum OnboardingCopy {
         EvaStyle.subtitle,
         EvaStyle.blockerTitle,
         EvaStyle.cta,
+        WorkBlockers.title,
+        WorkBlockers.subtitle,
+        WorkBlockers.cta,
+        WeeklyOutcomes.title,
+        WeeklyOutcomes.subtitle,
+        WeeklyOutcomes.cta,
         Processing.title,
         Processing.subtitle,
         FirstTask.title,
         FirstTask.subtitle,
         FirstTask.ctaReady,
         FirstTask.ctaMissing,
+        HomeDemo.title,
+        HomeDemo.subtitle,
+        HomeDemo.cta,
         Focus.title,
         Focus.subtitle,
         Focus.breakDownCTA,
@@ -304,6 +342,9 @@ enum OnboardingStep: Int, CaseIterable, Codable {
     case calendarPermission = 15
     case notificationPermission = 16
     case success = 17
+    case workBlockers = 18
+    case weeklyOutcomes = 19
+    case homeDemo = 20
 
     static let orderedFlow: [OnboardingStep] = [
         .goal,
@@ -311,12 +352,11 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         .evaValue,
         .lifeAreas,
         .habitSetup,
-        .streakPreview,
         .evaStyle,
-        .processing,
+        .workBlockers,
+        .weeklyOutcomes,
         .firstTask,
-        .focusRoom,
-        .habitCheckIn,
+        .homeDemo,
         .calendarPermission,
         .notificationPermission,
         .success
@@ -353,11 +393,17 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .streakPreview:
             return "Streak"
         case .evaStyle:
-            return "Style"
+            return "Work style"
+        case .workBlockers:
+            return "Blockers"
+        case .weeklyOutcomes:
+            return "Outcomes"
         case .processing:
             return "Build"
         case .firstTask:
             return "Task"
+        case .homeDemo:
+            return "Demo"
         case .focusRoom:
             return "Focus"
         case .habitCheckIn:
@@ -381,9 +427,9 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return .onboardingWelcome
         case .goal, .pain:
             return .onboardingNextStep
-        case .evaValue, .evaStyle:
+        case .evaValue, .evaStyle, .workBlockers, .weeklyOutcomes:
             return .onboardingEvaValue
-        case .lifeAreas, .projects, .habits, .habitSetup, .firstTask:
+        case .lifeAreas, .projects, .habits, .habitSetup, .firstTask, .homeDemo:
             return .onboardingCaptureSetup
         case .streakPreview, .habitCheckIn:
             return .habitStreakWin
@@ -410,6 +456,12 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return .lifeAreas
         case .habits:
             return .habitSetup
+        case .streakPreview:
+            return .evaStyle
+        case .processing:
+            return .firstTask
+        case .focusRoom, .habitCheckIn:
+            return .homeDemo
         default:
             return self
         }
@@ -424,7 +476,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .pain:
             return "Choose blockers"
         case .evaValue:
-            return "Review setup plan"
+            return "Choose chief of staff"
         case .lifeAreas:
             return "Choose focus areas"
         case .habitSetup:
@@ -432,11 +484,17 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .streakPreview:
             return "Preview streak"
         case .evaStyle:
-            return "Set assistant preferences"
+            return "Choose working style"
+        case .workBlockers:
+            return "Choose work blockers"
+        case .weeklyOutcomes:
+            return "Add weekly outcomes"
         case .processing:
             return "Preparing setup"
         case .firstTask:
-            return "Start first task"
+            return "Add today's task"
+        case .homeDemo:
+            return "Try Home demo"
         case .focusRoom:
             return "Finish task"
         case .habitCheckIn:
@@ -461,7 +519,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .pain:
             return "Select at least one blocker."
         case .evaValue:
-            return "Continue to build your setup."
+            return "Swipe the carousel and choose a chief of staff."
         case .lifeAreas:
             return "Pick up to 3 areas."
         case .habitSetup:
@@ -469,11 +527,17 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .streakPreview:
             return "Review your starter streak."
         case .evaStyle:
-            return "Choose how your assistant should help."
+            return "Choose how your chief of staff should work."
+        case .workBlockers:
+            return "Choose blockers or add your own."
+        case .weeklyOutcomes:
+            return "Add at least one outcome."
         case .processing:
             return "Wait while Tasker prepares your setup."
         case .firstTask:
-            return "Choose the first task to finish."
+            return "Choose or create a task for today."
+        case .homeDemo:
+            return "Complete one demo task and one demo habit."
         case .focusRoom:
             return "Start focus or break the task down."
         case .habitCheckIn:
@@ -966,6 +1030,8 @@ struct OnboardingJourneySnapshot: Codable, Equatable {
     var didCompleteStarterHabitCheckIn: Bool = false
     var evaProfileDraft: EvaProfileDraft = EvaProfileDraft()
     var evaPreparationState: OnboardingEvaPreparationState = OnboardingEvaPreparationState()
+    var didCompleteHomeDemoTask: Bool = false
+    var didCompleteHomeDemoHabit: Bool = false
     var successSummary: AppOnboardingSummary?
     var hasSeenSuccess: Bool
     var reminderPromptDismissed: Bool = false
@@ -1000,6 +1066,8 @@ extension OnboardingJourneySnapshot {
         case didCompleteStarterHabitCheckIn
         case evaProfileDraft
         case evaPreparationState
+        case didCompleteHomeDemoTask
+        case didCompleteHomeDemoHabit
         case successSummary
         case hasSeenSuccess
         case reminderPromptDismissed
@@ -1034,6 +1102,8 @@ extension OnboardingJourneySnapshot {
         didCompleteStarterHabitCheckIn = try container.decodeIfPresent(Bool.self, forKey: .didCompleteStarterHabitCheckIn) ?? false
         evaProfileDraft = try container.decodeIfPresent(EvaProfileDraft.self, forKey: .evaProfileDraft) ?? EvaProfileDraft()
         evaPreparationState = try container.decodeIfPresent(OnboardingEvaPreparationState.self, forKey: .evaPreparationState) ?? OnboardingEvaPreparationState()
+        didCompleteHomeDemoTask = try container.decodeIfPresent(Bool.self, forKey: .didCompleteHomeDemoTask) ?? false
+        didCompleteHomeDemoHabit = try container.decodeIfPresent(Bool.self, forKey: .didCompleteHomeDemoHabit) ?? false
         successSummary = try container.decodeIfPresent(AppOnboardingSummary.self, forKey: .successSummary)
         hasSeenSuccess = try container.decode(Bool.self, forKey: .hasSeenSuccess)
         reminderPromptDismissed = try container.decodeIfPresent(Bool.self, forKey: .reminderPromptDismissed) ?? false
@@ -3490,6 +3560,8 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
     @Published var evaProfileDraft = EvaProfileDraft()
     @Published var selectedMascotID: AssistantMascotID
     @Published var evaPreparationState = OnboardingEvaPreparationState()
+    @Published var didCompleteHomeDemoTask = false
+    @Published var didCompleteHomeDemoHabit = false
     @Published private(set) var resolvedLifeAreas: [ResolvedLifeAreaSelection] = []
     @Published private(set) var resolvedProjects: [ResolvedProjectSelection] = []
     @Published private(set) var createdHabits: [HabitDefinitionRecord] = []
@@ -3578,7 +3650,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         self.evaAppManager = evaAppManager
         self.evaDefaults = evaDefaults
         self.workspacePreferencesStore = workspacePreferencesStore
-        self.selectedMascotID = workspacePreferencesStore.load().chiefOfStaffMascotID
+        self.selectedMascotID = .yesman
         self.isEvaBackgroundPreparationEnabled = isEvaBackgroundPreparationEnabled
         applyDefaults(mode: .guided, frictionProfile: nil)
     }
@@ -3811,6 +3883,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         guard let snapshot else {
             applyDefaults(mode: .guided, frictionProfile: frictionProfile)
             entryContext = .freshFlow
+            selectedMascotID = .yesman
             step = .welcome
             successSummary = nil
             persistJourney()
@@ -3841,7 +3914,12 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         didCompleteStarterHabitCheckIn = snapshot.didCompleteStarterHabitCheckIn
         evaProfileDraft = snapshot.evaProfileDraft
         selectedMascotID = workspacePreferencesStore.load().chiefOfStaffMascotID
+        if selectedMascotID == .eva, snapshot.step == .welcome || snapshot.step == .evaValue {
+            selectedMascotID = .yesman
+        }
         evaPreparationState = snapshot.evaPreparationState
+        didCompleteHomeDemoTask = snapshot.didCompleteHomeDemoTask
+        didCompleteHomeDemoHabit = snapshot.didCompleteHomeDemoHabit
         resolvedLifeAreas = normalizedResolvedLifeAreas
         resolvedProjects = normalizedResolvedProjects
         createdHabits = snapshot.createdHabits
@@ -3883,8 +3961,10 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         habitPreviewMarks = []
         didCompleteStarterHabitCheckIn = false
         evaProfileDraft = EvaProfileDraft()
-        selectedMascotID = workspacePreferencesStore.load().chiefOfStaffMascotID
+        selectedMascotID = .yesman
         evaPreparationState = OnboardingEvaPreparationState()
+        didCompleteHomeDemoTask = false
+        didCompleteHomeDemoHabit = false
         resolvedLifeAreas = []
         resolvedProjects = []
         createdHabits = []
@@ -3925,6 +4005,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
     func begin(mode: OnboardingMode) {
         self.mode = mode
         entryContext = .freshFlow
+        selectedMascotID = .yesman
         applyDefaults(mode: mode, frictionProfile: frictionProfile)
         clearDownstreamState()
         step = .goal
@@ -3978,6 +4059,8 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
     }
 
     func continueFromEvaValue() {
+        persistSelectedMascot()
+        startEvaPreparationInBackgroundIfNeeded()
         step = .lifeAreas
         errorMessage = nil
         persistJourney()
@@ -4206,7 +4289,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         }
     }
 
-    func continueFromHabitSetup() {
+    func continueFromHabitSetup() async {
         guard canContinueHabitSetup else {
             errorMessage = OnboardingCopy.Error.chooseHabit
             return
@@ -4214,7 +4297,13 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         if selectedStarterHabitTemplateID == nil {
             selectedStarterHabitTemplateID = selectedStarterHabitTemplate?.id
         }
-        step = .streakPreview
+        if let template = selectedStarterHabitTemplate,
+           createdHabitTemplateMap[template.id] == nil,
+           createdHabits.isEmpty {
+            await addSuggestedHabit(template)
+            guard errorMessage == nil else { return }
+        }
+        step = .evaStyle
         errorMessage = nil
         persistJourney()
     }
@@ -4295,7 +4384,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
     func continueFromFirstTask() {
         guard canContinueToFocus else { return }
         focusTaskID = createdTasks.first(where: { $0.isComplete == false })?.id ?? createdTasks.first?.id
-        step = .focusRoom
+        step = .homeDemo
         errorMessage = nil
         persistJourney()
     }
@@ -4321,7 +4410,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
             focusIsActive = false
             focusStartedAt = nil
             successSummary = buildSummary(completedTask: completed)
-            step = .habitCheckIn
+            step = .calendarPermission
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription
@@ -4466,11 +4555,11 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
     }
 
     func continueFromEvaStyle() {
-        guard evaProfileDraft.selectedWorkingStyleIDs.isEmpty == false || evaProfileDraft.selectedMomentumBlockerIDs.isEmpty == false || evaProfileDraft.goals.isEmpty == false else {
+        guard evaProfileDraft.selectedWorkingStyleIDs.isEmpty == false else {
             errorMessage = OnboardingCopy.Error.chooseEvaPreference
             return
         }
-        step = .processing
+        step = .workBlockers
         errorMessage = nil
         persistJourney()
     }
@@ -4484,12 +4573,20 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         persistJourney()
     }
 
+    func addCustomEvaWorkingStyle(_ title: String) {
+        let normalized = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.isEmpty == false else { return }
+        if evaProfileDraft.selectedWorkingStyleIDs.contains(where: { $0.caseInsensitiveCompare(normalized) == .orderedSame }) == false {
+            evaProfileDraft.selectedWorkingStyleIDs.append(normalized)
+        }
+        errorMessage = nil
+        persistJourney()
+    }
+
     func selectChiefOfStaffMascot(_ id: AssistantMascotID) {
         guard selectedMascotID != id else { return }
         selectedMascotID = id
-        workspacePreferencesStore.update { preferences in
-            preferences.chiefOfStaffMascotID = id
-        }
+        persistSelectedMascot()
         persistJourney()
     }
 
@@ -4502,11 +4599,50 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         persistJourney()
     }
 
+    func addCustomEvaMomentumBlocker(_ title: String) {
+        let normalized = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.isEmpty == false else { return }
+        if evaProfileDraft.selectedMomentumBlockerIDs.contains(where: { $0.caseInsensitiveCompare(normalized) == .orderedSame }) == false {
+            evaProfileDraft.selectedMomentumBlockerIDs.append(normalized)
+        }
+        errorMessage = nil
+        persistJourney()
+    }
+
+    func continueFromWorkBlockers() {
+        guard evaProfileDraft.selectedMomentumBlockerIDs.isEmpty == false else {
+            errorMessage = OnboardingCopy.Error.chooseEvaPreference
+            return
+        }
+        step = .weeklyOutcomes
+        errorMessage = nil
+        persistJourney()
+    }
+
     func updateEvaGoal(at index: Int, text: String) {
         while evaProfileDraft.goals.count <= index {
             evaProfileDraft.goals.append("")
         }
         evaProfileDraft.goals[index] = text
+        persistJourney()
+    }
+
+    func replaceEvaGoals(_ goals: [String]) {
+        evaProfileDraft.goals = goals
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+        errorMessage = nil
+        persistJourney()
+    }
+
+    func continueFromWeeklyOutcomes() {
+        replaceEvaGoals(evaProfileDraft.goals)
+        guard evaProfileDraft.goals.isEmpty == false else {
+            errorMessage = OnboardingCopy.Error.chooseEvaPreference
+            return
+        }
+        step = .firstTask
+        errorMessage = nil
         persistJourney()
     }
 
@@ -4574,7 +4710,31 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
             errorMessage = OnboardingCopy.Error.firstTaskMissing
             return
         }
-        step = .focusRoom
+        step = .homeDemo
+        errorMessage = nil
+        persistJourney()
+    }
+
+    func markHomeDemoTaskDone() {
+        didCompleteHomeDemoTask = true
+        persistJourney()
+    }
+
+    func markHomeDemoHabitDone() {
+        didCompleteHomeDemoHabit = true
+        persistJourney()
+    }
+
+    func continueFromHomeDemo() {
+        guard didCompleteHomeDemoTask && didCompleteHomeDemoHabit else { return }
+        if let completedTask = createdTasks.first {
+            var task = completedTask
+            task.isComplete = true
+            task.dateCompleted = task.dateCompleted ?? Date()
+            upsertCreatedTask(task)
+            successSummary = buildSummary(completedTask: task)
+        }
+        step = .calendarPermission
         errorMessage = nil
         persistJourney()
     }
@@ -4693,15 +4853,18 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
             selectedStarterHabitTemplateID = selectedStarterHabitTemplate?.id
         }
 
-        step = .processing
-        await runProcessingIfNeeded()
-        guard errorMessage == nil else { return }
-
         if let existingTask = createdTasks.first(where: { $0.isComplete == false }) ?? createdTasks.first {
             focusTaskID = existingTask.id
-            step = .focusRoom
+            step = .homeDemo
             persistJourney()
             return
+        }
+
+        if let template = selectedStarterHabitTemplate,
+           createdHabits.isEmpty,
+           createdHabitTemplateMap[template.id] == nil {
+            await addSuggestedHabit(template)
+            guard errorMessage == nil else { return }
         }
 
         guard let firstTemplate = primaryTaskSuggestions.first ?? taskSuggestions.first,
@@ -4717,7 +4880,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
             createdTaskTemplateMap[firstTemplate.id] = createdTask.id
             taskTemplateStates[firstTemplate.id] = .created(createdTask.id)
             focusTaskID = createdTask.id
-            step = .focusRoom
+            step = .homeDemo
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription
@@ -4882,6 +5045,8 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
             didCompleteStarterHabitCheckIn: didCompleteStarterHabitCheckIn,
             evaProfileDraft: evaProfileDraft,
             evaPreparationState: evaPreparationState,
+            didCompleteHomeDemoTask: didCompleteHomeDemoTask,
+            didCompleteHomeDemoHabit: didCompleteHomeDemoHabit,
             successSummary: successSummary,
             hasSeenSuccess: step == .success,
             reminderPromptDismissed: reminderPromptDismissed
@@ -4963,6 +5128,18 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
             return await calendarService.requestAccessAsync()
         case .openSystemSettings, .unavailable:
             return false
+        }
+    }
+
+    private func persistSelectedMascot() {
+        workspacePreferencesStore.update { preferences in
+            preferences.chiefOfStaffMascotID = selectedMascotID
+        }
+    }
+
+    private func startEvaPreparationInBackgroundIfNeeded() {
+        Task { @MainActor [weak self] in
+            await self?.prepareEvaInBackgroundIfNeeded()
         }
     }
 
@@ -5498,6 +5675,12 @@ final class AppOnboardingCoordinator: NSObject {
     }
 }
 
+enum OnboardingInputField: Hashable {
+    case workingStyle
+    case workBlocker
+    case outcome(Int)
+}
+
 struct AppOnboardingJourneyView: View {
     @ObservedObject var viewModel: OnboardingFlowModel
     let feedbackController: OnboardingFeedbackController
@@ -5513,6 +5696,12 @@ struct AppOnboardingJourneyView: View {
     @State private var hasCompletedWelcomeIntro = false
     @State private var hasSkippedWelcomeIntroDelay = false
     @State private var welcomeIntroRunID = UUID()
+    @State private var customWorkingStyle = ""
+    @State private var customWorkBlocker = ""
+    @State private var didShowHomeDemoCelebration = false
+    @State private var outcomeDrafts = [""]
+    @State private var visibleOutcomeCount = 1
+    @FocusState private var focusedInputField: OnboardingInputField?
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -5561,7 +5750,7 @@ struct AppOnboardingJourneyView: View {
     private var shouldShowBottomDock: Bool {
         guard viewModel.step != .welcome else { return false }
         guard isWelcomeIntroActive == false else { return false }
-        return viewModel.step == .success || viewModel.step != .focusRoom || viewModel.errorMessage != nil
+        return true
     }
 
     private var shouldShowGlobalSkipButton: Bool {
@@ -5583,6 +5772,14 @@ struct AppOnboardingJourneyView: View {
         OnboardingStepVisualTheme.theme(for: viewModel.step)
     }
 
+    private var isKeyboardEditing: Bool {
+        focusedInputField != nil
+    }
+
+    private var pageMotionIsReduced: Bool {
+        reduceMotion || isKeyboardEditing
+    }
+
     var body: some View {
         ZStack {
             backgroundLayer
@@ -5597,7 +5794,7 @@ struct AppOnboardingJourneyView: View {
             OnboardingConcentricTransitionLayer(
                 step: viewModel.step,
                 theme: currentVisualTheme,
-                isEnabled: shouldShowWelcomeExperience == false
+                isEnabled: shouldShowWelcomeExperience == false && isKeyboardEditing == false
             )
             .allowsHitTesting(false)
             .ignoresSafeArea()
@@ -5628,13 +5825,20 @@ struct AppOnboardingJourneyView: View {
             breakdownSheet
         }
         .interactiveDismissDisabled(true)
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.22), value: viewModel.step)
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.22), value: viewModel.successSummary != nil)
+        .animation(pageMotionIsReduced ? .none : .easeOut(duration: 0.22), value: viewModel.step)
+        .animation(pageMotionIsReduced ? .none : .easeOut(duration: 0.22), value: viewModel.successSummary != nil)
         .onAppear {
             feedbackController.prepare()
+            if viewModel.step == .weeklyOutcomes {
+                syncOutcomeDraftsFromModel()
+            }
             scheduleWelcomeIntroIfNeeded()
         }
-        .onChange(of: viewModel.step) { _, _ in
+        .onChange(of: viewModel.step) { _, step in
+            focusedInputField = nil
+            if step == .weeklyOutcomes {
+                syncOutcomeDraftsFromModel()
+            }
             scheduleWelcomeIntroIfNeeded()
         }
         .onChange(of: viewModel.successSummary != nil) { _, _ in
@@ -5647,6 +5851,14 @@ struct AppOnboardingJourneyView: View {
         }
         .task(id: welcomeIntroRunID) {
             await runWelcomeIntroSequenceIfNeeded()
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    focusedInputField = nil
+                }
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AppOnboardingAccessibilityID.flow)
@@ -5672,21 +5884,31 @@ struct AppOnboardingJourneyView: View {
                 .padding(.top, spacing.s16)
                 .padding(.bottom, 120)
             }
-            .onboardingConcentricPageMotion(step: viewModel.step, reduceMotion: reduceMotion)
+            .onboardingConcentricPageMotion(step: viewModel.step, reduceMotion: pageMotionIsReduced)
         } else if shouldShowWelcomeExperience {
             welcomeExperienceContent
         } else {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: spacing.sectionGap) {
-                    stepHeader
-                    stepBody
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: spacing.sectionGap) {
+                        stepHeader
+                        downloadChrome
+                        stepBody
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxWidth: contentWidth, alignment: .leading)
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.top, spacing.s16)
+                    .padding(.bottom, 120)
                 }
-                .frame(maxWidth: contentWidth, alignment: .leading)
-                .padding(.horizontal, horizontalPadding)
-                .padding(.top, spacing.s16)
-                .padding(.bottom, 120)
+                .onChange(of: focusedInputField) { _, field in
+                    guard let field else { return }
+                    withAnimation(.easeOut(duration: 0.16)) {
+                        proxy.scrollTo(field, anchor: .center)
+                    }
+                }
             }
-            .onboardingConcentricPageMotion(step: viewModel.step, reduceMotion: reduceMotion)
+            .onboardingConcentricPageMotion(step: viewModel.step, reduceMotion: pageMotionIsReduced)
         }
     }
 
@@ -5849,7 +6071,7 @@ struct AppOnboardingJourneyView: View {
                     Spacer(minLength: spacing.s12)
                     Text(viewModel.step.progressLabel)
                         .taskerFont(.caption1)
-                        .foregroundStyle(OnboardingTheme.textSecondary)
+                        .foregroundStyle(OnboardingTheme.marigold)
                 }
 
                 Capsule()
@@ -5904,17 +6126,23 @@ struct AppOnboardingJourneyView: View {
         case .habitSetup:
             habitSetupStep
         case .streakPreview:
-            streakPreviewStep
+            EmptyView()
         case .evaStyle:
             evaStyleStep
+        case .workBlockers:
+            workBlockersStep
+        case .weeklyOutcomes:
+            weeklyOutcomesStep
         case .processing:
-            processingStep
+            EmptyView()
         case .firstTask:
             firstTaskStep
         case .focusRoom:
-            focusRoomStep
+            EmptyView()
         case .habitCheckIn:
-            habitCheckInStep
+            EmptyView()
+        case .homeDemo:
+            homeDemoStep
         case .calendarPermission:
             calendarPermissionStep
         case .notificationPermission:
@@ -5983,29 +6211,21 @@ struct AppOnboardingJourneyView: View {
             )
             .accessibilityIdentifier(AppOnboardingAccessibilityID.evaValue)
 
-            EvaHeroMediaView(style: .card)
-                .frame(height: layoutClass.isPad ? 320 : 240)
+            OnboardingMascotCarousel(
+                selectedID: viewModel.selectedMascotID,
+                personas: AssistantMascotPersona.all,
+                onSelect: { id in
+                    feedbackController.selection()
+                    viewModel.selectChiefOfStaffMascot(id)
+                }
+            )
+            .frame(height: layoutClass.isPad ? 430 : 340)
 
             OnboardingSelectionSummaryCard(
-                title: "\(viewModel.selectedMascotPersona.displayName) acts like your Chief of Staff",
-                message: "Your assistant reviews what is on your calendar, what is due, and what needs a decision so your next step is clear.",
+                title: "\(viewModel.selectedMascotPersona.displayName) is your Chief of Staff",
+                message: "Pick the voice that will help protect your day, surface the next decision, and keep momentum visible.",
                 mascotPlacement: .onboardingEvaValue
             )
-
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                ForEach(evaSolutionBullets, id: \.self) { bullet in
-                    Label(bullet, systemImage: "checkmark.circle.fill")
-                        .taskerFont(.body)
-                        .foregroundStyle(OnboardingTheme.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(spacing.s16)
-                        .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
-                        )
-                }
-            }
         }
     }
 
@@ -6070,6 +6290,8 @@ struct AppOnboardingJourneyView: View {
                 }
             }
 
+            customHabitButton
+
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Suggestions")
                     .taskerFont(.bodyEmphasis)
@@ -6090,6 +6312,29 @@ struct AppOnboardingJourneyView: View {
                 }
             }
         }
+    }
+
+    private var customHabitButton: some View {
+        Button {
+            guard let prefill = onboardingHabitPrefill() else {
+                viewModel.errorMessage = OnboardingCopy.Error.customHabitFailed
+                return
+            }
+            let opened = onOpenCustomHabitComposer(prefill)
+            if opened == false {
+                viewModel.errorMessage = OnboardingCopy.Error.customHabitFailed
+            }
+        } label: {
+            OnboardingInlineActionRow(
+                title: "Create custom habit",
+                subtitle: "Use your own wording, cadence, and project.",
+                systemImage: "plus.circle.fill",
+                mascotPlacement: .habitStreakWin
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AppOnboardingAccessibilityID.customHabit)
+        .accessibilityLabel("Create custom habit")
     }
 
     private var streakPreviewStep: some View {
@@ -6114,22 +6359,6 @@ struct AppOnboardingJourneyView: View {
             )
             .accessibilityIdentifier(AppOnboardingAccessibilityID.evaStyle)
 
-            MascotPersonaSelector(
-                selectedID: viewModel.selectedMascotID,
-                subtitle: "This sets the companion name and mascot shown across Tasker.",
-                cardAccessibilityPrefix: "onboarding.mascot.persona",
-                onSelect: { id in
-                    feedbackController.selection()
-                    viewModel.selectChiefOfStaffMascot(id)
-                }
-            )
-            .padding(spacing.s16)
-            .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
-            )
-
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Working style")
                     .taskerFont(.bodyEmphasis)
@@ -6146,42 +6375,100 @@ struct AppOnboardingJourneyView: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                Text(OnboardingCopy.EvaStyle.blockerTitle)
-                    .taskerFont(.bodyEmphasis)
-                    .foregroundStyle(OnboardingTheme.textPrimary)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: spacing.s12)], spacing: spacing.s12) {
-                    ForEach(EvaMomentumBlockerID.allCases) { blocker in
-                        OnboardingFilterChip(
-                            title: blocker.title,
-                            isSelected: viewModel.evaProfileDraft.selectedMomentumBlockerIDs.contains(blocker.rawValue)
-                        ) {
-                            viewModel.toggleEvaMomentumBlocker(blocker.rawValue)
-                        }
+            OnboardingCustomEntryRow(
+                placeholder: "Add your own working style",
+                text: $customWorkingStyle,
+                actionTitle: "Add style",
+                focus: $focusedInputField,
+                focusID: .workingStyle,
+                onAdd: {
+                    viewModel.addCustomEvaWorkingStyle(customWorkingStyle)
+                    customWorkingStyle = ""
+                    focusedInputField = nil
+                }
+            )
+        }
+    }
+
+    private var workBlockersStep: some View {
+        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+            OnboardingSectionHeader(
+                title: OnboardingCopy.WorkBlockers.title,
+                subtitle: OnboardingCopy.WorkBlockers.subtitle
+            )
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.workBlockers)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: spacing.s12)], spacing: spacing.s12) {
+                ForEach(EvaMomentumBlockerID.allCases) { blocker in
+                    OnboardingFilterChip(
+                        title: blocker.title,
+                        isSelected: viewModel.evaProfileDraft.selectedMomentumBlockerIDs.contains(blocker.rawValue)
+                    ) {
+                        viewModel.toggleEvaMomentumBlocker(blocker.rawValue)
                     }
                 }
             }
 
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                Text("This week, I want to…")
-                    .taskerFont(.bodyEmphasis)
-                    .foregroundStyle(OnboardingTheme.textPrimary)
-                ForEach(0..<2, id: \.self) { index in
-                    TextField(
-                        index == 0 ? "Finish one concrete thing" : "Protect one routine or system",
-                        text: Binding(
-                            get: { viewModel.evaProfileDraft.goals.indices.contains(index) ? viewModel.evaProfileDraft.goals[index] : "" },
-                            set: { viewModel.updateEvaGoal(at: index, text: $0) }
-                        )
-                    )
-                    .textFieldStyle(.plain)
-                    .padding(spacing.s16)
-                    .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
-                    )
+            OnboardingCustomEntryRow(
+                placeholder: "Add your own blocker",
+                text: $customWorkBlocker,
+                actionTitle: "Add blocker",
+                focus: $focusedInputField,
+                focusID: .workBlocker,
+                onAdd: {
+                    viewModel.addCustomEvaMomentumBlocker(customWorkBlocker)
+                    customWorkBlocker = ""
+                    focusedInputField = nil
                 }
+            )
+        }
+    }
+
+    private var weeklyOutcomesStep: some View {
+        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+            OnboardingSectionHeader(
+                title: OnboardingCopy.WeeklyOutcomes.title,
+                subtitle: OnboardingCopy.WeeklyOutcomes.subtitle
+            )
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.weeklyOutcomes)
+
+            ForEach(0..<visibleOutcomeCount, id: \.self) { index in
+                TextField(
+                    weeklyOutcomePlaceholder(at: index),
+                    text: Binding(
+                        get: { outcomeDrafts.indices.contains(index) ? outcomeDrafts[index] : "" },
+                        set: { updateOutcomeDraft(at: index, text: $0) }
+                    )
+                )
+                .textFieldStyle(.plain)
+                .taskerFont(.body)
+                .foregroundStyle(OnboardingTheme.textPrimary)
+                .submitLabel(.done)
+                .focused($focusedInputField, equals: .outcome(index))
+                .id(OnboardingInputField.outcome(index))
+                .accessibilityIdentifier(AppOnboardingAccessibilityID.weeklyOutcomeField(index))
+                .padding(spacing.s16)
+                .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+                )
+            }
+
+            if visibleOutcomeCount < 3 {
+                Button {
+                    feedbackController.light()
+                    ensureOutcomeDraftCapacity(visibleOutcomeCount)
+                    visibleOutcomeCount += 1
+                    focusedInputField = .outcome(visibleOutcomeCount - 1)
+                } label: {
+                    Label("Add outcome", systemImage: "plus.circle")
+                        .taskerFont(.buttonSmall)
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(AppOnboardingAccessibilityID.weeklyOutcomeAdd)
             }
         }
     }
@@ -6240,65 +6527,103 @@ struct AppOnboardingJourneyView: View {
                 )
             }
 
-            if let presentation = viewModel.starterHabitBoardPresentation {
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    Text("Starter streak")
-                        .taskerFont(.bodyEmphasis)
-                        .foregroundStyle(OnboardingTheme.textPrimary)
-                    OnboardingHabitStreakPreviewCard(presentation: presentation)
-                }
-            }
+            customTaskButton
 
-            Button {
-                guard let project = viewModel.preferredComposerProject else { return }
-                let opened = onOpenCustomTaskComposer(
-                    AddTaskPrefillTemplate(
-                        title: "",
-                        details: nil,
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: project.lifeAreaID,
-                        priority: .low,
-                        type: .morning,
-                        dueDateIntent: .today,
-                        estimatedDuration: nil,
-                        energy: .low,
-                        category: .general,
-                        context: .anywhere,
-                        showMoreDetails: false,
-                        showAdvancedPlanning: false
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                Text("Suggestions")
+                    .taskerFont(.bodyEmphasis)
+                    .foregroundStyle(OnboardingTheme.textPrimary)
+
+                ForEach(viewModel.taskSuggestions.prefix(4)) { template in
+                    OnboardingTaskRecommendationCard(
+                        template: template,
+                        state: viewModel.taskTemplateStates[template.id] ?? .idle,
+                        isGuidanceHighlighted: viewModel.createdTaskTemplateMap[template.id] != nil,
+                        showsIdleBadge: false,
+                        onAdd: {
+                            feedbackController.selection()
+                            Task { await viewModel.addSuggestedTask(template) }
+                        },
+                        onEdit: {
+                            if let taskID = viewModel.createdTaskTemplateMap[template.id],
+                               let task = viewModel.createdTasks.first(where: { $0.id == taskID }) {
+                                _ = onEditTask(task)
+                            }
+                        }
                     )
-                )
-                if opened == false {
-                    viewModel.errorMessage = OnboardingCopy.Error.customTaskFailed
                 }
-            } label: {
-                HStack(spacing: spacing.s12) {
-                    EvaMascotView(placement: .onboardingCaptureSetup, size: .chip)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Create my own first task")
-                            .taskerFont(.bodyEmphasis)
-                            .foregroundStyle(OnboardingTheme.textPrimary)
-                        Text("Write the exact first task you want to start with.")
-                            .taskerFont(.caption1)
-                            .foregroundStyle(OnboardingTheme.textSecondary)
-                    }
-                    Spacer()
-                    Image(systemName: "arrow.right")
-                        .foregroundStyle(OnboardingTheme.textSecondary)
-                }
-                .padding(spacing.s16)
-                .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
-                )
             }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier(AppOnboardingAccessibilityID.customTask)
-            .accessibilityLabel("Create my own first task")
+        }
+    }
+
+    private var customTaskButton: some View {
+        Button {
+            guard let project = viewModel.preferredComposerProject else { return }
+            let opened = onOpenCustomTaskComposer(
+                AddTaskPrefillTemplate(
+                    title: "",
+                    details: nil,
+                    projectID: project.id,
+                    projectName: project.name,
+                    lifeAreaID: project.lifeAreaID,
+                    priority: .low,
+                    type: .morning,
+                    dueDateIntent: .today,
+                    estimatedDuration: nil,
+                    energy: .low,
+                    category: .general,
+                    context: .anywhere,
+                    showMoreDetails: false,
+                    showAdvancedPlanning: false
+                )
+            )
+            if opened == false {
+                viewModel.errorMessage = OnboardingCopy.Error.customTaskFailed
+            }
+        } label: {
+            OnboardingInlineActionRow(
+                title: "Create my own task",
+                subtitle: "Write the exact task you want to do today.",
+                systemImage: "plus.circle.fill",
+                mascotPlacement: .onboardingCaptureSetup
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(AppOnboardingAccessibilityID.customTask)
+        .accessibilityLabel("Create my own first task")
+    }
+
+    private var homeDemoStep: some View {
+        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+            OnboardingSectionHeader(
+                title: OnboardingCopy.HomeDemo.title,
+                subtitle: OnboardingCopy.HomeDemo.subtitle
+            )
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.homeDemo)
+
+            OnboardingSelectionSummaryCard(
+                title: "\(viewModel.selectedMascotPersona.displayName) will point at the next move",
+                message: "Try the two gestures you will use most: complete one task and mark one habit done.",
+                mascotPlacement: .onboardingCaptureSetup
+            )
+
+            OnboardingHomeDemoPreview(
+                assistantName: viewModel.selectedMascotPersona.displayName,
+                selectedMascotID: viewModel.selectedMascotID,
+                taskDone: viewModel.didCompleteHomeDemoTask,
+                habitDone: viewModel.didCompleteHomeDemoHabit,
+                onTaskDone: {
+                    feedbackController.successSignature()
+                    viewModel.markHomeDemoTaskDone()
+                    continueHomeDemoIfReady()
+                },
+                onHabitDone: {
+                    feedbackController.successSignature()
+                    viewModel.markHomeDemoHabitDone()
+                    continueHomeDemoIfReady()
+                }
+            )
         }
     }
 
@@ -6376,12 +6701,21 @@ struct AppOnboardingJourneyView: View {
     }
 
     private var calendarPermissionStep: some View {
-        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+        VStack(alignment: .center, spacing: spacing.sectionGap) {
             OnboardingSectionHeader(
                 title: OnboardingCopy.Calendar.title,
                 subtitle: OnboardingCopy.Calendar.subtitle
             )
             .accessibilityIdentifier(AppOnboardingAccessibilityID.calendarPermission)
+            .multilineTextAlignment(.center)
+
+            OnboardingPermissionHeroIcon(
+                systemName: "calendar.badge.checkmark",
+                primaryColor: OnboardingTheme.marigold,
+                secondaryColor: OnboardingTheme.accentSecondary,
+                accessibilityLabel: "Calendar access",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.calendarPermissionHero
+            )
 
             OnboardingSelectionSummaryCard(
                 title: "Why it matters",
@@ -6392,12 +6726,21 @@ struct AppOnboardingJourneyView: View {
     }
 
     private var notificationPermissionStep: some View {
-        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+        VStack(alignment: .center, spacing: spacing.sectionGap) {
             OnboardingSectionHeader(
                 title: OnboardingCopy.Notifications.title,
                 subtitle: OnboardingCopy.Notifications.subtitle
             )
             .accessibilityIdentifier(AppOnboardingAccessibilityID.notificationPermission)
+            .multilineTextAlignment(.center)
+
+            OnboardingPermissionHeroIcon(
+                systemName: "bell.badge.fill",
+                primaryColor: OnboardingTheme.marigold,
+                secondaryColor: OnboardingTheme.accent,
+                accessibilityLabel: "Reminder notifications",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.notificationPermissionHero
+            )
 
             OnboardingSelectionSummaryCard(
                 title: "What you will get",
@@ -6508,6 +6851,25 @@ struct AppOnboardingJourneyView: View {
         }
     }
 
+    @ViewBuilder
+    private var downloadChrome: some View {
+        if viewModel.evaPreparationState.phase == .downloading ||
+            viewModel.evaPreparationState.phase == .waitingForCellularConsent ||
+            viewModel.evaPreparationState.phase == .deferred {
+            if viewModel.step == .evaValue {
+                OnboardingDownloadStatusPill(
+                    state: viewModel.evaPreparationState,
+                    assistantName: viewModel.selectedMascotPersona.displayName
+                )
+            } else {
+                OnboardingDownloadStatusStrip(
+                    state: viewModel.evaPreparationState,
+                    assistantName: viewModel.selectedMascotPersona.displayName
+                )
+            }
+        }
+    }
+
     private var bottomDock: some View {
         let dockContent = VStack(spacing: spacing.s12) {
             if let errorMessage = viewModel.errorMessage, errorMessage.isEmpty == false {
@@ -6517,37 +6879,39 @@ struct AppOnboardingJourneyView: View {
                     .multilineTextAlignment(.center)
             }
 
-            HStack(alignment: .bottom, spacing: spacing.s12) {
+            if viewModel.step == .lifeAreas {
                 dockSecondaryContent
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: layoutClass.isPad ? 520 : .infinity, alignment: .center)
+            }
 
-                if let action = floatingPrimaryAction {
-                    OnboardingFloatingNextButton(
-                        action: action,
-                        theme: currentVisualTheme
-                    )
-                } else if viewModel.step == .processing {
-                    ProgressView()
-                        .tint(currentVisualTheme.next)
-                        .padding(18)
-                        .background(.regularMaterial, in: Circle())
-                        .accessibilityLabel("Preparing setup")
-                }
+            if isKeyboardEditing == false, let action = floatingPrimaryAction {
+                OnboardingFloatingNextButton(
+                    action: action,
+                    theme: currentVisualTheme
+                )
+            } else if viewModel.step == .processing {
+                ProgressView()
+                    .tint(currentVisualTheme.next)
+                    .padding(18)
+                    .background(.regularMaterial, in: Circle())
+                    .accessibilityLabel("Preparing setup")
+            }
+
+            if viewModel.step != .lifeAreas {
+                dockSecondaryContent
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
         }
 
-        let fillOpacity = shouldShowWelcomeExperience ? 0.72 : 0.82
-
         return dockContent
-            .padding(14)
-            .taskerPremiumSurface(
-                cornerRadius: 30,
-                fillColor: OnboardingTheme.surfaceElevated.opacity(fillOpacity),
-                strokeColor: OnboardingTheme.borderSoft.opacity(0.82),
-                accentColor: OnboardingTheme.accentSecondary,
-                level: .e2,
-                useNativeGlass: true
-            )
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, spacing.s12)
+            .background {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .opacity(0.18)
+                    .ignoresSafeArea()
+            }
             .padding(.horizontal, horizontalPadding)
             .padding(.top, spacing.s12)
             .padding(.bottom, max(spacing.s8, 8))
@@ -6655,7 +7019,7 @@ struct AppOnboardingJourneyView: View {
                 showsProgress: false
             ) {
                 feedbackController.medium()
-                viewModel.continueFromHabitSetup()
+                Task { await viewModel.continueFromHabitSetup() }
             }
         case .streakPreview:
             return OnboardingFloatingNextAction(
@@ -6678,6 +7042,29 @@ struct AppOnboardingJourneyView: View {
             ) {
                 feedbackController.medium()
                 viewModel.continueFromEvaStyle()
+            }
+        case .workBlockers:
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.WorkBlockers.cta,
+                systemImage: "checkmark",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                viewModel.continueFromWorkBlockers()
+            }
+        case .weeklyOutcomes:
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.WeeklyOutcomes.cta,
+                systemImage: "target",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                commitOutcomeDrafts()
+                viewModel.continueFromWeeklyOutcomes()
             }
         case .processing:
             guard viewModel.evaPreparationState.phase == .waitingForCellularConsent else { return nil }
@@ -6713,6 +7100,8 @@ struct AppOnboardingJourneyView: View {
                 feedbackController.medium()
                 Task { await viewModel.performStarterHabitPrimaryAction() }
             }
+        case .homeDemo:
+            return nil
         case .calendarPermission:
             return OnboardingFloatingNextAction(
                 title: OnboardingCopy.Calendar.cta,
@@ -6750,6 +7139,52 @@ struct AppOnboardingJourneyView: View {
             }
         case .focusRoom, .blocker, .projects, .habits:
             return nil
+        }
+    }
+
+    private func weeklyOutcomePlaceholder(at index: Int) -> String {
+        switch index {
+        case 0: return "Ship one important thing"
+        case 1: return "Protect one personal routine"
+        default: return "Stay ahead of one deadline"
+        }
+    }
+
+    private func ensureOutcomeDraftCapacity(_ index: Int) {
+        while outcomeDrafts.count <= index {
+            outcomeDrafts.append("")
+        }
+    }
+
+    private func updateOutcomeDraft(at index: Int, text: String) {
+        ensureOutcomeDraftCapacity(index)
+        outcomeDrafts[index] = text
+    }
+
+    private func syncOutcomeDraftsFromModel() {
+        let existing = Array(viewModel.evaProfileDraft.goals.prefix(3))
+        if existing.isEmpty {
+            outcomeDrafts = [""]
+            visibleOutcomeCount = 1
+        } else {
+            outcomeDrafts = existing
+            visibleOutcomeCount = min(max(existing.count, 1), 3)
+        }
+        ensureOutcomeDraftCapacity(visibleOutcomeCount - 1)
+    }
+
+    private func commitOutcomeDrafts() {
+        viewModel.replaceEvaGoals(Array(outcomeDrafts.prefix(3)))
+    }
+
+    private func continueHomeDemoIfReady() {
+        guard viewModel.didCompleteHomeDemoTask && viewModel.didCompleteHomeDemoHabit else { return }
+        guard didShowHomeDemoCelebration == false else { return }
+        didShowHomeDemoCelebration = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 650_000_000)
+            viewModel.continueFromHomeDemo()
+            didShowHomeDemoCelebration = false
         }
     }
 }
@@ -6868,9 +7303,26 @@ private enum OnboardingTheme {
     static let accentPressed = Color.tasker(.actionPrimaryPressed)
     static let accentSecondary = Color.tasker(.accentSecondary)
     static let accentOnPrimary = Color.tasker(.accentOnPrimary)
-    static let headerAccent = Color.white.opacity(0.88)
+    static let marigold = Color(uiColor: UIColor(taskerHex: "#F4C95D"))
+    static let headerAccent = marigold
     static let success = Color.tasker(.statusSuccess)
     static let danger = Color.tasker(.statusDanger)
+}
+
+private enum OnboardingPastelPalette {
+    private static let colors: [Color] = [
+        Color(uiColor: UIColor(taskerHex: HabitColorFamily.green.canonicalHex)).opacity(0.24),
+        Color(uiColor: UIColor(taskerHex: HabitColorFamily.teal.canonicalHex)).opacity(0.24),
+        Color(uiColor: UIColor(taskerHex: HabitColorFamily.blue.canonicalHex)).opacity(0.24),
+        Color(uiColor: UIColor(taskerHex: HabitColorFamily.purple.canonicalHex)).opacity(0.24),
+        Color(uiColor: UIColor(taskerHex: HabitColorFamily.orange.canonicalHex)).opacity(0.24),
+        Color(uiColor: UIColor(taskerHex: HabitColorFamily.coral.canonicalHex)).opacity(0.24)
+    ]
+
+    static func color(for key: String) -> Color {
+        let sum = key.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        return colors[sum % colors.count]
+    }
 }
 
 private struct OnboardingStepVisualTheme: Equatable {
@@ -6898,11 +7350,11 @@ private struct OnboardingStepVisualTheme: Equatable {
             return theme(id: "life-areas", backdrop: "#2E2559", accent: "#B8A7FF", next: "#B8A7FF", nextForeground: "#16102F")
         case .habitSetup, .streakPreview, .habitCheckIn:
             return theme(id: "habit", backdrop: "#173B25", accent: "#8FEA8B", next: "#8FEA8B", nextForeground: "#071B0E")
-        case .evaStyle:
+        case .evaStyle, .workBlockers, .weeklyOutcomes:
             return theme(id: "eva-style", backdrop: "#38213F", accent: "#DFA7FF", next: "#DFA7FF", nextForeground: "#1D0928")
         case .processing:
             return theme(id: "processing", backdrop: "#153544", accent: "#77D6F4", next: "#77D6F4", nextForeground: "#08202B")
-        case .firstTask, .focusRoom:
+        case .firstTask, .focusRoom, .homeDemo:
             return theme(id: "demo", backdrop: "#402713", accent: "#FFBA6A", next: "#FFBA6A", nextForeground: "#261103")
         case .calendarPermission:
             return theme(id: "calendar", backdrop: "#11345B", accent: "#7EC8FF", next: "#7EC8FF", nextForeground: "#061B31")
@@ -7212,8 +7664,8 @@ private struct OnboardingSectionHeader: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(title)
-                    .taskerFont(.title2)
-                    .foregroundStyle(OnboardingTheme.textPrimary)
+                    .taskerFont(.title1)
+                    .foregroundStyle(OnboardingTheme.marigold)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Spacer(minLength: 12)
@@ -7221,7 +7673,7 @@ private struct OnboardingSectionHeader: View {
                 if let detail, detail.isEmpty == false {
                     Text(detail)
                         .taskerFont(.caption1)
-                        .foregroundStyle(OnboardingTheme.textSecondary)
+                        .foregroundStyle(OnboardingTheme.marigold)
                 }
             }
 
@@ -7240,7 +7692,6 @@ private struct OnboardingEyebrowLabel: View {
         Text(title.uppercased())
             .taskerFont(.caption2)
             .foregroundStyle(OnboardingTheme.headerAccent)
-            .tracking(0.8)
     }
 }
 
@@ -7313,8 +7764,8 @@ private struct OnboardingCinematicBackdrop: View {
             switch self {
             case .intro(let phase):
                 let base = phase.showsTitle
-                    ? (colorScheme == .dark ? 0.46 : 0.40)
-                    : (colorScheme == .dark ? 0.20 : 0.16)
+                    ? (colorScheme == .dark ? 0.28 : 0.24)
+                    : (colorScheme == .dark ? 0.12 : 0.10)
                 return max(phase.backdropDimOpacity, base + contrastBoost(colorSchemeContrast))
             case .steady:
                 return (colorScheme == .dark ? 0.48 : 0.40) + contrastBoost(colorSchemeContrast)
@@ -7325,8 +7776,8 @@ private struct OnboardingCinematicBackdrop: View {
             switch self {
             case .intro(let phase):
                 let base = phase.showsTitle
-                    ? (colorScheme == .dark ? 0.18 : 0.15)
-                    : (colorScheme == .dark ? 0.09 : 0.07)
+                    ? (colorScheme == .dark ? 0.11 : 0.09)
+                    : (colorScheme == .dark ? 0.04 : 0.03)
                 return max(phase.backdropBlurOpacity, base + contrastBoost(colorSchemeContrast) * 0.5)
             case .steady:
                 return (colorScheme == .dark ? 0.24 : 0.20) + contrastBoost(colorSchemeContrast) * 0.5
@@ -7337,8 +7788,8 @@ private struct OnboardingCinematicBackdrop: View {
             switch self {
             case .intro(let phase):
                 let base = phase.showsTitle
-                    ? (colorScheme == .dark ? 0.40 : 0.34)
-                    : (colorScheme == .dark ? 0.16 : 0.12)
+                    ? (colorScheme == .dark ? 0.24 : 0.20)
+                    : (colorScheme == .dark ? 0.10 : 0.08)
                 return base + contrastBoost(colorSchemeContrast)
             case .steady:
                 return (colorScheme == .dark ? 0.44 : 0.38) + contrastBoost(colorSchemeContrast)
@@ -7349,8 +7800,8 @@ private struct OnboardingCinematicBackdrop: View {
             switch self {
             case .intro(let phase):
                 let base = phase.showsTitle
-                    ? (colorScheme == .dark ? 0.48 : 0.42)
-                    : (colorScheme == .dark ? 0.22 : 0.18)
+                    ? (colorScheme == .dark ? 0.30 : 0.26)
+                    : (colorScheme == .dark ? 0.14 : 0.12)
                 return base + contrastBoost(colorSchemeContrast)
             case .steady:
                 return (colorScheme == .dark ? 0.54 : 0.48) + contrastBoost(colorSchemeContrast)
@@ -7379,8 +7830,8 @@ private struct OnboardingCinematicBackdrop: View {
             switch self {
             case .intro(let phase):
                 let base = phase.showsTitle
-                    ? (colorScheme == .dark ? 0.12 : 0.10)
-                    : (colorScheme == .dark ? 0.05 : 0.04)
+                    ? (colorScheme == .dark ? 0.07 : 0.06)
+                    : (colorScheme == .dark ? 0.03 : 0.025)
                 return base + contrastBoost(colorSchemeContrast) * 0.5
             case .steady:
                 return (colorScheme == .dark ? 0.16 : 0.13) + contrastBoost(colorSchemeContrast) * 0.5
@@ -7596,9 +8047,6 @@ private struct OnboardingWelcomeCinematicOverlay: View {
 
     private var cinematicCard: some View {
         VStack(spacing: 18) {
-            EvaMascotView(placement: .onboardingWelcome, size: .custom(layoutClass.isPad ? 112 : 92))
-                .accessibilityHidden(true)
-
             OnboardingWelcomeIntroLine(
                 text: "Welcome to Tasker",
                 style: .display,
@@ -7895,6 +8343,618 @@ private struct OnboardingSelectionSummaryCard: View {
     }
 }
 
+private struct OnboardingMascotCarousel: View {
+    let selectedID: AssistantMascotID
+    let personas: [AssistantMascotPersona]
+    let onSelect: (AssistantMascotID) -> Void
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    var body: some View {
+        TabView(
+            selection: Binding(
+                get: { selectedID },
+                set: { onSelect($0) }
+            )
+        ) {
+            ForEach(personas) { persona in
+                VStack(spacing: 16) {
+                    Spacer(minLength: 0)
+
+                    EvaMascotView(
+                        placement: .chatHelp,
+                        size: .custom(layoutClass.isPad ? 260 : 214),
+                        decorative: false,
+                        accessibilityLabel: persona.displayName,
+                        mascotID: persona.id
+                    )
+
+                    VStack(spacing: 6) {
+                        Text(persona.displayName)
+                            .taskerFont(.title1)
+                            .foregroundStyle(OnboardingTheme.marigold)
+                        Text(persona.shortDescription)
+                            .taskerFont(.body)
+                            .foregroundStyle(OnboardingTheme.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityIdentifier(AppOnboardingAccessibilityID.mascotPersona(persona.id.rawValue))
+                .tag(persona.id)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .always))
+        .accessibilityLabel("Chief of staff mascot carousel")
+    }
+}
+
+private struct OnboardingCustomEntryRow: View {
+    let placeholder: String
+    @Binding var text: String
+    let actionTitle: String
+    let focus: FocusState<OnboardingInputField?>.Binding
+    let focusID: OnboardingInputField
+    let onAdd: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+                .taskerFont(.body)
+                .foregroundStyle(OnboardingTheme.textPrimary)
+                .submitLabel(.done)
+                .focused(focus, equals: focusID)
+                .onSubmit(onAdd)
+
+            Button(actionTitle) {
+                onAdd()
+            }
+            .taskerFont(.buttonSmall)
+            .foregroundStyle(OnboardingTheme.marigold)
+            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .padding(16)
+        .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+        )
+        .id(focusID)
+    }
+}
+
+private struct OnboardingInlineActionRow: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let mascotPlacement: EvaMascotPlacement
+
+    var body: some View {
+        HStack(spacing: 12) {
+            EvaMascotView(placement: mascotPlacement, size: .chip)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .taskerFont(.bodyEmphasis)
+                    .foregroundStyle(OnboardingTheme.textPrimary)
+                Text(subtitle)
+                    .taskerFont(.caption1)
+                    .foregroundStyle(OnboardingTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Image(systemName: systemImage)
+                .foregroundStyle(OnboardingTheme.marigold)
+        }
+        .padding(16)
+        .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+        )
+    }
+}
+
+private struct OnboardingDownloadStatusStrip: View {
+    let state: OnboardingEvaPreparationState
+    let assistantName: String
+
+    private var normalizedProgress: Double {
+        min(max(state.progress, 0), 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: statusIcon)
+                    .foregroundStyle(OnboardingTheme.marigold)
+                Text(statusTitle)
+                    .taskerFont(.caption1)
+                    .foregroundStyle(OnboardingTheme.textPrimary)
+                Spacer()
+                if state.phase == .downloading {
+                    Text("\(Int(normalizedProgress * 100))%")
+                        .taskerFont(.caption2)
+                        .foregroundStyle(OnboardingTheme.marigold)
+                }
+            }
+
+            if state.phase == .downloading {
+                ProgressView(value: normalizedProgress)
+                    .tint(OnboardingTheme.marigold)
+                Text(downloadDetail)
+                    .taskerFont(.caption2)
+                    .foregroundStyle(OnboardingTheme.textTertiary)
+            }
+        }
+        .padding(12)
+        .background(OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+        )
+        .accessibilityLabel(statusTitle)
+    }
+
+    private var statusTitle: String {
+        switch state.phase {
+        case .downloading:
+            return "\(assistantName) is downloading in the background"
+        case .waitingForCellularConsent:
+            return "\(assistantName) is waiting for Wi-Fi"
+        case .deferred:
+            return "\(assistantName) will finish later"
+        case .ready:
+            return "\(assistantName) is ready"
+        case .failed:
+            return "\(assistantName) can finish later"
+        case .idle:
+            return "\(assistantName) will start soon"
+        }
+    }
+
+    private var statusIcon: String {
+        state.phase == .downloading ? "arrow.down.circle.fill" : "clock.badge.checkmark"
+    }
+
+    private var downloadDetail: String {
+        let remaining = max(1, Int((1 - normalizedProgress) * 6))
+        let speed = max(0.4, 2.8 * max(normalizedProgress, 0.18))
+        return "About \(remaining) min left • \(String(format: "%.1f", speed)) MB/s"
+    }
+}
+
+private struct OnboardingDownloadStatusPill: View {
+    let state: OnboardingEvaPreparationState
+    let assistantName: String
+
+    private var normalizedProgress: Double {
+        min(max(state.progress, 0), 1)
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: state.phase == .downloading ? "arrow.down.circle.fill" : "clock.badge.checkmark")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(OnboardingTheme.marigold)
+                .accessibilityHidden(true)
+
+            Text(statusText)
+                .taskerFont(.caption1)
+                .foregroundStyle(OnboardingTheme.textSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: 8)
+
+            if state.phase == .downloading {
+                ProgressView(value: normalizedProgress)
+                    .tint(OnboardingTheme.marigold)
+                    .frame(width: 76)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(OnboardingTheme.surfaceMuted.opacity(0.86), in: Capsule())
+        .overlay(
+            Capsule()
+                .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+        )
+        .accessibilityLabel(statusText)
+    }
+
+    private var statusText: String {
+        switch state.phase {
+        case .downloading:
+            return "\(assistantName) downloads in the background"
+        case .waitingForCellularConsent:
+            return "\(assistantName) is waiting for Wi-Fi"
+        case .deferred:
+            return "\(assistantName) will finish later"
+        case .ready:
+            return "\(assistantName) is ready"
+        case .failed:
+            return "\(assistantName) can finish later"
+        case .idle:
+            return "\(assistantName) will start soon"
+        }
+    }
+}
+
+private struct OnboardingPermissionHeroIcon: View {
+    let systemName: String
+    let primaryColor: Color
+    let secondaryColor: Color
+    let accessibilityLabel: String
+    let accessibilityIdentifier: String
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isAnimating = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(primaryColor.opacity(0.13))
+                .frame(width: 150, height: 150)
+            Circle()
+                .stroke(primaryColor.opacity(0.22), lineWidth: 1)
+                .frame(width: 150, height: 150)
+
+            Image(systemName: systemName)
+                .font(.system(size: 76, weight: .semibold))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(primaryColor, secondaryColor)
+                .symbolEffect(.pulse.byLayer, options: .repeat(.periodic(delay: 1.5)), isActive: isAnimating && reduceMotion == false)
+                .accessibilityLabel(accessibilityLabel)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .onAppear {
+            isAnimating = true
+        }
+    }
+}
+
+struct OnboardingHomeDemoSnapshotFactory {
+    static let demoTaskID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+    static let secondTaskID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+    static let demoHabitID = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+    static let secondHabitID = UUID(uuidString: "44444444-4444-4444-4444-444444444444")!
+
+    static func snapshot(taskDone: Bool, referenceDate: Date = Date(), calendar: Calendar = .current) -> HomeTimelineSnapshot {
+        let day = calendar.startOfDay(for: referenceDate)
+        let wake = date(on: day, hour: 7, minute: 0, calendar: calendar)
+        let windDown = date(on: day, hour: 22, minute: 0, calendar: calendar)
+        let wakeAnchor = TimelineAnchorItem(
+            id: "wake",
+            title: "Rise and shine",
+            time: wake,
+            systemImageName: "sunrise.fill",
+            subtitle: "Start of day"
+        )
+        let sleepAnchor = TimelineAnchorItem(
+            id: "sleep",
+            title: "Wind down",
+            time: windDown,
+            systemImageName: "moon.zzz.fill",
+            subtitle: "End of day"
+        )
+        let timedItems = [
+            calendarItem(
+                id: "demo-design-review",
+                title: "Design review",
+                subtitle: "Work calendar",
+                start: date(on: day, hour: 9, minute: 30, calendar: calendar),
+                end: date(on: day, hour: 10, minute: 15, calendar: calendar),
+                tintHex: "#7EC8FF"
+            ),
+            taskItem(
+                id: demoTaskID,
+                title: "Send proposal recap",
+                subtitle: "Client launch",
+                start: date(on: day, hour: 11, minute: 0, calendar: calendar),
+                end: date(on: day, hour: 11, minute: 30, calendar: calendar),
+                isComplete: taskDone,
+                tintHex: "#F4C95D"
+            ),
+            calendarItem(
+                id: "demo-budget-sync",
+                title: "Budget sync",
+                subtitle: "Finance calendar",
+                start: date(on: day, hour: 14, minute: 15, calendar: calendar),
+                end: date(on: day, hour: 15, minute: 0, calendar: calendar),
+                tintHex: "#B8A7FF"
+            ),
+            taskItem(
+                id: secondTaskID,
+                title: "Draft workout plan",
+                subtitle: "Health",
+                start: date(on: day, hour: 16, minute: 30, calendar: calendar),
+                end: date(on: day, hour: 17, minute: 0, calendar: calendar),
+                isComplete: false,
+                tintHex: "#8FEA8B"
+            )
+        ]
+        let projection = TimelineDayProjection(
+            date: day,
+            allDayItems: [],
+            inboxItems: [],
+            timedItems: timedItems,
+            gaps: [],
+            layoutMode: .expanded,
+            calendarPlottingEnabled: true,
+            wakeAnchor: wakeAnchor,
+            sleepAnchor: sleepAnchor,
+            activeItemID: nil,
+            currentTime: date(on: day, hour: 10, minute: 30, calendar: calendar)
+        )
+        return HomeTimelineSnapshot(
+            selectedDate: day,
+            foredropAnchor: .collapsed,
+            day: projection,
+            week: weekSummary(selectedDate: day, timedItems: timedItems, calendar: calendar),
+            placementCandidate: nil
+        )
+    }
+
+    static func habitRows(habitDone: Bool, referenceDate: Date = Date(), calendar: Calendar = .current) -> [HomeHabitRow] {
+        [
+            habitRow(
+                id: demoHabitID,
+                title: "Move",
+                icon: "figure.walk",
+                accentHex: "#4E9A2F",
+                isDone: habitDone,
+                referenceDate: referenceDate,
+                calendar: calendar
+            ),
+            habitRow(
+                id: secondHabitID,
+                title: "Plan",
+                icon: "checklist",
+                accentHex: "#4A86E8",
+                isDone: false,
+                referenceDate: referenceDate,
+                calendar: calendar
+            )
+        ]
+    }
+
+    private static func taskItem(
+        id: UUID,
+        title: String,
+        subtitle: String,
+        start: Date,
+        end: Date,
+        isComplete: Bool,
+        tintHex: String
+    ) -> TimelinePlanItem {
+        TimelinePlanItem(
+            id: "task:\(id.uuidString)",
+            source: .task,
+            taskID: id,
+            eventID: nil,
+            title: title,
+            subtitle: subtitle,
+            startDate: start,
+            endDate: end,
+            isAllDay: false,
+            isComplete: isComplete,
+            tintHex: tintHex,
+            systemImageName: "checkmark.circle",
+            accessoryText: nil,
+            taskPriority: .low,
+            showsProjectUtility: true
+        )
+    }
+
+    private static func calendarItem(
+        id: String,
+        title: String,
+        subtitle: String,
+        start: Date,
+        end: Date,
+        tintHex: String
+    ) -> TimelinePlanItem {
+        TimelinePlanItem(
+            id: "event:\(id)",
+            source: .calendarEvent,
+            taskID: nil,
+            eventID: id,
+            title: title,
+            subtitle: subtitle,
+            startDate: start,
+            endDate: end,
+            isAllDay: false,
+            isComplete: false,
+            tintHex: tintHex,
+            systemImageName: "calendar",
+            accessoryText: nil,
+            isMeetingLike: true
+        )
+    }
+
+    private static func habitRow(
+        id: UUID,
+        title: String,
+        icon: String,
+        accentHex: String,
+        isDone: Bool,
+        referenceDate: Date,
+        calendar: Calendar
+    ) -> HomeHabitRow {
+        let today = calendar.startOfDay(for: referenceDate)
+        let cells = (0..<14).map { offset in
+            let date = calendar.date(byAdding: .day, value: offset - 13, to: today) ?? today
+            let isToday = calendar.isDate(date, inSameDayAs: today)
+            let state: HabitBoardCellState
+            if isToday {
+                state = isDone ? .done(depth: 5) : .todayPending
+            } else if offset % 5 == 0 {
+                state = .missed
+            } else {
+                state = .done(depth: min(offset + 1, 8))
+            }
+            return HabitBoardCell(
+                date: date,
+                state: state,
+                isToday: isToday,
+                isWeekend: calendar.isDateInWeekend(date)
+            )
+        }
+        return HomeHabitRow(
+            habitID: id,
+            title: title,
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            projectName: "Routine",
+            iconSymbolName: icon,
+            accentHex: accentHex,
+            cadence: .daily(hour: 8, minute: 0),
+            cadenceLabel: "Every day",
+            dueAt: date(on: today, hour: 8, minute: 0, calendar: calendar),
+            state: isDone ? .completedToday : .due,
+            currentStreak: isDone ? 5 : 4,
+            bestStreak: 9,
+            boardCellsCompact: Array(cells.suffix(7)),
+            boardCellsExpanded: cells,
+            riskState: .stable,
+            helperText: isDone ? "Done today" : "Tap to mark today"
+        )
+    }
+
+    private static func weekSummary(selectedDate: Date, timedItems: [TimelinePlanItem], calendar: Calendar) -> TimelineWeekSummary {
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: selectedDate)?.start ?? selectedDate
+        let days = (0..<7).map { offset in
+            let date = calendar.date(byAdding: .day, value: offset, to: weekStart) ?? selectedDate
+            let dayItems = timedItems.filter { item in
+                guard let startDate = item.startDate else { return false }
+                return calendar.isDate(startDate, inSameDayAs: date)
+            }
+            return TimelineWeekDaySummary(
+                date: date,
+                dayKey: "\(Int(date.timeIntervalSince1970))",
+                allDayCount: 0,
+                replanEligibleCount: 0,
+                timedMarkers: dayItems.compactMap(\.startDate),
+                tintHexes: Array(dayItems.compactMap(\.tintHex).prefix(4)),
+                summaryText: dayItems.isEmpty ? "Open" : "\(dayItems.count) planned",
+                loadLevel: dayItems.count > 3 ? .busy : dayItems.count > 1 ? .balanced : .light
+            )
+        }
+        return TimelineWeekSummary(weekStart: weekStart, weekStartsOn: .monday, days: days)
+    }
+
+    private static func date(on day: Date, hour: Int, minute: Int, calendar: Calendar) -> Date {
+        calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+    }
+}
+
+struct OnboardingHomeDemoPreview: View {
+    let assistantName: String
+    let selectedMascotID: AssistantMascotID
+    let taskDone: Bool
+    let habitDone: Bool
+    let onTaskDone: () -> Void
+    let onHabitDone: () -> Void
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens {
+        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    }
+
+    private var timelineSnapshot: HomeTimelineSnapshot {
+        OnboardingHomeDemoSnapshotFactory.snapshot(taskDone: taskDone)
+    }
+
+    private var habitRows: [HomeHabitRow] {
+        OnboardingHomeDemoSnapshotFactory.habitRows(habitDone: habitDone)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s16) {
+            HStack(alignment: .center, spacing: spacing.s12) {
+                EvaMascotView(
+                    placement: .chatHelp,
+                    size: .custom(58),
+                    decorative: true,
+                    mascotID: selectedMascotID
+                )
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(assistantName)
+                        .taskerFont(.caption1)
+                        .foregroundStyle(OnboardingTheme.marigold)
+                    Text(taskDone ? "Now mark a habit done." : "Tap the next task in your Home timeline.")
+                        .taskerFont(.bodyEmphasis)
+                        .foregroundStyle(OnboardingTheme.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            TimelineForedropView(
+                snapshot: timelineSnapshot,
+                layoutClass: layoutClass,
+                showsRevealHandle: false,
+                hasNextHomeWidget: true,
+                onSelectDate: { _ in },
+                onSnapAnchor: { _ in },
+                onDragChanged: { _ in },
+                onDragEnded: { _ in },
+                onTaskTap: handleTimelineItem(_:),
+                onToggleComplete: handleTimelineItem(_:),
+                onAnchorTap: { _ in },
+                onAddTask: { _ in },
+                onScheduleInbox: {},
+                onShowCalendarInTimeline: {},
+                onPlaceReplanAtTime: { _, _ in },
+                onPlaceReplanAllDay: { _, _ in },
+                onCancelReplanPlacement: {},
+                onSkipReplanPlacement: {},
+                onClearReplanError: {}
+            )
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.homeDemoTimeline)
+
+            HabitHomeSectionCard(
+                title: "Habits",
+                summaryLine: "\(habitRows.count) active",
+                rows: habitRows,
+                onOpenBoard: nil,
+                onPrimaryAction: handleHabit(_:),
+                onSecondaryAction: { _ in },
+                onRowAction: handleHabit(_:),
+                onLastCellAction: handleHabit(_:),
+                onOpenHabit: handleHabit(_:)
+            )
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.homeDemoHabits)
+        }
+        .padding(18)
+        .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+        )
+    }
+
+    private func handleTimelineItem(_ item: TimelinePlanItem) {
+        guard item.taskID == OnboardingHomeDemoSnapshotFactory.demoTaskID, taskDone == false else { return }
+        onTaskDone()
+    }
+
+    private func handleHabit(_ row: HomeHabitRow) {
+        guard row.habitID == OnboardingHomeDemoSnapshotFactory.demoHabitID, habitDone == false else { return }
+        onHabitDone()
+    }
+}
+
 private struct OnboardingChecklistCard: View {
     let items: [String]
 
@@ -7931,7 +8991,7 @@ private struct OnboardingChecklistRow: View {
             HStack(spacing: 14) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : symbolName)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(isSelected ? OnboardingTheme.accent : OnboardingTheme.textSecondary)
+                    .foregroundStyle(isSelected ? OnboardingTheme.marigold : OnboardingTheme.textSecondary)
                 Text(title)
                     .taskerFont(.body)
                     .foregroundStyle(OnboardingTheme.textPrimary)
@@ -7941,11 +9001,11 @@ private struct OnboardingChecklistRow: View {
             .padding(18)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(isSelected ? OnboardingTheme.accent.opacity(0.12) : OnboardingTheme.surfaceElevated)
+                    .fill(OnboardingTheme.surfaceElevated)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.35) : OnboardingTheme.borderSoft, lineWidth: 1)
+                    .stroke(isSelected ? OnboardingTheme.marigold : OnboardingTheme.borderSoft, lineWidth: isSelected ? 1.5 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -7972,7 +9032,7 @@ private struct OnboardingSelectableDetailCard: View {
                     Spacer()
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(OnboardingTheme.accent)
+                            .foregroundStyle(OnboardingTheme.marigold)
                     }
                 }
                 Text(subtitle)
@@ -7983,11 +9043,11 @@ private struct OnboardingSelectableDetailCard: View {
             .padding(18)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(isSelected ? OnboardingTheme.accent.opacity(0.12) : OnboardingTheme.surfaceElevated)
+                    .fill(OnboardingTheme.surfaceElevated)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.35) : OnboardingTheme.borderSoft, lineWidth: 1)
+                    .stroke(isSelected ? OnboardingTheme.marigold : OnboardingTheme.borderSoft, lineWidth: isSelected ? 1.5 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -8014,11 +9074,11 @@ private struct OnboardingFilterChip: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .background(
                     Capsule()
-                        .fill(isSelected ? OnboardingTheme.accent.opacity(0.16) : OnboardingTheme.surfaceElevated)
+                        .fill(OnboardingTheme.surfaceElevated)
                 )
                 .overlay(
                     Capsule()
-                        .stroke(isSelected ? OnboardingTheme.accent.opacity(0.4) : OnboardingTheme.borderSoft, lineWidth: 1)
+                        .stroke(isSelected ? OnboardingTheme.marigold : OnboardingTheme.borderSoft, lineWidth: isSelected ? 1.5 : 1)
                 )
         }
         .buttonStyle(.plain)
@@ -8354,13 +9414,17 @@ private struct OnboardingSelectableCard: View {
         accentColor ?? Color(uiColor: UIColor(taskerHex: colorHex ?? "#293A18"))
     }
 
+    private var iconBackground: Color {
+        OnboardingPastelPalette.color(for: title)
+    }
+
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     ZStack {
                         Circle()
-                            .fill(resolvedAccent.opacity(isSelected ? 0.22 : 0.12))
+                            .fill(iconBackground)
                             .frame(width: 38, height: 38)
                         Image(systemName: icon)
                             .foregroundStyle(resolvedAccent)
@@ -8368,17 +9432,17 @@ private struct OnboardingSelectableCard: View {
                     Spacer()
                     ZStack {
                         Circle()
-                            .fill(isSelected ? OnboardingTheme.accent : .clear)
+                            .fill(isSelected ? OnboardingTheme.marigold : .clear)
                             .overlay(
                                 Circle()
-                                    .stroke(isSelected ? OnboardingTheme.accent : OnboardingTheme.border, lineWidth: 1.5)
+                                    .stroke(isSelected ? OnboardingTheme.marigold : OnboardingTheme.border, lineWidth: 1.5)
                             )
                             .frame(width: 22, height: 22)
 
                         if isSelected {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(OnboardingTheme.accentOnPrimary)
+                                .foregroundStyle(OnboardingTheme.canvas)
                         }
                     }
                 }
@@ -8395,10 +9459,10 @@ private struct OnboardingSelectableCard: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? OnboardingTheme.accent.opacity(0.10) : OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.28) : OnboardingTheme.borderSoft, lineWidth: 1)
+                    .stroke(isSelected ? OnboardingTheme.marigold : OnboardingTheme.borderSoft, lineWidth: isSelected ? 1.5 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -8420,13 +9484,13 @@ private struct OnboardingHabitRecommendationCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 Image(systemName: template.icon.symbolName)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(iconAccent)
-                    .frame(width: 36, height: 36)
-                    .background(iconAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .frame(width: 32, height: 32)
+                    .background(iconAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(template.title)
@@ -8459,10 +9523,11 @@ private struct OnboardingHabitRecommendationCard: View {
                 }
             }
         }
-        .padding(12)
-        .background(backgroundColor, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(backgroundColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(borderColor, lineWidth: stateBorderWidth)
         )
         .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: state)
@@ -8480,8 +9545,8 @@ private struct OnboardingHabitRecommendationCard: View {
                     Label(buttonTitle, systemImage: buttonIcon)
                         .labelStyle(.titleAndIcon)
                         .taskerFont(.buttonSmall)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, 12)
                         .background(buttonBackground, in: Capsule())
                         .overlay {
                             Capsule()
@@ -8499,8 +9564,8 @@ private struct OnboardingHabitRecommendationCard: View {
         Text(title)
             .taskerFont(.caption2)
             .foregroundStyle(OnboardingTheme.textSecondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
             .background(OnboardingTheme.surfaceMuted, in: Capsule())
     }
 
@@ -8631,10 +9696,7 @@ private struct OnboardingHabitRecommendationCard: View {
         case .failed:
             OnboardingInlineBadge(title: "Needs retry", accent: OnboardingTheme.danger)
         case .idle:
-            OnboardingInlineBadge(
-                title: template.isPositive ? "Recommended" : "Optional",
-                accent: template.isPositive ? OnboardingTheme.accent : OnboardingTheme.textSecondary
-            )
+            EmptyView()
         }
     }
 }
@@ -8649,8 +9711,8 @@ private struct OnboardingTaskRecommendationCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(template.title)
                         .taskerFont(.bodyEmphasis)
@@ -8682,10 +9744,11 @@ private struct OnboardingTaskRecommendationCard: View {
                 }
             }
         }
-        .padding(12)
-        .background(backgroundColor, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(backgroundColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(borderColor, lineWidth: stateBorderWidth)
         )
         .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: state)
@@ -8703,8 +9766,8 @@ private struct OnboardingTaskRecommendationCard: View {
                     Label(buttonTitle, systemImage: buttonIcon)
                         .labelStyle(.titleAndIcon)
                         .taskerFont(.buttonSmall)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, 12)
                         .background(buttonBackground, in: Capsule())
                         .overlay {
                             Capsule()
@@ -9047,32 +10110,33 @@ private struct OnboardingFocusTimer: View {
 }
 
 private struct OnboardingSuccessHero: View {
+    @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulse = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                ZStack {
-                    Circle()
-                        .fill(OnboardingTheme.success.opacity(pulse ? 0.18 : 0.12))
-                        .frame(width: 86, height: 86)
-                    EvaMascotView(placement: .onboardingSuccess, size: .custom(76))
-                        .accessibilityHidden(true)
-                }
-                Spacer()
+        VStack(alignment: .center, spacing: 18) {
+            ZStack {
+                Circle()
+                    .fill(OnboardingTheme.success.opacity(pulse ? 0.18 : 0.12))
+                    .frame(width: mascotHaloSize, height: mascotHaloSize)
+                EvaMascotView(placement: .onboardingSuccess, size: .custom(mascotSize))
+                    .accessibilityHidden(true)
             }
 
             Text(OnboardingCopy.Success.title)
                 .taskerFont(.display)
-                .foregroundStyle(OnboardingTheme.textPrimary)
+                .foregroundStyle(OnboardingTheme.marigold)
+                .multilineTextAlignment(.center)
 
             Text(OnboardingCopy.Success.subtitle)
                 .taskerFont(.body)
                 .foregroundStyle(OnboardingTheme.textSecondary)
+                .multilineTextAlignment(.center)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(22)
         .onboardingHeroPanel(cornerRadius: 32)
         .onAppear {
@@ -9081,6 +10145,14 @@ private struct OnboardingSuccessHero: View {
                 pulse = true
             }
         }
+    }
+
+    private var mascotSize: CGFloat {
+        layoutClass.isPad ? 190 : 152
+    }
+
+    private var mascotHaloSize: CGFloat {
+        layoutClass.isPad ? 216 : 176
     }
 }
 

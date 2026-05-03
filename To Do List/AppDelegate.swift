@@ -908,11 +908,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         notificationService.fetchAuthorizationStatus { status in
             switch status {
             case .notDetermined:
-                notificationService.requestPermission { granted in
-                    if granted {
-                        orchestrator.reconcile(reason: "permission_granted")
-                    }
-                }
+                break
             case .authorized, .provisional, .ephemeral:
                 orchestrator.reconcile(reason: "app_launch_authorized")
             case .denied:
