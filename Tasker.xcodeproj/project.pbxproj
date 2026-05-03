@@ -99,6 +99,7 @@
 		750894CC2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750894C92E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift */; };
 		7509A0192F13D806009162CD /* AddTaskViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00C2F13D806009162CD /* AddTaskViewModel.swift */; };
 		7509A01A2F13D806009162CD /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00D2F13D806009162CD /* HomeViewModel.swift */; };
+		7509A01D2F13D806009162CD /* HomeNeedsReplanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A0FF2F13D806009162CD /* HomeNeedsReplanViewModel.swift */; };
 		7509A01B2F13D806009162CD /* PresentationDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00A2F13D806009162CD /* PresentationDependencyContainer.swift */; };
 		7509A01C2F13D806009162CD /* ProjectManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */; };
 		750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 750F9EDB2685CC9F00C008C4 /* CloudKit.framework */; };
@@ -124,6 +125,9 @@
 		753EFCA22445A24500A739E3 /* HomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCA12445A24500A739E3 /* HomeViewController.swift */; };
 		1F9B00012FBA700000000001 /* HomeNavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00002FBA700000000001 /* HomeNavigationCoordinator.swift */; };
 		1F9B00032FBA700000000003 /* HomeReloadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00022FBA700000000003 /* HomeReloadCoordinator.swift */; };
+		1F9B00052FBA700000000005 /* HomeNavigationIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00042FBA700000000004 /* HomeNavigationIntent.swift */; };
+		1F9B00072FBA700000000007 /* HomeNavigationEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00062FBA700000000006 /* HomeNavigationEventAdapter.swift */; };
+		1F9B00092FBA700000000009 /* HomeLaunchHarnessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00082FBA700000000008 /* HomeLaunchHarnessService.swift */; };
 		753EFCA52445A24500A739E3 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA32445A24500A739E3 /* Main.storyboard */; };
 		753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA62445A24700A739E3 /* Assets.xcassets */; };
 		753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */; };
@@ -396,6 +400,8 @@
 		B1C2D3EC2F90000100AA1001 /* HomeCalendarWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3ED2F90000100AA1001 /* HomeCalendarWidgetView.swift */; };
 		B1C2D3EF2F90000100AA1001 /* HomeTimelineWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3F02F90000100AA1001 /* HomeTimelineWidgetView.swift */; };
 		B2E100000000000000000201 /* BuildHomeAgendaUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000103 /* BuildHomeAgendaUseCase.swift */; };
+		B2E10000000000000000020B /* BuildNeedsReplanCandidatesUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E10000000000000000010B /* BuildNeedsReplanCandidatesUseCase.swift */; };
+		B2E10000000000000000020C /* HomeTimelineProjectionBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E10000000000000000010C /* HomeTimelineProjectionBuilder.swift */; };
 		B2E100000000000000000202 /* HomeTodayRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000101 /* HomeTodayRow.swift */; };
 		B2E100000000000000000203 /* HomeHabitRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000102 /* HomeHabitRow.swift */; };
 		B2E100000000000000000204 /* HomeHabitRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000104 /* HomeHabitRowView.swift */; };
@@ -721,6 +727,7 @@
 		7509A00A2F13D806009162CD /* PresentationDependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresentationDependencyContainer.swift; sourceTree = "<group>"; };
 		7509A00C2F13D806009162CD /* AddTaskViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskViewModel.swift; sourceTree = "<group>"; };
 		7509A00D2F13D806009162CD /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+		7509A0FF2F13D806009162CD /* HomeNeedsReplanViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeNeedsReplanViewModel.swift; sourceTree = "<group>"; };
 		7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementViewModel.swift; sourceTree = "<group>"; };
 		750F9EDA2685CC9500C008C4 /* This Day.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "This Day.entitlements"; sourceTree = "<group>"; };
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
@@ -744,6 +751,9 @@
 		753EFCA12445A24500A739E3 /* HomeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewController.swift; sourceTree = "<group>"; };
 		1F9B00002FBA700000000001 /* HomeNavigationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeNavigationCoordinator.swift; sourceTree = "<group>"; };
 		1F9B00022FBA700000000003 /* HomeReloadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReloadCoordinator.swift; sourceTree = "<group>"; };
+		1F9B00042FBA700000000004 /* HomeNavigationIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeNavigationIntent.swift; sourceTree = "<group>"; };
+		1F9B00062FBA700000000006 /* HomeNavigationEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeNavigationEventAdapter.swift; sourceTree = "<group>"; };
+		1F9B00082FBA700000000008 /* HomeLaunchHarnessService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeLaunchHarnessService.swift; sourceTree = "<group>"; };
 		753EFCA42445A24500A739E3 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		753EFCA62445A24700A739E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		753EFCA92445A24700A739E3 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -1013,6 +1023,8 @@
 		B2E100000000000000000101 /* HomeTodayRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeTodayRow.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000102 /* HomeHabitRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeHabitRow.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000103 /* BuildHomeAgendaUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift"; sourceTree = SOURCE_ROOT; };
+		B2E10000000000000000010B /* BuildNeedsReplanCandidatesUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Home/BuildNeedsReplanCandidatesUseCase.swift"; sourceTree = SOURCE_ROOT; };
+		B2E10000000000000000010C /* HomeTimelineProjectionBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Home/HomeTimelineProjectionBuilder.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000104 /* HomeHabitRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/HomeHabitRowView.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000105 /* HomeSectionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeSectionState.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000106 /* HomeHabitLastCellInteraction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift"; sourceTree = SOURCE_ROOT; };
@@ -1555,6 +1567,7 @@
 				C1B100000000000000000101 /* HabitBoardPresentationBuilder.swift */,
 				A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */,
 				7509A00D2F13D806009162CD /* HomeViewModel.swift */,
+				7509A0FF2F13D806009162CD /* HomeNeedsReplanViewModel.swift */,
 				C1B100000000000000000103 /* HabitBoardViewModel.swift */,
 				A7B8C9D12F13D806009162CD /* TaskDetailViewModel.swift */,
 				7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */,
@@ -2067,6 +2080,9 @@
 				753EFCA12445A24500A739E3 /* HomeViewController.swift */,
 				1F9B00002FBA700000000001 /* HomeNavigationCoordinator.swift */,
 				1F9B00022FBA700000000003 /* HomeReloadCoordinator.swift */,
+				1F9B00042FBA700000000004 /* HomeNavigationIntent.swift */,
+				1F9B00062FBA700000000006 /* HomeNavigationEventAdapter.swift */,
+				1F9B00082FBA700000000008 /* HomeLaunchHarnessService.swift */,
 				75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */,
 				75E866DB2DFF1BB1000470B4 /* Settings */,
 				75A6315C2E8BDAB9006EEA59 /* LGSearchViewController.swift */,
@@ -2345,6 +2361,8 @@
 				529D23B7A8E56B55B3A03C07 /* Tag */,
 				1E4BB5010CAE2AAB6D697F15 /* Habit */,
 				B2E100000000000000000103 /* BuildHomeAgendaUseCase.swift */,
+				B2E10000000000000000010B /* BuildNeedsReplanCandidatesUseCase.swift */,
+				B2E10000000000000000010C /* HomeTimelineProjectionBuilder.swift */,
 				4D9CF163F23980743B576923 /* Schedule */,
 				2E192B5E7D0C3D8FEE45ED41 /* Reminder */,
 				0F156103AF2D844C6B6EE11B /* Gamification */,
@@ -3055,6 +3073,9 @@
 				753EFCA22445A24500A739E3 /* HomeViewController.swift in Sources */,
 				1F9B00012FBA700000000001 /* HomeNavigationCoordinator.swift in Sources */,
 				1F9B00032FBA700000000003 /* HomeReloadCoordinator.swift in Sources */,
+				1F9B00052FBA700000000005 /* HomeNavigationIntent.swift in Sources */,
+				1F9B00072FBA700000000007 /* HomeNavigationEventAdapter.swift in Sources */,
+				1F9B00092FBA700000000009 /* HomeLaunchHarnessService.swift in Sources */,
 				75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */,
 				D206E9E48E0AEB00D02CED2D /* SlashCommandCatalog.swift in Sources */,
 				D6BD60E5C38CC9087DD53FC6 /* SlashCommandExecutionService.swift in Sources */,
@@ -3081,6 +3102,7 @@
 				F8C1A0019AB24E01A11C0001 /* TaskIconSupport.swift in Sources */,
 				F8C1A0019AB24E01A11C0002 /* TaskIconSymbolManifest.generated.swift in Sources */,
 				7509A01A2F13D806009162CD /* HomeViewModel.swift in Sources */,
+				7509A01D2F13D806009162CD /* HomeNeedsReplanViewModel.swift in Sources */,
 				A7B8C9D22F13D806009162CD /* TaskDetailViewModel.swift in Sources */,
 				7509A01B2F13D806009162CD /* PresentationDependencyContainer.swift in Sources */,
 				7509A01C2F13D806009162CD /* ProjectManagementViewModel.swift in Sources */,
@@ -3225,6 +3247,8 @@
 				D6A192319732E9758B2D14B9 /* SavedHomeViewRepositoryProtocol.swift in Sources */,
 				50117460BC314EEA54344A9E /* GetHomeFilteredTasksUseCase.swift in Sources */,
 				B2E100000000000000000201 /* BuildHomeAgendaUseCase.swift in Sources */,
+				B2E10000000000000000020B /* BuildNeedsReplanCandidatesUseCase.swift in Sources */,
+				B2E10000000000000000020C /* HomeTimelineProjectionBuilder.swift in Sources */,
 				B2E100000000000000000202 /* HomeTodayRow.swift in Sources */,
 				B2E100000000000000000207 /* HomeTaskTintResolver.swift in Sources */,
 				B2E100000000000000000203 /* HomeHabitRow.swift in Sources */,
