@@ -987,6 +987,14 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertTrue(foredropSource.contains("HomeTaskTintResolver.rowAccentHex("))
     }
 
+    func testTaskListSectionIDsAvoidRuntimeRandomizedSources() throws {
+        let source = try loadWorkspaceFile("To Do List/View/TaskListView.swift")
+
+        XCTAssertFalse(source.contains("value.hashValue"))
+        XCTAssertFalse(source.contains("id: UUID(),\n                name:"))
+        XCTAssertTrue(source.contains("timeIntervalSinceReferenceDate"))
+    }
+
     func testHomeSurfaceTimelineTintUsesCanonicalOwningResolver() throws {
         let source = try loadWorkspaceFile("To Do List/Presentation/ViewModels/HomeViewModel.swift")
 

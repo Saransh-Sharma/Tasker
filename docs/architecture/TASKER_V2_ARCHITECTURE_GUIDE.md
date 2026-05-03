@@ -37,6 +37,8 @@ The local assistant architecture is documented in `docs/architecture/LOCAL_LLM_E
 
 LLM-driven task changes still follow the V2 runtime boundaries: UI routes user intent, the planner emits schema-validated commands, `AssistantActionPipelineUseCase` validates and applies mutations, and repositories persist state. Chat or proposal UI must not write task state directly.
 
+Timeline-aware Eva guidance follows the same rule. Calendar and timeline projections may inform chat answers and proposal rationale, but external calendar events remain read-only and Tasker-owned task changes still flow through the assistant action pipeline.
+
 ## Cutover Policy
 
 - Store epoch key: `tasker.v3.store.epoch`

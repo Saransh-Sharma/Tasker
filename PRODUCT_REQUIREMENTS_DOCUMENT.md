@@ -1,6 +1,6 @@
 # Tasker iOS - Product Requirements Document
 
-**Version:** 4.7
+**Version:** 4.8
 **Last Updated:** May 3, 2026
 **Platform:** iOS 16.0+
 **Status:** Active Product Direction
@@ -142,6 +142,8 @@ Tasker intentionally adopts patterns that reduce day-level overwhelm and increas
 ### Pillar F: Assist Intentionally
 - Support optional assistant-mediated planning actions.
 - Keep confirmation and reversibility as core trust mechanics.
+- Make Eva useful as a Chief of Staff: summarize the day, identify pressure, recommend sequence, suggest recovery moves, and keep the user's next action clear.
+- Treat chat as the lowest-friction planning interface for users who do not want to configure a planning screen.
 - Treat the selected Chief of Staff mascot as a functional assistant state marker: identity, planning, thinking, review, suggestion, risk, completion, rest, or discovery.
 - Let users choose the visible assistant persona while preserving the same trust boundaries, confirmation requirements, and undo expectations.
 - Keep mascot animation aligned with assistant trust boundaries; it can clarify state or reduce friction, but must not imply automatic mutation or replace confirmation copy.
@@ -209,6 +211,17 @@ Tasker intentionally adopts patterns that reduce day-level overwhelm and increas
 - Proposal acceptance rate: confirmed runs divided by proposed runs.
 - Undo frequency: undos divided by applied runs.
 - Apply failure rate: failed applies divided by confirmed applies.
+- Day overview usefulness: percentage of day overview sessions followed by a task start, completion, reschedule, habit outcome, or explicit planning action.
+- Clarification rate: percentage of assistant turns that ask for missing context instead of guessing.
+- Silent-drop rate: percentage of assistant turns with no persisted response, explicit cancellation, or explicit failure state; target is zero.
+
+### Timeline And Schedule Metrics
+- Calendar connection rate: percentage of active users who grant readable calendar access after seeing the pre-permission explanation.
+- Selected-calendar completion rate: percentage of calendar-connected users who keep at least one calendar selected.
+- Schedule glance utilization: percentage of active days where the user views next-meeting, free-until, busy-block, or timeline schedule context.
+- Task-fit utilization: percentage of scheduled or estimated-duration task detail sessions where the user sees and acts after a fit hint.
+- Timeline action conversion: percentage of timeline sessions followed by start, complete, defer, open detail, create task, or ask Eva action.
+- Overloaded-window repair rate: percentage of dense or conflicting schedule windows followed by a user-confirmed reschedule, defer, shrink, or focus-protection action.
 
 ### Accessibility Quality Metrics
 - Dynamic Type compliance rate: percentage of audited screens with no meaning-losing truncation at largest accessibility sizes.
@@ -230,12 +243,14 @@ Tasker intentionally adopts patterns that reduce day-level overwhelm and increas
 Purpose:
 - Resolve "what should I do now" with minimal decision overhead.
 - Make the Home timeline a single-glanceable day command center that combines tasks, fixed commitments, routines, busy blocks, free gaps, and EVA guidance into one readable flow.
+- Give Eva and the user the same shared picture of the day, so chat guidance, timeline guidance, and Home actions do not contradict each other.
 
 Product direction:
 - The Home timeline is Tasker's primary planning surface for the current day. It should help the user understand the shape of the day without mentally stitching together a calendar, task list, habit routine, and planner.
 - The timeline is not a dense calendar clone. It is optimized for orientation, prioritization, and action, not raw schedule completeness.
 - The user should be able to answer in about two seconds: what is happening now, what is coming next, which windows are busy, where usable free time exists, what needs attention, and what can safely be ignored or deferred.
 - The timeline should feel structured but not rigid. It should surface what is necessary, compress what is secondary, and guide the user toward the next useful action.
+- The timeline should make the day feel manageable even when the source data is not tidy: overlapping meetings, overdue tasks, broken habits, all-day events, sparse days, and last-minute changes must degrade into readable states.
 
 Requirements:
 - Focus screen contains a bounded "Now" area with at most 3 tasks.
@@ -251,6 +266,58 @@ Requirements:
 - Long free gaps compress into clearly labeled opportunity windows instead of becoming dead space.
 - Sparse or empty days guide the user toward planning, task creation, or EVA-assisted scheduling instead of feeling abandoned.
 - The current moment is obvious without overpowering the rest of the timeline.
+- Timeline actions prioritize execution: start, complete, open, defer, reschedule, break down, ask Eva, and create task.
+- Calendar events expose read-only detail and context actions, not edit actions.
+- Task cards in the timeline must remain obviously actionable and must not visually look as immutable as calendar meetings.
+- Completed work remains accessible as progress context, but it should not compete with current and next work.
+- Timeline empty, sparse, dense, offline, and permission-degraded states must be explicit and useful.
+- Eva timeline prompts appear only where they reduce friction: overloaded windows, ambiguous free gaps, overdue pileups, broken routines, recovery moments, and end-of-day review.
+
+### Calendar Schedule And Timeline Context
+Purpose:
+- Use schedule reality to improve execution without turning Tasker into a calendar client.
+- Let the user select which calendars matter to Tasker and keep that selection local.
+- Provide read-only day, week, and month schedule context that informs Home, task detail, timeline, and Eva.
+
+Product direction:
+- Calendar schedule context is an input to Tasker, not a second source of task truth.
+- The schedule layer should answer practical questions: what is next, when am I free, where is the day crowded, whether a task fits, and what open windows can be used.
+- The schedule feature should preserve user trust by clearly separating Tasker task mutations from external calendar event data.
+- Day schedule surfaces should support execution decisions. Week and month schedule surfaces should support orientation and planning, not deep calendar management.
+
+Requirements:
+- Calendar onboarding includes a plain-language pre-permission explanation before the system prompt.
+- Authorization states distinguish not determined, authorized, denied, restricted, write-only, no calendars selected, empty range, and all-day-only days.
+- Users can choose local calendars that contribute to Tasker context.
+- Selected calendar identifiers are persisted locally, normalized before storage, and reconciled when calendars disappear.
+- Declined, canceled, all-day, and selected-source filtering rules are applied consistently across Home, timeline, task-fit hints, and schedule surfaces.
+- Home surfaces next meeting, in-progress meeting, free-until, and busy-block context without requiring a full schedule screen.
+- Task detail surfaces fit, tight fit, conflict, or unknown hints when a task has enough timing or duration context.
+- Day schedule view shows fixed commitments, busy windows, and usable gaps in a read-only form.
+- Week schedule view helps the user notice overloaded days, open planning windows, and deadline clusters.
+- Month schedule view stays high-level and should not become a dense event browser.
+- Schedule refresh runs when Home loads, selected day changes, calendar preference changes, EventKit changes, or the user requests refresh.
+- Stale schedule context must preserve the last usable snapshot while showing refresh state or failure state.
+- Calendar-derived context can influence Eva's explanation and proposals, but Eva must not create, edit, or delete external calendar events in this PRD cycle.
+- Any assistant suggestion involving calendar conflicts must mutate only Tasker-owned tasks or planning metadata unless a future explicit calendar-write feature is approved.
+- Calendar schedule copy must avoid implying Tasker owns external events.
+
+### Timeline Intelligence And Chief Of Staff Guidance
+Purpose:
+- Let the timeline and Eva work together as a practical day-management layer.
+- Help the user repair the plan when reality changes instead of making them manually replan from scratch.
+
+Requirements:
+- Timeline context projection for Eva includes the selected day, current time, overdue tasks, today tasks, focus candidates, due habits, recovery habits, fixed calendar commitments, busy blocks, free gaps, and degraded-context receipts where available.
+- Eva can summarize the day in terms of load, constraints, urgency, open windows, and next best action.
+- Eva can suggest sequence, focus window use, deferral, task breakdown, reminder adjustment, habit recovery, and end-of-day cleanup.
+- Eva guidance in the timeline must be sparse, dismissible, and tied to a concrete user action.
+- Eva must ask a clarifying question or return a conservative answer when required schedule or task context is missing.
+- Eva must identify when a recommendation is based on partial context, such as no calendar access, no selected calendars, or context timeout.
+- Eva must not represent generated advice as certainty when it is inference from incomplete task metadata.
+- Dense or conflicting windows should prefer repair suggestions such as defer a flexible task, shrink a task, protect a focus block, or choose a quick win.
+- Free gaps should prefer constructive options such as start a task that fits, batch errands, recover a habit, plan the next block, or leave the gap intentionally open.
+- Eva's timeline guidance should never pressure the user to fill every free gap.
 
 ### Add Task (Lightning + Clarify)
 Purpose:
@@ -410,17 +477,27 @@ Requirements:
 ### Assistant (Ask, Plan, Apply, Undo)
 Purpose:
 - Increase planning and execution quality while preserving user trust.
+- Give the user a conversational Chief of Staff that can translate task, habit, and schedule context into a clear day plan.
+- Let users manage the day from chat when screens feel too heavy.
 
 Requirements:
 - Ask mode is read-only and clearly labeled as non-mutating.
+- Chat is a first-class assistant surface, not only a text box for task creation.
+- Chat supports natural-language day management prompts such as "What should I do next?", "How does my day look?", "Can I fit this before my meeting?", "What should I move?", "Help me recover the afternoon", and "Plan the rest of my day."
 - Day-review prompts such as `what are my tasks today`, `what's on my plate`, `show my open tasks`, `how is my day`, `what tasks and habits do I have today`, and close natural-language variants route to a dedicated chief-of-staff day overview response.
 - The day overview response shape is: short markdown brief first, then card sections with tasks and habits rendered differently.
 - Task day cards must emphasize project, due state, priority, and execution actions.
 - Habit day cards must emphasize cadence, streak, risk, and habit-specific outcome actions.
 - Day overview sections should prefer this order when populated: overdue tasks, today tasks, focus candidates, due habits, recovery habits, quiet tracking.
+- Timeline-aware day overview may include schedule context sections for current block, next meeting, busy windows, free gaps, conflicts, and planning opportunities where the runtime can provide that context.
+- Schedule-aware assistant copy must distinguish observed calendar facts from inferred planning advice.
 - Ask and Plan surfaces may summarize due habits, current streaks, recently broken habits, at-risk habits, and suggested recovery actions.
+- Ask and Plan surfaces may summarize next meeting, free-until state, overloaded windows, flexible tasks that can move, and tasks that fit a discovered gap.
 - Plan mode outputs proposal cards with rationale.
+- Plan mode may suggest a sequence without producing mutations when the user asks for guidance only.
+- Plan mode may produce proposal cards for Tasker-owned changes such as rescheduling a task, moving a reminder, splitting a task, changing priority, deferring a focus candidate, or adding a planning task.
 - Plan mode may suggest shrinking a habit, moving a reminder window, pausing an overloaded habit, or converting a difficult daily habit into a smaller or weekday-only version.
+- Plan mode may recommend calendar-aware changes to Tasker tasks, but it must not mutate external calendar events.
 - Apply mode requires propose -> confirm -> apply sequence.
 - Day overview quick actions are explicit user actions, not assistant auto-apply behavior.
 - Day overview task quick actions support `Done`, `Tomorrow`, and `Open`; habit quick actions support `Done` / `Skip` / `Stayed Clean` / `Lapsed` / `Log Lapse` according to habit type and tracking mode.
@@ -428,6 +505,11 @@ Requirements:
 - Diff preview is mandatory before apply.
 - Undo is visible and bounded by pipeline constraints.
 - Destructive operations require stronger confirmation copy and styling.
+- Large-batch, recurrence-affecting, overdue-cleanup, and calendar-conflict repair proposals require extra clarity before apply.
+- Assistant responses must always end in a visible terminal state: persisted answer, persisted proposal, explicit clarification, explicit failure, or explicit cancellation.
+- Context receipts are required for degraded or partial day-management answers so the user understands what Eva did and did not know.
+- Chat history may persist assistant messages and proposal cards, but transient quick-action state should not mutate the transcript after render.
+- Assistant history clearing remains available from settings.
 - Eva mascot visuals clarify assistant state without implying automatic action.
 - Eva state ownership is stable: `Thinking` means processing, `Clipboard` means review, `Idea` means suggestion, `Celebration` means confirmed success, and `Worried` means true risk only.
 - Mascot visuals must not replace confirmation, undo, permission, privacy, or destructive-action copy.
@@ -509,6 +591,26 @@ flowchart TD
   L --> B
 ```
 
+### Calendar Schedule -> Timeline -> Eva Flow
+
+```mermaid
+flowchart TD
+  A[Home loads selected day] --> B[Fetch selected calendar context]
+  B --> C{Readable calendar access}
+  C -->|Yes| D[Project events into next meeting, busy blocks, free gaps, and fit context]
+  C -->|No| E[Show degraded schedule state]
+  D --> F[Merge schedule context with tasks, habits, routines, and completed work]
+  E --> F
+  F --> G[Render Home timeline and schedule glances]
+  G --> H{User asks Eva or taps guidance}
+  H -->|Ask| I[Read-only chief-of-staff brief]
+  H -->|Plan| J[Optional proposal cards for Tasker-owned changes]
+  I --> K[User starts, completes, defers, or opens detail]
+  J --> L[Confirm and apply through action pipeline]
+  K --> G
+  L --> G
+```
+
 ### Add Task Two-Speed Flow
 
 ```mermaid
@@ -573,10 +675,12 @@ This table maps product surfaces to existing runtime usecases for implementation
 | Product surface | Primary read usecases | Primary mutation usecases |
 | --- | --- | --- |
 | Home and Focus | `GetHomeFilteredTasksUseCase`, `GetTasksUseCase` | `CompleteTaskDefinitionUseCase`, `RescheduleTaskDefinitionUseCase`, `UpdateTaskDefinitionUseCase` |
+| Calendar schedule | `CalendarIntegrationService`, `CalendarEventsProviderProtocol`, calendar computation use cases | none |
+| Timeline day command center | `HomeCalendarSnapshot`, `TimelinePhoneRenderModel`, `TimelineFlockModel`, task and habit Home projections | task and habit use cases only through explicit user action or assistant pipeline |
 | Add Task | `GetTasksUseCase` (supporting reads as needed) | `CreateTaskDefinitionUseCase` |
 | Habits | `BuildHabitHomeProjectionUseCase`, `GetHabitLibraryUseCase`, `GetHabitHistoryUseCase`, `CalculateAnalyticsUseCase` | `CreateHabitUseCase`, `UpdateHabitUseCase`, `PauseHabitUseCase`, `ArchiveHabitUseCase`, `ResolveHabitOccurrenceUseCase`, `SyncHabitScheduleUseCase`, `RecomputeHabitStreaksUseCase` |
 | Tasks Browse and Search | `GetTasksUseCase` | `UpdateTaskDefinitionUseCase`, `DeleteTaskDefinitionUseCase`, `CompleteTaskDefinitionUseCase`, `RescheduleTaskDefinitionUseCase` |
-| Assistant Ask and Plan | `GetTasksUseCase` (context projection inputs) | none |
+| Assistant Ask and Plan | `GetTasksUseCase`, habit projections, calendar schedule context, timeline context receipts | none for Ask; proposal creation only for Plan |
 | Assistant Apply and Undo | `GetTasksUseCase` (diff context) | `AssistantActionPipelineUseCase` |
 | Insights and Analytics | `CalculateAnalyticsUseCase`, `GenerateProductivityReportUseCase` | none |
 
@@ -629,6 +733,20 @@ This table maps product surfaces to existing runtime usecases for implementation
 - Home renders a bounded Now area (maximum 3 tasks) without extra user action.
 - Complete moves the task to done timeline and exposes immediate undo behavior.
 - Quick View changes produce consistent counts and task slices across refresh paths.
+- Timeline renders fixed commitments, flexible tasks, routines, busy flocks, free gaps, and completed work with distinct semantics.
+- Dense overlapping windows remain readable on the smallest supported iPhone width.
+- Sparse days present planning, create-task, or Eva-assisted options instead of blank empty space.
+- Timeline guidance from Eva is sparse, dismissible, and tied to concrete action.
+
+### Calendar Schedule And Timeline Context
+- Calendar pre-permission copy appears before the system authorization request.
+- Denied, restricted, write-only, no-calendar-selected, empty-range, and all-day-only states render distinct recovery or empty-state copy.
+- Calendar selection persists locally and is reconciled when a selected calendar disappears.
+- Declined, canceled, all-day, and selected-calendar filters produce consistent output across Home, task detail, schedule views, and timeline.
+- Next-meeting, in-progress-meeting, free-until, busy-block, and task-fit hints update after EventKit store changes and selected-day changes.
+- Day, week, and month schedule surfaces stay read-only and do not expose external calendar mutation controls.
+- Task-fit hints return fit, tight, conflict, or unknown without crashing when duration, schedule, or calendar context is incomplete.
+- Timeline and Eva use the same schedule-context receipt for the selected day so user-facing guidance does not contradict the visible timeline.
 
 ### Add Task
 - Lightning capture requires title only.
@@ -662,10 +780,15 @@ This table maps product surfaces to existing runtime usecases for implementation
 ### Assistant
 - Ask mode produces no task mutations.
 - Day-review prompts produce a read-only brief plus differentiated task and habit cards instead of proposal cards.
+- Schedule-aware day-review prompts can include current block, next meeting, free gaps, conflicts, and overloaded windows when context exists.
+- Chief-of-staff chat prompts produce either read-only guidance, a clarification, or proposal cards depending on user intent.
 - Day overview cards expose direct first-party quick actions and detail-sheet entry points without bypassing assistant trust boundaries.
 - Plan mode returns either proposals or explicit no-suggestion states.
+- Calendar-aware Plan mode may propose Tasker-owned task changes but never external calendar edits.
 - Apply mode enforces diff preview and explicit confirmation before mutation.
 - Undo behavior is shown only while available; expired states are explicit.
+- Every assistant turn reaches a visible terminal state: answer, proposal, clarification, failure, or cancellation.
+- Partial-context answers include visible context receipts or degraded-state explanation.
 
 ### Insights
 - New users see explicit no-data states on all three tabs:
@@ -687,6 +810,9 @@ This table maps product surfaces to existing runtime usecases for implementation
 ## Product Roadmap Themes
 
 ### Near-Term
+- Make the Home timeline the default day command center by tightening dense, sparse, degraded, and current-time states.
+- Make calendar schedule context consistently available across Home, task detail, timeline, and schedule glances.
+- Expand Eva day overview and chat prompts so users can ask for a realistic plan without learning planner UI.
 - Ship a richer Habit Board with visual streak depth, bridge-day semantics, and recovery-oriented history correction.
 - Expand smart view creation and saved filter ergonomics.
 - Add transparent and user-controlled Focus suggestions.
@@ -694,12 +820,14 @@ This table maps product surfaces to existing runtime usecases for implementation
 
 ### Mid-Term
 - Expand the calendar + timeline package's schedule-context behavior without turning Tasker into a calendar-first app.
+- Add schedule-aware Eva repair flows for overloaded windows, free-gap planning, focus protection, and interrupted-day recovery.
 - Deepen habit-task linkage where useful while keeping habits analytically distinct from tasks.
 - Add more flexible count-based or frequency-based habits once the visual streak contract is stable.
 - Improve on-device assistant planning quality.
 
 ### Long-Term
 - Expand read-only schedule context carefully where it improves execution, while preserving task-first chronology.
+- Evaluate explicitly permissioned calendar-write workflows only after read-only schedule context, assistant trust, and Tasker-owned mutation flows are stable.
 - Broader platform strategy beyond iOS.
 
 ## Technical References
@@ -723,6 +851,7 @@ Technical implementation details are intentionally kept out of this PRD. Use the
 
 ## Document History
 
+- **v4.8 (May 3, 2026):** Deepened the timeline, calendar schedule, Eva, LLM, chat, and Chief of Staff requirements. Added schedule-aware assistant metrics, timeline intelligence requirements, calendar schedule acceptance criteria, and clearer boundaries around read-only calendar context versus Tasker-owned mutations.
 - **v4.7 (April 29, 2026):** Updated the canonical calendar + timeline docs for the iPhone glanceability model, including title-first timeline cards, stacked overlap flocks, readable visual positioning, current-time treatment, and dense timeline risks.
 - **v4.6 (April 25, 2026):** Added the canonical calendar + timeline docs package and linked the read-only schedule-context roadmap into the product reference set.
 - **v4.5 (April 25, 2026):** Expanded the habits contract with a Tasker-native streak model, dedicated Habit Board semantics, recovery-first behavior, a canonical habits docs package, and updated roadmap coverage for remaining UX gaps.

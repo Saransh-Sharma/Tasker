@@ -1,4 +1,5 @@
 import CoreData
+import SwiftData
 import XCTest
 import MLXLMCommon
 @testable import To_Do_List
@@ -742,6 +743,24 @@ final class LLMPromptHistoryFormattingTests: XCTestCase {
 }
 
 final class LLMDataControllerRecoveryTests: XCTestCase {
+    func testChatStoreUsesExplicitVersionedSchemaAndMigrationPlan() throws {
+        XCTAssertEqual(LLMChatSchemaV1.versionIdentifier, Schema.Version(1, 0, 0))
+        XCTAssertEqual(LLMChatSchemaV1.models.count, 2)
+        let modelTypeNames = Set(LLMChatSchemaV1.models.map { String(describing: $0) })
+        XCTAssertTrue(modelTypeNames.contains("Thread"))
+        XCTAssertTrue(modelTypeNames.contains("Message"))
+        XCTAssertEqual(LLMChatMigrationPlan.schemas.count, 1)
+        XCTAssertTrue(LLMChatMigrationPlan.schemas.contains { $0 == LLMChatSchemaV1.self })
+        XCTAssertTrue(LLMChatMigrationPlan.stages.isEmpty)
+
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        _ = try ModelContainer(
+            for: Schema(LLMChatSchemaV1.models),
+            migrationPlan: LLMChatMigrationPlan.self,
+            configurations: [configuration]
+        )
+    }
+
     func testCocoaMigrationCodeDoesNotTriggerStoreRecreation() {
         let error = NSError(
             domain: NSCocoaErrorDomain,
@@ -779,6 +798,55 @@ final class LLMDataControllerRecoveryTests: XCTestCase {
             LLMDataController.recoveryDisposition(for: error),
             .recreatePersistentStore(reason: "persistent_store_corrupted")
         )
+    }
+}
+
+final class ReflectionCalendarContextCacheDataControllerTests: XCTestCase {
+    func testReflectionCacheUsesExplicitVersionedSchemaAndMigrationPlan() throws {
+        XCTAssertEqual(ReflectionCalendarContextCacheSchemaV1.versionIdentifier, Schema.Version(1, 0, 0))
+        XCTAssertEqual(ReflectionCalendarContextCacheSchemaV1.models.count, 1)
+        XCTAssertEqual(
+            String(describing: ReflectionCalendarContextCacheSchemaV1.models[0]),
+            "ReflectionCalendarContextCacheRecord"
+        )
+        XCTAssertEqual(ReflectionCalendarContextCacheMigrationPlan.schemas.count, 1)
+        XCTAssertTrue(
+            ReflectionCalendarContextCacheMigrationPlan.schemas.contains {
+                $0 == ReflectionCalendarContextCacheSchemaV1.self
+            }
+        )
+        XCTAssertTrue(ReflectionCalendarContextCacheMigrationPlan.stages.isEmpty)
+
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        _ = try ModelContainer(
+            for: Schema(ReflectionCalendarContextCacheSchemaV1.models),
+            migrationPlan: ReflectionCalendarContextCacheMigrationPlan.self,
+            configurations: [configuration]
+        )
+    }
+
+    func testReflectionCacheInMemoryFallbackPersistsWithinActor() async {
+        let store = ReflectionCalendarContextCacheStore(container: nil)
+        let now = Date(timeIntervalSince1970: 1_000)
+        let key = ReflectionCalendarContextCacheKey(
+            dayStart: now,
+            dayEnd: now.addingTimeInterval(86_400),
+            timezoneID: "UTC",
+            selectedCalendarIDsHash: "empty"
+        )
+        let snapshot = ReflectionCalendarContextSnapshot(
+            eventCount: 2,
+            busyBlocks: [],
+            bestFocusWindow: nil,
+            firstHardStop: nil,
+            meetingMinutes: 45
+        )
+
+        await store.save(snapshot: snapshot, key: key, cachedAt: now)
+        let lookup = await store.load(key: key, freshnessSeconds: 60, now: now.addingTimeInterval(10))
+
+        XCTAssertEqual(lookup?.snapshot, snapshot)
+        XCTAssertEqual(lookup?.isStale, false)
     }
 }
 

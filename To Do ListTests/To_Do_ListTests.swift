@@ -118,6 +118,154 @@ final class HomeSectionStateRegressionTests: XCTestCase {
     }
 }
 
+@MainActor
+final class HomeNavigationCoordinatorTests: XCTestCase {
+    func testNotificationTaskDetailRouteSetsTasksScopeAndResolvesDetail() {
+        let spy = HomeNavigationCoordinatorSpy()
+        let coordinator = HomeNavigationCoordinator(delegate: spy)
+        let taskID = UUID()
+
+        coordinator.handleNotificationRoute(.taskDetail(taskID: taskID))
+
+        XCTAssertEqual(spy.didShowTasksDestinationCount, 1)
+        XCTAssertEqual(spy.quickViews, [.today])
+        XCTAssertEqual(spy.pendingFocusTaskIDs, [taskID])
+        XCTAssertEqual(spy.resolvedTaskDetailIDs, [taskID])
+    }
+
+    func testNightlyDailySummaryRouteOpensReflectPlanWithParsedDate() {
+        let spy = HomeNavigationCoordinatorSpy()
+        let coordinator = HomeNavigationCoordinator(delegate: spy)
+
+        coordinator.handleNotificationRoute(.dailySummary(kind: .nightly, dateStamp: "20260503"))
+
+        XCTAssertEqual(spy.reflectPlanDates.count, 1)
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: spy.reflectPlanDates[0]!)
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 5)
+        XCTAssertEqual(components.day, 3)
+        XCTAssertTrue(spy.dailySummaries.isEmpty)
+    }
+
+    func testMorningDailySummaryRouteOpensSummaryModal() {
+        let spy = HomeNavigationCoordinatorSpy()
+        let coordinator = HomeNavigationCoordinator(delegate: spy)
+
+        coordinator.handleNotificationRoute(.dailySummary(kind: .morning, dateStamp: "20260503"))
+
+        XCTAssertEqual(spy.dailySummaries.count, 1)
+        XCTAssertEqual(spy.dailySummaries.first?.kind, .morning)
+        XCTAssertEqual(spy.dailySummaries.first?.dateStamp, "20260503")
+        XCTAssertTrue(spy.reflectPlanDates.isEmpty)
+    }
+}
+
+@MainActor
+final class HomeReloadCoordinatorTests: XCTestCase {
+    func testHomeTaskMutationCoalescesChartRefreshAndInvalidatesSearch() async throws {
+        let spy = HomeReloadCoordinatorSpy()
+        let coordinator = HomeReloadCoordinator(delegate: spy, chartRefreshDebounceSeconds: 0.01)
+
+        coordinator.handleHomeTaskMutation(
+            Notification(
+                name: .homeTaskMutation,
+                object: nil,
+                userInfo: HomeTaskMutationPayload(
+                    reason: .completed,
+                    source: "test",
+                    taskID: UUID(),
+                    previousIsComplete: false,
+                    newIsComplete: true
+                ).userInfo
+            )
+        )
+        coordinator.handleHomeTaskMutation(
+            Notification(
+                name: .homeTaskMutation,
+                object: nil,
+                userInfo: HomeTaskMutationPayload(
+                    reason: .created,
+                    source: "test",
+                    taskID: UUID()
+                ).userInfo
+            )
+        )
+
+        try await _Concurrency.Task.sleep(nanoseconds: 60_000_000)
+        withExtendedLifetime(coordinator) {}
+
+        XCTAssertEqual(spy.searchMutationCount, 2)
+        XCTAssertEqual(spy.chartRefreshReasons, [.created])
+    }
+}
+
+@MainActor
+private final class HomeReloadCoordinatorSpy: HomeReloadCoordinatorDelegate {
+    private(set) var searchMutationCount = 0
+    private(set) var chartRefreshReasons: [HomeTaskMutationEvent?] = []
+
+    func homeReloadCoordinatorRecordSearchMutation() {
+        searchMutationCount += 1
+    }
+
+    func homeReloadCoordinatorRefreshCharts(reason: HomeTaskMutationEvent?) {
+        chartRefreshReasons.append(reason)
+    }
+}
+
+@MainActor
+private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDelegate {
+    private(set) var didShowTasksDestinationCount = 0
+    private(set) var quickViews: [HomeQuickView] = []
+    private(set) var pendingFocusTaskIDs: [UUID?] = []
+    private(set) var resolvedTaskDetailIDs: [UUID] = []
+    private(set) var didOpenWeeklyPlannerCount = 0
+    private(set) var didOpenWeeklyReviewCount = 0
+    private(set) var dailySummaries: [(kind: TaskerDailySummaryKind, dateStamp: String?)] = []
+    private(set) var reflectPlanDates: [Date?] = []
+
+    func homeNavigationShowTasksDestination() {
+        didShowTasksDestinationCount += 1
+    }
+
+    func homeNavigationSetQuickView(_ quickView: HomeQuickView) {
+        quickViews.append(quickView)
+    }
+
+    func homeNavigationSetPendingNotificationFocusTaskID(_ taskID: UUID?) {
+        pendingFocusTaskIDs.append(taskID)
+    }
+
+    func homeNavigationResolveAndPresentTaskDetail(taskID: UUID) {
+        resolvedTaskDetailIDs.append(taskID)
+    }
+
+    func homeNavigationOpenWeeklyPlanner() {
+        didOpenWeeklyPlannerCount += 1
+    }
+
+    func homeNavigationOpenWeeklyReview() {
+        didOpenWeeklyReviewCount += 1
+    }
+
+    func homeNavigationPresentDailySummary(kind: TaskerDailySummaryKind, dateStamp: String?) {
+        dailySummaries.append((kind, dateStamp))
+    }
+
+    func homeNavigationPresentReflectPlan(preferredReflectionDate: Date?) {
+        reflectPlanDates.append(preferredReflectionDate)
+    }
+
+    func homeNavigationDate(from stamp: String?) -> Date? {
+        guard let stamp, stamp.count == 8 else { return nil }
+        var components = DateComponents()
+        components.year = Int(stamp.prefix(4))
+        components.month = Int(stamp.dropFirst(4).prefix(2))
+        components.day = Int(stamp.suffix(2))
+        return Calendar.current.date(from: components)
+    }
+}
+
 final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     func testCurrentCompiledTaskModelIncludesHabitRuntimeAndGamificationSchema() throws {
         let model = try currentCompiledTaskModel()
@@ -2295,7 +2443,7 @@ final class LaunchResilienceTests: XCTestCase {
         XCTAssertEqual(message, expectedMessage)
     }
 
-    func testTryInjectDoesNotCrashWhenContainerMayBeUnconfigured() {
+    @MainActor func testTryInjectDoesNotCrashWhenContainerMayBeUnconfigured() {
         let dependencyContainer = PresentationDependencyContainer.shared
         let injected = dependencyContainer.tryInject(into: UIViewController())
         XCTAssertEqual(injected, dependencyContainer.isConfiguredForRuntime)
@@ -4171,6 +4319,76 @@ final class TombstoneRetentionTests: XCTestCase {
 }
 
 final class V2RepositoryInvariantTests: XCTestCase {
+    func testTaskDefinitionUpsertRepairsDuplicateIDsDeterministically() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTaskDefinitionRepository(container: container)
+        let taskID = UUID()
+        let projectID = UUID()
+        let olderDate = Date(timeIntervalSince1970: 1_704_000_000)
+        let newerDate = olderDate.addingTimeInterval(60)
+
+        container.viewContext.performAndWait {
+            insertTaskDefinitionObject(
+                in: container.viewContext,
+                id: taskID,
+                projectID: projectID,
+                title: "Older duplicate",
+                createdAt: olderDate,
+                updatedAt: olderDate
+            )
+            insertTaskDefinitionObject(
+                in: container.viewContext,
+                id: taskID,
+                projectID: projectID,
+                title: "Newer duplicate",
+                createdAt: newerDate,
+                updatedAt: newerDate
+            )
+            try? container.viewContext.save()
+        }
+
+        let repaired = try awaitResult { completion in
+            repository.create(
+                request: CreateTaskDefinitionRequest(
+                    id: taskID,
+                    title: "Canonical update",
+                    projectID: projectID,
+                    projectName: "Repair target",
+                    createdAt: newerDate
+                ),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(repaired.id, taskID)
+        XCTAssertEqual(repaired.title, "Canonical update")
+
+        let fetched = try awaitResult { completion in
+            repository.fetchAll(query: nil, completion: completion)
+        }
+        XCTAssertEqual(fetched.filter { $0.id == taskID }.count, 1)
+    }
+
+    func testMalformedTaskDefinitionMappingUsesDeterministicRepairs() throws {
+        let container = try makeInMemoryV2Container()
+        let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: container.viewContext)
+        task.setValue("Malformed row", forKey: "title")
+        task.setValue(Int32(TaskPriority.low.rawValue), forKey: "priority")
+        task.setValue(Int32(TaskType.morning.rawValue), forKey: "taskType")
+        task.setValue(false, forKey: "isComplete")
+        task.setValue(false, forKey: "isEveningTask")
+        task.setValue("pending", forKey: "status")
+
+        let first = CoreDataTaskDefinitionRepository.mapTaskDefinition(task)
+        let second = CoreDataTaskDefinitionRepository.mapTaskDefinition(task)
+
+        XCTAssertEqual(first.id, second.id)
+        XCTAssertEqual(first.projectID, ProjectConstants.inboxProjectID)
+        XCTAssertEqual(first.dateAdded, Date(timeIntervalSinceReferenceDate: 0))
+        XCTAssertEqual(first.createdAt, Date(timeIntervalSinceReferenceDate: 0))
+        XCTAssertEqual(first.updatedAt, Date(timeIntervalSinceReferenceDate: 0))
+    }
+
     func testTaskTagLinkUniquenessRejectsDuplicateTaskTagPairs() throws {
         let container = try makeInMemoryV2Container()
         let repository = CoreDataTaskTagLinkRepository(container: container)
@@ -4320,6 +4538,29 @@ final class V2RepositoryInvariantTests: XCTestCase {
             throw loadError
         }
         return container
+    }
+
+    private func insertTaskDefinitionObject(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        projectID: UUID,
+        title: String,
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+        task.setValue(id, forKey: "id")
+        task.setValue(id, forKey: "taskID")
+        task.setValue(projectID, forKey: "projectID")
+        task.setValue(title, forKey: "title")
+        task.setValue(Int32(TaskPriority.low.rawValue), forKey: "priority")
+        task.setValue(Int32(TaskType.morning.rawValue), forKey: "taskType")
+        task.setValue(false, forKey: "isComplete")
+        task.setValue(createdAt, forKey: "dateAdded")
+        task.setValue(false, forKey: "isEveningTask")
+        task.setValue(createdAt, forKey: "createdAt")
+        task.setValue(updatedAt, forKey: "updatedAt")
+        task.setValue("pending", forKey: "status")
     }
 }
 
@@ -7621,6 +7862,41 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
         XCTAssertEqual(request?.scheduledEndAt, viewModel.scheduledEndAt)
         XCTAssertEqual(request?.estimatedDuration, 90 * 60)
         XCTAssertEqual(request?.isAllDay, false)
+    }
+
+    func testCreateTaskUsesSelectedProjectIDWhenProjectNamesAreDuplicated() {
+        let selectedProjectID = UUID()
+        let projects = [
+            Project.createInbox(),
+            Project(id: UUID(), name: "Shared Name", color: .blue),
+            Project(id: selectedProjectID, name: "Shared Name", color: .green)
+        ]
+        let repository = CapturingAddTaskRepository()
+        let viewModel = makeAddTaskScheduleViewModel(repository: repository, projects: projects)
+        var cancellables = Set<AnyCancellable>()
+
+        let projectsLoaded = expectation(description: "projects loaded")
+        viewModel.$projects
+            .filter { loadedProjects in
+                loadedProjects.contains(where: { $0.id == selectedProjectID })
+            }
+            .first()
+            .sink { _ in projectsLoaded.fulfill() }
+            .store(in: &cancellables)
+
+        wait(for: [projectsLoaded], timeout: 1.0)
+
+        let expectation = expectation(description: "task created in selected duplicate-name project")
+        DispatchQueue.main.async {
+            viewModel.selectProject(id: selectedProjectID)
+            viewModel.taskName = "Create launch checklist"
+            repository.onCreateRequest = { _ in expectation.fulfill() }
+            viewModel.createTask()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repository.lastCreateRequest?.projectID, selectedProjectID)
+        XCTAssertEqual(repository.lastCreateRequest?.projectName, "Shared Name")
     }
 
     func testClearingScheduleCreatesUnscheduledTask() {
