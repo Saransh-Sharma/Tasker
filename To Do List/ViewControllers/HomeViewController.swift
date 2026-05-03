@@ -123,13 +123,15 @@ struct HomeRenderTransaction: Equatable {
         self.overlay = overlay
     }
 
-    static let empty = HomeRenderTransaction(
-        chrome: .empty,
-        tasks: .empty,
-        habits: .empty,
-        calendar: .empty,
-        overlay: .empty
-    )
+    static var empty: HomeRenderTransaction {
+        HomeRenderTransaction(
+            chrome: .empty,
+            tasks: .empty,
+            habits: .empty,
+            calendar: .empty,
+            overlay: .empty
+        )
+    }
 
     func changedSliceCount(comparedTo previous: HomeRenderTransaction) -> Int {
         var count = 0
@@ -203,23 +205,25 @@ struct HomeChromeSnapshot: Equatable {
         self.momentumGuidanceText = momentumGuidanceText
     }
 
-    static let empty = HomeChromeSnapshot(
-        selectedDate: Date(),
-        activeScope: .today,
-        activeFilterState: .default,
-        savedHomeViews: [],
-        quickViewCounts: [:],
-        progressState: .empty,
-        dailyScore: 0,
-        completionRate: 0,
-        weeklySummary: nil,
-        weeklySummaryIsLoading: false,
-        weeklySummaryErrorMessage: nil,
-        projects: [],
-        dailyReflectionEntryState: nil,
-        dailyPlanDraft: nil,
-        momentumGuidanceText: ""
-    )
+    static var empty: HomeChromeSnapshot {
+        HomeChromeSnapshot(
+            selectedDate: Date(),
+            activeScope: .today,
+            activeFilterState: .default,
+            savedHomeViews: [],
+            quickViewCounts: [:],
+            progressState: .empty,
+            dailyScore: 0,
+            completionRate: 0,
+            weeklySummary: nil,
+            weeklySummaryIsLoading: false,
+            weeklySummaryErrorMessage: nil,
+            projects: [],
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
+            momentumGuidanceText: ""
+        )
+    }
 }
 
 struct HomeTasksSnapshot: Equatable {
@@ -250,34 +254,36 @@ struct HomeTasksSnapshot: Equatable {
     let pinnedFocusTaskIDs: [UUID]
     let todayOpenTaskCount: Int
 
-    static let empty = HomeTasksSnapshot(
-        morningTasks: [],
-        eveningTasks: [],
-        overdueTasks: [],
-        dueTodaySection: nil,
-        todaySections: [],
-        focusNowSectionState: FocusNowSectionState(rows: [], pinnedTaskIDs: []),
-        todayAgendaSectionState: TodayAgendaSectionState(sections: []),
-        agendaTailItems: [],
-        habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
-        quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
-        inlineCompletedTasks: [],
-        doneTimelineTasks: [],
-        projects: [],
-        projectsByID: [:],
-        tagNameByID: [:],
-        activeQuickView: .today,
-        todayXPSoFar: nil,
-        projectGroupingMode: .defaultMode,
-        customProjectOrderIDs: [],
-        emptyStateMessage: nil,
-        emptyStateActionTitle: nil,
-        canUseManualFocusDrag: false,
-        focusTasks: [],
-        focusRows: [],
-        pinnedFocusTaskIDs: [],
-        todayOpenTaskCount: 0
-    )
+    static var empty: HomeTasksSnapshot {
+        HomeTasksSnapshot(
+            morningTasks: [],
+            eveningTasks: [],
+            overdueTasks: [],
+            dueTodaySection: nil,
+            todaySections: [],
+            focusNowSectionState: FocusNowSectionState(rows: [], pinnedTaskIDs: []),
+            todayAgendaSectionState: TodayAgendaSectionState(sections: []),
+            agendaTailItems: [],
+            habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
+            quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
+            inlineCompletedTasks: [],
+            doneTimelineTasks: [],
+            projects: [],
+            projectsByID: [:],
+            tagNameByID: [:],
+            activeQuickView: .today,
+            todayXPSoFar: nil,
+            projectGroupingMode: .defaultMode,
+            customProjectOrderIDs: [],
+            emptyStateMessage: nil,
+            emptyStateActionTitle: nil,
+            canUseManualFocusDrag: false,
+            focusTasks: [],
+            focusRows: [],
+            pinnedFocusTaskIDs: [],
+            todayOpenTaskCount: 0
+        )
+    }
 
     var hasCommittedInitialContent: Bool {
         !morningTasks.isEmpty
@@ -341,11 +347,13 @@ struct HomeHabitsSnapshot: Equatable {
     let quietTrackingSummaryState: QuietTrackingSummaryState
     let errorMessage: String?
 
-    static let empty = HomeHabitsSnapshot(
-        habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
-        quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
-        errorMessage: nil
-    )
+    static var empty: HomeHabitsSnapshot {
+        HomeHabitsSnapshot(
+            habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
+            quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
+            errorMessage: nil
+        )
+    }
 }
 
 enum HomeCalendarModuleState: Equatable {
@@ -373,22 +381,24 @@ struct HomeCalendarSnapshot: Equatable {
     let isLoading: Bool
     let errorMessage: String?
 
-    static let empty = HomeCalendarSnapshot(
-        moduleState: .permissionRequired,
-        selectedDate: Date(),
-        authorizationStatus: .notDetermined,
-        accessAction: .requestPermission,
-        selectedCalendarCount: 0,
-        availableCalendarCount: 0,
-        nextMeeting: nil,
-        busyBlocks: [],
-        freeUntil: nil,
-        selectedDayEvents: [],
-        selectedDayTimelineEvents: [],
-        eventsTodayCount: 0,
-        isLoading: false,
-        errorMessage: nil
-    )
+    static var empty: HomeCalendarSnapshot {
+        HomeCalendarSnapshot(
+            moduleState: .permissionRequired,
+            selectedDate: Date(),
+            authorizationStatus: .notDetermined,
+            accessAction: .requestPermission,
+            selectedCalendarCount: 0,
+            availableCalendarCount: 0,
+            nextMeeting: nil,
+            busyBlocks: [],
+            freeUntil: nil,
+            selectedDayEvents: [],
+            selectedDayTimelineEvents: [],
+            eventsTodayCount: 0,
+            isLoading: false,
+            errorMessage: nil
+        )
+    }
 }
 
 enum TimelinePlanItemSource: Equatable {
@@ -1064,20 +1074,22 @@ struct HomeOverlaySnapshot: Equatable {
     let lastXPResult: XPEventResult?
     let replanState: HomeReplanSessionState
 
-    static let empty = HomeOverlaySnapshot(
-        guidanceState: nil,
-        focusWhyPresented: false,
-        triagePresented: false,
-        triageScope: .visible,
-        triageQueueLoading: false,
-        triageQueueErrorMessage: nil,
-        triageQueue: [],
-        rescuePresented: false,
-        rescuePlan: nil,
-        lastBatchRunID: nil,
-        lastXPResult: nil,
-        replanState: .hidden
-    )
+    static var empty: HomeOverlaySnapshot {
+        HomeOverlaySnapshot(
+            guidanceState: nil,
+            focusWhyPresented: false,
+            triagePresented: false,
+            triageScope: .visible,
+            triageQueueLoading: false,
+            triageQueueErrorMessage: nil,
+            triageQueue: [],
+            rescuePresented: false,
+            rescuePlan: nil,
+            lastBatchRunID: nil,
+            lastXPResult: nil,
+            replanState: .hidden
+        )
+    }
 
     static func == (lhs: HomeOverlaySnapshot, rhs: HomeOverlaySnapshot) -> Bool {
         lhs.guidanceState == rhs.guidanceState
@@ -1263,7 +1275,7 @@ private struct HomeBottomBarContainer: View {
     }
 }
 
-private var onboardingTaskDetailDismissBridgeKey: UInt8 = 0
+@MainActor private var onboardingTaskDetailDismissBridgeKey: UInt8 = 0
 
 private final class OnboardingTaskDetailDismissBridge: NSObject, UIAdaptivePresentationControllerDelegate {
     private let onDismiss: () -> Void
@@ -1310,13 +1322,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private let calendarStore = HomeCalendarStore()
     private let overlayStore = HomeOverlayStore()
     private let faceCoordinator = HomeFaceCoordinator()
+    private let navigationCoordinator = HomeNavigationCoordinator()
+    private let reloadCoordinator = HomeReloadCoordinator()
 
     // MARK: - State
 
     private let notificationCenter = NotificationCenter.default
     private var cancellables = Set<AnyCancellable>()
-    private var pendingChartRefreshWorkItem: DispatchWorkItem?
-    private let chartRefreshDebounceSeconds: TimeInterval = 0.12
     private var pendingNotificationFocusTaskID: UUID?
     private var syncOutageBanner: UIView?
     private var syncOutageLabel: UILabel?
@@ -1357,6 +1369,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         super.viewDidLoad()
 
         injectDependenciesIfNeeded()
+        navigationCoordinator.delegate = self
+        reloadCoordinator.delegate = self
         bindTheme()
         bindViewModel()
         bindRenderPipeline()
@@ -5015,38 +5029,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func handleNotificationRoute(_ route: TaskerNotificationRoute) {
-        guard let viewModel else { return }
-        switch route {
-        case .homeToday(let taskID):
-            if isUsingIPadNativeShell {
-                iPadShellState.destination = .tasks
-            }
-            viewModel.setQuickView(.today)
-            pendingNotificationFocusTaskID = taskID
-        case .homeDone:
-            if isUsingIPadNativeShell {
-                iPadShellState.destination = .tasks
-            }
-            viewModel.setQuickView(.done)
-            pendingNotificationFocusTaskID = nil
-        case .taskDetail(let taskID):
-            if isUsingIPadNativeShell {
-                iPadShellState.destination = .tasks
-            }
-            viewModel.setQuickView(.today)
-            pendingNotificationFocusTaskID = taskID
-            resolveAndPresentTaskDetail(taskID: taskID)
-        case .weeklyPlanner:
-            handleWeeklyPlannerDeepLink()
-        case .weeklyReview:
-            handleWeeklyReviewDeepLink()
-        case .dailySummary(let kind, let dateStamp):
-            if kind == .nightly {
-                presentReflectPlanFlow(preferredReflectionDate: dateFromStamp(dateStamp))
-            } else {
-                presentDailySummaryModal(kind: kind, dateStamp: dateStamp)
-            }
-        }
+        guard viewModel != nil else { return }
+        navigationCoordinator.handleNotificationRoute(route)
     }
 
     private func resolveAndPresentTaskDetail(taskID: UUID, attemptsRemaining: Int = 2) {
@@ -5337,19 +5321,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     @objc private func homeTaskMutationReceived(_ notification: Notification) {
-        let payload = HomeTaskMutationPayload(notification: notification)
-        let reason = payload?.reason ?? (notification.userInfo?["reason"] as? String).flatMap(HomeTaskMutationEvent.init(rawValue:))
-
-        if let payload, HomeSearchInvalidationPolicy.shouldRefreshSearch(for: payload) {
-            faceCoordinator.recordSearchMutation()
-        }
-
-        pendingChartRefreshWorkItem?.cancel()
-        let refreshWorkItem = DispatchWorkItem { [weak self] in
-            self?.refreshChartsAfterTaskMutation(reason: reason)
-        }
-        pendingChartRefreshWorkItem = refreshWorkItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + chartRefreshDebounceSeconds, execute: refreshWorkItem)
+        reloadCoordinator.handleHomeTaskMutation(notification)
     }
 
     // MARK: - Theme
@@ -5357,6 +5329,56 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     /// Executes applyTheme.
     private func applyTheme() {
         view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+    }
+}
+
+extension HomeViewController: HomeNavigationCoordinatorDelegate {
+    func homeNavigationShowTasksDestination() {
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .tasks
+        }
+    }
+
+    func homeNavigationSetQuickView(_ quickView: HomeQuickView) {
+        viewModel?.setQuickView(quickView)
+    }
+
+    func homeNavigationSetPendingNotificationFocusTaskID(_ taskID: UUID?) {
+        pendingNotificationFocusTaskID = taskID
+    }
+
+    func homeNavigationResolveAndPresentTaskDetail(taskID: UUID) {
+        resolveAndPresentTaskDetail(taskID: taskID)
+    }
+
+    func homeNavigationOpenWeeklyPlanner() {
+        handleWeeklyPlannerDeepLink()
+    }
+
+    func homeNavigationOpenWeeklyReview() {
+        handleWeeklyReviewDeepLink()
+    }
+
+    func homeNavigationPresentDailySummary(kind: TaskerDailySummaryKind, dateStamp: String?) {
+        presentDailySummaryModal(kind: kind, dateStamp: dateStamp)
+    }
+
+    func homeNavigationPresentReflectPlan(preferredReflectionDate: Date?) {
+        presentReflectPlanFlow(preferredReflectionDate: preferredReflectionDate)
+    }
+
+    func homeNavigationDate(from stamp: String?) -> Date? {
+        dateFromStamp(stamp)
+    }
+}
+
+extension HomeViewController: HomeReloadCoordinatorDelegate {
+    func homeReloadCoordinatorRecordSearchMutation() {
+        faceCoordinator.recordSearchMutation()
+    }
+
+    func homeReloadCoordinatorRefreshCharts(reason: HomeTaskMutationEvent?) {
+        refreshChartsAfterTaskMutation(reason: reason)
     }
 }
 

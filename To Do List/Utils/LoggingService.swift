@@ -57,13 +57,13 @@ final class LoggingService {
     /// System logger object
     private let osLog: OSLog
 
-    /// Timestamp formatter (UTC, fixed precision for stable logs)
-    private static let timestampFormatter: ISO8601DateFormatter = {
+    /// Timestamp formatter factory (UTC, fixed precision for stable logs)
+    private static func makeTimestampFormatter() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
-    }()
+    }
 
     static let defaultLogPreviewLength = 160
 
@@ -131,7 +131,7 @@ final class LoggingService {
         guard level.rawValue >= minimumLogLevel.rawValue else { return }
 
         let cmp = component ?? Self.componentName(from: file)
-        let ts = Self.timestampFormatter.string(from: Date())
+        let ts = Self.makeTimestampFormatter().string(from: Date())
 
         var chunks: [String] = [
             "ts=\(ts)",
@@ -348,7 +348,7 @@ final class LoggingService {
     }
 }
 
-public struct TaskerPerformanceInterval {
+public struct TaskerPerformanceInterval: Sendable {
     fileprivate let name: StaticString
     fileprivate let signpostID: OSSignpostID?
     fileprivate let isEnabled: Bool
@@ -428,14 +428,14 @@ public enum TaskerPerformanceTrace {
 
 enum TaskerMemoryDiagnostics {
     #if DEBUG
-    private static let byteFormatter: ByteCountFormatter = {
+    private static func makeByteFormatter() -> ByteCountFormatter {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useMB]
         formatter.countStyle = .memory
         formatter.includesUnit = true
         formatter.isAdaptive = true
         return formatter
-    }()
+    }
     #endif
 
     static func checkpoint(
@@ -449,11 +449,11 @@ enum TaskerMemoryDiagnostics {
         var resolvedFields = fields
         if let residentBytes = residentFootprintBytes() {
             resolvedFields["resident_mb"] = String(format: "%.1f", Double(residentBytes) / 1_048_576)
-            resolvedFields["resident_human"] = byteFormatter.string(fromByteCount: Int64(residentBytes))
+            resolvedFields["resident_human"] = makeByteFormatter().string(fromByteCount: Int64(residentBytes))
         }
         if let physFootprintBytes = physicalFootprintBytes() {
             resolvedFields["phys_footprint_mb"] = String(format: "%.1f", Double(physFootprintBytes) / 1_048_576)
-            resolvedFields["phys_footprint_human"] = byteFormatter.string(fromByteCount: Int64(physFootprintBytes))
+            resolvedFields["phys_footprint_human"] = makeByteFormatter().string(fromByteCount: Int64(physFootprintBytes))
         }
         for key in counts.keys.sorted() {
             resolvedFields[key] = String(counts[key] ?? 0)

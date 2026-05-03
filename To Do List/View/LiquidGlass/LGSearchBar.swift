@@ -7,6 +7,7 @@
 
 import UIKit
 
+@MainActor
 protocol LGSearchBarDelegate: AnyObject {
     /// Executes searchBar.
     func searchBar(_ searchBar: LGSearchBar, textDidChange text: String)

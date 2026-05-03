@@ -10,6 +10,7 @@ import UIKit
 import SwiftUI
 import Combine
 
+@MainActor
 class SettingsPageViewController: UIViewController, PresentationDependencyContainerAware {
 
     // MARK: - Dependencies

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TimelineHeaderHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+    static let defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
@@ -9,7 +9,7 @@ struct TimelineHeaderHeightPreferenceKey: PreferenceKey {
 }
 
 struct TimelineCalendarCardHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+    static let defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
@@ -17,7 +17,7 @@ struct TimelineCalendarCardHeightPreferenceKey: PreferenceKey {
 }
 
 struct TimelineBackdropWeekHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+    static let defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())

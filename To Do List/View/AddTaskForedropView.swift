@@ -212,15 +212,15 @@ struct AddTaskForedropView: View {
                 title: "Project",
                 helperText: "Choose a project or leave this in Inbox.",
                 options: viewModel.filteredProjectsForSelectedLifeArea.map {
-                    TaskerComposerOption(id: $0.name, title: $0.name, icon: nil, accentHex: nil)
+                    TaskerComposerOption(id: $0.id, title: $0.name, icon: nil, accentHex: nil)
                 },
-                selectedID: viewModel.selectedProject == ProjectConstants.inboxProjectName ? nil : viewModel.selectedProject,
+                selectedID: viewModel.selectedProjectID == ProjectConstants.inboxProjectID ? nil : viewModel.selectedProjectID,
                 noneOptionTitle: "Inbox",
                 emptyStateText: viewModel.filteredProjectsForSelectedLifeArea.isEmpty ? "No projects in this area." : nil,
                 accessibilityIdentifier: "addTask.projectSelector"
-            ) { selectedProject in
+            ) { selectedProjectID in
                 withAnimation(TaskerAnimation.snappy) {
-                    viewModel.selectedProject = selectedProject ?? ProjectConstants.inboxProjectName
+                    viewModel.selectProject(id: selectedProjectID)
                 }
             }
         }
