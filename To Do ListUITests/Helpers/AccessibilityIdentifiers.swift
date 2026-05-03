@@ -286,10 +286,14 @@ enum AccessibilityIdentifiers {
         static let evaValue = "onboarding.evaValue"
         static let lifeAreas = "onboarding.lifeAreas"
         static let habitSetup = "onboarding.habitSetup"
+        static let workStyle = "onboarding.workStyle"
+        static let workBlockers = "onboarding.workBlockers"
+        static let weeklyOutcomes = "onboarding.weeklyOutcomes"
         static let streakPreview = "onboarding.streakPreview"
         static let evaStyle = "onboarding.evaStyle"
         static let processing = "onboarding.processing"
         static let firstTask = "onboarding.firstTask"
+        static let homeDemo = "onboarding.homeDemo"
         static let focusRoom = "onboarding.focusRoom"
         static let habitCheckIn = "onboarding.habitCheckIn"
         static let calendarPermission = "onboarding.calendarPermission"
@@ -311,7 +315,13 @@ enum AccessibilityIdentifiers {
         static let promptStart = "onboarding.prompt.start"
         static let promptDismiss = "onboarding.prompt.dismiss"
         static let finish = "onboarding.success"
+        static let calendarPermissionHero = "onboarding.calendarPermission.hero"
+        static let notificationPermissionHero = "onboarding.notificationPermission.hero"
+        static let weeklyOutcomeAdd = "onboarding.weeklyOutcomes.add"
+        static let homeDemoTimeline = "onboarding.homeDemo.timeline"
+        static let homeDemoHabits = "onboarding.homeDemo.habits"
         static func mascotPersona(_ id: String) -> String { "onboarding.mascot.persona.\(id)" }
+        static func weeklyOutcomeField(_ index: Int) -> String { "onboarding.weeklyOutcomes.field.\(index)" }
     }
 
     // MARK: - Project Management Screen
