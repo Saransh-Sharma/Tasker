@@ -47,11 +47,42 @@ struct EvaActivationIntroView: View {
     }
 
     private var mediaPanel: some View {
-        EvaHeroMediaView(style: layoutClass.isPad ? .card : .fullBleed)
-            .accessibilityIdentifier("eva.activation.intro.hero")
-            .frame(maxWidth: .infinity)
-            .frame(height: heroHeight)
-            .enhancedStaggeredAppearance(index: 0)
+        ZStack {
+            RoundedRectangle(cornerRadius: layoutClass.isPad ? TaskerTheme.CornerRadius.modal : 0, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.tasker(.surfacePrimary),
+                            Color.tasker(.accentWash).opacity(0.62),
+                            Color.tasker(.surfacePrimary)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            EvaMascotView(
+                placement: .chatHelp,
+                size: .custom(layoutClass.isPad ? 240 : 204),
+                decorative: false,
+                accessibilityLabel: assistantIdentity.snapshot.displayName,
+                mascotID: assistantIdentity.snapshot.mascotID
+            )
+
+            if reduceMotion == false {
+                EvaLoopingLottieContainer(size: 76)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(TaskerTheme.Spacing.md)
+            }
+        }
+        .accessibilityIdentifier("eva.activation.intro.hero")
+        .frame(maxWidth: .infinity)
+        .frame(height: heroHeight)
+        .overlay(
+            RoundedRectangle(cornerRadius: layoutClass.isPad ? TaskerTheme.CornerRadius.modal : 0, style: .continuous)
+                .stroke(Color.tasker(.strokeHairline), lineWidth: layoutClass.isPad ? 1 : 0)
+        )
+        .enhancedStaggeredAppearance(index: 0)
     }
 
     private var copySection: some View {
