@@ -12,21 +12,22 @@ import CloudKit
 import Firebase
 import BackgroundTasks
 import MetricKit
+import Synchronization
 import UserNotifications
 
-enum PersistentBootstrapState {
+enum PersistentBootstrapState: Sendable {
     case loading
     case ready(NSPersistentCloudKitContainer)
     case failed(String)
 }
 
-enum LaunchRootMode: Equatable {
+enum LaunchRootMode: Equatable, Sendable {
     case loading
     case home
     case bootstrapFailure(message: String)
 }
 
-enum PersistentSyncMode: Equatable {
+enum PersistentSyncMode: Equatable, Sendable {
     case fullSync
     case writeClosed(reason: String)
 
@@ -194,7 +195,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private var persistentBootstrapGeneration: UInt64 = 0
 
     private(set) static var persistentBootstrapFailureMessage: String?
-    private(set) static var persistentSyncMode: PersistentSyncMode = .fullSync
+    private static let persistentSyncModeState = Mutex(PersistentSyncMode.fullSync)
+    private(set) static var persistentSyncMode: PersistentSyncMode {
+        get {
+            persistentSyncModeState.withLock { $0 }
+        }
+        set {
+            persistentSyncModeState.withLock { $0 = newValue }
+        }
+    }
+    nonisolated static func persistentSyncModeSnapshot() -> PersistentSyncMode {
+        persistentSyncModeState.withLock { $0 }
+    }
     static var isPersistentStoreReady: Bool {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
             return false
@@ -465,13 +477,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             gamificationRemoteChangeCoordinator = GamificationRemoteChangeCoordinator(
                 container: container,
                 notificationCenter: .default,
-                onQualifiedCloudImport: { reason in
-                    guard V2FeatureFlags.gamificationV2Enabled else { return }
+                onQualifiedCloudImport: { reason, completion in
+                    guard V2FeatureFlags.gamificationV2Enabled else {
+                        completion(true)
+                        return
+                    }
                     let engine = PresentationDependencyContainer.shared.coordinator.gamificationEngine
                     engine.fullReconciliation { result in
                         switch result {
                         case .success:
                             engine.writeWidgetSnapshot()
+                            completion(true)
                         case .failure(let error):
                             logError(
                                 event: "gamification_remote_reconciliation_failed",
@@ -481,6 +497,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                     "error": error.localizedDescription
                                 ]
                             )
+                            completion(false)
                         }
                     }
                 }
@@ -550,16 +567,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         persistentBootstrapGeneration &+= 1
         let generation = persistentBootstrapGeneration
         let interval = TaskerPerformanceTrace.begin("PersistentBootstrapAsync")
-        Task.detached(priority: .userInitiated) { [weak self] in
+        Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
-            let state = await self.bootstrapV3PersistentContainer()
+            let result = await self.persistentStoreBootstrapService.bootstrapV3PersistentContainer()
             await MainActor.run {
                 guard self.persistentBootstrapGeneration == generation else {
                     TaskerPerformanceTrace.end(interval)
                     return
                 }
+                self.updatePersistentSyncMode(result.syncMode, source: result.syncModeSource)
+                if result.shouldMarkStoreEpoch {
+                    self.markV3BootstrapEpochApplied()
+                }
                 TaskerPerformanceTrace.end(interval)
-                _ = self.applyBootstrapState(state, trigger: trigger)
+                _ = self.applyBootstrapState(result.state, trigger: trigger)
             }
         }
     }
@@ -1045,16 +1066,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         @unknown default:
             return "unknown_future_case"
         }
-    }
-
-    /// Executes bootstrapV3PersistentContainer.
-    private func bootstrapV3PersistentContainer() async -> PersistentBootstrapState {
-        let result = await persistentStoreBootstrapService.bootstrapV3PersistentContainer()
-        updatePersistentSyncMode(result.syncMode, source: result.syncModeSource)
-        if result.shouldMarkStoreEpoch {
-            markV3BootstrapEpochApplied()
-        }
-        return result.state
     }
 
     private func makeWriteClosedReason(
@@ -1795,11 +1806,12 @@ final class GamificationRemoteChangeCoordinator {
         let scannedTransactions: Int
         let qualifiedTransactions: Int
         let shouldReconcile: Bool
+        let latestToken: NSPersistentHistoryToken?
     }
 
     private let container: NSPersistentCloudKitContainer
     private let notificationCenter: NotificationCenter
-    private let onQualifiedCloudImport: (_ reason: String) -> Void
+    private let onQualifiedCloudImport: (_ reason: String, _ completion: @escaping (Bool) -> Void) -> Void
     private let defaults: UserDefaults
     private let workQueue = DispatchQueue(label: "com.tasker.gamification.remote_change", qos: .utility)
 
@@ -1811,7 +1823,7 @@ final class GamificationRemoteChangeCoordinator {
         container: NSPersistentCloudKitContainer,
         notificationCenter: NotificationCenter,
         defaults: UserDefaults = .standard,
-        onQualifiedCloudImport: @escaping (_ reason: String) -> Void
+        onQualifiedCloudImport: @escaping (_ reason: String, _ completion: @escaping (Bool) -> Void) -> Void
     ) {
         self.container = container
         self.notificationCenter = notificationCenter
@@ -1835,15 +1847,29 @@ final class GamificationRemoteChangeCoordinator {
         isProcessing = true
 
         let outcome = scanPersistentHistory()
-        isProcessing = false
 
         if outcome.shouldReconcile {
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.notificationCenter.post(name: Constants.cloudSyncNotification, object: nil)
-                self.onQualifiedCloudImport("persistent_history_cloud_import")
+                self.onQualifiedCloudImport("persistent_history_cloud_import") { didReconcile in
+                    self.workQueue.async { [weak self] in
+                        guard let self else { return }
+                        if didReconcile {
+                            self.persistScannedHistoryToken(outcome.latestToken)
+                        } else {
+                            self.pendingReplay = true
+                        }
+                        self.isProcessing = false
+                        self.processIfNeeded()
+                    }
+                }
             }
+            return
         }
+
+        persistScannedHistoryToken(outcome.latestToken)
+        isProcessing = false
 
         if pendingReplay {
             processIfNeeded()
@@ -1877,7 +1903,8 @@ final class GamificationRemoteChangeCoordinator {
             return HistoryScanOutcome(
                 scannedTransactions: 0,
                 qualifiedTransactions: 0,
-                shouldReconcile: false
+                shouldReconcile: false,
+                latestToken: nil
             )
         }
 
@@ -1885,14 +1912,12 @@ final class GamificationRemoteChangeCoordinator {
             return HistoryScanOutcome(
                 scannedTransactions: 0,
                 qualifiedTransactions: 0,
-                shouldReconcile: false
+                shouldReconcile: false,
+                latestToken: nil
             )
         }
 
-        if let latestToken = transactions.last?.token {
-            historyToken = latestToken
-            Self.persist(token: latestToken, defaults: defaults)
-        }
+        let latestToken = transactions.last?.token
 
         let qualifiedCount = transactions.reduce(into: 0) { partialResult, transaction in
             if GamificationRemoteChangeClassifier.isQualifiedCloudImport(
@@ -1911,8 +1936,15 @@ final class GamificationRemoteChangeCoordinator {
         return HistoryScanOutcome(
             scannedTransactions: transactions.count,
             qualifiedTransactions: qualifiedCount,
-            shouldReconcile: qualifiedCount > 0
+            shouldReconcile: qualifiedCount > 0,
+            latestToken: latestToken
         )
+    }
+
+    private func persistScannedHistoryToken(_ token: NSPersistentHistoryToken?) {
+        guard let token else { return }
+        historyToken = token
+        Self.persist(token: token, defaults: defaults)
     }
 
     private static func loadPersistedToken(defaults: UserDefaults) -> NSPersistentHistoryToken? {

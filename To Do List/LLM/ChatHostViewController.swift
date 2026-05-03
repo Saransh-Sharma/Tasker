@@ -17,6 +17,7 @@ extension Notification.Name {
     static let requestEvaChatNewThread = Notification.Name("requestEvaChatNewThread")
 }
 
+@MainActor
 class ChatHostViewController: UIViewController, PresentationDependencyContainerAware, UseCaseCoordinatorInjectable {
     var presentationDependencyContainer: PresentationDependencyContainer?
     var useCaseCoordinator: UseCaseCoordinator!
@@ -1109,6 +1110,9 @@ struct ChatContainerView: View {
                         onPerformDayHabitAction: onPerformDayHabitAction,
                         showsHistoryAction: false,
                         promptFocusRequestID: promptFocusRequestID,
+                        storageDegradedReason: LLMDataController.isDegradedModeActive
+                            ? LLMDataController.degradedModeReason ?? "unknown"
+                            : nil,
                         onNavigationChromeChange: onNavigationChromeChange,
                         onPromptFocusChange: onPromptFocusChange
                     )
@@ -1128,6 +1132,9 @@ struct ChatContainerView: View {
                     onPerformDayHabitAction: onPerformDayHabitAction,
                     showsHistoryAction: true,
                     promptFocusRequestID: promptFocusRequestID,
+                    storageDegradedReason: LLMDataController.isDegradedModeActive
+                        ? LLMDataController.degradedModeReason ?? "unknown"
+                        : nil,
                     onNavigationChromeChange: onNavigationChromeChange,
                     onPromptFocusChange: onPromptFocusChange
                 )
