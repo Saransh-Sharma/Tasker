@@ -926,7 +926,7 @@ enum LLMPersonalMemoryDefaultsStore {
     }
 }
 
-enum Role: String, Codable {
+enum Role: String, Codable, Sendable {
     case assistant
     case user
     case system
@@ -982,5 +982,25 @@ final class Thread {
     init() {
         self.id = UUID()
         self.timestamp = Date()
+    }
+}
+
+enum LLMChatSchemaV1: VersionedSchema {
+    static var versionIdentifier: Schema.Version {
+        Schema.Version(1, 0, 0)
+    }
+
+    static var models: [any PersistentModel.Type] {
+        [Thread.self, Message.self]
+    }
+}
+
+enum LLMChatMigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [LLMChatSchemaV1.self]
+    }
+
+    static var stages: [MigrationStage] {
+        []
     }
 }

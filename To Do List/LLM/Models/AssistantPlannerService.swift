@@ -2217,10 +2217,10 @@ struct AssistantDeterministicPlanner {
 
     private static func parseDate(_ value: Any?) -> Date? {
         guard let string = value as? String else { return nil }
-        if let date = ISO8601DateFormatter.taskerPlannerWithFraction.date(from: string) {
+        if let date = ISO8601DateFormatter.makeTaskerPlannerWithFraction().date(from: string) {
             return date
         }
-        return ISO8601DateFormatter.taskerPlanner.date(from: string)
+        return ISO8601DateFormatter.makeTaskerPlanner().date(from: string)
     }
 
     private static func timeInterval(from value: Any?) -> TimeInterval? {
@@ -2251,15 +2251,15 @@ struct AssistantDeterministicPlanner {
 }
 
 private extension ISO8601DateFormatter {
-    static let taskerPlanner: ISO8601DateFormatter = {
+    static func makeTaskerPlanner() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         return formatter
-    }()
+    }
 
-    static let taskerPlannerWithFraction: ISO8601DateFormatter = {
+    static func makeTaskerPlannerWithFraction() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
-    }()
+    }
 }

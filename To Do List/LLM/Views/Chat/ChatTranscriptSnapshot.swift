@@ -49,7 +49,7 @@ enum ChatPendingResponseStatusText {
     }
 }
 
-struct ChatMessageRenderModel: Identifiable, Equatable {
+struct ChatMessageRenderModel: Identifiable, Equatable, Sendable {
     let id: UUID
     let role: Role
     let originalContent: String
@@ -171,7 +171,7 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
     }
 }
 
-struct ChatTranscriptSnapshot: Equatable {
+struct ChatTranscriptSnapshot: Equatable, Sendable {
     let threadID: UUID?
     let title: String
     let recentUserMessageFragments: [String]

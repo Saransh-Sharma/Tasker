@@ -4,6 +4,7 @@ import SwiftData
 import os
 
 /// Singleton that holds a single ModelContainer for the LLM module so every view shares the exact same persistent store.
+@MainActor
 enum LLMDataController {
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Tasker", category: "LLMDataController")
     private(set) static var isDegradedModeActive = false
@@ -20,6 +21,8 @@ enum LLMDataController {
             ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         return appSupport.appendingPathComponent("llm-chat-history.store")
     }
+
+    private static let schema = Schema(LLMChatSchemaV1.models)
 
     /// Executes makeConfiguration.
     private static func makeConfiguration() -> ModelConfiguration {
@@ -55,7 +58,7 @@ enum LLMDataController {
         }
     }
 
-    static func recoveryDisposition(for error: Error) -> StoreRecoveryDisposition {
+    nonisolated static func recoveryDisposition(for error: Error) -> StoreRecoveryDisposition {
         let nsError = error as NSError
         if nsError.domain == NSCocoaErrorDomain {
             switch nsError.code {
@@ -100,7 +103,17 @@ enum LLMDataController {
         return .fallbackWithoutRecreation(reason: "persistent_store_initialization_failed")
     }
 
+    private static func makeModelContainer(configuration: ModelConfiguration) throws -> ModelContainer {
+        try ModelContainer(
+            for: schema,
+            migrationPlan: LLMChatMigrationPlan.self,
+            configurations: [configuration]
+        )
+    }
+
+    @MainActor
     static let shared: ModelContainer? = {
+        @MainActor
         func activateDegradedMode(reason: String) {
             isDegradedModeActive = true
             degradedModeReason = reason
@@ -108,7 +121,7 @@ enum LLMDataController {
 
         let config = makeConfiguration()
         do {
-            return try ModelContainer(for: Thread.self, Message.self, configurations: config)
+            return try makeModelContainer(configuration: config)
         } catch {
             logger.error("Initial LLM SwiftData container creation failed: \(error.localizedDescription, privacy: .public)")
             let disposition = recoveryDisposition(for: error)
@@ -123,7 +136,7 @@ enum LLMDataController {
                 let url = storeURL()
                 recreateStoreAtURL(url)
                 do {
-                    return try ModelContainer(for: Thread.self, Message.self, configurations: makeConfiguration())
+                    return try makeModelContainer(configuration: makeConfiguration())
                 } catch {
                     logger.fault("LLM SwiftData container recreation failed: \(error.localizedDescription, privacy: .public)")
                     activateDegradedMode(reason: "persistent_store_recovery_failed")
@@ -132,21 +145,13 @@ enum LLMDataController {
 
             do {
                 logger.warning("Falling back to in-memory LLM SwiftData container after persistent store initialization failure.")
-                return try ModelContainer(
-                    for: Thread.self,
-                    Message.self,
-                    configurations: makeInMemoryConfiguration()
-                )
+                return try makeModelContainer(configuration: makeInMemoryConfiguration())
             } catch {
                 logger.fault("In-memory LLM SwiftData container fallback failed: \(error.localizedDescription, privacy: .public)")
                 activateDegradedMode(reason: "in_memory_fallback_failed")
                 do {
                     logger.warning("Attempting temporary disk-backed fallback for LLM SwiftData container.")
-                    return try ModelContainer(
-                        for: Thread.self,
-                        Message.self,
-                        configurations: makeTemporaryDiskConfiguration()
-                    )
+                    return try makeModelContainer(configuration: makeTemporaryDiskConfiguration())
                 } catch {
                     logger.fault("Temporary LLM SwiftData container fallback failed: \(error.localizedDescription, privacy: .public)")
                     activateDegradedMode(reason: "llm_store_unavailable")

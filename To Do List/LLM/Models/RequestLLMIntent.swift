@@ -5,8 +5,8 @@ import SwiftUI
 
 @available(iOS 16.0, macOS 13.0, *)
 struct RequestLLMIntent: AppIntent {
-    static var title: LocalizedStringResource = "Ask Assistant Inline"
-    static var description: LocalizedStringResource = "Get an inline assistant response without opening chat"
+    static let title: LocalizedStringResource = "Ask Assistant Inline"
+    static let description: LocalizedStringResource = "Get an inline assistant response without opening chat"
     
     @Parameter(title: "Continuous Chat", default: true)
     var continuous: Bool
@@ -196,5 +196,5 @@ struct RequestLLMIntent: AppIntent {
         return lines.joined(separator: "\n")
     }
 
-    static var openAppWhenRun: Bool = false
+    static let openAppWhenRun = false
 }

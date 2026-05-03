@@ -142,8 +142,8 @@ struct AssistantEnvelopeValidator {
                 return Date(timeIntervalSince1970: timestamp)
             }
             let value = try container.decode(String.self)
-            if let date = ISO8601DateFormatter.taskerAssistantWithFraction.date(from: value)
-                ?? ISO8601DateFormatter.taskerAssistant.date(from: value) {
+            if let date = ISO8601DateFormatter.makeTaskerAssistantWithFraction().date(from: value)
+                ?? ISO8601DateFormatter.makeTaskerAssistant().date(from: value) {
                 return date
             }
             throw DecodingError.dataCorruptedError(
@@ -424,15 +424,15 @@ struct AssistantEnvelopeValidator {
 }
 
 private extension ISO8601DateFormatter {
-    static let taskerAssistant: ISO8601DateFormatter = {
+    static func makeTaskerAssistant() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         return formatter
-    }()
+    }
 
-    static let taskerAssistantWithFraction: ISO8601DateFormatter = {
+    static func makeTaskerAssistantWithFraction() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
-    }()
+    }
 }

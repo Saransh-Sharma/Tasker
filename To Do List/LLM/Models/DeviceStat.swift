@@ -7,32 +7,36 @@ import Foundation
 import MLXLLM
 import MLX
 
-@Observable
-final class DeviceStat: @unchecked Sendable {
-
-    @MainActor
-    var gpuUsage = Memory.snapshot()
-
-    private let initialGPUSnapshot = Memory.snapshot()
-    private var timer: Timer?
-
-    /// Initializes a new instance.
-    init() {
-        timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.updateGPUUsages()
-        }
-    }
+private final class DeviceStatTimerBox {
+    var timer: Timer?
 
     deinit {
         timer?.invalidate()
+    }
+}
+
+@Observable
+@MainActor
+final class DeviceStat {
+
+    var gpuUsage = Memory.snapshot()
+
+    private let initialGPUSnapshot = Memory.snapshot()
+    private let timerBox = DeviceStatTimerBox()
+
+    /// Initializes a new instance.
+    init() {
+        timerBox.timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateGPUUsages()
+            }
+        }
     }
 
     /// Executes updateGPUUsages.
     private func updateGPUUsages() {
         let gpuSnapshotDelta = initialGPUSnapshot.delta(Memory.snapshot())
-        DispatchQueue.main.async { [weak self] in
-            self?.gpuUsage = gpuSnapshotDelta
-        }
+        gpuUsage = gpuSnapshotDelta
     }
 
 }

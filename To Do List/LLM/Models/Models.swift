@@ -680,6 +680,7 @@ enum LLMRuntimeSmokeTester {
         )
     }
 
+    @MainActor
     static func run(
         model: ModelConfiguration,
         probe: (String) async throws -> LLMRuntimeSmokeMetrics
@@ -772,7 +773,7 @@ public extension ModelConfiguration {
         id: "prism-ml/Bonsai-1.7B-mlx-1bit"
     )
 
-    static var availableModels: [ModelConfiguration] = [
+    static let availableModels: [ModelConfiguration] = [
         qwen_3_0_6b_4bit,
         qwen_3_5_0_8b_optiq_4bit,
         qwen_3_5_0_8b_nexveridian_4bit,

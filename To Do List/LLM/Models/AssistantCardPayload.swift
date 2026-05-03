@@ -1,6 +1,6 @@
 import Foundation
 
-enum AssistantCardType: String, Codable {
+enum AssistantCardType: String, Codable, Sendable {
     case proposal
     case undo
     case status
@@ -9,7 +9,7 @@ enum AssistantCardType: String, Codable {
     case dayOverview
 }
 
-enum AssistantCardStatus: String, Codable {
+enum AssistantCardStatus: String, Codable, Sendable {
     case pending
     case confirmed
     case applied
@@ -22,7 +22,7 @@ enum AssistantCardStatus: String, Codable {
     case undone
 }
 
-struct AssistantCardPayload: Codable, Equatable {
+struct AssistantCardPayload: Codable, Equatable, Sendable {
     var cardType: AssistantCardType
     var runID: UUID?
     var threadID: String

@@ -1298,6 +1298,37 @@ struct ChatComposerView: View {
     }
 }
 
+private struct ChatStorageDegradedBanner: View {
+    let reason: String
+
+    var body: some View {
+        Label {
+            Text("Chat history is temporarily limited.")
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker(.textPrimary))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } icon: {
+            Image(systemName: "externaldrive.badge.exclamationmark")
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker(.statusWarning))
+        }
+        .padding(.horizontal, TaskerTheme.Spacing.sm)
+        .padding(.vertical, TaskerTheme.Spacing.xs)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.sm, style: .continuous)
+                .fill(Color.tasker(.statusWarning).opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.sm, style: .continuous)
+                .stroke(Color.tasker(.statusWarning).opacity(0.22), lineWidth: 1)
+        )
+        .accessibilityLabel("Chat history is temporarily limited")
+        .accessibilityHint("Storage fallback reason: \(reason)")
+    }
+}
+
 struct ChatScaffoldView: View {
     @EnvironmentObject private var appManager: AppManager
     @Environment(LLMEvaluator.self) private var llm
@@ -1319,6 +1350,7 @@ struct ChatScaffoldView: View {
     let slashDraft: Binding<SlashCommandInvocation?>
     let slashPickerQuery: Binding<String>
     let commandFeedback: String?
+    let storageDegradedReason: String?
     let projectQuery: Binding<String>
     let commandSuggestions: [SlashCommandDescriptor]
     let recentCommands: [SlashCommandDescriptor]
@@ -1405,33 +1437,38 @@ struct ChatScaffoldView: View {
                     )
                 }
 
-                HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
-                    ChatComposerView(
-                        identity: assistantIdentity.snapshot,
-                        presentationMode: presentationMode,
-                        slashDraft: slashDraft.wrappedValue,
-                        activeAttachments: activeAttachments,
-                        commandFeedback: commandFeedback,
-                        hasCurrentThread: currentThread != nil,
-                        prompt: prompt,
-                        isPromptFocused: isPromptFocused,
-                        isProjectFieldFocused: isProjectFieldFocused,
-                        projectQuery: projectQuery,
-                        commandSuggestions: commandSuggestions,
-                        starterPrompts: starterPrompts,
-                        isGenerationInFlight: isGenerationInFlight,
-                        canSubmit: canSubmit,
-                        llmCancelled: llmCancelled,
-                        hasActivationAssistantReply: hasActivationAssistantReply,
-                        onOpenSlashPicker: onOpenSlashPicker,
-                        onSelectStarterPrompt: onSelectStarterPrompt,
-                        onSelectSuggestion: onSelectSuggestion,
-                        onCancelDraft: onCancelDraft,
-                        onRemoveAttachment: onRemoveAttachment,
-                        onGenerate: onGenerate,
-                        onStop: onStop,
-                        onSubmitPrompt: onSubmitPrompt
-                    )
+                VStack(spacing: TaskerTheme.Spacing.xs) {
+                    if let storageDegradedReason {
+                        ChatStorageDegradedBanner(reason: storageDegradedReason)
+                    }
+                    HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
+                        ChatComposerView(
+                            identity: assistantIdentity.snapshot,
+                            presentationMode: presentationMode,
+                            slashDraft: slashDraft.wrappedValue,
+                            activeAttachments: activeAttachments,
+                            commandFeedback: commandFeedback,
+                            hasCurrentThread: currentThread != nil,
+                            prompt: prompt,
+                            isPromptFocused: isPromptFocused,
+                            isProjectFieldFocused: isProjectFieldFocused,
+                            projectQuery: projectQuery,
+                            commandSuggestions: commandSuggestions,
+                            starterPrompts: starterPrompts,
+                            isGenerationInFlight: isGenerationInFlight,
+                            canSubmit: canSubmit,
+                            llmCancelled: llmCancelled,
+                            hasActivationAssistantReply: hasActivationAssistantReply,
+                            onOpenSlashPicker: onOpenSlashPicker,
+                            onSelectStarterPrompt: onSelectStarterPrompt,
+                            onSelectSuggestion: onSelectSuggestion,
+                            onCancelDraft: onCancelDraft,
+                            onRemoveAttachment: onRemoveAttachment,
+                            onGenerate: onGenerate,
+                            onStop: onStop,
+                            onSubmitPrompt: onSubmitPrompt
+                        )
+                    }
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.lg)
                 .padding(.bottom, TaskerTheme.Spacing.md)

@@ -1,6 +1,6 @@
 import Foundation
 
-enum EvaProposalKind: String, Codable, Equatable, Hashable {
+enum EvaProposalKind: String, Codable, Equatable, Hashable, Sendable {
     case create
     case edit
     case move
@@ -13,7 +13,7 @@ enum EvaProposalKind: String, Codable, Equatable, Hashable {
     case needsReview
 }
 
-enum EvaProposalTone: String, Codable, Equatable, Hashable {
+enum EvaProposalTone: String, Codable, Equatable, Hashable, Sendable {
     case create
     case edit
     case neutral
@@ -21,13 +21,13 @@ enum EvaProposalTone: String, Codable, Equatable, Hashable {
     case destructive
 }
 
-enum EvaProposalRisk: String, Codable, Equatable, Hashable {
+enum EvaProposalRisk: String, Codable, Equatable, Hashable, Sendable {
     case safe
     case needsReview
     case destructive
 }
 
-enum EvaProposalAction: String, Codable, Equatable, Hashable {
+enum EvaProposalAction: String, Codable, Equatable, Hashable, Sendable {
     case add = "Add"
     case save = "Save"
     case edit = "Edit"
@@ -35,7 +35,7 @@ enum EvaProposalAction: String, Codable, Equatable, Hashable {
     case show = "Show"
 }
 
-struct EvaContextReceipt: Codable, Equatable, Hashable {
+struct EvaContextReceipt: Codable, Equatable, Hashable, Sendable {
     var sources: [String]
 
     static let empty = EvaContextReceipt(sources: [])
@@ -84,7 +84,7 @@ struct EvaTaskCardSnapshot: Codable, Equatable, Hashable {
     var estimatedDuration: TimeInterval?
 }
 
-struct EvaProposalCard: Identifiable, Codable, Equatable, Hashable {
+struct EvaProposalCard: Identifiable, Codable, Equatable, Hashable, Sendable {
     var id: UUID
     var runID: UUID?
     var commandIndexes: [Int]
@@ -102,13 +102,13 @@ struct EvaProposalCard: Identifiable, Codable, Equatable, Hashable {
     var isSelectedByDefault: Bool
 }
 
-struct EvaProposalGroup: Identifiable, Codable, Equatable, Hashable {
+struct EvaProposalGroup: Identifiable, Codable, Equatable, Hashable, Sendable {
     var id: String { title }
     var title: String
     var cards: [EvaProposalCard]
 }
 
-struct EvaProposalReviewPayload: Codable, Equatable {
+struct EvaProposalReviewPayload: Codable, Equatable, Sendable {
     var prompt: String
     var summary: String
     var contextReceipt: EvaContextReceipt

@@ -6,6 +6,7 @@
 
 import Foundation
 import MLXLMCommon
+import Synchronization
 import SwiftUI
 
 enum LLMEvaluatorError: Error {
@@ -23,20 +24,15 @@ enum LLMChatRuntimePhase: String {
     case failed
 }
 
-final class LLMGenerationCancellationToken: @unchecked Sendable {
-    private let lock = NSLock()
-    private var cancelled = false
+final class LLMGenerationCancellationToken: Sendable {
+    private let cancelled = Mutex(false)
 
     var isCancelled: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return cancelled
+        cancelled.withLock { $0 }
     }
 
     func cancel() {
-        lock.lock()
-        cancelled = true
-        lock.unlock()
+        cancelled.withLock { $0 = true }
     }
 }
 

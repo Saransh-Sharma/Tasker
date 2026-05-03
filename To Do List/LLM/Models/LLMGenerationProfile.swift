@@ -1,7 +1,8 @@
 import Foundation
 import MLXLMCommon
+import Synchronization
 
-struct LLMGenerationProfile {
+struct LLMGenerationProfile: Sendable {
     let timeoutSeconds: TimeInterval
     let regularMaxRawTokens: Int
     let reasoningMaxRawTokens: Int
@@ -114,7 +115,7 @@ struct LLMGenerationProfile {
     )
 }
 
-struct LLMVisibleTextFormattingResult {
+struct LLMVisibleTextFormattingResult: Sendable {
     let text: String
     let removedReasoningBlocks: Bool
     let removedTemplateArtifacts: Bool
@@ -126,7 +127,7 @@ struct LLMVisibleTextFormattingResult {
     }
 }
 
-struct LLMChatQualityAssessment {
+struct LLMChatQualityAssessment: Sendable {
     let isAcceptable: Bool
     let shouldRetry: Bool
     let reasons: [String]
@@ -136,7 +137,7 @@ struct LLMChatQualityAssessment {
     let qualityTextSource: String
 }
 
-struct LLMChatRepetitionDiagnostics {
+struct LLMChatRepetitionDiagnostics: Sendable {
     let confidence: String
     let detector: String
     let repeatedLineCount: Int
@@ -145,7 +146,7 @@ struct LLMChatRepetitionDiagnostics {
     let repeatedTailPreview: String?
 }
 
-struct LLMChatOutputAssessment {
+struct LLMChatOutputAssessment: Sendable {
     let finalOutput: String
     let salvageOutput: String
     let qualityAssessment: LLMChatQualityAssessment
@@ -161,7 +162,7 @@ struct LLMChatOutputAssessment {
     let rawCapHitStage: String?
 }
 
-struct LLMVisibleThinkingExtractionResult {
+struct LLMVisibleThinkingExtractionResult: Sendable {
     let normalizedText: String
     let thinkingText: String?
     let answerText: String?
@@ -177,15 +178,14 @@ struct LLMVisibleThinkingExtractionResult {
     }
 }
 
-struct LLMTemplateCompatibilityProfile {
+struct LLMTemplateCompatibilityProfile: Sendable {
     let identifier: String
     let leadingRolePreambles: [String]
     let terminalControlMarkers: [String]
 }
 
 enum LLMTemplateCompatibility {
-    private static let cacheLock = NSLock()
-    private static var profileCache: [String: LLMTemplateCompatibilityProfile] = [:]
+    private static let profileCache = Mutex<[String: LLMTemplateCompatibilityProfile]>([:])
     private static let qwenProfile = LLMTemplateCompatibilityProfile(
         identifier: "qwen",
         leadingRolePreambles: [
@@ -244,12 +244,9 @@ enum LLMTemplateCompatibility {
 
     static func profile(for modelName: String?) -> LLMTemplateCompatibilityProfile {
         let cacheKey = modelName ?? "__generic__"
-        cacheLock.lock()
-        if let cached = profileCache[cacheKey] {
-            cacheLock.unlock()
+        if let cached = profileCache.withLock({ $0[cacheKey] }) {
             return cached
         }
-        cacheLock.unlock()
 
         let resolvedProfile: LLMTemplateCompatibilityProfile
         if let metadata = tokenizerMetadata(for: modelName),
@@ -261,10 +258,13 @@ enum LLMTemplateCompatibility {
             resolvedProfile = genericProfile
         }
 
-        cacheLock.lock()
-        profileCache[cacheKey] = resolvedProfile
-        cacheLock.unlock()
-        return resolvedProfile
+        return profileCache.withLock { cache in
+            if let cached = cache[cacheKey] {
+                return cached
+            }
+            cache[cacheKey] = resolvedProfile
+            return resolvedProfile
+        }
     }
 
     private static func tokenizerMetadata(for modelName: String?) -> String? {
