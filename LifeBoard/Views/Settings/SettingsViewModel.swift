@@ -1,0 +1,575 @@
+import Foundation
+import SwiftUI
+import Combine
+
+@MainActor
+final class SettingsViewModel: ObservableObject, Sendable {
+
+    // MARK: - Notifications
+
+    @Published var preferences: LifeBoardNotificationPreferences
+    @Published var workspacePreferences: LifeBoardWorkspacePreferences
+    @Published var permissionStatus: LifeBoardNotificationAuthorizationStatus = .notDetermined
+
+    // MARK: - LLM
+
+    @Published var currentModelDisplayName: String
+    @Published var decorativeButtonEffectsEnabled: Bool
+    @Published var homeBackdropNoiseAmount: Int
+    @Published var calendarAuthorizationStatus: LifeBoardCalendarAuthorizationStatus = .notDetermined
+    @Published var selectedCalendarIDs: [String] = []
+    @Published var availableCalendarCount: Int = 0
+    @Published var includeDeclinedCalendarEvents: Bool = false
+    @Published var includeCanceledCalendarEvents: Bool = false
+    @Published var includeAllDayInAgenda: Bool = true
+    @Published var includeAllDayInBusyStrip: Bool = false
+    @Published var showCalendarEventsInTimeline: Bool = false
+
+    // MARK: - Navigation callbacks (set by SettingsPageViewController)
+
+    var onNavigateToLifeManagement: (() -> Void)?
+    var onNavigateToAISettings: (() -> Void)?
+    var onNavigateToChats: (() -> Void)?
+    var onNavigateToModels: (() -> Void)?
+    var onRestartOnboarding: (() -> Void)?
+    var onOpenCalendarChooser: (() -> Void)?
+    var onDismiss: (() -> Void)?
+
+    // MARK: - Dependencies
+
+    private let notificationPreferencesStore: LifeBoardNotificationPreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
+    private let calendarIntegrationService: CalendarIntegrationService
+    private let appManager: AppManager
+    private var cancellables: Set<AnyCancellable> = []
+    private var hasCustomizedAppearance: Bool {
+        decorativeButtonEffectsEnabled || homeBackdropNoiseAmount != V2FeatureFlags.defaultHomeBackdropNoiseAmount
+    }
+
+    // MARK: - Morning / Nightly times as Date for DatePicker binding
+
+    var morningTime: Date {
+        get { dateFrom(hour: preferences.morningHour, minute: preferences.morningMinute) }
+        set {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            preferences.morningHour = comps.hour ?? preferences.morningHour
+            preferences.morningMinute = comps.minute ?? preferences.morningMinute
+            saveAndReconcile()
+        }
+    }
+
+    var nightlyTime: Date {
+        get { dateFrom(hour: preferences.nightlyHour, minute: preferences.nightlyMinute) }
+        set {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            preferences.nightlyHour = comps.hour ?? preferences.nightlyHour
+            preferences.nightlyMinute = comps.minute ?? preferences.nightlyMinute
+            saveAndReconcile()
+        }
+    }
+
+    var quietHoursStartTime: Date {
+        get { dateFrom(hour: preferences.quietHoursStartHour, minute: preferences.quietHoursStartMinute) }
+        set {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            preferences.quietHoursStartHour = comps.hour ?? preferences.quietHoursStartHour
+            preferences.quietHoursStartMinute = comps.minute ?? preferences.quietHoursStartMinute
+            saveAndReconcile()
+        }
+    }
+
+    var quietHoursEndTime: Date {
+        get { dateFrom(hour: preferences.quietHoursEndHour, minute: preferences.quietHoursEndMinute) }
+        set {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            preferences.quietHoursEndHour = comps.hour ?? preferences.quietHoursEndHour
+            preferences.quietHoursEndMinute = comps.minute ?? preferences.quietHoursEndMinute
+            saveAndReconcile()
+        }
+    }
+
+    var timelineRiseAndShineTime: Date {
+        get {
+            dateFrom(
+                hour: workspacePreferences.timelineRiseAndShineHour,
+                minute: workspacePreferences.timelineRiseAndShineMinute
+            )
+        }
+        set {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            workspacePreferences.timelineRiseAndShineHour = comps.hour ?? workspacePreferences.timelineRiseAndShineHour
+            workspacePreferences.timelineRiseAndShineMinute = comps.minute ?? workspacePreferences.timelineRiseAndShineMinute
+            saveWorkspacePreferences()
+        }
+    }
+
+    var timelineWindDownTime: Date {
+        get {
+            dateFrom(
+                hour: workspacePreferences.timelineWindDownHour,
+                minute: workspacePreferences.timelineWindDownMinute
+            )
+        }
+        set {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            workspacePreferences.timelineWindDownHour = comps.hour ?? workspacePreferences.timelineWindDownHour
+            workspacePreferences.timelineWindDownMinute = comps.minute ?? workspacePreferences.timelineWindDownMinute
+            saveWorkspacePreferences()
+        }
+    }
+
+    // MARK: - Version
+
+    var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+    }
+
+    var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+    }
+
+    var enabledNotificationCount: Int {
+        [
+            preferences.taskRemindersEnabled,
+            preferences.dueSoonEnabled,
+            preferences.overdueNudgesEnabled,
+            preferences.morningAgendaEnabled,
+            preferences.nightlyRetrospectiveEnabled
+        ]
+        .filter { $0 }
+        .count
+    }
+
+    var notificationEnabledSummary: String {
+        "\(enabledNotificationCount) on"
+    }
+
+    var notificationStatusLabel: String {
+        switch permissionStatus {
+        case .authorized, .provisional, .ephemeral:
+            return notificationEnabledSummary
+        case .notDetermined:
+            return notificationEnabledSummary
+        case .denied:
+            return "Off"
+        }
+    }
+
+    var notificationStatusDetail: String {
+        "Control reminders, summaries, and quiet hours."
+    }
+
+    var notificationTone: LifeBoardSettingsTone {
+        switch permissionStatus {
+        case .authorized, .provisional, .ephemeral:
+            return .success
+        case .notDetermined:
+            return .warning
+        case .denied:
+            return .danger
+        }
+    }
+
+    var memoryItemCount: Int {
+        let memory = LLMPersonalMemoryDefaultsStore.load()
+        return LLMPersonalMemorySection.allCases.reduce(0) { partial, section in
+            partial + memory.entries(for: section).filter { $0.text.isEmpty == false }.count
+        }
+    }
+
+    var memorySummary: String {
+        memoryItemCount == 0 ? "Memory empty" : "\(memoryItemCount) saved"
+    }
+
+    var aiAssistantSummary: String {
+        currentModelDisplayName.isEmpty ? "No model" : currentModelDisplayName
+    }
+
+    var selectedMascotID: AssistantMascotID {
+        workspacePreferences.chiefOfStaffMascotID
+    }
+
+    var selectedMascotPersona: AssistantMascotPersona {
+        AssistantMascotPersona.persona(for: selectedMascotID)
+    }
+
+    var chiefOfStaffSummary: String {
+        selectedMascotPersona.displayName
+    }
+
+    var modelsSummary: String {
+        currentModelDisplayName.isEmpty ? "System default" : currentModelDisplayName
+    }
+
+    var aiAssistantDetail: String {
+        "Manage chat behavior, models, memory, and privacy."
+    }
+
+    var setupStatusLabel: String {
+        hasCustomizedAppearance ? "Customized" : "Default"
+    }
+
+    var setupStatusDetail: String {
+        hasCustomizedAppearance
+            ? "Appearance effects are customized."
+            : "Using the default appearance settings."
+    }
+
+    var onboardingSummary: String {
+        "Replay onboarding any time."
+    }
+
+    var dueSoonLeadTimeSummary: String {
+        let minutes = preferences.dueSoonLeadMinutes
+
+        switch minutes {
+        case 15:
+            return "15 min"
+        case 30:
+            return "30 min"
+        case 45:
+            return "45 min"
+        case 60:
+            return "1 hr"
+        case 90:
+            return "1.5 hr"
+        case 120:
+            return "2 hr"
+        default:
+            return "\(minutes) min"
+        }
+    }
+
+    var morningAgendaSummary: String {
+        formattedTime(hour: preferences.morningHour, minute: preferences.morningMinute)
+    }
+
+    var nightlyRetrospectiveSummary: String {
+        formattedTime(hour: preferences.nightlyHour, minute: preferences.nightlyMinute)
+    }
+
+    var quietHoursSummary: String {
+        guard preferences.quietHoursEnabled else { return "Off" }
+        return "\(formattedTime(hour: preferences.quietHoursStartHour, minute: preferences.quietHoursStartMinute))–\(formattedTime(hour: preferences.quietHoursEndHour, minute: preferences.quietHoursEndMinute))"
+    }
+
+    var timelineRiseAndShineSummary: String {
+        formattedTime(
+            hour: workspacePreferences.timelineRiseAndShineHour,
+            minute: workspacePreferences.timelineRiseAndShineMinute
+        )
+    }
+
+    var timelineWindDownSummary: String {
+        formattedTime(
+            hour: workspacePreferences.timelineWindDownHour,
+            minute: workspacePreferences.timelineWindDownMinute
+        )
+    }
+
+    var weekStartsOnSummary: String {
+        workspacePreferences.weekStartsOn.displayTitle
+    }
+
+    var calendarStatusSummary: String {
+        if calendarAuthorizationStatus.isAuthorizedForRead == false {
+            return String(localized: "Permission required")
+        }
+        if selectedCalendarIDs.isEmpty {
+            return String(localized: "No calendars selected")
+        }
+        return String(localized: "\(selectedCalendarIDs.count) selected")
+    }
+
+    var calendarStatusDetail: String {
+        String(localized: "Read-only schedule context for Home and task fit hints.")
+    }
+
+    var calendarAccessStatusLabel: String {
+        let accessAction = calendarIntegrationService.accessAction(for: calendarAuthorizationStatus)
+        switch calendarAuthorizationStatus {
+        case .authorized:
+            return String(localized: "Connected")
+        case .notDetermined:
+            return String(localized: "Not requested")
+        case .denied:
+            switch accessAction {
+            case .requestPermission:
+                return String(localized: "Needs access")
+            default:
+                return String(localized: "Denied")
+            }
+        case .restricted:
+            return String(localized: "Restricted")
+        case .writeOnly:
+            return String(localized: "Needs full access")
+        }
+    }
+
+    var calendarAccessSubtitle: String {
+        switch calendarAuthorizationStatus {
+        case .authorized:
+            return String(localized: "LifeBoard can read your selected calendars.")
+        case .notDetermined:
+            return String(localized: "Allow full calendar access to show schedule context in Home.")
+        case .denied:
+            return String(localized: "Calendar access is denied by iOS. Enable LifeBoard in Settings > Privacy & Security > Calendars. If LifeBoard is missing, restart iPhone, reinstall LifeBoard, or reset Location & Privacy.")
+        case .restricted:
+            return String(localized: "Calendar access is restricted by system policy.")
+        case .writeOnly:
+            return String(localized: "LifeBoard has write-only access. Tap to request full calendar access.")
+        }
+    }
+
+    var calendarAccessTone: LifeBoardSettingsTone {
+        let accessAction = calendarIntegrationService.accessAction(for: calendarAuthorizationStatus)
+        switch calendarAuthorizationStatus {
+        case .authorized:
+            return .success
+        case .notDetermined, .writeOnly:
+            return .warning
+        case .denied:
+            return accessAction == .requestPermission ? .warning : .danger
+        case .restricted:
+            return .danger
+        }
+    }
+
+    // MARK: - Init
+
+    init(
+        appManager: AppManager = AppManager(),
+        notificationPreferencesStore: LifeBoardNotificationPreferencesStore = .shared,
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
+        calendarIntegrationService: CalendarIntegrationService
+    ) {
+        self.appManager = appManager
+        self.notificationPreferencesStore = notificationPreferencesStore
+        self.workspacePreferencesStore = workspacePreferencesStore
+        self.calendarIntegrationService = calendarIntegrationService
+        self.preferences = notificationPreferencesStore.load()
+        let loadedWorkspacePreferences = workspacePreferencesStore.load()
+        self.workspacePreferences = loadedWorkspacePreferences
+        self.currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
+        self.decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
+        self.homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
+        self.showCalendarEventsInTimeline = loadedWorkspacePreferences.showCalendarEventsInTimeline
+        bindCalendarService()
+    }
+
+    // MARK: - Notification Toggles
+
+    func togglePreference(_ keyPath: WritableKeyPath<LifeBoardNotificationPreferences, Bool>, value: Bool) {
+        preferences[keyPath: keyPath] = value
+        saveAndReconcile()
+        LifeBoardFeedback.selection()
+    }
+
+    func updateDueSoonLeadMinutes(_ minutes: Int) {
+        preferences.dueSoonLeadMinutes = minutes
+        saveAndReconcile()
+        LifeBoardFeedback.selection()
+    }
+
+    func updateWeekStartsOn(_ weekday: Weekday) {
+        guard workspacePreferences.weekStartsOn != weekday else { return }
+        workspacePreferences.weekStartsOn = weekday
+        saveWorkspacePreferences()
+        LifeBoardFeedback.selection()
+    }
+
+    func setDecorativeButtonEffectsEnabled(_ isEnabled: Bool) {
+        decorativeButtonEffectsEnabled = isEnabled
+        V2FeatureFlags.userDecorativeCTAEffectsEnabled = isEnabled
+        LifeBoardFeedback.selection()
+    }
+
+    func setHomeBackdropNoiseAmount(_ amount: Int) {
+        let clampedAmount = V2FeatureFlags.clampedHomeBackdropNoiseAmount(amount)
+        homeBackdropNoiseAmount = clampedAmount
+        V2FeatureFlags.homeBackdropNoiseAmount = clampedAmount
+    }
+
+    // MARK: - Permission
+
+    var isPermissionDenied: Bool { permissionStatus == .denied }
+    var isPermissionNotDetermined: Bool { permissionStatus == .notDetermined }
+    var isPermissionGranted: Bool {
+        permissionStatus == .authorized || permissionStatus == .provisional || permissionStatus == .ephemeral
+    }
+    var showPermissionBanner: Bool { !isPermissionGranted }
+
+    func refreshPermissionStatus() {
+        guard let service = EnhancedDependencyContainer.shared.notificationService else {
+            permissionStatus = .notDetermined
+            return
+        }
+        service.fetchAuthorizationStatus { [weak self] status in
+            Task { @MainActor in
+                self?.permissionStatus = status
+            }
+        }
+    }
+
+    func requestNotificationPermission() {
+        guard let service = EnhancedDependencyContainer.shared.notificationService else { return }
+        LifeBoardFeedback.medium()
+        switch permissionStatus {
+        case .denied:
+            guard let url = URL(string: UIApplication.openSettingsURLString),
+                  UIApplication.shared.canOpenURL(url) else { return }
+            UIApplication.shared.open(url)
+        case .notDetermined:
+            service.requestPermission { [weak self] granted in
+                Task { @MainActor in
+                    self?.refreshPermissionStatus()
+                    if granted {
+                        self?.reconcileNotifications(reason: "settings_permission_granted")
+                    }
+                }
+            }
+        default:
+            break
+        }
+    }
+
+    // MARK: - Helpers
+
+    func reload() {
+        preferences = notificationPreferencesStore.load()
+        workspacePreferences = workspacePreferencesStore.load()
+        currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
+        decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
+        homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
+        refreshPermissionStatus()
+        refreshCalendarState()
+    }
+
+    func restartOnboarding() {
+        LifeBoardFeedback.medium()
+        onRestartOnboarding?()
+    }
+
+    private func saveAndReconcile() {
+        notificationPreferencesStore.save(preferences)
+        reconcileNotifications(reason: "settings_changed")
+    }
+
+    func requestCalendarPermission() {
+        LifeBoardFeedback.medium()
+        _ = calendarIntegrationService.performAccessAction(source: "settings", openSystemSettings: openSystemSettings)
+    }
+
+    #if DEBUG
+    func copyCalendarDiagnostics() {
+        UIPasteboard.general.string = CalendarDiagnosticsStore.shared.recentEntriesText(limit: 20)
+        LifeBoardFeedback.selection()
+    }
+    #endif
+
+    func openCalendarChooser() {
+        guard calendarAuthorizationStatus.isAuthorizedForRead else {
+            requestCalendarPermission()
+            return
+        }
+        onOpenCalendarChooser?()
+    }
+
+    func setIncludeDeclinedCalendarEvents(_ include: Bool) {
+        includeDeclinedCalendarEvents = include
+        calendarIntegrationService.setIncludeDeclined(include)
+    }
+
+    func setIncludeCanceledCalendarEvents(_ include: Bool) {
+        includeCanceledCalendarEvents = include
+        calendarIntegrationService.setIncludeCanceled(include)
+    }
+
+    func setIncludeAllDayInAgenda(_ include: Bool) {
+        includeAllDayInAgenda = include
+        calendarIntegrationService.setIncludeAllDayInAgenda(include)
+    }
+
+    func setIncludeAllDayInBusyStrip(_ include: Bool) {
+        includeAllDayInBusyStrip = include
+        calendarIntegrationService.setIncludeAllDayInBusyStrip(include)
+    }
+
+    func setShowCalendarEventsInTimeline(_ show: Bool) {
+        guard workspacePreferences.showCalendarEventsInTimeline != show else { return }
+        showCalendarEventsInTimeline = show
+        workspacePreferences.showCalendarEventsInTimeline = show
+        saveWorkspacePreferences()
+        LifeBoardFeedback.selection()
+    }
+
+    func selectChiefOfStaffMascot(_ id: AssistantMascotID) {
+        guard workspacePreferences.chiefOfStaffMascotID != id else { return }
+        workspacePreferences.chiefOfStaffMascotID = id
+        saveWorkspacePreferences()
+        LifeBoardFeedback.selection()
+    }
+
+    private func bindCalendarService() {
+        calendarIntegrationService.$snapshot
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] snapshot in
+                guard let self else { return }
+                self.calendarAuthorizationStatus = snapshot.authorizationStatus
+                self.selectedCalendarIDs = snapshot.selectedCalendarIDs
+                self.availableCalendarCount = snapshot.availableCalendars.count
+                self.includeDeclinedCalendarEvents = snapshot.includeDeclined
+                self.includeCanceledCalendarEvents = snapshot.includeCanceled
+                self.includeAllDayInAgenda = snapshot.includeAllDayInAgenda
+                self.includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
+                self.workspacePreferences = self.workspacePreferencesStore.load()
+                self.showCalendarEventsInTimeline = self.workspacePreferences.showCalendarEventsInTimeline
+            }
+            .store(in: &cancellables)
+    }
+
+    private func refreshCalendarState() {
+        workspacePreferences = workspacePreferencesStore.load()
+        let snapshot = calendarIntegrationService.snapshot
+        calendarAuthorizationStatus = snapshot.authorizationStatus
+        selectedCalendarIDs = snapshot.selectedCalendarIDs
+        availableCalendarCount = snapshot.availableCalendars.count
+        includeDeclinedCalendarEvents = snapshot.includeDeclined
+        includeCanceledCalendarEvents = snapshot.includeCanceled
+        includeAllDayInAgenda = snapshot.includeAllDayInAgenda
+        includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
+        showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
+    }
+
+    private func saveWorkspacePreferences() {
+        workspacePreferencesStore.save(workspacePreferences)
+    }
+
+    private func reconcileNotifications(reason: String) {
+        (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: reason)
+    }
+
+    private func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString),
+              UIApplication.shared.canOpenURL(url) else { return }
+        UIApplication.shared.open(url)
+    }
+
+    private func dateFrom(hour: Int, minute: Int) -> Date {
+        var comps = DateComponents()
+        comps.hour = hour
+        comps.minute = minute
+        return Calendar.current.date(from: comps) ?? Date()
+    }
+
+    func formattedTime(hour: Int, minute: Int) -> String {
+        var comps = DateComponents()
+        comps.hour = hour
+        comps.minute = minute
+        let date = Calendar.current.date(from: comps) ?? Date()
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
+    }
+}

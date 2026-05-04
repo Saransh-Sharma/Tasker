@@ -1,0 +1,305 @@
+import MLXLMCommon
+import SwiftUI
+
+struct OnboardingDownloadingModelProgressView: View {
+    private enum InstallOutcome: Equatable {
+        case installing
+        case success
+        case partialFailure
+        case failed
+    }
+
+    @Binding var showOnboarding: Bool
+    @EnvironmentObject var appManager: AppManager
+    let selectedModels: [ModelConfiguration]
+    @Environment(LLMEvaluator.self) var llm
+
+    @State private var completedModelNames: [String] = []
+    @State private var failedModelNames: [String] = []
+    @State private var currentModelName: String?
+    @State private var installStarted = false
+    @State private var isInstallInFlight = false
+    @StateObject private var assistantIdentity = AssistantIdentityModel()
+
+    private var currentModel: ModelConfiguration? {
+        guard let currentModelName else { return nil }
+        return ModelConfiguration.getModelByName(currentModelName)
+    }
+
+    private var identity: AssistantIdentitySnapshot {
+        assistantIdentity.snapshot
+    }
+
+    private var totalCount: Int {
+        max(1, selectedModels.count)
+    }
+
+    private var completedCount: Int {
+        min(completedModelNames.count, totalCount)
+    }
+
+    private var overallProgress: Double {
+        let unit = Double(completedCount) / Double(totalCount)
+        let partial = (selectedModels.count > completedCount && currentModelName != nil) ? (llm.progress / Double(totalCount)) : 0
+        return min(1, unit + partial)
+    }
+
+    private var installOutcome: InstallOutcome {
+        guard installStarted else { return .installing }
+        if currentModelName != nil {
+            return .installing
+        }
+        if completedModelNames.count == selectedModels.count, selectedModels.isEmpty == false {
+            return .success
+        }
+        if completedModelNames.isEmpty == false {
+            return .partialFailure
+        }
+        return .failed
+    }
+
+    private var canContinue: Bool {
+        switch installOutcome {
+        case .success, .partialFailure:
+            return true
+        case .installing, .failed:
+            return false
+        }
+    }
+
+    var body: some View {
+        VStack {
+            Spacer()
+
+            VStack(spacing: LifeBoardTheme.Spacing.xxxl) {
+                EvaInstallStatusView(isComplete: canContinue, progress: overallProgress)
+
+                VStack(spacing: LifeBoardTheme.Spacing.xs) {
+                    Text(titleText)
+                        .font(.lifeboard(.title1))
+                        .foregroundColor(Color.lifeboard(.textPrimary))
+                    Text(statusSubtitle)
+                        .font(.lifeboard(.callout))
+                        .foregroundColor(Color.lifeboard(.textSecondary))
+                        .multilineTextAlignment(.center)
+                }
+
+                VStack(spacing: LifeBoardTheme.Spacing.sm) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill)
+                                .fill(Color.lifeboard(.surfaceTertiary))
+                                .frame(height: 8)
+
+                            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill)
+                                .fill(Color.lifeboard(.accentPrimary))
+                                .frame(width: geo.size.width * overallProgress, height: 8)
+                                .animation(LifeBoardAnimation.gentle, value: overallProgress)
+                        }
+                    }
+                    .frame(height: 8)
+
+                    Text(progressLabel)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard(.textTertiary))
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, 48)
+            }
+
+            Spacer()
+
+            if canContinue {
+                VStack(spacing: LifeBoardTheme.Spacing.sm) {
+                    Button(action: { showOnboarding = false }) {
+                        Text("Done")
+                            #if os(iOS) || os(visionOS)
+                            .font(.lifeboard(.button))
+                            .foregroundColor(Color.lifeboard(.accentOnPrimary))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(Color.lifeboard(.accentPrimary))
+                            .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous))
+                            #endif
+                    }
+                    #if os(macOS)
+                    .buttonStyle(.borderedProminent)
+                    #endif
+                    .scaleOnPress()
+
+                    if failedModelNames.isEmpty == false {
+                        Button(action: retryFailedModels) {
+                            Text("Retry failed downloads")
+                                #if os(iOS) || os(visionOS)
+                                .font(.lifeboard(.button))
+                                .foregroundColor(Color.lifeboard(.accentPrimary))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(Color.lifeboard(.accentWash))
+                                .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous))
+                                #endif
+                        }
+                        #if os(macOS)
+                        .buttonStyle(.bordered)
+                        #endif
+                        .disabled(isInstallInFlight)
+                    }
+                }
+                .padding(.horizontal, LifeBoardTheme.Spacing.xl)
+            } else {
+                Text("Keep this screen open while the selected models install in sequence.")
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard(.textQuaternary))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, LifeBoardTheme.Spacing.xl)
+                if installOutcome == .failed {
+                    Button(action: retryFailedModels) {
+                        Text("Retry downloads")
+                            #if os(iOS) || os(visionOS)
+                            .font(.lifeboard(.button))
+                            .foregroundColor(Color.lifeboard(.accentOnPrimary))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(Color.lifeboard(.accentPrimary))
+                            .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous))
+                            #endif
+                    }
+                    #if os(macOS)
+                    .buttonStyle(.borderedProminent)
+                    #endif
+                    .padding(.horizontal, LifeBoardTheme.Spacing.xl)
+                    .disabled(isInstallInFlight)
+                }
+            }
+        }
+        .padding()
+        .background(Color.lifeboard(.bgCanvas))
+        .navigationTitle("Wake \(identity.displayName)")
+        .toolbar(canContinue ? .hidden : .visible)
+        .navigationBarBackButtonHidden()
+        .task {
+            await installSelectedModelsIfNeeded()
+        }
+        .onChange(of: canContinue) {
+            #if os(iOS)
+            UIApplication.shared.isIdleTimerDisabled = false
+            #endif
+        }
+        .interactiveDismissDisabled(!canContinue)
+        #if os(iOS)
+        .sensoryFeedback(.success, trigger: canContinue)
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
+        #endif
+    }
+
+    private var titleText: String {
+        switch installOutcome {
+        case .installing:
+            return "Getting \(identity.displayName) ready"
+        case .success:
+            return "\(identity.displayName) is ready"
+        case .partialFailure:
+            return "\(identity.displayName) is partly ready"
+        case .failed:
+            return "Couldn't finish setup"
+        }
+    }
+
+    private var statusSubtitle: String {
+        switch installOutcome {
+        case .success:
+            return "Your selected local mode is installed and ready to use."
+        case .partialFailure:
+            let completed = completedModelNames
+                .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
+                .joined(separator: " • ")
+            let failed = failedModelNames
+                .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
+                .joined(separator: " • ")
+            return "Ready to use \(completed). Retry failed downloads for \(failed) when you're ready."
+        case .failed:
+            let failed = failedModelNames
+                .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
+                .joined(separator: " • ")
+            return failed.isEmpty
+                ? "\(identity.displayName) couldn't finish installing a local mode."
+                : "\(identity.displayName) couldn't finish installing \(failed)."
+        case .installing:
+            break
+        }
+        if let currentModel {
+            return "Installing \(currentModel.displayName) for private on-device responses."
+        }
+        return "Preparing \(identity.displayName) for private on-device help."
+    }
+
+    private var progressLabel: String {
+        let percent = Int(overallProgress * 100)
+        return "\(percent)% • \(completedCount)/\(selectedModels.count) models"
+    }
+
+    private func installSelectedModelsIfNeeded() async {
+        guard installStarted == false else { return }
+        installStarted = true
+        failedModelNames.removeAll()
+
+        await install(models: selectedModels)
+    }
+
+    private func retryFailedModels() {
+        guard isInstallInFlight == false else { return }
+        let failedModels = selectedModels.filter { failedModelNames.contains($0.name) }
+        guard failedModels.isEmpty == false else { return }
+        Task {
+            await install(models: failedModels)
+        }
+    }
+
+    private func install(models: [ModelConfiguration]) async {
+        guard isInstallInFlight == false else { return }
+        isInstallInFlight = true
+        defer { isInstallInFlight = false }
+
+        guard models.isEmpty == false else {
+            finalizeActiveModelSelection()
+            return
+        }
+
+        var failedThisPass: [String] = []
+        for model in models {
+            guard completedModelNames.contains(model.name) == false else { continue }
+            currentModelName = model.name
+            let switched = await LLMRuntimeCoordinator.shared.switchModelIfNeeded(modelName: model.name)
+            if switched {
+                completedModelNames.append(model.name)
+                failedModelNames.removeAll { $0 == model.name }
+                appManager.addInstalledModel(model.name)
+            } else if failedThisPass.contains(model.name) == false {
+                failedThisPass.append(model.name)
+            }
+        }
+
+        currentModelName = nil
+        failedModelNames = Array(Set(failedModelNames + failedThisPass))
+        finalizeActiveModelSelection()
+    }
+
+    private func finalizeActiveModelSelection() {
+        appManager.setActiveModel(AppManager.preferredActiveModelName(from: completedModelNames))
+    }
+}
+
+#Preview {
+    OnboardingDownloadingModelProgressView(
+        showOnboarding: .constant(true),
+        selectedModels: ModelConfiguration.availableModels
+    )
+    .environmentObject(AppManager())
+    .environment(LLMEvaluator())
+}

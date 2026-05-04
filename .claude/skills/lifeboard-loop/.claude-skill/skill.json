@@ -1,0 +1,9 @@
+{
+  "name": "lifeboard-loop",
+  "description": "Continuous self-referential AI loops for iterative LifeBoard iOS development, implementing the Ralph Wiggum technique. Run Claude in a while-true loop with the same prompt until task completion, optimized for the LifeBoard codebase (Swift, Clean Architecture, CoreData).",
+  "author": {
+    "name": "LifeBoard Team",
+    "email": "lifeboard@example.com"
+  },
+  "version": "1.0.0"
+}

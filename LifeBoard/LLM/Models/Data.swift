@@ -1,0 +1,1007 @@
+//
+//  Data.swift
+//
+//
+
+@preconcurrency import SwiftUI
+import SwiftData
+import MLXLMCommon
+import Security
+
+enum EvaActivationStage: String, Codable, CaseIterable {
+    case intro
+    case aboutYou
+    case goals
+    case modelChoice
+    case modelDownload
+    case installRecovery
+    case firstChat
+    case completed
+    case unsupportedDevice
+}
+
+enum EvaWorkingStyleID: String, Codable, CaseIterable, Identifiable {
+    case concise
+    case prioritizeForMe
+    case breakIntoSteps
+    case accountable
+    case focus
+    case challengeWeakPriorities
+    case decideFaster
+    case keepPlansRealistic
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .concise:
+            return "Be concise"
+        case .prioritizeForMe:
+            return "Prioritize for me"
+        case .breakIntoSteps:
+            return "Break work into steps"
+        case .accountable:
+            return "Keep me accountable"
+        case .focus:
+            return "Help me focus"
+        case .challengeWeakPriorities:
+            return "Challenge weak priorities"
+        case .decideFaster:
+            return "Help me decide faster"
+        case .keepPlansRealistic:
+            return "Keep plans realistic"
+        }
+    }
+
+    var memoryText: String {
+        switch self {
+        case .concise:
+            return "Prefer concise, direct help."
+        case .prioritizeForMe:
+            return "Help me choose what matters most."
+        case .breakIntoSteps:
+            return "Break large work into clear next steps."
+        case .accountable:
+            return "Keep me accountable to follow-through."
+        case .focus:
+            return "Help me stay focused on the current priority."
+        case .challengeWeakPriorities:
+            return "Challenge low-value or weak priorities."
+        case .decideFaster:
+            return "Help me decide faster when priorities compete."
+        case .keepPlansRealistic:
+            return "Keep plans realistic and scoped."
+        }
+    }
+}
+
+enum EvaMomentumBlockerID: String, Codable, CaseIterable, Identifiable {
+    case tooManyOpenTasks
+    case contextSwitching
+    case startingIsHard
+    case overPlanning
+    case forgetFollowThrough
+    case stuckChoosing
+    case loseSteamMidDay
+    case largeTasksFeelHeavy
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .tooManyOpenTasks:
+            return "Too many open tasks"
+        case .contextSwitching:
+            return "Context switching"
+        case .startingIsHard:
+            return "Starting is hard"
+        case .overPlanning:
+            return "I over-plan"
+        case .forgetFollowThrough:
+            return "I forget follow-through"
+        case .stuckChoosing:
+            return "I get stuck choosing"
+        case .loseSteamMidDay:
+            return "I lose steam mid-day"
+        case .largeTasksFeelHeavy:
+            return "Large tasks feel heavy"
+        }
+    }
+
+    var memoryText: String {
+        switch self {
+        case .tooManyOpenTasks:
+            return "I lose momentum when too many tasks stay open."
+        case .contextSwitching:
+            return "I lose momentum when context switching piles up."
+        case .startingIsHard:
+            return "Starting is often the hardest part."
+        case .overPlanning:
+            return "I can over-plan instead of moving."
+        case .forgetFollowThrough:
+            return "I need help following through after I start."
+        case .stuckChoosing:
+            return "I get stuck when several priorities compete."
+        case .loseSteamMidDay:
+            return "My energy often drops mid-day."
+        case .largeTasksFeelHeavy:
+            return "Large tasks can feel heavy and harder to begin."
+        }
+    }
+}
+
+struct EvaProfileDraft: Codable, Equatable {
+    var selectedWorkingStyleIDs: [String] = []
+    var selectedMomentumBlockerIDs: [String] = []
+    var customWorkingStyleNote: String? = nil
+    var customMomentumNote: String? = nil
+    var goals: [String] = []
+}
+
+struct EvaActivationState: Codable, Equatable {
+    var stage: EvaActivationStage = .intro
+    var selectedWorkingStyleIDs: [String] = []
+    var selectedMomentumBlockerIDs: [String] = []
+    var customWorkingStyleNote: String? = nil
+    var customMomentumNote: String? = nil
+    var goals: [String] = []
+    var chosenModelName: String? = nil
+    var hasTriggeredInstall: Bool = false
+    var installedChosenModel: Bool = false
+    var preparedModelName: String? = nil
+    var failedModelName: String? = nil
+    var selectedModelRetryCount: Int = 0
+    var hasAttemptedFastFallback: Bool = false
+    var recoveryPresented: Bool = false
+    var firstThreadID: UUID? = nil
+    var hasPersistedUserMessage: Bool = false
+    var hasPersistedAssistantReply: Bool = false
+    var isComplete: Bool = false
+    var lastUpdatedAt: Date = .now
+
+    private enum CodingKeys: String, CodingKey {
+        case stage
+        case selectedWorkingStyleIDs
+        case selectedMomentumBlockerIDs
+        case customWorkingStyleNote
+        case customMomentumNote
+        case goals
+        case chosenModelName
+        case hasTriggeredInstall
+        case installedChosenModel
+        case preparedModelName
+        case failedModelName
+        case selectedModelRetryCount
+        case hasAttemptedFastFallback
+        case recoveryPresented
+        case firstThreadID
+        case hasPersistedUserMessage
+        case hasPersistedAssistantReply
+        case isComplete
+        case lastUpdatedAt
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        stage = try container.decodeIfPresent(EvaActivationStage.self, forKey: .stage) ?? .intro
+        selectedWorkingStyleIDs = try container.decodeIfPresent([String].self, forKey: .selectedWorkingStyleIDs) ?? []
+        selectedMomentumBlockerIDs = try container.decodeIfPresent([String].self, forKey: .selectedMomentumBlockerIDs) ?? []
+        customWorkingStyleNote = try container.decodeIfPresent(String.self, forKey: .customWorkingStyleNote)
+        customMomentumNote = try container.decodeIfPresent(String.self, forKey: .customMomentumNote)
+        goals = try container.decodeIfPresent([String].self, forKey: .goals) ?? []
+        chosenModelName = try container.decodeIfPresent(String.self, forKey: .chosenModelName)
+        hasTriggeredInstall = try container.decodeIfPresent(Bool.self, forKey: .hasTriggeredInstall) ?? false
+        installedChosenModel = try container.decodeIfPresent(Bool.self, forKey: .installedChosenModel) ?? false
+        preparedModelName = try container.decodeIfPresent(String.self, forKey: .preparedModelName)
+        failedModelName = try container.decodeIfPresent(String.self, forKey: .failedModelName)
+        selectedModelRetryCount = try container.decodeIfPresent(Int.self, forKey: .selectedModelRetryCount) ?? 0
+        hasAttemptedFastFallback = try container.decodeIfPresent(Bool.self, forKey: .hasAttemptedFastFallback) ?? false
+        recoveryPresented = try container.decodeIfPresent(Bool.self, forKey: .recoveryPresented) ?? false
+        firstThreadID = try container.decodeIfPresent(UUID.self, forKey: .firstThreadID)
+        hasPersistedUserMessage = try container.decodeIfPresent(Bool.self, forKey: .hasPersistedUserMessage) ?? false
+        hasPersistedAssistantReply = try container.decodeIfPresent(Bool.self, forKey: .hasPersistedAssistantReply) ?? false
+        isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? false
+        lastUpdatedAt = try container.decodeIfPresent(Date.self, forKey: .lastUpdatedAt) ?? .now
+    }
+
+    var profileDraft: EvaProfileDraft {
+        EvaProfileDraft(
+            selectedWorkingStyleIDs: selectedWorkingStyleIDs,
+            selectedMomentumBlockerIDs: selectedMomentumBlockerIDs,
+            customWorkingStyleNote: customWorkingStyleNote,
+            customMomentumNote: customMomentumNote,
+            goals: goals
+        )
+    }
+
+    mutating func apply(profileDraft: EvaProfileDraft) {
+        selectedWorkingStyleIDs = profileDraft.selectedWorkingStyleIDs
+        selectedMomentumBlockerIDs = profileDraft.selectedMomentumBlockerIDs
+        customWorkingStyleNote = profileDraft.customWorkingStyleNote
+        customMomentumNote = profileDraft.customMomentumNote
+        goals = profileDraft.goals
+    }
+
+    var normalizedGoals: [String] {
+        goals
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+    }
+
+    mutating func resetInstallRecoveryState(keepingPreparedModel preparedModelName: String? = nil) {
+        failedModelName = nil
+        recoveryPresented = false
+        if let preparedModelName {
+            self.preparedModelName = preparedModelName
+        }
+    }
+}
+
+enum EvaActivationDefaultsStore {
+    static let activationStateKey = "eva.activation.state.v1"
+    static let activationCompletedKey = "eva.activation.completed.v1"
+
+    static func load(defaults: UserDefaults = .standard) -> EvaActivationState {
+        guard let data = defaults.data(forKey: activationStateKey),
+              let state = try? JSONDecoder().decode(EvaActivationState.self, from: data) else {
+            if defaults.bool(forKey: activationCompletedKey) {
+                var completedState = EvaActivationState()
+                completedState.stage = .completed
+                completedState.isComplete = true
+                return completedState
+            }
+            return EvaActivationState()
+        }
+        if defaults.bool(forKey: activationCompletedKey) {
+            var completedState = state
+            completedState.stage = .completed
+            completedState.isComplete = true
+            return completedState
+        }
+        return state
+    }
+
+    static func save(_ state: EvaActivationState, defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(state) else { return }
+        defaults.set(data, forKey: activationStateKey)
+        defaults.set(state.isComplete, forKey: activationCompletedKey)
+    }
+
+    static func clear(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: activationStateKey)
+        defaults.removeObject(forKey: activationCompletedKey)
+    }
+
+    static func markCompleted(defaults: UserDefaults = .standard) {
+        var state = load(defaults: defaults)
+        state.stage = .completed
+        state.isComplete = true
+        save(state, defaults: defaults)
+    }
+}
+
+enum EvaThinkingVisibilityPolicy {
+    static let showsVisibleThinking = false
+}
+
+enum LLMPersistedModelSelection {
+    struct State: Equatable {
+        let installedModels: [String]
+        let currentModelName: String?
+    }
+
+    static let installedModelsKey = "installedModels"
+    static let currentModelKey = "currentModelName"
+    static let unsupportedLegacyModelNames: Set<String> = [
+        "mlx-community/gemma-3-270m-it-4bit",
+        "mlx-community/Llama-3.2-1B-Instruct-4bit",
+        "mlx-community/Llama-3.2-3B-Instruct-4bit",
+        "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit",
+        "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-8bit",
+        "mlx-community/Qwen3-4B-4bit",
+        "mlx-community/Qwen3-8B-4bit",
+        "mlx-community/Qwen3.5-0.8B-MLX-4bit",
+        "mlx-community/Qwen3.5-0.8B-4bit",
+        "mlx-community/Qwen3.5-0.8B-6bit"
+    ]
+
+    @discardableResult
+    static func normalize(
+        defaults: UserDefaults = .standard,
+        fileManager: FileManager = .default,
+        applicationSupportDirectory: URL? = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+    ) -> State {
+        let rawInstalledModels = loadInstalledModels(defaults: defaults)
+        let supportedModels = Set(ModelConfiguration.availableModels.map(\.name))
+        let state = normalizedState(
+            installedModels: rawInstalledModels,
+            currentModelName: defaults.string(forKey: currentModelKey)
+        )
+
+        persistInstalledModels(state.installedModels, defaults: defaults)
+        if let currentModelName = state.currentModelName {
+            defaults.set(currentModelName, forKey: currentModelKey)
+        } else {
+            defaults.removeObject(forKey: currentModelKey)
+        }
+
+        let unsupportedInstalledModels = Array(
+            Set(
+                rawInstalledModels.filter { modelName in
+                    unsupportedLegacyModelNames.contains(modelName) || supportedModels.contains(modelName) == false
+                }
+            )
+        )
+        for modelName in unsupportedInstalledModels {
+            removeCachedModelFiles(
+                for: modelName,
+                fileManager: fileManager,
+                applicationSupportDirectory: applicationSupportDirectory
+            )
+        }
+
+        return state
+    }
+
+    static func normalizedState(installedModels: [String], currentModelName: String?) -> State {
+        let supportedModels = Set(ModelConfiguration.availableModels.map(\.name))
+        var seen = Set<String>()
+        let normalizedInstalledModels = installedModels.filter { modelName in
+            guard seen.insert(modelName).inserted else { return false }
+            guard unsupportedLegacyModelNames.contains(modelName) == false else { return false }
+            return supportedModels.contains(modelName)
+        }
+
+        let normalizedCurrentModelName: String?
+        if let currentModelName,
+           normalizedInstalledModels.contains(currentModelName),
+           LLMRuntimeSupportMatrix.compatibility(for: currentModelName)?.canActivate == true {
+            normalizedCurrentModelName = currentModelName
+        } else {
+            normalizedCurrentModelName = AppManager.preferredActiveModelName(from: normalizedInstalledModels)
+        }
+
+        return State(
+            installedModels: normalizedInstalledModels,
+            currentModelName: normalizedCurrentModelName
+        )
+    }
+
+    static func loadInstalledModels(defaults: UserDefaults = .standard) -> [String] {
+        if let jsonData = defaults.data(forKey: installedModelsKey),
+           let decodedArray = try? JSONDecoder().decode([String].self, from: jsonData) {
+            return decodedArray
+        }
+        return []
+    }
+
+    static func persistInstalledModels(_ installedModels: [String], defaults: UserDefaults = .standard) {
+        if let jsonData = try? JSONEncoder().encode(installedModels) {
+            defaults.set(jsonData, forKey: installedModelsKey)
+        }
+    }
+
+    static func removeCachedModelFiles(
+        for model: String,
+        fileManager: FileManager = .default,
+        applicationSupportDirectory: URL? = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+    ) {
+        guard let folder = modelFolderURL(for: model, applicationSupportDirectory: applicationSupportDirectory),
+              fileManager.fileExists(atPath: folder.path) else {
+            return
+        }
+
+        do {
+            try fileManager.removeItem(at: folder)
+        } catch {
+            logError("Failed to delete model files for \(model): \(error)")
+        }
+    }
+
+    static func modelFolderURL(for model: String, applicationSupportDirectory: URL?) -> URL? {
+        guard let applicationSupportDirectory else { return nil }
+        return applicationSupportDirectory
+            .appendingPathComponent("MLXLM")
+            .appendingPathComponent(model)
+    }
+}
+
+enum AssistantChatMode: String, CaseIterable {
+    case ask
+    case plan
+}
+
+@MainActor
+class AppManager: ObservableObject {
+    static let previousDefaultSystemPrompt = """
+    You are Eva, the user’s private executive assistant for execution, focus, and momentum.
+
+    Help the user decide what matters now, sequence work realistically, reduce overwhelm, and keep moving toward their goals. Be calm, sharp, concise, and structured. Sound like a trusted chief of staff for the user’s day.
+
+    Prefer clear recommendations over open-ended brainstorming. Turn ambiguity into the next useful action. Break large work into manageable steps. When priorities compete, help the user choose. Keep answers brief by default, with clear sequencing and light formatting.
+
+    Use only the provided context. Do not invent facts or assume hidden details. When context is limited, say so briefly and still give the best scoped answer. Do not expose chain-of-thought or internal reasoning. Do not be chatty, cutesy, preachy, or overly emotional.
+
+    Your default response pattern is:
+    1. what matters most
+    2. the recommended next step
+    3. a short sequence if useful
+    4. what to defer or ignore for now when relevant
+    """
+    static let defaultSystemPrompt = """
+    You are Eva, the user’s executive assistant for focus, execution, and momentum. Help the user decide what matters now, choose the next best action, sequence work realistically, and reduce overwhelm. Be calm, sharp, concise, and structured. Prefer clear recommendations over brainstorming. Break work into manageable steps. The user’s work is organized into life areas, projects, and tasks. Life areas have projects which have tasks. Use only the provided context. Do not invent facts or reveal internal reasoning. Format replies for quick scanning with short paragraphs, bullets only when helpful, and clear labels when useful. Keep replies brief: priority, next step, short plan, and what to defer when useful.
+    """
+    static let legacyBuiltInSystemPrompts: Set<String> = [
+        previousDefaultSystemPrompt,
+        "You are Eva, the user's upbeat and clever personal assistant, here to keep tasks and calendars in perfect harmony. Your responses sparkle with tidy markdown-bold headers, sleek italics, sharp lists, and clear tables. Always refer to dates casually-Today, Yesterday, next Thursday. Stay brief and witty, unless the user invites you to dive into details. Use the provided task and project details to keep their day breezy and productive.",
+        "You are Eva, the user's upbeat and clever personal assistant, here to keep tasks and calendars in perfect harmony. Your responses sparkle with tidy markdown—bold headers, sleek italics, sharp lists, and clear tables. Always refer to dates casually—Today, Yesterday, next Thursday. Stay brief and witty, unless the user invites you to dive into details. Use the provided task and project details to keep their day breezy and productive.",
+        "You are Eva, a clever personal assistant. Keep tasks and priorities aligned. Be brief, clear, and helpful. Use simple markdown, short lists, and casual dates. Use only provided context. Do not invent details."
+    ]
+
+    @AppStorage("systemPrompt") var systemPrompt = defaultSystemPrompt
+    @AppStorage("currentModelName") var currentModelName: String?
+    @AppStorage("shouldPlayHaptics") var shouldPlayHaptics = true
+    @AppStorage("numberOfVisits") var numberOfVisits = 0
+    @AppStorage("numberOfVisitsOfLastRequest") var numberOfVisitsOfLastRequest = 0
+    @AppStorage("assistantChatMode") var assistantChatMode = AssistantChatMode.ask.rawValue
+    
+    var userInterfaceIdiom: LayoutType {
+        #if os(visionOS)
+        return .vision
+        #elseif os(macOS)
+        return .mac
+        #elseif os(iOS)
+        return UIDevice.current.userInterfaceIdiom == .pad ? .pad : .phone
+        #else
+        return .unknown
+        #endif
+    }
+    
+    var availableMemory: Double {
+        let ramInBytes = ProcessInfo.processInfo.physicalMemory
+        let ramInGB = Double(ramInBytes) / (1024 * 1024 * 1024)
+        return ramInGB
+    }
+
+    enum LayoutType {
+        case mac, phone, pad, vision, unknown
+    }
+        
+    @Published var installedModels: [String] = [] {
+        didSet {
+            saveInstalledModelsToUserDefaults()
+        }
+    }
+    
+    /// Initializes a new instance.
+    init() {
+        migrateBuiltInSystemPromptIfNeeded()
+        loadInstalledModelsFromUserDefaults()
+        let normalized = LLMPersistedModelSelection.normalize()
+        installedModels = normalized.installedModels
+        currentModelName = normalized.currentModelName
+    }
+
+    static func migratedBuiltInSystemPrompt(_ storedPrompt: String?) -> String? {
+        guard let storedPrompt else { return nil }
+        guard legacyBuiltInSystemPrompts.contains(storedPrompt) else { return nil }
+        guard storedPrompt != defaultSystemPrompt else { return nil }
+        return defaultSystemPrompt
+    }
+
+    func migrateBuiltInSystemPromptIfNeeded(defaults: UserDefaults = .standard) {
+        guard let migratedPrompt = Self.migratedBuiltInSystemPrompt(defaults.string(forKey: "systemPrompt")) else {
+            return
+        }
+        systemPrompt = migratedPrompt
+    }
+
+    func resetSystemPromptToDefault() {
+        systemPrompt = Self.defaultSystemPrompt
+    }
+    
+    /// Executes incrementNumberOfVisits.
+    func incrementNumberOfVisits() {
+        numberOfVisits += 1
+        logDebug("app visits: \(numberOfVisits)")
+    }
+    
+    // Function to save the array to UserDefaults as JSON
+    /// Executes saveInstalledModelsToUserDefaults.
+    private func saveInstalledModelsToUserDefaults() {
+        LLMPersistedModelSelection.persistInstalledModels(installedModels)
+    }
+    
+    // Function to load the array from UserDefaults
+    /// Executes loadInstalledModelsFromUserDefaults.
+    private func loadInstalledModelsFromUserDefaults() {
+        self.installedModels = LLMPersistedModelSelection.loadInstalledModels()
+    }
+    
+    /// Executes playHaptic.
+    func playHaptic() {
+        if shouldPlayHaptics {
+            #if os(iOS)
+            let impact = UIImpactFeedbackGenerator(style: .soft)
+            impact.impactOccurred()
+            #endif
+        }
+    }
+    
+    /// Executes removeInstalledModel.
+    func removeInstalledModel(_ model: String) {
+        // Remove from list if present
+        if let idx = installedModels.firstIndex(of: model) {
+            installedModels.remove(at: idx)
+        }
+        LLMPersistedModelSelection.removeCachedModelFiles(for: model)
+    }
+    
+    /// Returns the expected local folder URL where the model is stored, based on MLXLMCommon's default.
+    /// Adjust this path if the underlying library changes its cache location.
+    private func modelFolderURL(for model: String) -> URL? {
+        LLMPersistedModelSelection.modelFolderURL(
+            for: model,
+            applicationSupportDirectory: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        )
+    }
+    
+    /// Executes addInstalledModel.
+    func addInstalledModel(_ model: String) {
+        if !installedModels.contains(model) {
+            installedModels.append(model)
+        }
+    }
+
+    func setActiveModel(_ modelName: String?) {
+        guard let normalizedModelName = normalizedInstalledModelName(for: modelName) else {
+            currentModelName = nil
+            return
+        }
+        guard LLMRuntimeSupportMatrix.compatibility(for: normalizedModelName)?.canActivate == true else {
+            currentModelName = Self.preferredActiveModelName(from: installedModels)
+            return
+        }
+        currentModelName = normalizedModelName
+    }
+
+    nonisolated static func preferredActiveModelName(from installedModelNames: [String]) -> String? {
+        let installedSet = Set(installedModelNames)
+        let preferredOrder = ModelConfiguration.availableModels.map(\.name)
+        for candidate in preferredOrder
+        where installedSet.contains(candidate)
+            && LLMRuntimeSupportMatrix.compatibility(for: candidate)?.canActivate == true {
+            return candidate
+        }
+        return nil
+    }
+
+    func preferredFallbackModelName(excluding removedModelName: String? = nil) -> String? {
+        Self.preferredActiveModelName(from: installedModels.filter { $0 != removedModelName })
+    }
+
+    private func normalizedInstalledModelName(for modelName: String?) -> String? {
+        guard let trimmedModelName = modelName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              trimmedModelName.isEmpty == false else {
+            return nil
+        }
+        if installedModels.contains(trimmedModelName) {
+            return trimmedModelName
+        }
+        return installedModels.first { installedModelName in
+            installedModelName.caseInsensitiveCompare(trimmedModelName) == .orderedSame
+        }
+    }
+
+    /// Executes modelDisplayName.
+    func modelDisplayName(_ modelName: String) -> String {
+        if let model = ModelConfiguration.getModelByName(modelName) {
+            return model.displayName.lowercased()
+        }
+        return strippedModelProviderPrefix(modelName).lowercased()
+    }
+
+    func compactModelDisplayName(_ modelName: String) -> String {
+        guard let model = ModelConfiguration.getModelByName(modelName) else {
+            return strippedModelProviderPrefix(modelName).lowercased()
+        }
+
+        switch model {
+        case .qwen_3_0_6b_4bit:
+            return "qwen3 0.6B"
+        case .qwen_3_5_0_8b_optiq_4bit:
+            return "qwen3.5 0.8B"
+        case .qwen_3_5_0_8b_nexveridian_4bit:
+            return "qwen3.5 0.8B"
+        case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit:
+            return "qwen3.5 0.8B"
+        case .bonsai_1_7b_mlx_1bit:
+            return "bonsai 1.7B"
+        default:
+            return model.displayName
+                .replacingOccurrences(of: " 4bit", with: "")
+                .replacingOccurrences(of: " 4-bit", with: "")
+                .lowercased()
+        }
+    }
+
+    private func strippedModelProviderPrefix(_ modelName: String) -> String {
+        modelName
+            .replacingOccurrences(of: "mlx-community/", with: "", options: .caseInsensitive)
+            .replacingOccurrences(of: "nexveridian/", with: "", options: .caseInsensitive)
+            .replacingOccurrences(of: "jackrong/", with: "", options: .caseInsensitive)
+            .replacingOccurrences(of: "prism-ml/", with: "", options: .caseInsensitive)
+    }
+    
+    /// Executes getMoonPhaseIcon.
+    func getMoonPhaseIcon() -> String {
+        // Get current date
+        let currentDate = Date()
+        
+        // Define a base date (known new moon date)
+        let baseDate = Calendar.current.date(from: DateComponents(year: 2000, month: 1, day: 6))!
+        
+        // Difference in days between the current date and the base date
+        let daysSinceBaseDate = Calendar.current.dateComponents([.day], from: baseDate, to: currentDate).day!
+        
+        // Moon phase repeats approximately every 29.53 days
+        let moonCycleLength = 29.53
+        let daysIntoCycle = Double(daysSinceBaseDate).truncatingRemainder(dividingBy: moonCycleLength)
+        
+        // Determine the phase based on how far into the cycle we are
+        switch daysIntoCycle {
+        case 0..<1.8457:
+            return "moonphase.new.moon" // New Moon
+        case 1.8457..<5.536:
+            return "moonphase.waxing.crescent" // Waxing Crescent
+        case 5.536..<9.228:
+            return "moonphase.first.quarter" // First Quarter
+        case 9.228..<12.919:
+            return "moonphase.waxing.gibbous" // Waxing Gibbous
+        case 12.919..<16.610:
+            return "moonphase.full.moon" // Full Moon
+        case 16.610..<20.302:
+            return "moonphase.waning.gibbous" // Waning Gibbous
+        case 20.302..<23.993:
+            return "moonphase.last.quarter" // Last Quarter
+        case 23.993..<27.684:
+            return "moonphase.waning.crescent" // Waning Crescent
+        default:
+            return "moonphase.new.moon" // New Moon (fallback)
+        }
+    }
+}
+
+struct LLMPersonalMemoryEntry: Codable, Equatable, Identifiable {
+    let id: UUID
+    var text: String
+
+    init(id: UUID = UUID(), text: String) {
+        self.id = id
+        self.text = text
+    }
+}
+
+enum LLMPersonalMemorySection: String, CaseIterable, Codable, Identifiable {
+    case preferences
+    case routines
+    case currentGoals
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .preferences:
+            return "preferences"
+        case .routines:
+            return "routines"
+        case .currentGoals:
+            return "current goals"
+        }
+    }
+}
+
+struct LLMPersonalMemoryStoreV1: Codable, Equatable {
+    static let maxEntriesPerSection = 4
+    static let maxEntryCharacters = 120
+
+    var preferences: [LLMPersonalMemoryEntry]
+    var routines: [LLMPersonalMemoryEntry]
+    var currentGoals: [LLMPersonalMemoryEntry]
+
+    init(
+        preferences: [LLMPersonalMemoryEntry] = [],
+        routines: [LLMPersonalMemoryEntry] = [],
+        currentGoals: [LLMPersonalMemoryEntry] = []
+    ) {
+        self.preferences = preferences
+        self.routines = routines
+        self.currentGoals = currentGoals
+    }
+
+    func entries(for section: LLMPersonalMemorySection) -> [LLMPersonalMemoryEntry] {
+        switch section {
+        case .preferences:
+            return preferences
+        case .routines:
+            return routines
+        case .currentGoals:
+            return currentGoals
+        }
+    }
+
+    mutating func setEntries(_ entries: [LLMPersonalMemoryEntry], for section: LLMPersonalMemorySection) {
+        let normalized = Self.normalized(entries)
+        switch section {
+        case .preferences:
+            preferences = normalized
+        case .routines:
+            routines = normalized
+        case .currentGoals:
+            currentGoals = normalized
+        }
+    }
+
+    var isEmpty: Bool {
+        LLMPersonalMemorySection.allCases.allSatisfy { entries(for: $0).isEmpty }
+    }
+
+    static func normalized(_ entries: [LLMPersonalMemoryEntry]) -> [LLMPersonalMemoryEntry] {
+        let cleaned = entries.compactMap { entry -> LLMPersonalMemoryEntry? in
+            let normalizedText = String(
+                entry.text
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .prefix(maxEntryCharacters)
+            )
+            guard normalizedText.isEmpty == false else { return nil }
+            return LLMPersonalMemoryEntry(id: entry.id, text: normalizedText)
+        }
+        return Array(cleaned.prefix(maxEntriesPerSection))
+    }
+}
+
+struct LLMSecureBlobStore {
+    let service: String
+    let account: String
+
+    static let personalMemory = LLMSecureBlobStore(
+        service: (Bundle.main.bundleIdentifier ?? "LifeBoard") + ".secureStorage",
+        account: LLMPersonalMemoryDefaultsStore.key
+    )
+
+    private var baseQuery: [CFString: Any] {
+        [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account
+        ]
+    }
+
+    func loadData() -> Data? {
+        var query = baseQuery
+        query[kSecReturnData] = true
+        query[kSecMatchLimit] = kSecMatchLimitOne
+
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        switch status {
+        case errSecSuccess:
+            return item as? Data
+        case errSecItemNotFound:
+            return nil
+        default:
+            logError("Failed to load secure blob \(account): \(status)")
+            return nil
+        }
+    }
+
+    @discardableResult
+    func saveData(_ data: Data) -> Bool {
+        let deleteStatus = SecItemDelete(baseQuery as CFDictionary)
+        if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
+            logWarning("Failed to replace secure blob \(account): \(deleteStatus)")
+        }
+
+        var attributes = baseQuery
+        attributes[kSecValueData] = data
+        #if os(iOS) || os(tvOS) || os(visionOS) || os(watchOS)
+        attributes[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        #endif
+
+        let saveStatus = SecItemAdd(attributes as CFDictionary, nil)
+        guard saveStatus == errSecSuccess else {
+            logError("Failed to save secure blob \(account): \(saveStatus)")
+            return false
+        }
+        return true
+    }
+
+    func clear() {
+        let status = SecItemDelete(baseQuery as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            logWarning("Failed to clear secure blob \(account): \(status)")
+        }
+    }
+}
+
+enum EvaStableMemoryCompiler {
+    static func promptBlock(
+        from store: LLMPersonalMemoryStoreV1,
+        model: MLXLMCommon.ModelConfiguration
+    ) -> String? {
+        guard store.isEmpty == false else { return nil }
+
+        let preferences = compactList(store.preferences)
+        let routines = compactList(store.routines)
+        let goals = compactList(store.currentGoals)
+
+        var lines: [String] = ["User memory:"]
+        if preferences.isEmpty == false {
+            lines.append("Working style: \(preferences)")
+        }
+        if routines.isEmpty == false {
+            lines.append("Routines and blockers: \(routines)")
+        }
+        if goals.isEmpty == false {
+            lines.append("Current goals: \(goals)")
+        }
+
+        let block = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard block.isEmpty == false else { return nil }
+        return LLMTokenBudgetEstimator.trimPrefix(
+            block,
+            toTokenBudget: model.tokenBudget.personalMemoryTokens
+        )
+    }
+
+    private static func compactList(_ entries: [LLMPersonalMemoryEntry], limit: Int = 3) -> String {
+        entries
+            .map(\.text)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+            .prefix(limit)
+            .joined(separator: "; ")
+    }
+}
+
+enum LLMPersonalMemoryDefaultsStore {
+    static let key = "llm.personalMemory.v1"
+
+    static func load(
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) -> LLMPersonalMemoryStoreV1 {
+        if let secureData = secureStore.loadData() {
+            guard let decoded = try? JSONDecoder().decode(LLMPersonalMemoryStoreV1.self, from: secureData) else {
+                logWarning("Failed to decode secure personal memory store.")
+                return LLMPersonalMemoryStoreV1()
+            }
+            return decoded
+        }
+
+        guard let legacyData = defaults.data(forKey: key) else {
+            return LLMPersonalMemoryStoreV1()
+        }
+
+        guard let decoded = try? JSONDecoder().decode(LLMPersonalMemoryStoreV1.self, from: legacyData) else {
+            logWarning("Failed to decode legacy personal memory store.")
+            defaults.removeObject(forKey: key)
+            return LLMPersonalMemoryStoreV1()
+        }
+
+        if secureStore.saveData(legacyData) {
+            defaults.removeObject(forKey: key)
+        } else {
+            logWarning("Failed to migrate legacy personal memory store into secure storage.")
+        }
+        return decoded
+    }
+
+    static func save(
+        _ store: LLMPersonalMemoryStoreV1,
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) {
+        guard let data = try? JSONEncoder().encode(store) else { return }
+        guard secureStore.saveData(data) else { return }
+        defaults.removeObject(forKey: key)
+    }
+
+    static func clear(
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) {
+        secureStore.clear()
+        defaults.removeObject(forKey: key)
+    }
+
+    static func promptBlock(
+        for model: MLXLMCommon.ModelConfiguration,
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) -> String? {
+        let store = load(defaults: defaults, secureStore: secureStore)
+        return EvaStableMemoryCompiler.promptBlock(from: store, model: model)
+    }
+}
+
+enum Role: String, Codable, Sendable {
+    case assistant
+    case user
+    case system
+}
+
+@Model
+class Message {
+    @Attribute(.unique) var id: UUID
+    var role: Role
+    var content: String
+    var timestamp: Date
+    var generatingTime: TimeInterval?
+    var sourceModelName: String?
+    var sortTimestamp: Date { timestamp }
+    
+    /// Initializes a new instance.
+    @Relationship(deleteRule: .nullify) var thread: Thread?
+    
+    init(
+        role: Role,
+        content: String,
+        thread: Thread? = nil,
+        generatingTime: TimeInterval? = nil,
+        sourceModelName: String? = nil
+    ) {
+        self.id = UUID()
+        self.role = role
+        self.content = content
+        self.timestamp = Date()
+        self.thread = thread
+        self.generatingTime = generatingTime
+        self.sourceModelName = sourceModelName
+    }
+}
+
+@Model
+final class Thread {
+    @Attribute(.unique) var id: UUID
+    var title: String?
+    var timestamp: Date
+    
+    @Relationship(deleteRule: .cascade, inverse: \Message.thread) var messages: [Message] = []
+    
+    var sortedMessages: [Message] {
+        return messages.sorted { $0.sortTimestamp < $1.sortTimestamp }
+    }
+
+    func sortedMessagesSnapshot() -> [Message] {
+        messages.sorted { $0.sortTimestamp < $1.sortTimestamp }
+    }
+    
+    /// Initializes a new instance.
+    init() {
+        self.id = UUID()
+        self.timestamp = Date()
+    }
+}
+
+enum LLMChatSchemaV1: VersionedSchema {
+    static var versionIdentifier: Schema.Version {
+        Schema.Version(1, 0, 0)
+    }
+
+    static var models: [any PersistentModel.Type] {
+        [Thread.self, Message.self]
+    }
+}
+
+enum LLMChatMigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [LLMChatSchemaV1.self]
+    }
+
+    static var stages: [MigrationStage] {
+        []
+    }
+}

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-TEST_SWIFT_ROOT="To Do ListTests"
+TEST_SWIFT_ROOT="LifeBoardTests"
 
 check_banned_symbol() {
   local label="$1"

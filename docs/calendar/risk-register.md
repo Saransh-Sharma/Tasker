@@ -16,7 +16,7 @@ Mitigation:
 ## Freshness Risk
 
 Risk:
-EventKit changes after Tasker has already cached a snapshot.
+EventKit changes after LifeBoard has already cached a snapshot.
 
 Impact:
 The user sees stale next-meeting or busy-block context.
@@ -58,7 +58,7 @@ Risk:
 The timeline starts behaving like a calendar app grid.
 
 Impact:
-Tasker loses its execution-first identity.
+LifeBoard loses its execution-first identity.
 
 Mitigation:
 - Keep the timeline task-first
@@ -86,7 +86,7 @@ Risk:
 Sparse or empty days render as blank space with little planning guidance.
 
 Impact:
-Open time feels like an abandoned screen instead of a useful opportunity, and users may leave Tasker to plan elsewhere.
+Open time feels like an abandoned screen instead of a useful opportunity, and users may leave LifeBoard to plan elsewhere.
 
 Mitigation:
 - Compress long gaps into labeled opportunity windows
@@ -125,14 +125,14 @@ Mitigation:
 ## Calendar Authority Risk
 
 Risk:
-Assistant copy implies that Tasker can edit meetings or control external calendars.
+Assistant copy implies that LifeBoard can edit meetings or control external calendars.
 
 Impact:
 Users misunderstand the read-only calendar boundary, and trust is damaged when the app cannot perform implied actions.
 
 Mitigation:
 - Keep external calendar event actions read-only
-- Phrase repair suggestions around Tasker-owned tasks, reminders, habits, or planning metadata
+- Phrase repair suggestions around LifeBoard-owned tasks, reminders, habits, or planning metadata
 - Use confirmation copy that names the object being changed
 - Treat any external calendar write workflow as a separate future permissioned feature
 

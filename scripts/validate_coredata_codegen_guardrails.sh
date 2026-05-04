@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-PROJECT_FILE="Tasker.xcodeproj/project.pbxproj"
+PROJECT_FILE="LifeBoard.xcodeproj/project.pbxproj"
 
 if rg -n "/\\* TaskDefinitionEntity\\+CoreDataProperties.swift in Sources \\*/|/\\* ProjectEntity\\+CoreDataProperties.swift in Sources \\*/" "$PROJECT_FILE"; then
   echo "Handwritten Core Data properties files must not be compiled in app target sources"
@@ -12,9 +12,9 @@ if rg -n "/\\* TaskDefinitionEntity\\+CoreDataProperties.swift in Sources \\*/|/
 fi
 
 MODEL_FILES=(
-  "To Do List/TaskModelV3.xcdatamodeld/TaskModelV3.xcdatamodel/contents"
-  "To Do List/TaskModelV2.xcdatamodeld/TaskModelV2V3.xcdatamodel/contents"
-  "To Do List/TaskModelV2.xcdatamodeld/TaskModelV2.xcdatamodel/contents"
+  "LifeBoard/TaskModelV3.xcdatamodeld/TaskModelV3.xcdatamodel/contents"
+  "LifeBoard/TaskModelV2.xcdatamodeld/TaskModelV2V3.xcdatamodel/contents"
+  "LifeBoard/TaskModelV2.xcdatamodeld/TaskModelV2.xcdatamodel/contents"
 )
 
 for model_file in "${MODEL_FILES[@]}"; do
