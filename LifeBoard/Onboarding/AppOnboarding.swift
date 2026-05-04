@@ -7,7 +7,7 @@ import Network
 import MLXLMCommon
 
 extension Notification.Name {
-    static let taskerStartOnboardingRequested = Notification.Name("TaskerStartOnboardingRequested")
+    static let lifeboardStartOnboardingRequested = Notification.Name("LifeBoardStartOnboardingRequested")
 }
 
 enum AppOnboardingAccessibilityID {
@@ -89,13 +89,13 @@ enum OnboardingCopy {
 
     enum Goal {
         static let title = String(localized: "What needs attention first?")
-        static let subtitle = String(localized: "Tasker will shape your setup around this priority.")
+        static let subtitle = String(localized: "LifeBoard will shape your setup around this priority.")
         static let cta = String(localized: "Choose goal")
     }
 
     enum Pain {
         static let title = String(localized: "What gets in the way?")
-        static let subtitle = String(localized: "Pick the patterns Tasker should help you manage.")
+        static let subtitle = String(localized: "Pick the patterns LifeBoard should help you manage.")
         static let cta = String(localized: "Choose blockers")
     }
 
@@ -145,7 +145,7 @@ enum OnboardingCopy {
 
     enum Processing {
         static let title = String(localized: "Preparing your setup")
-        static let subtitle = String(localized: "Tasker is creating your areas, habit, and first task.")
+        static let subtitle = String(localized: "LifeBoard is creating your areas, habit, and first task.")
     }
 
     enum FirstTask {
@@ -157,7 +157,7 @@ enum OnboardingCopy {
 
     enum HomeDemo {
         static let title = String(localized: "Try your day")
-        static let subtitle = String(localized: "Mark one task and one habit done to see how Home works.")
+        static let subtitle = String(localized: "Try the demo actions or continue when you’re ready.")
         static let cta = String(localized: "Continue")
     }
 
@@ -176,7 +176,7 @@ enum OnboardingCopy {
 
     enum Calendar {
         static let title = String(localized: "Connect calendar")
-        static let subtitle = String(localized: "Full calendar access lets Tasker read your schedule and fit tasks around your day.")
+        static let subtitle = String(localized: "Full calendar access lets LifeBoard read your schedule and fit tasks around your day.")
         static let cta = String(localized: "Allow Full Calendar Access")
     }
 
@@ -199,10 +199,10 @@ enum OnboardingCopy {
         static let chooseAreas = String(localized: "Pick 1 to 3 areas to continue.")
         static let chooseHabit = String(localized: "Pick one habit to continue.")
         static let chooseEvaPreference = String(localized: "Choose at least one assistant preference.")
-        static let firstTaskMissing = String(localized: "Tasker could not prepare your first task.")
-        static let starterTaskFailed = String(localized: "Tasker could not create a starter task. Try again.")
-        static let customTaskFailed = String(localized: "Tasker could not open the task composer. Try again.")
-        static let customHabitFailed = String(localized: "Tasker could not open the habit composer. Try again.")
+        static let firstTaskMissing = String(localized: "LifeBoard could not prepare your first task.")
+        static let starterTaskFailed = String(localized: "LifeBoard could not create a starter task. Try again.")
+        static let customTaskFailed = String(localized: "LifeBoard could not open the task composer. Try again.")
+        static let customHabitFailed = String(localized: "LifeBoard could not open the habit composer. Try again.")
     }
 
     static let regressionPhrases = [
@@ -533,11 +533,11 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .weeklyOutcomes:
             return "Add at least one outcome."
         case .processing:
-            return "Wait while Tasker prepares your setup."
+            return "Wait while LifeBoard prepares your setup."
         case .firstTask:
             return "Choose or create a task for today."
         case .homeDemo:
-            return "Complete one demo task and one demo habit."
+            return "Try the demo actions or continue when ready."
         case .focusRoom:
             return "Start focus or break the task down."
         case .habitCheckIn:
@@ -715,7 +715,7 @@ private enum OnboardingNetworkClass {
     case unavailable
 }
 
-enum OnboardingFrictionProfile: String, CaseIterable, Codable, Identifiable {
+enum OnboardingFrictionProfile: String, CaseIterable, Codable, Identifiable, Sendable {
     case starting
     case choosing
     case remembering
@@ -1165,7 +1165,7 @@ struct OnboardingPresentationQueue: Equatable {
     }
 }
 
-final class AppOnboardingStateStore {
+final class AppOnboardingStateStore: @unchecked Sendable {
     static let shared = AppOnboardingStateStore()
 
     private let userDefaults: UserDefaults
@@ -1219,7 +1219,7 @@ final class AppOnboardingStateStore {
     }
 }
 
-struct StarterTaskTemplate: Identifiable, Equatable {
+struct StarterTaskTemplate: Identifiable, Equatable, Sendable {
     let id: String
     let projectTemplateID: String
     let title: String
@@ -1273,7 +1273,7 @@ struct StarterTaskTemplate: Identifiable, Equatable {
     }
 }
 
-struct StarterHabitTemplate: Identifiable, Equatable {
+struct StarterHabitTemplate: Identifiable, Equatable, Sendable {
     let id: String
     let lifeAreaTemplateID: String
     let projectTemplateID: String?
@@ -1318,7 +1318,7 @@ struct StarterHabitTemplate: Identifiable, Equatable {
     }
 }
 
-struct StarterProjectTemplate: Identifiable, Equatable {
+struct StarterProjectTemplate: Identifiable, Equatable, Sendable {
     let id: String
     let lifeAreaTemplateID: String
     let name: String
@@ -1327,7 +1327,7 @@ struct StarterProjectTemplate: Identifiable, Equatable {
     let taskTemplates: [StarterTaskTemplate]
 }
 
-struct StarterLifeAreaTemplate: Identifiable, Equatable {
+struct StarterLifeAreaTemplate: Identifiable, Equatable, Sendable {
     let id: String
     let name: String
     let subtitle: String
@@ -3324,7 +3324,7 @@ enum StarterWorkspaceCatalog {
     }
 }
 
-final class OnboardingEligibilityService {
+final class OnboardingEligibilityService: @unchecked Sendable {
     private let stateStore: AppOnboardingStateStore
     private let launchArguments: Set<String>
     private let fetchLifeAreas: () async throws -> [LifeArea]
@@ -3539,7 +3539,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
     private let resolveHabitOccurrence: (UUID, HabitOccurrenceAction, Date) async throws -> Void
     private let evaAppManager: AppManager
     private let evaDefaults: UserDefaults
-    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
     private let isEvaBackgroundPreparationEnabled: Bool
 
     @Published var step: OnboardingStep = .welcome
@@ -3631,7 +3631,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         },
         evaAppManager: AppManager = AppManager(),
         evaDefaults: UserDefaults = .standard,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
         isEvaBackgroundPreparationEnabled: Bool = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
     ) {
         self.stateStore = stateStore
@@ -4229,7 +4229,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
             return
         }
         guard let resolvedLifeArea = resolvedLifeAreas.first(where: { $0.templateID == template.lifeAreaTemplateID }) else {
-            habitTemplateStates[template.id] = .failed("Tasker could not find that life area.")
+            habitTemplateStates[template.id] = .failed("LifeBoard could not find that life area.")
             return
         }
 
@@ -4327,7 +4327,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         defer { if case .creating = taskTemplateStates[template.id] { taskTemplateStates[template.id] = .idle } }
 
         guard let resolvedProject = resolvedProjects.first(where: { $0.draft.templateID == template.projectTemplateID }) else {
-            taskTemplateStates[template.id] = .failed("Tasker could not find that project.")
+            taskTemplateStates[template.id] = .failed("LifeBoard could not find that project.")
             return
         }
 
@@ -4533,13 +4533,13 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
             return
         }
 
-        let status = await notificationService.fetchAuthorizationStatusAsync()
+        let status = await fetchAuthorizationStatus(using: notificationService)
         applyReminderPromptState(for: status)
     }
 
     func handleReminderPrimaryAction() async {
         guard reminderPromptState == .prompt, let notificationService else { return }
-        let granted = await notificationService.requestPermissionAsync()
+        let granted = await requestNotificationPermission(using: notificationService)
         logOnboardingInfo(
             event: "reminder_prompt_accepted",
             fields: ["granted": String(granted)]
@@ -4726,8 +4726,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
     }
 
     func continueFromHomeDemo() {
-        guard didCompleteHomeDemoTask && didCompleteHomeDemoHabit else { return }
-        if let completedTask = createdTasks.first {
+        if didCompleteHomeDemoTask, let completedTask = createdTasks.first {
             var task = completedTask
             task.isComplete = true
             task.dateCompleted = task.dateCompleted ?? Date()
@@ -4773,7 +4772,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
 
     func continueFromNotificationPermission(skipped: Bool = false) async {
         if skipped == false, let notificationService {
-            _ = await notificationService.requestPermissionAsync()
+            _ = await requestNotificationPermission(using: notificationService)
         }
         if let completedTask = createdTasks.first(where: \.isComplete) ?? createdTasks.first {
             successSummary = buildSummary(completedTask: completedTask)
@@ -4783,7 +4782,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         persistJourney()
     }
 
-    private func applyReminderPromptState(for status: TaskerNotificationAuthorizationStatus) {
+    private func applyReminderPromptState(for status: LifeBoardNotificationAuthorizationStatus) {
         switch status {
         case .notDetermined:
             reminderPromptState = .prompt
@@ -5125,9 +5124,33 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
         case .noneNeeded:
             return true
         case .requestPermission:
-            return await calendarService.requestAccessAsync()
+            return await withCheckedContinuation { continuation in
+                calendarService.requestAccess(source: "onboarding") { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
         case .openSystemSettings, .unavailable:
             return false
+        }
+    }
+
+    private func fetchAuthorizationStatus(
+        using notificationService: NotificationServiceProtocol
+    ) async -> LifeBoardNotificationAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            notificationService.fetchAuthorizationStatus { status in
+                continuation.resume(returning: status)
+            }
+        }
+    }
+
+    private func requestNotificationPermission(
+        using notificationService: NotificationServiceProtocol
+    ) async -> Bool {
+        await withCheckedContinuation { continuation in
+            notificationService.requestPermission { granted in
+                continuation.resume(returning: granted)
+            }
         }
     }
 
@@ -5257,7 +5280,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
     private func detectNetworkClass() async -> OnboardingNetworkClass {
         await withCheckedContinuation { continuation in
             let monitor = NWPathMonitor()
-            let queue = DispatchQueue(label: "tasker.onboarding.network")
+            let queue = DispatchQueue(label: "lifeboard.onboarding.network")
             monitor.pathUpdateHandler = { path in
                 let resolved: OnboardingNetworkClass
                 if path.status != .satisfied {
@@ -5299,7 +5322,7 @@ final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
 
 @MainActor
 protocol AppOnboardingHostAdapter: AnyObject {
-    var currentOnboardingLayoutClass: TaskerLayoutClass { get }
+    var currentOnboardingLayoutClass: LifeBoardLayoutClass { get }
     var presentedViewController: UIViewController? { get }
 
     func prepareForOnboardingHomeGuidance()
@@ -5551,7 +5574,7 @@ final class AppOnboardingCoordinator: NSObject {
                         self?.dismissPrompt(animated: true, completion: nil)
                     }
                 )
-                .taskerLayoutClass(hostAdapter.currentOnboardingLayoutClass)
+                .lifeboardLayoutClass(hostAdapter.currentOnboardingLayoutClass)
             )
         )
         controller.modalPresentationStyle = .pageSheet
@@ -5608,7 +5631,7 @@ final class AppOnboardingCoordinator: NSObject {
                 self.dismissFullFlow(animated: true)
             }
         )
-        .taskerLayoutClass(hostAdapter.currentOnboardingLayoutClass)
+        .lifeboardLayoutClass(hostAdapter.currentOnboardingLayoutClass)
 
         let controller = UIHostingController(rootView: AnyView(rootView))
         controller.modalPresentationStyle = .fullScreen
@@ -5689,7 +5712,7 @@ struct AppOnboardingJourneyView: View {
     let onEditTask: (TaskDefinition) -> Bool
     let onDismissFlow: () -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hasPlayedSuccess = false
     @State private var welcomeIntroPhase: WelcomeIntroPhase = .introVideoOnly
@@ -5703,8 +5726,8 @@ struct AppOnboardingJourneyView: View {
     @State private var visibleOutcomeCount = 1
     @FocusState private var focusedInputField: OnboardingInputField?
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var horizontalPadding: CGFloat {
@@ -5727,7 +5750,7 @@ struct AppOnboardingJourneyView: View {
         let selectedPainPoints = viewModel.selectedPainPoints
         var bullets: [String] = []
         if selectedPainPoints.contains(.overwhelm) || selectedPainPoints.contains(.tooManyPriorities) {
-            bullets.append("Tasker picks one clear next task across work and life.")
+            bullets.append("LifeBoard picks one clear next task across work and life.")
         }
         if selectedPainPoints.contains(.forgottenFollowUps) || selectedPainPoints.contains(.listCalendarMismatch) {
             bullets.append("Calendar events, areas, and follow-ups stay in one view.")
@@ -5740,7 +5763,7 @@ struct AppOnboardingJourneyView: View {
         }
         if bullets.isEmpty {
             bullets = [
-                "Tasker organizes areas, tasks, habits, and calendar context.",
+                "LifeBoard organizes areas, tasks, habits, and calendar context.",
                 "\(viewModel.selectedMascotPersona.displayName) prepares suggestions after your starter setup is ready."
             ]
         }
@@ -6070,7 +6093,7 @@ struct AppOnboardingJourneyView: View {
                     OnboardingEyebrowLabel(title: viewModel.step.eyebrowTitle)
                     Spacer(minLength: spacing.s12)
                     Text(viewModel.step.progressLabel)
-                        .taskerFont(.caption1)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(OnboardingTheme.marigold)
                 }
 
@@ -6098,7 +6121,7 @@ struct AppOnboardingJourneyView: View {
             viewModel.goBack()
         } label: {
             Label("Back", systemImage: "chevron.left")
-                .taskerFont(.buttonSmall)
+                .lifeboardFont(.buttonSmall)
                 .foregroundStyle(OnboardingTheme.textPrimary)
         }
         .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textPrimary)
@@ -6294,7 +6317,7 @@ struct AppOnboardingJourneyView: View {
 
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Suggestions")
-                    .taskerFont(.bodyEmphasis)
+                    .lifeboardFont(.bodyEmphasis)
                     .foregroundStyle(OnboardingTheme.textPrimary)
 
                 ForEach(viewModel.filteredHabitSuggestions.prefix(4)) { template in
@@ -6361,7 +6384,7 @@ struct AppOnboardingJourneyView: View {
 
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Working style")
-                    .taskerFont(.bodyEmphasis)
+                    .lifeboardFont(.bodyEmphasis)
                     .foregroundStyle(OnboardingTheme.textPrimary)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: spacing.s12)], spacing: spacing.s12) {
                     ForEach(EvaWorkingStyleID.allCases) { style in
@@ -6441,7 +6464,7 @@ struct AppOnboardingJourneyView: View {
                     )
                 )
                 .textFieldStyle(.plain)
-                .taskerFont(.body)
+                .lifeboardFont(.body)
                 .foregroundStyle(OnboardingTheme.textPrimary)
                 .submitLabel(.done)
                 .focused($focusedInputField, equals: .outcome(index))
@@ -6463,7 +6486,7 @@ struct AppOnboardingJourneyView: View {
                     focusedInputField = .outcome(visibleOutcomeCount - 1)
                 } label: {
                     Label("Add outcome", systemImage: "plus.circle")
-                        .taskerFont(.buttonSmall)
+                        .lifeboardFont(.buttonSmall)
                         .foregroundStyle(OnboardingTheme.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }
@@ -6487,7 +6510,7 @@ struct AppOnboardingJourneyView: View {
                 Label("First task ready to start", systemImage: "bolt.circle.fill")
                 Label("\(viewModel.selectedMascotPersona.displayName) keeps preparing while you continue", systemImage: "brain.head.profile")
             }
-            .taskerFont(.body)
+            .lifeboardFont(.body)
             .foregroundStyle(OnboardingTheme.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(spacing.s20)
@@ -6531,7 +6554,7 @@ struct AppOnboardingJourneyView: View {
 
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Suggestions")
-                    .taskerFont(.bodyEmphasis)
+                    .lifeboardFont(.bodyEmphasis)
                     .foregroundStyle(OnboardingTheme.textPrimary)
 
                 ForEach(viewModel.taskSuggestions.prefix(4)) { template in
@@ -6616,12 +6639,12 @@ struct AppOnboardingJourneyView: View {
                 onTaskDone: {
                     feedbackController.successSignature()
                     viewModel.markHomeDemoTaskDone()
-                    continueHomeDemoIfReady()
+                    continueHomeDemoAfterDemoAction()
                 },
                 onHabitDone: {
                     feedbackController.successSignature()
                     viewModel.markHomeDemoHabitDone()
-                    continueHomeDemoIfReady()
+                    continueHomeDemoAfterDemoAction()
                 }
             )
         }
@@ -6638,7 +6661,7 @@ struct AppOnboardingJourneyView: View {
                     Image(systemName: "arrow.turn.down.right")
                         .foregroundStyle(OnboardingTheme.textSecondary)
                     Text("From: \(parent.title)")
-                        .taskerFont(.caption1)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(OnboardingTheme.textSecondary)
                 }
                 .padding(.horizontal, spacing.s12)
@@ -6719,7 +6742,7 @@ struct AppOnboardingJourneyView: View {
 
             OnboardingSelectionSummaryCard(
                 title: "Why it matters",
-                message: "When Tasker can see your schedule, your tasks and habits can fit around the day you actually have.",
+                message: "When LifeBoard can see your schedule, your tasks and habits can fit around the day you actually have.",
                 mascotPlacement: .onboardingCalendarPermission
             )
         }
@@ -6807,7 +6830,7 @@ struct AppOnboardingJourneyView: View {
                 if let banner = viewModel.breakdownRouteBanner, banner.isEmpty == false {
                     Section {
                         Text(banner)
-                            .taskerFont(.caption1)
+                            .lifeboardFont(.caption1)
                             .foregroundStyle(OnboardingTheme.textSecondary)
                     }
                 }
@@ -6874,7 +6897,7 @@ struct AppOnboardingJourneyView: View {
         let dockContent = VStack(spacing: spacing.s12) {
             if let errorMessage = viewModel.errorMessage, errorMessage.isEmpty == false {
                 Text(errorMessage)
-                    .taskerFont(.caption1)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(OnboardingTheme.danger)
                     .multilineTextAlignment(.center)
             }
@@ -6922,7 +6945,7 @@ struct AppOnboardingJourneyView: View {
         switch viewModel.step {
         case .lifeAreas:
             Text(OnboardingCopy.LifeAreas.helper)
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         case .processing where viewModel.evaPreparationState.phase == .waitingForCellularConsent:
@@ -7101,7 +7124,16 @@ struct AppOnboardingJourneyView: View {
                 Task { await viewModel.performStarterHabitPrimaryAction() }
             }
         case .homeDemo:
-            return nil
+            return OnboardingFloatingNextAction(
+                title: OnboardingCopy.HomeDemo.cta,
+                systemImage: "chevron.forward",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: false,
+                showsProgress: false
+            ) {
+                feedbackController.medium()
+                viewModel.continueFromHomeDemo()
+            }
         case .calendarPermission:
             return OnboardingFloatingNextAction(
                 title: OnboardingCopy.Calendar.cta,
@@ -7177,8 +7209,7 @@ struct AppOnboardingJourneyView: View {
         viewModel.replaceEvaGoals(Array(outcomeDrafts.prefix(3)))
     }
 
-    private func continueHomeDemoIfReady() {
-        guard viewModel.didCompleteHomeDemoTask && viewModel.didCompleteHomeDemoHabit else { return }
+    private func continueHomeDemoAfterDemoAction() {
         guard didShowHomeDemoCelebration == false else { return }
         didShowHomeDemoCelebration = true
         Task { @MainActor in
@@ -7187,16 +7218,17 @@ struct AppOnboardingJourneyView: View {
             didShowHomeDemoCelebration = false
         }
     }
+
 }
 
 struct AppOnboardingPromptSheetView: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     let snapshot: OnboardingWorkspaceSnapshot
     let onStart: () -> Void
     let onNotNow: () -> Void
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     var body: some View {
@@ -7218,7 +7250,7 @@ struct AppOnboardingPromptSheetView: View {
                     }
                 }
             }
-            .taskerReadableContent(maxWidth: 760, alignment: .center)
+            .lifeboardReadableContent(maxWidth: 760, alignment: .center)
             .padding(spacing.s20)
             .onboardingHeroPanel(cornerRadius: 32)
             .padding(.horizontal, spacing.screenHorizontal)
@@ -7229,8 +7261,8 @@ struct AppOnboardingPromptSheetView: View {
 
     private var promptActionCard: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
-            Text("What Tasker will reuse")
-                .taskerFont(.bodyEmphasis)
+            Text("What LifeBoard will reuse")
+                .lifeboardFont(.bodyEmphasis)
                 .foregroundStyle(OnboardingTheme.textPrimary)
             OnboardingChecklistCard(items: [
                 "Keep the areas and projects that already fit.",
@@ -7268,10 +7300,10 @@ struct HomeOnboardingGuidanceBanner: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 6) {
                 Text(state.title)
-                    .taskerFont(.headline)
+                    .lifeboardFont(.headline)
                     .foregroundStyle(OnboardingTheme.textPrimary)
                 Text(state.message)
-                    .taskerFont(.caption1)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(OnboardingTheme.textSecondary)
             }
             Spacer()
@@ -7288,35 +7320,35 @@ struct HomeOnboardingGuidanceBanner: View {
 
 @MainActor
 private enum OnboardingTheme {
-    static let canvas = Color(uiColor: UIColor(taskerHex: "#05070D"))
-    static let canvasSecondary = Color(uiColor: UIColor(taskerHex: "#080C14"))
-    static let canvasElevated = Color(uiColor: UIColor(taskerHex: "#101722"))
-    static let surface = Color(uiColor: UIColor(taskerHex: "#101722")).opacity(0.78)
-    static let surfaceElevated = Color(uiColor: UIColor(taskerHex: "#151E2C")).opacity(0.88)
-    static let surfaceMuted = Color(uiColor: UIColor(taskerHex: "#0D131D")).opacity(0.74)
+    static let canvas = Color(uiColor: UIColor(lifeboardHex: "#05070D"))
+    static let canvasSecondary = Color(uiColor: UIColor(lifeboardHex: "#080C14"))
+    static let canvasElevated = Color(uiColor: UIColor(lifeboardHex: "#101722"))
+    static let surface = Color(uiColor: UIColor(lifeboardHex: "#101722")).opacity(0.78)
+    static let surfaceElevated = Color(uiColor: UIColor(lifeboardHex: "#151E2C")).opacity(0.88)
+    static let surfaceMuted = Color(uiColor: UIColor(lifeboardHex: "#0D131D")).opacity(0.74)
     static let borderSoft = Color.white.opacity(0.16)
     static let border = Color.white.opacity(0.24)
     static let textPrimary = Color.white.opacity(0.96)
     static let textSecondary = Color.white.opacity(0.76)
     static let textTertiary = Color.white.opacity(0.58)
-    static let accent = Color.tasker(.actionPrimary)
-    static let accentPressed = Color.tasker(.actionPrimaryPressed)
-    static let accentSecondary = Color.tasker(.accentSecondary)
-    static let accentOnPrimary = Color.tasker(.accentOnPrimary)
-    static let marigold = Color(uiColor: UIColor(taskerHex: "#F4C95D"))
+    static let accent = Color.lifeboard(.actionPrimary)
+    static let accentPressed = Color.lifeboard(.actionPrimaryPressed)
+    static let accentSecondary = Color.lifeboard(.accentSecondary)
+    static let accentOnPrimary = Color.lifeboard(.accentOnPrimary)
+    static let marigold = Color(uiColor: UIColor(lifeboardHex: "#F4C95D"))
     static let headerAccent = marigold
-    static let success = Color.tasker(.statusSuccess)
-    static let danger = Color.tasker(.statusDanger)
+    static let success = Color.lifeboard(.statusSuccess)
+    static let danger = Color.lifeboard(.statusDanger)
 }
 
 private enum OnboardingPastelPalette {
     private static let colors: [Color] = [
-        Color(uiColor: UIColor(taskerHex: HabitColorFamily.green.canonicalHex)).opacity(0.24),
-        Color(uiColor: UIColor(taskerHex: HabitColorFamily.teal.canonicalHex)).opacity(0.24),
-        Color(uiColor: UIColor(taskerHex: HabitColorFamily.blue.canonicalHex)).opacity(0.24),
-        Color(uiColor: UIColor(taskerHex: HabitColorFamily.purple.canonicalHex)).opacity(0.24),
-        Color(uiColor: UIColor(taskerHex: HabitColorFamily.orange.canonicalHex)).opacity(0.24),
-        Color(uiColor: UIColor(taskerHex: HabitColorFamily.coral.canonicalHex)).opacity(0.24)
+        Color(uiColor: UIColor(lifeboardHex: HabitColorFamily.green.canonicalHex)).opacity(0.24),
+        Color(uiColor: UIColor(lifeboardHex: HabitColorFamily.teal.canonicalHex)).opacity(0.24),
+        Color(uiColor: UIColor(lifeboardHex: HabitColorFamily.blue.canonicalHex)).opacity(0.24),
+        Color(uiColor: UIColor(lifeboardHex: HabitColorFamily.purple.canonicalHex)).opacity(0.24),
+        Color(uiColor: UIColor(lifeboardHex: HabitColorFamily.orange.canonicalHex)).opacity(0.24),
+        Color(uiColor: UIColor(lifeboardHex: HabitColorFamily.coral.canonicalHex)).opacity(0.24)
     ]
 
     static func color(for key: String) -> Color {
@@ -7370,10 +7402,10 @@ private struct OnboardingStepVisualTheme: Equatable {
     private static func theme(id: String, backdrop: String, accent: String, next: String, nextForeground: String) -> OnboardingStepVisualTheme {
         OnboardingStepVisualTheme(
             id: id,
-            backdrop: Color(uiColor: UIColor(taskerHex: backdrop)),
-            accent: Color(uiColor: UIColor(taskerHex: accent)),
-            next: Color(uiColor: UIColor(taskerHex: next)),
-            nextForeground: Color(uiColor: UIColor(taskerHex: nextForeground))
+            backdrop: Color(uiColor: UIColor(lifeboardHex: backdrop)),
+            accent: Color(uiColor: UIColor(lifeboardHex: accent)),
+            next: Color(uiColor: UIColor(lifeboardHex: next)),
+            nextForeground: Color(uiColor: UIColor(lifeboardHex: nextForeground))
         )
     }
 }
@@ -7576,7 +7608,7 @@ private struct OnboardingFloatingNextButton: View {
         Button(action: action.action) {
             HStack(spacing: 12) {
                 Text(action.title)
-                    .taskerFont(.buttonSmall)
+                    .lifeboardFont(.buttonSmall)
                     .foregroundStyle(OnboardingTheme.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.trailing)
@@ -7664,7 +7696,7 @@ private struct OnboardingSectionHeader: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(title)
-                    .taskerFont(.title1)
+                    .lifeboardFont(.title1)
                     .foregroundStyle(OnboardingTheme.marigold)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -7672,13 +7704,13 @@ private struct OnboardingSectionHeader: View {
 
                 if let detail, detail.isEmpty == false {
                     Text(detail)
-                        .taskerFont(.caption1)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(OnboardingTheme.marigold)
                 }
             }
 
             Text(subtitle)
-                .taskerFont(.body)
+                .lifeboardFont(.body)
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -7690,7 +7722,7 @@ private struct OnboardingEyebrowLabel: View {
 
     var body: some View {
         Text(title.uppercased())
-            .taskerFont(.caption2)
+            .lifeboardFont(.caption2)
             .foregroundStyle(OnboardingTheme.headerAccent)
     }
 }
@@ -7706,12 +7738,12 @@ private struct OnboardingTrustRow: View {
                         Image(systemName: item.0)
                         Text(item.1)
                     }
-                    .taskerFont(.caption2)
+                    .lifeboardFont(.caption2)
                     .foregroundStyle(OnboardingTheme.textSecondary)
 
                     if index < items.count - 1 {
                         Text("·")
-                            .taskerFont(.caption2)
+                            .lifeboardFont(.caption2)
                             .foregroundStyle(OnboardingTheme.textTertiary)
                     }
                 }
@@ -7730,7 +7762,7 @@ private struct OnboardingTrustRow: View {
             Image(systemName: icon)
             Text(title)
         }
-        .taskerFont(.caption2)
+        .lifeboardFont(.caption2)
         .foregroundStyle(OnboardingTheme.textSecondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -7862,7 +7894,7 @@ private struct OnboardingCinematicBackdrop: View {
             )
             .ignoresSafeArea()
 
-            TaskerBackdropNoiseOverlay(amount: mode.grainAmount)
+            LifeBoardBackdropNoiseOverlay(amount: mode.grainAmount)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
                 .ignoresSafeArea()
@@ -7979,7 +8011,7 @@ private final class OnboardingAccessibilityMarkerView: UIView {
 #endif
 
 private struct OnboardingWelcomeCinematicOverlay: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     let phase: WelcomeIntroPhase
@@ -8048,7 +8080,7 @@ private struct OnboardingWelcomeCinematicOverlay: View {
     private var cinematicCard: some View {
         VStack(spacing: 18) {
             OnboardingWelcomeIntroLine(
-                text: "Welcome to Tasker",
+                text: "Welcome to LifeBoard",
                 style: .display,
                 isVisible: titleVisible,
                 secondary: false
@@ -8058,7 +8090,7 @@ private struct OnboardingWelcomeCinematicOverlay: View {
         .padding(.horizontal, 26)
         .padding(.vertical, 28)
         .frame(maxWidth: layoutClass.isPad ? 520 : 420)
-        .taskerPremiumSurface(
+        .lifeboardPremiumSurface(
             cornerRadius: 34,
             fillColor: reduceTransparency
                 ? OnboardingTheme.surfaceElevated.opacity(0.94)
@@ -8071,20 +8103,20 @@ private struct OnboardingWelcomeCinematicOverlay: View {
         .shadow(color: Color.black.opacity(0.14), radius: 32, y: 18)
         .opacity(phase.introCardOpacity)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Welcome to Tasker.")
+        .accessibilityLabel("Welcome to LifeBoard.")
         .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeIntroTitleCard)
     }
 }
 
 private struct OnboardingWelcomeIntroLine: View {
     let text: String
-    let style: TaskerTextStyle
+    let style: LifeBoardTextStyle
     let isVisible: Bool
     let secondary: Bool
 
     var body: some View {
         Text(text)
-            .taskerFont(style)
+            .lifeboardFont(style)
             .foregroundStyle(secondary ? OnboardingTheme.textSecondary : OnboardingTheme.textPrimary)
             .fixedSize(horizontal: false, vertical: true)
             .blur(radius: isVisible ? 0 : 18)
@@ -8282,11 +8314,11 @@ private struct OnboardingPromptValueCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Start from what already fits.")
-                .taskerFont(.title2)
+                .lifeboardFont(.title2)
                 .foregroundStyle(OnboardingTheme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Tasker can reuse what is already working, keep the setup clean, and guide you into one small win without replaying the whole intro.")
-                .taskerFont(.body)
+            Text("LifeBoard can reuse what is already working, keep the setup clean, and guide you into one small win without replaying the whole intro.")
+                .lifeboardFont(.body)
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -8298,7 +8330,7 @@ private struct OnboardingPromptValueCard: View {
                     snapshot.taskCount
                 )
             )
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(OnboardingTheme.textSecondary)
         }
     }
@@ -8324,13 +8356,13 @@ private struct OnboardingSelectionSummaryCard: View {
                 }
 
                 Text(title)
-                    .taskerFont(.bodyEmphasis)
+                    .lifeboardFont(.bodyEmphasis)
                     .foregroundStyle(OnboardingTheme.textPrimary)
 
                 Spacer(minLength: 0)
             }
             Text(message)
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -8348,7 +8380,7 @@ private struct OnboardingMascotCarousel: View {
     let personas: [AssistantMascotPersona]
     let onSelect: (AssistantMascotID) -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     var body: some View {
         TabView(
@@ -8371,10 +8403,10 @@ private struct OnboardingMascotCarousel: View {
 
                     VStack(spacing: 6) {
                         Text(persona.displayName)
-                            .taskerFont(.title1)
+                            .lifeboardFont(.title1)
                             .foregroundStyle(OnboardingTheme.marigold)
                         Text(persona.shortDescription)
-                            .taskerFont(.body)
+                            .lifeboardFont(.body)
                             .foregroundStyle(OnboardingTheme.textSecondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
@@ -8404,7 +8436,7 @@ private struct OnboardingCustomEntryRow: View {
         HStack(spacing: 10) {
             TextField(placeholder, text: $text)
                 .textFieldStyle(.plain)
-                .taskerFont(.body)
+                .lifeboardFont(.body)
                 .foregroundStyle(OnboardingTheme.textPrimary)
                 .submitLabel(.done)
                 .focused(focus, equals: focusID)
@@ -8413,7 +8445,7 @@ private struct OnboardingCustomEntryRow: View {
             Button(actionTitle) {
                 onAdd()
             }
-            .taskerFont(.buttonSmall)
+            .lifeboardFont(.buttonSmall)
             .foregroundStyle(OnboardingTheme.marigold)
             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
@@ -8440,10 +8472,10 @@ private struct OnboardingInlineActionRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .taskerFont(.bodyEmphasis)
+                    .lifeboardFont(.bodyEmphasis)
                     .foregroundStyle(OnboardingTheme.textPrimary)
                 Text(subtitle)
-                    .taskerFont(.caption1)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(OnboardingTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -8476,12 +8508,12 @@ private struct OnboardingDownloadStatusStrip: View {
                 Image(systemName: statusIcon)
                     .foregroundStyle(OnboardingTheme.marigold)
                 Text(statusTitle)
-                    .taskerFont(.caption1)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(OnboardingTheme.textPrimary)
                 Spacer()
                 if state.phase == .downloading {
                     Text("\(Int(normalizedProgress * 100))%")
-                        .taskerFont(.caption2)
+                        .lifeboardFont(.caption2)
                         .foregroundStyle(OnboardingTheme.marigold)
                 }
             }
@@ -8490,7 +8522,7 @@ private struct OnboardingDownloadStatusStrip: View {
                 ProgressView(value: normalizedProgress)
                     .tint(OnboardingTheme.marigold)
                 Text(downloadDetail)
-                    .taskerFont(.caption2)
+                    .lifeboardFont(.caption2)
                     .foregroundStyle(OnboardingTheme.textTertiary)
             }
         }
@@ -8547,7 +8579,7 @@ private struct OnboardingDownloadStatusPill: View {
                 .accessibilityHidden(true)
 
             Text(statusText)
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -8866,10 +8898,10 @@ struct OnboardingHomeDemoPreview: View {
     let onTaskDone: () -> Void
     let onHabitDone: () -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var timelineSnapshot: HomeTimelineSnapshot {
@@ -8891,10 +8923,10 @@ struct OnboardingHomeDemoPreview: View {
                 )
                 VStack(alignment: .leading, spacing: 3) {
                     Text(assistantName)
-                        .taskerFont(.caption1)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(OnboardingTheme.marigold)
                     Text(taskDone ? "Now mark a habit done." : "Tap the next task in your Home timeline.")
-                        .taskerFont(.bodyEmphasis)
+                        .lifeboardFont(.bodyEmphasis)
                         .foregroundStyle(OnboardingTheme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -8965,7 +8997,7 @@ private struct OnboardingChecklistCard: View {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(OnboardingTheme.accent)
                     Text(item)
-                        .taskerFont(.caption1)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(OnboardingTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -8993,7 +9025,7 @@ private struct OnboardingChecklistRow: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(isSelected ? OnboardingTheme.marigold : OnboardingTheme.textSecondary)
                 Text(title)
-                    .taskerFont(.body)
+                    .lifeboardFont(.body)
                     .foregroundStyle(OnboardingTheme.textPrimary)
                     .multilineTextAlignment(.leading)
                 Spacer()
@@ -9027,7 +9059,7 @@ private struct OnboardingSelectableDetailCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(title)
-                        .taskerFont(.bodyEmphasis)
+                        .lifeboardFont(.bodyEmphasis)
                         .foregroundStyle(OnboardingTheme.textPrimary)
                     Spacer()
                     if isSelected {
@@ -9036,7 +9068,7 @@ private struct OnboardingSelectableDetailCard: View {
                     }
                 }
                 Text(subtitle)
-                    .taskerFont(.caption1)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(OnboardingTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -9067,7 +9099,7 @@ private struct OnboardingFilterChip: View {
     var body: some View {
         Button(action: onTap) {
             Text(title)
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(isSelected ? OnboardingTheme.textPrimary : OnboardingTheme.textSecondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -9095,11 +9127,11 @@ private struct OnboardingHabitStreakPreviewCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center) {
                 Label(presentation.title, systemImage: presentation.iconSymbolName)
-                    .taskerFont(.bodyEmphasis)
+                    .lifeboardFont(.bodyEmphasis)
                     .foregroundStyle(OnboardingTheme.textPrimary)
                 Spacer()
                 Text("\(presentation.metrics.currentStreak)d current")
-                    .taskerFont(.caption1)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(OnboardingTheme.textSecondary)
             }
 
@@ -9131,10 +9163,10 @@ private struct OnboardingMiniMetric: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(value)
-                .taskerFont(.headline)
+                .lifeboardFont(.headline)
                 .foregroundStyle(OnboardingTheme.textPrimary)
             Text(title)
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(OnboardingTheme.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -9150,13 +9182,13 @@ private struct OnboardingTaskPreviewCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(projectName.uppercased())
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(OnboardingTheme.textSecondary)
             Text(task.title)
-                .taskerFont(.headline)
+                .lifeboardFont(.headline)
                 .foregroundStyle(OnboardingTheme.textPrimary)
             Text("This is a real starter task, not a demo.")
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(OnboardingTheme.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -9177,10 +9209,10 @@ private struct OnboardingCompactHabitRail: View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Starter streak")
-                    .taskerFont(.caption1)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(OnboardingTheme.textSecondary)
                 Text("\(presentation.metrics.currentStreak)d current")
-                    .taskerFont(.bodyEmphasis)
+                    .lifeboardFont(.bodyEmphasis)
                     .foregroundStyle(OnboardingTheme.textPrimary)
             }
             Spacer()
@@ -9211,17 +9243,17 @@ private struct OnboardingEvaStatusCard: View {
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .taskerFont(.bodyEmphasis)
+                    .lifeboardFont(.bodyEmphasis)
                     .foregroundStyle(OnboardingTheme.textPrimary)
                 Spacer()
                 if state.phase == .downloading {
                     Text("\(Int(state.progress * 100))%")
-                        .taskerFont(.caption1)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(OnboardingTheme.textSecondary)
                 }
             }
             Text(state.statusMessage ?? fallbackMessage)
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(OnboardingTheme.textSecondary)
             if state.phase == .downloading {
                 ProgressView(value: state.progress)
@@ -9273,7 +9305,7 @@ private struct OnboardingEvaStatusCard: View {
         case .ready:
             return "You can ask \(assistantName) what matters next as soon as you land on Home."
         case .deferred:
-            return "Tasker will keep your setup moving and resume \(assistantName) later."
+            return "LifeBoard will keep your setup moving and resume \(assistantName) later."
         case .failed:
             return "The app is ready now. \(assistantName) can finish later from Home or Settings."
         }
@@ -9304,7 +9336,7 @@ private struct OnboardingFrictionOptionCard: View {
                         )
 
                     Text(title)
-                        .taskerFont(.buttonSmall)
+                        .lifeboardFont(.buttonSmall)
                         .foregroundStyle(OnboardingTheme.textPrimary)
                         .multilineTextAlignment(.leading)
                         .lineLimit(layout == .twoColumn ? 2 : nil)
@@ -9332,7 +9364,7 @@ private struct OnboardingFrictionOptionCard: View {
 
                 if isSelected {
                     Text(helperCopy)
-                        .taskerFont(.caption1)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(OnboardingTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier(AppOnboardingAccessibilityID.frictionHelper)
@@ -9411,7 +9443,7 @@ private struct OnboardingSelectableCard: View {
     }
 
     private var resolvedAccent: Color {
-        accentColor ?? Color(uiColor: UIColor(taskerHex: colorHex ?? "#293A18"))
+        accentColor ?? Color(uiColor: UIColor(lifeboardHex: colorHex ?? "#293A18"))
     }
 
     private var iconBackground: Color {
@@ -9449,10 +9481,10 @@ private struct OnboardingSelectableCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .taskerFont(.bodyEmphasis)
+                        .lifeboardFont(.bodyEmphasis)
                         .foregroundStyle(OnboardingTheme.textPrimary)
                     Text(subtitle)
-                        .taskerFont(.caption1)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(OnboardingTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -9494,10 +9526,10 @@ private struct OnboardingHabitRecommendationCard: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(template.title)
-                        .taskerFont(.bodyEmphasis)
+                        .lifeboardFont(.bodyEmphasis)
                         .foregroundStyle(titleColor)
                     Text(template.reason)
-                        .taskerFont(.caption1)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(OnboardingTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -9544,7 +9576,7 @@ private struct OnboardingHabitRecommendationCard: View {
                 } label: {
                     Label(buttonTitle, systemImage: buttonIcon)
                         .labelStyle(.titleAndIcon)
-                        .taskerFont(.buttonSmall)
+                        .lifeboardFont(.buttonSmall)
                         .frame(minHeight: 44)
                         .padding(.horizontal, 12)
                         .background(buttonBackground, in: Capsule())
@@ -9562,7 +9594,7 @@ private struct OnboardingHabitRecommendationCard: View {
 
     private func infoChip(_ title: String) -> some View {
         Text(title)
-            .taskerFont(.caption2)
+            .lifeboardFont(.caption2)
             .foregroundStyle(OnboardingTheme.textSecondary)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
@@ -9715,10 +9747,10 @@ private struct OnboardingTaskRecommendationCard: View {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(template.title)
-                        .taskerFont(.bodyEmphasis)
+                        .lifeboardFont(.bodyEmphasis)
                         .foregroundStyle(titleColor)
                     Text(template.reason)
-                        .taskerFont(.caption1)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(OnboardingTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -9765,7 +9797,7 @@ private struct OnboardingTaskRecommendationCard: View {
                 } label: {
                     Label(buttonTitle, systemImage: buttonIcon)
                         .labelStyle(.titleAndIcon)
-                        .taskerFont(.buttonSmall)
+                        .lifeboardFont(.buttonSmall)
                         .frame(minHeight: 44)
                         .padding(.horizontal, 12)
                         .background(buttonBackground, in: Capsule())
@@ -9889,7 +9921,7 @@ private struct OnboardingTaskRecommendationCard: View {
 
     private func metaChip(_ title: String) -> some View {
         Text(title)
-            .taskerFont(.caption2)
+            .lifeboardFont(.caption2)
             .foregroundStyle(OnboardingTheme.textSecondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -9915,7 +9947,7 @@ private struct OnboardingPrimaryCTAButtonStyle: ButtonStyle {
         let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
 
         return configuration.label
-            .taskerFont(.button)
+            .lifeboardFont(.button)
             .foregroundStyle(disabled ? OnboardingTheme.textSecondary : OnboardingTheme.accentOnPrimary)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -9941,7 +9973,7 @@ private struct OnboardingInlineBadge: View {
 
     var body: some View {
         Text(title)
-            .taskerFont(.caption2)
+            .lifeboardFont(.caption2)
             .foregroundStyle(accent)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -9965,7 +9997,7 @@ private struct OnboardingFocusHeroCard: View {
                     .accessibilityHidden(true)
 
                 Text(OnboardingCopy.Focus.title)
-                    .taskerFont(.title2)
+                    .lifeboardFont(.title2)
                     .foregroundStyle(OnboardingTheme.textPrimary)
                     .accessibilityIdentifier(AppOnboardingAccessibilityID.focusRoom)
 
@@ -9973,7 +10005,7 @@ private struct OnboardingFocusHeroCard: View {
             }
 
             Text(OnboardingCopy.Focus.subtitle)
-                .taskerFont(.body)
+                .lifeboardFont(.body)
                 .foregroundStyle(OnboardingTheme.textSecondary)
 
             ViewThatFits(in: .horizontal) {
@@ -9994,7 +10026,7 @@ private struct OnboardingFocusHeroCard: View {
             }
 
             Text(task.title)
-                .taskerFont(.title1)
+                .lifeboardFont(.title1)
                 .foregroundStyle(OnboardingTheme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -10041,7 +10073,7 @@ private struct OnboardingFocusHeroCard: View {
 
     private func pill(_ title: String, accent: Color) -> some View {
         Text(title)
-            .taskerFont(.caption2)
+            .lifeboardFont(.caption2)
             .foregroundStyle(accent)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -10074,10 +10106,10 @@ private struct OnboardingFocusTimer: View {
                 .foregroundStyle(OnboardingTheme.accent)
             VStack(alignment: .leading, spacing: 4) {
                 Text(labelText)
-                    .taskerFont(.caption2)
+                    .lifeboardFont(.caption2)
                     .foregroundStyle(OnboardingTheme.textSecondary)
                 Text(valueText)
-                    .taskerFont(.title2)
+                    .lifeboardFont(.title2)
                     .foregroundStyle(OnboardingTheme.textPrimary)
             }
             Spacer()
@@ -10110,7 +10142,7 @@ private struct OnboardingFocusTimer: View {
 }
 
 private struct OnboardingSuccessHero: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulse = false
 
@@ -10125,12 +10157,12 @@ private struct OnboardingSuccessHero: View {
             }
 
             Text(OnboardingCopy.Success.title)
-                .taskerFont(.display)
+                .lifeboardFont(.display)
                 .foregroundStyle(OnboardingTheme.marigold)
                 .multilineTextAlignment(.center)
 
             Text(OnboardingCopy.Success.subtitle)
-                .taskerFont(.body)
+                .lifeboardFont(.body)
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
@@ -10165,7 +10197,7 @@ private struct OnboardingSuccessSummaryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("What’s now in place")
-                .taskerFont(.headline)
+                .lifeboardFont(.headline)
                 .foregroundStyle(OnboardingTheme.textPrimary)
 
             VStack(alignment: .leading, spacing: 0) {
@@ -10221,10 +10253,10 @@ private struct OnboardingSuccessSummaryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(OnboardingTheme.textSecondary)
             Text(value)
-                .taskerFont(.bodyEmphasis)
+                .lifeboardFont(.bodyEmphasis)
                 .foregroundStyle(OnboardingTheme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -10294,7 +10326,7 @@ private extension View {
 
     func onboardingSecondaryButtonStyle(accent: Color) -> some View {
         self
-            .taskerFont(.buttonSmall)
+            .lifeboardFont(.buttonSmall)
             .foregroundStyle(accent)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -10444,7 +10476,7 @@ extension CalendarIntegrationService {
 }
 
 extension NotificationServiceProtocol {
-    func fetchAuthorizationStatusAsync() async -> TaskerNotificationAuthorizationStatus {
+    func fetchAuthorizationStatusAsync() async -> LifeBoardNotificationAuthorizationStatus {
         await withCheckedContinuation { continuation in
             fetchAuthorizationStatus { status in
                 continuation.resume(returning: status)
