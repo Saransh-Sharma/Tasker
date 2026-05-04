@@ -163,19 +163,19 @@ public enum HabitColorFamily: String, Codable, CaseIterable, Hashable, Sendable 
     }
 }
 
-public enum HabitBridgeSource: String, Codable, Hashable {
+public enum HabitBridgeSource: String, Codable, Hashable, Sendable {
     case skipped
     case notScheduled
 }
 
-public enum HabitBridgeKind: String, Codable, Hashable {
+public enum HabitBridgeKind: String, Codable, Hashable, Sendable {
     case single
     case start
     case middle
     case end
 }
 
-public enum HabitBoardCellState: Equatable, Hashable {
+public enum HabitBoardCellState: Equatable, Hashable, Sendable {
     case done(depth: Int)
     case missed
     case bridge(kind: HabitBridgeKind, source: HabitBridgeSource)
@@ -183,7 +183,7 @@ public enum HabitBoardCellState: Equatable, Hashable {
     case future
 }
 
-public struct HabitBoardCell: Equatable, Hashable {
+public struct HabitBoardCell: Equatable, Hashable, Sendable {
     public let date: Date
     public let state: HabitBoardCellState
     public let isToday: Bool
@@ -360,7 +360,7 @@ public struct HabitHistoryWindow: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable {
+public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let habitID: UUID
     public let title: String
     public let kind: HabitKind
@@ -432,7 +432,7 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable {
     }
 }
 
-public struct HabitRuntimeSyncResult: Codable, Equatable, Hashable {
+public struct HabitRuntimeSyncResult: Codable, Equatable, Hashable, Sendable {
     public let templatesRebuilt: Int
     public let occurrencesGenerated: Int
     public let rolloverUpdates: Int
@@ -444,7 +444,7 @@ public struct HabitRuntimeSyncResult: Codable, Equatable, Hashable {
     }
 }
 
-public struct HabitInsightSignal: Codable, Equatable, Hashable {
+public struct HabitInsightSignal: Codable, Equatable, Hashable, Sendable {
     public let habitID: UUID
     public let title: String
     public let kind: HabitKind

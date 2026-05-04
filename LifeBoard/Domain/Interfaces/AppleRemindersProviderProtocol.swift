@@ -1,6 +1,6 @@
 import Foundation
 
-public struct AppleReminderItemSnapshot: Codable, Equatable, Hashable {
+public struct AppleReminderItemSnapshot: Codable, Equatable, Hashable, Sendable {
     public let itemID: String
     public let calendarID: String
     public var title: String
@@ -44,7 +44,7 @@ public struct AppleReminderItemSnapshot: Codable, Equatable, Hashable {
     }
 }
 
-public struct AppleReminderListSnapshot: Codable, Equatable, Hashable {
+public struct AppleReminderListSnapshot: Codable, Equatable, Hashable, Sendable {
     public let listID: String
     public let title: String
 
@@ -55,15 +55,15 @@ public struct AppleReminderListSnapshot: Codable, Equatable, Hashable {
     }
 }
 
-public protocol AppleRemindersProviderProtocol {
+public protocol AppleRemindersProviderProtocol: Sendable {
     /// Executes requestAccess.
-    func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void)
+    func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void)
     /// Executes fetchLists.
-    func fetchLists(completion: @escaping (Result<[AppleReminderListSnapshot], Error>) -> Void)
+    func fetchLists(completion: @escaping @Sendable (Result<[AppleReminderListSnapshot], Error>) -> Void)
     /// Executes fetchReminders.
-    func fetchReminders(listID: String, completion: @escaping (Result<[AppleReminderItemSnapshot], Error>) -> Void)
+    func fetchReminders(listID: String, completion: @escaping @Sendable (Result<[AppleReminderItemSnapshot], Error>) -> Void)
     /// Executes upsertReminder.
-    func upsertReminder(listID: String, snapshot: AppleReminderItemSnapshot, completion: @escaping (Result<AppleReminderItemSnapshot, Error>) -> Void)
+    func upsertReminder(listID: String, snapshot: AppleReminderItemSnapshot, completion: @escaping @Sendable (Result<AppleReminderItemSnapshot, Error>) -> Void)
     /// Executes deleteReminder.
-    func deleteReminder(itemID: String, completion: @escaping (Result<Void, Error>) -> Void)
+    func deleteReminder(itemID: String, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
 }

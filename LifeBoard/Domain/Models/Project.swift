@@ -1,6 +1,6 @@
 //
 //  Project.swift
-//  Tasker
+//  LifeBoard
 //
 //  Domain model for Project - Pure Swift, no framework dependencies
 //

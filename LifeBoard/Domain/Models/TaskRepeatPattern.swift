@@ -1,6 +1,6 @@
 //
 //  TaskRepeatPattern.swift
-//  Tasker
+//  LifeBoard
 //
 //  Task repeat patterns for recurring tasks
 //

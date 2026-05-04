@@ -47,7 +47,7 @@ public enum TaskReadSort: String, Codable, Equatable, Hashable, Sendable {
     case updatedAtDescending
 }
 
-public struct TaskSearchQuery: Codable, Equatable, Hashable {
+public struct TaskSearchQuery: Codable, Equatable, Hashable, Sendable {
     public var text: String
     public var projectID: UUID?
     public var includeCompleted: Bool
@@ -79,14 +79,14 @@ public struct TaskSearchQuery: Codable, Equatable, Hashable {
     }
 }
 
-public enum TaskSearchStatus: String, Codable, Equatable, Hashable {
+public enum TaskSearchStatus: String, Codable, Equatable, Hashable, Sendable {
     case all
     case today
     case overdue
     case completed
 }
 
-public struct TaskRepositorySearchQuery: Codable, Equatable, Hashable {
+public struct TaskRepositorySearchQuery: Codable, Equatable, Hashable, Sendable {
     public var text: String
     public var status: TaskSearchStatus
     public var projectIDs: [UUID]
@@ -236,7 +236,7 @@ public struct InsightsTodayProjectionQuery: Codable, Equatable, Hashable, Sendab
     }
 }
 
-public struct InsightsWeekProjectionQuery: Codable, Equatable, Hashable {
+public struct InsightsWeekProjectionQuery: Codable, Equatable, Hashable, Sendable {
     public var referenceDate: Date
     public var dueWindowLimit: Int
     public var recentLimit: Int

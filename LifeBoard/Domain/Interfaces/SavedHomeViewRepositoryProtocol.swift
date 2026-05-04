@@ -1,21 +1,21 @@
 //
 //  SavedHomeViewRepositoryProtocol.swift
-//  Tasker
+//  LifeBoard
 //
 //  Storage abstraction for Home "saved views" presets
 //
 
 import Foundation
 
-public protocol SavedHomeViewRepositoryProtocol {
+public protocol SavedHomeViewRepositoryProtocol: Sendable {
     /// Executes fetchAll.
-    func fetchAll(completion: @escaping (Result<[SavedHomeView], Error>) -> Void)
+    func fetchAll(completion: @escaping @Sendable (Result<[SavedHomeView], Error>) -> Void)
     /// Executes save.
-    func save(_ view: SavedHomeView, completion: @escaping (Result<[SavedHomeView], Error>) -> Void)
+    func save(_ view: SavedHomeView, completion: @escaping @Sendable (Result<[SavedHomeView], Error>) -> Void)
     /// Executes delete.
-    func delete(id: UUID, completion: @escaping (Result<[SavedHomeView], Error>) -> Void)
+    func delete(id: UUID, completion: @escaping @Sendable (Result<[SavedHomeView], Error>) -> Void)
     /// Executes replaceAll.
-    func replaceAll(_ views: [SavedHomeView], completion: @escaping (Result<[SavedHomeView], Error>) -> Void)
+    func replaceAll(_ views: [SavedHomeView], completion: @escaping @Sendable (Result<[SavedHomeView], Error>) -> Void)
 }
 
 public enum SavedHomeViewRepositoryError: LocalizedError {

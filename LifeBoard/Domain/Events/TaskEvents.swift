@@ -1,6 +1,6 @@
 //
 //  TaskEvents.swift
-//  Tasker
+//  LifeBoard
 //
 //  Domain events related to Task operations
 //

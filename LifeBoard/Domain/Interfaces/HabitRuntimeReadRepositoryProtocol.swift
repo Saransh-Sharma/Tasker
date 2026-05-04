@@ -1,17 +1,17 @@
 import Foundation
 
-public protocol HabitRuntimeReadRepositoryProtocol {
+public protocol HabitRuntimeReadRepositoryProtocol: Sendable {
     /// Executes fetchAgendaHabits.
     func fetchAgendaHabits(
         for date: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     )
 
     /// Executes fetchAgendaHabit.
     func fetchAgendaHabit(
         habitID: UUID,
         for date: Date,
-        completion: @escaping (Result<HabitOccurrenceSummary?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitOccurrenceSummary?, Error>) -> Void
     )
 
     /// Executes fetchHistory.
@@ -19,34 +19,34 @@ public protocol HabitRuntimeReadRepositoryProtocol {
         habitIDs: [UUID],
         endingOn date: Date,
         dayCount: Int,
-        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     )
 
     /// Executes fetchSignals.
     func fetchSignals(
         start: Date,
         end: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     )
 
     /// Executes fetchHabitLibrary.
     func fetchHabitLibrary(
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     )
 
     /// Executes fetchHabitLibrary.
     func fetchHabitLibrary(
         habitIDs: [UUID]?,
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     )
 
     /// Executes fetchHabitDetailSummary.
     func fetchHabitDetailSummary(
         habitID: UUID,
         includeArchived: Bool,
-        completion: @escaping (Result<HabitLibraryRow?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitLibraryRow?, Error>) -> Void
     )
 }
 
@@ -54,7 +54,7 @@ public extension HabitRuntimeReadRepositoryProtocol {
     func fetchAgendaHabit(
         habitID: UUID,
         for date: Date,
-        completion: @escaping (Result<HabitOccurrenceSummary?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitOccurrenceSummary?, Error>) -> Void
     ) {
         fetchAgendaHabits(for: date) { result in
             completion(
@@ -68,7 +68,7 @@ public extension HabitRuntimeReadRepositoryProtocol {
     func fetchHabitLibrary(
         habitIDs: [UUID]?,
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
         fetchHabitLibrary(includeArchived: includeArchived) { result in
             completion(
@@ -84,7 +84,7 @@ public extension HabitRuntimeReadRepositoryProtocol {
     func fetchHabitDetailSummary(
         habitID: UUID,
         includeArchived: Bool,
-        completion: @escaping (Result<HabitLibraryRow?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitLibraryRow?, Error>) -> Void
     ) {
         fetchHabitLibrary(habitIDs: [habitID], includeArchived: includeArchived) { result in
             completion(result.map { $0.first })

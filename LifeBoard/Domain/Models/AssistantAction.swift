@@ -16,7 +16,7 @@ public enum AssistantRollbackStatus: String, Codable, Sendable {
     case failed
 }
 
-public struct AssistantCommandEnvelope: Codable, Equatable, Hashable {
+public struct AssistantCommandEnvelope: Codable, Equatable, Hashable, Sendable {
     public var schemaVersion: Int
     public var commands: [AssistantCommand]
     public var undoCommands: [AssistantCommand]?
@@ -36,7 +36,7 @@ public struct AssistantCommandEnvelope: Codable, Equatable, Hashable {
     }
 }
 
-public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
+public struct AssistantTaskSnapshot: Codable, Equatable, Hashable, Sendable {
     public var id: UUID
     public var recurrenceSeriesID: UUID?
     public var habitDefinitionID: UUID?
@@ -244,7 +244,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     }
 }
 
-public enum AssistantDeferralReason: String, Codable, Equatable, Hashable {
+public enum AssistantDeferralReason: String, Codable, Equatable, Hashable, Sendable {
     case userRequested
     case runningLate
     case overload
@@ -252,7 +252,7 @@ public enum AssistantDeferralReason: String, Codable, Equatable, Hashable {
     case needsReview
 }
 
-public enum AssistantDropDestination: String, Codable, Equatable, Hashable {
+public enum AssistantDropDestination: String, Codable, Equatable, Hashable, Sendable {
     case inbox
     case later
     case someday
@@ -266,7 +266,7 @@ public enum AssistantDropDestination: String, Codable, Equatable, Hashable {
     }
 }
 
-public enum AssistantFieldUpdate<Value: Codable & Hashable>: Codable, Equatable, Hashable {
+public enum AssistantFieldUpdate<Value: Codable & Hashable & Sendable>: Codable, Equatable, Hashable, Sendable {
     case absent
     case set(Value)
     case clear
@@ -297,7 +297,7 @@ public enum AssistantFieldUpdate<Value: Codable & Hashable>: Codable, Equatable,
 }
 
 private extension KeyedDecodingContainer {
-    func decodeFieldUpdate<Value: Codable & Hashable>(
+    func decodeFieldUpdate<Value: Codable & Hashable & Sendable>(
         _ type: Value.Type,
         forKey key: Key
     ) throws -> AssistantFieldUpdate<Value> {
@@ -310,7 +310,7 @@ private extension KeyedDecodingContainer {
 }
 
 private extension KeyedEncodingContainer {
-    mutating func encodeFieldUpdate<Value: Codable & Hashable>(
+    mutating func encodeFieldUpdate<Value: Codable & Hashable & Sendable>(
         _ update: AssistantFieldUpdate<Value>,
         forKey key: Key
     ) throws {
@@ -325,7 +325,7 @@ private extension KeyedEncodingContainer {
     }
 }
 
-public enum AssistantCommand: Codable, Equatable, Hashable {
+public enum AssistantCommand: Codable, Equatable, Hashable, Sendable {
     case createTask(projectID: UUID, title: String)
     case restoreTask(taskID: UUID, projectID: UUID, title: String, dueDate: Date?, isComplete: Bool, dateCompleted: Date?)
     case restoreTaskSnapshot(snapshot: AssistantTaskSnapshot)

@@ -1,6 +1,6 @@
 //
 //  AnalyticsRepositoryProtocol.swift
-//  Tasker
+//  LifeBoard
 //
 //  Protocol for analytics data repository operations
 //
@@ -8,7 +8,7 @@
 import Foundation
 
 /// Protocol for analytics repository operations
-public protocol AnalyticsRepositoryProtocol {
+public protocol AnalyticsRepositoryProtocol: Sendable {
     
     // MARK: - Analytics Data
     
@@ -20,7 +20,7 @@ public protocol AnalyticsRepositoryProtocol {
     func fetchAnalyticsData(
         from startDate: Date,
         to endDate: Date,
-        completion: @escaping (Result<AnalyticsData, Error>) -> Void
+        completion: @escaping @Sendable (Result<AnalyticsData, Error>) -> Void
     )
     
     /// Save analytics data
@@ -29,7 +29,7 @@ public protocol AnalyticsRepositoryProtocol {
     ///   - completion: Completion handler with success or error
     func saveAnalyticsData(
         _ data: AnalyticsData,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     )
     
     /// Fetch task completion patterns
@@ -38,7 +38,7 @@ public protocol AnalyticsRepositoryProtocol {
     ///   - completion: Completion handler with patterns or error
     func fetchCompletionPatterns(
         for userId: UUID?,
-        completion: @escaping (Result<[CompletionPattern], Error>) -> Void
+        completion: @escaping @Sendable (Result<[CompletionPattern], Error>) -> Void
     )
     
     /// Save task completion pattern
@@ -47,7 +47,7 @@ public protocol AnalyticsRepositoryProtocol {
     ///   - completion: Completion handler with success or error
     func saveCompletionPattern(
         _ pattern: CompletionPattern,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     )
 }
 

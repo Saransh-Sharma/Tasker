@@ -1,12 +1,12 @@
 import Foundation
 
-public protocol SchedulingEngineProtocol {
+public protocol SchedulingEngineProtocol: Sendable {
     /// Executes generateOccurrences.
     func generateOccurrences(
         windowStart: Date,
         windowEnd: Date,
         sourceFilter: ScheduleSourceType?,
-        completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void
     )
 
     /// Executes resolveOccurrence.
@@ -14,14 +14,14 @@ public protocol SchedulingEngineProtocol {
         id: UUID,
         resolution: OccurrenceResolutionType,
         actor: OccurrenceActor,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     )
 
     /// Executes rebuildFutureOccurrences.
     func rebuildFutureOccurrences(
         templateID: UUID,
         effectiveFrom: Date,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     )
 
     /// Executes applyScheduleException.
@@ -29,6 +29,6 @@ public protocol SchedulingEngineProtocol {
         templateID: UUID,
         occurrenceKey: String,
         action: ScheduleExceptionAction,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     )
 }

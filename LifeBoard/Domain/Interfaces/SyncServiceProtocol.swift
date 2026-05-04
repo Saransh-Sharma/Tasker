@@ -1,6 +1,6 @@
 //
 //  SyncServiceProtocol.swift
-//  Tasker
+//  LifeBoard
 //
 //  Protocol defining the interface for data synchronization operations
 //
@@ -24,26 +24,26 @@ public protocol SyncServiceProtocol {
     // MARK: - Sync Operations
     
     /// Start a full sync
-    func startSync(completion: @escaping (Result<Void, Error>) -> Void)
+    func startSync(completion: @escaping @Sendable (Result<Void, Error>) -> Void)
     
     /// Stop ongoing sync
     func stopSync()
     
     /// Sync specific tasks
-    func syncTasks(_ tasks: [TaskDefinition], completion: @escaping (Result<[TaskDefinition], Error>) -> Void)
+    func syncTasks(_ tasks: [TaskDefinition], completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void)
     
     /// Sync specific projects
-    func syncProjects(_ projects: [Project], completion: @escaping (Result<[Project], Error>) -> Void)
+    func syncProjects(_ projects: [Project], completion: @escaping @Sendable (Result<[Project], Error>) -> Void)
     
     // MARK: - Conflict Resolution
     
     /// Resolve sync conflicts
-    func resolveConflicts(for tasks: [TaskDefinition], strategy: ConflictResolutionStrategy, completion: @escaping (Result<[TaskDefinition], Error>) -> Void)
+    func resolveConflicts(for tasks: [TaskDefinition], strategy: ConflictResolutionStrategy, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void)
     
     // MARK: - Configuration
     
     /// Enable or disable sync
-    func setSyncEnabled(_ enabled: Bool, completion: @escaping (Result<Void, Error>) -> Void)
+    func setSyncEnabled(_ enabled: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
     
     /// Configure sync frequency
     func setSyncFrequency(_ frequency: SyncFrequency)

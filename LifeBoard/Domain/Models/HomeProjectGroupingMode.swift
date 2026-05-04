@@ -1,6 +1,6 @@
 //
 //  HomeProjectGroupingMode.swift
-//  Tasker
+//  LifeBoard
 //
 //  Home task-list grouping mode for Today quick view.
 //

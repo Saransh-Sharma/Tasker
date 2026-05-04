@@ -24,7 +24,7 @@ public struct ReminderDefinition: Codable, Equatable, Hashable, Sendable {
     public var updatedAt: Date
 }
 
-public struct ReminderTriggerDefinition: Codable, Equatable, Hashable {
+public struct ReminderTriggerDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var reminderID: UUID
     public var triggerType: ReminderTriggerType
@@ -34,7 +34,7 @@ public struct ReminderTriggerDefinition: Codable, Equatable, Hashable {
     public var createdAt: Date
 }
 
-public struct ReminderDeliveryDefinition: Codable, Equatable, Hashable {
+public struct ReminderDeliveryDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var reminderID: UUID
     public var triggerID: UUID
@@ -47,7 +47,7 @@ public struct ReminderDeliveryDefinition: Codable, Equatable, Hashable {
     public var createdAt: Date
 }
 
-public struct ReminderDeliveryResponseAggregate: Codable, Equatable, Hashable {
+public struct ReminderDeliveryResponseAggregate: Codable, Equatable, Hashable, Sendable {
     public var configuredReminderCount: Int
     public var totalDeliveries: Int
     public var acknowledgedDeliveries: Int

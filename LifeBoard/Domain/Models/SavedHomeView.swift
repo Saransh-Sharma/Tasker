@@ -1,13 +1,13 @@
 //
 //  SavedHomeView.swift
-//  Tasker
+//  LifeBoard
 //
 //  User-defined reusable Home filter presets
 //
 
 import Foundation
 
-public struct SavedHomeView: Codable, Equatable, Identifiable {
+public struct SavedHomeView: Codable, Equatable, Identifiable, Sendable {
     public static let schemaVersion = 1
 
     public let id: UUID

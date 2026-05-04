@@ -1,6 +1,6 @@
 //
 //  NotificationServiceProtocol.swift
-//  Tasker
+//  LifeBoard
 //
 //  Protocol for notification service abstraction
 //
@@ -44,13 +44,13 @@ public protocol NotificationServiceProtocol {
     // MARK: - Typed Local Notifications
 
     /// Schedule a typed local notification request.
-    func schedule(request: TaskerLocalNotificationRequest)
+    func schedule(request: LifeBoardLocalNotificationRequest)
 
     /// Cancel pending requests by identifier.
     func cancel(ids: [String])
 
     /// Inspect pending notification requests.
-    func pendingRequests(completion: @escaping @Sendable ([TaskerPendingNotificationRequest]) -> Void)
+    func pendingRequests(completion: @escaping @Sendable ([LifeBoardPendingNotificationRequest]) -> Void)
 
     /// Register local notification action categories.
     func registerCategories(_ categories: Set<UNNotificationCategory>)
@@ -59,11 +59,11 @@ public protocol NotificationServiceProtocol {
     func setDelegate(_ delegate: UNUserNotificationCenterDelegate?)
 
     /// Fetch fine-grained authorization status.
-    func fetchAuthorizationStatus(completion: @escaping @Sendable (TaskerNotificationAuthorizationStatus) -> Void)
+    func fetchAuthorizationStatus(completion: @escaping @Sendable (LifeBoardNotificationAuthorizationStatus) -> Void)
 }
 
 public extension NotificationServiceProtocol {
-    func schedule(request: TaskerLocalNotificationRequest) {
+    func schedule(request: LifeBoardLocalNotificationRequest) {
         _ = request
         fatalError("NotificationServiceProtocol.schedule(request:) must be implemented by concrete notification services.")
     }
@@ -73,7 +73,7 @@ public extension NotificationServiceProtocol {
         fatalError("NotificationServiceProtocol.cancel(ids:) must be implemented by concrete notification services.")
     }
 
-    func pendingRequests(completion: @escaping @Sendable ([TaskerPendingNotificationRequest]) -> Void) {
+    func pendingRequests(completion: @escaping @Sendable ([LifeBoardPendingNotificationRequest]) -> Void) {
         _ = completion
         fatalError("NotificationServiceProtocol.pendingRequests(completion:) should be implemented for typed notification reconciliation.")
     }
@@ -86,20 +86,20 @@ public extension NotificationServiceProtocol {
         _ = delegate
     }
 
-    func fetchAuthorizationStatus(completion: @escaping @Sendable (TaskerNotificationAuthorizationStatus) -> Void) {
+    func fetchAuthorizationStatus(completion: @escaping @Sendable (LifeBoardNotificationAuthorizationStatus) -> Void) {
         checkAuthorizationStatus { authorized in
             completion(authorized ? .authorized : .denied)
         }
     }
 }
 
-public enum TaskerNotificationCategoryID: String, CaseIterable {
-    case taskActionable = "tasker.task_actionable"
-    case dailyMorning = "tasker.daily_morning"
-    case dailyNightly = "tasker.daily_nightly"
+public enum LifeBoardNotificationCategoryID: String, CaseIterable, Sendable {
+    case taskActionable = "lifeboard.task_actionable"
+    case dailyMorning = "lifeboard.daily_morning"
+    case dailyNightly = "lifeboard.daily_nightly"
 }
 
-public enum TaskerLocalNotificationKind: String, Codable, CaseIterable {
+public enum LifeBoardLocalNotificationKind: String, Codable, CaseIterable, Sendable {
     case taskReminder
     case dueSoon
     case overdue
@@ -109,7 +109,7 @@ public enum TaskerLocalNotificationKind: String, Codable, CaseIterable {
     case snoozedMorning
     case snoozedNightly
 
-    public var defaultCategoryID: TaskerNotificationCategoryID {
+    public var defaultCategoryID: LifeBoardNotificationCategoryID {
         switch self {
         case .taskReminder, .dueSoon, .overdue, .snoozedTask:
             return .taskActionable
@@ -121,19 +121,19 @@ public enum TaskerLocalNotificationKind: String, Codable, CaseIterable {
     }
 }
 
-public enum TaskerNotificationActionID: String, Codable, CaseIterable {
-    case open = "tasker.action.open"
-    case complete = "tasker.action.complete"
-    case snooze15m = "tasker.action.snooze_15m"
-    case openToday = "tasker.action.open_today"
-    case openWeeklyPlanner = "tasker.action.open_weekly_planner"
-    case openWeeklyReview = "tasker.action.open_weekly_review"
-    case snooze30m = "tasker.action.snooze_30m"
-    case openDone = "tasker.action.open_done"
-    case snooze60m = "tasker.action.snooze_60m"
+public enum LifeBoardNotificationActionID: String, Codable, CaseIterable, Sendable {
+    case open = "lifeboard.action.open"
+    case complete = "lifeboard.action.complete"
+    case snooze15m = "lifeboard.action.snooze_15m"
+    case openToday = "lifeboard.action.open_today"
+    case openWeeklyPlanner = "lifeboard.action.open_weekly_planner"
+    case openWeeklyReview = "lifeboard.action.open_weekly_review"
+    case snooze30m = "lifeboard.action.snooze_30m"
+    case openDone = "lifeboard.action.open_done"
+    case snooze60m = "lifeboard.action.snooze_60m"
 }
 
-public enum TaskerNotificationAuthorizationStatus: String, Equatable, Sendable {
+public enum LifeBoardNotificationAuthorizationStatus: String, Equatable, Sendable {
     case notDetermined
     case denied
     case authorized
@@ -141,18 +141,18 @@ public enum TaskerNotificationAuthorizationStatus: String, Equatable, Sendable {
     case ephemeral
 }
 
-public enum TaskerDailySummaryKind: String, Equatable, Codable {
+public enum LifeBoardDailySummaryKind: String, Equatable, Codable, Sendable {
     case morning
     case nightly
 }
 
-public enum TaskerNotificationRoute: Equatable, Codable {
+public enum LifeBoardNotificationRoute: Equatable, Codable, Sendable {
     case homeToday(taskID: UUID?)
     case homeDone
     case taskDetail(taskID: UUID)
     case weeklyPlanner
     case weeklyReview
-    case dailySummary(kind: TaskerDailySummaryKind, dateStamp: String?)
+    case dailySummary(kind: LifeBoardDailySummaryKind, dateStamp: String?)
 
     public var payload: String {
         switch self {
@@ -192,12 +192,12 @@ public enum TaskerNotificationRoute: Equatable, Codable {
         }
     }
 
-    public static func from(payload: String, fallbackTaskID: UUID?) -> TaskerNotificationRoute {
+    public static func from(payload: String, fallbackTaskID: UUID?) -> LifeBoardNotificationRoute {
         if payload.hasPrefix("daily_summary:") {
             let value = String(payload.dropFirst("daily_summary:".count))
             let components = value.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
             let kindRaw = components.first.map(String.init) ?? ""
-            if let kind = TaskerDailySummaryKind(rawValue: kindRaw) {
+            if let kind = LifeBoardDailySummaryKind(rawValue: kindRaw) {
                 let dateStamp = components.count > 1 ? String(components[1]) : nil
                 let normalizedDateStamp = dateStamp?.isEmpty == false ? dateStamp : nil
                 return .dailySummary(kind: kind, dateStamp: normalizedDateStamp)
@@ -234,21 +234,21 @@ public enum TaskerNotificationRoute: Equatable, Codable {
     }
 }
 
-public struct TaskerLocalNotificationRequest: Equatable {
+public struct LifeBoardLocalNotificationRequest: Equatable, Sendable {
     public enum UserInfoKey {
-        public static let kind = "tasker.kind"
-        public static let route = "tasker.route"
-        public static let taskID = "tasker.task_id"
-        public static let fireDateUnix = "tasker.fire_date_unix"
+        public static let kind = "lifeboard.kind"
+        public static let route = "lifeboard.route"
+        public static let taskID = "lifeboard.task_id"
+        public static let fireDateUnix = "lifeboard.fire_date_unix"
     }
 
     public let id: String
-    public let kind: TaskerLocalNotificationKind
+    public let kind: LifeBoardLocalNotificationKind
     public let title: String
     public let body: String
     public let fireDate: Date
     public let repeats: Bool
-    public let route: TaskerNotificationRoute
+    public let route: LifeBoardNotificationRoute
     public let taskID: UUID?
     public let categoryIdentifier: String
     public let userInfo: [String: String]
@@ -256,12 +256,12 @@ public struct TaskerLocalNotificationRequest: Equatable {
     /// Initializes a new instance.
     public init(
         id: String,
-        kind: TaskerLocalNotificationKind,
+        kind: LifeBoardLocalNotificationKind,
         title: String,
         body: String,
         fireDate: Date,
         repeats: Bool = false,
-        route: TaskerNotificationRoute,
+        route: LifeBoardNotificationRoute,
         taskID: UUID? = nil,
         categoryIdentifier: String? = nil,
         userInfo: [String: String] = [:]
@@ -279,10 +279,10 @@ public struct TaskerLocalNotificationRequest: Equatable {
     }
 }
 
-public struct TaskerPendingNotificationRequest: Equatable {
+public struct LifeBoardPendingNotificationRequest: Equatable, Sendable {
     public let id: String
     public let fireDate: Date?
-    public let kind: TaskerLocalNotificationKind?
+    public let kind: LifeBoardLocalNotificationKind?
     public let title: String
     public let body: String
     public let categoryIdentifier: String
@@ -293,7 +293,7 @@ public struct TaskerPendingNotificationRequest: Equatable {
     public init(
         id: String,
         fireDate: Date?,
-        kind: TaskerLocalNotificationKind?,
+        kind: LifeBoardLocalNotificationKind?,
         title: String = "",
         body: String = "",
         categoryIdentifier: String = "",
@@ -311,7 +311,7 @@ public struct TaskerPendingNotificationRequest: Equatable {
     }
 }
 
-public struct TaskerNotificationPreferences: Codable, Equatable {
+public struct LifeBoardNotificationPreferences: Codable, Equatable {
     public var taskRemindersEnabled: Bool
     public var dueSoonEnabled: Bool
     public var overdueNudgesEnabled: Bool
@@ -458,7 +458,7 @@ public struct TaskerNotificationPreferences: Codable, Equatable {
     }
 }
 
-public struct TaskerWorkspacePreferences: Codable, Equatable {
+public struct LifeBoardWorkspacePreferences: Codable, Equatable {
     public var weekStartsOn: Weekday
     public var selectedCalendarIDs: [String]
     public var includeDeclinedCalendarEvents: Bool
@@ -549,8 +549,8 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         try container.encode(chiefOfStaffMascotID, forKey: .chiefOfStaffMascotID)
     }
 
-    public func normalizedForPersistence() -> TaskerWorkspacePreferences {
-        TaskerWorkspacePreferences(
+    public func normalizedForPersistence() -> LifeBoardWorkspacePreferences {
+        LifeBoardWorkspacePreferences(
             weekStartsOn: weekStartsOn,
             selectedCalendarIDs: Self.normalizeSelectedCalendarIDs(selectedCalendarIDs),
             includeDeclinedCalendarEvents: includeDeclinedCalendarEvents,
@@ -587,12 +587,12 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
     }
 }
 
-public final class TaskerNotificationPreferencesStore: @unchecked Sendable {
-    public static let shared = TaskerNotificationPreferencesStore()
+public final class LifeBoardNotificationPreferencesStore: @unchecked Sendable {
+    public static let shared = LifeBoardNotificationPreferencesStore()
 
     private let defaults: UserDefaults
-    private let key = "tasker.notification.preferences.v2"
-    private let legacyKey = "tasker.notification.preferences.v1"
+    private let key = "lifeboard.notification.preferences.v2"
+    private let legacyKey = "lifeboard.notification.preferences.v1"
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let lock = NSLock()
@@ -602,44 +602,44 @@ public final class TaskerNotificationPreferencesStore: @unchecked Sendable {
         self.defaults = defaults
     }
 
-    public func load() -> TaskerNotificationPreferences {
+    public func load() -> LifeBoardNotificationPreferences {
         lock.lock()
         defer { lock.unlock() }
         if let data = defaults.data(forKey: key),
-           let preferences = try? decoder.decode(TaskerNotificationPreferences.self, from: data) {
+           let preferences = try? decoder.decode(LifeBoardNotificationPreferences.self, from: data) {
             return preferences
         }
         if let legacyData = defaults.data(forKey: legacyKey),
-           let legacyPreferences = try? decoder.decode(TaskerNotificationPreferences.self, from: legacyData) {
+           let legacyPreferences = try? decoder.decode(LifeBoardNotificationPreferences.self, from: legacyData) {
             if let data = try? encoder.encode(legacyPreferences) {
                 defaults.set(data, forKey: key)
             }
             defaults.removeObject(forKey: legacyKey)
             return legacyPreferences
         }
-        return TaskerNotificationPreferences()
+        return LifeBoardNotificationPreferences()
     }
 
-    public func save(_ preferences: TaskerNotificationPreferences) {
+    public func save(_ preferences: LifeBoardNotificationPreferences) {
         lock.lock()
         defer { lock.unlock() }
         guard let data = try? encoder.encode(preferences) else { return }
         defaults.set(data, forKey: key)
     }
 
-    public func update(_ mutate: (inout TaskerNotificationPreferences) -> Void) {
+    public func update(_ mutate: (inout LifeBoardNotificationPreferences) -> Void) {
         var current = load()
         mutate(&current)
         save(current)
     }
 }
 
-public final class TaskerWorkspacePreferencesStore: @unchecked Sendable {
-    public static let shared = TaskerWorkspacePreferencesStore()
-    public static let didChangeNotification = Notification.Name("tasker.workspacePreferences.didChange")
+public final class LifeBoardWorkspacePreferencesStore: @unchecked Sendable {
+    public static let shared = LifeBoardWorkspacePreferencesStore()
+    public static let didChangeNotification = Notification.Name("lifeboard.workspacePreferences.didChange")
 
     private let defaults: UserDefaults
-    private let key = "tasker.workspace.preferences.v1"
+    private let key = "lifeboard.workspace.preferences.v1"
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let lock = NSLock()
@@ -648,22 +648,22 @@ public final class TaskerWorkspacePreferencesStore: @unchecked Sendable {
         self.defaults = defaults
     }
 
-    public func load() -> TaskerWorkspacePreferences {
+    public func load() -> LifeBoardWorkspacePreferences {
         lock.lock()
         defer { lock.unlock() }
         guard let data = defaults.data(forKey: key),
-              let preferences = try? decoder.decode(TaskerWorkspacePreferences.self, from: data) else {
-            return TaskerWorkspacePreferences()
+              let preferences = try? decoder.decode(LifeBoardWorkspacePreferences.self, from: data) else {
+            return LifeBoardWorkspacePreferences()
         }
         return preferences
     }
 
-    public func save(_ preferences: TaskerWorkspacePreferences) {
+    public func save(_ preferences: LifeBoardWorkspacePreferences) {
         lock.lock()
         defer { lock.unlock() }
         let normalized = preferences.normalizedForPersistence()
         guard let currentData = defaults.data(forKey: key),
-              let current = try? decoder.decode(TaskerWorkspacePreferences.self, from: currentData) else {
+              let current = try? decoder.decode(LifeBoardWorkspacePreferences.self, from: currentData) else {
             guard let data = try? encoder.encode(normalized) else { return }
             defaults.set(data, forKey: key)
             NotificationCenter.default.post(name: Self.didChangeNotification, object: normalized)
@@ -675,7 +675,7 @@ public final class TaskerWorkspacePreferencesStore: @unchecked Sendable {
         NotificationCenter.default.post(name: Self.didChangeNotification, object: normalized)
     }
 
-    public func update(_ mutate: (inout TaskerWorkspacePreferences) -> Void) {
+    public func update(_ mutate: (inout LifeBoardWorkspacePreferences) -> Void) {
         var current = load()
         mutate(&current)
         save(current)

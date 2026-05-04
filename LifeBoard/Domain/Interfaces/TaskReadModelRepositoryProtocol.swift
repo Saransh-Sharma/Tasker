@@ -1,69 +1,122 @@
 import Foundation
 
-public protocol TaskReadModelRepositoryProtocol {
+private final class TaskReadProjectionAccumulator<State: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state: State
+    private var firstError: Error?
+
+    init(_ state: State) {
+        self.state = state
+    }
+
+    func update(_ body: (inout State) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<State, Error> {
+        lock.lock()
+        let state = state
+        let firstError = firstError
+        lock.unlock()
+
+        if let firstError {
+            return .failure(firstError)
+        }
+        return .success(state)
+    }
+}
+
+private struct TaskReadInsightsTodayState: Sendable {
+    var dueWindowTasks: [TaskDefinition] = []
+    var recentTasks: [TaskDefinition] = []
+}
+
+private struct TaskReadInsightsWeekState: Sendable {
+    var recentTasks: [TaskDefinition] = []
+    var dueWindowTasks: [TaskDefinition] = []
+    var projectScores: [UUID: Int] = [:]
+}
+
+private struct TaskReadDailyReflectionState: Sendable {
+    var completedTasks: [TaskDefinition] = []
+    var reflectionOpenTasks: [TaskDefinition] = []
+    var planningOpenTasks: [TaskDefinition] = []
+}
+
+public protocol TaskReadModelRepositoryProtocol: Sendable {
     /// Executes fetchTasks.
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void)
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void)
     /// Executes searchTasks.
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void)
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void)
     /// Executes searchTasks.
-    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void)
+    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void)
     /// Executes fetchHomeProjection.
-    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void)
+    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void)
     /// Executes fetchNeedsReplanCandidates.
     func fetchNeedsReplanCandidates(
         query: NeedsReplanCandidateQuery,
-        completion: @escaping (Result<NeedsReplanCandidateProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<NeedsReplanCandidateProjection, Error>) -> Void
     )
     /// Executes fetchHomeTimelineProjection.
     func fetchHomeTimelineProjection(
         query: HomeTimelineTaskProjectionQuery,
-        completion: @escaping (Result<HomeTimelineTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<HomeTimelineTaskProjection, Error>) -> Void
     )
     /// Executes fetchInsightsTodayProjection.
     func fetchInsightsTodayProjection(
         referenceDate: Date,
-        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void
     )
     /// Executes fetchInsightsTodayProjection.
     func fetchInsightsTodayProjection(
         query: InsightsTodayProjectionQuery,
-        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void
     )
     /// Executes fetchInsightsWeekProjection.
     func fetchInsightsWeekProjection(
         referenceDate: Date,
-        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
     )
     /// Executes fetchInsightsWeekProjection.
     func fetchInsightsWeekProjection(
         query: InsightsWeekProjectionQuery,
-        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
     )
     /// Executes fetchDailyReflectionProjection.
     func fetchDailyReflectionProjection(
         query: DailyReflectionTaskProjectionQuery,
-        completion: @escaping (Result<DailyReflectionTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<DailyReflectionTaskProjection, Error>) -> Void
     )
     /// Executes fetchWeekChartProjection.
     func fetchWeekChartProjection(
         referenceDate: Date,
-        completion: @escaping (Result<WeekChartProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeekChartProjection, Error>) -> Void
     )
     /// Executes fetchProjectTaskCounts.
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     )
     /// Executes fetchProjectCompletionScoreTotals.
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     )
 }
 
 public extension TaskReadModelRepositoryProtocol {
-    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         let searchQuery = TaskSearchQuery(
             text: query.text,
             projectID: query.projectIDs.count == 1 ? query.projectIDs.first : nil,
@@ -118,7 +171,7 @@ public extension TaskReadModelRepositoryProtocol {
         }
     }
 
-    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         fetchTasks(
             query: TaskReadQuery(
                 projectID: query.state.selectedProjectIDs.count == 1 ? query.state.selectedProjectIDs.first : nil,
@@ -133,7 +186,7 @@ public extension TaskReadModelRepositoryProtocol {
 
     func fetchNeedsReplanCandidates(
         query: NeedsReplanCandidateQuery,
-        completion: @escaping (Result<NeedsReplanCandidateProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<NeedsReplanCandidateProjection, Error>) -> Void
     ) {
         fetchTasks(
             query: TaskReadQuery(
@@ -186,7 +239,7 @@ public extension TaskReadModelRepositoryProtocol {
 
     func fetchHomeTimelineProjection(
         query: HomeTimelineTaskProjectionQuery,
-        completion: @escaping (Result<HomeTimelineTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<HomeTimelineTaskProjection, Error>) -> Void
     ) {
         fetchTasks(
             query: TaskReadQuery(
@@ -230,7 +283,7 @@ public extension TaskReadModelRepositoryProtocol {
 
     func fetchInsightsTodayProjection(
         referenceDate: Date,
-        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void
     ) {
         fetchInsightsTodayProjection(
             query: InsightsTodayProjectionQuery(referenceDate: referenceDate),
@@ -240,16 +293,13 @@ public extension TaskReadModelRepositoryProtocol {
 
     func fetchInsightsTodayProjection(
         query: InsightsTodayProjectionQuery,
-        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void
     ) {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: query.referenceDate)
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? query.referenceDate
         let group = DispatchGroup()
-        let lock = NSLock()
-        var dueWindowTasks: [TaskDefinition] = []
-        var recentTasks: [TaskDefinition] = []
-        var firstError: Error?
+        let accumulator = TaskReadProjectionAccumulator(TaskReadInsightsTodayState())
 
         group.enter()
         fetchTasks(
@@ -261,12 +311,10 @@ public extension TaskReadModelRepositoryProtocol {
                 offset: 0
             )
         ) { result in
-            lock.lock()
-            defer { lock.unlock() }
             if case .success(let slice) = result {
-                dueWindowTasks = slice.tasks
-            } else if case .failure(let error) = result, firstError == nil {
-                firstError = error
+                accumulator.update { $0.dueWindowTasks = slice.tasks }
+            } else if case .failure(let error) = result {
+                accumulator.record(error)
             }
             group.leave()
         }
@@ -280,28 +328,27 @@ public extension TaskReadModelRepositoryProtocol {
                 offset: 0
             )
         ) { result in
-            lock.lock()
-            defer { lock.unlock() }
             if case .success(let slice) = result {
-                recentTasks = slice.tasks
-            } else if case .failure(let error) = result, firstError == nil {
-                firstError = error
+                accumulator.update { $0.recentTasks = slice.tasks }
+            } else if case .failure(let error) = result {
+                accumulator.record(error)
             }
             group.leave()
         }
 
         group.notify(queue: .main) {
-            if let firstError {
+            switch accumulator.result() {
+            case .failure(let firstError):
                 completion(.failure(firstError))
-                return
+            case .success(let state):
+                completion(.success(InsightsTodayTaskProjection(dueWindowTasks: state.dueWindowTasks, recentTasks: state.recentTasks)))
             }
-            completion(.success(InsightsTodayTaskProjection(dueWindowTasks: dueWindowTasks, recentTasks: recentTasks)))
         }
     }
 
     func fetchInsightsWeekProjection(
         referenceDate: Date,
-        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
     ) {
         fetchInsightsWeekProjection(
             query: InsightsWeekProjectionQuery(referenceDate: referenceDate),
@@ -311,17 +358,13 @@ public extension TaskReadModelRepositoryProtocol {
 
     func fetchInsightsWeekProjection(
         query: InsightsWeekProjectionQuery,
-        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
     ) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: query.referenceDate)
         let weekEnd = calendar.date(byAdding: .day, value: 1, to: today) ?? today
         let group = DispatchGroup()
-        let lock = NSLock()
-        var recentTasks: [TaskDefinition] = []
-        var dueWindowTasks: [TaskDefinition] = []
-        var projectScores: [UUID: Int] = [:]
-        var firstError: Error?
+        let accumulator = TaskReadProjectionAccumulator(TaskReadInsightsWeekState())
 
         group.enter()
         fetchTasks(
@@ -332,12 +375,10 @@ public extension TaskReadModelRepositoryProtocol {
                 offset: 0
             )
         ) { result in
-            lock.lock()
-            defer { lock.unlock() }
             if case .success(let slice) = result {
-                recentTasks = slice.tasks
-            } else if case .failure(let error) = result, firstError == nil {
-                firstError = error
+                accumulator.update { $0.recentTasks = slice.tasks }
+            } else if case .failure(let error) = result {
+                accumulator.record(error)
             }
             group.leave()
         }
@@ -352,12 +393,10 @@ public extension TaskReadModelRepositoryProtocol {
                 offset: 0
             )
         ) { result in
-            lock.lock()
-            defer { lock.unlock() }
             if case .success(let slice) = result {
-                dueWindowTasks = slice.tasks
-            } else if case .failure(let error) = result, firstError == nil {
-                firstError = error
+                accumulator.update { $0.dueWindowTasks = slice.tasks }
+            } else if case .failure(let error) = result {
+                accumulator.record(error)
             }
             group.leave()
         }
@@ -365,32 +404,31 @@ public extension TaskReadModelRepositoryProtocol {
         group.enter()
         let weekStart = calendar.date(byAdding: .day, value: -6, to: today) ?? today
         fetchProjectCompletionScoreTotals(from: weekStart, to: today) { result in
-            lock.lock()
-            defer { lock.unlock() }
             if case .success(let scores) = result {
-                projectScores = scores
-            } else if case .failure(let error) = result, firstError == nil {
-                firstError = error
+                accumulator.update { $0.projectScores = scores }
+            } else if case .failure(let error) = result {
+                accumulator.record(error)
             }
             group.leave()
         }
 
         group.notify(queue: .main) {
-            if let firstError {
+            switch accumulator.result() {
+            case .failure(let firstError):
                 completion(.failure(firstError))
-                return
+            case .success(let state):
+                completion(.success(InsightsWeekTaskProjection(
+                    recentTasks: state.recentTasks,
+                    dueWindowTasks: state.dueWindowTasks,
+                    projectScores: state.projectScores
+                )))
             }
-            completion(.success(InsightsWeekTaskProjection(
-                recentTasks: recentTasks,
-                dueWindowTasks: dueWindowTasks,
-                projectScores: projectScores
-            )))
         }
     }
 
     func fetchDailyReflectionProjection(
         query: DailyReflectionTaskProjectionQuery,
-        completion: @escaping (Result<DailyReflectionTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<DailyReflectionTaskProjection, Error>) -> Void
     ) {
         let calendar = Calendar.current
         let reflectionDayStart = calendar.startOfDay(for: query.reflectionDate)
@@ -398,12 +436,7 @@ public extension TaskReadModelRepositoryProtocol {
         let planningDayStart = calendar.startOfDay(for: query.planningDate)
         let planningDayEnd = calendar.date(byAdding: .day, value: 1, to: planningDayStart) ?? planningDayStart
         let group = DispatchGroup()
-        let lock = NSLock()
-
-        var completedTasks: [TaskDefinition] = []
-        var reflectionOpenTasks: [TaskDefinition] = []
-        var planningOpenTasks: [TaskDefinition] = []
-        var firstError: Error?
+        let accumulator = TaskReadProjectionAccumulator(TaskReadDailyReflectionState())
 
         group.enter()
         fetchTasks(
@@ -414,16 +447,15 @@ public extension TaskReadModelRepositoryProtocol {
                 offset: 0
             )
         ) { result in
-            lock.lock()
-            defer { lock.unlock() }
             switch result {
             case .failure(let error):
-                firstError = firstError ?? error
+                accumulator.record(error)
             case .success(let slice):
-                completedTasks = slice.tasks.filter { task in
+                let tasks = slice.tasks.filter { task in
                     guard task.isComplete, let completedAt = task.dateCompleted else { return false }
                     return completedAt >= reflectionDayStart && completedAt < reflectionDayEnd
                 }
+                accumulator.update { $0.completedTasks = tasks }
             }
             group.leave()
         }
@@ -438,13 +470,11 @@ public extension TaskReadModelRepositoryProtocol {
                 offset: 0
             )
         ) { result in
-            lock.lock()
-            defer { lock.unlock() }
             switch result {
             case .failure(let error):
-                firstError = firstError ?? error
+                accumulator.record(error)
             case .success(let slice):
-                reflectionOpenTasks = slice.tasks.filter { task in
+                let tasks = slice.tasks.filter { task in
                     guard task.isComplete == false else { return false }
                     if task.type == .morning || task.type == .evening {
                         return true
@@ -452,6 +482,7 @@ public extension TaskReadModelRepositoryProtocol {
                     guard let dueDate = task.dueDate else { return false }
                     return dueDate < reflectionDayEnd
                 }
+                accumulator.update { $0.reflectionOpenTasks = tasks }
             }
             group.leave()
         }
@@ -466,13 +497,11 @@ public extension TaskReadModelRepositoryProtocol {
                 offset: 0
             )
         ) { result in
-            lock.lock()
-            defer { lock.unlock() }
             switch result {
             case .failure(let error):
-                firstError = firstError ?? error
+                accumulator.record(error)
             case .success(let slice):
-                planningOpenTasks = slice.tasks.filter { task in
+                let tasks = slice.tasks.filter { task in
                     guard task.isComplete == false else { return false }
                     if task.type == .morning || task.type == .evening {
                         return true
@@ -480,30 +509,32 @@ public extension TaskReadModelRepositoryProtocol {
                     guard let dueDate = task.dueDate else { return false }
                     return dueDate < planningDayEnd
                 }
+                accumulator.update { $0.planningOpenTasks = tasks }
             }
             group.leave()
         }
 
         group.notify(queue: .global(qos: .userInitiated)) {
-            if let firstError {
+            switch accumulator.result() {
+            case .failure(let firstError):
                 completion(.failure(firstError))
-                return
-            }
-            completion(
-                .success(
-                    DailyReflectionTaskProjection(
-                        reflectionCompletedTasks: completedTasks,
-                        reflectionOpenTasks: reflectionOpenTasks,
-                        planningOpenTasks: planningOpenTasks
+            case .success(let state):
+                completion(
+                    .success(
+                        DailyReflectionTaskProjection(
+                            reflectionCompletedTasks: state.completedTasks,
+                            reflectionOpenTasks: state.reflectionOpenTasks,
+                            planningOpenTasks: state.planningOpenTasks
+                        )
                     )
                 )
-            )
+            }
         }
     }
 
     func fetchWeekChartProjection(
         referenceDate: Date,
-        completion: @escaping (Result<WeekChartProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeekChartProjection, Error>) -> Void
     ) {
         var calendar = Calendar.current
         calendar.firstWeekday = 1

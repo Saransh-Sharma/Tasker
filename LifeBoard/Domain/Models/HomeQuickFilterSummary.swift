@@ -1,6 +1,6 @@
 //
 //  HomeQuickFilterSummary.swift
-//  Tasker
+//  LifeBoard
 //
 //  Computed summary text for the quick filter dropdown trigger button.
 //

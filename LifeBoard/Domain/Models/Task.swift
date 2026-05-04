@@ -1,6 +1,6 @@
 //
 //  Task.swift
-//  Tasker
+//  LifeBoard
 //
 //  V2 domain model for TaskDefinition
 //
@@ -807,7 +807,7 @@ public struct TaskDefinitionQuery: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-public enum TaskDeleteScope: String, Codable, Equatable, Hashable {
+public enum TaskDeleteScope: String, Codable, Equatable, Hashable, Sendable {
     case single
     case series
 }

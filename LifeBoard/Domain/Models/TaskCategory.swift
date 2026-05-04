@@ -1,6 +1,6 @@
 //
 //  TaskCategory.swift
-//  Tasker
+//  LifeBoard
 //
 //  Task category for better organization
 //

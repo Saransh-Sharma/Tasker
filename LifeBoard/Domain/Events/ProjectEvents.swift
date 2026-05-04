@@ -1,6 +1,6 @@
 //
 //  ProjectEvents.swift
-//  Tasker
+//  LifeBoard
 //
 //  Domain events related to Project operations
 //

@@ -1,6 +1,6 @@
 //
 //  DomainEventPublisher.swift
-//  Tasker
+//  LifeBoard
 //
 //  Domain event publisher for cross-cutting concerns
 //

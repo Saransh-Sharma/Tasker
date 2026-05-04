@@ -1,6 +1,6 @@
 //
 //  TaskEnergy.swift
-//  Tasker
+//  LifeBoard
 //
 //  Task energy requirement levels
 //

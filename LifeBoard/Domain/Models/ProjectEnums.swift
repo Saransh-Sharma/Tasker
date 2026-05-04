@@ -1,6 +1,6 @@
 //
 //  ProjectColor.swift
-//  Tasker
+//  LifeBoard
 //
 //  Project color scheme for visual organization
 //

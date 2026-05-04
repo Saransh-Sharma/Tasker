@@ -1,6 +1,6 @@
 //
 //  DomainEvent.swift
-//  Tasker
+//  LifeBoard
 //
 //  Protocol for domain events in the event-driven architecture
 //

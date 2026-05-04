@@ -1,6 +1,6 @@
 //
 //  TaskType.swift
-//  Tasker
+//  LifeBoard
 //
 //  Domain enum for Task Type
 //

@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct ProjectRepairReport {
+public struct ProjectRepairReport: Sendable {
     public let scanned: Int
     public let merged: Int
     public let deleted: Int
@@ -30,7 +30,7 @@ public struct ProjectRepairReport {
     }
 }
 
-public struct ProjectLifeAreaMoveResult {
+public struct ProjectLifeAreaMoveResult: Sendable {
     public let updatedProjectID: UUID
     public let fromLifeAreaID: UUID?
     public let toLifeAreaID: UUID
@@ -50,7 +50,7 @@ public struct ProjectLifeAreaMoveResult {
     }
 }
 
-public struct ProjectLifeAreaBackfillResult {
+public struct ProjectLifeAreaBackfillResult: Sendable {
     public let defaultLifeAreaID: UUID
     public let projectsUpdatedCount: Int
     public let tasksRemappedCount: Int
@@ -70,7 +70,7 @@ public struct ProjectLifeAreaBackfillResult {
     }
 }
 
-public struct ProjectRepositoryUnsupportedOperationError: LocalizedError {
+public struct ProjectRepositoryUnsupportedOperationError: LocalizedError, Sendable {
     public let operation: String
 
     /// Initializes a new instance.
@@ -85,56 +85,56 @@ public struct ProjectRepositoryUnsupportedOperationError: LocalizedError {
 
 /// Protocol defining all project-related data operations
 /// This abstraction allows for different implementations (Core Data, Mock, etc.)
-public protocol ProjectRepositoryProtocol {
+public protocol ProjectRepositoryProtocol: Sendable {
     
     // MARK: - Fetch Operations
     
     /// Fetch all projects
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void)
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void)
     
     /// Fetch a single project by ID
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void)
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void)
     
     /// Fetch a project by name
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void)
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void)
     
     /// Fetch the default Inbox project
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void)
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void)
     
     /// Fetch custom (non-default) projects
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void)
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void)
     
     // MARK: - Create Operations
     
     /// Create a new project
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void)
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void)
     
     /// Ensure the Inbox project exists (create if needed)
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void)
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void)
 
     /// Repair malformed project identity rows and deduplicate conflicting IDs.
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void)
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void)
     
     // MARK: - Update Operations
     
     /// Update an existing project
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void)
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void)
     
     /// Rename a project
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void)
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void)
     
     // MARK: - Delete Operations
     
     /// Delete a project (and optionally its tasks)
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void)
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
     
     // MARK: - Task Association
     
     /// Get the count of tasks in a project
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void)
+    func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void)
     
     /// Move tasks from one project to another
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void)
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
 
     // MARK: - Life Area Association
 
@@ -142,33 +142,33 @@ public protocol ProjectRepositoryProtocol {
     func moveProjectToLifeArea(
         projectID: UUID,
         lifeAreaID: UUID,
-        completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<ProjectLifeAreaMoveResult, Error>) -> Void
     )
 
     /// Assign projects without a life-area linkage to a default life area.
     func backfillProjectsWithoutLifeArea(
         defaultLifeAreaID: UUID,
-        completion: @escaping (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
     )
     
     // MARK: - Validation
     
     /// Check if a project name is available
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void)
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void)
 }
 
 public extension ProjectRepositoryProtocol {
     func moveProjectToLifeArea(
         projectID: UUID,
         lifeAreaID: UUID,
-        completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<ProjectLifeAreaMoveResult, Error>) -> Void
     ) {
         completion(.failure(ProjectRepositoryUnsupportedOperationError(operation: "moveProjectToLifeArea")))
     }
 
     func backfillProjectsWithoutLifeArea(
         defaultLifeAreaID: UUID,
-        completion: @escaping (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
     ) {
         completion(.failure(ProjectRepositoryUnsupportedOperationError(operation: "backfillProjectsWithoutLifeArea")))
     }

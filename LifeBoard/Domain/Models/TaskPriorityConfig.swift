@@ -1,6 +1,6 @@
 //
 //  TaskPriorityConfig.swift
-//  Tasker
+//  LifeBoard
 //
 //  Centralized configuration for task priorities and scoring
 //

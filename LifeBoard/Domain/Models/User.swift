@@ -1,6 +1,6 @@
 //
 //  User.swift
-//  Tasker
+//  LifeBoard
 //
 //  Domain model for User - Pure Swift, no framework dependencies
 //

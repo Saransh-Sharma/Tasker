@@ -1,6 +1,6 @@
 import Foundation
 
-public enum ReminderScalarField: String, Codable, CaseIterable {
+public enum ReminderScalarField: String, Codable, CaseIterable, Sendable {
     case title
     case notes
     case dueDate
@@ -10,7 +10,7 @@ public enum ReminderScalarField: String, Codable, CaseIterable {
     case urlString
 }
 
-public struct SyncClock: Codable, Equatable, Hashable, Comparable {
+public struct SyncClock: Codable, Equatable, Hashable, Comparable, Sendable {
     public var physicalMillis: Int64
     public var logicalCounter: Int64
     public var nodeID: String
@@ -69,7 +69,7 @@ public struct SyncClock: Codable, Equatable, Hashable, Comparable {
     }
 }
 
-public struct ReminderFieldClock: Codable, Equatable, Hashable {
+public struct ReminderFieldClock: Codable, Equatable, Hashable, Sendable {
     public var title: SyncClock?
     public var notes: SyncClock?
     public var dueDate: SyncClock?
@@ -137,7 +137,7 @@ public struct ReminderFieldClock: Codable, Equatable, Hashable {
     }
 }
 
-public struct ReminderMergeState: Codable, Equatable, Hashable {
+public struct ReminderMergeState: Codable, Equatable, Hashable, Sendable {
     public var fieldClocks: ReminderFieldClock
     public var alarmAddSet: [String: SyncClock]
     public var alarmRemoveSet: [String: SyncClock]
@@ -176,8 +176,8 @@ public struct ReminderMergeState: Codable, Equatable, Hashable {
     }
 }
 
-public struct ReminderMergeEnvelope: Codable, Equatable, Hashable {
-    public struct KnownFields: Codable, Equatable, Hashable {
+public struct ReminderMergeEnvelope: Codable, Equatable, Hashable, Sendable {
+    public struct KnownFields: Codable, Equatable, Hashable, Sendable {
         public var title: String
         public var notes: String?
         public var dueDate: Date?

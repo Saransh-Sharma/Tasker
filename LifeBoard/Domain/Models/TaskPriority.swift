@@ -1,6 +1,6 @@
 //
 //  TaskPriority.swift
-//  Tasker
+//  LifeBoard
 //
 //  Domain enum for Task Priority
 //  UPDATED: Now uses centralized TaskPriorityConfig

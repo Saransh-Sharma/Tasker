@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ExternalContainerMapDefinition: Codable, Equatable, Hashable {
+public struct ExternalContainerMapDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var provider: String
     public var projectID: UUID
@@ -10,7 +10,7 @@ public struct ExternalContainerMapDefinition: Codable, Equatable, Hashable {
     public var createdAt: Date
 }
 
-public struct ExternalItemMapDefinition: Codable, Equatable, Hashable {
+public struct ExternalItemMapDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var provider: String
     public var localEntityType: String

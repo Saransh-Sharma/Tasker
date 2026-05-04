@@ -1,6 +1,6 @@
 import Foundation
 
-public enum TaskerCalendarAuthorizationStatus: String, Codable, Equatable, Sendable {
+public enum LifeBoardCalendarAuthorizationStatus: String, Codable, Equatable, Sendable {
     case notDetermined
     case denied
     case restricted
@@ -12,14 +12,18 @@ public enum TaskerCalendarAuthorizationStatus: String, Codable, Equatable, Senda
     }
 }
 
-public enum TaskerCalendarEventAvailability: String, Codable, Equatable, Sendable {
+public typealias TaskerCalendarAuthorizationStatus = LifeBoardCalendarAuthorizationStatus
+
+public enum LifeBoardCalendarEventAvailability: String, Codable, Equatable, Sendable {
     case busy
     case free
     case tentative
     case unavailable
 }
 
-public enum TaskerCalendarEventParticipationStatus: String, Codable, Equatable, Sendable {
+public typealias TaskerCalendarEventAvailability = LifeBoardCalendarEventAvailability
+
+public enum LifeBoardCalendarEventParticipationStatus: String, Codable, Equatable, Sendable {
     case accepted
     case tentative
     case declined
@@ -27,12 +31,16 @@ public enum TaskerCalendarEventParticipationStatus: String, Codable, Equatable, 
     case unknown
 }
 
-public enum TaskerCalendarEventStatus: String, Codable, Equatable, Sendable {
+public typealias TaskerCalendarEventParticipationStatus = LifeBoardCalendarEventParticipationStatus
+
+public enum LifeBoardCalendarEventStatus: String, Codable, Equatable, Sendable {
     case unknown
     case canceled
 }
 
-public struct TaskerCalendarSourceSnapshot: Codable, Equatable, Identifiable, Hashable, Sendable {
+public typealias TaskerCalendarEventStatus = LifeBoardCalendarEventStatus
+
+public struct LifeBoardCalendarSourceSnapshot: Codable, Equatable, Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
     public let sourceTitle: String
@@ -54,7 +62,9 @@ public struct TaskerCalendarSourceSnapshot: Codable, Equatable, Identifiable, Ha
     }
 }
 
-public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Hashable, Sendable {
+public typealias TaskerCalendarSourceSnapshot = LifeBoardCalendarSourceSnapshot
+
+public struct LifeBoardCalendarEventSnapshot: Codable, Equatable, Identifiable, Hashable, Sendable {
     public let id: String
     public let calendarID: String
     public let calendarTitle: String
@@ -66,9 +76,9 @@ public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Has
     public let startDate: Date
     public let endDate: Date
     public let isAllDay: Bool
-    public let availability: TaskerCalendarEventAvailability
-    public let eventStatus: TaskerCalendarEventStatus
-    public let participationStatus: TaskerCalendarEventParticipationStatus
+    public let availability: LifeBoardCalendarEventAvailability
+    public let eventStatus: LifeBoardCalendarEventStatus
+    public let participationStatus: LifeBoardCalendarEventParticipationStatus
     public let lastModifiedAt: Date?
 
     public init(
@@ -83,9 +93,9 @@ public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Has
         startDate: Date,
         endDate: Date,
         isAllDay: Bool,
-        availability: TaskerCalendarEventAvailability = .busy,
-        eventStatus: TaskerCalendarEventStatus = .unknown,
-        participationStatus: TaskerCalendarEventParticipationStatus = .unknown,
+        availability: LifeBoardCalendarEventAvailability = .busy,
+        eventStatus: LifeBoardCalendarEventStatus = .unknown,
+        participationStatus: LifeBoardCalendarEventParticipationStatus = .unknown,
         lastModifiedAt: Date? = nil
     ) {
         self.id = id
@@ -137,9 +147,9 @@ public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Has
             startDate: try container.decode(Date.self, forKey: .startDate),
             endDate: try container.decode(Date.self, forKey: .endDate),
             isAllDay: try container.decode(Bool.self, forKey: .isAllDay),
-            availability: try container.decode(TaskerCalendarEventAvailability.self, forKey: .availability),
-            eventStatus: try container.decode(TaskerCalendarEventStatus.self, forKey: .eventStatus),
-            participationStatus: try container.decode(TaskerCalendarEventParticipationStatus.self, forKey: .participationStatus),
+            availability: try container.decode(LifeBoardCalendarEventAvailability.self, forKey: .availability),
+            eventStatus: try container.decode(LifeBoardCalendarEventStatus.self, forKey: .eventStatus),
+            participationStatus: try container.decode(LifeBoardCalendarEventParticipationStatus.self, forKey: .participationStatus),
             lastModifiedAt: try container.decodeIfPresent(Date.self, forKey: .lastModifiedAt)
         )
     }
@@ -156,6 +166,8 @@ public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Has
         availability != .free
     }
 }
+
+public typealias TaskerCalendarEventSnapshot = LifeBoardCalendarEventSnapshot
 
 struct HomeTimelineHiddenCalendarEventKey: Codable, Equatable, Hashable, Sendable, Comparable {
     let eventID: String
@@ -200,7 +212,7 @@ final class HomeTimelineHiddenCalendarEventStore {
     }
 
     private let defaults: UserDefaults
-    private let key = "tasker.home.timeline.hiddenCalendarEvents.v1"
+    private let key = "lifeboard.home.timeline.hiddenCalendarEvents.v1"
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
@@ -235,7 +247,7 @@ final class HomeTimelineHiddenCalendarEventStore {
     }
 }
 
-public struct TaskerCalendarEventSlice: Codable, Equatable, Hashable, Sendable {
+public struct LifeBoardCalendarEventSlice: Codable, Equatable, Hashable, Sendable {
     public let startDate: Date
     public let endDate: Date
     public let isAllDay: Bool
@@ -253,7 +265,7 @@ public struct TaskerCalendarEventSlice: Codable, Equatable, Hashable, Sendable {
         self.isBusy = isBusy
     }
 
-    public init(snapshot: TaskerCalendarEventSnapshot) {
+    public init(snapshot: LifeBoardCalendarEventSnapshot) {
         self.init(
             startDate: snapshot.startDate,
             endDate: snapshot.endDate,
@@ -263,7 +275,9 @@ public struct TaskerCalendarEventSlice: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-public struct TaskerCalendarBusyBlock: Equatable, Hashable, Identifiable, Sendable {
+public typealias TaskerCalendarEventSlice = LifeBoardCalendarEventSlice
+
+public struct LifeBoardCalendarBusyBlock: Equatable, Hashable, Identifiable, Sendable {
     public let id: String
     public let startDate: Date
     public let endDate: Date
@@ -279,13 +293,13 @@ public struct TaskerCalendarBusyBlock: Equatable, Hashable, Identifiable, Sendab
     }
 }
 
-public struct TaskerNextMeetingSummary: Equatable, Sendable {
-    public let event: TaskerCalendarEventSnapshot
+public struct LifeBoardNextMeetingSummary: Equatable, Sendable {
+    public let event: LifeBoardCalendarEventSnapshot
     public let isInProgress: Bool
     public let minutesUntilStart: Int
 
     public init(
-        event: TaskerCalendarEventSnapshot,
+        event: LifeBoardCalendarEventSnapshot,
         isInProgress: Bool,
         minutesUntilStart: Int
     ) {
@@ -295,21 +309,21 @@ public struct TaskerNextMeetingSummary: Equatable, Sendable {
     }
 }
 
-public enum TaskerTaskFitClassification: String, Codable, Equatable, Sendable {
+public enum LifeBoardTaskFitClassification: String, Codable, Equatable, Sendable {
     case fit
     case tight
     case conflict
     case unknown
 }
 
-public struct TaskerTaskFitHintResult: Equatable, Sendable {
-    public let classification: TaskerTaskFitClassification
+public struct LifeBoardTaskFitHintResult: Equatable, Sendable {
+    public let classification: LifeBoardTaskFitClassification
     public let message: String
     public let freeWindowStart: Date?
     public let freeWindowEnd: Date?
 
     public init(
-        classification: TaskerTaskFitClassification,
+        classification: LifeBoardTaskFitClassification,
         message: String,
         freeWindowStart: Date? = nil,
         freeWindowEnd: Date? = nil
@@ -320,17 +334,17 @@ public struct TaskerTaskFitHintResult: Equatable, Sendable {
         self.freeWindowEnd = freeWindowEnd
     }
 
-    public static let unknown = TaskerTaskFitHintResult(
+    public static let unknown = LifeBoardTaskFitHintResult(
         classification: .unknown,
         message: "Add a due time and duration to evaluate fit."
     )
 }
 
-public struct TaskerCalendarDayAgenda: Equatable, Identifiable {
+public struct LifeBoardCalendarDayAgenda: Equatable, Identifiable {
     public let date: Date
-    public let events: [TaskerCalendarEventSnapshot]
+    public let events: [LifeBoardCalendarEventSnapshot]
 
-    public init(date: Date, events: [TaskerCalendarEventSnapshot]) {
+    public init(date: Date, events: [LifeBoardCalendarEventSnapshot]) {
         self.date = date
         self.events = events.sorted { lhs, rhs in
             if lhs.startDate != rhs.startDate {
@@ -350,32 +364,32 @@ public struct TaskerCalendarDayAgenda: Equatable, Identifiable {
     }
 }
 
-public struct TaskerCalendarSnapshot: Equatable, Sendable {
-    public var authorizationStatus: TaskerCalendarAuthorizationStatus
-    public var availableCalendars: [TaskerCalendarSourceSnapshot]
+public struct LifeBoardCalendarSnapshot: Equatable, Sendable {
+    public var authorizationStatus: LifeBoardCalendarAuthorizationStatus
+    public var availableCalendars: [LifeBoardCalendarSourceSnapshot]
     public var selectedCalendarIDs: [String]
     public var includeDeclined: Bool
     public var includeCanceled: Bool
     public var includeAllDayInAgenda: Bool
     public var includeAllDayInBusyStrip: Bool
-    public var eventsInRange: [TaskerCalendarEventSnapshot]
-    public var busyBlocks: [TaskerCalendarBusyBlock]
-    public var nextMeeting: TaskerNextMeetingSummary?
+    public var eventsInRange: [LifeBoardCalendarEventSnapshot]
+    public var busyBlocks: [LifeBoardCalendarBusyBlock]
+    public var nextMeeting: LifeBoardNextMeetingSummary?
     public var freeUntil: Date?
     public var isLoading: Bool
     public var errorMessage: String?
 
     public init(
-        authorizationStatus: TaskerCalendarAuthorizationStatus,
-        availableCalendars: [TaskerCalendarSourceSnapshot],
+        authorizationStatus: LifeBoardCalendarAuthorizationStatus,
+        availableCalendars: [LifeBoardCalendarSourceSnapshot],
         selectedCalendarIDs: [String],
         includeDeclined: Bool,
         includeCanceled: Bool,
         includeAllDayInAgenda: Bool,
         includeAllDayInBusyStrip: Bool,
-        eventsInRange: [TaskerCalendarEventSnapshot],
-        busyBlocks: [TaskerCalendarBusyBlock],
-        nextMeeting: TaskerNextMeetingSummary?,
+        eventsInRange: [LifeBoardCalendarEventSnapshot],
+        busyBlocks: [LifeBoardCalendarBusyBlock],
+        nextMeeting: LifeBoardNextMeetingSummary?,
         freeUntil: Date?,
         isLoading: Bool,
         errorMessage: String?
@@ -395,7 +409,7 @@ public struct TaskerCalendarSnapshot: Equatable, Sendable {
         self.errorMessage = errorMessage
     }
 
-    public static let empty = TaskerCalendarSnapshot(
+    public static let empty = LifeBoardCalendarSnapshot(
         authorizationStatus: .notDetermined,
         availableCalendars: [],
         selectedCalendarIDs: [],
@@ -412,30 +426,30 @@ public struct TaskerCalendarSnapshot: Equatable, Sendable {
     )
 }
 
-enum TaskerCalendarBadgeTone: String, Equatable {
+enum LifeBoardCalendarBadgeTone: String, Equatable {
     case accent
     case warning
     case danger
     case neutral
 }
 
-struct TaskerCalendarEventBadge: Equatable, Identifiable {
+struct LifeBoardCalendarEventBadge: Equatable, Identifiable {
     let title: String
     let systemImage: String
-    let tone: TaskerCalendarBadgeTone
+    let tone: LifeBoardCalendarBadgeTone
 
     var id: String { title }
 }
 
-struct TaskerCalendarChooserSection: Equatable, Identifiable {
+struct LifeBoardCalendarChooserSection: Equatable, Identifiable {
     let title: String
-    let calendars: [TaskerCalendarSourceSnapshot]
+    let calendars: [LifeBoardCalendarSourceSnapshot]
 
     var id: String { title }
 }
 
-enum TaskerCalendarPresentation {
-    static func chooserSections(from calendars: [TaskerCalendarSourceSnapshot]) -> [TaskerCalendarChooserSection] {
+enum LifeBoardCalendarPresentation {
+    static func chooserSections(from calendars: [LifeBoardCalendarSourceSnapshot]) -> [LifeBoardCalendarChooserSection] {
         let grouped = Dictionary(grouping: calendars) { calendar in
             let sourceTitle = calendar.sourceTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             return sourceTitle.isEmpty ? "Other" : sourceTitle
@@ -454,11 +468,11 @@ enum TaskerCalendarPresentation {
                         }
                         return lhs.id.localizedStandardCompare(rhs.id) == .orderedAscending
                     }
-                return TaskerCalendarChooserSection(title: sourceTitle, calendars: sortedCalendars)
+                return LifeBoardCalendarChooserSection(title: sourceTitle, calendars: sortedCalendars)
             }
     }
 
-    static func timeRangeText(for event: TaskerCalendarEventSnapshot, includeDate: Bool = false) -> String {
+    static func timeRangeText(for event: LifeBoardCalendarEventSnapshot, includeDate: Bool = false) -> String {
         if event.isAllDay {
             if includeDate {
                 return event.startDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()) + " · All day"
@@ -484,28 +498,28 @@ enum TaskerCalendarPresentation {
         date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
     }
 
-    static func badges(for event: TaskerCalendarEventSnapshot) -> [TaskerCalendarEventBadge] {
-        var badges: [TaskerCalendarEventBadge] = []
+    static func badges(for event: LifeBoardCalendarEventSnapshot) -> [LifeBoardCalendarEventBadge] {
+        var badges: [LifeBoardCalendarEventBadge] = []
 
         if event.isAllDay {
-            badges.append(TaskerCalendarEventBadge(title: "All Day", systemImage: "sun.max", tone: .neutral))
+            badges.append(LifeBoardCalendarEventBadge(title: "All Day", systemImage: "sun.max", tone: .neutral))
         }
 
         switch event.participationStatus {
         case .declined:
-            badges.append(TaskerCalendarEventBadge(title: "Declined", systemImage: "person.crop.circle.badge.xmark", tone: .danger))
+            badges.append(LifeBoardCalendarEventBadge(title: "Declined", systemImage: "person.crop.circle.badge.xmark", tone: .danger))
         case .tentative:
-            badges.append(TaskerCalendarEventBadge(title: "Tentative", systemImage: "questionmark.circle", tone: .warning))
+            badges.append(LifeBoardCalendarEventBadge(title: "Tentative", systemImage: "questionmark.circle", tone: .warning))
         default:
             break
         }
 
         if event.isCanceled {
-            badges.append(TaskerCalendarEventBadge(title: "Canceled", systemImage: "nosign", tone: .danger))
+            badges.append(LifeBoardCalendarEventBadge(title: "Canceled", systemImage: "nosign", tone: .danger))
         }
 
         if event.availability == .free {
-            badges.append(TaskerCalendarEventBadge(title: "Free", systemImage: "circle.dotted", tone: .accent))
+            badges.append(LifeBoardCalendarEventBadge(title: "Free", systemImage: "circle.dotted", tone: .accent))
         }
 
         return badges
