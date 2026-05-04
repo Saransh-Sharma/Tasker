@@ -1,7 +1,7 @@
 import UIKit
 
 @MainActor
-public struct TaskerElevationStyle {
+public struct LifeBoardElevationStyle {
     public let shadowOffsetY: CGFloat
     public let shadowBlur: CGFloat
     public let shadowOpacity: Float
@@ -12,14 +12,14 @@ public struct TaskerElevationStyle {
 }
 
 @MainActor
-public struct TaskerElevationTokens: TaskerTokenGroup {
-    public let e0: TaskerElevationStyle
-    public let e1: TaskerElevationStyle
-    public let e2: TaskerElevationStyle
-    public let e3: TaskerElevationStyle
+public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
+    public let e0: LifeBoardElevationStyle
+    public let e1: LifeBoardElevationStyle
+    public let e2: LifeBoardElevationStyle
+    public let e3: LifeBoardElevationStyle
 
-    private static let warmBorder = UIColor.taskerDynamic(lightHex: "#E2D3C2", darkHex: "#3A2E24")
-    private static let warmBorderStrong = UIColor.taskerDynamic(lightHex: "#C9B9A6", darkHex: "#4A3B30")
+    private static let warmBorder = UIColor.lifeboardDynamic(lightHex: "#E2D3C2", darkHex: "#3A2E24")
+    private static let warmBorderStrong = UIColor.lifeboardDynamic(lightHex: "#C9B9A6", darkHex: "#4A3B30")
 
     private static func warmShadowColor(darkAlpha: CGFloat, lightAlpha: CGFloat) -> UIColor {
         UIColor { traits in
@@ -31,7 +31,7 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
     }
 
     /// Executes style.
-    public func style(for level: TaskerElevationLevel) -> TaskerElevationStyle {
+    public func style(for level: LifeBoardElevationLevel) -> LifeBoardElevationStyle {
         switch level {
         case .e0: return e0
         case .e1: return e1
@@ -40,8 +40,8 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
         }
     }
 
-    public static let `default` = TaskerElevationTokens(
-        e0: TaskerElevationStyle(
+    public static let `default` = LifeBoardElevationTokens(
+        e0: LifeBoardElevationStyle(
             shadowOffsetY: 0,
             shadowBlur: 0,
             shadowOpacity: 0,
@@ -50,7 +50,7 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
             borderColor: .clear,
             blurStyle: .systemUltraThinMaterial
         ),
-        e1: TaskerElevationStyle(
+        e1: LifeBoardElevationStyle(
             shadowOffsetY: 1,
             shadowBlur: 8,
             shadowOpacity: 0.06,
@@ -59,7 +59,7 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
             borderColor: warmBorder,
             blurStyle: .systemUltraThinMaterial
         ),
-        e2: TaskerElevationStyle(
+        e2: LifeBoardElevationStyle(
             shadowOffsetY: 6,
             shadowBlur: 24,
             shadowOpacity: 0.08,
@@ -68,7 +68,7 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
             borderColor: warmBorder,
             blurStyle: .systemThinMaterial
         ),
-        e3: TaskerElevationStyle(
+        e3: LifeBoardElevationStyle(
             shadowOffsetY: 10,
             shadowBlur: 34,
             shadowOpacity: 0.10,
@@ -79,7 +79,7 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
         )
     )
 
-    private static let padCompact: TaskerElevationTokens = scaled(
+    private static let padCompact: LifeBoardElevationTokens = scaled(
         from: `default`,
         blurMultiplier: 1.08,
         offsetMultiplier: 1.05,
@@ -87,7 +87,7 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
         borderMultiplier: 1.0
     )
 
-    private static let padRegular: TaskerElevationTokens = scaled(
+    private static let padRegular: LifeBoardElevationTokens = scaled(
         from: `default`,
         blurMultiplier: 1.18,
         offsetMultiplier: 1.12,
@@ -95,7 +95,7 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
         borderMultiplier: 1.0
     )
 
-    private static let padExpanded: TaskerElevationTokens = scaled(
+    private static let padExpanded: LifeBoardElevationTokens = scaled(
         from: `default`,
         blurMultiplier: 1.26,
         offsetMultiplier: 1.2,
@@ -104,7 +104,7 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
     )
 
     /// Executes forLayout.
-    public static func forLayout(_ layoutClass: TaskerLayoutClass) -> TaskerElevationTokens {
+    public static func forLayout(_ layoutClass: LifeBoardLayoutClass) -> LifeBoardElevationTokens {
         switch layoutClass {
         case .phone:
             return `default`
@@ -119,14 +119,14 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
 
     /// Executes scaled.
     private static func scaled(
-        from source: TaskerElevationTokens,
+        from source: LifeBoardElevationTokens,
         blurMultiplier: CGFloat,
         offsetMultiplier: CGFloat,
         opacityMultiplier: Float,
         borderMultiplier: CGFloat
-    ) -> TaskerElevationTokens {
-        func apply(_ style: TaskerElevationStyle) -> TaskerElevationStyle {
-            TaskerElevationStyle(
+    ) -> LifeBoardElevationTokens {
+        func apply(_ style: LifeBoardElevationStyle) -> LifeBoardElevationStyle {
+            LifeBoardElevationStyle(
                 shadowOffsetY: style.shadowOffsetY * offsetMultiplier,
                 shadowBlur: style.shadowBlur * blurMultiplier,
                 shadowOpacity: min(1, style.shadowOpacity * opacityMultiplier),
@@ -137,7 +137,7 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
             )
         }
 
-        return TaskerElevationTokens(
+        return LifeBoardElevationTokens(
             e0: apply(source.e0),
             e1: apply(source.e1),
             e2: apply(source.e2),

@@ -1,6 +1,6 @@
 import UIKit
 
-public struct TaskerSpacingTokens: TaskerTokenGroup, Sendable {
+public struct LifeBoardSpacingTokens: LifeBoardTokenGroup, Sendable {
     public let s2: CGFloat
     public let s4: CGFloat
     public let s8: CGFloat
@@ -22,11 +22,11 @@ public struct TaskerSpacingTokens: TaskerTokenGroup, Sendable {
     public let buttonHeight: CGFloat
 
     /// Executes value.
-    public func value(for token: TaskerSpacingToken) -> CGFloat {
+    public func value(for token: LifeBoardSpacingToken) -> CGFloat {
         token.rawValue
     }
 
-    public static let `default` = TaskerSpacingTokens(
+    public static let `default` = LifeBoardSpacingTokens(
         s2: 2,
         s4: 4,
         s8: 8,
@@ -46,7 +46,7 @@ public struct TaskerSpacingTokens: TaskerTokenGroup, Sendable {
         buttonHeight: 48
     )
 
-    public static let padCompact = TaskerSpacingTokens(
+    public static let padCompact = LifeBoardSpacingTokens(
         s2: 2,
         s4: 4,
         s8: 8,
@@ -66,7 +66,7 @@ public struct TaskerSpacingTokens: TaskerTokenGroup, Sendable {
         buttonHeight: 48
     )
 
-    public static let padRegular = TaskerSpacingTokens(
+    public static let padRegular = LifeBoardSpacingTokens(
         s2: 2,
         s4: 4,
         s8: 8,
@@ -86,7 +86,7 @@ public struct TaskerSpacingTokens: TaskerTokenGroup, Sendable {
         buttonHeight: 50
     )
 
-    public static let padExpanded = TaskerSpacingTokens(
+    public static let padExpanded = LifeBoardSpacingTokens(
         s2: 2,
         s4: 4,
         s8: 8,
@@ -107,7 +107,7 @@ public struct TaskerSpacingTokens: TaskerTokenGroup, Sendable {
     )
 
     /// Executes forLayout.
-    public static func forLayout(_ layoutClass: TaskerLayoutClass) -> TaskerSpacingTokens {
+    public static func forLayout(_ layoutClass: LifeBoardLayoutClass) -> LifeBoardSpacingTokens {
         switch layoutClass {
         case .phone:
             return `default`

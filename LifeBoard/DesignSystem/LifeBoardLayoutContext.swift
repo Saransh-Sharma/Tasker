@@ -1,28 +1,28 @@
 import UIKit
 
-public struct TaskerLayoutContext: Sendable {
-    public let metrics: TaskerLayoutMetrics
-    public let layoutClass: TaskerLayoutClass
+public struct LifeBoardLayoutContext: Sendable {
+    public let metrics: LifeBoardLayoutMetrics
+    public let layoutClass: LifeBoardLayoutClass
 
     /// Initializes a new instance.
-    public init(metrics: TaskerLayoutMetrics) {
+    public init(metrics: LifeBoardLayoutMetrics) {
         self.metrics = metrics
-        self.layoutClass = TaskerLayoutResolver.classify(metrics: metrics)
+        self.layoutClass = LifeBoardLayoutResolver.classify(metrics: metrics)
     }
 
     /// Executes from.
     @MainActor
-    public static func from(view: UIView) -> TaskerLayoutContext {
-        let metrics = TaskerLayoutResolver.metrics(for: view)
-        return TaskerLayoutContext(metrics: metrics)
+    public static func from(view: UIView) -> LifeBoardLayoutContext {
+        let metrics = LifeBoardLayoutResolver.metrics(for: view)
+        return LifeBoardLayoutContext(metrics: metrics)
     }
 
     /// Executes from.
     @MainActor
-    public static func from(windowScene: UIWindowScene?) -> TaskerLayoutContext {
+    public static func from(windowScene: UIWindowScene?) -> LifeBoardLayoutContext {
         guard let windowScene else {
-            return TaskerLayoutContext(
-                metrics: TaskerLayoutMetrics(
+            return LifeBoardLayoutContext(
+                metrics: LifeBoardLayoutMetrics(
                     width: 0,
                     height: 0,
                     idiom: .phone
@@ -30,7 +30,7 @@ public struct TaskerLayoutContext: Sendable {
             )
         }
         let bounds = windowScene.coordinateSpace.bounds
-        let metrics = TaskerLayoutMetrics(
+        let metrics = LifeBoardLayoutMetrics(
             width: bounds.width,
             height: bounds.height,
             idiom: windowScene.traitCollection.userInterfaceIdiom,
@@ -38,6 +38,6 @@ public struct TaskerLayoutContext: Sendable {
             verticalSizeClass: windowScene.traitCollection.verticalSizeClass,
             safeAreaInsets: windowScene.windows.first?.safeAreaInsets ?? .zero
         )
-        return TaskerLayoutContext(metrics: metrics)
+        return LifeBoardLayoutContext(metrics: metrics)
     }
 }

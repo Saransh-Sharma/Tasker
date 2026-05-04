@@ -1,24 +1,24 @@
 import SwiftUI
 
-public enum TaskerMeshRole {
+public enum LifeBoardMeshRole {
     case homeBackdrop
     case chatBackdrop
     case ctaPrimary
     case cardSubtle
 }
 
-public enum TaskerMeshIntensity: CaseIterable {
+public enum LifeBoardMeshIntensity: CaseIterable {
     case subtle
     case balanced
     case vivid
 }
 
-public enum TaskerMeshTuning {
+public enum LifeBoardMeshTuning {
     // Single global knob to tune mesh motion intensity post-testing.
-    public static var defaultIntensity: TaskerMeshIntensity = .vivid
+    public static var defaultIntensity: LifeBoardMeshIntensity = .vivid
 }
 
-public struct TaskerMeshSpec {
+public struct LifeBoardMeshSpec {
     public let width: Int
     public let height: Int
     public let idlePoints: [SIMD2<Float>]
@@ -47,24 +47,24 @@ public struct TaskerMeshSpec {
         blendMode: BlendMode,
         reduceTransparencyOpacity: Double
     ) {
-        precondition(width > 0, "TaskerMeshSpec width must be > 0")
-        precondition(height > 0, "TaskerMeshSpec height must be > 0")
+        precondition(width > 0, "LifeBoardMeshSpec width must be > 0")
+        precondition(height > 0, "LifeBoardMeshSpec height must be > 0")
         let expectedPointCount = width * height
         precondition(
             idlePoints.count == expectedPointCount,
-            "TaskerMeshSpec idlePoints count (\(idlePoints.count)) must equal width * height (\(expectedPointCount))"
+            "LifeBoardMeshSpec idlePoints count (\(idlePoints.count)) must equal width * height (\(expectedPointCount))"
         )
         precondition(
             activePoints.count == expectedPointCount,
-            "TaskerMeshSpec activePoints count (\(activePoints.count)) must equal width * height (\(expectedPointCount))"
+            "LifeBoardMeshSpec activePoints count (\(activePoints.count)) must equal width * height (\(expectedPointCount))"
         )
         precondition(
             idleColors.count == expectedPointCount,
-            "TaskerMeshSpec idleColors count (\(idleColors.count)) must equal width * height (\(expectedPointCount))"
+            "LifeBoardMeshSpec idleColors count (\(idleColors.count)) must equal width * height (\(expectedPointCount))"
         )
         precondition(
             activeColors.count == expectedPointCount,
-            "TaskerMeshSpec activeColors count (\(activeColors.count)) must equal width * height (\(expectedPointCount))"
+            "LifeBoardMeshSpec activeColors count (\(activeColors.count)) must equal width * height (\(expectedPointCount))"
         )
 
         self.width = width
@@ -82,7 +82,7 @@ public struct TaskerMeshSpec {
     }
 
     @MainActor
-    public static func make(role: TaskerMeshRole, intensity: TaskerMeshIntensity) -> TaskerMeshSpec {
+    public static func make(role: LifeBoardMeshRole, intensity: LifeBoardMeshIntensity) -> LifeBoardMeshSpec {
         let width = 3
         let height = 3
 
@@ -138,18 +138,18 @@ public struct TaskerMeshSpec {
             }
         }
 
-        let accentPrimary = Color.tasker(.accentPrimary)
-        let accentSecondary = Color.tasker(.accentSecondary)
-        let accentMuted = Color.tasker(.accentMuted)
-        let accentWash = Color.tasker(.accentWash)
-        let statusWarning = Color.tasker(.statusWarning)
-        let statusSuccess = Color.tasker(.statusSuccess)
-        let statusDanger = Color.tasker(.statusDanger)
-        let canvas = Color.tasker(.bgCanvas)
+        let accentPrimary = Color.lifeboard(.accentPrimary)
+        let accentSecondary = Color.lifeboard(.accentSecondary)
+        let accentMuted = Color.lifeboard(.accentMuted)
+        let accentWash = Color.lifeboard(.accentWash)
+        let statusWarning = Color.lifeboard(.statusWarning)
+        let statusSuccess = Color.lifeboard(.statusSuccess)
+        let statusDanger = Color.lifeboard(.statusDanger)
+        let canvas = Color.lifeboard(.bgCanvas)
 
         switch role {
         case .homeBackdrop:
-            return TaskerMeshSpec(
+            return LifeBoardMeshSpec(
                 width: width,
                 height: height,
                 idlePoints: basePoints,
@@ -173,7 +173,7 @@ public struct TaskerMeshSpec {
             )
 
         case .chatBackdrop:
-            return TaskerMeshSpec(
+            return LifeBoardMeshSpec(
                 width: width,
                 height: height,
                 idlePoints: basePoints,
@@ -197,7 +197,7 @@ public struct TaskerMeshSpec {
             )
 
         case .ctaPrimary:
-            return TaskerMeshSpec(
+            return LifeBoardMeshSpec(
                 width: width,
                 height: height,
                 idlePoints: basePoints,
@@ -221,7 +221,7 @@ public struct TaskerMeshSpec {
             )
 
         case .cardSubtle:
-            return TaskerMeshSpec(
+            return LifeBoardMeshSpec(
                 width: width,
                 height: height,
                 idlePoints: basePoints,

@@ -1,6 +1,6 @@
 //
-//  TaskerAnimations.swift
-//  Tasker
+//  LifeBoardAnimations.swift
+//  LifeBoard
 //
 //  Reusable animation tokens and ViewModifiers for the Sarvam-inspired single-brand system.
 //  Supports calm transitions, staggered reveals, and shared haptic helpers.
@@ -12,7 +12,7 @@ import UIKit
 // MARK: - Animation Tokens
 
 @MainActor
-public enum TaskerAnimation {
+public enum LifeBoardAnimation {
     public static let press: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.09)
     public static let feedbackFast: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.14)
     public static let stateChange: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.22)
@@ -73,7 +73,7 @@ public struct StaggeredAppearance: ViewModifier {
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 12)
             .animation(
-                TaskerAnimation.gentle.delay(Double(index) * TaskerAnimation.staggerInterval),
+                LifeBoardAnimation.gentle.delay(Double(index) * LifeBoardAnimation.staggerInterval),
                 value: appeared
             )
             .onAppear { appeared = true }
@@ -86,7 +86,7 @@ public struct EnhancedStaggeredAppearance: ViewModifier {
     let index: Int
     @State private var appeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     public init(index: Int) {
         self.index = index
@@ -103,7 +103,7 @@ public struct EnhancedStaggeredAppearance: ViewModifier {
                 .scaleEffect(appeared ? 1 : 0.97)
                 .offset(y: appeared ? 0 : 16)
                 .animation(
-                    TaskerAnimation.gentle.delay(Double(index) * TaskerAnimation.staggerInterval),
+                    LifeBoardAnimation.gentle.delay(Double(index) * LifeBoardAnimation.staggerInterval),
                     value: appeared
                 )
                 .onAppear { appeared = true }
@@ -148,7 +148,7 @@ public struct TaskCompletionTransition: ViewModifier {
         content
             .opacity(isComplete ? 0.55 : 1.0)
             .scaleEffect(isComplete ? 0.98 : 1.0)
-            .animation(reduceMotion ? nil : TaskerAnimation.gentle, value: isComplete)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.gentle, value: isComplete)
     }
 }
 
@@ -170,7 +170,7 @@ public struct ActiveGlow: ViewModifier {
                 color: isActive ? color.opacity(0.25) : .clear,
                 radius: isActive ? 8 : 0
             )
-            .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isActive)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isActive)
     }
 }
 
@@ -187,7 +187,7 @@ public struct CardPressEffect: ViewModifier {
                 color: .black.opacity(isPressed ? 0.04 : 0.08),
                 radius: isPressed ? 4 : 8
             )
-            .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isPressed)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isPressed)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in isPressed = true }
@@ -202,16 +202,16 @@ public struct ScaleOnPress: ViewModifier {
     /// Executes body.
     public func body(content: Content) -> some View {
         content
-            .buttonStyle(TaskerScaleOnPressButtonStyle())
+            .buttonStyle(LifeBoardScaleOnPressButtonStyle())
     }
 }
 
-private struct TaskerScaleOnPressButtonStyle: ButtonStyle {
+private struct LifeBoardScaleOnPressButtonStyle: ButtonStyle {
     /// Executes makeBody.
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(TaskerAnimation.quick, value: configuration.isPressed)
+            .animation(LifeBoardAnimation.quick, value: configuration.isPressed)
     }
 }
 
@@ -286,8 +286,8 @@ public extension View {
         modifier(BellShake(trigger: trigger))
     }
 
-    func taskerSuccessPulse(isActive: Bool) -> some View {
-        modifier(TaskerSuccessPulse(isActive: isActive))
+    func lifeboardSuccessPulse(isActive: Bool) -> some View {
+        modifier(LifeBoardSuccessPulse(isActive: isActive))
     }
 }
 
@@ -318,7 +318,7 @@ public struct BellShake: ViewModifier {
     }
 }
 
-public struct TaskerSuccessPulse: ViewModifier {
+public struct LifeBoardSuccessPulse: ViewModifier {
     let isActive: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -326,25 +326,25 @@ public struct TaskerSuccessPulse: ViewModifier {
         content
             .scaleEffect(isActive && !reduceMotion ? 1.015 : 1)
             .shadow(
-                color: isActive ? Color.tasker.statusSuccess.opacity(reduceMotion ? 0.12 : 0.24) : .clear,
+                color: isActive ? Color.lifeboard.statusSuccess.opacity(reduceMotion ? 0.12 : 0.24) : .clear,
                 radius: isActive ? (reduceMotion ? 4 : 12) : 0
             )
-            .animation(reduceMotion ? nil : TaskerAnimation.ctaConfirmation, value: isActive)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.ctaConfirmation, value: isActive)
     }
 }
 
 // MARK: - UIKit Spring Helpers
 
 public extension UIView {
-    /// Executes taskerSpringAnimate.
+    /// Executes lifeboardSpringAnimate.
     @MainActor
-    static func taskerSpringAnimate(
+    static func lifeboardSpringAnimate(
         _ params: (duration: Double, damping: CGFloat, velocity: CGFloat)? = nil,
         delay: TimeInterval = 0,
         animations: @escaping () -> Void,
         completion: ((Bool) -> Void)? = nil
     ) {
-        let resolvedParams = params ?? TaskerAnimation.uiSnappy
+        let resolvedParams = params ?? LifeBoardAnimation.uiSnappy
         UIView.animate(
             withDuration: resolvedParams.duration,
             delay: delay,
@@ -360,7 +360,7 @@ public extension UIView {
 // MARK: - Haptic Helpers
 
 @MainActor
-public enum TaskerFeedback {
+public enum LifeBoardFeedback {
     public static func light() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }

@@ -1,7 +1,7 @@
 @preconcurrency import SwiftUI
 import UIKit
 
-public struct TaskerSwiftUIColorTokens {
+public struct LifeBoardSwiftUIColorTokens {
     public let bgCanvas: Color
     public let bgCanvasSecondary: Color
     public let bgElevated: Color
@@ -50,7 +50,7 @@ public struct TaskerSwiftUIColorTokens {
     public let priorityNone: Color
 
     /// Initializes a new instance.
-    public init(_ ui: TaskerColorTokens) {
+    public init(_ ui: LifeBoardColorTokens) {
         self.bgCanvas = Color(uiColor: ui.bgCanvas)
         self.bgCanvasSecondary = Color(uiColor: ui.bgCanvasSecondary)
         self.bgElevated = Color(uiColor: ui.bgElevated)
@@ -96,42 +96,42 @@ public struct TaskerSwiftUIColorTokens {
 }
 
 @MainActor
-public enum TaskerSwiftUITokens {
+public enum LifeBoardSwiftUITokens {
     private struct SwiftUIColorCacheKey: Hashable {
-        let layoutClass: TaskerLayoutClass
-        let traits: TaskerTokenTraitContext
+        let layoutClass: LifeBoardLayoutClass
+        let traits: LifeBoardTokenTraitContext
     }
 
-    private static var swiftUIColorCache: [SwiftUIColorCacheKey: TaskerSwiftUIColorTokens] = [:]
+    private static var swiftUIColorCache: [SwiftUIColorCacheKey: LifeBoardSwiftUIColorTokens] = [:]
 
-    public static var color: TaskerSwiftUIColorTokens {
+    public static var color: LifeBoardSwiftUIColorTokens {
         color(for: .phone, traits: .unspecified)
     }
 
-    public static var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).spacing
+    public static var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).spacing
     }
 
-    public static var corner: TaskerCornerTokens {
-        TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).corner
+    public static var corner: LifeBoardCornerTokens {
+        LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).corner
     }
 
-    public static var typography: TaskerTypographyTokens {
-        TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).typography
+    public static var typography: LifeBoardTypographyTokens {
+        LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).typography
     }
 
-    public static var elevation: TaskerElevationTokens {
-        TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).elevation
+    public static var elevation: LifeBoardElevationTokens {
+        LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).elevation
     }
 
-    public static func color(for layoutClass: TaskerLayoutClass) -> TaskerSwiftUIColorTokens {
+    public static func color(for layoutClass: LifeBoardLayoutClass) -> LifeBoardSwiftUIColorTokens {
         color(for: layoutClass, traits: .unspecified)
     }
 
     public static func color(
-        for layoutClass: TaskerLayoutClass,
-        traits: TaskerTokenTraitContext
-    ) -> TaskerSwiftUIColorTokens {
+        for layoutClass: LifeBoardLayoutClass,
+        traits: LifeBoardTokenTraitContext
+    ) -> LifeBoardSwiftUIColorTokens {
         let cacheKey = SwiftUIColorCacheKey(
             layoutClass: layoutClass,
             traits: traits
@@ -140,75 +140,75 @@ public enum TaskerSwiftUITokens {
             return cached
         }
 
-        let resolved = TaskerSwiftUIColorTokens(
-            TaskerThemeManager.tokens(for: layoutClass, traits: traits).color
+        let resolved = LifeBoardSwiftUIColorTokens(
+            LifeBoardThemeManager.tokens(for: layoutClass, traits: traits).color
         )
         swiftUIColorCache[cacheKey] = resolved
         return resolved
     }
 
-    public static func spacing(for layoutClass: TaskerLayoutClass) -> TaskerSpacingTokens {
+    public static func spacing(for layoutClass: LifeBoardLayoutClass) -> LifeBoardSpacingTokens {
         spacing(for: layoutClass, traits: .unspecified)
     }
 
     public static func spacing(
-        for layoutClass: TaskerLayoutClass,
-        traits: TaskerTokenTraitContext
-    ) -> TaskerSpacingTokens {
-        TaskerThemeManager.tokens(for: layoutClass, traits: traits).spacing
+        for layoutClass: LifeBoardLayoutClass,
+        traits: LifeBoardTokenTraitContext
+    ) -> LifeBoardSpacingTokens {
+        LifeBoardThemeManager.tokens(for: layoutClass, traits: traits).spacing
     }
 
-    public static func corner(for layoutClass: TaskerLayoutClass) -> TaskerCornerTokens {
+    public static func corner(for layoutClass: LifeBoardLayoutClass) -> LifeBoardCornerTokens {
         corner(for: layoutClass, traits: .unspecified)
     }
 
     public static func corner(
-        for layoutClass: TaskerLayoutClass,
-        traits: TaskerTokenTraitContext
-    ) -> TaskerCornerTokens {
-        TaskerThemeManager.tokens(for: layoutClass, traits: traits).corner
+        for layoutClass: LifeBoardLayoutClass,
+        traits: LifeBoardTokenTraitContext
+    ) -> LifeBoardCornerTokens {
+        LifeBoardThemeManager.tokens(for: layoutClass, traits: traits).corner
     }
 
-    public static func typography(for layoutClass: TaskerLayoutClass) -> TaskerTypographyTokens {
+    public static func typography(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTypographyTokens {
         typography(for: layoutClass, traits: .unspecified)
     }
 
     public static func typography(
-        for layoutClass: TaskerLayoutClass,
-        traits: TaskerTokenTraitContext
-    ) -> TaskerTypographyTokens {
-        TaskerThemeManager.tokens(for: layoutClass, traits: traits).typography
+        for layoutClass: LifeBoardLayoutClass,
+        traits: LifeBoardTokenTraitContext
+    ) -> LifeBoardTypographyTokens {
+        LifeBoardThemeManager.tokens(for: layoutClass, traits: traits).typography
     }
 
-    public static func elevation(for layoutClass: TaskerLayoutClass) -> TaskerElevationTokens {
+    public static func elevation(for layoutClass: LifeBoardLayoutClass) -> LifeBoardElevationTokens {
         elevation(for: layoutClass, traits: .unspecified)
     }
 
     public static func elevation(
-        for layoutClass: TaskerLayoutClass,
-        traits: TaskerTokenTraitContext
-    ) -> TaskerElevationTokens {
-        TaskerThemeManager.tokens(for: layoutClass, traits: traits).elevation
+        for layoutClass: LifeBoardLayoutClass,
+        traits: LifeBoardTokenTraitContext
+    ) -> LifeBoardElevationTokens {
+        LifeBoardThemeManager.tokens(for: layoutClass, traits: traits).elevation
     }
 }
 
-private struct TaskerLayoutClassKey: EnvironmentKey {
-    static let defaultValue: TaskerLayoutClass = .phone
+private struct LifeBoardLayoutClassKey: EnvironmentKey {
+    static let defaultValue: LifeBoardLayoutClass = .phone
 }
 
 public extension EnvironmentValues {
-    var taskerLayoutClass: TaskerLayoutClass {
-        get { self[TaskerLayoutClassKey.self] }
-        set { self[TaskerLayoutClassKey.self] = newValue }
+    var lifeboardLayoutClass: LifeBoardLayoutClass {
+        get { self[LifeBoardLayoutClassKey.self] }
+        set { self[LifeBoardLayoutClassKey.self] = newValue }
     }
 }
 
-private func taskerTokenTraits(
+private func lifeboardTokenTraits(
     colorScheme: ColorScheme,
     dynamicTypeSize: DynamicTypeSize,
     colorSchemeContrast: ColorSchemeContrast
-) -> TaskerTokenTraitContext {
-    TaskerTokenTraitContext(
+) -> LifeBoardTokenTraitContext {
+    LifeBoardTokenTraitContext(
         colorScheme: colorScheme == .dark ? .dark : .light,
         contentSizeCategory: dynamicTypeSize.uiContentSizeCategory,
         accessibilityContrast: colorSchemeContrast.uiAccessibilityContrast
@@ -216,8 +216,8 @@ private func taskerTokenTraits(
 }
 
 private extension UITraitCollection {
-    var taskerTokenTraits: TaskerTokenTraitContext {
-        TaskerTokenTraitContext(
+    var lifeboardTokenTraits: LifeBoardTokenTraitContext {
+        LifeBoardTokenTraitContext(
             colorScheme: userInterfaceStyle,
             contentSizeCategory: preferredContentSizeCategory,
             accessibilityContrast: accessibilityContrast
@@ -227,38 +227,38 @@ private extension UITraitCollection {
 
 @MainActor
 public extension Color {
-    static var tasker: TaskerSwiftUIColorTokens {
-        TaskerSwiftUITokens.color
+    static var lifeboard: LifeBoardSwiftUIColorTokens {
+        LifeBoardSwiftUITokens.color
     }
 
-    /// Executes tasker.
-    static func tasker(_ role: TaskerColorRole) -> Color {
+    /// Executes lifeboard.
+    static func lifeboard(_ role: LifeBoardColorRole) -> Color {
         Color(uiColor: UIColor { traits in
-            TaskerThemeManager.shared.tokens(for: .phone, traits: traits.taskerTokenTraits).color.color(for: role)
+            LifeBoardThemeManager.shared.tokens(for: .phone, traits: traits.lifeboardTokenTraits).color.color(for: role)
         })
     }
 }
 
 @MainActor
 public extension Font {
-    /// Executes tasker.
-    static func tasker(_ style: TaskerTextStyle) -> Font {
-        Font(TaskerSwiftUITokens.typography.font(for: style))
+    /// Executes lifeboard.
+    static func lifeboard(_ style: LifeBoardTextStyle) -> Font {
+        Font(LifeBoardSwiftUITokens.typography.font(for: style))
     }
 }
 
-private struct TaskerFontModifier: ViewModifier {
+private struct LifeBoardFontModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.legibilityWeight) private var legibilityWeight
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    let style: TaskerTextStyle
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    let style: LifeBoardTextStyle
 
     @MainActor
     @ViewBuilder
     func body(content: Content) -> some View {
-        let traits = taskerTokenTraits(
+        let traits = lifeboardTokenTraits(
             colorScheme: colorScheme,
             dynamicTypeSize: dynamicTypeSize,
             colorSchemeContrast: colorSchemeContrast
@@ -269,7 +269,7 @@ private struct TaskerFontModifier: ViewModifier {
             traits.accessibilityContrast = colorSchemeContrast.uiAccessibilityContrast
         }
         let font = Font(
-            TaskerSwiftUITokens.typography(
+            LifeBoardSwiftUITokens.typography(
                 for: layoutClass,
                 traits: traits
             ).dynamicFont(for: style, compatibleWith: traitCollection)
@@ -287,29 +287,29 @@ private struct TaskerFontModifier: ViewModifier {
 
 @MainActor
 public extension View {
-    func taskerFont(_ style: TaskerTextStyle) -> some View {
-        modifier(TaskerFontModifier(style: style))
+    func lifeboardFont(_ style: LifeBoardTextStyle) -> some View {
+        modifier(LifeBoardFontModifier(style: style))
     }
 }
 
-private struct TaskerElevationModifier: ViewModifier {
+private struct LifeBoardElevationModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    let level: TaskerElevationLevel
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    let level: LifeBoardElevationLevel
     let cornerRadius: CGFloat
     let includesBorder: Bool
 
     /// Executes body.
     @MainActor
     func body(content: Content) -> some View {
-        let traits = taskerTokenTraits(
+        let traits = lifeboardTokenTraits(
             colorScheme: colorScheme,
             dynamicTypeSize: dynamicTypeSize,
             colorSchemeContrast: colorSchemeContrast
         )
-        let style = TaskerSwiftUITokens.elevation(for: layoutClass, traits: traits).style(for: level)
+        let style = LifeBoardSwiftUITokens.elevation(for: layoutClass, traits: traits).style(for: level)
         let trait = UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light)
         let shadowColor = Color(uiColor: style.shadowColor.resolvedColor(with: trait))
 
@@ -324,7 +324,7 @@ private struct TaskerElevationModifier: ViewModifier {
     }
 }
 
-private struct TaskerDenseSurfaceModifier: ViewModifier {
+private struct LifeBoardDenseSurfaceModifier: ViewModifier {
     let cornerRadius: CGFloat
     let fillColor: Color
     let strokeColor: Color
@@ -343,12 +343,12 @@ private struct TaskerDenseSurfaceModifier: ViewModifier {
     }
 }
 
-private struct TaskerPremiumSurfaceModifier: ViewModifier {
+private struct LifeBoardPremiumSurfaceModifier: ViewModifier {
     let cornerRadius: CGFloat
     let fillColor: Color
     let strokeColor: Color
     let accentColor: Color
-    let level: TaskerElevationLevel
+    let level: LifeBoardElevationLevel
     let useNativeGlass: Bool
 
     @ViewBuilder
@@ -438,16 +438,16 @@ private struct TaskerPremiumSurfaceModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(nativeGlassSurface)
-            .taskerElevation(level, cornerRadius: cornerRadius, includesBorder: false)
+            .lifeboardElevation(level, cornerRadius: cornerRadius, includesBorder: false)
     }
 }
 
-private struct TaskerAnalyticsSurfaceModifier: ViewModifier {
+private struct LifeBoardAnalyticsSurfaceModifier: ViewModifier {
     let cornerRadius: CGFloat
     let fillColor: Color
     let strokeColor: Color
     let accentColor: Color
-    let level: TaskerElevationLevel
+    let level: LifeBoardElevationLevel
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -467,32 +467,32 @@ private struct TaskerAnalyticsSurfaceModifier: ViewModifier {
                             .padding(.leading, 12)
                     }
             )
-            .taskerElevation(level, cornerRadius: cornerRadius, includesBorder: false)
+            .lifeboardElevation(level, cornerRadius: cornerRadius, includesBorder: false)
     }
 }
 
 public extension View {
-    /// Executes taskerElevation.
+    /// Executes lifeboardElevation.
     @MainActor
-    func taskerElevation(
-        _ level: TaskerElevationLevel,
+    func lifeboardElevation(
+        _ level: LifeBoardElevationLevel,
         cornerRadius: CGFloat = 0,
         includesBorder: Bool = true
     ) -> some View {
-        modifier(TaskerElevationModifier(level: level, cornerRadius: cornerRadius, includesBorder: includesBorder))
+        modifier(LifeBoardElevationModifier(level: level, cornerRadius: cornerRadius, includesBorder: includesBorder))
     }
 
     @MainActor
-    func taskerDenseSurface(
+    func lifeboardDenseSurface(
         cornerRadius: CGFloat,
         fillColor: Color? = nil,
         strokeColor: Color? = nil,
         lineWidth: CGFloat = 1
     ) -> some View {
-        let resolvedFillColor = fillColor ?? Color.tasker.surfacePrimary
-        let resolvedStrokeColor = strokeColor ?? Color.tasker.strokeHairline
+        let resolvedFillColor = fillColor ?? Color.lifeboard.surfacePrimary
+        let resolvedStrokeColor = strokeColor ?? Color.lifeboard.strokeHairline
         return modifier(
-            TaskerDenseSurfaceModifier(
+            LifeBoardDenseSurfaceModifier(
                 cornerRadius: cornerRadius,
                 fillColor: resolvedFillColor,
                 strokeColor: resolvedStrokeColor,
@@ -502,20 +502,20 @@ public extension View {
     }
 
     @MainActor
-    func taskerPremiumSurface(
+    func lifeboardPremiumSurface(
         cornerRadius: CGFloat,
         fillColor: Color? = nil,
         strokeColor: Color? = nil,
         accentColor: Color? = nil,
-        level: TaskerElevationLevel = .e2,
+        level: LifeBoardElevationLevel = .e2,
         useNativeGlass: Bool = true
     ) -> some View {
         modifier(
-            TaskerPremiumSurfaceModifier(
+            LifeBoardPremiumSurfaceModifier(
                 cornerRadius: cornerRadius,
-                fillColor: fillColor ?? Color.tasker.surfacePrimary,
-                strokeColor: strokeColor ?? Color.tasker.strokeHairline,
-                accentColor: accentColor ?? Color.tasker.accentSecondary,
+                fillColor: fillColor ?? Color.lifeboard.surfacePrimary,
+                strokeColor: strokeColor ?? Color.lifeboard.strokeHairline,
+                accentColor: accentColor ?? Color.lifeboard.accentSecondary,
                 level: level,
                 useNativeGlass: useNativeGlass
             )
@@ -523,55 +523,55 @@ public extension View {
     }
 
     @MainActor
-    func taskerAnalyticsSurface(
+    func lifeboardAnalyticsSurface(
         cornerRadius: CGFloat,
         fillColor: Color? = nil,
         strokeColor: Color? = nil,
         accentColor: Color? = nil,
-        level: TaskerElevationLevel = .e1
+        level: LifeBoardElevationLevel = .e1
     ) -> some View {
         modifier(
-            TaskerAnalyticsSurfaceModifier(
+            LifeBoardAnalyticsSurfaceModifier(
                 cornerRadius: cornerRadius,
-                fillColor: fillColor ?? Color.tasker.surfacePrimary,
-                strokeColor: strokeColor ?? Color.tasker.strokeHairline,
-                accentColor: accentColor ?? Color.tasker.accentSecondary,
+                fillColor: fillColor ?? Color.lifeboard.surfacePrimary,
+                strokeColor: strokeColor ?? Color.lifeboard.strokeHairline,
+                accentColor: accentColor ?? Color.lifeboard.accentSecondary,
                 level: level
             )
         )
     }
 
     @MainActor
-    func taskerChromeSurface(
+    func lifeboardChromeSurface(
         cornerRadius: CGFloat,
         accentColor: Color? = nil,
-        level: TaskerElevationLevel = .e1,
+        level: LifeBoardElevationLevel = .e1,
         useNativeGlass: Bool = true
     ) -> some View {
         modifier(
-            TaskerPremiumSurfaceModifier(
+            LifeBoardPremiumSurfaceModifier(
                 cornerRadius: cornerRadius,
-                fillColor: Color.tasker.surfaceSecondary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.78),
-                accentColor: accentColor ?? Color.tasker.accentSecondary,
+                fillColor: Color.lifeboard.surfaceSecondary,
+                strokeColor: Color.lifeboard.strokeHairline.opacity(0.78),
+                accentColor: accentColor ?? Color.lifeboard.accentSecondary,
                 level: level,
                 useNativeGlass: useNativeGlass
             )
         )
     }
 
-    /// Executes taskerLayoutClass.
-    func taskerLayoutClass(_ layoutClass: TaskerLayoutClass) -> some View {
-        environment(\.taskerLayoutClass, layoutClass)
+    /// Executes lifeboardLayoutClass.
+    func lifeboardLayoutClass(_ layoutClass: LifeBoardLayoutClass) -> some View {
+        environment(\.lifeboardLayoutClass, layoutClass)
     }
 
     /// Keeps dense content readable on iPad and Designed for iPad on Mac.
-    func taskerReadableContent(
+    func lifeboardReadableContent(
         maxWidth: CGFloat = 920,
         alignment: Alignment = .center
     ) -> some View {
         modifier(
-            TaskerReadableContentModifier(
+            LifeBoardReadableContentModifier(
                 maxWidth: maxWidth,
                 alignment: alignment
             )
@@ -579,8 +579,8 @@ public extension View {
     }
 }
 
-private struct TaskerReadableContentModifier: ViewModifier {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+private struct LifeBoardReadableContentModifier: ViewModifier {
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     let maxWidth: CGFloat
     let alignment: Alignment
@@ -595,7 +595,7 @@ private struct TaskerReadableContentModifier: ViewModifier {
     }
 }
 
-public struct TaskerTextFieldStyle: TextFieldStyle {
+public struct LifeBoardTextFieldStyle: TextFieldStyle {
     public var isFocused: Bool
 
     /// Initializes a new instance.
@@ -605,11 +605,11 @@ public struct TaskerTextFieldStyle: TextFieldStyle {
 
     /// Executes _body.
     public func _body(configuration: TextField<_Label>) -> some View {
-        TaskerTextFieldBody(configuration: configuration, isFocused: isFocused)
+        LifeBoardTextFieldBody(configuration: configuration, isFocused: isFocused)
     }
 }
 
-private struct TaskerTextFieldBody<Label: View>: View {
+private struct LifeBoardTextFieldBody<Label: View>: View {
     nonisolated(unsafe) let configuration: TextField<Label>
     let isFocused: Bool
 
@@ -621,22 +621,22 @@ private struct TaskerTextFieldBody<Label: View>: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     var body: some View {
-        let traits = taskerTokenTraits(
+        let traits = lifeboardTokenTraits(
             colorScheme: colorScheme,
             dynamicTypeSize: dynamicTypeSize,
             colorSchemeContrast: colorSchemeContrast
         )
-        let tokens = TaskerThemeManager.shared.tokens(for: layoutClass, traits: traits)
+        let tokens = LifeBoardThemeManager.shared.tokens(for: layoutClass, traits: traits)
 
         return configuration
-            .font(.tasker(.body))
+            .font(.lifeboard(.body))
             .foregroundColor(Color(uiColor: tokens.color.textPrimary))
             .tint(Color(uiColor: tokens.color.actionPrimary))
             .padding(.horizontal, tokens.spacing.s12)
-            .frame(height: TaskerTextFieldTokens.singleLineHeight)
+            .frame(height: LifeBoardTextFieldTokens.singleLineHeight)
             .background(Color(uiColor: tokens.color.surfaceSecondary))
             .overlay(
                 RoundedRectangle(cornerRadius: tokens.corner.r2)
@@ -649,17 +649,17 @@ private struct TaskerTextFieldBody<Label: View>: View {
     }
 }
 
-public struct TaskerChip: View {
+public struct LifeBoardChip: View {
     public let title: String
     public var isSelected: Bool
-    public var selectedStyle: TaskerChipSelectionStyle
+    public var selectedStyle: LifeBoardChipSelectionStyle
     public var action: (() -> Void)?
 
     /// Initializes a new instance.
     public init(
         title: String,
         isSelected: Bool,
-        selectedStyle: TaskerChipSelectionStyle = .tinted,
+        selectedStyle: LifeBoardChipSelectionStyle = .tinted,
         action: (() -> Void)? = nil
     ) {
         self.title = title
@@ -671,11 +671,11 @@ public struct TaskerChip: View {
     public var body: some View {
         Button(action: { action?() }) {
             Text(title)
-                .font(.tasker(.callout))
+                .font(.lifeboard(.callout))
                 .foregroundColor(textColor)
-                .padding(.horizontal, TaskerSwiftUITokens.spacing.s12)
-                .padding(.vertical, TaskerSwiftUITokens.spacing.s8)
-                .frame(minWidth: 44, minHeight: TaskerSettingsMetrics.chipMinHeight)
+                .padding(.horizontal, LifeBoardSwiftUITokens.spacing.s12)
+                .padding(.vertical, LifeBoardSwiftUITokens.spacing.s8)
+                .frame(minWidth: 44, minHeight: LifeBoardSettingsMetrics.chipMinHeight)
                 .background(background)
                 .overlay(border)
                 .clipShape(Capsule())
@@ -684,34 +684,34 @@ public struct TaskerChip: View {
     }
 
     private var textColor: Color {
-        if !isSelected { return .tasker(.textSecondary) }
-        return selectedStyle == .filled ? .tasker(.accentOnPrimary) : .tasker(.actionPrimary)
+        if !isSelected { return .lifeboard(.textSecondary) }
+        return selectedStyle == .filled ? .lifeboard(.accentOnPrimary) : .lifeboard(.actionPrimary)
     }
 
     @ViewBuilder
     private var background: some View {
         if !isSelected {
-            Color.tasker.surfaceSecondary
+            Color.lifeboard.surfaceSecondary
         } else if selectedStyle == .filled {
-            Color.tasker(.accentPrimary).opacity(0.94)
+            Color.lifeboard(.accentPrimary).opacity(0.94)
         } else {
-            Color.tasker(.accentWash)
+            Color.lifeboard(.accentWash)
         }
     }
 
     @ViewBuilder
     private var border: some View {
         if isSelected && selectedStyle == .filled {
-            Capsule().stroke(Color.tasker(.accentRing).opacity(0.78), lineWidth: 1)
+            Capsule().stroke(Color.lifeboard(.accentRing).opacity(0.78), lineWidth: 1)
         } else if isSelected && selectedStyle == .tinted {
-            Capsule().stroke(Color.tasker(.actionFocus), lineWidth: 1)
+            Capsule().stroke(Color.lifeboard(.actionFocus), lineWidth: 1)
         } else {
             Capsule().stroke(Color.clear, lineWidth: 0)
         }
     }
 }
 
-public struct TaskerCard<Content: View>: View {
+public struct LifeBoardCard<Content: View>: View {
     public var active: Bool
     public var elevated: Bool
     private let content: Content
@@ -719,7 +719,7 @@ public struct TaskerCard<Content: View>: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     /// Initializes a new instance.
     public init(active: Bool = false, elevated: Bool = false, @ViewBuilder content: () -> Content) {
@@ -729,12 +729,12 @@ public struct TaskerCard<Content: View>: View {
     }
 
     public var body: some View {
-        let traits = taskerTokenTraits(
+        let traits = lifeboardTokenTraits(
             colorScheme: colorScheme,
             dynamicTypeSize: dynamicTypeSize,
             colorSchemeContrast: colorSchemeContrast
         )
-        let tokens = TaskerThemeManager.shared.tokens(for: layoutClass, traits: traits)
+        let tokens = LifeBoardThemeManager.shared.tokens(for: layoutClass, traits: traits)
         return content
             .padding(tokens.spacing.cardPadding)
             .background(Color(uiColor: tokens.color.surfacePrimary))
@@ -746,7 +746,7 @@ public struct TaskerCard<Content: View>: View {
                     )
             )
             .clipShape(RoundedRectangle(cornerRadius: tokens.corner.r3))
-            .taskerElevation(elevated ? .e2 : .e1, cornerRadius: tokens.corner.r3, includesBorder: false)
+            .lifeboardElevation(elevated ? .e2 : .e1, cornerRadius: tokens.corner.r3, includesBorder: false)
     }
 }
 

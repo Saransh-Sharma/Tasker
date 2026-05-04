@@ -1,7 +1,7 @@
 import UIKit
 import Combine
 
-public struct TaskerTokenTraitContext: Hashable, Sendable {
+public struct LifeBoardTokenTraitContext: Hashable, Sendable {
     public let colorScheme: UIUserInterfaceStyle
     public let contentSizeCategory: UIContentSizeCategory
     public let accessibilityContrast: UIAccessibilityContrast
@@ -16,10 +16,10 @@ public struct TaskerTokenTraitContext: Hashable, Sendable {
         self.accessibilityContrast = accessibilityContrast
     }
 
-    public static let unspecified = TaskerTokenTraitContext()
+    public static let unspecified = LifeBoardTokenTraitContext()
 }
 
-public struct TaskerBrandPalette: Equatable {
+public struct LifeBoardBrandPalette: Equatable {
     public let brandEmerald: UIColor
     public let brandMagenta: UIColor
     public let brandMarigold: UIColor
@@ -46,35 +46,35 @@ public struct TaskerBrandPalette: Equatable {
     public let parchmentLight: UIColor
 
     @MainActor
-    public static let sarvam = TaskerBrandPalette(
-        brandEmerald: UIColor(taskerHex: "#293A18"),
-        brandMagenta: UIColor(taskerHex: "#B1205F"),
-        brandMarigold: UIColor(taskerHex: "#FEBF2B"),
-        brandRed: UIColor(taskerHex: "#C11317"),
-        brandSandstone: UIColor(taskerHex: "#9E5F0A"),
-        neutralIvory: UIColor(taskerHex: "#FFF8EF"),
-        neutralCream: UIColor(taskerHex: "#F7EFE4"),
-        neutralMist: UIColor(taskerHex: "#EFE4D6"),
-        neutralStone: UIColor(taskerHex: "#E2D3C2"),
-        neutralSandGray: UIColor(taskerHex: "#C9B9A6"),
-        neutralUmber: UIColor(taskerHex: "#3A2E24"),
-        neutralInk: UIColor(taskerHex: "#1B1511"),
-        neutralDarkInk0: UIColor(taskerHex: "#0F0C0A"),
-        neutralDarkInk1: UIColor(taskerHex: "#15110E"),
-        neutralDarkInk2: UIColor(taskerHex: "#1D1712"),
-        neutralDarkInk3: UIColor(taskerHex: "#2A211A"),
-        neutralDarkBorder1: UIColor(taskerHex: "#3A2E24"),
-        neutralDarkBorder2: UIColor(taskerHex: "#4A3B30"),
-        neutralDarkText1: UIColor(taskerHex: "#FFF3E6"),
-        neutralDarkText2: UIColor(taskerHex: "#E7D9CB"),
-        neutralDarkText3: UIColor(taskerHex: "#CBBBA7"),
-        neutralDarkDisabled: UIColor(taskerHex: "#7E7268"),
-        inkDark: UIColor(taskerHex: "#10130D"),
-        parchmentLight: UIColor(taskerHex: "#F6EFE2")
+    public static let sarvam = LifeBoardBrandPalette(
+        brandEmerald: UIColor(lifeboardHex: "#293A18"),
+        brandMagenta: UIColor(lifeboardHex: "#B1205F"),
+        brandMarigold: UIColor(lifeboardHex: "#FEBF2B"),
+        brandRed: UIColor(lifeboardHex: "#C11317"),
+        brandSandstone: UIColor(lifeboardHex: "#9E5F0A"),
+        neutralIvory: UIColor(lifeboardHex: "#FFF8EF"),
+        neutralCream: UIColor(lifeboardHex: "#F7EFE4"),
+        neutralMist: UIColor(lifeboardHex: "#EFE4D6"),
+        neutralStone: UIColor(lifeboardHex: "#E2D3C2"),
+        neutralSandGray: UIColor(lifeboardHex: "#C9B9A6"),
+        neutralUmber: UIColor(lifeboardHex: "#3A2E24"),
+        neutralInk: UIColor(lifeboardHex: "#1B1511"),
+        neutralDarkInk0: UIColor(lifeboardHex: "#0F0C0A"),
+        neutralDarkInk1: UIColor(lifeboardHex: "#15110E"),
+        neutralDarkInk2: UIColor(lifeboardHex: "#1D1712"),
+        neutralDarkInk3: UIColor(lifeboardHex: "#2A211A"),
+        neutralDarkBorder1: UIColor(lifeboardHex: "#3A2E24"),
+        neutralDarkBorder2: UIColor(lifeboardHex: "#4A3B30"),
+        neutralDarkText1: UIColor(lifeboardHex: "#FFF3E6"),
+        neutralDarkText2: UIColor(lifeboardHex: "#E7D9CB"),
+        neutralDarkText3: UIColor(lifeboardHex: "#CBBBA7"),
+        neutralDarkDisabled: UIColor(lifeboardHex: "#7E7268"),
+        inkDark: UIColor(lifeboardHex: "#10130D"),
+        parchmentLight: UIColor(lifeboardHex: "#F6EFE2")
     )
 }
 
-public struct TaskerPatternTokens: Equatable {
+public struct LifeBoardPatternTokens: Equatable {
     public let gatewaySunriseTop: UIColor
     public let gatewaySunriseMid: UIColor
     public let gatewaySunriseBottom: UIColor
@@ -82,7 +82,7 @@ public struct TaskerPatternTokens: Equatable {
     public let forestInkBottom: UIColor
     public let patternTint: UIColor
 
-    init(palette: TaskerBrandPalette) {
+    init(palette: LifeBoardBrandPalette) {
         gatewaySunriseTop = palette.brandSandstone
         gatewaySunriseMid = palette.brandMarigold
         gatewaySunriseBottom = palette.brandMagenta
@@ -92,7 +92,7 @@ public struct TaskerPatternTokens: Equatable {
     }
 }
 
-public struct TaskerWidgetTokens: Equatable {
+public struct LifeBoardWidgetTokens: Equatable {
     public let background: UIColor
     public let backgroundElevated: UIColor
     public let accent: UIColor
@@ -101,12 +101,12 @@ public struct TaskerWidgetTokens: Equatable {
     public let textPrimary: UIColor
     public let textSecondary: UIColor
 
-    init(palette: TaskerBrandPalette) {
+    init(palette: LifeBoardBrandPalette) {
         background = UIColor { traits in
             traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : palette.neutralIvory
         }
         backgroundElevated = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk2 : UIColor(taskerHex: "#FFFCF8")
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk2 : UIColor(lifeboardHex: "#FFFCF8")
         }
         accent = UIColor { traits in
             traits.userInterfaceStyle == .dark ? palette.brandMarigold : palette.brandEmerald
@@ -120,79 +120,79 @@ public struct TaskerWidgetTokens: Equatable {
             traits.userInterfaceStyle == .dark ? palette.neutralDarkText1 : palette.neutralInk
         }
         textSecondary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkText2 : UIColor(taskerHex: "#6A594B")
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkText2 : UIColor(lifeboardHex: "#6A594B")
         }
     }
 }
 
 @MainActor
-public struct TaskerTheme {
+public struct LifeBoardTheme {
     public let index: Int
-    public let palette: TaskerBrandPalette
-    public let patterns: TaskerPatternTokens
-    public let widgets: TaskerWidgetTokens
-    public let tokens: TaskerTokens
+    public let palette: LifeBoardBrandPalette
+    public let patterns: LifeBoardPatternTokens
+    public let widgets: LifeBoardWidgetTokens
+    public let tokens: LifeBoardTokens
 
     public init(index: Int = 0) {
         // `index` is retained for backward compatibility, but the app now ships a single palette.
         self.index = index
         self.palette = .sarvam
-        self.patterns = TaskerPatternTokens(palette: palette)
-        self.widgets = TaskerWidgetTokens(palette: palette)
-        self.tokens = TaskerTokens(
-            color: TaskerColorTokens.make(palette: palette),
-            typography: TaskerTypographyTokens.makeDefault(),
-            spacing: TaskerSpacingTokens.default,
-            elevation: TaskerElevationTokens.default,
-            corner: TaskerCornerTokens.default
+        self.patterns = LifeBoardPatternTokens(palette: palette)
+        self.widgets = LifeBoardWidgetTokens(palette: palette)
+        self.tokens = LifeBoardTokens(
+            color: LifeBoardColorTokens.make(palette: palette),
+            typography: LifeBoardTypographyTokens.makeDefault(),
+            spacing: LifeBoardSpacingTokens.default,
+            elevation: LifeBoardElevationTokens.default,
+            corner: LifeBoardCornerTokens.default
         )
     }
 
-    public func tokens(for layoutClass: TaskerLayoutClass) -> TaskerTokens {
-        TaskerTokens(
+    public func tokens(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTokens {
+        LifeBoardTokens(
             color: tokens.color,
-            typography: TaskerTypographyTokens.make(for: layoutClass),
-            spacing: TaskerSpacingTokens.forLayout(layoutClass),
-            elevation: TaskerElevationTokens.forLayout(layoutClass),
-            corner: TaskerCornerTokens.forLayout(layoutClass)
+            typography: LifeBoardTypographyTokens.make(for: layoutClass),
+            spacing: LifeBoardSpacingTokens.forLayout(layoutClass),
+            elevation: LifeBoardElevationTokens.forLayout(layoutClass),
+            corner: LifeBoardCornerTokens.forLayout(layoutClass)
         )
     }
 }
 
 @MainActor
-public final class TaskerThemeManager: ObservableObject {
+public final class LifeBoardThemeManager: ObservableObject {
     private struct TokenCacheKey: Hashable {
-        let layoutClass: TaskerLayoutClass
-        let traits: TaskerTokenTraitContext
+        let layoutClass: LifeBoardLayoutClass
+        let traits: LifeBoardTokenTraitContext
     }
 
-    public static let shared = TaskerThemeManager()
+    public static let shared = LifeBoardThemeManager()
 
-    @Published public private(set) var currentTheme: TaskerTheme
-    private var tokenCache: [TokenCacheKey: TaskerTokens] = [:]
+    @Published public private(set) var currentTheme: LifeBoardTheme
+    private var tokenCache: [TokenCacheKey: LifeBoardTokens] = [:]
 
-    public var publisher: AnyPublisher<TaskerTheme, Never> {
+    public var publisher: AnyPublisher<LifeBoardTheme, Never> {
         $currentTheme.eraseToAnyPublisher()
     }
 
     private init() {
-        currentTheme = TaskerTheme()
+        currentTheme = LifeBoardTheme()
     }
 
     public func reloadFromPersistence() {
-        currentTheme = TaskerTheme()
+        currentTheme = LifeBoardTheme()
         tokenCache.removeAll(keepingCapacity: false)
-        TaskerTypographyTokens.resetCache()
+        LifeBoardTypographyTokens.resetCache()
     }
 
-    public func tokens(for layoutClass: TaskerLayoutClass) -> TaskerTokens {
+    public func tokens(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTokens {
         tokens(for: layoutClass, traits: .unspecified)
     }
 
     public func tokens(
-        for layoutClass: TaskerLayoutClass,
-        traits: TaskerTokenTraitContext
-    ) -> TaskerTokens {
+        for layoutClass: LifeBoardLayoutClass,
+        traits: LifeBoardTokenTraitContext
+    ) -> LifeBoardTokens {
         guard V2FeatureFlags.iPadPerfThemeTokenCacheV2Enabled else {
             return currentTheme.tokens(for: layoutClass)
         }
@@ -219,24 +219,24 @@ public final class TaskerThemeManager: ObservableObject {
         return resolved
     }
 
-    public static var tokens: TaskerTokens {
-        TaskerThemeManager.shared.currentTheme.tokens
+    public static var tokens: LifeBoardTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens
     }
 
-    public static func tokens(for layoutClass: TaskerLayoutClass) -> TaskerTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass)
+    public static func tokens(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass)
     }
 
     public static func tokens(
-        for layoutClass: TaskerLayoutClass,
-        traits: TaskerTokenTraitContext
-    ) -> TaskerTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass, traits: traits)
+        for layoutClass: LifeBoardLayoutClass,
+        traits: LifeBoardTokenTraitContext
+    ) -> LifeBoardTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass, traits: traits)
     }
 }
 
 public extension UIColor {
-    convenience init(taskerHex hex: String, alpha: CGFloat = 1.0) {
+    convenience init(lifeboardHex hex: String, alpha: CGFloat = 1.0) {
         var sanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         sanitized = sanitized.replacingOccurrences(of: "#", with: "")
 
@@ -257,12 +257,12 @@ public extension UIColor {
         }
     }
 
-    static func taskerDynamic(lightHex: String, darkHex: String) -> UIColor {
+    static func lifeboardDynamic(lightHex: String, darkHex: String) -> UIColor {
         UIColor { traits in
             if traits.userInterfaceStyle == .dark {
-                return UIColor(taskerHex: darkHex)
+                return UIColor(lifeboardHex: darkHex)
             }
-            return UIColor(taskerHex: lightHex)
+            return UIColor(lifeboardHex: lightHex)
         }
     }
 }

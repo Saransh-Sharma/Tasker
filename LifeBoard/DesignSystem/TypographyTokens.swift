@@ -1,6 +1,6 @@
 import UIKit
 
-public struct TaskerTypographyTokens: TaskerTokenGroup {
+public struct LifeBoardTypographyTokens: LifeBoardTokenGroup {
     private struct Spec {
         let textStyle: UIFont.TextStyle
         let pointSize: CGFloat
@@ -34,10 +34,10 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
     public let layoutScale: CGFloat
 
     private static let cacheLock = NSLock()
-    nonisolated(unsafe) private static var cacheByLayoutClass: [TaskerLayoutClass: TaskerTypographyTokens] = [:]
+    nonisolated(unsafe) private static var cacheByLayoutClass: [LifeBoardLayoutClass: LifeBoardTypographyTokens] = [:]
 
     /// Executes font.
-    public func font(for style: TaskerTextStyle) -> UIFont {
+    public func font(for style: LifeBoardTextStyle) -> UIFont {
         switch style {
         case .heroDisplay: return heroDisplay
         case .screenTitle: return screenTitle
@@ -64,17 +64,17 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
     }
 
     /// Executes dynamicFont.
-    public func dynamicFont(for style: TaskerTextStyle, compatibleWith traitCollection: UITraitCollection? = nil) -> UIFont {
+    public func dynamicFont(for style: LifeBoardTextStyle, compatibleWith traitCollection: UITraitCollection? = nil) -> UIFont {
         Self.font(for: Self.spec(for: style, scale: layoutScale), compatibleWith: traitCollection)
     }
 
     /// Executes makeDefault.
-    public static func makeDefault() -> TaskerTypographyTokens {
+    public static func makeDefault() -> LifeBoardTypographyTokens {
         make(for: .phone)
     }
 
     /// Executes make.
-    public static func make(for layoutClass: TaskerLayoutClass) -> TaskerTypographyTokens {
+    public static func make(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTypographyTokens {
         cacheLock.lock()
         if let cached = cacheByLayoutClass[layoutClass] {
             cacheLock.unlock()
@@ -83,7 +83,7 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
         cacheLock.unlock()
 
         let scale = scaleFactor(for: layoutClass)
-        let tokens = TaskerTypographyTokens(
+        let tokens = LifeBoardTypographyTokens(
             heroDisplay: font(for: spec(for: .heroDisplay, scale: scale), compatibleWith: nil),
             screenTitle: font(for: spec(for: .screenTitle, scale: scale), compatibleWith: nil),
             sectionTitle: font(for: spec(for: .sectionTitle, scale: scale), compatibleWith: nil),
@@ -125,7 +125,7 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
     }
 
     /// Executes spec.
-    private static func spec(for style: TaskerTextStyle, scale: CGFloat) -> Spec {
+    private static func spec(for style: LifeBoardTextStyle, scale: CGFloat) -> Spec {
         func scaled(_ base: CGFloat) -> CGFloat {
             max(11, base * scale)
         }
@@ -177,7 +177,7 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
     }
 
     /// Executes scaleFactor.
-    private static func scaleFactor(for layoutClass: TaskerLayoutClass) -> CGFloat {
+    private static func scaleFactor(for layoutClass: LifeBoardLayoutClass) -> CGFloat {
         switch layoutClass {
         case .phone:
             return 1.0

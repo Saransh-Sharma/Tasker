@@ -1,6 +1,6 @@
 import UIKit
 
-public struct TaskerColorTokens: TaskerTokenGroup {
+public struct LifeBoardColorTokens: LifeBoardTokenGroup {
     public let bgCanvas: UIColor
     public let bgCanvasSecondary: UIColor
     public let bgElevated: UIColor
@@ -84,7 +84,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
     public var patternTint: UIColor { accentSecondaryWash }
 
     /// Executes color.
-    public func color(for role: TaskerColorRole) -> UIColor {
+    public func color(for role: LifeBoardColorRole) -> UIColor {
         switch role {
         case .bgCanvas: return bgCanvas
         case .bgCanvasSecondary: return bgCanvasSecondary
@@ -141,7 +141,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
     }
 
     /// Executes make.
-    public static func make(palette: TaskerBrandPalette) -> TaskerColorTokens {
+    public static func make(palette: LifeBoardBrandPalette) -> LifeBoardColorTokens {
         let bgCanvas = UIColor { traits in
             traits.userInterfaceStyle == .dark ? palette.neutralDarkInk0 : palette.neutralIvory
         }
@@ -149,11 +149,11 @@ public struct TaskerColorTokens: TaskerTokenGroup {
             traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : palette.neutralCream
         }
         let bgElevated = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : UIColor(taskerHex: "#FFFCF8")
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : UIColor(lifeboardHex: "#FFFCF8")
         }
 
         let surfacePrimary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : UIColor(taskerHex: "#FFFCF8")
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : UIColor(lifeboardHex: "#FFFCF8")
         }
         let surfaceSecondary = UIColor { traits in
             traits.userInterfaceStyle == .dark ? palette.neutralDarkInk2 : palette.neutralCream
@@ -179,10 +179,10 @@ public struct TaskerColorTokens: TaskerTokenGroup {
             traits.userInterfaceStyle == .dark ? palette.neutralDarkText2 : palette.neutralUmber
         }
         let textTertiary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkText3 : UIColor(taskerHex: "#6A594B")
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkText3 : UIColor(lifeboardHex: "#6A594B")
         }
         let textQuaternary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkDisabled : UIColor(taskerHex: "#A19386")
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkDisabled : UIColor(lifeboardHex: "#A19386")
         }
         let textInverse = UIColor { traits in
             traits.userInterfaceStyle == .dark ? palette.neutralDarkInk0 : palette.neutralIvory
@@ -192,7 +192,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
             traits.userInterfaceStyle == .dark ? palette.brandMarigold : palette.brandEmerald
         }
         let actionPrimaryPressed = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(taskerHex: "#E2A81E") : UIColor(taskerHex: "#223114")
+            traits.userInterfaceStyle == .dark ? UIColor(lifeboardHex: "#E2A81E") : UIColor(lifeboardHex: "#223114")
         }
         let accentMuted = UIColor { traits in
             if traits.userInterfaceStyle == .dark {
@@ -212,7 +212,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
         }
 
         let accentSecondary = palette.brandMagenta
-        let accentSecondaryPressed = UIColor(taskerHex: "#8F184B")
+        let accentSecondaryPressed = UIColor(lifeboardHex: "#8F184B")
         let accentSecondaryMuted = UIColor { traits in
             traits.userInterfaceStyle == .dark ? palette.brandMagenta.withAlphaComponent(0.18) : palette.brandMagenta.withAlphaComponent(0.10)
         }
@@ -234,7 +234,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
             if traits.userInterfaceStyle == .dark {
                 return UIColor.black.withAlphaComponent(0.54)
             }
-            return UIColor(taskerHex: "#221B13").withAlphaComponent(0.20)
+            return UIColor(lifeboardHex: "#221B13").withAlphaComponent(0.20)
         }
 
         let overlayGlassTint = UIColor { traits in
@@ -244,7 +244,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
             return palette.neutralIvory.withAlphaComponent(0.88)
         }
 
-        return TaskerColorTokens(
+        return LifeBoardColorTokens(
             bgCanvas: bgCanvas,
             bgCanvasSecondary: bgCanvasSecondary,
             bgElevated: bgElevated,
@@ -287,7 +287,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
             overlayGlassTint: overlayGlassTint,
             taskCheckboxBorder: textTertiary,
             taskCheckboxFill: actionPrimary,
-            taskOverdue: UIColor(taskerHex: "#B13126"),
+            taskOverdue: UIColor(lifeboardHex: "#B13126"),
             chartPrimary: palette.brandEmerald,
             chartSecondary: palette.brandMarigold,
             chipSelectedBackground: accentWash,

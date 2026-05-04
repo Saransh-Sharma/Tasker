@@ -1,20 +1,20 @@
 import UIKit
 import SwiftUI
 
-// MARK: - Tasker Header Gradient
+// MARK: - LifeBoard Header Gradient
 
 /// Provides a reusable multi-stop gradient + scrim + noise for header backdrops.
-/// The look is fixed to the Tasker brand: gateway sunrise in light mode and
+/// The look is fixed to the LifeBoard brand: gateway sunrise in light mode and
 /// forest ink in dark mode.
 @MainActor
-public struct TaskerHeaderGradient {
+public struct LifeBoardHeaderGradient {
 
     // MARK: - Public API
 
     /// Apply the full header treatment (gradient + scrim + bottom fade + noise) to a UIKit layer.
     /// Call again in `viewDidLayoutSubviews` so the layers resize correctly.
     public static func apply(to layer: CALayer, bounds: CGRect, traits: UITraitCollection) {
-        let patterns = TaskerThemeManager.shared.currentTheme.patterns
+        let patterns = LifeBoardThemeManager.shared.currentTheme.patterns
 
         removeLayers(from: layer)
 
@@ -22,7 +22,7 @@ public struct TaskerHeaderGradient {
         // gradient -> scrim -> bottomFade -> noise
 
         let gradientLayer = CAGradientLayer()
-        gradientLayer.name = "taskerHeaderGradient"
+        gradientLayer.name = "lifeboardHeaderGradient"
         gradientLayer.frame = bounds
         gradientLayer.colors = gradientColors(patterns: patterns, traits: traits)
         gradientLayer.locations = [0.0, 0.35, 0.7, 1.0]
@@ -32,7 +32,7 @@ public struct TaskerHeaderGradient {
         // Insert at the bottom in declared order: gradient -> scrim -> bottomFade -> noise.
 
         let scrimLayer = CAGradientLayer()
-        scrimLayer.name = "taskerHeaderScrim"
+        scrimLayer.name = "lifeboardHeaderScrim"
         scrimLayer.frame = bounds
         scrimLayer.colors = scrimColors(traits: traits)
         scrimLayer.locations = [0.0, 0.5, 1.0]
@@ -40,7 +40,7 @@ public struct TaskerHeaderGradient {
         scrimLayer.endPoint = CGPoint(x: 0.5, y: 1)
 
         let bottomFade = CAGradientLayer()
-        bottomFade.name = "taskerHeaderBottomFade"
+        bottomFade.name = "lifeboardHeaderBottomFade"
         bottomFade.frame = bounds
         bottomFade.colors = bottomFadeColors(traits: traits)
         bottomFade.locations = [0.0, 0.72, 1.0]
@@ -49,7 +49,7 @@ public struct TaskerHeaderGradient {
 
         // Radial highlight at top-center for depth
         let radialHighlight = CAGradientLayer()
-        radialHighlight.name = "taskerHeaderRadialHighlight"
+        radialHighlight.name = "lifeboardHeaderRadialHighlight"
         radialHighlight.type = .radial
         radialHighlight.frame = bounds
         let isDark = traits.userInterfaceStyle == .dark
@@ -62,7 +62,7 @@ public struct TaskerHeaderGradient {
         radialHighlight.endPoint = CGPoint(x: 0.5, y: 1.0)
 
         let noiseLayer = CALayer()
-        noiseLayer.name = "taskerHeaderNoise"
+        noiseLayer.name = "lifeboardHeaderNoise"
         noiseLayer.frame = bounds
         noiseLayer.contents = noiseImage(size: CGSize(width: 64, height: 64))?.cgImage
         noiseLayer.contentsGravity = .resizeAspectFill
@@ -71,7 +71,7 @@ public struct TaskerHeaderGradient {
 
         // Wrap all sublayers in a container with rounded bottom corners
         let container = CALayer()
-        container.name = "taskerHeaderGradientContainer"
+        container.name = "lifeboardHeaderGradientContainer"
         container.frame = bounds
         container.addSublayer(gradientLayer)
         container.addSublayer(scrimLayer)
@@ -98,12 +98,12 @@ public struct TaskerHeaderGradient {
 
     /// Remove all header gradient sublayers (useful before re-applying on theme change).
     public static func removeLayers(from layer: CALayer) {
-        layer.sublayers?.removeAll(where: { $0.name == "taskerHeaderGradientContainer" })
+        layer.sublayers?.removeAll(where: { $0.name == "lifeboardHeaderGradientContainer" })
     }
 
     // MARK: - Gradient Color Generation
 
-    private static func gradientColors(patterns: TaskerPatternTokens, traits: UITraitCollection) -> [CGColor] {
+    private static func gradientColors(patterns: LifeBoardPatternTokens, traits: UITraitCollection) -> [CGColor] {
         let isDark = traits.userInterfaceStyle == .dark
         if isDark {
             return [
@@ -113,7 +113,7 @@ public struct TaskerHeaderGradient {
                 blendColors(patterns.forestInkTop, patterns.forestInkBottom, ratio: 0.28).cgColor
             ]
         } else {
-            let canvas = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas.resolvedColor(with: traits)
+            let canvas = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas.resolvedColor(with: traits)
             return [
                 blendColors(patterns.gatewaySunriseTop, canvas, ratio: 0.18).cgColor,
                 shade(patterns.gatewaySunriseMid, by: 0.02).cgColor,
@@ -170,7 +170,7 @@ public struct TaskerHeaderGradient {
 
     /// Executes bottomFadeColors.
     private static func bottomFadeColors(traits: UITraitCollection) -> [CGColor] {
-        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let colors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         let target = colors.bgCanvas.resolvedColor(with: traits)
         let isDark = traits.userInterfaceStyle == .dark
         let midAlpha: CGFloat = isDark ? 0.68 : 0.55
@@ -250,7 +250,7 @@ private final class HeaderGradientHostingView: UIView {
 
     private func applyGradientIfNeeded() {
         guard bounds.width > 0, bounds.height > 0 else { return }
-        TaskerHeaderGradient.apply(to: layer, bounds: bounds, traits: traitCollection)
+        LifeBoardHeaderGradient.apply(to: layer, bounds: bounds, traits: traitCollection)
     }
 }
 
@@ -258,7 +258,7 @@ private final class HeaderGradientHostingView: UIView {
 @MainActor
 public struct HeaderGradientView: UIViewRepresentable {
     /// Initializes a new instance.
-    @ObservedObject private var themeManager = TaskerThemeManager.shared
+    @ObservedObject private var themeManager = LifeBoardThemeManager.shared
 
     public init() {}
 
@@ -274,7 +274,7 @@ public struct HeaderGradientView: UIViewRepresentable {
         if let hostingView = uiView as? HeaderGradientHostingView {
             hostingView.refreshGradient()
         } else {
-            TaskerHeaderGradient.apply(to: uiView.layer, bounds: uiView.bounds, traits: uiView.traitCollection)
+            LifeBoardHeaderGradient.apply(to: uiView.layer, bounds: uiView.bounds, traits: uiView.traitCollection)
         }
     }
 }

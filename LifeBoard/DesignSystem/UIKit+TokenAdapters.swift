@@ -1,52 +1,52 @@
 import UIKit
 
 @MainActor
-public enum TaskerUIKitTokens {
-    public static var color: TaskerColorTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.color
+public enum LifeBoardUIKitTokens {
+    public static var color: LifeBoardColorTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.color
     }
 
-    public static var typography: TaskerTypographyTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.typography
+    public static var typography: LifeBoardTypographyTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.typography
     }
 
-    public static var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.spacing
+    public static var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.spacing
     }
 
-    public static var elevation: TaskerElevationTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.elevation
+    public static var elevation: LifeBoardElevationTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.elevation
     }
 
-    public static var corner: TaskerCornerTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.corner
+    public static var corner: LifeBoardCornerTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.corner
     }
 }
 
 @MainActor
 public extension UIColor {
-    static var tasker: TaskerColorTokens {
-        TaskerUIKitTokens.color
+    static var lifeboard: LifeBoardColorTokens {
+        LifeBoardUIKitTokens.color
     }
 
-    /// Executes tasker.
-    static func tasker(_ role: TaskerColorRole) -> UIColor {
-        TaskerUIKitTokens.color.color(for: role)
+    /// Executes lifeboard.
+    static func lifeboard(_ role: LifeBoardColorRole) -> UIColor {
+        LifeBoardUIKitTokens.color.color(for: role)
     }
 }
 
 @MainActor
 public extension UIFont {
-    static var tasker: TaskerTypographyTokens {
-        TaskerUIKitTokens.typography
+    static var lifeboard: LifeBoardTypographyTokens {
+        LifeBoardUIKitTokens.typography
     }
 }
 
 public extension UIView {
-    /// Executes applyTaskerElevation.
+    /// Executes applyLifeBoardElevation.
     @MainActor
-    func applyTaskerElevation(_ level: TaskerElevationLevel) {
-        let style = TaskerUIKitTokens.elevation.style(for: level)
+    func applyLifeBoardElevation(_ level: LifeBoardElevationLevel) {
+        let style = LifeBoardUIKitTokens.elevation.style(for: level)
         layer.shadowColor = style.shadowColor.cgColor
         layer.shadowOpacity = style.shadowOpacity
         layer.shadowOffset = CGSize(width: 0, height: style.shadowOffsetY)
@@ -56,28 +56,28 @@ public extension UIView {
         layer.masksToBounds = false
     }
 
-    /// Executes applyTaskerCorner.
+    /// Executes applyLifeBoardCorner.
     @MainActor
-    func applyTaskerCorner(_ token: TaskerCornerToken) {
-        let value = TaskerUIKitTokens.corner.value(for: token, height: bounds.height)
+    func applyLifeBoardCorner(_ token: LifeBoardCornerToken) {
+        let value = LifeBoardUIKitTokens.corner.value(for: token, height: bounds.height)
         layer.cornerRadius = value
         layer.cornerCurve = .continuous
     }
 }
 
 @MainActor
-public struct TaskerNavButtonStyle {
+public struct LifeBoardNavButtonStyle {
     public static let minimumHitTarget = CGSize(width: 44, height: 44)
     public static let pressedAlpha: CGFloat = 0.6
     public static let pressedDuration: TimeInterval = 0.12
 
     /// Executes titleColor.
     public static func titleColor(
-        context: TaskerNavButtonContext,
-        emphasis: TaskerNavButtonEmphasis,
+        context: LifeBoardNavButtonContext,
+        emphasis: LifeBoardNavButtonEmphasis,
         enabled: Bool = true
     ) -> UIColor {
-        let colors = TaskerUIKitTokens.color
+        let colors = LifeBoardUIKitTokens.color
         let base: UIColor
 
         switch (context, emphasis) {
@@ -98,27 +98,27 @@ public struct TaskerNavButtonStyle {
 
     /// Executes attributes.
     public static func attributes(
-        context: TaskerNavButtonContext,
-        emphasis: TaskerNavButtonEmphasis,
+        context: LifeBoardNavButtonContext,
+        emphasis: LifeBoardNavButtonEmphasis,
         enabled: Bool = true
     ) -> [NSAttributedString.Key: Any] {
         [
             .foregroundColor: titleColor(context: context, emphasis: emphasis, enabled: enabled),
-            .font: TaskerUIKitTokens.typography.bodyEmphasis
+            .font: LifeBoardUIKitTokens.typography.bodyEmphasis
         ]
     }
 
     /// Executes apply.
     public static func apply(
         to item: UIBarButtonItem,
-        context: TaskerNavButtonContext,
-        emphasis: TaskerNavButtonEmphasis
+        context: LifeBoardNavButtonContext,
+        emphasis: LifeBoardNavButtonEmphasis
     ) {
         item.setTitleTextAttributes(attributes(context: context, emphasis: emphasis, enabled: true), for: .normal)
         item.setTitleTextAttributes(
             [
                 .foregroundColor: titleColor(context: context, emphasis: emphasis, enabled: true).withAlphaComponent(pressedAlpha),
-                .font: TaskerUIKitTokens.typography.bodyEmphasis
+                .font: LifeBoardUIKitTokens.typography.bodyEmphasis
             ],
             for: .highlighted
         )
@@ -127,22 +127,22 @@ public struct TaskerNavButtonStyle {
 }
 
 @MainActor
-public struct TaskerTextFieldTokens {
+public struct LifeBoardTextFieldTokens {
     public static let singleLineHeight: CGFloat = 48
     public static let multilineMinHeight: CGFloat = 96
     public static let multilineMaxHeight: CGFloat = 120
 }
 
 @MainActor
-public final class TaskerTextField: UITextField {
+public final class LifeBoardTextField: UITextField {
     public enum Kind {
         case singleLine
         case multiline
     }
 
     public let kind: Kind
-    private let colors = TaskerUIKitTokens.color
-    private let corners = TaskerUIKitTokens.corner
+    private let colors = LifeBoardUIKitTokens.color
+    private let corners = LifeBoardUIKitTokens.corner
 
     /// Initializes a new instance.
     public init(kind: Kind = .singleLine) {
@@ -160,7 +160,7 @@ public final class TaskerTextField: UITextField {
 
     /// Executes configure.
     private func configure() {
-        font = TaskerUIKitTokens.typography.body
+        font = LifeBoardUIKitTokens.typography.body
         textColor = colors.textPrimary
         tintColor = colors.actionPrimary
         backgroundColor = colors.surfaceSecondary
@@ -174,18 +174,18 @@ public final class TaskerTextField: UITextField {
         addTarget(self, action: #selector(editingDidEnd), for: .editingDidEnd)
 
         let targetHeight: CGFloat = kind == .singleLine
-            ? TaskerTextFieldTokens.singleLineHeight
-            : TaskerTextFieldTokens.multilineMinHeight
+            ? LifeBoardTextFieldTokens.singleLineHeight
+            : LifeBoardTextFieldTokens.multilineMinHeight
         heightAnchor.constraint(greaterThanOrEqualToConstant: targetHeight).isActive = true
     }
 
-    /// Executes setTaskerPlaceholder.
-    public func setTaskerPlaceholder(_ text: String) {
+    /// Executes setLifeBoardPlaceholder.
+    public func setLifeBoardPlaceholder(_ text: String) {
         attributedPlaceholder = NSAttributedString(
             string: text,
             attributes: [
                 .foregroundColor: colors.textQuaternary,
-                .font: TaskerUIKitTokens.typography.body
+                .font: LifeBoardUIKitTokens.typography.body
             ]
         )
     }
@@ -202,9 +202,9 @@ public final class TaskerTextField: UITextField {
 }
 
 @MainActor
-public final class TaskerChipView: UIControl {
+public final class LifeBoardChipView: UIControl {
     public let titleLabel = UILabel()
-    public var selectedStyle: TaskerChipSelectionStyle = .tinted {
+    public var selectedStyle: LifeBoardChipSelectionStyle = .tinted {
         didSet { refreshAppearance() }
     }
 
@@ -231,10 +231,10 @@ public final class TaskerChipView: UIControl {
 
     /// Executes configure.
     private func configure() {
-        let spacing = TaskerUIKitTokens.spacing
+        let spacing = LifeBoardUIKitTokens.spacing
         addSubview(titleLabel)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = TaskerUIKitTokens.typography.callout
+        titleLabel.font = LifeBoardUIKitTokens.typography.callout
         titleLabel.textAlignment = .center
         titleLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
@@ -247,14 +247,14 @@ public final class TaskerChipView: UIControl {
             heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
         ])
 
-        layer.cornerRadius = TaskerUIKitTokens.corner.chip
+        layer.cornerRadius = LifeBoardUIKitTokens.corner.chip
         layer.cornerCurve = .continuous
         refreshAppearance()
     }
 
     /// Executes refreshAppearance.
     private func refreshAppearance() {
-        let colors = TaskerUIKitTokens.color
+        let colors = LifeBoardUIKitTokens.color
         if isSelected {
             switch selectedStyle {
             case .tinted:
@@ -278,7 +278,7 @@ public final class TaskerChipView: UIControl {
 }
 
 @MainActor
-public final class TaskerCardView: UIView {
+public final class LifeBoardCardView: UIView {
     public var highlighted = false {
         didSet { applyStyle() }
     }
@@ -301,20 +301,20 @@ public final class TaskerCardView: UIView {
 
     /// Executes applyStyle.
     private func applyStyle() {
-        let colors = TaskerUIKitTokens.color
+        let colors = LifeBoardUIKitTokens.color
         backgroundColor = colors.surfacePrimary
-        layer.cornerRadius = TaskerUIKitTokens.corner.r3
+        layer.cornerRadius = LifeBoardUIKitTokens.corner.r3
         layer.cornerCurve = .continuous
         layer.borderWidth = 1
         layer.borderColor = (highlighted ? colors.borderStrong : colors.borderDefault).cgColor
-        applyTaskerElevation(elevated ? .e2 : .e1)
+        applyLifeBoardElevation(elevated ? .e2 : .e1)
     }
 }
 
 public extension TaskPriorityConfig.Priority {
     @MainActor
     var color: UIColor {
-        let colors = TaskerUIKitTokens.color
+        let colors = LifeBoardUIKitTokens.color
         switch self {
         case .none: return colors.priorityNone
         case .low:  return colors.priorityLow
@@ -326,12 +326,12 @@ public extension TaskPriorityConfig.Priority {
 
 public extension ProjectColor {
     var uiColor: UIColor {
-        UIColor(taskerHex: hexString)
+        UIColor(lifeboardHex: hexString)
     }
 }
 
 public extension ProjectHealth {
     var color: UIColor {
-        UIColor(taskerHex: colorHex)
+        UIColor(lifeboardHex: colorHex)
     }
 }

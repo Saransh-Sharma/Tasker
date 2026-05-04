@@ -1,6 +1,6 @@
 import UIKit
 
-public enum TaskerLayoutClass: String, CaseIterable, Sendable {
+public enum LifeBoardLayoutClass: String, CaseIterable, Sendable {
     case phone
     case padCompact
     case padRegular
@@ -11,7 +11,7 @@ public enum TaskerLayoutClass: String, CaseIterable, Sendable {
     }
 }
 
-public struct TaskerLayoutMetrics: Sendable {
+public struct LifeBoardLayoutMetrics: Sendable {
     public let width: CGFloat
     public let height: CGFloat
     public let idiom: UIUserInterfaceIdiom
@@ -37,12 +37,12 @@ public struct TaskerLayoutMetrics: Sendable {
     }
 }
 
-public enum TaskerLayoutResolver {
+public enum LifeBoardLayoutResolver {
     public static let padCompactUpperBound: CGFloat = 700
     public static let padRegularUpperBound: CGFloat = 1024
 
     /// Executes classify.
-    public static func classify(metrics: TaskerLayoutMetrics) -> TaskerLayoutClass {
+    public static func classify(metrics: LifeBoardLayoutMetrics) -> LifeBoardLayoutClass {
         guard metrics.idiom == .pad else { return .phone }
         if metrics.width < padCompactUpperBound {
             return .padCompact
@@ -55,13 +55,13 @@ public enum TaskerLayoutResolver {
 
     /// Executes classify.
     @MainActor
-    public static func classify(windowScene: UIWindowScene?) -> TaskerLayoutClass {
+    public static func classify(windowScene: UIWindowScene?) -> LifeBoardLayoutClass {
         guard let windowScene else { return .phone }
         let size = windowScene.coordinateSpace.bounds.size
         let horizontalSizeClass = windowScene.traitCollection.horizontalSizeClass
         let verticalSizeClass = windowScene.traitCollection.verticalSizeClass
         let safeAreaInsets = windowScene.windows.first?.safeAreaInsets ?? .zero
-        let metrics = TaskerLayoutMetrics(
+        let metrics = LifeBoardLayoutMetrics(
             width: size.width,
             height: size.height,
             idiom: windowScene.traitCollection.userInterfaceIdiom,
@@ -74,12 +74,12 @@ public enum TaskerLayoutResolver {
 
     /// Executes classify.
     @MainActor
-    public static func classify(view: UIView) -> TaskerLayoutClass {
+    public static func classify(view: UIView) -> LifeBoardLayoutClass {
         classify(metrics: metrics(for: view))
     }
 
     @MainActor
-    static func metrics(for view: UIView) -> TaskerLayoutMetrics {
+    static func metrics(for view: UIView) -> LifeBoardLayoutMetrics {
         let bounds = view.bounds
         let fallbackBounds = view.window?.windowScene?.coordinateSpace.bounds ?? view.window?.bounds
         let resolvedWidth: CGFloat
@@ -93,7 +93,7 @@ public enum TaskerLayoutResolver {
             resolvedHeight = bounds.height
         }
 
-        return TaskerLayoutMetrics(
+        return LifeBoardLayoutMetrics(
             width: resolvedWidth,
             height: resolvedHeight,
             idiom: view.traitCollection.userInterfaceIdiom,
@@ -104,17 +104,17 @@ public enum TaskerLayoutResolver {
     }
 }
 
-public protocol TaskerTokenGroup {}
+public protocol LifeBoardTokenGroup {}
 
-public protocol TaskerTokenContainer {
-    var color: TaskerColorTokens { get }
-    var typography: TaskerTypographyTokens { get }
-    var spacing: TaskerSpacingTokens { get }
-    var elevation: TaskerElevationTokens { get }
-    var corner: TaskerCornerTokens { get }
+public protocol LifeBoardTokenContainer {
+    var color: LifeBoardColorTokens { get }
+    var typography: LifeBoardTypographyTokens { get }
+    var spacing: LifeBoardSpacingTokens { get }
+    var elevation: LifeBoardElevationTokens { get }
+    var corner: LifeBoardCornerTokens { get }
 }
 
-public enum TaskerTextStyle: String, CaseIterable {
+public enum LifeBoardTextStyle: String, CaseIterable {
     case heroDisplay
     case screenTitle
     case sectionTitle
@@ -138,7 +138,7 @@ public enum TaskerTextStyle: String, CaseIterable {
     case buttonSmall
 }
 
-public enum TaskerColorRole: String, CaseIterable {
+public enum LifeBoardColorRole: String, CaseIterable {
     case bgCanvas
     case bgCanvasSecondary
     case bgElevated
@@ -192,7 +192,7 @@ public enum TaskerColorRole: String, CaseIterable {
     case priorityNone
 }
 
-public enum TaskerSpacingToken: CGFloat, CaseIterable {
+public enum LifeBoardSpacingToken: CGFloat, CaseIterable {
     case s2 = 2
     case s4 = 4
     case s8 = 8
@@ -204,14 +204,14 @@ public enum TaskerSpacingToken: CGFloat, CaseIterable {
     case s40 = 40
 }
 
-public enum TaskerElevationLevel: String, CaseIterable {
+public enum LifeBoardElevationLevel: String, CaseIterable {
     case e0
     case e1
     case e2
     case e3
 }
 
-public enum TaskerCornerToken: String, CaseIterable {
+public enum LifeBoardCornerToken: String, CaseIterable {
     case r0
     case r1
     case r2
@@ -241,36 +241,36 @@ public enum TaskerCornerToken: String, CaseIterable {
     }
 }
 
-public enum TaskerNavButtonContext: String, CaseIterable {
+public enum LifeBoardNavButtonContext: String, CaseIterable {
     case onGradient
     case onSurface
 }
 
-public enum TaskerNavButtonEmphasis: String, CaseIterable {
+public enum LifeBoardNavButtonEmphasis: String, CaseIterable {
     case normal
     case done
     case filled
 }
 
-public enum TaskerChipSelectionStyle: String, CaseIterable {
+public enum LifeBoardChipSelectionStyle: String, CaseIterable {
     case tinted
     case filled
 }
 
-public struct TaskerTokens: TaskerTokenContainer {
-    public let color: TaskerColorTokens
-    public let typography: TaskerTypographyTokens
-    public let spacing: TaskerSpacingTokens
-    public let elevation: TaskerElevationTokens
-    public let corner: TaskerCornerTokens
+public struct LifeBoardTokens: LifeBoardTokenContainer {
+    public let color: LifeBoardColorTokens
+    public let typography: LifeBoardTypographyTokens
+    public let spacing: LifeBoardSpacingTokens
+    public let elevation: LifeBoardElevationTokens
+    public let corner: LifeBoardCornerTokens
 
     /// Initializes a new instance.
     public init(
-        color: TaskerColorTokens,
-        typography: TaskerTypographyTokens,
-        spacing: TaskerSpacingTokens,
-        elevation: TaskerElevationTokens,
-        corner: TaskerCornerTokens
+        color: LifeBoardColorTokens,
+        typography: LifeBoardTypographyTokens,
+        spacing: LifeBoardSpacingTokens,
+        elevation: LifeBoardElevationTokens,
+        corner: LifeBoardCornerTokens
     ) {
         self.color = color
         self.typography = typography

@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-enum TaskerCTABezelStyle {
+enum LifeBoardCTABezelStyle {
     case primaryWide
     case fab
     case pill
@@ -69,7 +69,7 @@ enum TaskerCTABezelStyle {
     }
 }
 
-enum TaskerCTABezelPalette {
+enum LifeBoardCTABezelPalette {
     case titanium
     case roseGold
     case copper
@@ -126,7 +126,7 @@ enum TaskerCTABezelPalette {
     }
 }
 
-enum TaskerCTABezelIdleMotion {
+enum LifeBoardCTABezelIdleMotion {
     case staticIdle
     case slowLoop
 
@@ -149,7 +149,7 @@ enum TaskerCTABezelIdleMotion {
     }
 }
 
-enum TaskerCTABezelBehavior: Equatable {
+enum LifeBoardCTABezelBehavior: Equatable {
     case inactive
     case idle
     case introSweep
@@ -167,7 +167,7 @@ enum TaskerCTABezelBehavior: Equatable {
     }
 }
 
-enum TaskerCTABezelResolver {
+enum LifeBoardCTABezelResolver {
     static func highlightedOnboardingTemplateID(
         primarySuggestionIDs: [String],
         taskTemplateStates: [String: OnboardingTaskTemplateState]
@@ -193,8 +193,8 @@ enum TaskerCTABezelResolver {
     }
 }
 
-private struct TaskerCTABezelShape: Shape {
-    let style: TaskerCTABezelStyle
+private struct LifeBoardCTABezelShape: Shape {
+    let style: LifeBoardCTABezelStyle
 
     func path(in rect: CGRect) -> Path {
         switch style {
@@ -207,10 +207,10 @@ private struct TaskerCTABezelShape: Shape {
     }
 }
 
-private struct TaskerCTABezelModifier: ViewModifier {
-    let style: TaskerCTABezelStyle
-    let palette: TaskerCTABezelPalette
-    let idleMotion: TaskerCTABezelIdleMotion
+private struct LifeBoardCTABezelModifier: ViewModifier {
+    let style: LifeBoardCTABezelStyle
+    let palette: LifeBoardCTABezelPalette
+    let idleMotion: LifeBoardCTABezelIdleMotion
     let isEnabled: Bool
     let isBusy: Bool
     let isPrimarySuggestion: Bool
@@ -220,7 +220,7 @@ private struct TaskerCTABezelModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
-    @State private var animationBehavior: TaskerCTABezelBehavior?
+    @State private var animationBehavior: LifeBoardCTABezelBehavior?
     @State private var animationStartDate = Date.distantPast
     @State private var idleLoopStartDate = Date()
     @State private var hasAppeared = false
@@ -238,7 +238,7 @@ private struct TaskerCTABezelModifier: ViewModifier {
         }
     }
 
-    private var currentBehavior: TaskerCTABezelBehavior {
+    private var currentBehavior: LifeBoardCTABezelBehavior {
         guard isFlagEnabled, isEligibleForBezel else { return .inactive }
         guard isEnabled else { return showsWhenDisabled ? .disabled : .inactive }
         if isBusy {
@@ -265,7 +265,7 @@ private struct TaskerCTABezelModifier: ViewModifier {
         content
             .overlay {
                 if isFlagEnabled, isEligibleForBezel, showsWhenDisabled || behavior != .inactive {
-                    TaskerCTABezelOverlay(
+                    LifeBoardCTABezelOverlay(
                         style: style,
                         palette: palette,
                         idleMotion: idleMotion,
@@ -301,7 +301,7 @@ private struct TaskerCTABezelModifier: ViewModifier {
             }
     }
 
-    private func fire(_ behavior: TaskerCTABezelBehavior) {
+    private func fire(_ behavior: LifeBoardCTABezelBehavior) {
         animationBehavior = behavior
         animationStartDate = Date()
     }
@@ -310,7 +310,7 @@ private struct TaskerCTABezelModifier: ViewModifier {
         idleLoopStartDate = Date()
     }
 
-    private func duration(for behavior: TaskerCTABezelBehavior) -> TimeInterval {
+    private func duration(for behavior: LifeBoardCTABezelBehavior) -> TimeInterval {
         switch behavior {
         case .introSweep:
             return 1.35
@@ -322,11 +322,11 @@ private struct TaskerCTABezelModifier: ViewModifier {
     }
 }
 
-private struct TaskerCTABezelOverlay: View {
-    let style: TaskerCTABezelStyle
-    let palette: TaskerCTABezelPalette
-    let idleMotion: TaskerCTABezelIdleMotion
-    let behavior: TaskerCTABezelBehavior
+private struct LifeBoardCTABezelOverlay: View {
+    let style: LifeBoardCTABezelStyle
+    let palette: LifeBoardCTABezelPalette
+    let idleMotion: LifeBoardCTABezelIdleMotion
+    let behavior: LifeBoardCTABezelBehavior
     let animationStartDate: Date
     let idleLoopStartDate: Date
     let highContrast: Bool
@@ -348,7 +348,7 @@ private struct TaskerCTABezelOverlay: View {
         }
     }
 
-    private func lineWidth(for behavior: TaskerCTABezelBehavior) -> CGFloat {
+    private func lineWidth(for behavior: LifeBoardCTABezelBehavior) -> CGFloat {
         let base = style.baseLineWidth
         if highContrast {
             return base + 0.9
@@ -359,7 +359,7 @@ private struct TaskerCTABezelOverlay: View {
         return base
     }
 
-    private func shellLineWidth(for behavior: TaskerCTABezelBehavior) -> CGFloat {
+    private func shellLineWidth(for behavior: LifeBoardCTABezelBehavior) -> CGFloat {
         let base = style.shellLineWidth
         if highContrast {
             return base + 0.9
@@ -370,7 +370,7 @@ private struct TaskerCTABezelOverlay: View {
         return base
     }
 
-    private func baseOpacity(for behavior: TaskerCTABezelBehavior) -> Double {
+    private func baseOpacity(for behavior: LifeBoardCTABezelBehavior) -> Double {
         switch behavior {
         case .disabled:
             return highContrast ? 0.6 : 0.48
@@ -387,7 +387,7 @@ private struct TaskerCTABezelOverlay: View {
         }
     }
 
-    private func shellOpacity(for behavior: TaskerCTABezelBehavior) -> Double {
+    private func shellOpacity(for behavior: LifeBoardCTABezelBehavior) -> Double {
         switch behavior {
         case .disabled:
             return highContrast ? 0.38 : 0.28
@@ -404,7 +404,7 @@ private struct TaskerCTABezelOverlay: View {
         }
     }
 
-    private func glowOpacity(for behavior: TaskerCTABezelBehavior) -> Double {
+    private func glowOpacity(for behavior: LifeBoardCTABezelBehavior) -> Double {
         switch behavior {
         case .disabled:
             return 0.05
@@ -421,7 +421,7 @@ private struct TaskerCTABezelOverlay: View {
         }
     }
 
-    private func topHighlightOpacity(for behavior: TaskerCTABezelBehavior) -> Double {
+    private func topHighlightOpacity(for behavior: LifeBoardCTABezelBehavior) -> Double {
         if highContrast {
             return 0.7
         }
@@ -440,7 +440,7 @@ private struct TaskerCTABezelOverlay: View {
         }
     }
 
-    private func innerCrispOpacity(for behavior: TaskerCTABezelBehavior) -> Double {
+    private func innerCrispOpacity(for behavior: LifeBoardCTABezelBehavior) -> Double {
         switch behavior {
         case .disabled:
             return highContrast ? 0.34 : 0.26
@@ -488,7 +488,7 @@ private struct TaskerCTABezelOverlay: View {
     }
 
     @ViewBuilder
-    private func render(behavior: TaskerCTABezelBehavior, shaderTime: Float, size: CGSize) -> some View {
+    private func render(behavior: LifeBoardCTABezelBehavior, shaderTime: Float, size: CGSize) -> some View {
         ZStack {
             outerGlow(behavior: behavior)
                 .opacity(glowOpacity(for: behavior))
@@ -516,7 +516,7 @@ private struct TaskerCTABezelOverlay: View {
         }
     }
 
-    private func staticShaderTime(for behavior: TaskerCTABezelBehavior) -> Float {
+    private func staticShaderTime(for behavior: LifeBoardCTABezelBehavior) -> Float {
         switch behavior {
         case .pressed:
             return 0.48
@@ -542,7 +542,7 @@ private struct TaskerCTABezelOverlay: View {
         }
     }
 
-    private func resolvedBehavior(at date: Date) -> TaskerCTABezelBehavior {
+    private func resolvedBehavior(at date: Date) -> LifeBoardCTABezelBehavior {
         switch behavior {
         case .introSweep, .readyPulse:
             return date.timeIntervalSince(animationStartDate) >= animationDuration ? .idle : behavior
@@ -552,8 +552,8 @@ private struct TaskerCTABezelOverlay: View {
     }
 
     @ViewBuilder
-    private func ringLayer(shaderTime: Float, behavior: TaskerCTABezelBehavior, size: CGSize) -> some View {
-        let ringShape = TaskerCTABezelShape(style: style)
+    private func ringLayer(shaderTime: Float, behavior: LifeBoardCTABezelBehavior, size: CGSize) -> some View {
+        let ringShape = LifeBoardCTABezelShape(style: style)
         let shellStroke = ringShape
             .stroke(
                 LinearGradient(
@@ -580,7 +580,7 @@ private struct TaskerCTABezelOverlay: View {
 
             if reduceTransparency == false {
                 let shader = Shader(
-                    function: ShaderFunction(library: .default, name: "TaskerLiquidMetalBezel"),
+                    function: ShaderFunction(library: .default, name: "LifeBoardLiquidMetalBezel"),
                     arguments: [
                         .float2(
                             Float(max(size.width + (style.bezelOutset * 2), 1)),
@@ -638,15 +638,15 @@ private struct TaskerCTABezelOverlay: View {
         }
     }
 
-    private func outerGlow(behavior: TaskerCTABezelBehavior) -> some View {
-        TaskerCTABezelShape(style: style)
+    private func outerGlow(behavior: LifeBoardCTABezelBehavior) -> some View {
+        LifeBoardCTABezelShape(style: style)
             .stroke(Color.white.opacity(highContrast ? 0.34 : 0.18), lineWidth: shellLineWidth(for: behavior) + 2.2)
             .padding(-style.bezelOutset)
             .blur(radius: style == .pill ? 4.5 : 6.0)
     }
 
-    private func topHighlight(behavior: TaskerCTABezelBehavior) -> some View {
-        TaskerCTABezelShape(style: style)
+    private func topHighlight(behavior: LifeBoardCTABezelBehavior) -> some View {
+        LifeBoardCTABezelShape(style: style)
             .fill(
                 LinearGradient(
                     colors: [
@@ -669,10 +669,10 @@ private struct TaskerCTABezelOverlay: View {
 
 extension View {
     @MainActor
-    func taskerCTABezel(
-        style: TaskerCTABezelStyle,
-        palette: TaskerCTABezelPalette = .titanium,
-        idleMotion: TaskerCTABezelIdleMotion = .staticIdle,
+    func lifeboardCTABezel(
+        style: LifeBoardCTABezelStyle,
+        palette: LifeBoardCTABezelPalette = .titanium,
+        idleMotion: LifeBoardCTABezelIdleMotion = .staticIdle,
         isEnabled: Bool = true,
         isBusy: Bool = false,
         isPrimarySuggestion: Bool = false,
@@ -680,7 +680,7 @@ extension View {
         showsWhenDisabled: Bool = true
     ) -> some View {
         modifier(
-            TaskerCTABezelModifier(
+            LifeBoardCTABezelModifier(
                 style: style,
                 palette: palette,
                 idleMotion: idleMotion,
@@ -694,7 +694,7 @@ extension View {
     }
 }
 
-enum TaskerBackdropNoise {
+enum LifeBoardBackdropNoise {
     private static let tileSize = CGSize(width: 128, height: 128)
     private static let seed: UInt64 = 0xD1CE_BA5E_1234_5678
 
@@ -738,7 +738,7 @@ enum TaskerBackdropNoise {
     }
 }
 
-final class TaskerBackdropNoiseTileView: UIView {
+final class LifeBoardBackdropNoiseTileView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
@@ -761,29 +761,29 @@ final class TaskerBackdropNoiseTileView: UIView {
     }
 }
 
-struct TaskerBackdropNoiseOverlay: UIViewRepresentable {
+struct LifeBoardBackdropNoiseOverlay: UIViewRepresentable {
     let amount: Int
 
-    func makeUIView(context: Context) -> TaskerBackdropNoiseTileView {
-        TaskerBackdropNoiseTileView()
+    func makeUIView(context: Context) -> LifeBoardBackdropNoiseTileView {
+        LifeBoardBackdropNoiseTileView()
     }
 
-    func updateUIView(_ uiView: TaskerBackdropNoiseTileView, context: Context) {
+    func updateUIView(_ uiView: LifeBoardBackdropNoiseTileView, context: Context) {
         uiView.update(
-            tileImage: TaskerBackdropNoise.tileImage,
-            opacity: TaskerBackdropNoise.opacity(for: amount)
+            tileImage: LifeBoardBackdropNoise.tileImage,
+            opacity: LifeBoardBackdropNoise.opacity(for: amount)
         )
     }
 }
 
-private struct TaskerNoisyGradientLayer: View {
+private struct LifeBoardNoisyGradientLayer: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private func noisyGradientFrame(time: Float) -> some View {
         Color.black
             .layerEffect(
                 Shader(
-                    function: ShaderFunction(library: .default, name: "TaskerNoisyGradient"),
+                    function: ShaderFunction(library: .default, name: "LifeBoardNoisyGradient"),
                     arguments: [
                         .boundingRect,
                         .float(time)
@@ -805,7 +805,7 @@ private struct TaskerNoisyGradientLayer: View {
     }
 }
 
-struct TaskerNoisyGradientBackdrop: View {
+struct LifeBoardNoisyGradientBackdrop: View {
     let opacity: Double
 
     init(opacity: Double = 1.0) {
@@ -813,7 +813,7 @@ struct TaskerNoisyGradientBackdrop: View {
     }
 
     var body: some View {
-        TaskerNoisyGradientLayer()
+        LifeBoardNoisyGradientLayer()
             .opacity(opacity)
             .allowsHitTesting(false)
             .accessibilityHidden(true)

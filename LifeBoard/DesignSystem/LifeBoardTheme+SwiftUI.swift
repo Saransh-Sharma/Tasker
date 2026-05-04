@@ -1,99 +1,99 @@
 //
-//  TaskerTheme+SwiftUI.swift
-//  Tasker
+//  LifeBoardTheme+SwiftUI.swift
+//  LifeBoard
 //
 //  SwiftUI namespace bridge for the token-based design system.
-//  Provides TaskerTheme.Colors / .Typography / .Spacing / .CornerRadius
+//  Provides LifeBoardTheme.Colors / .Typography / .Spacing / .CornerRadius
 //  so Presentation views can reference tokens with a clean API.
 //
 
 import SwiftUI
 
-// MARK: - TaskerTheme.Colors
+// MARK: - LifeBoardTheme.Colors
 
-extension TaskerTheme {
+extension LifeBoardTheme {
     @MainActor
     public enum Colors {
         // XP / Gamification
-        public static var xpGold: Color { Color.tasker(.statusWarning) }
-        public static var xpGoldLight: Color { Color.tasker(.accentSecondaryWash) }
+        public static var xpGold: Color { Color.lifeboard(.statusWarning) }
+        public static var xpGoldLight: Color { Color.lifeboard(.accentSecondaryWash) }
 
         // Text
-        public static var textPrimary: Color { Color.tasker(.textPrimary) }
-        public static var textSecondary: Color { Color.tasker(.textSecondary) }
-        public static var textTertiary: Color { Color.tasker(.textTertiary) }
-        public static var textQuaternary: Color { Color.tasker(.textQuaternary) }
+        public static var textPrimary: Color { Color.lifeboard(.textPrimary) }
+        public static var textSecondary: Color { Color.lifeboard(.textSecondary) }
+        public static var textTertiary: Color { Color.lifeboard(.textTertiary) }
+        public static var textQuaternary: Color { Color.lifeboard(.textQuaternary) }
 
         // Surfaces
-        public static var cardBackground: Color { Color.tasker(.surfacePrimary) }
-        public static var background: Color { Color.tasker(.bgCanvas) }
-        public static var backgroundSecondary: Color { Color.tasker(.bgCanvasSecondary) }
-        public static var surfaceSecondary: Color { Color.tasker(.surfaceSecondary) }
+        public static var cardBackground: Color { Color.lifeboard(.surfacePrimary) }
+        public static var background: Color { Color.lifeboard(.bgCanvas) }
+        public static var backgroundSecondary: Color { Color.lifeboard(.bgCanvasSecondary) }
+        public static var surfaceSecondary: Color { Color.lifeboard(.surfaceSecondary) }
 
         // Brand
-        public static var brandPrimary: Color { Color.tasker(.brandPrimary) }
-        public static var brandSecondary: Color { Color.tasker(.brandSecondary) }
-        public static var brandHighlight: Color { Color.tasker(.brandHighlight) }
+        public static var brandPrimary: Color { Color.lifeboard(.brandPrimary) }
+        public static var brandSecondary: Color { Color.lifeboard(.brandSecondary) }
+        public static var brandHighlight: Color { Color.lifeboard(.brandHighlight) }
 
         // Primary Accent
-        public static var accentPrimary: Color { Color.tasker(.accentPrimary) }
-        public static var accentMuted: Color { Color.tasker(.accentMuted) }
-        public static var actionPrimary: Color { Color.tasker(.actionPrimary) }
-        public static var actionFocus: Color { Color.tasker(.actionFocus) }
+        public static var accentPrimary: Color { Color.lifeboard(.accentPrimary) }
+        public static var accentMuted: Color { Color.lifeboard(.accentMuted) }
+        public static var actionPrimary: Color { Color.lifeboard(.actionPrimary) }
+        public static var actionFocus: Color { Color.lifeboard(.actionFocus) }
 
         // Secondary Accent
-        public static var accentSecondary: Color { Color.tasker(.accentSecondary) }
-        public static var accentSecondaryMuted: Color { Color.tasker(.accentSecondaryMuted) }
+        public static var accentSecondary: Color { Color.lifeboard(.accentSecondary) }
+        public static var accentSecondaryMuted: Color { Color.lifeboard(.accentSecondaryMuted) }
 
         // Status
-        public static var statusSuccess: Color { Color.tasker(.statusSuccess) }
-        public static var statusWarning: Color { Color.tasker(.statusWarning) }
-        public static var statusDanger: Color { Color.tasker(.statusDanger) }
-        public static var stateInfo: Color { Color.tasker(.stateInfo) }
+        public static var statusSuccess: Color { Color.lifeboard(.statusSuccess) }
+        public static var statusWarning: Color { Color.lifeboard(.statusWarning) }
+        public static var statusDanger: Color { Color.lifeboard(.statusDanger) }
+        public static var stateInfo: Color { Color.lifeboard(.stateInfo) }
 
         // Priority
-        public static var priorityMax: Color { Color.tasker(.priorityMax) }
-        public static var priorityHigh: Color { Color.tasker(.priorityHigh) }
-        public static var priorityLow: Color { Color.tasker(.priorityLow) }
-        public static var priorityNone: Color { Color.tasker(.priorityNone) }
+        public static var priorityMax: Color { Color.lifeboard(.priorityMax) }
+        public static var priorityHigh: Color { Color.lifeboard(.priorityHigh) }
+        public static var priorityLow: Color { Color.lifeboard(.priorityLow) }
+        public static var priorityNone: Color { Color.lifeboard(.priorityNone) }
     }
 }
 
-// MARK: - TaskerTheme.Typography
+// MARK: - LifeBoardTheme.Typography
 
-extension TaskerTheme {
+extension LifeBoardTheme {
     @MainActor
     public enum Typography {
-        public static var heroDisplay: Font { .tasker(.heroDisplay) }
-        public static var screenTitle: Font { .tasker(.screenTitle) }
-        public static var sectionTitle: Font { .tasker(.sectionTitle) }
-        public static var eyebrow: Font { .tasker(.eyebrow) }
-        public static var display: Font { .tasker(.display) }
-        public static var title1: Font { .tasker(.title1) }
-        public static var title2: Font { .tasker(.title2) }
-        public static var title3: Font { .tasker(.title3) }
-        public static var headline: Font { .tasker(.headline) }
-        public static var body: Font { .tasker(.body) }
-        public static var bodyStrong: Font { .tasker(.bodyStrong) }
-        public static var bodyMedium: Font { .tasker(.bodyEmphasis) }
-        public static var support: Font { .tasker(.support) }
-        public static var meta: Font { .tasker(.meta) }
-        public static var metric: Font { .tasker(.metric) }
-        public static var monoMeta: Font { .tasker(.monoMeta) }
-        public static var callout: Font { .tasker(.callout) }
-        public static var caption: Font { .tasker(.caption1) }
-        public static var captionSemibold: Font { .tasker(.caption1).weight(.semibold) }
-        public static var caption2: Font { .tasker(.caption2) }
+        public static var heroDisplay: Font { .lifeboard(.heroDisplay) }
+        public static var screenTitle: Font { .lifeboard(.screenTitle) }
+        public static var sectionTitle: Font { .lifeboard(.sectionTitle) }
+        public static var eyebrow: Font { .lifeboard(.eyebrow) }
+        public static var display: Font { .lifeboard(.display) }
+        public static var title1: Font { .lifeboard(.title1) }
+        public static var title2: Font { .lifeboard(.title2) }
+        public static var title3: Font { .lifeboard(.title3) }
+        public static var headline: Font { .lifeboard(.headline) }
+        public static var body: Font { .lifeboard(.body) }
+        public static var bodyStrong: Font { .lifeboard(.bodyStrong) }
+        public static var bodyMedium: Font { .lifeboard(.bodyEmphasis) }
+        public static var support: Font { .lifeboard(.support) }
+        public static var meta: Font { .lifeboard(.meta) }
+        public static var metric: Font { .lifeboard(.metric) }
+        public static var monoMeta: Font { .lifeboard(.monoMeta) }
+        public static var callout: Font { .lifeboard(.callout) }
+        public static var caption: Font { .lifeboard(.caption1) }
+        public static var captionSemibold: Font { .lifeboard(.caption1).weight(.semibold) }
+        public static var caption2: Font { .lifeboard(.caption2) }
     }
 }
 
-// MARK: - TaskerTheme.Spacing
+// MARK: - LifeBoardTheme.Spacing
 
-extension TaskerTheme {
+extension LifeBoardTheme {
     @MainActor
     public enum Spacing {
-        private static var tokens: TaskerSpacingTokens {
-            TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).spacing
+        private static var tokens: LifeBoardSpacingTokens {
+            LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).spacing
         }
 
         public static var xs: CGFloat { tokens.s4 }
@@ -111,19 +111,19 @@ extension TaskerTheme {
         /// Extra bottom padding for views behind a tab bar
         public static var tabBarHeight: CGFloat { 80 }
 
-        public static func forLayout(_ layoutClass: TaskerLayoutClass) -> TaskerSpacingTokens {
-            TaskerThemeManager.tokens(for: layoutClass).spacing
+        public static func forLayout(_ layoutClass: LifeBoardLayoutClass) -> LifeBoardSpacingTokens {
+            LifeBoardThemeManager.tokens(for: layoutClass).spacing
         }
     }
 }
 
-// MARK: - TaskerTheme.CornerRadius
+// MARK: - LifeBoardTheme.CornerRadius
 
-extension TaskerTheme {
+extension LifeBoardTheme {
     @MainActor
     public enum CornerRadius {
-        private static var tokens: TaskerCornerTokens {
-            TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).corner
+        private static var tokens: LifeBoardCornerTokens {
+            LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).corner
         }
 
         public static var sm: CGFloat { tokens.r1 }
@@ -134,8 +134,8 @@ extension TaskerTheme {
         public static var modal: CGFloat { tokens.modal }
         public static var pill: CGFloat { tokens.pill }
 
-        public static func forLayout(_ layoutClass: TaskerLayoutClass) -> TaskerCornerTokens {
-            TaskerThemeManager.tokens(for: layoutClass).corner
+        public static func forLayout(_ layoutClass: LifeBoardLayoutClass) -> LifeBoardCornerTokens {
+            LifeBoardThemeManager.tokens(for: layoutClass).corner
         }
     }
 }
