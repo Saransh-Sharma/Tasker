@@ -1,7 +1,7 @@
 import Foundation
 
 /// Manages focus session lifecycle: start, pause/resume, end, XP recording.
-public final class FocusSessionUseCase {
+public final class FocusSessionUseCase: @unchecked Sendable {
 
     private let repository: GamificationRepositoryProtocol
     private let engine: GamificationEngine
@@ -16,7 +16,7 @@ public final class FocusSessionUseCase {
     public func startSession(
         taskID: UUID?,
         targetDurationSeconds: Int,
-        completion: @escaping (Result<FocusSessionDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<FocusSessionDefinition, Error>) -> Void
     ) {
         repository.fetchFocusSessions(from: .distantPast, to: Date().addingTimeInterval(1)) { [weak self] fetchResult in
             guard let self else { return }
@@ -66,7 +66,7 @@ public final class FocusSessionUseCase {
 
     public func endSession(
         sessionID: UUID,
-        completion: @escaping (Result<FocusSessionResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<FocusSessionResult, Error>) -> Void
     ) {
         repository.fetchFocusSessions(from: Date.distantPast, to: Date()) { [weak self] result in
             guard let self = self else { return }
@@ -84,15 +84,16 @@ public final class FocusSessionUseCase {
 
                 let xp = XPCalculationEngine.focusSessionXP(durationSeconds: elapsed)
                 session.xpAwarded = xp
+                let completedSession = session
 
-                self.repository.updateFocusSession(session) { updateResult in
+                self.repository.updateFocusSession(completedSession) { updateResult in
                     switch updateResult {
                     case .success:
                         self.clearPersistedSession()
 
                         guard xp > 0 else {
                             let focusResult = FocusSessionResult(
-                                session: session,
+                                session: completedSession,
                                 xpResult: nil
                             )
                             completion(.success(focusResult))
@@ -102,15 +103,15 @@ public final class FocusSessionUseCase {
                         let context = XPEventContext(
                             category: .focus,
                             source: .manual,
-                            taskID: session.taskID,
-                            sessionID: session.id,
+                            taskID: completedSession.taskID,
+                            sessionID: completedSession.id,
                             focusDurationSeconds: elapsed
                         )
                         self.engine.recordEvent(context: context) { xpResult in
                             switch xpResult {
                             case .success(let xpEventResult):
                                 let focusResult = FocusSessionResult(
-                                    session: session,
+                                    session: completedSession,
                                     xpResult: xpEventResult
                                 )
                                 completion(.success(focusResult))
@@ -132,7 +133,7 @@ public final class FocusSessionUseCase {
 
     /// Recovers an interrupted session on foreground return.
     /// If gap > 5 minutes since background, auto-ends with pro-rated XP.
-    public func recoverIfNeeded(completion: @escaping (FocusSessionResult?) -> Void) {
+    public func recoverIfNeeded(completion: @escaping @Sendable (FocusSessionResult?) -> Void) {
         guard let idString = UserDefaults.standard.string(forKey: "focusSessionActiveID"),
               let sessionID = UUID(uuidString: idString),
               let startedAt = UserDefaults.standard.object(forKey: "focusSessionStartedAt") as? TimeInterval else {
@@ -159,7 +160,7 @@ public final class FocusSessionUseCase {
         }
     }
 
-    public func fetchActiveSession(completion: @escaping (Result<FocusSessionDefinition?, Error>) -> Void) {
+    public func fetchActiveSession(completion: @escaping @Sendable (Result<FocusSessionDefinition?, Error>) -> Void) {
         repository.fetchFocusSessions(from: .distantPast, to: Date().addingTimeInterval(1)) { [weak self] result in
             switch result {
             case .success(let sessions):
@@ -182,14 +183,14 @@ public final class FocusSessionUseCase {
 
     // MARK: - Query
 
-    public func fetchTodaySessions(completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+    public func fetchTodaySessions(completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
         let start = Calendar.current.startOfDay(for: Date())
         repository.fetchFocusSessions(from: start, to: Date()) { result in
             completion(result)
         }
     }
 
-    public func todayFocusMinutes(completion: @escaping (Int) -> Void) {
+    public func todayFocusMinutes(completion: @escaping @Sendable (Int) -> Void) {
         fetchTodaySessions { result in
             switch result {
             case .success(let sessions):
@@ -213,12 +214,12 @@ public final class FocusSessionUseCase {
 
 // MARK: - Supporting Types
 
-public struct FocusSessionResult {
+public struct FocusSessionResult: Sendable {
     public let session: FocusSessionDefinition
     public let xpResult: XPEventResult?
 }
 
-public enum FocusSessionError: Error {
+public enum FocusSessionError: Error, Sendable {
     case sessionNotFound
     case alreadyActive
 }

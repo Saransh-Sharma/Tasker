@@ -1,15 +1,54 @@
 //
 //  UseCaseCoordinator.swift
-//  Tasker
+//  LifeBoard
 //
 //  Coordinates complex workflows involving multiple use cases
 //
 
 import Foundation
 
+private final class UseCaseCoordinatorAccumulator<State: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state: State
+
+    init(_ state: State) {
+        self.state = state
+    }
+
+    func update(_ body: (inout State) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func snapshot() -> State {
+        lock.lock()
+        let state = state
+        lock.unlock()
+        return state
+    }
+}
+
+private struct MorningRoutineWorkflowState: Sendable {
+    var completedCount = 0
+    var totalScore = 0
+}
+
+private struct DailyDashboardWorkflowState: Sendable {
+    var todayTasks: TodayTasksResult?
+    var todayAnalytics: DailyAnalytics?
+    var streak: StreakInfo?
+    var productivityScore: ProductivityScore?
+}
+
+private struct EndOfDayCleanupWorkflowState: Sendable {
+    var incompleteTasks: [TaskDefinition] = []
+    var tasksToReschedule: [TaskDefinition] = []
+}
+
 /// Coordinates complex business workflows involving multiple use cases
 /// Acts as a facade for the presentation layer
-public final class UseCaseCoordinator {
+public final class UseCaseCoordinator: @unchecked Sendable {
 
     public struct V2Dependencies {
         public let projectRepository: ProjectRepositoryProtocol
@@ -38,7 +77,7 @@ public final class UseCaseCoordinator {
         public let externalSyncRepository: ExternalSyncRepositoryProtocol
         public let remindersProvider: AppleRemindersProviderProtocol?
         public let calendarEventsProvider: CalendarEventsProviderProtocol?
-        public let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+        public let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
 
         /// Initializes a new instance.
         public init(
@@ -68,7 +107,7 @@ public final class UseCaseCoordinator {
             externalSyncRepository: ExternalSyncRepositoryProtocol,
             remindersProvider: AppleRemindersProviderProtocol? = nil,
             calendarEventsProvider: CalendarEventsProviderProtocol? = nil,
-            workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
+            workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared
         ) {
             self.projectRepository = projectRepository
             self.lifeAreaRepository = lifeAreaRepository
@@ -463,7 +502,7 @@ public final class UseCaseCoordinator {
     // MARK: - Complex Workflows
 
     /// Complete morning routine - marks all morning tasks as complete
-    public func completeMorningRoutine(completion: @escaping (Result<MorningRoutineResult, WorkflowError>) -> Void) {
+    public func completeMorningRoutine(completion: @escaping @Sendable (Result<MorningRoutineResult, WorkflowError>) -> Void) {
         getTasks.getTodayTasks { [weak self] result in
             switch result {
             case .success(let todayTasks):
@@ -478,25 +517,27 @@ public final class UseCaseCoordinator {
                     return
                 }
 
-                var completedCount = 0
-                var totalScore = 0
+                let state = UseCaseCoordinatorAccumulator(MorningRoutineWorkflowState())
                 let group = DispatchGroup()
 
                 for task in morningTasks {
                     group.enter()
                     self?.completeTaskDefinition.setCompletion(taskID: task.id, to: true) { result in
                         if case .success(let updatedTask) = result {
-                            completedCount += 1
-                            totalScore += updatedTask.priority.scorePoints
+                            state.update {
+                                $0.completedCount += 1
+                                $0.totalScore += updatedTask.priority.scorePoints
+                            }
                         }
                         group.leave()
                     }
                 }
 
                 group.notify(queue: .main) {
+                    let state = state.snapshot()
                     let workflowResult = MorningRoutineResult(
-                        tasksCompleted: completedCount,
-                        totalScore: totalScore,
+                        tasksCompleted: state.completedCount,
+                        totalScore: state.totalScore,
                         message: "Morning routine completed!"
                     )
                     completion(.success(workflowResult))
@@ -509,7 +550,7 @@ public final class UseCaseCoordinator {
     }
 
     /// Reschedule all overdue tasks to today
-    public func rescheduleAllOverdueTasks(completion: @escaping (Result<RescheduleAllResult, WorkflowError>) -> Void) {
+    public func rescheduleAllOverdueTasks(completion: @escaping @Sendable (Result<RescheduleAllResult, WorkflowError>) -> Void) {
         getTasks.getOverdueTasks { [weak self] result in
             switch result {
             case .success(let overdueTasks):
@@ -521,7 +562,7 @@ public final class UseCaseCoordinator {
                     return
                 }
 
-                var rescheduledCount = 0
+                let rescheduledCount = UseCaseCoordinatorAccumulator(0)
                 let group = DispatchGroup()
                 let targetDate = Date()
 
@@ -529,13 +570,14 @@ public final class UseCaseCoordinator {
                     group.enter()
                     self?.rescheduleTaskDefinition.execute(taskID: task.id, newDate: targetDate) { result in
                         if case .success = result {
-                            rescheduledCount += 1
+                            rescheduledCount.update { $0 += 1 }
                         }
                         group.leave()
                     }
                 }
 
                 group.notify(queue: .main) {
+                    let rescheduledCount = rescheduledCount.snapshot()
                     let workflowResult = RescheduleAllResult(
                         tasksRescheduled: rescheduledCount,
                         message: "\(rescheduledCount) tasks rescheduled to today"
@@ -554,7 +596,7 @@ public final class UseCaseCoordinator {
         projectName: String,
         projectDescription: String?,
         initialTasks: [CreateTaskDefinitionRequest],
-        completion: @escaping (Result<ProjectCreationResult, WorkflowError>) -> Void
+        completion: @escaping @Sendable (Result<ProjectCreationResult, WorkflowError>) -> Void
     ) {
         // Step 1: Create the project
         let projectRequest = CreateProjectRequest(name: projectName, description: projectDescription)
@@ -563,7 +605,7 @@ public final class UseCaseCoordinator {
             switch result {
             case .success(let project):
                 // Step 2: Create tasks for the project
-                var createdTasks: [TaskDefinition] = []
+                let createdTasks = UseCaseCoordinatorAccumulator([TaskDefinition]())
                 let group = DispatchGroup()
 
                 for taskRequest in initialTasks {
@@ -594,13 +636,14 @@ public final class UseCaseCoordinator {
 
                     self.createTaskDefinition.execute(request: updatedRequest) { taskResult in
                         if case .success(let task) = taskResult {
-                            createdTasks.append(task)
+                            createdTasks.update { $0.append(task) }
                         }
                         group.leave()
                     }
                 }
 
                 group.notify(queue: .main) {
+                    let createdTasks = createdTasks.snapshot()
                     let workflowResult = ProjectCreationResult(
                         project: project,
                         tasksCreated: createdTasks,
@@ -616,19 +659,15 @@ public final class UseCaseCoordinator {
     }
 
     /// Get daily dashboard data
-    public func getDailyDashboard(completion: @escaping (Result<DailyDashboard, WorkflowError>) -> Void) {
+    public func getDailyDashboard(completion: @escaping @Sendable (Result<DailyDashboard, WorkflowError>) -> Void) {
         let group = DispatchGroup()
-
-        var todayTasks: TodayTasksResult?
-        var todayAnalytics: DailyAnalytics?
-        var streak: StreakInfo?
-        var productivityScore: ProductivityScore?
+        let state = UseCaseCoordinatorAccumulator(DailyDashboardWorkflowState())
 
         // Fetch today's tasks
         group.enter()
         getTasks.getTodayTasks { result in
             if case .success(let tasks) = result {
-                todayTasks = tasks
+                state.update { $0.todayTasks = tasks }
             }
             group.leave()
         }
@@ -637,7 +676,7 @@ public final class UseCaseCoordinator {
         group.enter()
         calculateAnalytics.calculateTodayAnalytics { result in
             if case .success(let analytics) = result {
-                todayAnalytics = analytics
+                state.update { $0.todayAnalytics = analytics }
             }
             group.leave()
         }
@@ -646,7 +685,7 @@ public final class UseCaseCoordinator {
         group.enter()
         calculateAnalytics.calculateStreak { result in
             if case .success(let streakInfo) = result {
-                streak = streakInfo
+                state.update { $0.streak = streakInfo }
             }
             group.leave()
         }
@@ -655,16 +694,17 @@ public final class UseCaseCoordinator {
         group.enter()
         calculateAnalytics.calculateProductivityScore { result in
             if case .success(let score) = result {
-                productivityScore = score
+                state.update { $0.productivityScore = score }
             }
             group.leave()
         }
 
         group.notify(queue: .main) {
-            guard let tasks = todayTasks,
-                  let analytics = todayAnalytics,
-                  let streakInfo = streak,
-                  let score = productivityScore else {
+            let state = state.snapshot()
+            guard let tasks = state.todayTasks,
+                  let analytics = state.todayAnalytics,
+                  let streakInfo = state.streak,
+                  let score = state.productivityScore else {
                 completion(.failure(.incompleteData))
                 return
             }
@@ -682,37 +722,37 @@ public final class UseCaseCoordinator {
     }
 
     /// Perform end-of-day cleanup
-    public func performEndOfDayCleanup(completion: @escaping (Result<CleanupResult, WorkflowError>) -> Void) {
+    public func performEndOfDayCleanup(completion: @escaping @Sendable (Result<CleanupResult, WorkflowError>) -> Void) {
         let group = DispatchGroup()
-
-        var incompleteTasks: [TaskDefinition] = []
-        var tasksToReschedule: [TaskDefinition] = []
+        let state = UseCaseCoordinatorAccumulator(EndOfDayCleanupWorkflowState())
 
         // Get today's incomplete tasks
         group.enter()
         getTasks.getTodayTasks { result in
             if case .success(let todayTasks) = result {
-                incompleteTasks = todayTasks.morningTasks.filter { !$0.isComplete } +
+                let incompleteTasks = todayTasks.morningTasks.filter { !$0.isComplete } +
                     todayTasks.eveningTasks.filter { !$0.isComplete }
-
-                // Reschedule high-priority tasks to tomorrow
-                tasksToReschedule = incompleteTasks.filter { task in
-                    task.priority == .max || task.priority == .high
+                state.update {
+                    $0.incompleteTasks = incompleteTasks
+                    $0.tasksToReschedule = incompleteTasks.filter { task in
+                        task.priority == .max || task.priority == .high
+                    }
                 }
             }
             group.leave()
         }
 
         group.notify(queue: .main) { [weak self] in
+            let state = state.snapshot()
             let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-            var rescheduledCount = 0
+            let rescheduledCount = UseCaseCoordinatorAccumulator(0)
             let rescheduleGroup = DispatchGroup()
 
-            for task in tasksToReschedule {
+            for task in state.tasksToReschedule {
                 rescheduleGroup.enter()
                 self?.rescheduleTaskDefinition.execute(taskID: task.id, newDate: tomorrow) { result in
                     if case .success = result {
-                        rescheduledCount += 1
+                        rescheduledCount.update { $0 += 1 }
                     }
                     rescheduleGroup.leave()
                 }
@@ -720,9 +760,10 @@ public final class UseCaseCoordinator {
 
             rescheduleGroup.notify(queue: .main) {
                 self?.cacheService?.clearAll()
+                let rescheduledCount = rescheduledCount.snapshot()
 
                 let workflowResult = CleanupResult(
-                    incompleteTasks: incompleteTasks.count,
+                    incompleteTasks: state.incompleteTasks.count,
                     tasksRescheduled: rescheduledCount,
                     message: "End of day cleanup completed"
                 )
@@ -734,73 +775,73 @@ public final class UseCaseCoordinator {
 }
 
 private final class NullTaskReadModelRepository: TaskReadModelRepositoryProtocol {
-    private func unavailable<T>(_ completion: @escaping (Result<T, Error>) -> Void) {
+    private func unavailable<T>(_ completion: @escaping @Sendable (Result<T, Error>) -> Void) {
         completion(.failure(DailyReflectionUseCaseError.unavailableTarget))
     }
 
-    func fetchTasks(query _: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query _: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         unavailable(completion)
     }
 
-    func searchTasks(query _: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query _: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         unavailable(completion)
     }
 
-    func searchTasks(query _: TaskRepositorySearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query _: TaskRepositorySearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         unavailable(completion)
     }
 
-    func fetchHomeProjection(query _: HomeProjectionQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchHomeProjection(query _: HomeProjectionQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         unavailable(completion)
     }
 
     func fetchInsightsTodayProjection(
         referenceDate _: Date,
-        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void
     ) {
         unavailable(completion)
     }
 
     func fetchInsightsTodayProjection(
         query _: InsightsTodayProjectionQuery,
-        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void
     ) {
         unavailable(completion)
     }
 
     func fetchInsightsWeekProjection(
         referenceDate _: Date,
-        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
     ) {
         unavailable(completion)
     }
 
     func fetchInsightsWeekProjection(
         query _: InsightsWeekProjectionQuery,
-        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
     ) {
         unavailable(completion)
     }
 
     func fetchDailyReflectionProjection(
         query _: DailyReflectionTaskProjectionQuery,
-        completion: @escaping (Result<DailyReflectionTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<DailyReflectionTaskProjection, Error>) -> Void
     ) {
         unavailable(completion)
     }
 
-    func fetchWeekChartProjection(referenceDate _: Date, completion: @escaping (Result<WeekChartProjection, Error>) -> Void) {
+    func fetchWeekChartProjection(referenceDate _: Date, completion: @escaping @Sendable (Result<WeekChartProjection, Error>) -> Void) {
         unavailable(completion)
     }
 
-    func fetchProjectTaskCounts(includeCompleted _: Bool, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+    func fetchProjectTaskCounts(includeCompleted _: Bool, completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void) {
         unavailable(completion)
     }
 
     func fetchProjectCompletionScoreTotals(
         from _: Date,
         to _: Date,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
         unavailable(completion)
     }
@@ -808,24 +849,24 @@ private final class NullTaskReadModelRepository: TaskReadModelRepositoryProtocol
 
 // MARK: - Result Models
 
-public struct MorningRoutineResult {
+public struct MorningRoutineResult: Sendable {
     public let tasksCompleted: Int
     public let totalScore: Int
     public let message: String
 }
 
-public struct RescheduleAllResult {
+public struct RescheduleAllResult: Sendable {
     public let tasksRescheduled: Int
     public let message: String
 }
 
-public struct ProjectCreationResult {
+public struct ProjectCreationResult: Sendable {
     public let project: Project
     public let tasksCreated: [TaskDefinition]
     public let message: String
 }
 
-public struct DailyDashboard {
+public struct DailyDashboard: Sendable {
     public let date: Date
     public let todayTasks: TodayTasksResult
     public let analytics: DailyAnalytics
@@ -833,7 +874,7 @@ public struct DailyDashboard {
     public let productivityScore: ProductivityScore
 }
 
-public struct CleanupResult {
+public struct CleanupResult: Sendable {
     public let incompleteTasks: Int
     public let tasksRescheduled: Int
     public let message: String
@@ -841,7 +882,7 @@ public struct CleanupResult {
 
 // MARK: - Error Types
 
-public enum WorkflowError: LocalizedError {
+public enum WorkflowError: LocalizedError, Sendable {
     case useCaseError(String)
     case incompleteData
     case syncError(String)

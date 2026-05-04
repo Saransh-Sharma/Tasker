@@ -15,7 +15,7 @@ public enum DailyReflectionUseCaseError: LocalizedError {
     }
 }
 
-public struct SaveDailyReflectionAndPlanResult {
+public struct SaveDailyReflectionAndPlanResult: Sendable {
     public let target: DailyReflectionTarget
     public let reflectionPayload: ReflectionPayload?
     public let planDraft: DailyPlanDraft?
@@ -81,7 +81,7 @@ public final class ResolveDailyReflectionTargetUseCase: @unchecked Sendable {
 
 struct ReflectionCalendarContextSnapshot: Equatable, Sendable {
     let eventCount: Int
-    let busyBlocks: [TaskerCalendarBusyBlock]
+    let busyBlocks: [LifeBoardCalendarBusyBlock]
     let bestFocusWindow: DateInterval?
     let firstHardStop: Date?
     let meetingMinutes: Int
@@ -91,13 +91,13 @@ private struct ReflectionCalendarBusyBlockPayload: Codable, Equatable {
     let startDate: Date
     let endDate: Date
 
-    init(_ block: TaskerCalendarBusyBlock) {
+    init(_ block: LifeBoardCalendarBusyBlock) {
         self.startDate = block.startDate
         self.endDate = block.endDate
     }
 
-    var model: TaskerCalendarBusyBlock {
-        TaskerCalendarBusyBlock(startDate: startDate, endDate: endDate)
+    var model: LifeBoardCalendarBusyBlock {
+        LifeBoardCalendarBusyBlock(startDate: startDate, endDate: endDate)
     }
 }
 
@@ -398,14 +398,14 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
 
     public struct CalendarContext: Equatable, Sendable {
         public let eventCount: Int
-        public let busyBlocks: [TaskerCalendarBusyBlock]
+        public let busyBlocks: [LifeBoardCalendarBusyBlock]
         public let bestFocusWindow: DateInterval?
         public let firstHardStop: Date?
         public let meetingMinutes: Int
 
         public init(
             eventCount: Int,
-            busyBlocks: [TaskerCalendarBusyBlock],
+            busyBlocks: [LifeBoardCalendarBusyBlock],
             bestFocusWindow: DateInterval?,
             firstHardStop: Date?,
             meetingMinutes: Int
@@ -437,7 +437,7 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
     private let calendarEventsProvider: CalendarEventsProviderProtocol?
     private let calendar: Calendar
     private let contextBuildQueue: DispatchQueue
-    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
     private let calendarContextCacheStore: ReflectionCalendarContextCacheStoreProtocol
     private let nowProvider: @Sendable () -> Date
     private let mergeGapThreshold: TimeInterval
@@ -447,7 +447,7 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
         buildCalendarBusyBlocks: BuildCalendarBusyBlocksUseCase = BuildCalendarBusyBlocksUseCase(),
         calendar: Calendar = .autoupdatingCurrent,
         contextBuildQueue: DispatchQueue = DispatchQueue(
-            label: "com.tasker.reflection.calendar-context-build",
+            label: "com.lifeboard.reflection.calendar-context-build",
             qos: .userInitiated
         )
     ) {
@@ -465,10 +465,10 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
         calendarEventsProvider: CalendarEventsProviderProtocol?,
         calendar: Calendar = .autoupdatingCurrent,
         contextBuildQueue: DispatchQueue = DispatchQueue(
-            label: "com.tasker.reflection.calendar-context-build",
+            label: "com.lifeboard.reflection.calendar-context-build",
             qos: .userInitiated
         ),
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
         calendarContextCacheStore: ReflectionCalendarContextCacheStoreProtocol = ReflectionCalendarContextCacheStore.shared,
         mergeGapThreshold: TimeInterval = 5 * 60,
         nowProvider: @escaping @Sendable () -> Date = { Date() }
@@ -539,13 +539,13 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
                 status: .degraded("Calendar context unavailable. Suggestions use tasks and habits only.")
             )
         }
-        let interval = TaskerPerformanceTrace.begin("ReflectionOptionalLoad")
+        let interval = LifeBoardPerformanceTrace.begin("ReflectionOptionalLoad")
         return await withCheckedContinuation { continuation in
             let gate = CalendarContextLoadGate()
 
             @Sendable func finish(_ result: CalendarContextLoadResult) {
                 gate.finishOnce {
-                    TaskerPerformanceTrace.end(interval)
+                    LifeBoardPerformanceTrace.end(interval)
                     continuation.resume(returning: result)
                 }
             }
@@ -562,7 +562,7 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
                     return
                 }
                 guard _Concurrency.Task.isCancelled == false else { return }
-                TaskerPerformanceTrace.event("ReflectionEnrichmentTimedOut")
+                LifeBoardPerformanceTrace.event("ReflectionEnrichmentTimedOut")
                 finish(
                     CalendarContextLoadResult(
                         context: nil,
@@ -571,13 +571,13 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
                 )
             }
 
-            let fetchInterval = TaskerPerformanceTrace.begin("ReflectionCalendarFetch")
+            let fetchInterval = LifeBoardPerformanceTrace.begin("ReflectionCalendarFetch")
             calendarEventsProvider.fetchEventSlices(
                 startDate: query.dayStart,
                 endDate: query.dayEnd,
                 calendarIDs: query.selectedCalendarIDs
             ) { result in
-                defer { TaskerPerformanceTrace.end(fetchInterval) }
+                defer { LifeBoardPerformanceTrace.end(fetchInterval) }
                 timeoutTask.cancel()
                 switch result {
                 case .failure:
@@ -594,16 +594,16 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
                     let nowProvider = self.nowProvider
                     contextBuildQueue.async {
                         guard shouldContinue() else { return }
-                        TaskerPerformanceTrace.event("ReflectionContextBuildStart")
-                        let buildInterval = TaskerPerformanceTrace.begin("ReflectionCalendarContextBuild")
+                        LifeBoardPerformanceTrace.event("ReflectionContextBuildStart")
+                        let buildInterval = LifeBoardPerformanceTrace.begin("ReflectionCalendarContextBuild")
                         let context = Self.buildCalendarContext(
                             eventSlices: eventSlices,
                             dayStart: query.dayStart,
                             dayEnd: query.dayEnd,
                             mergeGapThreshold: mergeGapThreshold
                         )
-                        TaskerPerformanceTrace.end(buildInterval)
-                        TaskerPerformanceTrace.event("ReflectionContextBuildFinish")
+                        LifeBoardPerformanceTrace.end(buildInterval)
+                        LifeBoardPerformanceTrace.event("ReflectionContextBuildFinish")
                         let snapshot = Self.snapshot(from: context)
                         Task {
                             await calendarContextCacheStore.save(
@@ -642,10 +642,10 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
 
         let context = Self.context(from: lookup.snapshot)
         if lookup.isStale {
-            TaskerPerformanceTrace.event("ReflectionContextCacheStaleHit")
+            LifeBoardPerformanceTrace.event("ReflectionContextCacheStaleHit")
             return .stale(context)
         }
-        TaskerPerformanceTrace.event("ReflectionContextCacheHit")
+        LifeBoardPerformanceTrace.event("ReflectionContextCacheHit")
         return .fresh(context)
     }
 
@@ -663,8 +663,8 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
         atRiskHabit: HabitOccurrenceSummary?,
         calendarContext: CalendarContext?
     ) -> DailyPlanSuggestion {
-        let planInterval = TaskerPerformanceTrace.begin("ReflectionPlanBuild")
-        defer { TaskerPerformanceTrace.end(planInterval) }
+        let planInterval = LifeBoardPerformanceTrace.begin("ReflectionPlanBuild")
+        defer { LifeBoardPerformanceTrace.end(planInterval) }
 
         let ranked = rankCandidates(
             carryoverTasks: carryoverTasks,
@@ -712,7 +712,7 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
     }
 
     private static func buildCalendarContext(
-        eventSlices: [TaskerCalendarEventSlice],
+        eventSlices: [LifeBoardCalendarEventSlice],
         dayStart: Date,
         dayEnd: Date,
         mergeGapThreshold: TimeInterval
@@ -722,11 +722,11 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
         #endif
 
         let clampedAndSorted = eventSlices
-            .compactMap { slice -> TaskerCalendarEventSlice? in
+            .compactMap { slice -> LifeBoardCalendarEventSlice? in
                 let clampedStart = max(dayStart, slice.startDate)
                 let clampedEnd = min(dayEnd, slice.endDate)
                 guard clampedEnd > clampedStart else { return nil }
-                return TaskerCalendarEventSlice(
+                return LifeBoardCalendarEventSlice(
                     startDate: clampedStart,
                     endDate: clampedEnd,
                     isAllDay: slice.isAllDay,
@@ -740,8 +740,8 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
                 return lhs.endDate < rhs.endDate
             }
 
-        var busyBlocks: [TaskerCalendarBusyBlock] = []
-        var currentBusy: TaskerCalendarBusyBlock?
+        var busyBlocks: [LifeBoardCalendarBusyBlock] = []
+        var currentBusy: LifeBoardCalendarBusyBlock?
         var firstHardStop: Date?
         var meetingMinutes = 0
 
@@ -751,10 +751,10 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
             }
             meetingMinutes += max(0, Int(slice.endDate.timeIntervalSince(slice.startDate) / 60.0))
 
-            let block = TaskerCalendarBusyBlock(startDate: slice.startDate, endDate: slice.endDate)
+            let block = LifeBoardCalendarBusyBlock(startDate: slice.startDate, endDate: slice.endDate)
             if let existing = currentBusy {
                 if block.startDate <= existing.endDate.addingTimeInterval(mergeGapThreshold) {
-                    currentBusy = TaskerCalendarBusyBlock(
+                    currentBusy = LifeBoardCalendarBusyBlock(
                         startDate: existing.startDate,
                         endDate: max(existing.endDate, block.endDate)
                     )
@@ -789,7 +789,7 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
     private static func resolveBestFocusWindow(
         start: Date,
         end: Date,
-        busyBlocks: [TaskerCalendarBusyBlock],
+        busyBlocks: [LifeBoardCalendarBusyBlock],
         firstHardStop: Date?
     ) -> DateInterval? {
         let windows = Self.freeWindows(start: start, end: end, busyBlocks: busyBlocks)
@@ -821,7 +821,7 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
     private static func freeWindows(
         start: Date,
         end: Date,
-        busyBlocks: [TaskerCalendarBusyBlock]
+        busyBlocks: [LifeBoardCalendarBusyBlock]
     ) -> [DateInterval] {
         var cursor = start
         var intervals: [DateInterval] = []
@@ -852,7 +852,7 @@ public final class BuildNextDayPlanSuggestionUseCase: @unchecked Sendable {
     private func calendarContextQuery(for planningDate: Date) -> CalendarContextQuery {
         let dayStart = calendar.startOfDay(for: planningDate)
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
-        let normalizedIDs = TaskerWorkspacePreferences.normalizeSelectedCalendarIDs(
+        let normalizedIDs = LifeBoardWorkspacePreferences.normalizeSelectedCalendarIDs(
             workspacePreferencesStore.load().selectedCalendarIDs
         )
         let selectionHash = normalizedIDs.joined(separator: "|")
@@ -1092,14 +1092,14 @@ public actor DailyReflectionLoadCoordinator: DailyReflectionLoadCoordinatorProto
     }
 
     public func resolveTarget(preferredReflectionDate: Date?) async -> DailyReflectionTarget? {
-        let interval = TaskerPerformanceTrace.begin("ReflectionResolveTarget")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("ReflectionResolveTarget")
+        defer { LifeBoardPerformanceTrace.end(interval) }
         return resolveTargetUseCase.execute(preferredReflectionDate: preferredReflectionDate)
     }
 
     public func loadCore(target: DailyReflectionTarget) async throws -> DailyReflectionCoreLoadBundle {
-        let interval = TaskerPerformanceTrace.begin("ReflectionCoreLoad")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("ReflectionCoreLoad")
+        defer { LifeBoardPerformanceTrace.end(interval) }
 
         async let projectionTask = fetchTaskProjection(target: target)
         async let habitsTask = fetchHabits(for: target.reflectionDate)
@@ -1447,7 +1447,7 @@ public actor DailyReflectionLoadCoordinator: DailyReflectionLoadCoordinatorProto
     }
 }
 
-public final class SaveDailyReflectionAndPlanUseCase {
+public final class SaveDailyReflectionAndPlanUseCase: @unchecked Sendable {
     private let reflectionStore: DailyReflectionStoreProtocol
     private let markDailyReflection: MarkDailyReflectionCompleteUseCase
     private let notificationCenter: NotificationCenter
@@ -1470,7 +1470,7 @@ public final class SaveDailyReflectionAndPlanUseCase {
         input: DailyReflectionInput,
         plan: EditableDailyPlan,
         replaceExistingManualDraft: Bool = false,
-        completion: @escaping (Result<SaveDailyReflectionAndPlanResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<SaveDailyReflectionAndPlanResult, Error>) -> Void
     ) {
         let payload = ReflectionPayload(
             reflectionDate: snapshot.reflectionDate,
@@ -1513,7 +1513,7 @@ public final class SaveDailyReflectionAndPlanUseCase {
 
                     let dateKey = self.dateStamp(for: snapshot.reflectionDate)
 
-                    TaskerNotificationRuntime.orchestrator?.reconcile(reason: "daily_reflection_saved")
+                    LifeBoardNotificationRuntime.orchestrator?.reconcile(reason: "daily_reflection_saved")
                     self.notificationCenter.post(
                         name: .dailyReflectionCompleted,
                         object: nil,

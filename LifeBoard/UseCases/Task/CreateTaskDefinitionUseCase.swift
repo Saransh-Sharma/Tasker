@@ -1,6 +1,40 @@
 import Foundation
 
-public final class CreateTaskDefinitionUseCase {
+private final class CreateTaskDefinitionMutationState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedError: Error?
+    private var storedCreatedCount = 0
+
+    func recordError(_ error: Error) {
+        lock.lock()
+        if storedError == nil {
+            storedError = error
+        }
+        lock.unlock()
+    }
+
+    func addCreatedCount(_ count: Int) {
+        lock.lock()
+        storedCreatedCount += count
+        lock.unlock()
+    }
+
+    func firstError() -> Error? {
+        lock.lock()
+        let error = storedError
+        lock.unlock()
+        return error
+    }
+
+    func createdCount() -> Int {
+        lock.lock()
+        let count = storedCreatedCount
+        lock.unlock()
+        return count
+    }
+}
+
+public final class CreateTaskDefinitionUseCase: @unchecked Sendable {
     private let repository: TaskDefinitionRepositoryProtocol
     private let taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
     private let taskDependencyRepository: TaskDependencyRepositoryProtocol?
@@ -27,7 +61,7 @@ public final class CreateTaskDefinitionUseCase {
         projectID: UUID,
         dueDate: Date?,
         details: String?,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         let request = CreateTaskDefinitionRequest(
             title: title,
@@ -42,7 +76,7 @@ public final class CreateTaskDefinitionUseCase {
     /// Executes execute.
     public func execute(
         request: CreateTaskDefinitionRequest,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         let normalizedRequest = normalizedRequestForStorage(request)
 
@@ -92,7 +126,7 @@ public final class CreateTaskDefinitionUseCase {
     }
 
     /// Executes maintainRecurringSeries.
-    public func maintainRecurringSeries(daysAhead: Int = 45, completion: @escaping (Result<Int, Error>) -> Void) {
+    public func maintainRecurringSeries(daysAhead: Int = 45, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         recurrenceMaterializer.maintainAllSeries(daysAhead: daysAhead, completion: completion)
     }
 
@@ -100,16 +134,16 @@ public final class CreateTaskDefinitionUseCase {
     private func persistLinks(
         taskID: UUID,
         request: CreateTaskDefinitionRequest,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        var firstError: Error?
+        let state = CreateTaskDefinitionMutationState()
 
         if let taskTagLinkRepository {
             group.enter()
             taskTagLinkRepository.replaceTagLinks(taskID: taskID, tagIDs: request.tagIDs) { result in
-                if case .failure(let error) = result, firstError == nil {
-                    firstError = error
+                if case .failure(let error) = result {
+                    state.recordError(error)
                 }
                 group.leave()
             }
@@ -127,15 +161,15 @@ public final class CreateTaskDefinitionUseCase {
                 )
             }
             taskDependencyRepository.replaceDependencies(taskID: taskID, dependencies: dependencies) { result in
-                if case .failure(let error) = result, firstError == nil {
-                    firstError = error
+                if case .failure(let error) = result {
+                    state.recordError(error)
                 }
                 group.leave()
             }
         }
 
         group.notify(queue: .main) {
-            if let firstError {
+            if let firstError = state.firstError() {
                 completion(.failure(firstError))
             } else {
                 completion(.success(()))
@@ -221,7 +255,7 @@ public final class CreateTaskDefinitionUseCase {
     private func materializeRecurringTasksIfNeeded(
         rootTask: TaskDefinition,
         rootRequest: CreateTaskDefinitionRequest,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard
             let repeatPattern = rootRequest.repeatPattern,
@@ -241,7 +275,7 @@ public final class CreateTaskDefinitionUseCase {
     }
 }
 
-private final class RecurringTaskMaterializer {
+private final class RecurringTaskMaterializer: @unchecked Sendable {
     private let repository: TaskDefinitionRepositoryProtocol
     private let taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
 
@@ -255,7 +289,7 @@ private final class RecurringTaskMaterializer {
     }
 
     /// Executes maintainAllSeries.
-    func maintainAllSeries(daysAhead: Int, completion: @escaping (Result<Int, Error>) -> Void) {
+    func maintainAllSeries(daysAhead: Int, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         repository.fetchAll(query: nil) { result in
             switch result {
             case .failure(let error):
@@ -268,9 +302,7 @@ private final class RecurringTaskMaterializer {
                 }
 
                 let group = DispatchGroup()
-                let lock = NSLock()
-                var firstError: Error?
-                var createdCount = 0
+                let state = CreateTaskDefinitionMutationState()
 
                 for root in roots {
                     guard let repeatPattern = root.repeatPattern else { continue }
@@ -310,25 +342,21 @@ private final class RecurringTaskMaterializer {
                         repeatPattern: repeatPattern,
                         daysAhead: daysAhead
                     ) { result in
-                        lock.lock()
                         switch result {
                         case .success(let count):
-                            createdCount += count
+                            state.addCreatedCount(count)
                         case .failure(let error):
-                            if firstError == nil {
-                                firstError = error
-                            }
+                            state.recordError(error)
                         }
-                        lock.unlock()
                         group.leave()
                     }
                 }
 
                 group.notify(queue: .main) {
-                    if let firstError {
+                    if let firstError = state.firstError() {
                         completion(.failure(firstError))
                     } else {
-                        completion(.success(createdCount))
+                        completion(.success(state.createdCount()))
                     }
                 }
             }
@@ -341,7 +369,7 @@ private final class RecurringTaskMaterializer {
         rootRequest: CreateTaskDefinitionRequest,
         repeatPattern: TaskRepeatPattern,
         daysAhead: Int,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         self.materializeSeriesCountingCreated(
             rootTask: rootTask,
@@ -359,7 +387,7 @@ private final class RecurringTaskMaterializer {
         rootRequest: CreateTaskDefinitionRequest,
         repeatPattern: TaskRepeatPattern,
         daysAhead: Int,
-        completion: @escaping (Result<Int, Error>) -> Void
+        completion: @escaping @Sendable (Result<Int, Error>) -> Void
     ) {
         guard
             let recurrenceSeriesID = rootTask.recurrenceSeriesID ?? rootRequest.recurrenceSeriesID,
@@ -397,9 +425,7 @@ private final class RecurringTaskMaterializer {
                 }
 
                 let group = DispatchGroup()
-                let lock = NSLock()
-                var firstError: Error?
-                var createdCount = 0
+                let state = CreateTaskDefinitionMutationState()
 
                 for dueDate in missingDates {
                     let schedule = TaskScheduleNormalizer.normalize(
@@ -441,25 +467,21 @@ private final class RecurringTaskMaterializer {
 
                     group.enter()
                     self.createTaskWithoutNotifications(request: request) { result in
-                        lock.lock()
                         switch result {
                         case .success:
-                            createdCount += 1
+                            state.addCreatedCount(1)
                         case .failure(let error):
-                            if firstError == nil {
-                                firstError = error
-                            }
+                            state.recordError(error)
                         }
-                        lock.unlock()
                         group.leave()
                     }
                 }
 
                 group.notify(queue: .main) {
-                    if let firstError {
+                    if let firstError = state.firstError() {
                         completion(.failure(firstError))
                     } else {
-                        completion(.success(createdCount))
+                        completion(.success(state.createdCount()))
                     }
                 }
             }
@@ -469,7 +491,7 @@ private final class RecurringTaskMaterializer {
     /// Executes createTaskWithoutNotifications.
     private func createTaskWithoutNotifications(
         request: CreateTaskDefinitionRequest,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         repository.create(request: request) { result in
             switch result {
@@ -485,7 +507,7 @@ private final class RecurringTaskMaterializer {
     private func persistTagLinks(
         taskID: UUID,
         tagIDs: [UUID],
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard let taskTagLinkRepository else {
             completion(.success(()))
@@ -520,7 +542,7 @@ private final class RecurringTaskMaterializer {
     }
 }
 
-public final class GetTaskChildrenUseCase {
+public final class GetTaskChildrenUseCase: @unchecked Sendable {
     private let repository: TaskDefinitionRepositoryProtocol
 
     /// Initializes a new instance.
@@ -531,7 +553,7 @@ public final class GetTaskChildrenUseCase {
     /// Executes execute.
     public func execute(
         parentTaskID: UUID,
-        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void
     ) {
         repository.fetchChildren(parentTaskID: parentTaskID, completion: completion)
     }

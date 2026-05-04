@@ -1,6 +1,6 @@
 //
 //  GetProjectStatisticsUseCase.swift
-//  Tasker
+//  LifeBoard
 //
 //  Use case for generating project statistics and analytics
 //
@@ -8,7 +8,7 @@
 import Foundation
 
 /// Use case for project statistics
-public final class GetProjectStatisticsUseCase {
+public final class GetProjectStatisticsUseCase: @unchecked Sendable {
     
     // MARK: - Dependencies
     
@@ -27,7 +27,7 @@ public final class GetProjectStatisticsUseCase {
     
     /// Get comprehensive project overview
     public func getProjectOverview(
-        completion: @escaping (Result<ProjectOverview, StatisticsError>) -> Void
+        completion: @escaping @Sendable (Result<ProjectOverview, StatisticsError>) -> Void
     ) {
         projectRepository.fetchAllProjects { result in
             switch result {

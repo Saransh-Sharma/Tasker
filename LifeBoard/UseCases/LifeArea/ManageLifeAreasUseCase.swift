@@ -1,6 +1,6 @@
 import Foundation
 
-public final class ManageLifeAreasUseCase {
+public final class ManageLifeAreasUseCase: @unchecked Sendable {
     private let repository: LifeAreaRepositoryProtocol
 
     /// Initializes a new instance.
@@ -9,7 +9,7 @@ public final class ManageLifeAreasUseCase {
     }
 
     /// Executes list.
-    public func list(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+    public func list(completion: @escaping @Sendable (Result<[LifeArea], Error>) -> Void) {
         repository.fetchAll { result in
             switch result {
             case .success(let areas):
@@ -21,7 +21,7 @@ public final class ManageLifeAreasUseCase {
     }
 
     /// Executes create.
-    public func create(name: String, color: String?, icon: String?, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    public func create(name: String, color: String?, icon: String?, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         let normalizedDisplayName = Self.normalizedDisplayName(name)
         let normalizedKey = Self.normalizedNameKey(name)
 
@@ -63,7 +63,7 @@ public final class ManageLifeAreasUseCase {
         name: String,
         color: String?,
         icon: String?,
-        completion: @escaping (Result<LifeArea, Error>) -> Void
+        completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void
     ) {
         let normalizedDisplayName = Self.normalizedDisplayName(name)
         let normalizedKey = Self.normalizedNameKey(name)
@@ -102,7 +102,7 @@ public final class ManageLifeAreasUseCase {
     }
 
     /// Executes archive.
-    public func archive(id: UUID, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    public func archive(id: UUID, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         repository.fetchAll { result in
             switch result {
             case .success(let areas):
@@ -120,7 +120,7 @@ public final class ManageLifeAreasUseCase {
     }
 
     /// Executes unarchive.
-    public func unarchive(id: UUID, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    public func unarchive(id: UUID, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         repository.fetchAll { result in
             switch result {
             case .success(let areas):

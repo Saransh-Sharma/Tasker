@@ -4,7 +4,43 @@ public extension Notification.Name {
     static let homeHabitMutation = Notification.Name("HomeHabitMutationEvent")
 }
 
-public struct HabitMutationContext: Codable, Equatable, Hashable {
+private final class HabitRuntimeAccumulator<State: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state: State
+    private var firstError: Error?
+
+    init(_ state: State) {
+        self.state = state
+    }
+
+    func update(_ body: (inout State) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<State, Error> {
+        lock.lock()
+        let state = state
+        let firstError = firstError
+        lock.unlock()
+
+        if let firstError {
+            return .failure(firstError)
+        }
+        return .success(state)
+    }
+}
+
+public struct HabitMutationContext: Codable, Equatable, Hashable, Sendable {
     public let mutationID: UUID
     public let source: String
 
@@ -14,7 +50,7 @@ public struct HabitMutationContext: Codable, Equatable, Hashable {
     }
 }
 
-public struct HomeHabitMutationNotification: Codable, Equatable, Hashable {
+public struct HomeHabitMutationNotification: Codable, Equatable, Hashable, Sendable {
     public let habitID: UUID
     public let context: HabitMutationContext?
 
@@ -27,7 +63,7 @@ public struct HomeHabitMutationNotification: Codable, Equatable, Hashable {
     }
 }
 
-public enum HabitRuntimeError: LocalizedError {
+public enum HabitRuntimeError: LocalizedError, Sendable {
     case invalidLifeArea
     case invalidProject
     case habitNotFound
@@ -61,7 +97,7 @@ enum HabitDeleteCompensationError: LocalizedError {
     }
 }
 
-public struct CreateHabitRequest: Codable, Equatable, Hashable {
+public struct CreateHabitRequest: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var title: String
     public var lifeAreaID: UUID
@@ -110,7 +146,7 @@ public struct CreateHabitRequest: Codable, Equatable, Hashable {
     }
 }
 
-public struct UpdateHabitRequest: Codable, Equatable, Hashable {
+public struct UpdateHabitRequest: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var title: String?
     public var lifeAreaID: UUID?
@@ -488,7 +524,7 @@ enum HabitRuntimeSupport {
     }
 }
 
-public final class CreateHabitUseCase {
+public final class CreateHabitUseCase: @unchecked Sendable {
     private let habitRepository: HabitRepositoryProtocol
     private let lifeAreaRepository: LifeAreaRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
@@ -511,7 +547,7 @@ public final class CreateHabitUseCase {
 
     public func execute(
         request: CreateHabitRequest,
-        completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void
     ) {
         validate(lifeAreaID: request.lifeAreaID, projectID: request.projectID) { validationResult in
             switch validationResult {
@@ -614,7 +650,7 @@ public final class CreateHabitUseCase {
     private func validate(
         lifeAreaID: UUID,
         projectID: UUID?,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         lifeAreaRepository.fetchAll { result in
             switch result {
@@ -648,7 +684,7 @@ public final class CreateHabitUseCase {
     private func rollbackFailedCreate(
         habitID: UUID,
         templateID: UUID,
-        completion: @escaping () -> Void
+        completion: @escaping @Sendable () -> Void
     ) {
         scheduleRepository.deleteTemplate(id: templateID) { _ in
             self.habitRepository.delete(id: habitID) { _ in
@@ -669,8 +705,8 @@ public final class CreateHabitUseCase {
     }
 }
 
-public final class UpdateHabitUseCase {
-    private struct ScheduleSnapshot {
+public final class UpdateHabitUseCase: @unchecked Sendable {
+    private struct ScheduleSnapshot: Sendable {
         let template: ScheduleTemplateDefinition?
         let rules: [ScheduleRuleDefinition]
     }
@@ -700,7 +736,7 @@ public final class UpdateHabitUseCase {
 
     public func execute(
         request: UpdateHabitRequest,
-        completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void
     ) {
         habitRepository.fetchAll { result in
             switch result {
@@ -711,17 +747,19 @@ public final class UpdateHabitUseCase {
                     completion(.failure(HabitRuntimeError.habitNotFound))
                     return
                 }
-                var habit = existingHabit
+                let validationLifeAreaID = request.lifeAreaID ?? existingHabit.lifeAreaID
+                let validationProjectID = request.clearProject ? nil : (request.projectID ?? existingHabit.projectID)
                 self.captureScheduleSnapshot(for: existingHabit.id) { snapshotResult in
                     switch snapshotResult {
                     case .failure(let error):
                         completion(.failure(error))
                     case .success(let scheduleSnapshot):
-                        self.validate(lifeAreaID: request.lifeAreaID ?? habit.lifeAreaID, projectID: request.clearProject ? nil : (request.projectID ?? habit.projectID)) { validationResult in
+                        self.validate(lifeAreaID: validationLifeAreaID, projectID: validationProjectID) { validationResult in
                             switch validationResult {
                             case .failure(let error):
                                 completion(.failure(error))
                             case .success:
+                                var habit = existingHabit
                                 if let title = request.title?.trimmingCharacters(in: .whitespacesAndNewlines), title.isEmpty == false {
                                     habit.title = title
                                 }
@@ -808,7 +846,7 @@ public final class UpdateHabitUseCase {
     private func validate(
         lifeAreaID: UUID?,
         projectID: UUID?,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard let lifeAreaID else {
             completion(.failure(HabitRuntimeError.invalidLifeArea))
@@ -830,7 +868,7 @@ public final class UpdateHabitUseCase {
 
     private func validateProject(
         _ projectID: UUID?,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard let projectID else {
             completion(.success(()))
@@ -852,7 +890,7 @@ public final class UpdateHabitUseCase {
         reminderWindowStart: String?,
         reminderWindowEnd: String?,
         updatedAt: Date,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let reminderWindow = HabitRuntimeSupport.normalizedReminderWindow(
             start: reminderWindowStart,
@@ -886,7 +924,7 @@ public final class UpdateHabitUseCase {
                     case .failure(let error):
                         completion(.failure(error))
                     case .success:
-                        let updateRules: (@escaping (Result<Void, Error>) -> Void) -> Void = { finish in
+                        let updateRules: (@escaping @Sendable (Result<Void, Error>) -> Void) -> Void = { finish in
                             guard let cadence else {
                                 finish(.success(()))
                                 return
@@ -925,7 +963,7 @@ public final class UpdateHabitUseCase {
 
     private func captureScheduleSnapshot(
         for habitID: UUID,
-        completion: @escaping (Result<ScheduleSnapshot, Error>) -> Void
+        completion: @escaping @Sendable (Result<ScheduleSnapshot, Error>) -> Void
     ) {
         scheduleRepository.fetchTemplates { result in
             switch result {
@@ -953,7 +991,7 @@ public final class UpdateHabitUseCase {
         _ snapshot: ScheduleSnapshot,
         for habitID: UUID,
         effectiveFrom: Date,
-        completion: @escaping () -> Void
+        completion: @escaping @Sendable () -> Void
     ) {
         scheduleRepository.fetchTemplates { result in
             switch result {
@@ -986,7 +1024,7 @@ public final class UpdateHabitUseCase {
         }
     }
 
-    private func deleteTemplates(_ ids: [UUID], completion: @escaping () -> Void) {
+    private func deleteTemplates(_ ids: [UUID], completion: @escaping @Sendable () -> Void) {
         guard let id = ids.first else {
             completion()
             return
@@ -997,7 +1035,7 @@ public final class UpdateHabitUseCase {
     }
 }
 
-public final class PauseHabitUseCase {
+public final class PauseHabitUseCase: @unchecked Sendable {
     private let habitRepository: HabitRepositoryProtocol
     private let scheduleRepository: ScheduleRepositoryProtocol
     private let maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
@@ -1015,7 +1053,7 @@ public final class PauseHabitUseCase {
     public func execute(
         id: UUID,
         isPaused: Bool,
-        completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void
     ) {
         habitRepository.fetchAll { result in
             switch result {
@@ -1064,7 +1102,7 @@ public final class PauseHabitUseCase {
 
     private func syncTemplateActiveState(
         for habit: HabitDefinitionRecord,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         scheduleRepository.fetchTemplates { result in
             switch result {
@@ -1085,7 +1123,7 @@ public final class PauseHabitUseCase {
     }
 }
 
-public final class ArchiveHabitUseCase {
+public final class ArchiveHabitUseCase: @unchecked Sendable {
     private let habitRepository: HabitRepositoryProtocol
     private let pauseHabitUseCase: PauseHabitUseCase
     private let maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
@@ -1102,7 +1140,7 @@ public final class ArchiveHabitUseCase {
 
     public func execute(
         id: UUID,
-        completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void
     ) {
         habitRepository.fetchAll { result in
             switch result {
@@ -1138,7 +1176,7 @@ public final class ArchiveHabitUseCase {
     }
 }
 
-public final class SetHabitArchivedUseCase {
+public final class SetHabitArchivedUseCase: @unchecked Sendable {
     private let habitRepository: HabitRepositoryProtocol
     private let pauseHabitUseCase: PauseHabitUseCase
     private let maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
@@ -1156,7 +1194,7 @@ public final class SetHabitArchivedUseCase {
     public func execute(
         id: UUID,
         isArchived: Bool,
-        completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void
     ) {
         habitRepository.fetchAll { result in
             switch result {
@@ -1196,7 +1234,7 @@ public final class SetHabitArchivedUseCase {
     }
 }
 
-public final class DeleteHabitUseCase {
+public final class DeleteHabitUseCase: @unchecked Sendable {
     private struct ScheduleTemplateSnapshot {
         let template: ScheduleTemplateDefinition
         let rules: [ScheduleRuleDefinition]
@@ -1219,7 +1257,7 @@ public final class DeleteHabitUseCase {
 
     public func execute(
         id: UUID,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         habitRepository.fetchAll { result in
             switch result {
@@ -1280,7 +1318,7 @@ public final class DeleteHabitUseCase {
         habit: HabitDefinitionRecord,
         scheduleSnapshots: [ScheduleTemplateSnapshot],
         underlyingError: Error,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         restoreDeletedHabit(habit, scheduleSnapshots: scheduleSnapshots) { restoreResult in
             switch restoreResult {
@@ -1297,7 +1335,7 @@ public final class DeleteHabitUseCase {
 
     private func captureScheduleSnapshots(
         for habitID: UUID,
-        completion: @escaping (Result<[ScheduleTemplateSnapshot], Error>) -> Void
+        completion: @escaping @Sendable (Result<[ScheduleTemplateSnapshot], Error>) -> Void
     ) {
         scheduleRepository.fetchTemplates { result in
             switch result {
@@ -1313,7 +1351,7 @@ public final class DeleteHabitUseCase {
     private func captureSnapshots(
         for templates: [ScheduleTemplateDefinition],
         collected: [ScheduleTemplateSnapshot],
-        completion: @escaping (Result<[ScheduleTemplateSnapshot], Error>) -> Void
+        completion: @escaping @Sendable (Result<[ScheduleTemplateSnapshot], Error>) -> Void
     ) {
         guard let template = templates.first else {
             completion(.success(collected))
@@ -1348,7 +1386,7 @@ public final class DeleteHabitUseCase {
 
     private func deleteTemplates(
         _ ids: [UUID],
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard let id = ids.first else {
             completion(.success(()))
@@ -1368,7 +1406,7 @@ public final class DeleteHabitUseCase {
     private func restoreDeletedHabit(
         _ habit: HabitDefinitionRecord,
         scheduleSnapshots: [ScheduleTemplateSnapshot],
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         habitRepository.create(habit) { createResult in
             switch createResult {
@@ -1398,7 +1436,7 @@ public final class DeleteHabitUseCase {
 
     private func deleteCurrentTemplates(
         for habitID: UUID,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         scheduleRepository.fetchTemplates { result in
             switch result {
@@ -1415,7 +1453,7 @@ public final class DeleteHabitUseCase {
 
     private func restoreScheduleSnapshots(
         _ snapshots: [ScheduleTemplateSnapshot],
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard let snapshot = snapshots.first else {
             completion(.success(()))
@@ -1452,7 +1490,7 @@ public final class DeleteHabitUseCase {
     private func restoreExceptions(
         _ exceptions: [ScheduleExceptionDefinition],
         templateID: UUID,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard let exception = exceptions.first else {
             completion(.success(()))
@@ -1472,7 +1510,7 @@ public final class DeleteHabitUseCase {
     }
 }
 
-public final class RecomputeHabitStreaksUseCase {
+public final class RecomputeHabitStreaksUseCase: @unchecked Sendable {
     private let habitRepository: HabitRepositoryProtocol
     private let occurrenceRepository: OccurrenceRepositoryProtocol
 
@@ -1487,7 +1525,7 @@ public final class RecomputeHabitStreaksUseCase {
     public func execute(
         habitIDs: [UUID]? = nil,
         referenceDate: Date = Date(),
-        completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitDefinitionRecord], Error>) -> Void
     ) {
         habitRepository.fetchAll { result in
             switch result {
@@ -1514,9 +1552,7 @@ public final class RecomputeHabitStreaksUseCase {
                     case .success(let occurrences):
                         let habitOccurrences = Dictionary(grouping: occurrences.filter { $0.sourceType == .habit }) { $0.sourceID }
                         let group = DispatchGroup()
-                        let lock = NSLock()
-                        var firstError: Error?
-                        var updatedHabits: [HabitDefinitionRecord] = []
+                        let accumulator = HabitRuntimeAccumulator([HabitDefinitionRecord]())
 
                         for habit in filteredHabits {
                             var updated = habit
@@ -1537,26 +1573,21 @@ public final class RecomputeHabitStreaksUseCase {
 
                             group.enter()
                             self.habitRepository.update(updated) { updateResult in
-                                lock.lock()
-                                defer {
-                                    lock.unlock()
-                                    group.leave()
-                                }
+                                defer { group.leave() }
                                 switch updateResult {
                                 case .failure(let error):
-                                    if firstError == nil {
-                                        firstError = error
-                                    }
+                                    accumulator.record(error)
                                 case .success(let saved):
-                                    updatedHabits.append(saved)
+                                    accumulator.update { $0.append(saved) }
                                 }
                             }
                         }
 
                         group.notify(queue: .main) {
-                            if let firstError {
+                            switch accumulator.result() {
+                            case .failure(let firstError):
                                 completion(.failure(firstError))
-                            } else {
+                            case .success(let updatedHabits):
                                 completion(.success(updatedHabits.sorted { $0.createdAt < $1.createdAt }))
                             }
                         }
@@ -1567,7 +1598,7 @@ public final class RecomputeHabitStreaksUseCase {
     }
 }
 
-public final class SyncHabitScheduleUseCase {
+public final class SyncHabitScheduleUseCase: @unchecked Sendable {
     private let habitRepository: HabitRepositoryProtocol
     private let scheduleRepository: ScheduleRepositoryProtocol
     private let scheduleEngine: SchedulingEngineProtocol
@@ -1590,7 +1621,7 @@ public final class SyncHabitScheduleUseCase {
 
     public func execute(
         anchorDate: Date = Date(),
-        completion: @escaping (Result<HabitRuntimeSyncResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitRuntimeSyncResult, Error>) -> Void
     ) {
         habitRepository.fetchAll { result in
             switch result {
@@ -1658,13 +1689,11 @@ public final class SyncHabitScheduleUseCase {
     private func alignTemplateStates(
         habits: [HabitDefinitionRecord],
         templates: [ScheduleTemplateDefinition],
-        completion: @escaping (Result<Int, Error>) -> Void
+        completion: @escaping @Sendable (Result<Int, Error>) -> Void
     ) {
         let habitTemplates = templates.filter { $0.sourceType == .habit }
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-        var savedCount = 0
+        let accumulator = HabitRuntimeAccumulator(0)
 
         for habit in habits {
             guard var template = habitTemplates.first(where: { $0.sourceID == habit.id }) else { continue }
@@ -1674,26 +1703,21 @@ public final class SyncHabitScheduleUseCase {
             template.updatedAt = Date()
             group.enter()
             scheduleRepository.saveTemplate(template) { result in
-                lock.lock()
-                defer {
-                    lock.unlock()
-                    group.leave()
-                }
+                defer { group.leave() }
                 switch result {
                 case .failure(let error):
-                    if firstError == nil {
-                        firstError = error
-                    }
+                    accumulator.record(error)
                 case .success:
-                    savedCount += 1
+                    accumulator.update { $0 += 1 }
                 }
             }
         }
 
         group.notify(queue: .main) {
-            if let firstError {
+            switch accumulator.result() {
+            case .failure(let firstError):
                 completion(.failure(firstError))
-            } else {
+            case .success(let savedCount):
                 completion(.success(savedCount))
             }
         }
@@ -1702,7 +1726,7 @@ public final class SyncHabitScheduleUseCase {
     private func finalizeLapseOnlySuccesses(
         habits: [HabitDefinitionRecord],
         anchorDate: Date,
-        completion: @escaping (Result<Int, Error>) -> Void
+        completion: @escaping @Sendable (Result<Int, Error>) -> Void
     ) {
         let lapseOnlyHabitIDs = Set(habits.filter {
             $0.trackingMode == .lapseOnly && $0.isPaused == false && $0.isArchived == false
@@ -1742,9 +1766,7 @@ public final class SyncHabitScheduleUseCase {
                 }
 
                 let group = DispatchGroup()
-                let lock = NSLock()
-                var firstError: Error?
-                var resolvedCount = 0
+                let accumulator = HabitRuntimeAccumulator(0)
 
                 for occurrence in pending {
                     group.enter()
@@ -1753,26 +1775,21 @@ public final class SyncHabitScheduleUseCase {
                         resolution: .completed,
                         actor: .system
                     ) { result in
-                        lock.lock()
-                        defer {
-                            lock.unlock()
-                            group.leave()
-                        }
+                        defer { group.leave() }
                         switch result {
                         case .failure(let error):
-                            if firstError == nil {
-                                firstError = error
-                            }
+                            accumulator.record(error)
                         case .success:
-                            resolvedCount += 1
+                            accumulator.update { $0 += 1 }
                         }
                     }
                 }
 
                 group.notify(queue: .main) {
-                    if let firstError {
+                    switch accumulator.result() {
+                    case .failure(let firstError):
                         completion(.failure(firstError))
-                    } else {
+                    case .success(let resolvedCount):
                         completion(.success(resolvedCount))
                     }
                 }
@@ -1783,11 +1800,10 @@ public final class SyncHabitScheduleUseCase {
     private func updateGenerationDates(
         habits: [HabitDefinitionRecord],
         anchorDate: Date,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
+        let accumulator = HabitRuntimeAccumulator(())
 
         for var habit in habits {
             guard habit.isArchived == false else { continue }
@@ -1795,28 +1811,25 @@ public final class SyncHabitScheduleUseCase {
             habit.updatedAt = Date()
             group.enter()
             habitRepository.update(habit) { result in
-                lock.lock()
-                defer {
-                    lock.unlock()
-                    group.leave()
-                }
-                if case .failure(let error) = result, firstError == nil {
-                    firstError = error
+                defer { group.leave() }
+                if case .failure(let error) = result {
+                    accumulator.record(error)
                 }
             }
         }
 
         group.notify(queue: .main) {
-            if let firstError {
+            switch accumulator.result() {
+            case .failure(let firstError):
                 completion(.failure(firstError))
-            } else {
+            case .success:
                 completion(.success(()))
             }
         }
     }
 }
 
-public final class MaintainHabitRuntimeUseCase {
+public final class MaintainHabitRuntimeUseCase: @unchecked Sendable {
     private let syncHabitScheduleUseCase: SyncHabitScheduleUseCase
 
     public init(syncHabitScheduleUseCase: SyncHabitScheduleUseCase) {
@@ -1825,13 +1838,13 @@ public final class MaintainHabitRuntimeUseCase {
 
     public func execute(
         anchorDate: Date = Date(),
-        completion: @escaping (Result<HabitRuntimeSyncResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitRuntimeSyncResult, Error>) -> Void
     ) {
         syncHabitScheduleUseCase.execute(anchorDate: anchorDate, completion: completion)
     }
 }
 
-public final class ResolveHabitOccurrenceUseCase {
+public final class ResolveHabitOccurrenceUseCase: @unchecked Sendable {
     private let habitRepository: HabitRepositoryProtocol
     private let scheduleRepository: ScheduleRepositoryProtocol
     private let occurrenceRepository: OccurrenceRepositoryProtocol
@@ -1861,7 +1874,7 @@ public final class ResolveHabitOccurrenceUseCase {
         action: HabitOccurrenceAction,
         on date: Date = Date(),
         mutationContext: HabitMutationContext? = nil,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         habitRepository.fetchByID(id: habitID) { result in
             switch result {
@@ -1925,7 +1938,7 @@ public final class ResolveHabitOccurrenceUseCase {
         habit: HabitDefinitionRecord,
         occurrenceID: UUID?,
         date: Date,
-        completion: @escaping (Result<UUID, Error>) -> Void
+        completion: @escaping @Sendable (Result<UUID, Error>) -> Void
     ) {
         if let occurrenceID {
             occurrenceRepository.fetchByID(id: occurrenceID) { result in
@@ -1964,7 +1977,7 @@ public final class ResolveHabitOccurrenceUseCase {
     private func materializeOccurrence(
         for habit: HabitDefinitionRecord,
         date: Date,
-        completion: @escaping (Result<UUID, Error>) -> Void
+        completion: @escaping @Sendable (Result<UUID, Error>) -> Void
     ) {
         scheduleRepository.fetchTemplates { result in
             switch result {
@@ -2086,7 +2099,7 @@ public final class ResolveHabitOccurrenceUseCase {
         occurrenceID: UUID,
         action: HabitOccurrenceAction,
         completedAt: Date,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let category: XPActionCategory
         switch (habit.kind, action) {
@@ -2120,7 +2133,7 @@ public final class ResolveHabitOccurrenceUseCase {
     }
 }
 
-public final class ResetHabitOccurrenceUseCase {
+public final class ResetHabitOccurrenceUseCase: @unchecked Sendable {
     private let habitRepository: HabitRepositoryProtocol
     private let occurrenceRepository: OccurrenceRepositoryProtocol
     private let recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase
@@ -2143,7 +2156,7 @@ public final class ResetHabitOccurrenceUseCase {
         occurrenceID: UUID? = nil,
         on date: Date = Date(),
         mutationContext: HabitMutationContext? = nil,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         habitRepository.fetchByID(id: habitID) { result in
             switch result {
@@ -2168,6 +2181,7 @@ public final class ResetHabitOccurrenceUseCase {
                         var resetOccurrence = occurrence
                         resetOccurrence.state = .pending
                         resetOccurrence.updatedAt = Date()
+                        let resetOccurrenceID = resetOccurrence.id
 
                         self.occurrenceRepository.saveOccurrences([resetOccurrence]) { saveResult in
                             switch saveResult {
@@ -2184,7 +2198,7 @@ public final class ResetHabitOccurrenceUseCase {
                                     case .success:
                                         self.compensateIfNeeded(
                                             habit: habit,
-                                            occurrenceID: resetOccurrence.id,
+                                            occurrenceID: resetOccurrenceID,
                                             previousState: previousState,
                                             completedAt: date
                                         ) { compensationResult in
@@ -2216,7 +2230,7 @@ public final class ResetHabitOccurrenceUseCase {
         for habit: HabitDefinitionRecord,
         occurrenceID: UUID?,
         on date: Date,
-        completion: @escaping (Result<OccurrenceDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<OccurrenceDefinition, Error>) -> Void
     ) {
         if let occurrenceID {
             occurrenceRepository.fetchByID(id: occurrenceID) { result in
@@ -2257,7 +2271,7 @@ public final class ResetHabitOccurrenceUseCase {
         occurrenceID: UUID,
         previousState: OccurrenceState,
         completedAt: Date,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let category: XPActionCategory?
         switch (habit.kind, previousState) {
@@ -2295,7 +2309,7 @@ public final class ResetHabitOccurrenceUseCase {
     }
 }
 
-public final class GetDueHabitsForDateUseCase {
+public final class GetDueHabitsForDateUseCase: @unchecked Sendable {
     private let readRepository: HabitRuntimeReadRepositoryProtocol
 
     public init(readRepository: HabitRuntimeReadRepositoryProtocol) {
@@ -2304,7 +2318,7 @@ public final class GetDueHabitsForDateUseCase {
 
     public func execute(
         date: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         readRepository.fetchAgendaHabits(for: date, completion: completion)
     }
@@ -2312,13 +2326,13 @@ public final class GetDueHabitsForDateUseCase {
     public func execute(
         date: Date,
         habitID: UUID,
-        completion: @escaping (Result<HabitOccurrenceSummary?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitOccurrenceSummary?, Error>) -> Void
     ) {
         readRepository.fetchAgendaHabit(habitID: habitID, for: date, completion: completion)
     }
 }
 
-public final class GetHabitHistoryUseCase {
+public final class GetHabitHistoryUseCase: @unchecked Sendable {
     private let readRepository: HabitRuntimeReadRepositoryProtocol
 
     public init(readRepository: HabitRuntimeReadRepositoryProtocol) {
@@ -2329,13 +2343,13 @@ public final class GetHabitHistoryUseCase {
         habitIDs: [UUID],
         endingOn date: Date = Date(),
         dayCount: Int = 14,
-        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
         readRepository.fetchHistory(habitIDs: habitIDs, endingOn: date, dayCount: dayCount, completion: completion)
     }
 }
 
-public final class GetHabitSignalsInRangeUseCase {
+public final class GetHabitSignalsInRangeUseCase: @unchecked Sendable {
     private let readRepository: HabitRuntimeReadRepositoryProtocol
 
     public init(readRepository: HabitRuntimeReadRepositoryProtocol) {
@@ -2345,13 +2359,13 @@ public final class GetHabitSignalsInRangeUseCase {
     public func execute(
         start: Date,
         end: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         readRepository.fetchSignals(start: start, end: end, completion: completion)
     }
 }
 
-public final class GetHabitLibraryUseCase {
+public final class GetHabitLibraryUseCase: @unchecked Sendable {
     private let readRepository: HabitRuntimeReadRepositoryProtocol
 
     public init(readRepository: HabitRuntimeReadRepositoryProtocol) {
@@ -2360,7 +2374,7 @@ public final class GetHabitLibraryUseCase {
 
     public func execute(
         includeArchived: Bool = true,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
         readRepository.fetchHabitLibrary(includeArchived: includeArchived, completion: completion)
     }
@@ -2368,7 +2382,7 @@ public final class GetHabitLibraryUseCase {
     public func execute(
         habitIDs: [UUID]?,
         includeArchived: Bool = true,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
         readRepository.fetchHabitLibrary(
             habitIDs: habitIDs,
@@ -2380,7 +2394,7 @@ public final class GetHabitLibraryUseCase {
     public func execute(
         habitID: UUID,
         includeArchived: Bool = true,
-        completion: @escaping (Result<HabitLibraryRow?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitLibraryRow?, Error>) -> Void
     ) {
         readRepository.fetchHabitDetailSummary(
             habitID: habitID,
@@ -2390,7 +2404,7 @@ public final class GetHabitLibraryUseCase {
     }
 }
 
-public final class BuildHabitHomeProjectionUseCase {
+public final class BuildHabitHomeProjectionUseCase: @unchecked Sendable {
     private let getDueHabitsForDateUseCase: GetDueHabitsForDateUseCase
 
     public init(
@@ -2401,7 +2415,7 @@ public final class BuildHabitHomeProjectionUseCase {
 
     public func execute(
         date: Date,
-        completion: @escaping (Result<[HomeHabitRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HomeHabitRow], Error>) -> Void
     ) {
         getDueHabitsForDateUseCase.execute(date: date) { fetchResult in
             switch fetchResult {
@@ -2417,7 +2431,7 @@ public final class BuildHabitHomeProjectionUseCase {
     public func execute(
         date: Date,
         habitID: UUID,
-        completion: @escaping (Result<HomeHabitRow?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HomeHabitRow?, Error>) -> Void
     ) {
         getDueHabitsForDateUseCase.execute(date: date, habitID: habitID) { result in
             completion(result.map { summary in

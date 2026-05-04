@@ -1,6 +1,26 @@
 import Foundation
 
-public final class UpdateTaskDefinitionUseCase {
+private final class UpdateTaskDefinitionErrorRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var firstError: Error?
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func error() -> Error? {
+        lock.lock()
+        let firstError = firstError
+        lock.unlock()
+        return firstError
+    }
+}
+
+public final class UpdateTaskDefinitionUseCase: @unchecked Sendable {
     private let repository: TaskDefinitionRepositoryProtocol
     private let taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
     private let taskDependencyRepository: TaskDependencyRepositoryProtocol?
@@ -19,7 +39,7 @@ public final class UpdateTaskDefinitionUseCase {
     /// Executes execute.
     public func execute(
         request: UpdateTaskDefinitionRequest,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         repository.fetchTaskDefinition(id: request.id) { existingResult in
             let previousTask = try? existingResult.get().flatMap { $0 }
@@ -70,26 +90,16 @@ public final class UpdateTaskDefinitionUseCase {
     private func persistLinks(
         taskID: UUID,
         request: UpdateTaskDefinitionRequest,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        var firstError: Error?
-        let lock = NSLock()
-
-        /// Executes capture.
-        func capture(_ error: Error) {
-            lock.lock()
-            if firstError == nil {
-                firstError = error
-            }
-            lock.unlock()
-        }
+        let errors = UpdateTaskDefinitionErrorRecorder()
 
         if let tagIDs = request.tagIDs, let taskTagLinkRepository {
             group.enter()
             taskTagLinkRepository.replaceTagLinks(taskID: taskID, tagIDs: tagIDs) { result in
                 if case .failure(let error) = result {
-                    capture(error)
+                    errors.record(error)
                 }
                 group.leave()
             }
@@ -108,14 +118,14 @@ public final class UpdateTaskDefinitionUseCase {
             }
             taskDependencyRepository.replaceDependencies(taskID: taskID, dependencies: normalizedDependencies) { result in
                 if case .failure(let error) = result {
-                    capture(error)
+                    errors.record(error)
                 }
                 group.leave()
             }
         }
 
         group.notify(queue: .main) {
-            if let firstError {
+            if let firstError = errors.error() {
                 completion(.failure(firstError))
             } else {
                 completion(.success(()))

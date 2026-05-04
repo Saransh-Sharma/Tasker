@@ -1,6 +1,26 @@
 import Foundation
 
-public final class MaintainOccurrencesUseCase {
+private final class MaintainOccurrencesErrorRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var firstError: Error?
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func error() -> Error? {
+        lock.lock()
+        let firstError = firstError
+        lock.unlock()
+        return firstError
+    }
+}
+
+public final class MaintainOccurrencesUseCase: @unchecked Sendable {
     private let occurrenceRepository: OccurrenceRepositoryProtocol
     private let tombstoneRepository: TombstoneRepositoryProtocol
 
@@ -14,7 +34,7 @@ public final class MaintainOccurrencesUseCase {
     }
 
     /// Executes execute.
-    public func execute(completion: @escaping (Result<Void, Error>) -> Void) {
+    public func execute(completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         let now = Date()
         let pastWindow = Calendar.current.date(byAdding: .day, value: -365, to: now) ?? now
         occurrenceRepository.fetchInRange(start: pastWindow, end: now) { result in
@@ -33,17 +53,7 @@ public final class MaintainOccurrencesUseCase {
                 }
 
                 let group = DispatchGroup()
-                var firstError: Error?
-                let lock = NSLock()
-
-                /// Executes captureError.
-                func captureError(_ error: Error) {
-                    lock.lock()
-                    if firstError == nil {
-                        firstError = error
-                    }
-                    lock.unlock()
-                }
+                let errors = MaintainOccurrencesErrorRecorder()
 
                 for occurrence in staleUnresolved {
                     let resolution = OccurrenceResolutionDefinition(
@@ -58,7 +68,7 @@ public final class MaintainOccurrencesUseCase {
                     group.enter()
                     self.occurrenceRepository.resolve(resolution) { result in
                         if case .failure(let error) = result {
-                            captureError(error)
+                            errors.record(error)
                         }
                         group.leave()
                     }
@@ -75,14 +85,14 @@ public final class MaintainOccurrencesUseCase {
                     group.enter()
                     self.tombstoneRepository.create(tombstone) { result in
                         if case .failure(let error) = result {
-                            captureError(error)
+                            errors.record(error)
                         }
                         group.leave()
                     }
                 }
 
                 group.notify(queue: .main) {
-                    if let firstError {
+                    if let firstError = errors.error() {
                         completion(.failure(firstError))
                         return
                     }
@@ -104,7 +114,7 @@ public final class MaintainOccurrencesUseCase {
     }
 }
 
-public final class PurgeExpiredTombstonesUseCase {
+public final class PurgeExpiredTombstonesUseCase: @unchecked Sendable {
     private let tombstoneRepository: TombstoneRepositoryProtocol
 
     /// Initializes a new instance.
@@ -113,7 +123,7 @@ public final class PurgeExpiredTombstonesUseCase {
     }
 
     /// Executes execute.
-    public func execute(referenceDate: Date = Date(), completion: @escaping (Result<Void, Error>) -> Void) {
+    public func execute(referenceDate: Date = Date(), completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         tombstoneRepository.fetchExpired(before: referenceDate) { result in
             switch result {
             case .failure(let error):

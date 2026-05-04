@@ -1,19 +1,19 @@
 import Foundation
 
-public final class ReminderMergeEngine {
-    public enum TombstoneDecision: Equatable {
+public final class ReminderMergeEngine: Sendable {
+    public enum TombstoneDecision: Equatable, Sendable {
         case keep
         case applyDelete(clock: SyncClock)
         case resurrect(clock: SyncClock)
     }
 
-    public enum MergeWinner: String, Equatable {
+    public enum MergeWinner: String, Equatable, Sendable {
         case local
         case remote
         case unchanged
     }
 
-    public struct MergeInput {
+    public struct MergeInput: Sendable {
         public var nodeID: String
         public var provider: String
         public var localObservedAt: Date
@@ -51,7 +51,7 @@ public final class ReminderMergeEngine {
         }
     }
 
-    public struct MergeResult {
+    public struct MergeResult: Sendable {
         public var known: ReminderMergeEnvelope.KnownFields
         public var state: ReminderMergeState
         public var tombstoneDecision: TombstoneDecision

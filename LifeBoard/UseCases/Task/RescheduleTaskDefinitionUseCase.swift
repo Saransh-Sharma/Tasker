@@ -1,6 +1,6 @@
 import Foundation
 
-public final class RescheduleTaskDefinitionUseCase {
+public final class RescheduleTaskDefinitionUseCase: @unchecked Sendable {
     private enum RescheduleTaskError: LocalizedError {
         case taskNotFound(UUID)
 
@@ -44,7 +44,7 @@ public final class RescheduleTaskDefinitionUseCase {
     public func execute(
         taskID: UUID,
         newDate: Date?,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         repository.fetchTaskDefinition(id: taskID) { result in
             switch result {

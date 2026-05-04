@@ -10,7 +10,8 @@ import Foundation
 
 /// Use case for sorting tasks with complex criteria
 /// This replaces direct sorting logic in ViewControllers and provides consistent sorting across the app
-public final class SortTasksUseCase {
+/// Stateless sorter; optional cache dependency is only retained and never mutated by this use case.
+public final class SortTasksUseCase: @unchecked Sendable {
     
     // MARK: - Dependencies
     
@@ -29,7 +30,7 @@ public final class SortTasksUseCase {
     public func sortTasks(
         _ tasks: [TaskDefinition],
         criteria: SortCriteria,
-        completion: @escaping (Result<SortedTasksResult, SortError>) -> Void
+        completion: @escaping @Sendable (Result<SortedTasksResult, SortError>) -> Void
     ) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
@@ -55,7 +56,7 @@ public final class SortTasksUseCase {
     public func sortByPriority(
         _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .priority(order),
@@ -77,7 +78,7 @@ public final class SortTasksUseCase {
     public func sortByDueDate(
         _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .dueDate(order),
@@ -99,7 +100,7 @@ public final class SortTasksUseCase {
     public func sortByName(
         _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .name(order),
@@ -121,7 +122,7 @@ public final class SortTasksUseCase {
     public func sortByCreationDate(
         _ tasks: [TaskDefinition],
         order: SortOrder = .descending,
-        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .dateAdded(order),
@@ -143,7 +144,7 @@ public final class SortTasksUseCase {
     public func sortByCompletionDate(
         _ tasks: [TaskDefinition],
         order: SortOrder = .descending,
-        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .dateCompleted(order),
@@ -165,7 +166,7 @@ public final class SortTasksUseCase {
     public func sortByProject(
         _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .project(order),
@@ -187,7 +188,7 @@ public final class SortTasksUseCase {
     public func sortByCategory(
         _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .category(order),
@@ -209,7 +210,7 @@ public final class SortTasksUseCase {
     public func sortByEnergyLevel(
         _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .energy(order),
@@ -231,7 +232,7 @@ public final class SortTasksUseCase {
     public func sortByEstimatedDuration(
         _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .estimatedDuration(order),
@@ -253,7 +254,7 @@ public final class SortTasksUseCase {
     public func smartSort(
         _ tasks: [TaskDefinition],
         context: SortContext = .general,
-        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = determineSmartSortCriteria(for: context)
         
@@ -272,7 +273,7 @@ public final class SortTasksUseCase {
         _ tasks: [TaskDefinition],
         groupBy: GroupingCriteria,
         sortWithinGroups: SortField = .priority(.ascending),
-        completion: @escaping (Result<GroupedTasksResult, SortError>) -> Void
+        completion: @escaping @Sendable (Result<GroupedTasksResult, SortError>) -> Void
     ) {
         DispatchQueue.global(qos: .userInitiated).async {
             let groupedTasks = self.groupTasks(tasks, by: groupBy, sortedBy: sortWithinGroups)
@@ -495,7 +496,7 @@ public final class SortTasksUseCase {
 
 // MARK: - Supporting Models
 
-public struct SortCriteria {
+public struct SortCriteria: Sendable {
     public let primarySort: SortField
     public let secondarySort: SortField?
     public let tertiarySort: SortField?
@@ -512,7 +513,7 @@ public struct SortCriteria {
     }
 }
 
-public enum SortField {
+public enum SortField: Sendable {
     case priority(SortOrder)
     case dueDate(SortOrder)
     case name(SortOrder)
@@ -525,12 +526,12 @@ public enum SortField {
     case complexity(SortOrder)
 }
 
-public enum SortOrder {
+public enum SortOrder: Sendable {
     case ascending
     case descending
 }
 
-public enum SortContext {
+public enum SortContext: Sendable {
     case general
     case morning
     case evening
@@ -538,7 +539,7 @@ public enum SortContext {
     case planning
 }
 
-public enum GroupingCriteria {
+public enum GroupingCriteria: Sendable {
     case project
     case category
     case priority
@@ -548,13 +549,13 @@ public enum GroupingCriteria {
     case completion
 }
 
-public struct SortedTasksResult {
+public struct SortedTasksResult: Sendable {
     public let tasks: [TaskDefinition]
     public let criteria: SortCriteria
     public let sortTime: Date
 }
 
-public struct TaskGroup {
+public struct TaskGroup: Sendable {
     public let name: String
     public let tasks: [TaskDefinition]
     
@@ -563,7 +564,7 @@ public struct TaskGroup {
     public var incompleteCount: Int { tasks.filter { !$0.isComplete }.count }
 }
 
-public struct GroupedTasksResult {
+public struct GroupedTasksResult: Sendable {
     public let groups: [TaskGroup]
     public let groupingCriteria: GroupingCriteria
     public let sortCriteria: SortField
@@ -574,7 +575,7 @@ public struct GroupedTasksResult {
 
 // MARK: - Error Types
 
-public enum SortError: LocalizedError {
+public enum SortError: LocalizedError, Sendable {
     case sortingFailed(String)
     case invalidCriteria
     case emptyTaskList

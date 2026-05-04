@@ -6,7 +6,7 @@ struct HomeTimelineProjectionInput {
     let currentMinuteStamp: Int
     let foredropAnchor: ForedropAnchor
     let calendarSnapshot: HomeCalendarSnapshot
-    let workspacePreferences: TaskerWorkspacePreferences
+    let workspacePreferences: LifeBoardWorkspacePreferences
     let hiddenCalendarEvents: [HomeTimelineHiddenCalendarEventKey]
     let pinnedFocusTaskIDs: [UUID]
     let needsReplanCandidates: [HomeReplanCandidate]

@@ -1,6 +1,6 @@
 //
 //  GetTasksUseCase.swift
-//  Tasker
+//  LifeBoard
 //
 //  Use case for retrieving tasks with various filters and sorting
 //
@@ -36,7 +36,7 @@ public struct SemanticSearchPolicy: Equatable, Sendable {
 
 /// Use case for retrieving tasks with complex filtering
 /// Handles all task query operations with business logic
-public final class GetTasksUseCase {
+public final class GetTasksUseCase: @unchecked Sendable {
 
     // MARK: - Dependencies
 
@@ -62,7 +62,7 @@ public final class GetTasksUseCase {
     // MARK: - Task Retrieval Methods
 
     /// Get tasks for today's schedule
-    public func getTodayTasks(completion: @escaping (Result<TodayTasksResult, GetTasksError>) -> Void) {
+    public func getTodayTasks(completion: @escaping @Sendable (Result<TodayTasksResult, GetTasksError>) -> Void) {
         if let cached = cacheService?.getCachedTasks(forDate: Date()) {
             completion(.success(categorizeTodayTasks(cached)))
             return
@@ -89,7 +89,7 @@ public final class GetTasksUseCase {
     /// Get tasks for a specific date
     public func getTasksForDate(
         _ date: Date,
-        completion: @escaping (Result<DateTasksResult, GetTasksError>) -> Void
+        completion: @escaping @Sendable (Result<DateTasksResult, GetTasksError>) -> Void
     ) {
         if Calendar.current.isDateInToday(date) {
             getTodayTasks { result in
@@ -136,7 +136,7 @@ public final class GetTasksUseCase {
     public func getTasksForProject(
         _ projectID: UUID,
         includeCompleted: Bool = true,
-        completion: @escaping (Result<ProjectTasksResult, GetTasksError>) -> Void
+        completion: @escaping @Sendable (Result<ProjectTasksResult, GetTasksError>) -> Void
     ) {
         if let cached = cacheService?.getCachedTasks(forProjectID: projectID) {
             let filtered = includeCompleted ? cached : cached.filter { !$0.isComplete }
@@ -175,7 +175,7 @@ public final class GetTasksUseCase {
     }
 
     /// Get overdue tasks
-    public func getOverdueTasks(completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void) {
+    public func getOverdueTasks(completion: @escaping @Sendable (Result<[TaskDefinition], GetTasksError>) -> Void) {
         let startOfToday = Calendar.current.startOfDay(for: Date())
 
         fetchReadSlice(
@@ -200,7 +200,7 @@ public final class GetTasksUseCase {
     }
 
     /// Get upcoming tasks (future tasks beyond today)
-    public func getUpcomingTasks(completion: @escaping (Result<UpcomingTasksResult, GetTasksError>) -> Void) {
+    public func getUpcomingTasks(completion: @escaping @Sendable (Result<UpcomingTasksResult, GetTasksError>) -> Void) {
         let calendar = Calendar.current
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date())) ?? Date()
 
@@ -226,7 +226,7 @@ public final class GetTasksUseCase {
     public func getTasksByType(
         _ type: TaskType,
         for date: Date? = nil,
-        completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], GetTasksError>) -> Void
     ) {
         if let date {
             let calendar = Calendar.current
@@ -274,7 +274,7 @@ public final class GetTasksUseCase {
     public func searchTasks(
         query: String,
         in scope: GetTasksScope = .all,
-        completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], GetTasksError>) -> Void
     ) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -356,7 +356,7 @@ public final class GetTasksUseCase {
     /// Executes fetchReadSlice.
     private func fetchReadSlice(
         query: TaskReadQuery,
-        completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], GetTasksError>) -> Void
     ) {
         guard let readModelRepository else {
             completion(.failure(.repositoryError(NSError(
@@ -375,7 +375,7 @@ public final class GetTasksUseCase {
     /// Executes searchReadSlice.
     private func searchReadSlice(
         query: TaskSearchQuery,
-        completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], GetTasksError>) -> Void
     ) {
         guard let readModelRepository else {
             completion(.failure(.repositoryError(NSError(
@@ -386,18 +386,18 @@ public final class GetTasksUseCase {
             return
         }
 
-        let interval = TaskerPerformanceTrace.begin("TaskSearch")
+        let interval = LifeBoardPerformanceTrace.begin("TaskSearch")
         readModelRepository.searchTasks(query: query) { result in
             switch result {
             case .failure(let error):
-                TaskerPerformanceTrace.end(interval)
+                LifeBoardPerformanceTrace.end(interval)
                 completion(.failure(.repositoryError(error)))
             case .success(let slice):
                 var tasks = slice.tasks
                 let trimmedQuery = query.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 if V2FeatureFlags.assistantSemanticRetrievalEnabled,
                    self.semanticSearchPolicy.shouldRerank(query: trimmedQuery, taskCount: tasks.count) {
-                    let semanticInterval = TaskerPerformanceTrace.begin("TaskSearchSemanticRerank")
+                    let semanticInterval = LifeBoardPerformanceTrace.begin("TaskSearchSemanticRerank")
                     let candidateCount = min(self.semanticSearchPolicy.candidateLimit, tasks.count)
                     let lexicalCandidates = Array(tasks.prefix(candidateCount))
                     let rerankedPrefix = self.applySemanticRerank(to: lexicalCandidates, query: trimmedQuery)
@@ -406,9 +406,9 @@ public final class GetTasksUseCase {
                     } else {
                         tasks = rerankedPrefix
                     }
-                    TaskerPerformanceTrace.end(semanticInterval)
+                    LifeBoardPerformanceTrace.end(semanticInterval)
                 }
-                TaskerPerformanceTrace.end(interval)
+                LifeBoardPerformanceTrace.end(interval)
                 completion(.success(tasks))
             }
         }
@@ -549,7 +549,7 @@ public final class GetTasksUseCase {
 
 // MARK: - Result Models
 
-public struct TodayTasksResult {
+public struct TodayTasksResult: Sendable {
     public let morningTasks: [TaskDefinition]
     public let eveningTasks: [TaskDefinition]
     public let overdueTasks: [TaskDefinition]
@@ -572,7 +572,7 @@ public struct TodayTasksResult {
     }
 }
 
-public struct DateTasksResult {
+public struct DateTasksResult: Sendable {
     public let date: Date
     public let morningTasks: [TaskDefinition]
     public let eveningTasks: [TaskDefinition]
@@ -598,14 +598,14 @@ public struct DateTasksResult {
     }
 }
 
-public struct ProjectTasksResult {
+public struct ProjectTasksResult: Sendable {
     public let projectID: UUID
     public let tasks: [TaskDefinition]
     public let openCount: Int
     public let completedCount: Int
 }
 
-public struct UpcomingTasksResult {
+public struct UpcomingTasksResult: Sendable {
     public let thisWeek: [TaskDefinition]
     public let nextWeek: [TaskDefinition]
     public let thisMonth: [TaskDefinition]
@@ -621,7 +621,7 @@ public enum GetTasksScope {
     case project(UUID)
 }
 
-public enum GetTasksError: LocalizedError {
+public enum GetTasksError: LocalizedError, @unchecked Sendable {
     case repositoryError(Error)
     case invalidDateRange
 

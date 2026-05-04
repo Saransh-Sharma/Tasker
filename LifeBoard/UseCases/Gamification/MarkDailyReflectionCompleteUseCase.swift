@@ -6,7 +6,7 @@ public extension Notification.Name {
 
 /// Records a daily reflection completion and awards XP.
 /// One reflection per day (idempotent via period key).
-public final class MarkDailyReflectionCompleteUseCase {
+public final class MarkDailyReflectionCompleteUseCase: @unchecked Sendable {
 
     private let engine: GamificationEngine
     private let reflectionStore: DailyReflectionStoreProtocol
@@ -33,13 +33,13 @@ public final class MarkDailyReflectionCompleteUseCase {
     public func execute(
         on reflectionDate: Date = Date(),
         payload: ReflectionPayload? = nil,
-        completion: @escaping (Result<XPEventResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void
     ) {
         let normalizedDate = calendar.startOfDay(for: reflectionDate)
         if reflectionStore.isCompleted(on: normalizedDate) {
             do {
                 _ = try reflectionStore.markCompleted(on: normalizedDate, completedAt: Date(), payload: payload)
-                TaskerNotificationRuntime.orchestrator?.reconcile(reason: "daily_reflection_completed")
+                LifeBoardNotificationRuntime.orchestrator?.reconcile(reason: "daily_reflection_completed")
                 NotificationCenter.default.post(
                     name: .dailyReflectionCompleted,
                     object: nil,
@@ -69,7 +69,7 @@ public final class MarkDailyReflectionCompleteUseCase {
                     completion(.failure(error))
                     return
                 }
-                TaskerNotificationRuntime.orchestrator?.reconcile(reason: "daily_reflection_completed")
+                LifeBoardNotificationRuntime.orchestrator?.reconcile(reason: "daily_reflection_completed")
                 NotificationCenter.default.post(
                     name: .dailyReflectionCompleted,
                     object: nil,
@@ -82,7 +82,7 @@ public final class MarkDailyReflectionCompleteUseCase {
         }
     }
 
-    private func completeWithoutXP(completion: @escaping (Result<XPEventResult, Error>) -> Void) {
+    private func completeWithoutXP(completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void) {
         engine.fetchCurrentProfile { result in
             switch result {
             case .failure(let error):

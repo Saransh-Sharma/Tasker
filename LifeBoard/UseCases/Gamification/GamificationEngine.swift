@@ -8,7 +8,104 @@ public extension Notification.Name {
     static let gamificationLedgerDidMutate = Notification.Name("GamificationLedgerDidMutate")
 }
 
-public struct GamificationLedgerMutation: Equatable {
+private final class GamificationWidgetSnapshotState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var weeklyAggregates: [DailyXPAggregateDefinition] = []
+    private var todayEvents: [XPEventDefinition] = []
+    private var todayFocusSessions: [FocusSessionDefinition] = []
+
+    func setWeeklyAggregates(_ value: [DailyXPAggregateDefinition]) {
+        lock.lock()
+        weeklyAggregates = value
+        lock.unlock()
+    }
+
+    func setTodayEvents(_ value: [XPEventDefinition]) {
+        lock.lock()
+        todayEvents = value
+        lock.unlock()
+    }
+
+    func setTodayFocusSessions(_ value: [FocusSessionDefinition]) {
+        lock.lock()
+        todayFocusSessions = value
+        lock.unlock()
+    }
+
+    func snapshot() -> (
+        weeklyAggregates: [DailyXPAggregateDefinition],
+        todayEvents: [XPEventDefinition],
+        todayFocusSessions: [FocusSessionDefinition]
+    ) {
+        lock.lock()
+        let snapshot = (weeklyAggregates, todayEvents, todayFocusSessions)
+        lock.unlock()
+        return snapshot
+    }
+}
+
+private final class GamificationUnlockSaveState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var savedUnlocks: [AchievementUnlockDefinition] = []
+    private var storedError: Error?
+
+    func record(result: Result<Void, Error>, unlock: AchievementUnlockDefinition) {
+        lock.lock()
+        switch result {
+        case .success:
+            savedUnlocks.append(unlock)
+        case .failure(let error):
+            if storedError == nil {
+                storedError = error
+            }
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<[AchievementUnlockDefinition], Error> {
+        lock.lock()
+        let error = storedError
+        let unlocks = savedUnlocks
+        lock.unlock()
+        if let error {
+            return .failure(error)
+        }
+        return .success(unlocks)
+    }
+}
+
+private final class GamificationAggregateReconcileState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedError: Error?
+    private var didChange = false
+
+    func recordError(_ error: Error) {
+        lock.lock()
+        if storedError == nil {
+            storedError = error
+        }
+        lock.unlock()
+    }
+
+    func markChanged() {
+        lock.lock()
+        didChange = true
+        lock.unlock()
+    }
+
+    func result() -> Result<Bool, Error> {
+        lock.lock()
+        let error = storedError
+        let changed = didChange
+        lock.unlock()
+        if let error {
+            return .failure(error)
+        }
+        return .success(changed)
+    }
+}
+
+public struct GamificationLedgerMutation: Equatable, Sendable {
     public let source: String
     public let category: XPActionCategory
     public let awardedXP: Int
@@ -158,7 +255,7 @@ public struct XPEventResult: Sendable {
 }
 
 /// Context describing an XP-eligible action.
-public struct XPEventContext {
+public struct XPEventContext: Sendable {
     public let category: XPActionCategory
     public let source: XPSource
     public let taskID: UUID?
@@ -218,7 +315,7 @@ public struct XPEventContext {
 
 /// Central gamification engine replacing RecordXPUseCase.
 /// Handles XP calculation, daily caps, level progression, streaks, and achievements.
-public final class GamificationEngine {
+public final class GamificationEngine: @unchecked Sendable {
 
     private let repository: GamificationRepositoryProtocol
     public static let celebrationCooldownSeconds: TimeInterval = 30
@@ -229,7 +326,7 @@ public final class GamificationEngine {
 
     // MARK: - Record Event
 
-    public func recordEvent(context: XPEventContext, completion: @escaping (Result<XPEventResult, Error>) -> Void) {
+    public func recordEvent(context: XPEventContext, completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void) {
         resolveIdempotencyKey(for: context) { [weak self] keyResult in
             guard let self else { return }
             switch keyResult {
@@ -257,7 +354,7 @@ public final class GamificationEngine {
 
     public func recordCompensationEvent(
         context: XPEventContext,
-        completion: @escaping (Result<XPEventResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void
     ) {
         let delta = XPCalculationEngine.baseXP(for: context.category)
         guard delta < 0 else {
@@ -289,7 +386,7 @@ public final class GamificationEngine {
 
     // MARK: - Queries
 
-    public func fetchTodayXP(completion: @escaping (Result<Int, Error>) -> Void) {
+    public func fetchTodayXP(completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         let dateKey = XPCalculationEngine.periodKey()
         repository.fetchDailyAggregate(dateKey: dateKey) { result in
             switch result {
@@ -301,7 +398,7 @@ public final class GamificationEngine {
         }
     }
 
-    public func fetchCurrentProfile(completion: @escaping (Result<GamificationSnapshot, Error>) -> Void) {
+    public func fetchCurrentProfile(completion: @escaping @Sendable (Result<GamificationSnapshot, Error>) -> Void) {
         repository.fetchProfile { result in
             switch result {
             case .failure(let error):
@@ -366,14 +463,12 @@ public final class GamificationEngine {
                 let focusKey = XPActionCategory.focus.rawValue
 
                 let syncGroup = DispatchGroup()
-                var weeklyAggregates: [DailyXPAggregateDefinition] = []
-                var todayEvents: [XPEventDefinition] = []
-                var todayFocusSessions: [FocusSessionDefinition] = []
+                let snapshotState = GamificationWidgetSnapshotState()
 
                 syncGroup.enter()
                 self.repository.fetchDailyAggregates(from: weekStartKey, to: weekEndKey) { aggResult in
                     if case .success(let aggregates) = aggResult {
-                        weeklyAggregates = aggregates
+                        snapshotState.setWeeklyAggregates(aggregates)
                     }
                     syncGroup.leave()
                 }
@@ -381,7 +476,7 @@ public final class GamificationEngine {
                 syncGroup.enter()
                 self.repository.fetchXPEvents(from: today, to: tomorrow) { eventsResult in
                     if case .success(let events) = eventsResult {
-                        todayEvents = events
+                        snapshotState.setTodayEvents(events)
                     }
                     syncGroup.leave()
                 }
@@ -389,12 +484,16 @@ public final class GamificationEngine {
                 syncGroup.enter()
                 self.repository.fetchFocusSessions(from: today, to: tomorrow) { sessionsResult in
                     if case .success(let sessions) = sessionsResult {
-                        todayFocusSessions = sessions
+                        snapshotState.setTodayFocusSessions(sessions)
                     }
                     syncGroup.leave()
                 }
 
                 syncGroup.notify(queue: .main) {
+                    let snapshotValues = snapshotState.snapshot()
+                    let weeklyAggregates = snapshotValues.weeklyAggregates
+                    let todayEvents = snapshotValues.todayEvents
+                    let todayFocusSessions = snapshotValues.todayFocusSessions
                     var weeklyXP: [Int] = []
                     var total = 0
                     for dayOffset in 0..<7 {
@@ -442,7 +541,7 @@ public final class GamificationEngine {
 
     /// Recomputes profile and daily aggregates from the event ledger.
     /// Called on launch and on NSPersistentStoreRemoteChange for CloudKit sync.
-    public func fullReconciliation(completion: @escaping (Result<Void, Error>) -> Void) {
+    public func fullReconciliation(completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         repository.fetchProfile { [weak self] profileResult in
             guard let self = self else { return }
             switch profileResult {
@@ -486,7 +585,7 @@ public final class GamificationEngine {
                             || profile.level != updatedProfile.level
                             || profile.nextLevelXP != updatedProfile.nextLevelXP
 
-                        let continueWithAggregateReconciliation: (_ profileChanged: Bool) -> Void = { profileChanged in
+                        let continueWithAggregateReconciliation: @Sendable (_ profileChanged: Bool) -> Void = { profileChanged in
                             // Save each daily aggregate and refresh widgets once ledger reconciliation succeeds.
                             self.reconcileDailyAggregates(grouped: grouped) { reconcileResult in
                                 switch reconcileResult {
@@ -522,7 +621,7 @@ public final class GamificationEngine {
 
     // MARK: - Streak Update
 
-    public func updateStreak(completion: @escaping (Result<GamificationSnapshot, Error>) -> Void) {
+    public func updateStreak(completion: @escaping @Sendable (Result<GamificationSnapshot, Error>) -> Void) {
         repository.fetchProfile { [weak self] result in
             guard let self = self else { return }
             switch result {
@@ -564,12 +663,13 @@ public final class GamificationEngine {
                 profile.lastActiveDate = today
                 profile.updatedAt = Date()
 
-                self.repository.saveProfile(profile) { saveResult in
+                let savedProfile = profile
+                self.repository.saveProfile(savedProfile) { saveResult in
                     switch saveResult {
                     case .failure(let error):
                         completion(.failure(error))
                     case .success:
-                        completion(.success(profile))
+                        completion(.success(savedProfile))
                     }
                 }
             }
@@ -581,7 +681,7 @@ public final class GamificationEngine {
     private func calculateAndRecord(
         context: XPEventContext,
         idempotencyKey: String,
-        completion: @escaping (Result<XPEventResult, Error>
+        completion: @escaping @Sendable (Result<XPEventResult, Error>
     ) -> Void) {
         let periodKey = XPCalculationEngine.periodKey(for: context.completedAt)
 
@@ -791,7 +891,7 @@ public final class GamificationEngine {
         context: XPEventContext,
         delta: Int,
         idempotencyKey: String,
-        completion: @escaping (Result<XPEventResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void
     ) {
         let periodKey = XPCalculationEngine.periodKey(for: context.completedAt)
         let event = XPEventDefinition(
@@ -865,7 +965,7 @@ public final class GamificationEngine {
         context: XPEventContext,
         awardedXP: Int,
         recoveryError: Error,
-        completion: @escaping (Result<XPEventResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void
     ) {
         logError(
             event: "gamification_partial_write_recovery_started",
@@ -952,7 +1052,7 @@ public final class GamificationEngine {
         addedXP: Int64,
         event: XPEventDefinition,
         newDailyXP: Int,
-        completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void
+        completion: @escaping @Sendable (Result<(GamificationSnapshot, Int), Error>) -> Void
     ) {
         repository.fetchProfile { [weak self] result in
             guard let self = self else { return }
@@ -974,12 +1074,13 @@ public final class GamificationEngine {
                 profile.nextLevelXP = levelInfo.nextThreshold
                 profile.updatedAt = Date()
 
-                self.repository.saveProfile(profile) { saveResult in
+                let savedProfile = profile
+                self.repository.saveProfile(savedProfile) { saveResult in
                     switch saveResult {
                     case .failure(let error):
                         completion(.failure(error))
                     case .success:
-                        completion(.success((profile, previousLevel)))
+                        completion(.success((savedProfile, previousLevel)))
                     }
                 }
             }
@@ -990,7 +1091,7 @@ public final class GamificationEngine {
 
     private func evaluateAchievements(
         triggerEvent: XPEventDefinition,
-        completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void
     ) {
         repository.fetchXPEvents { [weak self] eventsResult in
             guard let self = self else { return }
@@ -1025,29 +1126,21 @@ public final class GamificationEngine {
                             }
 
                             let group = DispatchGroup()
-                            var savedUnlocks: [AchievementUnlockDefinition] = []
-                            var firstError: Error?
-                            let stateQueue = DispatchQueue(label: "GamificationEngine.evaluateAchievements.state")
+                            let saveState = GamificationUnlockSaveState()
 
                             for unlock in candidates {
                                 group.enter()
                                 self.repository.saveAchievementUnlock(unlock) { result in
-                                    stateQueue.sync {
-                                        switch result {
-                                        case .success:
-                                            savedUnlocks.append(unlock)
-                                        case .failure(let error):
-                                            firstError = firstError ?? error
-                                        }
-                                    }
+                                    saveState.record(result: result, unlock: unlock)
                                     group.leave()
                                 }
                             }
 
                             group.notify(queue: .main) {
-                                if let error = firstError {
+                                switch saveState.result() {
+                                case .failure(let error):
                                     completion(.failure(error))
-                                } else {
+                                case .success(let savedUnlocks):
                                     completion(.success(savedUnlocks))
                                 }
                             }
@@ -1195,7 +1288,7 @@ public final class GamificationEngine {
 
     private func completeIdempotentReplay(
         context: XPEventContext,
-        completion: @escaping (Result<XPEventResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void
     ) {
         fetchCurrentState { stateResult in
             switch stateResult {
@@ -1259,7 +1352,7 @@ public final class GamificationEngine {
 
     private func resolveIdempotencyKey(
         for context: XPEventContext,
-        completion: @escaping (Result<String, Error>) -> Void
+        completion: @escaping @Sendable (Result<String, Error>) -> Void
     ) {
         let baseKey = idempotencyKey(for: context)
         guard let compensationPrefix = habitSuccessCompensationPrefix(for: context) else {
@@ -1297,20 +1390,20 @@ public final class GamificationEngine {
         }
     }
 
-    private func fetchCurrentState(completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void) {
+    private func fetchCurrentState(completion: @escaping @Sendable (Result<(GamificationSnapshot, Int), Error>) -> Void) {
         fetchCurrentState(forDateKey: XPCalculationEngine.periodKey(), completion: completion)
     }
 
     private func fetchCurrentState(
         for date: Date,
-        completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void
+        completion: @escaping @Sendable (Result<(GamificationSnapshot, Int), Error>) -> Void
     ) {
         fetchCurrentState(forDateKey: XPCalculationEngine.periodKey(for: date), completion: completion)
     }
 
     private func fetchCurrentState(
         forDateKey dateKey: String,
-        completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void
+        completion: @escaping @Sendable (Result<(GamificationSnapshot, Int), Error>) -> Void
     ) {
         repository.fetchProfile { [weak self] profileResult in
             guard let self = self else { return }
@@ -1333,7 +1426,7 @@ public final class GamificationEngine {
 
     private func reconcileDailyAggregates(
         grouped: [String: [XPEventDefinition]],
-        completion: @escaping (Result<Bool, Error>) -> Void
+        completion: @escaping @Sendable (Result<Bool, Error>) -> Void
     ) {
         guard grouped.isEmpty == false else {
             completion(.success(false))
@@ -1341,9 +1434,7 @@ public final class GamificationEngine {
         }
 
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-        var didChange = false
+        let state = GamificationAggregateReconcileState()
 
         for (dateKey, events) in grouped {
             let totalXP = events.reduce(0) { $0 + $1.delta }
@@ -1351,9 +1442,7 @@ public final class GamificationEngine {
             repository.fetchDailyAggregate(dateKey: dateKey) { fetchResult in
                 switch fetchResult {
                 case .failure(let error):
-                    lock.lock()
-                    firstError = firstError ?? error
-                    lock.unlock()
+                    state.recordError(error)
                     group.leave()
                 case .success(let existing):
                     let isUnchanged = existing?.totalXP == totalXP
@@ -1371,13 +1460,11 @@ public final class GamificationEngine {
                         updatedAt: Date()
                     )
                     self.repository.saveDailyAggregate(aggregate) { saveResult in
-                        lock.lock()
                         if case .failure(let error) = saveResult {
-                            firstError = firstError ?? error
+                            state.recordError(error)
                         } else {
-                            didChange = true
+                            state.markChanged()
                         }
-                        lock.unlock()
                         group.leave()
                     }
                 }
@@ -1385,9 +1472,10 @@ public final class GamificationEngine {
         }
 
         group.notify(queue: .main) {
-            if let error = firstError {
+            switch state.result() {
+            case .failure(let error):
                 completion(.failure(error))
-            } else {
+            case .success(let didChange):
                 completion(.success(didChange))
             }
         }

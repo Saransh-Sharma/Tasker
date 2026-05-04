@@ -4,12 +4,12 @@ public struct FilterCalendarEventsUseCase {
     public init() {}
 
     public func execute(
-        events: [TaskerCalendarEventSnapshot],
+        events: [LifeBoardCalendarEventSnapshot],
         selectedCalendarIDs: Set<String>,
         includeDeclined: Bool,
         includeCanceled: Bool,
         includeAllDayInAgenda: Bool
-    ) -> [TaskerCalendarEventSnapshot] {
+    ) -> [LifeBoardCalendarEventSnapshot] {
         events
             .filter { event in
                 selectedCalendarIDs.isEmpty || selectedCalendarIDs.contains(event.calendarID)
@@ -40,19 +40,19 @@ public struct BuildCalendarBusyBlocksUseCase: Sendable {
     }
 
     public func execute(
-        events: [TaskerCalendarEventSnapshot],
+        events: [LifeBoardCalendarEventSnapshot],
         includeAllDayEvents: Bool,
         referenceStart: Date,
         referenceEnd: Date
-    ) -> [TaskerCalendarBusyBlock] {
+    ) -> [LifeBoardCalendarBusyBlock] {
         let intervals = events
             .filter { event in
                 event.isBusy && (includeAllDayEvents || !event.isAllDay)
             }
-            .map { event -> TaskerCalendarBusyBlock in
+            .map { event -> LifeBoardCalendarBusyBlock in
                 let clampedStart = max(referenceStart, event.startDate)
                 let clampedEnd = min(referenceEnd, event.endDate)
-                return TaskerCalendarBusyBlock(startDate: clampedStart, endDate: clampedEnd)
+                return LifeBoardCalendarBusyBlock(startDate: clampedStart, endDate: clampedEnd)
             }
             .filter { $0.duration > 0 }
             .sorted { lhs, rhs in
@@ -63,11 +63,11 @@ public struct BuildCalendarBusyBlocksUseCase: Sendable {
             }
 
         guard var current = intervals.first else { return [] }
-        var merged: [TaskerCalendarBusyBlock] = []
+        var merged: [LifeBoardCalendarBusyBlock] = []
 
         for block in intervals.dropFirst() {
             if block.startDate <= current.endDate.addingTimeInterval(mergeGapThreshold) {
-                current = TaskerCalendarBusyBlock(
+                current = LifeBoardCalendarBusyBlock(
                     startDate: current.startDate,
                     endDate: max(current.endDate, block.endDate)
                 )
@@ -86,9 +86,9 @@ public struct ResolveNextMeetingUseCase {
     public init() {}
 
     public func execute(
-        events: [TaskerCalendarEventSnapshot],
+        events: [LifeBoardCalendarEventSnapshot],
         now: Date
-    ) -> TaskerNextMeetingSummary? {
+    ) -> LifeBoardNextMeetingSummary? {
         let candidate = events
             .filter { $0.endDate > now && $0.isBusy }
             .sorted { lhs, rhs in
@@ -109,7 +109,7 @@ public struct ResolveNextMeetingUseCase {
             minutesUntilStart = max(0, Int(candidate.startDate.timeIntervalSince(now) / 60.0))
         }
 
-        return TaskerNextMeetingSummary(
+        return LifeBoardNextMeetingSummary(
             event: candidate,
             isInProgress: isInProgress,
             minutesUntilStart: minutesUntilStart
@@ -130,15 +130,15 @@ public struct ComputeTaskFitHintUseCase {
         now: Date,
         taskDueDate: Date?,
         estimatedDuration: TimeInterval?,
-        busyBlocks: [TaskerCalendarBusyBlock]
-    ) -> TaskerTaskFitHintResult {
+        busyBlocks: [LifeBoardCalendarBusyBlock]
+    ) -> LifeBoardTaskFitHintResult {
         guard let dueDate = taskDueDate, let estimatedDuration else {
             return .unknown
         }
 
         let duration = max(0, estimatedDuration)
         guard duration > 0 else {
-            return TaskerTaskFitHintResult(
+            return LifeBoardTaskFitHintResult(
                 classification: .unknown,
                 message: "Set an estimated duration to evaluate fit."
             )
@@ -147,7 +147,7 @@ public struct ComputeTaskFitHintUseCase {
         let start = now
         let end = dueDate
         guard end > start else {
-            return TaskerTaskFitHintResult(
+            return LifeBoardTaskFitHintResult(
                 classification: .unknown,
                 message: "Due time has already passed."
             )
@@ -160,7 +160,7 @@ public struct ComputeTaskFitHintUseCase {
         )
 
         guard let freeWindow else {
-            return TaskerTaskFitHintResult(
+            return LifeBoardTaskFitHintResult(
                 classification: .conflict,
                 message: "No free window before due time.",
                 freeWindowStart: nil,
@@ -172,7 +172,7 @@ public struct ComputeTaskFitHintUseCase {
         let durationWithBuffer = duration + TimeInterval(bufferMinutes * 60)
 
         if freeDuration >= durationWithBuffer {
-            return TaskerTaskFitHintResult(
+            return LifeBoardTaskFitHintResult(
                 classification: .fit,
                 message: "Good fit before your next calendar block.",
                 freeWindowStart: freeWindow.0,
@@ -181,7 +181,7 @@ public struct ComputeTaskFitHintUseCase {
         }
 
         if freeDuration >= duration {
-            return TaskerTaskFitHintResult(
+            return LifeBoardTaskFitHintResult(
                 classification: .tight,
                 message: "This fits, but your buffer is tight.",
                 freeWindowStart: freeWindow.0,
@@ -189,7 +189,7 @@ public struct ComputeTaskFitHintUseCase {
             )
         }
 
-        return TaskerTaskFitHintResult(
+        return LifeBoardTaskFitHintResult(
             classification: .conflict,
             message: "Likely conflict with calendar commitments.",
             freeWindowStart: freeWindow.0,
@@ -198,7 +198,7 @@ public struct ComputeTaskFitHintUseCase {
     }
 
     private func largestFreeWindow(
-        busyBlocks: [TaskerCalendarBusyBlock],
+        busyBlocks: [LifeBoardCalendarBusyBlock],
         rangeStart: Date,
         rangeEnd: Date
     ) -> (Date, Date)? {
@@ -242,10 +242,10 @@ public struct BuildCalendarWeekAgendaUseCase {
     }
 
     public func execute(
-        events: [TaskerCalendarEventSnapshot],
+        events: [LifeBoardCalendarEventSnapshot],
         weekStart: Date
-    ) -> [TaskerCalendarDayAgenda] {
-        var days: [TaskerCalendarDayAgenda] = []
+    ) -> [LifeBoardCalendarDayAgenda] {
+        var days: [LifeBoardCalendarDayAgenda] = []
         for offset in 0..<7 {
             guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else { continue }
             let start = calendar.startOfDay(for: day)
@@ -253,7 +253,7 @@ public struct BuildCalendarWeekAgendaUseCase {
             let dayEvents = events.filter { event in
                 event.endDate > start && event.startDate < end
             }
-            days.append(TaskerCalendarDayAgenda(date: start, events: dayEvents))
+            days.append(LifeBoardCalendarDayAgenda(date: start, events: dayEvents))
         }
         return days
     }

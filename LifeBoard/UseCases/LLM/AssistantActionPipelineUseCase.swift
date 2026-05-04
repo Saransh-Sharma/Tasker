@@ -1,6 +1,20 @@
 import Foundation
 
-public final class AssistantActionPipelineUseCase {
+private final class AssistantActionCompletion<Value: Sendable>: @unchecked Sendable {
+    private let completion: @Sendable (Result<Value, Error>) -> Void
+
+    init(_ completion: @escaping @Sendable (Result<Value, Error>) -> Void) {
+        self.completion = completion
+    }
+
+    func deliver(_ result: Result<Value, Error>) {
+        DispatchQueue.main.async {
+            self.completion(result)
+        }
+    }
+}
+
+public final class AssistantActionPipelineUseCase: @unchecked Sendable {
     private struct ExecutionTrace: Codable {
         var runID: UUID?
         var commandCount: Int
@@ -12,7 +26,7 @@ public final class AssistantActionPipelineUseCase {
         var failureReason: String?
     }
 
-    private struct TransactionResult {
+    private struct TransactionResult: Sendable {
         let undoCommands: [AssistantCommand]
         let traceData: Data?
     }
@@ -44,7 +58,7 @@ public final class AssistantActionPipelineUseCase {
     }
 
     /// Executes propose.
-    public func propose(threadID: String, envelope: AssistantCommandEnvelope, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    public func propose(threadID: String, envelope: AssistantCommandEnvelope, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         guard envelope.schemaVersion >= minimumSupportedSchemaVersion && envelope.schemaVersion <= supportedSchemaVersion else {
             completion(.failure(NSError(
                 domain: "AssistantActionPipelineUseCase",
@@ -85,7 +99,7 @@ public final class AssistantActionPipelineUseCase {
     }
 
     /// Executes confirm.
-    public func confirm(runID: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    public func confirm(runID: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         repository.fetchRun(id: runID) { result in
             switch result {
             case .success(let run):
@@ -119,38 +133,39 @@ public final class AssistantActionPipelineUseCase {
     }
 
     /// Executes fetchRun.
-    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
+    func fetchRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition?, Error>) -> Void) {
         repository.fetchRun(id: id, completion: completion)
     }
 
     /// Executes applyConfirmedRun.
-    public func applyConfirmedRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    public func applyConfirmedRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
+        let callback = AssistantActionCompletion(completion)
         guard V2FeatureFlags.assistantApplyEnabled else {
-            completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 403, userInfo: [NSLocalizedDescriptionKey: "Assistant apply disabled by feature flag"])))
+            callback.deliver(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 403, userInfo: [NSLocalizedDescriptionKey: "Assistant apply disabled by feature flag"])))
             return
         }
         repository.fetchRun(id: id) { result in
             switch result {
             case .success(let run):
-                guard var run else {
-                    completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 404)))
+                guard let run else {
+                    callback.deliver(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 404)))
                     return
                 }
                 guard run.status != .applied else {
-                    completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 409, userInfo: [NSLocalizedDescriptionKey: "Run has already been applied"])))
+                    callback.deliver(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 409, userInfo: [NSLocalizedDescriptionKey: "Run has already been applied"])))
                     return
                 }
                 guard run.status == .confirmed else {
-                    completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 409, userInfo: [NSLocalizedDescriptionKey: "Run must be confirmed before apply"])))
+                    callback.deliver(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 409, userInfo: [NSLocalizedDescriptionKey: "Run must be confirmed before apply"])))
                     return
                 }
                 let envelope = (run.proposalData).flatMap { try? JSONDecoder().decode(AssistantCommandEnvelope.self, from: $0) }
                 guard let envelope else {
-                    completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 422, userInfo: [NSLocalizedDescriptionKey: "Invalid proposal payload"])))
+                    callback.deliver(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 422, userInfo: [NSLocalizedDescriptionKey: "Invalid proposal payload"])))
                     return
                 }
                 guard envelope.schemaVersion >= self.minimumSupportedSchemaVersion && envelope.schemaVersion <= self.supportedSchemaVersion else {
-                    completion(.failure(NSError(
+                    callback.deliver(.failure(NSError(
                         domain: "AssistantActionPipelineUseCase",
                         code: 422,
                         userInfo: [NSLocalizedDescriptionKey: "Unsupported assistant schema version \(envelope.schemaVersion)"]
@@ -158,13 +173,14 @@ public final class AssistantActionPipelineUseCase {
                     return
                 }
                 guard self.isAllowlisted(commands: envelope.commands) else {
-                    completion(.failure(NSError(
+                    callback.deliver(.failure(NSError(
                         domain: "AssistantActionPipelineUseCase",
                         code: 422,
                         userInfo: [NSLocalizedDescriptionKey: "Proposal contains unsupported commands"]
                     )))
                     return
                 }
+                let originalRun = run
 
                 self.executeTransaction(runID: id, commands: envelope.commands) { execResult in
                     switch execResult {
@@ -172,22 +188,23 @@ public final class AssistantActionPipelineUseCase {
                         var persistedEnvelope = envelope
                         persistedEnvelope.schemaVersion = self.supportedSchemaVersion
                         guard self.validateUndoPlan(forward: envelope.commands, inverse: transaction.undoCommands) else {
-                            completion(.failure(NSError(
+                            callback.deliver(.failure(NSError(
                                 domain: "AssistantActionPipelineUseCase",
                                 code: 422,
                                 userInfo: [NSLocalizedDescriptionKey: "Failed to generate deterministic undo plan"]
                             )))
                             return
                         }
+                        var appliedRun = originalRun
                         persistedEnvelope.undoCommands = transaction.undoCommands
-                        run.status = .applied
-                        run.appliedAt = Date()
-                        run.proposalData = try? JSONEncoder().encode(persistedEnvelope)
-                        run.resultSummary = "Applied \(envelope.commands.count) commands transactionally"
-                        run.executionTraceData = transaction.traceData
-                        run.rollbackStatus = .notNeeded
-                        run.rollbackVerifiedAt = nil
-                        run.lastErrorCode = nil
+                        appliedRun.status = .applied
+                        appliedRun.appliedAt = Date()
+                        appliedRun.proposalData = try? JSONEncoder().encode(persistedEnvelope)
+                        appliedRun.resultSummary = "Applied \(envelope.commands.count) commands transactionally"
+                        appliedRun.executionTraceData = transaction.traceData
+                        appliedRun.rollbackStatus = .notNeeded
+                        appliedRun.rollbackVerifiedAt = nil
+                        appliedRun.lastErrorCode = nil
                         logWarning(
                             event: "assistant_apply_completed",
                             message: "Assistant action run applied",
@@ -196,15 +213,18 @@ public final class AssistantActionPipelineUseCase {
                                 "command_count": String(envelope.commands.count)
                             ]
                         )
-                        self.repository.updateRun(run, completion: completion)
+                        self.repository.updateRun(appliedRun) { result in
+                            callback.deliver(result)
+                        }
                     case .failure(let error):
                         let transactionFailure = error as? TransactionFailure
-                        run.status = .failed
-                        run.resultSummary = transactionFailure?.underlying.localizedDescription ?? error.localizedDescription
-                        run.executionTraceData = transactionFailure?.traceData
-                        run.rollbackStatus = (transactionFailure?.rollbackVerified == true) ? .verified : .failed
-                        run.rollbackVerifiedAt = Date()
-                        run.lastErrorCode = "assistant_apply_failed"
+                        var failedRun = originalRun
+                        failedRun.status = .failed
+                        failedRun.resultSummary = transactionFailure?.underlying.localizedDescription ?? error.localizedDescription
+                        failedRun.executionTraceData = transactionFailure?.traceData
+                        failedRun.rollbackStatus = (transactionFailure?.rollbackVerified == true) ? .verified : .failed
+                        failedRun.rollbackVerifiedAt = Date()
+                        failedRun.lastErrorCode = "assistant_apply_failed"
                         logError(
                             event: "assistant_apply_failed",
                             message: "Assistant action run apply failed",
@@ -213,18 +233,18 @@ public final class AssistantActionPipelineUseCase {
                                 "error": transactionFailure?.underlying.localizedDescription ?? error.localizedDescription
                             ]
                         )
-                        self.repository.updateRun(run) { _ in }
-                        completion(.failure(transactionFailure?.underlying ?? error))
+                        self.repository.updateRun(failedRun) { _ in }
+                        callback.deliver(.failure(transactionFailure?.underlying ?? error))
                     }
                 }
             case .failure(let error):
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     /// Executes reject.
-    public func reject(runID: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    public func reject(runID: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         repository.fetchRun(id: runID) { result in
             switch result {
             case .success(let run):
@@ -248,9 +268,10 @@ public final class AssistantActionPipelineUseCase {
     }
 
     /// Executes undoAppliedRun.
-    public func undoAppliedRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    public func undoAppliedRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
+        let callback = AssistantActionCompletion(completion)
         guard V2FeatureFlags.assistantUndoEnabled else {
-            completion(.failure(NSError(
+            callback.deliver(.failure(NSError(
                 domain: "AssistantActionPipelineUseCase",
                 code: 403,
                 userInfo: [NSLocalizedDescriptionKey: "Assistant undo disabled by feature flag"]
@@ -260,14 +281,14 @@ public final class AssistantActionPipelineUseCase {
         repository.fetchRun(id: id) { result in
             switch result {
             case .failure(let error):
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             case .success(let run):
-                guard var run else {
-                    completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 404)))
+                guard let run else {
+                    callback.deliver(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 404)))
                     return
                 }
                 guard run.status == .applied else {
-                    completion(.failure(NSError(
+                    callback.deliver(.failure(NSError(
                         domain: "AssistantActionPipelineUseCase",
                         code: 409,
                         userInfo: [NSLocalizedDescriptionKey: "Only applied runs can be undone"]
@@ -275,7 +296,7 @@ public final class AssistantActionPipelineUseCase {
                     return
                 }
                 guard let appliedAt = run.appliedAt, Date().timeIntervalSince(appliedAt) <= self.undoWindowSeconds else {
-                    completion(.failure(NSError(
+                    callback.deliver(.failure(NSError(
                         domain: "AssistantActionPipelineUseCase",
                         code: 410,
                         userInfo: [NSLocalizedDescriptionKey: "Undo window expired"]
@@ -288,28 +309,32 @@ public final class AssistantActionPipelineUseCase {
                     let undoCommands = envelope.undoCommands,
                     undoCommands.isEmpty == false
                 else {
-                    completion(.failure(NSError(
+                    callback.deliver(.failure(NSError(
                         domain: "AssistantActionPipelineUseCase",
                         code: 422,
                         userInfo: [NSLocalizedDescriptionKey: "No compensating undo commands available"]
                     )))
                     return
                 }
+                let originalRun = run
 
                 self.executeTransaction(runID: id, commands: undoCommands) { undoResult in
                     switch undoResult {
                     case .success:
-                        run.status = .undone
-                        run.resultSummary = "Undo applied (\(undoCommands.count) commands)"
-                        run.rollbackStatus = .verified
-                        run.rollbackVerifiedAt = Date()
-                        run.lastErrorCode = nil
+                        var undoneRun = originalRun
+                        undoneRun.status = .undone
+                        undoneRun.resultSummary = "Undo applied (\(undoCommands.count) commands)"
+                        undoneRun.rollbackStatus = .verified
+                        undoneRun.rollbackVerifiedAt = Date()
+                        undoneRun.lastErrorCode = nil
                         logWarning(
                             event: "assistant_undo_completed",
                             message: "Assistant action run undo completed",
                             fields: ["run_id": id.uuidString]
                         )
-                        self.repository.updateRun(run, completion: completion)
+                        self.repository.updateRun(undoneRun) { result in
+                            callback.deliver(result)
+                        }
                     case .failure(let error):
                         logError(
                             event: "assistant_undo_failed",
@@ -319,7 +344,7 @@ public final class AssistantActionPipelineUseCase {
                                 "error": error.localizedDescription
                             ]
                         )
-                        completion(.failure(error))
+                        callback.deliver(.failure(error))
                     }
                 }
             }
@@ -330,7 +355,7 @@ public final class AssistantActionPipelineUseCase {
     private func executeTransaction(
         runID: UUID,
         commands: [AssistantCommand],
-        completion: @escaping (Result<TransactionResult, Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<TransactionResult, Error>) -> Void
     ) {
         _Concurrency.Task {
             let result = await self.executeTransactionResult(runID: runID, commands: commands)
@@ -540,8 +565,9 @@ public final class AssistantActionPipelineUseCase {
                 task.dueDate = dueDate
             }
             task.updatedAt = Date()
+            let taskForUpdate = task
             let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
-                try await self.updateTaskAsync(task)
+                try await self.updateTaskAsync(taskForUpdate)
             }
             taskMap[taskID] = updated
             touchedTaskIDs.insert(taskID)
@@ -555,8 +581,9 @@ public final class AssistantActionPipelineUseCase {
             task.isComplete = isComplete
             task.dateCompleted = dateCompleted
             task.updatedAt = Date()
+            let taskForUpdate = task
             let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
-                try await self.updateTaskAsync(task)
+                try await self.updateTaskAsync(taskForUpdate)
             }
             taskMap[taskID] = updated
             touchedTaskIDs.insert(taskID)
@@ -570,8 +597,9 @@ public final class AssistantActionPipelineUseCase {
             task.isComplete = true
             task.dateCompleted = Date()
             task.updatedAt = Date()
+            let taskForUpdate = task
             let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
-                try await self.updateTaskAsync(task)
+                try await self.updateTaskAsync(taskForUpdate)
             }
             taskMap[taskID] = updated
             touchedTaskIDs.insert(taskID)
@@ -584,8 +612,9 @@ public final class AssistantActionPipelineUseCase {
             let inverse = AssistantCommand.restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: task))
             task.projectID = targetProjectID
             task.updatedAt = Date()
+            let taskForUpdate = task
             let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
-                try await self.updateTaskAsync(task)
+                try await self.updateTaskAsync(taskForUpdate)
             }
             taskMap[taskID] = updated
             touchedTaskIDs.insert(taskID)
@@ -690,8 +719,9 @@ public final class AssistantActionPipelineUseCase {
             task.isAllDay = false
             task.replanCount = max(0, task.replanCount) + 1
             task.updatedAt = Date()
+            let taskForUpdate = task
             let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
-                try await self.updateTaskAsync(task)
+                try await self.updateTaskAsync(taskForUpdate)
             }
             taskMap[taskID] = updated
             touchedTaskIDs.insert(taskID)
@@ -733,8 +763,9 @@ public final class AssistantActionPipelineUseCase {
             case .absent: break
             }
             task.updatedAt = Date()
+            let taskForUpdate = task
             let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
-                try await self.updateTaskAsync(task)
+                try await self.updateTaskAsync(taskForUpdate)
             }
             taskMap[taskID] = updated
             touchedTaskIDs.insert(taskID)
@@ -752,8 +783,9 @@ public final class AssistantActionPipelineUseCase {
             task.deferredCount = max(0, task.deferredCount) + 1
             task.replanCount = max(0, task.replanCount) + 1
             task.updatedAt = Date()
+            let taskForUpdate = task
             let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
-                try await self.updateTaskAsync(task)
+                try await self.updateTaskAsync(taskForUpdate)
             }
             taskMap[taskID] = updated
             touchedTaskIDs.insert(taskID)
@@ -780,8 +812,9 @@ public final class AssistantActionPipelineUseCase {
             task.deferredCount = max(0, task.deferredCount) + 1
             task.replanCount = max(0, task.replanCount) + 1
             task.updatedAt = Date()
+            let taskForUpdate = task
             let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
-                try await self.updateTaskAsync(task)
+                try await self.updateTaskAsync(taskForUpdate)
             }
             taskMap[taskID] = updated
             touchedTaskIDs.insert(taskID)
@@ -804,9 +837,9 @@ public final class AssistantActionPipelineUseCase {
         return try? encoder.encode(trace)
     }
 
-    private func withTimeout<T>(
+    private func withTimeout<T: Sendable>(
         seconds: TimeInterval,
-        operation: @escaping () async throws -> T
+        operation: @escaping @Sendable () async throws -> T
     ) async throws -> T {
         try await withThrowingTaskGroup(of: T.self) { group in
             group.addTask {

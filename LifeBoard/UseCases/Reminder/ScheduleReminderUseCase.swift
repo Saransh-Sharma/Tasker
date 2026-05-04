@@ -1,6 +1,42 @@
 import Foundation
 
-public final class ScheduleReminderUseCase {
+private final class ReminderPersistenceAccumulator<State: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state: State
+    private var firstError: Error?
+
+    init(_ state: State) {
+        self.state = state
+    }
+
+    func update(_ body: (inout State) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<State, Error> {
+        lock.lock()
+        let state = state
+        let firstError = firstError
+        lock.unlock()
+
+        if let firstError {
+            return .failure(firstError)
+        }
+        return .success(state)
+    }
+}
+
+public final class ScheduleReminderUseCase: @unchecked Sendable {
     private let repository: ReminderRepositoryProtocol
     private let notificationService: NotificationServiceProtocol?
 
@@ -15,7 +51,7 @@ public final class ScheduleReminderUseCase {
         reminder: ReminderDefinition,
         triggers: [ReminderTriggerDefinition],
         referenceDate: Date? = nil,
-        completion: @escaping (Result<ReminderDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<ReminderDefinition, Error>) -> Void
     ) {
         repository.saveReminder(reminder) { result in
             switch result {
@@ -33,7 +69,7 @@ public final class ScheduleReminderUseCase {
     }
 
     /// Executes execute.
-    public func execute(reminder: ReminderDefinition, completion: @escaping (Result<ReminderDefinition, Error>) -> Void) {
+    public func execute(reminder: ReminderDefinition, completion: @escaping @Sendable (Result<ReminderDefinition, Error>) -> Void) {
         execute(reminder: reminder, triggers: [], referenceDate: nil, completion: completion)
     }
 
@@ -41,7 +77,7 @@ public final class ScheduleReminderUseCase {
     public func acknowledgeDelivery(
         reminderID: UUID,
         deliveryID: UUID,
-        completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void
     ) {
         repository.fetchDeliveries(reminderID: reminderID) { result in
             switch result {
@@ -68,7 +104,7 @@ public final class ScheduleReminderUseCase {
         reminderID: UUID,
         deliveryID: UUID,
         until: Date,
-        completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void
     ) {
         repository.fetchDeliveries(reminderID: reminderID) { result in
             switch result {
@@ -102,7 +138,7 @@ public final class ScheduleReminderUseCase {
         reminder: ReminderDefinition,
         triggers: [ReminderTriggerDefinition],
         referenceDate: Date?,
-        completion: @escaping (Result<ReminderDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<ReminderDefinition, Error>) -> Void
     ) {
         guard triggers.isEmpty == false else {
             completion(.success(reminder))
@@ -110,9 +146,7 @@ public final class ScheduleReminderUseCase {
         }
 
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-        var savedTriggers: [ReminderTriggerDefinition] = []
+        let accumulator = ReminderPersistenceAccumulator([ReminderTriggerDefinition]())
 
         for trigger in triggers {
             var normalized = trigger
@@ -127,22 +161,24 @@ public final class ScheduleReminderUseCase {
             )
             group.enter()
             repository.saveTrigger(normalized) { result in
-                lock.lock()
                 switch result {
                 case .success(let savedTrigger):
-                    savedTriggers.append(savedTrigger)
+                    accumulator.update { $0.append(savedTrigger) }
                 case .failure(let error):
-                    firstError = firstError ?? error
+                    accumulator.record(error)
                 }
-                lock.unlock()
                 group.leave()
             }
         }
 
         group.notify(queue: .global()) {
-            if let firstError {
+            let savedTriggers: [ReminderTriggerDefinition]
+            switch accumulator.result() {
+            case .failure(let firstError):
                 completion(.failure(firstError))
                 return
+            case .success(let triggers):
+                savedTriggers = triggers
             }
 
             self.persistDeliveries(
@@ -159,11 +195,10 @@ public final class ScheduleReminderUseCase {
         reminder: ReminderDefinition,
         triggers: [ReminderTriggerDefinition],
         referenceDate: Date?,
-        completion: @escaping (Result<ReminderDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<ReminderDefinition, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
+        let accumulator = ReminderPersistenceAccumulator(())
 
         for trigger in triggers {
             let fireDate = resolveFireDate(
@@ -186,9 +221,7 @@ public final class ScheduleReminderUseCase {
             repository.saveDelivery(delivery) { result in
                 switch result {
                 case .failure(let error):
-                    lock.lock()
-                    firstError = firstError ?? error
-                    lock.unlock()
+                    accumulator.record(error)
                 case .success:
                     if let fireDate, V2FeatureFlags.remindersSyncEnabled, let notificationService = self.notificationService {
                         notificationService.scheduleTaskReminder(
@@ -203,9 +236,10 @@ public final class ScheduleReminderUseCase {
         }
 
         group.notify(queue: .main) {
-            if let firstError {
+            switch accumulator.result() {
+            case .failure(let firstError):
                 completion(.failure(firstError))
-            } else {
+            case .success:
                 completion(.success(reminder))
             }
         }

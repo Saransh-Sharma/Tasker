@@ -1,15 +1,37 @@
 //
 //  ManageProjectsUseCase.swift
-//  Tasker
+//  LifeBoard
 //
 //  Use case for managing projects (create, update, delete)
 //
 
 import Foundation
 
+private final class ManageProjectsAccumulator<State: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state: State
+
+    init(_ state: State) {
+        self.state = state
+    }
+
+    func update(_ body: (inout State) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func snapshot() -> State {
+        lock.lock()
+        let state = state
+        lock.unlock()
+        return state
+    }
+}
+
 /// Use case for managing projects
 /// Handles all project CRUD operations with business rules
-public final class ManageProjectsUseCase {
+public final class ManageProjectsUseCase: @unchecked Sendable {
     
     // MARK: - Dependencies
     
@@ -29,7 +51,7 @@ public final class ManageProjectsUseCase {
     /// Creates a new project
     public func createProject(
         request: CreateProjectRequest,
-        completion: @escaping (Result<Project, ProjectError>) -> Void
+        completion: @escaping @Sendable (Result<Project, ProjectError>) -> Void
     ) {
         // Validate project name
         guard validateProjectName(request.name) else {
@@ -96,13 +118,13 @@ public final class ManageProjectsUseCase {
     public func updateProject(
         projectId: UUID,
         request: UpdateProjectRequest,
-        completion: @escaping (Result<Project, ProjectError>) -> Void
+        completion: @escaping @Sendable (Result<Project, ProjectError>) -> Void
     ) {
         // Fetch the existing project
         projectRepository.fetchProject(withId: projectId) { [weak self] result in
             switch result {
             case .success(let project):
-                guard var project = project else {
+                guard let project = project else {
                     completion(.failure(.projectNotFound))
                     return
                 }
@@ -122,7 +144,15 @@ public final class ManageProjectsUseCase {
                     }
                     
                     // Check if new name is available
-                    self?.projectRepository.isProjectNameAvailable(newName, excludingId: projectId) { result in
+                    guard let self else {
+                        completion(.failure(.repositoryError(NSError(
+                            domain: "ManageProjectsUseCase",
+                            code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "Project use case unavailable"]
+                        ))))
+                        return
+                    }
+                    self.projectRepository.isProjectNameAvailable(newName, excludingId: projectId) { result in
                         switch result {
                         case .success(let isAvailable):
                             if !isAvailable {
@@ -130,27 +160,11 @@ public final class ManageProjectsUseCase {
                                 return
                             }
                             
-                            project.name = newName
-                            if let newDescription = request.description {
-                                project.projectDescription = newDescription
-                            }
-                            if let color = request.color {
-                                project.color = color
-                            }
-                            if let icon = request.icon {
-                                project.icon = icon
-                            }
-                            if let motivationWhy = request.motivationWhy {
-                                project.motivationWhy = motivationWhy
-                            }
-                            if let motivationSuccessLooksLike = request.motivationSuccessLooksLike {
-                                project.motivationSuccessLooksLike = motivationSuccessLooksLike
-                            }
-                            if let motivationCostOfNeglect = request.motivationCostOfNeglect {
-                                project.motivationCostOfNeglect = motivationCostOfNeglect
-                            }
-                            project.modifiedDate = Date()
-                            self?.performProjectUpdate(project: project, completion: completion)
+                            var updatedProject = project
+                            updatedProject.name = newName
+                            self.applyUpdateRequest(request, to: &updatedProject)
+                            updatedProject.modifiedDate = Date()
+                            self.performProjectUpdate(project: updatedProject, completion: completion)
                             
                         case .failure(let error):
                             completion(.failure(.repositoryError(error)))
@@ -158,26 +172,10 @@ public final class ManageProjectsUseCase {
                     }
                 } else {
                     // Just update description
-                    if let newDescription = request.description {
-                        project.projectDescription = newDescription
-                    }
-                    if let color = request.color {
-                        project.color = color
-                    }
-                    if let icon = request.icon {
-                        project.icon = icon
-                    }
-                    if let motivationWhy = request.motivationWhy {
-                        project.motivationWhy = motivationWhy
-                    }
-                    if let motivationSuccessLooksLike = request.motivationSuccessLooksLike {
-                        project.motivationSuccessLooksLike = motivationSuccessLooksLike
-                    }
-                    if let motivationCostOfNeglect = request.motivationCostOfNeglect {
-                        project.motivationCostOfNeglect = motivationCostOfNeglect
-                    }
-                    project.modifiedDate = Date()
-                    self?.performProjectUpdate(project: project, completion: completion)
+                    var updatedProject = project
+                    self?.applyUpdateRequest(request, to: &updatedProject)
+                    updatedProject.modifiedDate = Date()
+                    self?.performProjectUpdate(project: updatedProject, completion: completion)
                 }
                 
             case .failure(let error):
@@ -189,7 +187,7 @@ public final class ManageProjectsUseCase {
     /// Archives a project without deleting tasks.
     public func archiveProject(
         projectId: UUID,
-        completion: @escaping (Result<Project, ProjectError>) -> Void
+        completion: @escaping @Sendable (Result<Project, ProjectError>) -> Void
     ) {
         projectRepository.fetchProject(withId: projectId) { [weak self] result in
             switch result {
@@ -237,7 +235,7 @@ public final class ManageProjectsUseCase {
     /// Unarchives a previously archived project.
     public func unarchiveProject(
         projectId: UUID,
-        completion: @escaping (Result<Project, ProjectError>) -> Void
+        completion: @escaping @Sendable (Result<Project, ProjectError>) -> Void
     ) {
         projectRepository.fetchProject(withId: projectId) { [weak self] result in
             switch result {
@@ -288,7 +286,7 @@ public final class ManageProjectsUseCase {
     public func deleteProject(
         projectId: UUID,
         deleteStrategy: DeleteStrategy = .moveToInbox,
-        completion: @escaping (Result<Void, ProjectError>) -> Void
+        completion: @escaping @Sendable (Result<Void, ProjectError>) -> Void
     ) {
         // Fetch the project to check if it's deletable
         projectRepository.fetchProject(withId: projectId) { [weak self] result in
@@ -331,14 +329,13 @@ public final class ManageProjectsUseCase {
     // MARK: - Get Projects
     
     /// Gets all projects with task counts
-    public func getAllProjects(completion: @escaping (Result<[ProjectWithStats], ProjectError>) -> Void) {
+    public func getAllProjects(completion: @escaping @Sendable (Result<[ProjectWithStats], ProjectError>) -> Void) {
         projectRepository.fetchAllProjects { [weak self] result in
             switch result {
             case .success(let projects):
                 let dedupedProjects = self?.dedupeProjects(projects) ?? projects
-                var projectsWithStats: [ProjectWithStats] = []
+                let projectsWithStats = ManageProjectsAccumulator([ProjectWithStats]())
                 let group = DispatchGroup()
-                let lock = NSLock()
                 
                 for project in dedupedProjects {
                     group.enter()
@@ -349,15 +346,14 @@ public final class ManageProjectsUseCase {
                                 taskCount: count,
                                 completedTaskCount: 0 // Would need additional query
                             )
-                            lock.lock()
-                            projectsWithStats.append(stats)
-                            lock.unlock()
+                            projectsWithStats.update { $0.append(stats) }
                         }
                         group.leave()
                     }
                 }
                 
                 group.notify(queue: .main) {
+                    var projectsWithStats = projectsWithStats.snapshot()
                     // Sort projects: Inbox first, then alphabetically
                     projectsWithStats.sort { p1, p2 in
                         if p1.project.isDefault { return true }
@@ -374,7 +370,7 @@ public final class ManageProjectsUseCase {
     }
 
     /// Executes repairProjectIdentityCollisions.
-    public func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, ProjectError>) -> Void) {
+    public func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, ProjectError>) -> Void) {
         projectRepository.repairProjectIdentityCollisions { result in
             switch result {
             case .success(let report):
@@ -386,7 +382,7 @@ public final class ManageProjectsUseCase {
     }
     
     /// Gets custom (non-default) projects
-    public func getCustomProjects(completion: @escaping (Result<[Project], ProjectError>) -> Void) {
+    public func getCustomProjects(completion: @escaping @Sendable (Result<[Project], ProjectError>) -> Void) {
         projectRepository.fetchCustomProjects { result in
             switch result {
             case .success(let projects):
@@ -403,7 +399,7 @@ public final class ManageProjectsUseCase {
     public func moveTasksBetweenProjects(
         from sourceProjectId: UUID,
         to targetProjectId: UUID,
-        completion: @escaping (Result<Int, ProjectError>) -> Void
+        completion: @escaping @Sendable (Result<Int, ProjectError>) -> Void
     ) {
         // Validate both projects exist
         projectRepository.fetchProject(withId: sourceProjectId) { [weak self] sourceResult in
@@ -414,7 +410,15 @@ public final class ManageProjectsUseCase {
                     return
                 }
                 
-                self?.projectRepository.fetchProject(withId: targetProjectId) { targetResult in
+                guard let repository = self?.projectRepository else {
+                    completion(.failure(.repositoryError(NSError(
+                        domain: "ManageProjectsUseCase",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Project repository unavailable"]
+                    ))))
+                    return
+                }
+                repository.fetchProject(withId: targetProjectId) { targetResult in
                     switch targetResult {
                     case .success(let targetProject):
                         guard targetProject != nil else {
@@ -423,11 +427,11 @@ public final class ManageProjectsUseCase {
                         }
                         
                         // Get task count before moving
-                        self?.projectRepository.getTaskCount(for: sourceProjectId) { countResult in
+                        repository.getTaskCount(for: sourceProjectId) { countResult in
                             let taskCount = (try? countResult.get()) ?? 0
                             
                             // Perform the move
-                            self?.projectRepository.moveTasks(from: sourceProjectId, to: targetProjectId) { moveResult in
+                            repository.moveTasks(from: sourceProjectId, to: targetProjectId) { moveResult in
                                 switch moveResult {
                                 case .success:
                                     completion(.success(taskCount))
@@ -452,7 +456,7 @@ public final class ManageProjectsUseCase {
     public func moveProjectToLifeArea(
         projectId: UUID,
         lifeAreaID: UUID,
-        completion: @escaping (Result<ProjectLifeAreaMoveResult, ProjectError>) -> Void
+        completion: @escaping @Sendable (Result<ProjectLifeAreaMoveResult, ProjectError>) -> Void
     ) {
         projectRepository.fetchProject(withId: projectId) { [weak self] sourceResult in
             switch sourceResult {
@@ -517,7 +521,7 @@ public final class ManageProjectsUseCase {
     /// Backfill projects without a life-area linkage to the provided default life area.
     public func backfillUnassignedProjectsToGeneral(
         generalLifeAreaID: UUID,
-        completion: @escaping (Result<ProjectLifeAreaBackfillResult, ProjectError>) -> Void
+        completion: @escaping @Sendable (Result<ProjectLifeAreaBackfillResult, ProjectError>) -> Void
     ) {
         projectRepository.backfillProjectsWithoutLifeArea(defaultLifeAreaID: generalLifeAreaID) { result in
             switch result {
@@ -549,9 +553,30 @@ public final class ManageProjectsUseCase {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && trimmed.count <= 100
     }
+
+    private func applyUpdateRequest(_ request: UpdateProjectRequest, to project: inout Project) {
+        if let newDescription = request.description {
+            project.projectDescription = newDescription
+        }
+        if let color = request.color {
+            project.color = color
+        }
+        if let icon = request.icon {
+            project.icon = icon
+        }
+        if let motivationWhy = request.motivationWhy {
+            project.motivationWhy = motivationWhy
+        }
+        if let motivationSuccessLooksLike = request.motivationSuccessLooksLike {
+            project.motivationSuccessLooksLike = motivationSuccessLooksLike
+        }
+        if let motivationCostOfNeglect = request.motivationCostOfNeglect {
+            project.motivationCostOfNeglect = motivationCostOfNeglect
+        }
+    }
     
     /// Executes performProjectUpdate.
-    private func performProjectUpdate(project: Project, completion: @escaping (Result<Project, ProjectError>) -> Void) {
+    private func performProjectUpdate(project: Project, completion: @escaping @Sendable (Result<Project, ProjectError>) -> Void) {
         // Validate the updated project
         do {
             try project.validate()
@@ -597,7 +622,7 @@ public final class ManageProjectsUseCase {
 
 // MARK: - Request Models
 
-public struct CreateProjectRequest {
+public struct CreateProjectRequest: Sendable {
     public let name: String
     public let description: String?
     public let lifeAreaID: UUID?
@@ -629,7 +654,7 @@ public struct CreateProjectRequest {
     }
 }
 
-public struct UpdateProjectRequest {
+public struct UpdateProjectRequest: Sendable {
     public let name: String?
     public let description: String?
     public let color: ProjectColor?
@@ -668,12 +693,12 @@ public struct ProjectWithStats: Sendable {
 
 // MARK: - Supporting Types
 
-public enum DeleteStrategy {
+public enum DeleteStrategy: Sendable {
     case moveToInbox    // Move tasks to Inbox before deleting project
     case deleteAllTasks // Delete all tasks in the project
 }
 
-public enum ProjectError: LocalizedError {
+public enum ProjectError: LocalizedError, @unchecked Sendable {
     case projectNotFound
     case invalidName(String)
     case duplicateName

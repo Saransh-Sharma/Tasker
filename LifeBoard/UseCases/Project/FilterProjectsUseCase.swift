@@ -1,6 +1,6 @@
 //
 //  FilterProjectsUseCase.swift
-//  Tasker
+//  LifeBoard
 //
 //  Use case for filtering projects with various criteria
 //
@@ -8,7 +8,7 @@
 import Foundation
 
 /// Use case for filtering projects
-public final class FilterProjectsUseCase {
+public final class FilterProjectsUseCase: @unchecked Sendable {
     
     // MARK: - Dependencies
     
@@ -26,7 +26,7 @@ public final class FilterProjectsUseCase {
     /// Filter projects by status
     public func filterByStatus(
         _ status: ProjectStatus,
-        completion: @escaping (Result<[Project], FilterProjectsError>) -> Void
+        completion: @escaping @Sendable (Result<[Project], FilterProjectsError>) -> Void
     ) {
         projectRepository.fetchAllProjects { result in
             switch result {
@@ -42,7 +42,7 @@ public final class FilterProjectsUseCase {
     /// Filter projects by priority
     public func filterByPriority(
         _ priority: ProjectPriority,
-        completion: @escaping (Result<[Project], FilterProjectsError>) -> Void
+        completion: @escaping @Sendable (Result<[Project], FilterProjectsError>) -> Void
     ) {
         projectRepository.fetchAllProjects { result in
             switch result {

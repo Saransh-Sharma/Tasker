@@ -1,6 +1,6 @@
 import Foundation
 
-public final class ResolveOccurrenceUseCase {
+public final class ResolveOccurrenceUseCase: @unchecked Sendable {
     private let engine: SchedulingEngineProtocol
 
     /// Initializes a new instance.
@@ -13,7 +13,7 @@ public final class ResolveOccurrenceUseCase {
         id: UUID,
         resolution: OccurrenceResolutionType,
         actor: OccurrenceActor = .user,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         engine.resolveOccurrence(id: id, resolution: resolution, actor: actor, completion: completion)
     }

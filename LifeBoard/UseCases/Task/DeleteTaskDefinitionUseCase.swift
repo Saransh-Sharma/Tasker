@@ -1,6 +1,26 @@
 import Foundation
 
-public final class DeleteTaskDefinitionUseCase {
+private final class DeleteTaskDefinitionErrorRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var firstError: Error?
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func error() -> Error? {
+        lock.lock()
+        let firstError = firstError
+        lock.unlock()
+        return firstError
+    }
+}
+
+public final class DeleteTaskDefinitionUseCase: @unchecked Sendable {
     private static let deletedTaskIDsUserInfoKey = "deletedTaskIDs"
 
     private let repository: TaskDefinitionRepositoryProtocol
@@ -19,7 +39,7 @@ public final class DeleteTaskDefinitionUseCase {
     public func execute(
         taskID: UUID,
         scope: TaskDeleteScope = .single,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         repository.fetchTaskDefinition(id: taskID) { result in
             switch result {
@@ -67,7 +87,7 @@ public final class DeleteTaskDefinitionUseCase {
     private func deleteSingle(
         taskID: UUID,
         deletedTask: TaskDefinition?,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         deleteMany(
             taskIDs: [taskID],
@@ -84,7 +104,7 @@ public final class DeleteTaskDefinitionUseCase {
         deletedTask: TaskDefinition?,
         scope: TaskDeleteScope,
         recurrenceSeriesID: UUID?,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let uniqueIDs = Array(Set(taskIDs))
         guard uniqueIDs.isEmpty == false else {
@@ -93,19 +113,14 @@ public final class DeleteTaskDefinitionUseCase {
         }
 
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
+        let errors = DeleteTaskDefinitionErrorRecorder()
 
         for taskID in uniqueIDs {
             group.enter()
             repository.delete(id: taskID) { deleteResult in
                 switch deleteResult {
                 case .failure(let error):
-                    lock.lock()
-                    if firstError == nil {
-                        firstError = error
-                    }
-                    lock.unlock()
+                    errors.record(error)
                 case .success:
                     self.createTombstoneIfNeeded(taskID: taskID)
                 }
@@ -114,7 +129,7 @@ public final class DeleteTaskDefinitionUseCase {
         }
 
         group.notify(queue: .main) {
-            if let firstError {
+            if let firstError = errors.error() {
                 completion(.failure(firstError))
                 return
             }

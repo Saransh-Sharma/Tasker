@@ -1,6 +1,6 @@
 import Foundation
 
-public final class ManageHabitsUseCase {
+public final class ManageHabitsUseCase: @unchecked Sendable {
     private let repository: HabitRepositoryProtocol
 
     /// Initializes a new instance.
@@ -9,7 +9,7 @@ public final class ManageHabitsUseCase {
     }
 
     /// Executes list.
-    public func list(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
+    public func list(completion: @escaping @Sendable (Result<[HabitDefinitionRecord], Error>) -> Void) {
         repository.fetchAll(completion: completion)
     }
 
@@ -19,7 +19,7 @@ public final class ManageHabitsUseCase {
         habitType: String,
         projectID: UUID?,
         lifeAreaID: UUID?,
-        completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void
     ) {
         let habit = HabitDefinitionRecord(
             lifeAreaID: lifeAreaID,
@@ -31,7 +31,7 @@ public final class ManageHabitsUseCase {
     }
 
     /// Executes pause.
-    public func pause(id: UUID, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+    public func pause(id: UUID, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
         repository.fetchAll { result in
             switch result {
             case .success(let habits):

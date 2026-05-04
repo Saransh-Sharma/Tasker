@@ -1,6 +1,26 @@
 import Foundation
 
-public final class RecordXPUseCase {
+private final class RecordXPErrorRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var firstError: Error?
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func error() -> Error? {
+        lock.lock()
+        let firstError = firstError
+        lock.unlock()
+        return firstError
+    }
+}
+
+public final class RecordXPUseCase: @unchecked Sendable {
     private let repository: GamificationRepositoryProtocol
 
     /// Initializes a new instance.
@@ -9,7 +29,7 @@ public final class RecordXPUseCase {
     }
 
     /// Executes recordTaskCompletion.
-    public func recordTaskCompletion(taskID: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func recordTaskCompletion(taskID: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         let dayKey = ISO8601DateFormatter().string(from: Calendar.current.startOfDay(for: Date()))
         let idempotencyKey = "complete_\(taskID.uuidString)_\(dayKey)"
         let event = XPEventDefinition(
@@ -52,7 +72,7 @@ public final class RecordXPUseCase {
     }
 
     /// Executes reconcileProfile.
-    public func reconcileProfile(completion: @escaping (Result<GamificationSnapshot, Error>) -> Void) {
+    public func reconcileProfile(completion: @escaping @Sendable (Result<GamificationSnapshot, Error>) -> Void) {
         repository.fetchXPEvents { result in
             switch result {
             case .success(let events):
@@ -83,7 +103,7 @@ public final class RecordXPUseCase {
     }
 
     /// Executes evaluateAchievements.
-    private func evaluateAchievements(triggerEvent: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    private func evaluateAchievements(triggerEvent: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         repository.fetchXPEvents { eventsResult in
             switch eventsResult {
             case .failure(let error):
@@ -103,18 +123,18 @@ public final class RecordXPUseCase {
                         }
 
                         let group = DispatchGroup()
-                        var firstError: Error?
+                        let errors = RecordXPErrorRecorder()
                         for unlock in candidateUnlocks {
                             group.enter()
                             self.repository.saveAchievementUnlock(unlock) { result in
                                 if case .failure(let error) = result {
-                                    firstError = firstError ?? error
+                                    errors.record(error)
                                 }
                                 group.leave()
                             }
                         }
                         group.notify(queue: .main) {
-                            if let firstError {
+                            if let firstError = errors.error() {
                                 completion(.failure(firstError))
                             } else {
                                 completion(.success(()))

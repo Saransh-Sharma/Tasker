@@ -1,7 +1,123 @@
 import Foundation
 
-public final class ReconcileExternalRemindersUseCase {
-    public struct ExternalReminderSnapshot {
+private final class ReconcileErrorRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedError: Error?
+
+    func record(_ error: Error) {
+        lock.lock()
+        if storedError == nil {
+            storedError = error
+        }
+        lock.unlock()
+    }
+
+    func firstError() -> Error? {
+        lock.lock()
+        let error = storedError
+        lock.unlock()
+        return error
+    }
+}
+
+private final class ReconcileCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    func increment() {
+        lock.lock()
+        value += 1
+        lock.unlock()
+    }
+
+    func count() -> Int {
+        lock.lock()
+        let value = value
+        lock.unlock()
+        return value
+    }
+}
+
+private final class ReconcileTwoWayState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var summary = ReconcileExternalRemindersUseCase.ReconcileSummary()
+    private var taskByID: [UUID: TaskDefinition]
+    private var mappingByLocalID: [UUID: ExternalItemMapDefinition]
+    private var mappingByExternalID: [String: ExternalItemMapDefinition]
+    private var seenLocalIDs = Set<UUID>()
+
+    init(tasks: [TaskDefinition], itemMappings: [ExternalItemMapDefinition]) {
+        self.taskByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
+        self.mappingByLocalID = Dictionary(uniqueKeysWithValues: itemMappings.map { ($0.localEntityID, $0) })
+        self.mappingByExternalID = Dictionary(uniqueKeysWithValues: itemMappings.map { ($0.externalItemID, $0) })
+    }
+
+    func mapping(externalID: String) -> ExternalItemMapDefinition? {
+        lock.withLock { mappingByExternalID[externalID] }
+    }
+
+    func task(id: UUID) -> TaskDefinition? {
+        lock.withLock { taskByID[id] }
+    }
+
+    func taskSnapshot() -> [TaskDefinition] {
+        lock.withLock { Array(taskByID.values) }
+    }
+
+    func localMappingSnapshot() -> [ExternalItemMapDefinition] {
+        lock.withLock { Array(mappingByLocalID.values) }
+    }
+
+    func unmappedTaskSnapshot() -> [TaskDefinition] {
+        lock.withLock {
+            taskByID.values.filter { task in
+                mappingByLocalID[task.id] == nil && seenLocalIDs.contains(task.id) == false
+            }
+        }
+    }
+
+    func markSeen(_ id: UUID) {
+        lock.withLock { _ = seenLocalIDs.insert(id) }
+    }
+
+    func recordTask(_ task: TaskDefinition) {
+        lock.withLock { taskByID[task.id] = task }
+    }
+
+    func removeTask(id: UUID) {
+        lock.withLock { _ = taskByID.removeValue(forKey: id) }
+    }
+
+    func recordMapping(_ mapping: ExternalItemMapDefinition, localID: UUID? = nil) {
+        lock.withLock {
+            mappingByLocalID[localID ?? mapping.localEntityID] = mapping
+            mappingByExternalID[mapping.externalItemID] = mapping
+        }
+    }
+
+    func incrementPulledFromExternal() {
+        lock.withLock { summary.pulledFromExternal += 1 }
+    }
+
+    func incrementPushedToExternal() {
+        lock.withLock { summary.pushedToExternal += 1 }
+    }
+
+    func incrementMappedExisting() {
+        lock.withLock { summary.mappedExisting += 1 }
+    }
+
+    func incrementImportedNew() {
+        lock.withLock { summary.importedNew += 1 }
+    }
+
+    func summarySnapshot() -> ReconcileExternalRemindersUseCase.ReconcileSummary {
+        lock.withLock { summary }
+    }
+}
+
+public final class ReconcileExternalRemindersUseCase: @unchecked Sendable {
+    public struct ExternalReminderSnapshot: Sendable {
         public let provider: String
         public let localEntityType: String
         public let localEntityID: UUID
@@ -30,7 +146,7 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
-    public struct ReconcileSummary: Equatable {
+    public struct ReconcileSummary: Equatable, Sendable {
         public var pulledFromExternal: Int
         public var pushedToExternal: Int
         public var mappedExisting: Int
@@ -73,7 +189,7 @@ public final class ReconcileExternalRemindersUseCase {
     }
 
     /// Executes execute.
-    public func execute(completion: @escaping (Result<Int, Error>) -> Void) {
+    public func execute(completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
             return
@@ -91,7 +207,7 @@ public final class ReconcileExternalRemindersUseCase {
     /// Executes reconcile.
     public func reconcile(
         snapshots: [ExternalReminderSnapshot],
-        completion: @escaping (Result<Int, Error>) -> Void
+        completion: @escaping @Sendable (Result<Int, Error>) -> Void
     ) {
         guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
@@ -106,8 +222,8 @@ public final class ReconcileExternalRemindersUseCase {
 
         let group = DispatchGroup()
         let lock = NSLock()
-        var merged = 0
-        var firstError: Error?
+        let merged = ReconcileCounter()
+        let errors = ReconcileErrorRecorder()
 
         for snapshot in snapshots {
             group.enter()
@@ -119,7 +235,7 @@ public final class ReconcileExternalRemindersUseCase {
                 switch result {
                 case .failure(let error):
                     lock.lock()
-                    firstError = firstError ?? error
+                    errors.record(error)
                     lock.unlock()
                     group.leave()
                 case .success(let existing):
@@ -151,9 +267,9 @@ public final class ReconcileExternalRemindersUseCase {
                     self.externalRepository.saveItemMapping(next) { saveResult in
                         lock.lock()
                         if case .failure(let error) = saveResult {
-                            firstError = firstError ?? error
+                            errors.record(error)
                         } else {
-                            merged += 1
+                            merged.increment()
                         }
                         lock.unlock()
                         group.leave()
@@ -163,15 +279,15 @@ public final class ReconcileExternalRemindersUseCase {
         }
 
         group.notify(queue: .main) {
-            if let firstError {
+            if let firstError = errors.firstError() {
                 completion(.failure(firstError))
             } else {
                 logWarning(
                     event: "reminders_mapping_reconcile_completed",
                     message: "Reminder mapping snapshots reconciled",
-                    fields: ["merged_count": String(merged)]
+                    fields: ["merged_count": String(merged.count())]
                 )
-                completion(.success(merged))
+                completion(.success(merged.count()))
             }
         }
     }
@@ -179,7 +295,7 @@ public final class ReconcileExternalRemindersUseCase {
     /// Executes reconcileProject.
     public func reconcileProject(
         projectID: UUID,
-        completion: @escaping (Result<ReconcileSummary, Error>) -> Void
+        completion: @escaping @Sendable (Result<ReconcileSummary, Error>) -> Void
     ) {
         guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
@@ -273,22 +389,17 @@ public final class ReconcileExternalRemindersUseCase {
         tasks: [TaskDefinition],
         remindersProvider: AppleRemindersProviderProtocol,
         taskRepository: TaskDefinitionRepositoryProtocol,
-        completion: @escaping (Result<ReconcileSummary, Error>) -> Void
+        completion: @escaping @Sendable (Result<ReconcileSummary, Error>) -> Void
     ) {
-        var summary = ReconcileSummary()
-        var taskByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
-        var mappingByLocalID = Dictionary(uniqueKeysWithValues: itemMappings.map { ($0.localEntityID, $0) })
-        var mappingByExternalID = Dictionary(uniqueKeysWithValues: itemMappings.map { ($0.externalItemID, $0) })
+        let reconciliationState = ReconcileTwoWayState(tasks: tasks, itemMappings: itemMappings)
         let externalByID = Dictionary(uniqueKeysWithValues: externalReminders.map { ($0.itemID, $0) })
-        var seenLocalIDs = Set<UUID>()
 
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
+        let errors = ReconcileErrorRecorder()
 
         for external in externalReminders {
-            if let mapping = mappingByExternalID[external.itemID] {
-                seenLocalIDs.insert(mapping.localEntityID)
+            if let mapping = reconciliationState.mapping(externalID: external.itemID) {
+                reconciliationState.markSeen(mapping.localEntityID)
                 guard mapping.localEntityType == "task" else {
                     continue
                 }
@@ -298,27 +409,24 @@ public final class ReconcileExternalRemindersUseCase {
                 let remoteKnown = knownFields(from: external)
                 let remoteClock = remoteSyncClock(for: external, provider: mapping.provider)
 
-                guard let localTask = taskByID[mapping.localEntityID] else {
+                guard let localTask = reconciliationState.task(id: mapping.localEntityID) else {
                     group.enter()
                     remindersProvider.deleteReminder(itemID: external.itemID) { deleteResult in
                         if case .failure(let error) = deleteResult {
-                            lock.lock()
-                            firstError = firstError ?? error
-                            lock.unlock()
+                            errors.record(error)
                         }
                         var updated = mapping
                         var state = ReminderMergeState.decode(from: mapping.syncStateData)
                         state.tombstoneClock = self.maxClock(state.tombstoneClock, remoteClock)
                         state.lastWriteClock = self.maxClock(state.lastWriteClock, remoteClock)
                         updated.syncStateData = state.encodedData()
-                        self.externalRepository.saveItemMapping(updated) { saveResult in
-                            lock.lock()
+                        let updatedMapping = updated
+                        self.externalRepository.saveItemMapping(updatedMapping) { saveResult in
                             if case .failure(let error) = saveResult {
-                                firstError = firstError ?? error
+                                errors.record(error)
                             } else {
-                                mappingByLocalID[mapping.localEntityID] = updated
+                                reconciliationState.recordMapping(updatedMapping, localID: mapping.localEntityID)
                             }
-                            lock.unlock()
                             group.leave()
                         }
                     }
@@ -345,42 +453,38 @@ public final class ReconcileExternalRemindersUseCase {
                     )
                 )
 
-                var updatedMap = mapping
-                updatedMap.syncStateData = mergeResult.state.encodedData()
-                updatedMap.lastSeenExternalModAt = external.lastModifiedAt
+                var updatedMapDraft = mapping
+                updatedMapDraft.syncStateData = mergeResult.state.encodedData()
+                updatedMapDraft.lastSeenExternalModAt = external.lastModifiedAt
+                let updatedMap = updatedMapDraft
 
                 switch mergeResult.tombstoneDecision {
                 case .applyDelete:
                     group.enter()
                     taskRepository.delete(id: localTask.id) { deleteLocalResult in
                         if case .failure(let error) = deleteLocalResult {
-                            lock.lock()
-                            firstError = firstError ?? error
-                            lock.unlock()
+                            errors.record(error)
                         }
                         remindersProvider.deleteReminder(itemID: external.itemID) { deleteRemoteResult in
                             if case .failure(let error) = deleteRemoteResult {
-                                lock.lock()
-                                firstError = firstError ?? error
-                                lock.unlock()
+                                errors.record(error)
                             }
-                            self.externalRepository.saveItemMapping(updatedMap) { saveResult in
-                                lock.lock()
+                            let mapToPersist = updatedMap
+                            self.externalRepository.saveItemMapping(mapToPersist) { saveResult in
                                 if case .failure(let error) = saveResult {
-                                    firstError = firstError ?? error
+                                    errors.record(error)
                                 }
-                                taskByID.removeValue(forKey: localTask.id)
-                                mappingByLocalID[localTask.id] = updatedMap
-                                lock.unlock()
+                                reconciliationState.removeTask(id: localTask.id)
+                                reconciliationState.recordMapping(mapToPersist, localID: localTask.id)
                                 group.leave()
                             }
                         }
                     }
 
                 case .keep, .resurrect:
-                    var mergedTask = localTask
-                    applyKnownFields(mergeResult.known, to: &mergedTask)
-                    mergedTask.updatedAt = Date()
+                    var localMergedTask = localTask
+                    applyKnownFields(mergeResult.known, to: &localMergedTask)
+                    localMergedTask.updatedAt = Date()
 
                     let shouldUpdateLocal = localKnown != mergeResult.known
                     let shouldUpdateRemote = remoteKnown != mergeResult.known
@@ -395,37 +499,40 @@ public final class ReconcileExternalRemindersUseCase {
 
                     group.enter()
 
-                    let persistMapAfterUpdate: (_ remoteSnapshot: AppleReminderItemSnapshot?) -> Void = { remoteSnapshot in
-                        updatedMap.externalPayloadData = remoteSnapshot.map {
+                    let persistMapAfterUpdate: @Sendable (
+                        _ taskForMap: TaskDefinition,
+                        _ mapForPersist: ExternalItemMapDefinition,
+                        _ remoteSnapshot: AppleReminderItemSnapshot?
+                    ) -> Void = { taskForMap, mapForPersist, remoteSnapshot in
+                        var persistedMap = mapForPersist
+                        persistedMap.externalPayloadData = remoteSnapshot.map {
                             self.payloadDataForPersistedRemote(
                                 remote: $0,
                                 fallbackPayloadData: payloadData
                             )
                         } ?? payloadData
                         if let remoteSnapshot {
-                            updatedMap.externalItemID = remoteSnapshot.itemID
-                            updatedMap.lastSeenExternalModAt = remoteSnapshot.lastModifiedAt
+                            persistedMap.externalItemID = remoteSnapshot.itemID
+                            persistedMap.lastSeenExternalModAt = remoteSnapshot.lastModifiedAt
                         }
-                        self.externalRepository.saveItemMapping(updatedMap) { saveResult in
-                            lock.lock()
+                        let mapToPersist = persistedMap
+                        self.externalRepository.saveItemMapping(mapToPersist) { saveResult in
                             if case .failure(let error) = saveResult {
-                                firstError = firstError ?? error
+                                errors.record(error)
                             } else {
-                                mappingByLocalID[mergedTask.id] = updatedMap
-                                mappingByExternalID[updatedMap.externalItemID] = updatedMap
+                                reconciliationState.recordMapping(mapToPersist, localID: taskForMap.id)
                             }
-                            lock.unlock()
                             group.leave()
                         }
                     }
 
-                    let updateRemoteIfNeeded: () -> Void = {
+                    let updateRemoteIfNeeded: @Sendable (_ taskForRemote: TaskDefinition, _ mapForPersist: ExternalItemMapDefinition) -> Void = { taskForRemote, mapForPersist in
                         guard shouldUpdateRemote else {
-                            persistMapAfterUpdate(nil)
+                            persistMapAfterUpdate(taskForRemote, mapForPersist, nil)
                             return
                         }
                         let mergedSnapshot = self.snapshot(
-                            from: mergedTask,
+                            from: taskForRemote,
                             listID: listID,
                             existingExternalID: external.itemID,
                             payloadData: payloadData,
@@ -435,46 +542,37 @@ public final class ReconcileExternalRemindersUseCase {
                         remindersProvider.upsertReminder(listID: listID, snapshot: mergedSnapshot) { upsertResult in
                             switch upsertResult {
                             case .failure(let error):
-                                lock.lock()
-                                firstError = firstError ?? error
-                                lock.unlock()
-                                persistMapAfterUpdate(nil)
+                                errors.record(error)
+                                persistMapAfterUpdate(taskForRemote, mapForPersist, nil)
                             case .success(let persistedRemote):
-                                lock.lock()
-                                summary.pushedToExternal += 1
-                                lock.unlock()
-                                persistMapAfterUpdate(persistedRemote)
+                                reconciliationState.incrementPushedToExternal()
+                                persistMapAfterUpdate(taskForRemote, mapForPersist, persistedRemote)
                             }
                         }
                     }
 
                     if shouldUpdateLocal {
-                        taskRepository.update(mergedTask) { updateResult in
+                        taskRepository.update(localMergedTask) { updateResult in
                             switch updateResult {
                             case .failure(let error):
-                                lock.lock()
-                                firstError = firstError ?? error
-                                lock.unlock()
+                                errors.record(error)
                                 group.leave()
                             case .success(let updated):
-                                taskByID[updated.id] = updated
+                                reconciliationState.recordTask(updated)
                                 if remoteKnown != mergeResult.known {
-                                    lock.lock()
-                                    summary.pulledFromExternal += 1
-                                    lock.unlock()
+                                    reconciliationState.incrementPulledFromExternal()
                                 }
-                                mergedTask = updated
-                                updateRemoteIfNeeded()
+                                updateRemoteIfNeeded(updated, updatedMap)
                             }
                         }
                     } else {
-                        updateRemoteIfNeeded()
+                        updateRemoteIfNeeded(localMergedTask, updatedMap)
                     }
                 }
             } else {
                 // Remote item has no mapping: map to existing local task or import as new.
-                if let matched = matchTask(external: external, tasks: Array(taskByID.values)) {
-                    seenLocalIDs.insert(matched.id)
+                if let matched = matchTask(external: external, tasks: reconciliationState.taskSnapshot()) {
+                    reconciliationState.markSeen(matched.id)
                     let newMap = ExternalItemMapDefinition(
                         id: UUID(),
                         provider: "apple_reminders",
@@ -489,15 +587,12 @@ public final class ReconcileExternalRemindersUseCase {
                     )
                     group.enter()
                     self.externalRepository.saveItemMapping(newMap) { saveResult in
-                        lock.lock()
                         if case .failure(let error) = saveResult {
-                            firstError = firstError ?? error
+                            errors.record(error)
                         } else {
-                            summary.mappedExisting += 1
-                            mappingByLocalID[matched.id] = newMap
-                            mappingByExternalID[newMap.externalItemID] = newMap
+                            reconciliationState.incrementMappedExisting()
+                            reconciliationState.recordMapping(newMap, localID: matched.id)
                         }
-                        lock.unlock()
                         group.leave()
                     }
                 } else {
@@ -516,13 +611,11 @@ public final class ReconcileExternalRemindersUseCase {
                     taskRepository.create(task) { createResult in
                         switch createResult {
                         case .failure(let error):
-                            lock.lock()
-                            firstError = firstError ?? error
-                            lock.unlock()
+                            errors.record(error)
                             group.leave()
                         case .success(let created):
-                            seenLocalIDs.insert(created.id)
-                            taskByID[created.id] = created
+                            reconciliationState.markSeen(created.id)
+                            reconciliationState.recordTask(created)
                             let newMap = ExternalItemMapDefinition(
                                 id: UUID(),
                                 provider: "apple_reminders",
@@ -536,15 +629,12 @@ public final class ReconcileExternalRemindersUseCase {
                                 createdAt: Date()
                             )
                             self.externalRepository.saveItemMapping(newMap) { saveResult in
-                                lock.lock()
                                 if case .failure(let error) = saveResult {
-                                    firstError = firstError ?? error
+                                    errors.record(error)
                                 } else {
-                                    summary.importedNew += 1
-                                    mappingByLocalID[created.id] = newMap
-                                    mappingByExternalID[newMap.externalItemID] = newMap
+                                    reconciliationState.incrementImportedNew()
+                                    reconciliationState.recordMapping(newMap, localID: created.id)
                                 }
-                                lock.unlock()
                                 group.leave()
                             }
                         }
@@ -554,11 +644,11 @@ public final class ReconcileExternalRemindersUseCase {
         }
 
         // Remote delete/tombstone handling for mapped items that disappeared remotely.
-        for mapping in mappingByLocalID.values where externalByID[mapping.externalItemID] == nil {
+        for mapping in reconciliationState.localMappingSnapshot() where externalByID[mapping.externalItemID] == nil {
             guard mapping.localEntityType == "task" else { continue }
             let existingEnvelope = mergeEngine.decodeEnvelope(data: mapping.externalPayloadData)
             let remoteClock = remoteSyncClock(for: mapping, provider: mapping.provider)
-            let localTask = taskByID[mapping.localEntityID]
+            let localTask = reconciliationState.task(id: mapping.localEntityID)
             let priorKnown = existingEnvelope?.known
             let localKnown: ReminderMergeEnvelope.KnownFields
             if let localTask {
@@ -593,19 +683,18 @@ public final class ReconcileExternalRemindersUseCase {
                 )
             )
 
-            var updatedMap = mapping
-            updatedMap.syncStateData = mergeResult.state.encodedData()
+            var updatedMapDraft = mapping
+            updatedMapDraft.syncStateData = mergeResult.state.encodedData()
+            let updatedMap = updatedMapDraft
 
             switch mergeResult.tombstoneDecision {
             case .applyDelete:
                 guard let localTask else {
                     group.enter()
                     self.externalRepository.saveItemMapping(updatedMap) { saveResult in
-                        lock.lock()
                         if case .failure(let error) = saveResult {
-                            firstError = firstError ?? error
+                            errors.record(error)
                         }
-                        lock.unlock()
                         group.leave()
                     }
                     continue
@@ -613,18 +702,15 @@ public final class ReconcileExternalRemindersUseCase {
                 group.enter()
                 taskRepository.delete(id: localTask.id) { deleteResult in
                     if case .failure(let error) = deleteResult {
-                        lock.lock()
-                        firstError = firstError ?? error
-                        lock.unlock()
+                        errors.record(error)
                     }
-                    self.externalRepository.saveItemMapping(updatedMap) { saveResult in
-                        lock.lock()
+                    let mapToPersist = updatedMap
+                    self.externalRepository.saveItemMapping(mapToPersist) { saveResult in
                         if case .failure(let error) = saveResult {
-                            firstError = firstError ?? error
+                            errors.record(error)
                         } else {
-                            taskByID.removeValue(forKey: localTask.id)
+                            reconciliationState.removeTask(id: localTask.id)
                         }
-                        lock.unlock()
                         group.leave()
                     }
                 }
@@ -633,11 +719,9 @@ public final class ReconcileExternalRemindersUseCase {
                 guard let localTask else {
                     group.enter()
                     self.externalRepository.saveItemMapping(updatedMap) { saveResult in
-                        lock.lock()
                         if case .failure(let error) = saveResult {
-                            firstError = firstError ?? error
+                            errors.record(error)
                         }
-                        lock.unlock()
                         group.leave()
                     }
                     continue
@@ -660,26 +744,24 @@ public final class ReconcileExternalRemindersUseCase {
                 remindersProvider.upsertReminder(listID: listID, snapshot: localSnapshot) { upsertResult in
                     switch upsertResult {
                     case .failure(let error):
-                        lock.lock()
-                        firstError = firstError ?? error
-                        lock.unlock()
+                        errors.record(error)
                         group.leave()
                     case .success(let remote):
-                        updatedMap.externalItemID = remote.itemID
-                        updatedMap.lastSeenExternalModAt = remote.lastModifiedAt
-                        updatedMap.externalPayloadData = self.payloadDataForPersistedRemote(
+                        var persistedMap = updatedMap
+                        persistedMap.externalItemID = remote.itemID
+                        persistedMap.lastSeenExternalModAt = remote.lastModifiedAt
+                        persistedMap.externalPayloadData = self.payloadDataForPersistedRemote(
                             remote: remote,
                             fallbackPayloadData: localSnapshot.payloadData
                         )
-                        self.externalRepository.saveItemMapping(updatedMap) { saveResult in
-                            lock.lock()
+                        let mapToPersist = persistedMap
+                        self.externalRepository.saveItemMapping(mapToPersist) { saveResult in
                             if case .failure(let error) = saveResult {
-                                firstError = firstError ?? error
+                                errors.record(error)
                             } else {
-                                summary.pushedToExternal += 1
-                                mappingByExternalID[updatedMap.externalItemID] = updatedMap
+                                reconciliationState.incrementPushedToExternal()
+                                reconciliationState.recordMapping(mapToPersist)
                             }
-                            lock.unlock()
                             group.leave()
                         }
                     }
@@ -688,18 +770,16 @@ public final class ReconcileExternalRemindersUseCase {
             case .keep:
                 group.enter()
                 self.externalRepository.saveItemMapping(updatedMap) { saveResult in
-                    lock.lock()
                     if case .failure(let error) = saveResult {
-                        firstError = firstError ?? error
+                        errors.record(error)
                     }
-                    lock.unlock()
                     group.leave()
                 }
             }
         }
 
         // Push local tasks that are still unmapped.
-        for task in taskByID.values where mappingByLocalID[task.id] == nil && !seenLocalIDs.contains(task.id) {
+        for task in reconciliationState.unmappedTaskSnapshot() {
             group.enter()
             let payloadData = payloadDataForLocalTask(
                 task: task,
@@ -718,9 +798,7 @@ public final class ReconcileExternalRemindersUseCase {
             remindersProvider.upsertReminder(listID: listID, snapshot: localSnapshot) { upsertResult in
                 switch upsertResult {
                 case .failure(let error):
-                    lock.lock()
-                    firstError = firstError ?? error
-                    lock.unlock()
+                    errors.record(error)
                     group.leave()
                 case .success(let remote):
                     let mapping = ExternalItemMapDefinition(
@@ -736,13 +814,12 @@ public final class ReconcileExternalRemindersUseCase {
                         createdAt: Date()
                     )
                     self.externalRepository.saveItemMapping(mapping) { saveResult in
-                        lock.lock()
                         if case .failure(let error) = saveResult {
-                            firstError = firstError ?? error
+                            errors.record(error)
                         } else {
-                            summary.pushedToExternal += 1
+                            reconciliationState.incrementPushedToExternal()
+                            reconciliationState.recordMapping(mapping)
                         }
-                        lock.unlock()
                         group.leave()
                     }
                 }
@@ -750,7 +827,7 @@ public final class ReconcileExternalRemindersUseCase {
         }
 
         group.notify(queue: .main) {
-            if let firstError {
+            if let firstError = errors.firstError() {
                 logError(
                     event: "reminders_reconcile_failed",
                     message: "Two-way Apple Reminders reconciliation failed",
@@ -761,6 +838,7 @@ public final class ReconcileExternalRemindersUseCase {
                 )
                 completion(.failure(firstError))
             } else {
+                let summary = reconciliationState.summarySnapshot()
                 logWarning(
                     event: "reminders_reconcile_completed",
                     message: "Two-way Apple Reminders reconciliation completed",
@@ -1020,7 +1098,7 @@ public final class ReconcileExternalRemindersUseCase {
     /// Executes defaultNodeID.
     public static func defaultNodeID() -> String {
         let defaults = UserDefaults.standard
-        let key = "tasker.sync.node_id"
+        let key = "lifeboard.sync.node_id"
         if let existing = defaults.string(forKey: key), existing.isEmpty == false {
             return existing
         }

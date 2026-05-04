@@ -11,7 +11,7 @@ import UIKit
 #endif
 
 /// Use case for calculating analytics and productivity metrics
-public final class CalculateAnalyticsUseCase {
+public final class CalculateAnalyticsUseCase: @unchecked Sendable {
     
     // MARK: - Dependencies
     
@@ -88,7 +88,7 @@ public final class CalculateAnalyticsUseCase {
     // MARK: - Daily Analytics
     
     /// Calculate analytics for today
-    public func calculateTodayAnalytics(completion: @escaping (Result<DailyAnalytics, AnalyticsError>) -> Void) {
+    public func calculateTodayAnalytics(completion: @escaping @Sendable (Result<DailyAnalytics, AnalyticsError>) -> Void) {
         calculateDailyAnalytics(for: Date(), completion: completion)
     }
     
@@ -96,7 +96,7 @@ public final class CalculateAnalyticsUseCase {
     public func calculateDailyAnalytics(
         for date: Date,
         habitSignals: [TaskerHabitSignal] = [],
-        completion: @escaping (Result<DailyAnalytics, AnalyticsError>) -> Void
+        completion: @escaping @Sendable (Result<DailyAnalytics, AnalyticsError>) -> Void
     ) {
         resolveHabitSignalsForDay(date, suppliedSignals: habitSignals) { [weak self] result in
             switch result {
@@ -115,7 +115,7 @@ public final class CalculateAnalyticsUseCase {
     private func calculateDailyAnalyticsResolved(
         for date: Date,
         habitSignals: [TaskerHabitSignal],
-        completion: @escaping (Result<DailyAnalytics, AnalyticsError>) -> Void
+        completion: @escaping @Sendable (Result<DailyAnalytics, AnalyticsError>) -> Void
     ) {
         let cacheKey = dailyCacheKey(for: date, habitSignals: habitSignals)
         let canUseCache = habitSignals.isEmpty == false || habitRuntimeReadRepository != nil
@@ -166,7 +166,7 @@ public final class CalculateAnalyticsUseCase {
     /// Calculate analytics for the current week
     public func calculateWeeklyAnalytics(
         habitSignalsByDay: [String: [TaskerHabitSignal]] = [:],
-        completion: @escaping (Result<WeeklyAnalytics, AnalyticsError>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyAnalytics, AnalyticsError>) -> Void
     ) {
         let calendar = Calendar.current
         guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: Date()) else {
@@ -207,7 +207,7 @@ public final class CalculateAnalyticsUseCase {
     /// Calculate analytics for the current month
     public func calculateMonthlyAnalytics(
         habitSignalsByDay: [String: [TaskerHabitSignal]] = [:],
-        completion: @escaping (Result<MonthlyAnalytics, AnalyticsError>) -> Void
+        completion: @escaping @Sendable (Result<MonthlyAnalytics, AnalyticsError>) -> Void
     ) {
         let calendar = Calendar.current
         guard let monthInterval = calendar.dateInterval(of: .month, for: Date()) else {
@@ -276,7 +276,7 @@ public final class CalculateAnalyticsUseCase {
         from startDate: Date,
         to endDate: Date,
         habitSignalsByDay: [String: [TaskerHabitSignal]] = [:],
-        completion: @escaping (Result<PeriodAnalytics, AnalyticsError>) -> Void
+        completion: @escaping @Sendable (Result<PeriodAnalytics, AnalyticsError>) -> Void
     ) {
         resolveHabitSignalsByDay(
             from: startDate,
@@ -301,7 +301,7 @@ public final class CalculateAnalyticsUseCase {
         from startDate: Date,
         to endDate: Date,
         habitSignalsByDay: [String: [TaskerHabitSignal]],
-        completion: @escaping (Result<PeriodAnalytics, AnalyticsError>) -> Void
+        completion: @escaping @Sendable (Result<PeriodAnalytics, AnalyticsError>) -> Void
     ) {
         // Validate date range
         guard startDate <= endDate else {
@@ -368,7 +368,7 @@ public final class CalculateAnalyticsUseCase {
     // MARK: - Productivity Score
     
     /// Calculate overall productivity score
-    public func calculateProductivityScore(completion: @escaping (Result<ProductivityScore, AnalyticsError>) -> Void) {
+    public func calculateProductivityScore(completion: @escaping @Sendable (Result<ProductivityScore, AnalyticsError>) -> Void) {
         analyticsCacheLock.lock()
         if let cachedProductivityScore {
             analyticsCacheLock.unlock()
@@ -412,7 +412,7 @@ public final class CalculateAnalyticsUseCase {
     // MARK: - Streak Calculation
     
     /// Calculate current completion streak
-    public func calculateStreak(completion: @escaping (Result<StreakInfo, AnalyticsError>) -> Void) {
+    public func calculateStreak(completion: @escaping @Sendable (Result<StreakInfo, AnalyticsError>) -> Void) {
         analyticsCacheLock.lock()
         if let cachedStreakInfo {
             analyticsCacheLock.unlock()
@@ -457,7 +457,7 @@ public final class CalculateAnalyticsUseCase {
     /// Executes fetchTasksForDay.
     private func fetchTasksForDay(
         _ date: Date,
-        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void
     ) {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
@@ -479,7 +479,7 @@ public final class CalculateAnalyticsUseCase {
     /// Executes fetchTasks.
     private func fetchTasks(
         query: TaskReadQuery,
-        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void
     ) {
         guard let taskReadModelRepository else {
             completion(.failure(NSError(
@@ -528,7 +528,7 @@ public final class CalculateAnalyticsUseCase {
     private func resolveHabitSignalsForDay(
         _ date: Date,
         suppliedSignals: [TaskerHabitSignal],
-        completion: @escaping (Result<[TaskerHabitSignal], AnalyticsError>) -> Void
+        completion: @escaping @Sendable (Result<[TaskerHabitSignal], AnalyticsError>) -> Void
     ) {
         guard suppliedSignals.isEmpty, let habitRuntimeReadRepository else {
             completion(.success(suppliedSignals))
@@ -552,7 +552,7 @@ public final class CalculateAnalyticsUseCase {
         from startDate: Date,
         to endDate: Date,
         suppliedSignalsByDay: [String: [TaskerHabitSignal]],
-        completion: @escaping (Result<[String: [TaskerHabitSignal]], AnalyticsError>) -> Void
+        completion: @escaping @Sendable (Result<[String: [TaskerHabitSignal]], AnalyticsError>) -> Void
     ) {
         guard suppliedSignalsByDay.isEmpty, let habitRuntimeReadRepository else {
             completion(.success(suppliedSignalsByDay))
@@ -1066,7 +1066,9 @@ public struct TaskerHabitSignal: Equatable, Sendable {
     }
 }
 
-public struct DailyAnalytics {
+public typealias LifeBoardHabitSignal = TaskerHabitSignal
+
+public struct DailyAnalytics: Sendable {
     public let date: Date
     public let totalTasks: Int
     public let completedTasks: Int
@@ -1101,7 +1103,7 @@ public struct DailyAnalytics {
     }
 }
 
-public struct WeeklyAnalytics {
+public struct WeeklyAnalytics: Sendable {
     public let weekStartDate: Date
     public let weekEndDate: Date
     public let dailyAnalytics: [DailyAnalytics]
@@ -1114,7 +1116,7 @@ public struct WeeklyAnalytics {
     public let habitAnalytics: HabitAnalyticsSnapshot
 }
 
-public struct MonthlyAnalytics {
+public struct MonthlyAnalytics: Sendable {
     public let month: Date
     public let weeklyBreakdown: [WeeklyAnalytics]
     public let totalScore: Int
@@ -1127,7 +1129,7 @@ public struct MonthlyAnalytics {
     public let habitAnalytics: HabitAnalyticsSnapshot
 }
 
-public struct PeriodAnalytics {
+public struct PeriodAnalytics: Sendable {
     public let startDate: Date
     public let endDate: Date
     public let dailyBreakdown: [DailyAnalytics]
@@ -1171,7 +1173,7 @@ public struct PeriodAnalytics {
     }
 }
 
-public struct ProductivityScore {
+public struct ProductivityScore: Sendable {
     public let totalScore: Int
     public let level: Int
     public let currentLevelProgress: Int
@@ -1194,7 +1196,7 @@ public struct ProductivityScore {
     }
 }
 
-public struct StreakInfo {
+public struct StreakInfo: Sendable {
     public let currentStreak: Int
     public let longestStreak: Int
     public let lastCompletionDate: Date?

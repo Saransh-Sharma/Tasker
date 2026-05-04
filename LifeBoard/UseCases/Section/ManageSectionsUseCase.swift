@@ -1,6 +1,6 @@
 import Foundation
 
-public final class ManageSectionsUseCase {
+public final class ManageSectionsUseCase: @unchecked Sendable {
     private let repository: SectionRepositoryProtocol
 
     /// Initializes a new instance.
@@ -9,18 +9,18 @@ public final class ManageSectionsUseCase {
     }
 
     /// Executes list.
-    public func list(projectID: UUID, completion: @escaping (Result<[TaskerProjectSection], Error>) -> Void) {
+    public func list(projectID: UUID, completion: @escaping @Sendable (Result<[LifeBoardProjectSection], Error>) -> Void) {
         repository.fetchSections(projectID: projectID, completion: completion)
     }
 
     /// Executes create.
-    public func create(projectID: UUID, name: String, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) {
-        let section = TaskerProjectSection(projectID: projectID, name: name)
+    public func create(projectID: UUID, name: String, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) {
+        let section = LifeBoardProjectSection(projectID: projectID, name: name)
         repository.create(section, completion: completion)
     }
 
     /// Executes rename.
-    public func rename(id: UUID, projectID: UUID, name: String, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) {
+    public func rename(id: UUID, projectID: UUID, name: String, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) {
         repository.fetchSections(projectID: projectID) { result in
             switch result {
             case .success(let sections):

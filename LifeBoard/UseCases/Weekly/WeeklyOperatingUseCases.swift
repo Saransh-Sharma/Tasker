@@ -2,14 +2,14 @@ import Foundation
 
 private enum WeeklyUseCaseCalendar {
     static func configuredWeekStartDay(
-        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+        preferencesStore: LifeBoardWorkspacePreferencesStore = .shared
     ) -> Weekday {
         preferencesStore.load().weekStartsOn
     }
 
     static func normalizedWeekStart(
         for date: Date,
-        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+        preferencesStore: LifeBoardWorkspacePreferencesStore = .shared
     ) -> Date {
         XPCalculationEngine.startOfWeek(
             for: date,
@@ -19,7 +19,7 @@ private enum WeeklyUseCaseCalendar {
 
     static func normalizedWeekEnd(
         for weekStartDate: Date,
-        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+        preferencesStore: LifeBoardWorkspacePreferencesStore = .shared
     ) -> Date {
         XPCalculationEngine.endOfWeek(
             for: weekStartDate,
@@ -29,7 +29,7 @@ private enum WeeklyUseCaseCalendar {
 
     static func nextWeekStart(
         after date: Date,
-        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+        preferencesStore: LifeBoardWorkspacePreferencesStore = .shared
     ) -> Date {
         XPCalculationEngine.upcomingWeekStart(
             after: date,
@@ -39,7 +39,7 @@ private enum WeeklyUseCaseCalendar {
 
     static func isInUpcomingPlanningWindow(
         referenceDate: Date,
-        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+        preferencesStore: LifeBoardWorkspacePreferencesStore = .shared
     ) -> Bool {
         let weekStartsOn = configuredWeekStartDay(preferencesStore: preferencesStore)
         let calendar = XPCalculationEngine.weekCalendar(startingOn: weekStartsOn)
@@ -52,6 +52,79 @@ private enum WeeklyUseCaseCalendar {
         let planningWindowStart = calendar.date(byAdding: .day, value: -2, to: nextWeekStart) ?? currentWeekStart
         let day = calendar.startOfDay(for: referenceDate)
         return day >= planningWindowStart && day < nextWeekStart
+    }
+}
+
+private final class WeeklyPlanSnapshotBuildState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedError: Error?
+    private var outcomes: [WeeklyOutcome] = []
+    private var review: WeeklyReview?
+    private var thisWeekTasks: [TaskDefinition] = []
+    private var nextWeekTasks: [TaskDefinition] = []
+    private var laterTasks: [TaskDefinition] = []
+    private var reflectionNotes: [ReflectionNote] = []
+
+    func recordError(_ error: Error) {
+        lock.lock()
+        if storedError == nil {
+            storedError = error
+        }
+        lock.unlock()
+    }
+
+    func setOutcomes(_ value: [WeeklyOutcome]) {
+        lock.lock()
+        outcomes = value
+        lock.unlock()
+    }
+
+    func setReview(_ value: WeeklyReview?) {
+        lock.lock()
+        review = value
+        lock.unlock()
+    }
+
+    func setTasks(_ value: [TaskDefinition], bucket: TaskPlanningBucket) {
+        lock.lock()
+        switch bucket {
+        case .thisWeek:
+            thisWeekTasks = value
+        case .nextWeek:
+            nextWeekTasks = value
+        case .later:
+            laterTasks = value
+        case .today, .someday:
+            break
+        }
+        lock.unlock()
+    }
+
+    func setReflectionNotes(_ value: [ReflectionNote]) {
+        lock.lock()
+        reflectionNotes = value
+        lock.unlock()
+    }
+
+    func result(weekStart: Date, plan: WeeklyPlan?) -> Result<WeeklyPlanSnapshot, Error> {
+        lock.lock()
+        let error = storedError
+        let snapshot = WeeklyPlanSnapshot(
+            weekStartDate: weekStart,
+            plan: plan,
+            outcomes: outcomes,
+            review: review,
+            thisWeekTasks: thisWeekTasks,
+            nextWeekTasks: nextWeekTasks,
+            laterTasks: laterTasks,
+            reflectionNotes: reflectionNotes
+        )
+        lock.unlock()
+
+        if let error {
+            return .failure(error)
+        }
+        return .success(snapshot)
     }
 }
 
@@ -291,14 +364,14 @@ private struct WeeklyHomeSurfaceResolution {
     let plannerPresentation: WeeklyPlannerPresentationMode
 }
 
-public final class BuildWeeklyPlanSnapshotUseCase {
+public final class BuildWeeklyPlanSnapshotUseCase: @unchecked Sendable {
     private let weeklyPlanRepository: WeeklyPlanRepositoryProtocol
     private let weeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol
     private let weeklyReviewRepository: WeeklyReviewRepositoryProtocol
     private let reflectionNoteRepository: ReflectionNoteRepositoryProtocol
     private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
-    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
 
     public init(
         weeklyPlanRepository: WeeklyPlanRepositoryProtocol,
@@ -307,7 +380,7 @@ public final class BuildWeeklyPlanSnapshotUseCase {
         reflectionNoteRepository: ReflectionNoteRepositoryProtocol,
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared
     ) {
         self.weeklyPlanRepository = weeklyPlanRepository
         self.weeklyOutcomeRepository = weeklyOutcomeRepository
@@ -320,7 +393,7 @@ public final class BuildWeeklyPlanSnapshotUseCase {
 
     public func execute(
         referenceDate: Date = Date(),
-        completion: @escaping (Result<WeeklyPlanSnapshot, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyPlanSnapshot, Error>) -> Void
     ) {
         let weekStart = WeeklyUseCaseCalendar.normalizedWeekStart(
             for: referenceDate,
@@ -343,33 +416,18 @@ public final class BuildWeeklyPlanSnapshotUseCase {
     private func buildSnapshot(
         weekStart: Date,
         plan: WeeklyPlan?,
-        completion: @escaping (Result<WeeklyPlanSnapshot, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyPlanSnapshot, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-        var outcomes: [WeeklyOutcome] = []
-        var review: WeeklyReview?
-        var thisWeekTasks: [TaskDefinition] = []
-        var nextWeekTasks: [TaskDefinition] = []
-        var laterTasks: [TaskDefinition] = []
-        var reflectionNotes: [ReflectionNote] = []
-
-        func capture(_ error: Error) {
-            lock.lock()
-            if firstError == nil {
-                firstError = error
-            }
-            lock.unlock()
-        }
+        let state = WeeklyPlanSnapshotBuildState()
 
         if let plan {
             group.enter()
             weeklyOutcomeRepository.fetchOutcomes(weeklyPlanID: plan.id) { result in
                 if case .success(let fetched) = result {
-                    outcomes = fetched
+                    state.setOutcomes(fetched)
                 } else if case .failure(let error) = result {
-                    capture(error)
+                    state.recordError(error)
                 }
                 group.leave()
             }
@@ -377,9 +435,9 @@ public final class BuildWeeklyPlanSnapshotUseCase {
             group.enter()
             weeklyReviewRepository.fetchReview(weeklyPlanID: plan.id) { result in
                 if case .success(let fetched) = result {
-                    review = fetched
+                    state.setReview(fetched)
                 } else if case .failure(let error) = result {
-                    capture(error)
+                    state.recordError(error)
                 }
                 group.leave()
             }
@@ -389,48 +447,34 @@ public final class BuildWeeklyPlanSnapshotUseCase {
                 query: ReflectionNoteQuery(linkedWeeklyPlanID: plan.id, limit: 12)
             ) { result in
                 if case .success(let fetched) = result {
-                    reflectionNotes = fetched
+                    state.setReflectionNotes(fetched)
                 } else if case .failure(let error) = result {
-                    capture(error)
+                    state.recordError(error)
                 }
                 group.leave()
             }
         }
 
-        loadTasks(bucket: .thisWeek, storeInto: { thisWeekTasks = $0 }, capture: capture, group: group)
-        loadTasks(bucket: .nextWeek, storeInto: { nextWeekTasks = $0 }, capture: capture, group: group)
-        loadTasks(bucket: .later, storeInto: { laterTasks = $0 }, capture: capture, group: group)
+        loadTasks(bucket: .thisWeek, state: state, group: group)
+        loadTasks(bucket: .nextWeek, state: state, group: group)
+        loadTasks(bucket: .later, state: state, group: group)
 
         group.notify(queue: .main) {
-            if let firstError {
-                completion(.failure(firstError))
-                return
-            }
-            completion(.success(WeeklyPlanSnapshot(
-                weekStartDate: weekStart,
-                plan: plan,
-                outcomes: outcomes,
-                review: review,
-                thisWeekTasks: thisWeekTasks,
-                nextWeekTasks: nextWeekTasks,
-                laterTasks: laterTasks,
-                reflectionNotes: reflectionNotes
-            )))
+            completion(state.result(weekStart: weekStart, plan: plan))
         }
     }
 
     private func loadTasks(
         bucket: TaskPlanningBucket,
-        storeInto: @escaping ([TaskDefinition]) -> Void,
-        capture: @escaping (Error) -> Void,
+        state: WeeklyPlanSnapshotBuildState,
         group: DispatchGroup
     ) {
         group.enter()
-        let completionBlock: (Result<[TaskDefinition], Error>) -> Void = { result in
+        let completionBlock: @Sendable (Result<[TaskDefinition], Error>) -> Void = { result in
             if case .success(let tasks) = result {
-                storeInto(tasks)
+                state.setTasks(tasks, bucket: bucket)
             } else if case .failure(let error) = result {
-                capture(error)
+                state.recordError(error)
             }
             group.leave()
         }
@@ -460,22 +504,22 @@ public final class BuildWeeklyPlanSnapshotUseCase {
     }
 }
 
-public final class EstimateWeeklyCapacityUseCase {
+public final class EstimateWeeklyCapacityUseCase: @unchecked Sendable {
     private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
-    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
 
     public init(
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared
     ) {
         self.taskReadModelRepository = taskReadModelRepository
         self.taskDefinitionRepository = taskDefinitionRepository
         self.workspacePreferencesStore = workspacePreferencesStore
     }
 
-    public func execute(referenceDate: Date = Date(), completion: @escaping (Result<Int, Error>) -> Void) {
+    public func execute(referenceDate: Date = Date(), completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         let weekStartsOn = WeeklyUseCaseCalendar.configuredWeekStartDay(preferencesStore: workspacePreferencesStore)
         let calendar = XPCalculationEngine.weekCalendar(startingOn: weekStartsOn)
         let currentWeekStart = XPCalculationEngine.startOfWeek(
@@ -507,7 +551,7 @@ public final class EstimateWeeklyCapacityUseCase {
 
     private func fetchRecentTasks(
         updatedAfter: Date,
-        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void
     ) {
         if let taskReadModelRepository {
             taskReadModelRepository.fetchTasks(
@@ -534,15 +578,15 @@ public final class EstimateWeeklyCapacityUseCase {
     }
 }
 
-public final class GetWeeklySummaryUseCase {
+public final class GetWeeklySummaryUseCase: @unchecked Sendable {
     private let buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase
     private let estimateWeeklyCapacity: EstimateWeeklyCapacityUseCase
-    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
 
     public init(
         buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase,
         estimateWeeklyCapacity: EstimateWeeklyCapacityUseCase,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared
     ) {
         self.buildWeeklyPlanSnapshot = buildWeeklyPlanSnapshot
         self.estimateWeeklyCapacity = estimateWeeklyCapacity
@@ -551,7 +595,7 @@ public final class GetWeeklySummaryUseCase {
 
     public func execute(
         referenceDate: Date = Date(),
-        completion: @escaping (Result<HomeWeeklySummary, Error>) -> Void
+        completion: @escaping @Sendable (Result<HomeWeeklySummary, Error>) -> Void
     ) {
         let currentWeekStart = WeeklyUseCaseCalendar.normalizedWeekStart(
             for: referenceDate,
@@ -640,19 +684,19 @@ public final class GetWeeklySummaryUseCase {
     }
 }
 
-public final class SaveWeeklyPlanUseCase {
+public final class SaveWeeklyPlanUseCase: @unchecked Sendable {
     private let weeklyPlanRepository: WeeklyPlanRepositoryProtocol
     private let weeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol
     private let updateTaskDefinitionUseCase: UpdateTaskDefinitionUseCase
     private let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
-    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
 
     public init(
         weeklyPlanRepository: WeeklyPlanRepositoryProtocol,
         weeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol,
         updateTaskDefinitionUseCase: UpdateTaskDefinitionUseCase,
         taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared
     ) {
         self.weeklyPlanRepository = weeklyPlanRepository
         self.weeklyOutcomeRepository = weeklyOutcomeRepository
@@ -663,7 +707,7 @@ public final class SaveWeeklyPlanUseCase {
 
     public func execute(
         request: SaveWeeklyPlanRequest,
-        completion: @escaping (Result<WeeklyPlan, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyPlan, Error>) -> Void
     ) {
         let normalizedWeekStart = WeeklyUseCaseCalendar.normalizedWeekStart(
             for: request.weekStartDate,
@@ -688,7 +732,7 @@ public final class SaveWeeklyPlanUseCase {
         weekStartDate: Date,
         existingPlan: WeeklyPlan?,
         request: SaveWeeklyPlanRequest,
-        completion: @escaping (Result<WeeklyPlan, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyPlan, Error>) -> Void
     ) {
         let normalizedWeekEnd = WeeklyUseCaseCalendar.normalizedWeekEnd(
             for: weekStartDate,
@@ -720,7 +764,7 @@ public final class SaveWeeklyPlanUseCase {
     private func persistOutcomes(
         plan: WeeklyPlan,
         request: SaveWeeklyPlanRequest,
-        completion: @escaping (Result<WeeklyPlan, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyPlan, Error>) -> Void
     ) {
         weeklyOutcomeRepository.fetchOutcomes(weeklyPlanID: plan.id) { fetchResult in
             switch fetchResult {
@@ -773,7 +817,7 @@ public final class SaveWeeklyPlanUseCase {
     private func persistTaskAssignments(
         assignments: [SaveWeeklyPlanTaskAssignment],
         validOutcomeIDs: Set<UUID>,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let orderedAssignments = assignments.sorted { lhs, rhs in
             lhs.task.id.uuidString < rhs.task.id.uuidString
@@ -790,7 +834,7 @@ public final class SaveWeeklyPlanUseCase {
         at index: Int,
         assignments: [SaveWeeklyPlanTaskAssignment],
         validOutcomeIDs: Set<UUID>,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard index < assignments.count else {
             completion(.success(()))
@@ -859,7 +903,7 @@ public final class SaveWeeklyPlanUseCase {
     }
 }
 
-public final class CalculateWeeklyMomentumUseCase {
+public final class CalculateWeeklyMomentumUseCase: @unchecked Sendable {
     private let buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase
 
     public init(buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase) {
@@ -868,7 +912,7 @@ public final class CalculateWeeklyMomentumUseCase {
 
     public func execute(
         referenceDate: Date = Date(),
-        completion: @escaping (Result<WeeklyMomentumSummary, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyMomentumSummary, Error>) -> Void
     ) {
         buildWeeklyPlanSnapshot.execute(referenceDate: referenceDate) { result in
             switch result {
@@ -938,7 +982,7 @@ public final class CalculateWeeklyMomentumUseCase {
     }
 }
 
-public final class BuildRecoveryInsightsUseCase {
+public final class BuildRecoveryInsightsUseCase: @unchecked Sendable {
     public init() {}
 
     public func execute(decisions: [WeeklyReviewTaskDecision]) -> RecoveryInsights {
@@ -967,7 +1011,7 @@ public final class BuildRecoveryInsightsUseCase {
     }
 }
 
-public final class CompleteWeeklyReviewUseCase {
+public final class CompleteWeeklyReviewUseCase: @unchecked Sendable {
     private let reviewMutationRepository: WeeklyReviewMutationRepositoryProtocol
 
     public init(
@@ -978,7 +1022,7 @@ public final class CompleteWeeklyReviewUseCase {
 
     public func execute(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
         reviewMutationRepository.finalizeReview(request: request, completion: completion)
     }

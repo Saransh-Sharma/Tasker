@@ -1,6 +1,6 @@
 //
 //  EnsureInboxProjectUseCase.swift
-//  Tasker
+//  LifeBoard
 //
 //  Use case for ensuring the Inbox project exists in the system
 //
@@ -9,7 +9,7 @@ import Foundation
 
 /// Use case for ensuring the Inbox project exists
 /// This is called during app initialization to guarantee the default project is available
-public final class EnsureInboxProjectUseCase {
+public final class EnsureInboxProjectUseCase: @unchecked Sendable {
 
     // MARK: - Dependencies
 
@@ -26,7 +26,7 @@ public final class EnsureInboxProjectUseCase {
 
     /// Ensures the Inbox project exists in the database
     /// Creates it if it doesn't exist, updates it if needed
-    public func execute(completion: @escaping (Result<Project, EnsureInboxError>) -> Void) {
+    public func execute(completion: @escaping @Sendable (Result<Project, EnsureInboxError>) -> Void) {
         // Try to fetch the Inbox project first
         projectRepository.fetchProject(withId: ProjectConstants.inboxProjectID) { [weak self] result in
             guard let self = self else { return }
@@ -51,7 +51,7 @@ public final class EnsureInboxProjectUseCase {
     // MARK: - Private Methods
 
     /// Executes createInboxProject.
-    private func createInboxProject(completion: @escaping (Result<Project, EnsureInboxError>) -> Void) {
+    private func createInboxProject(completion: @escaping @Sendable (Result<Project, EnsureInboxError>) -> Void) {
         let inboxProject = Project.createInbox()
 
         projectRepository.createProject(inboxProject) { result in

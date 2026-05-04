@@ -1,6 +1,6 @@
 //
 //  BuildHomeAgendaUseCase.swift
-//  Tasker
+//  LifeBoard
 //
 //  Builds a mixed due-today agenda for Home.
 //
@@ -19,7 +19,7 @@ public struct HomeAgendaResult: Equatable {
     }
 }
 
-public final class BuildHomeAgendaUseCase {
+public final class BuildHomeAgendaUseCase: @unchecked Sendable {
     private let calendar: Calendar
 
     public init(calendar: Calendar = .current) {

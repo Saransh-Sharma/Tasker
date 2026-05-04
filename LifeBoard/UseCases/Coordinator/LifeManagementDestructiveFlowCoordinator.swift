@@ -1,6 +1,6 @@
 import Foundation
 
-public struct DeleteLifeAreaRequest: Equatable {
+public struct DeleteLifeAreaRequest: Equatable, Sendable {
     public let areaID: UUID
     public let destinationLifeAreaID: UUID
 
@@ -13,7 +13,7 @@ public struct DeleteLifeAreaRequest: Equatable {
     }
 }
 
-public struct DeleteProjectRequest: Equatable {
+public struct DeleteProjectRequest: Equatable, Sendable {
     public let projectID: UUID
     public let destinationProjectID: UUID
 
@@ -43,7 +43,7 @@ enum LifeManagementDestructiveFlowError: LocalizedError {
     }
 }
 
-public final class LifeManagementDestructiveFlowCoordinator {
+public final class LifeManagementDestructiveFlowCoordinator: @unchecked Sendable {
     private struct LifeAreaProjectSnapshot {
         let projectID: UUID
         let lifeAreaID: UUID
@@ -91,7 +91,7 @@ public final class LifeManagementDestructiveFlowCoordinator {
 
     public func deleteLifeArea(
         request: DeleteLifeAreaRequest,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard request.areaID != request.destinationLifeAreaID else {
             completion(.failure(LifeManagementDestructiveFlowError.lifeAreaDestinationMatchesSource))
@@ -173,7 +173,7 @@ public final class LifeManagementDestructiveFlowCoordinator {
 
     public func deleteProject(
         request: DeleteProjectRequest,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard request.projectID != request.destinationProjectID else {
             completion(.failure(LifeManagementDestructiveFlowError.projectDestinationMatchesSource))
@@ -379,48 +379,68 @@ public final class LifeManagementDestructiveFlowCoordinator {
         return nil
     }
 
-    private func awaitResult<T>(
-        _ operation: @escaping (@escaping (Result<T, Error>) -> Void) -> Void
+    private func awaitResult<T: Sendable>(
+        _ operation: @escaping @Sendable (@escaping @Sendable (Result<T, Error>) -> Void) -> Void
     ) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             operation { result in
-                continuation.resume(with: result)
+                switch result {
+                case .success(let value):
+                    continuation.resume(returning: value)
+                case .failure(let error):
+                    continuation.resume(throwing: error as NSError)
+                }
             }
         }
     }
 
-    private func awaitProjectResult<T>(
-        _ operation: @escaping (@escaping (Result<T, ProjectError>) -> Void) -> Void
+    private func awaitProjectResult<T: Sendable>(
+        _ operation: @escaping @Sendable (@escaping @Sendable (Result<T, ProjectError>) -> Void) -> Void
     ) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             operation { result in
-                continuation.resume(with: result.mapError { $0 as Error })
+                switch result {
+                case .success(let value):
+                    continuation.resume(returning: value)
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }
 
-    private func awaitHabitResult<T>(
-        _ operation: @escaping (@escaping (Result<T, Error>) -> Void) -> Void
+    private func awaitHabitResult<T: Sendable>(
+        _ operation: @escaping @Sendable (@escaping @Sendable (Result<T, Error>) -> Void) -> Void
     ) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             operation { result in
-                continuation.resume(with: result)
+                switch result {
+                case .success(let value):
+                    continuation.resume(returning: value)
+                case .failure(let error):
+                    continuation.resume(throwing: error as NSError)
+                }
             }
         }
     }
 
-    private func awaitTaskResult<T>(
-        _ operation: @escaping (@escaping (Result<T, Error>) -> Void) -> Void
+    private func awaitTaskResult<T: Sendable>(
+        _ operation: @escaping @Sendable (@escaping @Sendable (Result<T, Error>) -> Void) -> Void
     ) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             operation { result in
-                continuation.resume(with: result)
+                switch result {
+                case .success(let value):
+                    continuation.resume(returning: value)
+                case .failure(let error):
+                    continuation.resume(throwing: error as NSError)
+                }
             }
         }
     }
 
     private func awaitVoid(
-        _ operation: @escaping (@escaping (Result<Void, Error>) -> Void) -> Void
+        _ operation: @escaping @Sendable (@escaping @Sendable (Result<Void, Error>) -> Void) -> Void
     ) async throws {
         try await withCheckedThrowingContinuation { continuation in
             operation { result in

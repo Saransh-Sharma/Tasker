@@ -1,6 +1,6 @@
 import Foundation
 
-public final class CompleteTaskDefinitionUseCase {
+public final class CompleteTaskDefinitionUseCase: @unchecked Sendable {
     private let repository: TaskDefinitionRepositoryProtocol
     private let gamification: RecordXPUseCase?
     private let gamificationEngine: GamificationEngine?
@@ -17,7 +17,7 @@ public final class CompleteTaskDefinitionUseCase {
     }
 
     /// Executes execute.
-    public func execute(taskID: UUID, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    public func execute(taskID: UUID, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         setCompletion(taskID: taskID, to: true, completion: completion)
     }
 
@@ -25,7 +25,7 @@ public final class CompleteTaskDefinitionUseCase {
     public func setCompletion(
         taskID: UUID,
         to isComplete: Bool,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         repository.fetchTaskDefinition(id: taskID) { result in
             switch result {
@@ -35,6 +35,7 @@ public final class CompleteTaskDefinitionUseCase {
                     return
                 }
 
+                let previousTask = task
                 task.isComplete = isComplete
                 task.dateCompleted = isComplete ? Date() : nil
                 task.updatedAt = Date()
@@ -47,10 +48,10 @@ public final class CompleteTaskDefinitionUseCase {
                                     category: .complete,
                                     source: .manual,
                                     taskID: taskID,
-                                    dueDate: task.dueDate,
+                                    dueDate: previousTask.dueDate,
                                     completedAt: Date(),
-                                    priority: max(0, Int(task.priority.rawValue) - 1),
-                                    estimatedDuration: task.estimatedDuration
+                                    priority: max(0, Int(previousTask.priority.rawValue) - 1),
+                                    estimatedDuration: previousTask.estimatedDuration
                                 )
                                 engine.recordEvent(context: context) { result in
                                     if case .failure(let error) = result {
@@ -76,15 +77,15 @@ public final class CompleteTaskDefinitionUseCase {
                             reason: updatedTask.isComplete ? .completed : .reopened,
                             source: "completeTaskDefinitionUseCase",
                             taskID: updatedTask.id,
-                            previousIsComplete: task.isComplete,
+                            previousIsComplete: previousTask.isComplete,
                             newIsComplete: updatedTask.isComplete,
-                            previousDueDate: task.dueDate,
+                            previousDueDate: previousTask.dueDate,
                             newDueDate: updatedTask.dueDate,
-                            previousCompletionDate: task.dateCompleted,
+                            previousCompletionDate: previousTask.dateCompleted,
                             newCompletionDate: updatedTask.dateCompleted,
-                            previousProjectID: task.projectID,
+                            previousProjectID: previousTask.projectID,
                             newProjectID: updatedTask.projectID,
-                            previousPriorityRawValue: task.priority.rawValue,
+                            previousPriorityRawValue: previousTask.priority.rawValue,
                             newPriorityRawValue: updatedTask.priority.rawValue
                         )
                         TaskNotificationDispatcher.postOnMain(
@@ -101,12 +102,12 @@ public final class CompleteTaskDefinitionUseCase {
     }
 
     /// Executes complete.
-    public func complete(taskID: UUID, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    public func complete(taskID: UUID, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         setCompletion(taskID: taskID, to: true, completion: completion)
     }
 
     /// Executes uncomplete.
-    public func uncomplete(taskID: UUID, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    public func uncomplete(taskID: UUID, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         setCompletion(taskID: taskID, to: false, completion: completion)
     }
 }

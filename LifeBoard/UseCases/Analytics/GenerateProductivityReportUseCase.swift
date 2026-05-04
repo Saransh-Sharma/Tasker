@@ -1,6 +1,6 @@
 //
 //  GenerateProductivityReportUseCase.swift
-//  Tasker
+//  LifeBoard
 //
 //  Use case for generating comprehensive productivity reports
 //
@@ -8,7 +8,7 @@
 import Foundation
 
 /// Use case for generating productivity reports
-public final class GenerateProductivityReportUseCase {
+public final class GenerateProductivityReportUseCase: @unchecked Sendable {
     
     // MARK: - Dependencies
     
@@ -26,7 +26,7 @@ public final class GenerateProductivityReportUseCase {
     /// Generate daily productivity report
     public func generateDailyReport(
         for date: Date = Date(),
-        completion: @escaping (Result<GenerateProductivityReportUseCase.ProductivityReport, GenerateProductivityReportUseCase.AnalyticsError>) -> Void
+        completion: @escaping @Sendable (Result<GenerateProductivityReportUseCase.ProductivityReport, GenerateProductivityReportUseCase.AnalyticsError>) -> Void
     ) {
         let startOfDay = Calendar.current.startOfDay(for: date)
         let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) ?? date

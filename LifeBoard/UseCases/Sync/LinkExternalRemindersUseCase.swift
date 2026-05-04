@@ -1,7 +1,54 @@
 import Foundation
 
-public final class LinkExternalRemindersUseCase {
-    public struct ImportedReminderItem {
+private final class LinkExternalReminderErrorRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var firstError: Error?
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func snapshot() -> Error? {
+        lock.lock()
+        let error = firstError
+        lock.unlock()
+        return error
+    }
+}
+
+private final class LinkExternalReminderImportState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var imported: [LinkExternalRemindersUseCase.ImportedReminderItem] = []
+    private var firstError: Error?
+
+    func append(_ item: LinkExternalRemindersUseCase.ImportedReminderItem) {
+        lock.lock()
+        imported.append(item)
+        lock.unlock()
+    }
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func snapshot() -> (imported: [LinkExternalRemindersUseCase.ImportedReminderItem], firstError: Error?) {
+        lock.lock()
+        let snapshot = (imported, firstError)
+        lock.unlock()
+        return snapshot
+    }
+}
+
+public final class LinkExternalRemindersUseCase: @unchecked Sendable {
+    public struct ImportedReminderItem: Sendable {
         public let localEntityType: String
         public let localEntityID: UUID
         public let externalItemID: String
@@ -43,7 +90,7 @@ public final class LinkExternalRemindersUseCase {
     }
 
     /// Executes listContainerMappings.
-    public func listContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) {
+    public func listContainerMappings(completion: @escaping @Sendable (Result<[ExternalContainerMapDefinition], Error>) -> Void) {
         guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
             return
@@ -56,7 +103,7 @@ public final class LinkExternalRemindersUseCase {
         projectID: UUID,
         externalContainerID: String,
         importedItems: [ImportedReminderItem],
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
@@ -98,7 +145,7 @@ public final class LinkExternalRemindersUseCase {
                 completion(.failure(error))
             case .success:
                 let group = DispatchGroup()
-                var firstError: Error?
+                let errors = LinkExternalReminderErrorRecorder()
                 for item in importedItems {
                     let map = ExternalItemMapDefinition(
                         id: UUID(),
@@ -115,13 +162,13 @@ public final class LinkExternalRemindersUseCase {
                     group.enter()
                     self.externalRepository.saveItemMapping(map) { saveResult in
                         if case .failure(let error) = saveResult {
-                            firstError = firstError ?? error
+                            errors.record(error)
                         }
                         group.leave()
                     }
                 }
                 group.notify(queue: .main) {
-                    if let firstError {
+                    if let firstError = errors.snapshot() {
                         logError(
                             event: "reminders_link_items_failed",
                             message: "Failed to persist one or more imported reminder mappings",
@@ -154,7 +201,7 @@ public final class LinkExternalRemindersUseCase {
     public func linkProjectWithBootstrapImport(
         projectID: UUID,
         externalContainerID: String,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
@@ -214,7 +261,7 @@ public final class LinkExternalRemindersUseCase {
     private func bootstrapImportedItems(
         projectID: UUID,
         snapshots: [AppleReminderItemSnapshot],
-        completion: @escaping (Result<[ImportedReminderItem], Error>) -> Void
+        completion: @escaping @Sendable (Result<[ImportedReminderItem], Error>) -> Void
     ) {
         guard let taskRepository else {
             completion(.failure(NSError(
@@ -232,13 +279,11 @@ public final class LinkExternalRemindersUseCase {
             case .success(let tasks):
                 let projectTasks = tasks.filter { $0.projectID == projectID }
                 let group = DispatchGroup()
-                var imported: [ImportedReminderItem] = []
-                var firstError: Error?
-                let lock = NSLock()
+                let importState = LinkExternalReminderImportState()
 
                 for snapshot in snapshots {
                     if let matchedTask = self.matchExistingTask(snapshot: snapshot, tasks: projectTasks) {
-                        imported.append(
+                        importState.append(
                             ImportedReminderItem(
                                 localEntityType: "task",
                                 localEntityID: matchedTask.id,
@@ -251,6 +296,9 @@ public final class LinkExternalRemindersUseCase {
                         continue
                     }
 
+                    let reminderItemID = snapshot.itemID
+                    let reminderLastModifiedAt = snapshot.lastModifiedAt
+                    let reminderPayloadData = snapshot.payloadData
                     group.enter()
                     let importedTask = TaskDefinition(
                         projectID: projectID,
@@ -263,32 +311,31 @@ public final class LinkExternalRemindersUseCase {
                         dateCompleted: snapshot.completionDate
                     )
                     taskRepository.create(importedTask) { createResult in
-                        lock.lock()
                         switch createResult {
                         case .failure(let error):
-                            firstError = firstError ?? error
+                            importState.record(error)
                         case .success(let created):
-                            imported.append(
+                            importState.append(
                                 ImportedReminderItem(
                                     localEntityType: "task",
                                     localEntityID: created.id,
-                                    externalItemID: snapshot.itemID,
+                                    externalItemID: reminderItemID,
                                     externalPersistentID: nil,
-                                    externalModifiedAt: snapshot.lastModifiedAt,
-                                    externalPayloadData: snapshot.payloadData
+                                    externalModifiedAt: reminderLastModifiedAt,
+                                    externalPayloadData: reminderPayloadData
                                 )
                             )
                         }
-                        lock.unlock()
                         group.leave()
                     }
                 }
 
                 group.notify(queue: .main) {
-                    if let firstError {
+                    let result = importState.snapshot()
+                    if let firstError = result.firstError {
                         completion(.failure(firstError))
                     } else {
-                        completion(.success(imported))
+                        completion(.success(result.imported))
                     }
                 }
             }

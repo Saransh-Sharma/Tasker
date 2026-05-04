@@ -1,13 +1,13 @@
 //
 //  GetHomeFilteredTasksUseCase.swift
-//  Tasker
+//  LifeBoard
 //
 //  Unified filtering for Home "Focus Engine" quick views + facets + advanced filters
 //
 
 import Foundation
 
-public struct HomeFilteredTasksResult {
+public struct HomeFilteredTasksResult: Sendable {
     public let visibleOpenTasks: [TaskDefinition]
     public let visibleDoneTimelineTasks: [TaskDefinition]
     public let matchingOpenTasks: [TaskDefinition]
@@ -43,7 +43,7 @@ public enum GetHomeFilteredTasksError: LocalizedError {
     }
 }
 
-public final class GetHomeFilteredTasksUseCase {
+public final class GetHomeFilteredTasksUseCase: @unchecked Sendable {
 
     private let readModelRepository: TaskReadModelRepositoryProtocol?
     private let cacheLock = NSLock()
@@ -61,6 +61,28 @@ public final class GetHomeFilteredTasksUseCase {
         var matchingOpenTasks: [TaskDefinition] = []
         var openTasks: [TaskDefinition] = []
         var doneTimelineTasks: [TaskDefinition] = []
+    }
+
+    private final class ProjectionAccumulatorStore: @unchecked Sendable {
+        private let lock = NSLock()
+        private var accumulator: ProjectionAccumulator
+
+        init(_ accumulator: ProjectionAccumulator) {
+            self.accumulator = accumulator
+        }
+
+        func update(_ body: (inout ProjectionAccumulator) -> Void) {
+            lock.lock()
+            body(&accumulator)
+            lock.unlock()
+        }
+
+        func snapshot() -> ProjectionAccumulator {
+            lock.lock()
+            let accumulator = accumulator
+            lock.unlock()
+            return accumulator
+        }
     }
 
     /// Initializes a new instance.
@@ -94,7 +116,7 @@ public final class GetHomeFilteredTasksUseCase {
         state: HomeFilterState,
         scope: HomeListScope,
         revision: HomeDataRevision = .zero,
-        completion: @escaping (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
+        completion: @escaping @Sendable (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
     ) {
         guard let readModel = readModelRepository else {
             completion(.failure(.repositoryError(NSError(
@@ -115,8 +137,8 @@ public final class GetHomeFilteredTasksUseCase {
         }
         cacheLock.unlock()
 
-        let interval = TaskerPerformanceTrace.begin("HomeFilterQuery")
-        let projectionInterval = TaskerPerformanceTrace.begin("HomeFilterExactProjection")
+        let interval = LifeBoardPerformanceTrace.begin("HomeFilterQuery")
+        let projectionInterval = LifeBoardPerformanceTrace.begin("HomeFilterExactProjection")
 
         fetchHomeProjection(
             state: state,
@@ -125,8 +147,8 @@ public final class GetHomeFilteredTasksUseCase {
         ) { [weak self] result in
             guard let self else { return }
             defer {
-                TaskerPerformanceTrace.end(projectionInterval)
-                TaskerPerformanceTrace.end(interval)
+                LifeBoardPerformanceTrace.end(projectionInterval)
+                LifeBoardPerformanceTrace.end(interval)
             }
 
             switch result {
@@ -158,7 +180,7 @@ public final class GetHomeFilteredTasksUseCase {
     /// Executes execute.
     public func execute(
         state: HomeFilterState,
-        completion: @escaping (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
+        completion: @escaping @Sendable (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
     ) {
         execute(state: state, scope: .fromQuickView(state.quickView), revision: .zero, completion: completion)
     }
@@ -181,15 +203,15 @@ public final class GetHomeFilteredTasksUseCase {
         state: HomeFilterState,
         scope: HomeListScope,
         readModel: TaskReadModelRepositoryProtocol,
-        completion: @escaping (Result<ProjectionAccumulator, Error>) -> Void
+        completion: @escaping @Sendable (Result<ProjectionAccumulator, Error>) -> Void
     ) {
-        var accumulator = ProjectionAccumulator(
+        let accumulator = ProjectionAccumulatorStore(ProjectionAccumulator(
             scope: scope,
             state: state,
             windowLimit: homeWindowLimit(for: state, scope: scope)
-        )
+        ))
 
-        func loadPage(offset: Int) {
+        @Sendable func loadPage(offset: Int) {
             readModel.fetchHomeProjection(
                 query: HomeProjectionQuery(
                     state: state,
@@ -201,36 +223,38 @@ public final class GetHomeFilteredTasksUseCase {
                 switch result {
                 case .success(let slice):
                     let facetedBatch = self.applyResidualAdvancedFacets(slice.tasks, state: state)
-                    for task in facetedBatch {
-                        self.updateQuickViewCounts(&accumulator.quickViewCounts, for: task, scope: scope)
-                        guard self.matchesScope(scope, task: task) else { continue }
-                        if task.isComplete {
-                            self.insertBoundedSortedTask(
-                                task,
-                                into: &accumulator.doneTimelineTasks,
-                                limit: accumulator.windowLimit,
-                                by: self.sortDoneTimeline
-                            )
-                        } else {
-                            accumulator.pointsPotential += task.priority.scorePoints
-                            self.insertSortedTask(
-                                task,
-                                into: &accumulator.matchingOpenTasks,
-                                by: self.sortByPriorityThenSchedule
-                            )
-                            self.insertBoundedSortedTask(
-                                task,
-                                into: &accumulator.openTasks,
-                                limit: accumulator.windowLimit,
-                                by: self.sortByPriorityThenSchedule
-                            )
+                    accumulator.update { state in
+                        for task in facetedBatch {
+                            self.updateQuickViewCounts(&state.quickViewCounts, for: task, scope: scope)
+                            guard self.matchesScope(scope, task: task) else { continue }
+                            if task.isComplete {
+                                self.insertBoundedSortedTask(
+                                    task,
+                                    into: &state.doneTimelineTasks,
+                                    limit: state.windowLimit,
+                                    by: self.sortDoneTimeline
+                                )
+                            } else {
+                                state.pointsPotential += task.priority.scorePoints
+                                self.insertSortedTask(
+                                    task,
+                                    into: &state.matchingOpenTasks,
+                                    by: self.sortByPriorityThenSchedule
+                                )
+                                self.insertBoundedSortedTask(
+                                    task,
+                                    into: &state.openTasks,
+                                    limit: state.windowLimit,
+                                    by: self.sortByPriorityThenSchedule
+                                )
+                            }
                         }
                     }
 
                     let nextOffset = offset + slice.tasks.count
                     let loadedAllTasks = nextOffset >= slice.totalCount || slice.tasks.isEmpty
                     if loadedAllTasks {
-                        completion(.success(accumulator))
+                        completion(.success(accumulator.snapshot()))
                     } else {
                         loadPage(offset: nextOffset)
                     }
@@ -355,6 +379,7 @@ public final class GetHomeFilteredTasksUseCase {
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
         let payload = Payload(state: state, scope: scope, revision: revision.rawValue)
         let data = (try? encoder.encode(payload)) ?? Data()
         return data.base64EncodedString()
@@ -604,28 +629,28 @@ public final class GetHomeFilteredTasksUseCase {
 
 // MARK: - Eva Home Models
 
-public enum EvaPromptLevel: String, Codable, Equatable, Hashable {
+public enum EvaPromptLevel: String, Codable, Equatable, Hashable, Sendable {
     case none
     case microcopy
     case chip
     case banner
 }
 
-public enum EvaDebtLevel: String, Codable, Equatable, Hashable {
+public enum EvaDebtLevel: String, Codable, Equatable, Hashable, Sendable {
     case none
     case low
     case medium
     case high
 }
 
-public enum EvaDueBucket: String, Codable, Equatable, Hashable, CaseIterable {
+public enum EvaDueBucket: String, Codable, Equatable, Hashable, CaseIterable, Sendable {
     case today
     case tomorrow
     case thisWeek
     case someday
 }
 
-public struct EvaRationaleFactor: Codable, Equatable, Hashable {
+public struct EvaRationaleFactor: Codable, Equatable, Hashable, Sendable {
     public let factor: String
     public let label: String
     public let contribution: Double
@@ -638,7 +663,7 @@ public struct EvaRationaleFactor: Codable, Equatable, Hashable {
     }
 }
 
-public struct EvaFocusTaskInsight: Codable, Equatable, Hashable {
+public struct EvaFocusTaskInsight: Codable, Equatable, Hashable, Sendable {
     public let taskID: UUID
     public let score: Double
     public let badge: String?
@@ -658,7 +683,7 @@ public struct EvaFocusTaskInsight: Codable, Equatable, Hashable {
     }
 }
 
-public struct EvaFocusInsights: Codable, Equatable, Hashable {
+public struct EvaFocusInsights: Codable, Equatable, Hashable, Sendable {
     public let taskInsights: [EvaFocusTaskInsight]
     public let summaryLine: String?
     public let candidatePoolSize: Int
@@ -671,7 +696,7 @@ public struct EvaFocusInsights: Codable, Equatable, Hashable {
     }
 }
 
-public struct EvaTriageSignal: Codable, Equatable, Hashable {
+public struct EvaTriageSignal: Codable, Equatable, Hashable, Sendable {
     public let promptLevel: EvaPromptLevel
     public let estimatedMinutes: Int
     public let untriagedCount: Int
@@ -686,7 +711,7 @@ public struct EvaTriageSignal: Codable, Equatable, Hashable {
     }
 }
 
-public struct EvaRescueSignal: Codable, Equatable, Hashable {
+public struct EvaRescueSignal: Codable, Equatable, Hashable, Sendable {
     public let promptLevel: EvaPromptLevel
     public let debtLevel: EvaDebtLevel
     public let debtScore: Double
@@ -706,7 +731,7 @@ public struct EvaRescueSignal: Codable, Equatable, Hashable {
     }
 }
 
-public struct EvaHomeInsights: Codable, Equatable, Hashable {
+public struct EvaHomeInsights: Codable, Equatable, Hashable, Sendable {
     public let focus: EvaFocusInsights
     public let triage: EvaTriageSignal
     public let rescue: EvaRescueSignal
@@ -721,7 +746,7 @@ public struct EvaHomeInsights: Codable, Equatable, Hashable {
     }
 }
 
-public struct EvaTriageSuggestion: Codable, Equatable, Hashable {
+public struct EvaTriageSuggestion: Codable, Equatable, Hashable, Sendable {
     public let projectID: UUID?
     public let projectConfidence: Double
     public let dueBucket: EvaDueBucket?
@@ -750,7 +775,7 @@ public struct EvaTriageSuggestion: Codable, Equatable, Hashable {
     }
 }
 
-public struct EvaTriageQueueItem: Codable, Equatable, Hashable {
+public struct EvaTriageQueueItem: Codable, Equatable, Hashable, Sendable {
     public let task: TaskDefinition
     public let suggestions: EvaTriageSuggestion
 
@@ -761,12 +786,12 @@ public struct EvaTriageQueueItem: Codable, Equatable, Hashable {
     }
 }
 
-public enum EvaTriageScope: String, Codable, Equatable, Hashable, CaseIterable {
+public enum EvaTriageScope: String, Codable, Equatable, Hashable, CaseIterable, Sendable {
     case visible
     case allInbox
 }
 
-public enum EvaTriageDeferPreset: String, Codable, Equatable, Hashable, CaseIterable {
+public enum EvaTriageDeferPreset: String, Codable, Equatable, Hashable, CaseIterable, Sendable {
     case tomorrow
     case hours72
     case weekendSaturday
@@ -790,7 +815,7 @@ public enum EvaTriageDeferPreset: String, Codable, Equatable, Hashable, CaseIter
     }
 }
 
-public struct EvaTriageDecision: Codable, Equatable, Hashable {
+public struct EvaTriageDecision: Codable, Equatable, Hashable, Sendable {
     public var selectedProjectID: UUID?
     public var useSuggestedProject: Bool
     public var selectedDueDate: Date?
@@ -831,14 +856,14 @@ public struct EvaTriageDecision: Codable, Equatable, Hashable {
     }
 }
 
-public enum EvaSplitCreateStatus: String, Codable, Equatable, Hashable {
+public enum EvaSplitCreateStatus: String, Codable, Equatable, Hashable, Sendable {
     case idle
     case creating
     case succeeded
     case failed
 }
 
-public struct EvaSplitDraftChild: Codable, Equatable, Hashable {
+public struct EvaSplitDraftChild: Codable, Equatable, Hashable, Sendable {
     public var title: String
 
     /// Initializes a new instance.
@@ -847,7 +872,7 @@ public struct EvaSplitDraftChild: Codable, Equatable, Hashable {
     }
 }
 
-public struct EvaSplitDraft: Codable, Equatable, Hashable {
+public struct EvaSplitDraft: Codable, Equatable, Hashable, Sendable {
     public var parentTaskID: UUID
     public var children: [EvaSplitDraftChild]
     public var childDuePreset: EvaTriageDeferPreset?
@@ -870,14 +895,14 @@ public struct EvaSplitDraft: Codable, Equatable, Hashable {
     }
 }
 
-public enum EvaRescueActionType: String, Codable, Equatable, Hashable {
+public enum EvaRescueActionType: String, Codable, Equatable, Hashable, Sendable {
     case doToday
     case move
     case split
     case dropCandidate
 }
 
-public struct EvaRescueRecommendation: Codable, Equatable, Hashable {
+public struct EvaRescueRecommendation: Codable, Equatable, Hashable, Sendable {
     public let taskID: UUID
     public let action: EvaRescueActionType
     public let toDate: Date?
@@ -894,7 +919,7 @@ public struct EvaRescueRecommendation: Codable, Equatable, Hashable {
     }
 }
 
-public struct EvaRescuePlan: Codable, Equatable, Hashable {
+public struct EvaRescuePlan: Codable, Equatable, Hashable, Sendable {
     public let debtScore: Double
     public let debtLevel: EvaDebtLevel
     public let doToday: [EvaRescueRecommendation]
@@ -923,12 +948,12 @@ public struct EvaRescuePlan: Codable, Equatable, Hashable {
     }
 }
 
-public enum EvaBatchSource: String, Codable, Equatable, Hashable {
+public enum EvaBatchSource: String, Codable, Equatable, Hashable, Sendable {
     case triage
     case rescue
 }
 
-public struct EvaBatchMutationInstruction: Codable, Equatable, Hashable {
+public struct EvaBatchMutationInstruction: Codable, Equatable, Hashable, Sendable {
     public let taskID: UUID
     public var projectID: UUID?
     public var dueDate: Date?
@@ -979,7 +1004,7 @@ private enum EvaHeuristicDebugOverride {
     }
 }
 
-public final class ComputeEvaHomeInsightsUseCase {
+public final class ComputeEvaHomeInsightsUseCase: @unchecked Sendable {
     private static let overdueWeightPerDay: Double = 1.4
     private static let dueTodayBoost: Double = 2.0
     private static let blockedPenalty: Double = 1.2
@@ -1000,7 +1025,7 @@ public final class ComputeEvaHomeInsightsUseCase {
         focusTasks: [TaskDefinition],
         anchorDate: Date = Date(),
         now: Date = Date(),
-        completion: @escaping (Result<EvaHomeInsights, Error>) -> Void
+        completion: @escaping @Sendable (Result<EvaHomeInsights, Error>) -> Void
     ) {
         guard let habitRuntimeReadRepository else {
             completion(.success(
@@ -1024,7 +1049,7 @@ public final class ComputeEvaHomeInsightsUseCase {
                 completion(.failure(error))
             case .success(let summaries):
                 let signals = summaries.map {
-                    TaskerHabitSignal(summary: $0, referenceDate: anchorDate)
+                    LifeBoardHabitSignal(summary: $0, referenceDate: anchorDate)
                 }
                 completion(.success(
                     self.buildInsights(
@@ -1043,7 +1068,7 @@ public final class ComputeEvaHomeInsightsUseCase {
     public func execute(
         openTasks: [TaskDefinition],
         focusTasks: [TaskDefinition],
-        habitSignals: [TaskerHabitSignal] = [],
+        habitSignals: [LifeBoardHabitSignal] = [],
         anchorDate: Date = Date(),
         now: Date = Date()
     ) -> EvaHomeInsights {
@@ -1059,7 +1084,7 @@ public final class ComputeEvaHomeInsightsUseCase {
     private func buildInsights(
         openTasks: [TaskDefinition],
         focusTasks: [TaskDefinition],
-        habitSignals: [TaskerHabitSignal],
+        habitSignals: [LifeBoardHabitSignal],
         anchorDate: Date,
         now: Date
     ) -> EvaHomeInsights {
@@ -1175,7 +1200,7 @@ public final class ComputeEvaHomeInsightsUseCase {
     }
 
     /// Executes focusSummaryLine.
-    private func focusSummaryLine(from insights: [EvaFocusTaskInsight], habitSignals: [TaskerHabitSignal]) -> String? {
+    private func focusSummaryLine(from insights: [EvaFocusTaskInsight], habitSignals: [LifeBoardHabitSignal]) -> String? {
         var tagCounts: [String: Int] = [:]
         for insight in insights {
             for factor in insight.rationale {
@@ -1197,7 +1222,7 @@ public final class ComputeEvaHomeInsightsUseCase {
         return sections.joined(separator: " | ")
     }
 
-    private func habitSummaryLine(from habitSignals: [TaskerHabitSignal]) -> String? {
+    private func habitSummaryLine(from habitSignals: [LifeBoardHabitSignal]) -> String? {
         guard habitSignals.isEmpty == false else { return nil }
         let dueCount = habitSignals.filter { $0.isDueToday || $0.isOverdue }.count
         let atRiskCount = habitSignals.filter {
@@ -1300,7 +1325,7 @@ public final class ComputeEvaHomeInsightsUseCase {
     }
 }
 
-public final class GetInboxTriageQueueUseCase {
+public final class GetInboxTriageQueueUseCase: @unchecked Sendable {
     private static let durationPresets: [TimeInterval] = [
         15 * 60,
         30 * 60,
@@ -1485,7 +1510,7 @@ public final class GetInboxTriageQueueUseCase {
     }
 }
 
-public final class GetOverdueRescuePlanUseCase {
+public final class GetOverdueRescuePlanUseCase: @unchecked Sendable {
     /// Initializes a new instance.
     public init() {}
 
@@ -1651,7 +1676,7 @@ public final class GetOverdueRescuePlanUseCase {
     }
 }
 
-public final class BuildEvaBatchProposalUseCase {
+public final class BuildEvaBatchProposalUseCase: @unchecked Sendable {
     /// Initializes a new instance.
     public init() {}
 
