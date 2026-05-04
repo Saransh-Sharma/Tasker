@@ -4,33 +4,33 @@ struct LLMSettingsView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(\.dismiss) private var dismiss
     @Environment(LLMEvaluator.self) var llm
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     @Binding var currentThread: Thread?
     var showsCloseButton: Bool = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
-    private var heroItems: [TaskerSettingsStatusDescriptor] {
+    private var heroItems: [LifeBoardSettingsStatusDescriptor] {
         [
-            TaskerSettingsStatusDescriptor(
+            LifeBoardSettingsStatusDescriptor(
                 id: "model",
                 title: "Model",
                 value: appManager.compactModelDisplayName(appManager.currentModelName ?? ""),
                 systemImage: "brain.head.profile",
                 tone: .accent
             ),
-            TaskerSettingsStatusDescriptor(
+            LifeBoardSettingsStatusDescriptor(
                 id: "prompt",
                 title: "Prompt",
                 value: promptStatus,
                 systemImage: "slider.horizontal.3",
                 tone: appManager.systemPrompt == AppManager.defaultSystemPrompt ? .neutral : .success
             ),
-            TaskerSettingsStatusDescriptor(
+            LifeBoardSettingsStatusDescriptor(
                 id: "memory",
                 title: "Memory",
                 value: memorySummary,
@@ -43,7 +43,7 @@ struct LLMSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                TaskerSettingsHeroCard(
+                LifeBoardSettingsHeroCard(
                     eyebrow: assistantIdentity.snapshot.uppercaseName,
                     title: "Run your day with \(assistantIdentity.snapshot.displayName)",
                     subtitle: "Manage behavior, local models, and memory for your private executive assistant.",
@@ -66,7 +66,7 @@ struct LLMSettingsView: View {
             }
             .padding(.bottom, spacing.s24)
         }
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .navigationTitle(assistantIdentity.snapshot.displayName)
         .accessibilityIdentifier("llmSettings.view")
         #if os(iOS)
@@ -91,16 +91,16 @@ struct LLMSettingsView: View {
     }
 
     private var evaIdentityCard: some View {
-        TaskerCard {
+        LifeBoardCard {
             HStack(alignment: .center, spacing: spacing.s12) {
                 EvaMascotView(placement: .settingsIdentity, size: .inline)
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text("\(assistantIdentity.snapshot.displayName) profile")
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                     Text("This assistant manages planning, review, memory, and local model behavior.")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -145,18 +145,18 @@ struct LLMSettingsView: View {
             .padding(.top, spacing.sectionGap)
 
             VStack(spacing: spacing.cardStackVertical) {
-                TaskerCard {
+                LifeBoardCard {
                     NavigationLink {
                         ChatsSettingsView(currentThread: $currentThread)
                             .environmentObject(appManager)
                     } label: {
                         SettingsNavigationRow(
-                            descriptor: TaskerSettingsDestinationDescriptor(
+                            descriptor: LifeBoardSettingsDestinationDescriptor(
                                 iconName: "text.bubble.fill",
                                 title: "Chat Behavior",
                                 subtitle: "Tune how direct, structured, and momentum-focused \(assistantIdentity.snapshot.displayName) feels.",
                                 trailingStatus: promptStatus,
-                                inlineBadge: layoutClass == .phone ? TaskerSettingsInlineBadge(title: hapticsStatus) : nil,
+                                inlineBadge: layoutClass == .phone ? LifeBoardSettingsInlineBadge(title: hapticsStatus) : nil,
                                 tone: .accent,
                                 accessibilityIdentifier: "llmSettings.chatsSettingsRow"
                             )
@@ -166,12 +166,12 @@ struct LLMSettingsView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
 
-                TaskerCard(active: memoryItemCount > 0) {
+                LifeBoardCard(active: memoryItemCount > 0) {
                     NavigationLink {
                         LLMPersonalMemorySettingsView()
                     } label: {
                         SettingsNavigationRow(
-                            descriptor: TaskerSettingsDestinationDescriptor(
+                            descriptor: LifeBoardSettingsDestinationDescriptor(
                                 iconName: "person.text.rectangle.fill",
                                 title: "Personal Memory",
                                 subtitle: "Save stable context so \(assistantIdentity.snapshot.displayName) can support your goals, routines, and working style.",
@@ -199,19 +199,19 @@ struct LLMSettingsView: View {
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
 
-            TaskerCard {
+            LifeBoardCard {
                 NavigationLink {
                     ModelsSettingsView()
                         .environmentObject(appManager)
                         .environment(llm)
                 } label: {
                     SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "cpu.fill",
                             title: "Models",
                             subtitle: "Choose \(assistantIdentity.snapshot.displayName)’s default local model and manage installed models.",
                             trailingStatus: appManager.compactModelDisplayName(appManager.currentModelName ?? ""),
-                            inlineBadge: appManager.installedModels.isEmpty ? TaskerSettingsInlineBadge(title: "None installed") : TaskerSettingsInlineBadge(title: "\(appManager.installedModels.count) installed"),
+                            inlineBadge: appManager.installedModels.isEmpty ? LifeBoardSettingsInlineBadge(title: "None installed") : LifeBoardSettingsInlineBadge(title: "\(appManager.installedModels.count) installed"),
                             tone: .accent,
                             accessibilityIdentifier: "llmSettings.modelsSettingsRow"
                         )
@@ -234,12 +234,12 @@ struct LLMSettingsView: View {
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
 
-            TaskerCard {
+            LifeBoardCard {
                 NavigationLink {
                     LLMDataPrivacySettingsView(currentThread: $currentThread)
                 } label: {
                     SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "trash.fill",
                             title: "Data & Privacy",
                             subtitle: "Delete chat history and review \(assistantIdentity.snapshot.displayName)’s local-only data.",
@@ -260,12 +260,12 @@ struct LLMSettingsView: View {
     private var footer: some View {
         VStack(spacing: spacing.s4) {
             Text("Responses and memory stay local to your device.")
-                .font(.tasker(.caption2))
-                .foregroundStyle(Color.tasker(.textQuaternary))
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(Color.lifeboard(.textQuaternary))
 
             Text("Tune behavior carefully so \(assistantIdentity.snapshot.displayName) stays clear, useful, and brief.")
-                .font(.tasker(.caption2))
-                .foregroundStyle(Color.tasker(.textQuaternary))
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(Color.lifeboard(.textQuaternary))
         }
         .frame(maxWidth: .infinity)
         .padding(.top, spacing.s20)
@@ -301,11 +301,11 @@ struct LLMSettingsView: View {
 
 struct LLMPersonalMemorySettingsView: View {
     @State private var store = LLMPersonalMemoryDefaultsStore.load()
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     var body: some View {
@@ -324,7 +324,7 @@ struct LLMPersonalMemorySettingsView: View {
                         memorySectionCard(section)
                     }
 
-                    TaskerSettingsDangerZoneCard(
+                    LifeBoardSettingsDangerZoneCard(
                         title: "Clear All Personal Memory",
                         subtitle: "Remove every saved preference, routine, and goal from \(assistantIdentity.snapshot.displayName)’s memory.",
                         buttonTitle: "Clear all memory"
@@ -338,7 +338,7 @@ struct LLMPersonalMemorySettingsView: View {
             }
             .padding(.bottom, spacing.s24)
         }
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .navigationTitle("Personal Memory")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -346,24 +346,24 @@ struct LLMPersonalMemorySettingsView: View {
     }
 
     private var helperCopy: some View {
-        TaskerSettingsCard {
+        LifeBoardSettingsCard {
             Text("Up to \(LLMPersonalMemoryStoreV1.maxEntriesPerSection) items per section, \(LLMPersonalMemoryStoreV1.maxEntryCharacters) characters each.")
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private func memorySectionCard(_ section: LLMPersonalMemorySection) -> some View {
-        TaskerSettingsFieldCard(
+        LifeBoardSettingsFieldCard(
             title: section.displayTitle,
             subtitle: section.supportingCopy
         ) {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 if store.entries(for: section).isEmpty {
                     Text(section.emptyStateCopy)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     ForEach(store.entries(for: section)) { entry in
@@ -373,8 +373,8 @@ struct LLMPersonalMemorySettingsView: View {
                                 text: binding(for: section, entryID: entry.id),
                                 axis: .vertical
                             )
-                            .font(.tasker(.callout))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.callout))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
                             .lineLimit(2...4)
 
                             Button(role: .destructive) {
@@ -391,11 +391,11 @@ struct LLMPersonalMemorySettingsView: View {
                         .padding(spacing.s12)
                         .background(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color.tasker(.surfaceSecondary))
+                                .fill(Color.lifeboard(.surfaceSecondary))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                                .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
                         )
                     }
                 }
@@ -404,9 +404,9 @@ struct LLMPersonalMemorySettingsView: View {
                     Button("Add item") {
                         addEntry(to: section)
                     }
-                    .font(.tasker(.buttonSmall))
+                    .font(.lifeboard(.buttonSmall))
                     .buttonStyle(.bordered)
-                    .tint(Color.tasker(.accentPrimary))
+                    .tint(Color.lifeboard(.accentPrimary))
                 }
             }
         }
@@ -448,14 +448,14 @@ struct LLMPersonalMemorySettingsView: View {
 
 struct LLMDataPrivacySettingsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     @State private var deleteAllChats = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
     @Binding var currentThread: Thread?
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     var body: some View {
@@ -467,7 +467,7 @@ struct LLMDataPrivacySettingsView: View {
                 )
                 .padding(.top, spacing.s16)
 
-                TaskerSettingsDangerZoneCard(
+                LifeBoardSettingsDangerZoneCard(
                     title: "Delete All Chats",
                     subtitle: "Permanently delete every saved \(assistantIdentity.snapshot.displayName) thread and message from this device. This cannot be undone.",
                     buttonTitle: "Delete all chats",
@@ -480,7 +480,7 @@ struct LLMDataPrivacySettingsView: View {
             }
             .padding(.bottom, spacing.s24)
         }
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .navigationTitle("Data & Privacy")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

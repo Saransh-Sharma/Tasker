@@ -113,7 +113,7 @@ enum EvaPlanResponseDeliveryResult: Equatable {
 
 enum EvaPlanProposalPersistence {
     static func awaitResult(
-        _ start: (@escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+        _ start: @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
     ) async -> Result<AssistantActionRunDefinition, Error> {
         await withCheckedContinuation { continuation in
             start { result in
@@ -2217,10 +2217,10 @@ struct AssistantDeterministicPlanner {
 
     private static func parseDate(_ value: Any?) -> Date? {
         guard let string = value as? String else { return nil }
-        if let date = ISO8601DateFormatter.makeTaskerPlannerWithFraction().date(from: string) {
+        if let date = ISO8601DateFormatter.makeLifeBoardPlannerWithFraction().date(from: string) {
             return date
         }
-        return ISO8601DateFormatter.makeTaskerPlanner().date(from: string)
+        return ISO8601DateFormatter.makeLifeBoardPlanner().date(from: string)
     }
 
     private static func timeInterval(from value: Any?) -> TimeInterval? {
@@ -2251,13 +2251,13 @@ struct AssistantDeterministicPlanner {
 }
 
 private extension ISO8601DateFormatter {
-    static func makeTaskerPlanner() -> ISO8601DateFormatter {
+    static func makeLifeBoardPlanner() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         return formatter
     }
 
-    static func makeTaskerPlannerWithFraction() -> ISO8601DateFormatter {
+    static func makeLifeBoardPlannerWithFraction() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter

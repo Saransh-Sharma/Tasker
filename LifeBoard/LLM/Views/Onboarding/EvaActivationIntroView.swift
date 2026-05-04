@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct EvaActivationIntroView: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let onContinue: () -> Void
@@ -11,8 +11,8 @@ struct EvaActivationIntroView: View {
 
     private let trustChips = ["On-device", "Private", "Ready in a minute"]
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var heroHeight: CGFloat {
@@ -48,13 +48,13 @@ struct EvaActivationIntroView: View {
 
     private var mediaPanel: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: layoutClass.isPad ? TaskerTheme.CornerRadius.modal : 0, style: .continuous)
+            RoundedRectangle(cornerRadius: layoutClass.isPad ? LifeBoardTheme.CornerRadius.modal : 0, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.tasker(.surfacePrimary),
-                            Color.tasker(.accentWash).opacity(0.62),
-                            Color.tasker(.surfacePrimary)
+                            Color.lifeboard(.surfacePrimary),
+                            Color.lifeboard(.accentWash).opacity(0.62),
+                            Color.lifeboard(.surfacePrimary)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -72,15 +72,15 @@ struct EvaActivationIntroView: View {
             if reduceMotion == false {
                 EvaLoopingLottieContainer(size: 76)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(TaskerTheme.Spacing.md)
+                    .padding(LifeBoardTheme.Spacing.md)
             }
         }
         .accessibilityIdentifier("eva.activation.intro.hero")
         .frame(maxWidth: .infinity)
         .frame(height: heroHeight)
         .overlay(
-            RoundedRectangle(cornerRadius: layoutClass.isPad ? TaskerTheme.CornerRadius.modal : 0, style: .continuous)
-                .stroke(Color.tasker(.strokeHairline), lineWidth: layoutClass.isPad ? 1 : 0)
+            RoundedRectangle(cornerRadius: layoutClass.isPad ? LifeBoardTheme.CornerRadius.modal : 0, style: .continuous)
+                .stroke(Color.lifeboard(.strokeHairline), lineWidth: layoutClass.isPad ? 1 : 0)
         )
         .enhancedStaggeredAppearance(index: 0)
     }
@@ -108,11 +108,11 @@ struct EvaActivationIntroView: View {
             .enhancedStaggeredAppearance(index: 2)
 
             Text("No account needed. Setup stays local to your device.")
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .enhancedStaggeredAppearance(index: 3)
         }
-        .animation(reduceMotion ? nil : TaskerAnimation.gentle, value: layoutClass)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.gentle, value: layoutClass)
     }
 }

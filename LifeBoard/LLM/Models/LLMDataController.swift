@@ -6,7 +6,7 @@ import os
 /// Singleton that holds a single ModelContainer for the LLM module so every view shares the exact same persistent store.
 @MainActor
 enum LLMDataController {
-    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Tasker", category: "LLMDataController")
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "LifeBoard", category: "LLMDataController")
     private(set) static var isDegradedModeActive = false
     private(set) static var degradedModeReason: String?
 
@@ -37,7 +37,7 @@ enum LLMDataController {
     /// Executes makeTemporaryDiskConfiguration.
     private static func makeTemporaryDiskConfiguration() -> ModelConfiguration {
         let temporaryURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-            .appendingPathComponent("tasker-llm-\(UUID().uuidString).store")
+            .appendingPathComponent("lifeboard-llm-\(UUID().uuidString).store")
         return ModelConfiguration(url: temporaryURL, cloudKitDatabase: .none)
     }
 

@@ -10,7 +10,7 @@ import SwiftUI
 struct ChatsListView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(\.dismiss) var dismiss
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Binding var currentThread: Thread?
     @FocusState.Binding var isPromptFocused: Bool
     @Environment(\.modelContext) var modelContext
@@ -23,7 +23,7 @@ struct ChatsListView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.tasker(.bgCanvas)
+                Color.lifeboard(.bgCanvas)
                     .ignoresSafeArea()
 
                 if filteredThreads.isEmpty {
@@ -34,42 +34,42 @@ struct ChatsListView: View {
                         Section {} // adds some space below the search bar on mac
                         #endif
                         ForEach(Array(filteredThreads.enumerated()), id: \.element.id) { index, thread in
-                            HStack(spacing: TaskerTheme.Spacing.md) {
+                            HStack(spacing: LifeBoardTheme.Spacing.md) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.tasker(.accentWash))
+                                        .fill(Color.lifeboard(.accentWash))
                                         .frame(width: 40, height: 40)
                                     Image(systemName: "bubble.left.fill")
                                         .font(.system(size: 16))
-                                        .foregroundColor(Color.tasker(.accentPrimary))
+                                        .foregroundColor(Color.lifeboard(.accentPrimary))
                                 }
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     if let firstMessage = thread.sortedMessages.first {
                                         Text(firstMessage.content)
                                             .lineLimit(1)
-                                            .font(.tasker(.bodyEmphasis))
-                                            .foregroundColor(Color.tasker(.textPrimary))
+                                            .font(.lifeboard(.bodyEmphasis))
+                                            .foregroundColor(Color.lifeboard(.textPrimary))
                                     } else {
                                         Text("untitled")
-                                            .font(.tasker(.bodyEmphasis))
-                                            .foregroundColor(Color.tasker(.textPrimary))
+                                            .font(.lifeboard(.bodyEmphasis))
+                                            .foregroundColor(Color.lifeboard(.textPrimary))
                                     }
 
                                     Text(thread.timestamp.formatted())
-                                        .font(.tasker(.caption1))
-                                        .foregroundColor(Color.tasker(.textTertiary))
+                                        .font(.lifeboard(.caption1))
+                                        .foregroundColor(Color.lifeboard(.textTertiary))
                                 }
 
                                 Spacer()
                             }
-                            .padding(.horizontal, TaskerTheme.Spacing.sm)
-                            .padding(.vertical, TaskerTheme.Spacing.sm)
-                            .taskerPremiumSurface(
+                            .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                            .padding(.vertical, LifeBoardTheme.Spacing.sm)
+                            .lifeboardPremiumSurface(
                                 cornerRadius: 20,
-                                fillColor: Color.tasker(.surfacePrimary),
-                                strokeColor: Color.tasker(.strokeHairline),
-                                accentColor: Color.tasker(.accentSecondary),
+                                fillColor: Color.lifeboard(.surfacePrimary),
+                                strokeColor: Color.lifeboard(.strokeHairline),
+                                accentColor: Color.lifeboard(.accentSecondary),
                                 level: .e1
                             )
                             .staggeredAppearance(index: index)
@@ -78,7 +78,7 @@ struct ChatsListView: View {
                                     Button("Delete") {
                                         deleteThread(thread)
                                     }
-                                    .tint(Color.tasker(.statusDanger))
+                                    .tint(Color.lifeboard(.statusDanger))
                                 }
                                 .contextMenu {
                                     Button {
@@ -99,7 +99,7 @@ struct ChatsListView: View {
                         setCurrentThread(selection)
                     }
                     .scrollContentBackground(.hidden)
-                    .background(Color.tasker(.bgCanvas))
+                    .background(Color.lifeboard(.bgCanvas))
                     #if os(iOS)
                     .listStyle(.plain)
                     #elseif os(macOS) || os(visionOS)
@@ -134,7 +134,7 @@ struct ChatsListView: View {
                             requestReviewIfAppropriate()
                         }) {
                             Image(systemName: "plus")
-                                .foregroundColor(Color.tasker(.accentPrimary))
+                                .foregroundColor(Color.lifeboard(.accentPrimary))
                         }
                         .keyboardShortcut("N", modifiers: [.command])
                         #if os(visionOS)
@@ -158,27 +158,27 @@ struct ChatsListView: View {
                     #endif
                 }
         }
-        .tint(Color.tasker(.accentPrimary))
+        .tint(Color.lifeboard(.accentPrimary))
     }
 
     private var emptyState: some View {
-        VStack(spacing: TaskerTheme.Spacing.lg) {
+        VStack(spacing: LifeBoardTheme.Spacing.lg) {
             ZStack {
                 Circle()
-                    .fill(Color.tasker(.accentWash))
+                    .fill(Color.lifeboard(.accentWash))
                     .frame(width: 80, height: 80)
                 Image(systemName: "message")
                     .font(.system(size: 32, weight: .medium))
-                    .foregroundColor(Color.tasker(.accentPrimary))
+                    .foregroundColor(Color.lifeboard(.accentPrimary))
             }
 
-            VStack(spacing: TaskerTheme.Spacing.xs) {
+            VStack(spacing: LifeBoardTheme.Spacing.xs) {
                 Text(threads.isEmpty ? "No chats yet" : "No results")
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard(.textPrimary))
                 Text(threads.isEmpty ? "Start a conversation with \(AssistantIdentityText.currentSnapshot().displayName)" : "Try a different search term")
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard(.textSecondary))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

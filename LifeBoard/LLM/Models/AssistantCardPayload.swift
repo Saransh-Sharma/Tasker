@@ -86,7 +86,7 @@ struct AssistantCardPayload: Codable, Equatable, Sendable {
 }
 
 enum AssistantCardCodec {
-    static let prefix = "__TASKER_CARD_V1__\n"
+    static let prefix = "__LIFEBOARD_CARD_V1__\n"
 
     /// Executes encode.
     static func encode(_ payload: AssistantCardPayload) -> String {

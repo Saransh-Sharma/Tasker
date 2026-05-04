@@ -22,7 +22,7 @@ struct AITopTaskSuggestion: Codable, Equatable {
 
 @MainActor
 final class AISuggestionService {
-    typealias GenerateOutputHandler = @MainActor (String, Thread, String, LLMGenerationProfile, (@MainActor () -> Void)?) async -> String
+    typealias GenerateOutputHandler = @MainActor (String, Thread, String, LLMGenerationProfile, (@MainActor @Sendable () -> Void)?) async -> String
 
     @MainActor static let shared = AISuggestionService()
 

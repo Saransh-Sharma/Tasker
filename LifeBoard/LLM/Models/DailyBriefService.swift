@@ -41,7 +41,7 @@ final class DailyBriefService {
         overdueCount: Int,
         completedTodayCount: Int,
         streak: Int,
-        habitSignals: [TaskerHabitSignal] = []
+        habitSignals: [LifeBoardHabitSignal] = []
     ) async -> DailyBriefOutput {
         let resolvedHabitSignals = await resolveHabitSignals(suppliedSignals: habitSignals)
         let route = AIChatModeRouter.route(for: .dailyBrief)
@@ -108,7 +108,7 @@ final class DailyBriefService {
         overdueCount: Int,
         completedTodayCount: Int,
         streak: Int,
-        habitSignals: [TaskerHabitSignal] = []
+        habitSignals: [LifeBoardHabitSignal] = []
     ) async -> String {
         fallbackBrief(
             todayOpenCount: todayOpenCount,
@@ -119,7 +119,7 @@ final class DailyBriefService {
         )
     }
 
-    private func resolveHabitSignals(suppliedSignals: [TaskerHabitSignal]) async -> [TaskerHabitSignal] {
+    private func resolveHabitSignals(suppliedSignals: [LifeBoardHabitSignal]) async -> [LifeBoardHabitSignal] {
         guard suppliedSignals.isEmpty, let repository = LLMContextRepositoryProvider.habitRuntimeReadRepository else {
             return suppliedSignals
         }
@@ -131,7 +131,7 @@ final class DailyBriefService {
             repository.fetchSignals(start: startOfDay, end: endOfDay) { result in
                 let summaries = (try? result.get()) ?? []
                 continuation.resume(
-                    returning: summaries.map { TaskerHabitSignal(summary: $0, referenceDate: referenceDate) }
+                    returning: summaries.map { LifeBoardHabitSignal(summary: $0, referenceDate: referenceDate) }
                 )
             }
         }
@@ -179,7 +179,7 @@ final class DailyBriefService {
         overdueCount: Int,
         completedTodayCount: Int,
         streak: Int,
-        habitSignals: [TaskerHabitSignal] = []
+        habitSignals: [LifeBoardHabitSignal] = []
     ) -> String {
         let habitSummary = habitSummaryLines(from: habitSignals)
         return """
@@ -193,7 +193,7 @@ final class DailyBriefService {
         """
     }
 
-    private func habitPromptLines(from habitSignals: [TaskerHabitSignal]) -> String {
+    private func habitPromptLines(from habitSignals: [LifeBoardHabitSignal]) -> String {
         guard habitSignals.isEmpty == false else { return "" }
 
         let summary = summarizeHabits(habitSignals)
@@ -205,7 +205,7 @@ final class DailyBriefService {
         """
     }
 
-    private func habitSummaryLines(from habitSignals: [TaskerHabitSignal]) -> String {
+    private func habitSummaryLines(from habitSignals: [LifeBoardHabitSignal]) -> String {
         guard habitSignals.isEmpty == false else { return "" }
 
         let summary = summarizeHabits(habitSignals)
@@ -217,7 +217,7 @@ final class DailyBriefService {
         """
     }
 
-    private func summarizeHabits(_ habitSignals: [TaskerHabitSignal]) -> HabitBriefSummary {
+    private func summarizeHabits(_ habitSignals: [LifeBoardHabitSignal]) -> HabitBriefSummary {
         let dueSignals = habitSignals.filter { $0.isDueToday || $0.isOverdue || $0.outcomeRaw != nil }
         let successes = dueSignals.filter { signal in
             guard let outcome = signal.outcomeRaw?.lowercased() else { return false }

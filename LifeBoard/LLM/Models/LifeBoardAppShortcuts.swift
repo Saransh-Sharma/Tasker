@@ -1,25 +1,28 @@
 import AppIntents
 import Foundation
 
-enum TaskerShortcutDeepLink {
+enum LifeBoardShortcutDeepLink {
     static func chatURL(prompt: String?) -> URL {
         var components = URLComponents()
-        components.scheme = "tasker"
+        components.scheme = "lifeboard"
         components.host = "chat"
 
         let trimmedPrompt = prompt?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let trimmedPrompt, trimmedPrompt.isEmpty == false {
-            components.queryItems = [URLQueryItem(name: "prompt", value: trimmedPrompt)]
+            var allowedCharacters = CharacterSet.urlQueryAllowed
+            allowedCharacters.remove(charactersIn: "?&=+#")
+            let encodedPrompt = trimmedPrompt.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? trimmedPrompt
+            components.percentEncodedQueryItems = [URLQueryItem(name: "prompt", value: encodedPrompt)]
         }
 
         guard let url = components.url else {
-            return URL(string: "tasker://chat")!
+            return URL(string: "lifeboard://chat")!
         }
         return url
     }
 
     static func focusURL() -> URL {
-        URL(string: "tasker://focus")!
+        URL(string: "lifeboard://focus")!
     }
 
     static func chatPrompt(from url: URL) -> String? {
@@ -31,7 +34,7 @@ enum TaskerShortcutDeepLink {
     }
 }
 
-enum TaskerShortcutRuntimeError: LocalizedError {
+enum LifeBoardShortcutRuntimeError: LocalizedError {
     case unavailable
     case bootstrapFailed(String)
     case handoffFailed(String)
@@ -39,7 +42,7 @@ enum TaskerShortcutRuntimeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return "Tasker shortcuts are unavailable until the app finishes loading."
+            return "LifeBoard shortcuts are unavailable until the app finishes loading."
         case .bootstrapFailed(let message):
             return message
         case .handoffFailed(let message):
@@ -93,12 +96,12 @@ struct InboxTaskCaptureService {
     }
 }
 
-private struct HeadlessTaskerShortcutRuntime {
+private struct HeadlessLifeBoardShortcutRuntime {
     let projectRepository: ProjectRepositoryProtocol
     let createTaskDefinitionUseCase: CreateTaskDefinitionUseCase
 }
 
-enum TaskerShortcutDependencyResolver {
+enum LifeBoardShortcutDependencyResolver {
     static func inboxTaskCaptureService() async throws -> InboxTaskCaptureService {
         let runtime = try await headlessRuntime()
         return InboxTaskCaptureService(
@@ -107,18 +110,18 @@ enum TaskerShortcutDependencyResolver {
         )
     }
 
-    private static func headlessRuntime() async throws -> HeadlessTaskerShortcutRuntime {
-        let bootstrapService = TaskerPersistentStoreBootstrapService()
+    private static func headlessRuntime() async throws -> HeadlessLifeBoardShortcutRuntime {
+        let bootstrapService = LifeBoardPersistentStoreBootstrapService()
         let bootstrapResult = await bootstrapService.bootstrapV3PersistentContainer()
 
         guard case .ready(let container) = bootstrapResult.state else {
             if case .failed(let message) = bootstrapResult.state {
-                throw TaskerShortcutRuntimeError.bootstrapFailed(message)
+                throw LifeBoardShortcutRuntimeError.bootstrapFailed(message)
             }
-            throw TaskerShortcutRuntimeError.unavailable
+            throw LifeBoardShortcutRuntimeError.unavailable
         }
 
-        TaskerPersistentRuntimeInitializer().initialize(container: container)
+        LifeBoardPersistentRuntimeInitializer().initialize(container: container)
 
         let writeGate = SyncWriteGate(modeProvider: { bootstrapResult.syncMode })
         let projectRepository = WriteClosedProjectRepositoryAdapter(
@@ -138,7 +141,7 @@ enum TaskerShortcutDependencyResolver {
             gate: writeGate
         )
 
-        return HeadlessTaskerShortcutRuntime(
+        return HeadlessLifeBoardShortcutRuntime(
             projectRepository: projectRepository,
             createTaskDefinitionUseCase: CreateTaskDefinitionUseCase(
                 repository: taskDefinitionRepository,
@@ -173,16 +176,16 @@ struct AddTaskIntent: AppIntent {
             throw $taskTitle.needsValueError(IntentDialog("What task do you want to add?"))
         }
 
-        let service = try await TaskerShortcutDependencyResolver.inboxTaskCaptureService()
+        let service = try await LifeBoardShortcutDependencyResolver.inboxTaskCaptureService()
         let task = try await service.createTask(title: trimmedTitle, details: details)
 
         do {
             try ShortcutMutationSignalStore.shared.submitTaskCreated(taskID: task.id)
         } catch {
-            throw TaskerShortcutRuntimeError.handoffFailed(
+            throw LifeBoardShortcutRuntimeError.handoffFailed(
                 error.localizedDescription.isEmpty == false
                     ? error.localizedDescription
-                    : "Tasker created the task but could not refresh the app."
+                    : "LifeBoard created the task but could not refresh the app."
             )
         }
 
@@ -207,10 +210,10 @@ struct OpenEvaChatIntent: AppIntent {
             )
             return .result()
         } catch {
-            throw TaskerShortcutRuntimeError.handoffFailed(
+            throw LifeBoardShortcutRuntimeError.handoffFailed(
                 error.localizedDescription.isEmpty == false
                     ? error.localizedDescription
-                    : "Tasker could not open assistant chat right now."
+                    : "LifeBoard could not open assistant chat right now."
             )
         }
     }
@@ -229,17 +232,17 @@ struct StartFocusSessionIntent: AppIntent {
             )
             return .result()
         } catch {
-            throw TaskerShortcutRuntimeError.handoffFailed(
+            throw LifeBoardShortcutRuntimeError.handoffFailed(
                 error.localizedDescription.isEmpty == false
                     ? error.localizedDescription
-                    : "Tasker could not start focus right now."
+                    : "LifeBoard could not start focus right now."
             )
         }
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct TaskerAppShortcutsProvider: AppShortcutsProvider {
+struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
     @AppShortcutsBuilder
     static var appShortcuts: [AppShortcut] {
         AppShortcut(

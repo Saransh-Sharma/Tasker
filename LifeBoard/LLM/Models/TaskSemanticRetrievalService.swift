@@ -1,17 +1,17 @@
 import Foundation
 
-struct TaskSemanticHit {
+struct TaskSemanticHit: Sendable {
     let taskID: UUID
     let score: Double
     let text: String
 }
 
-struct TaskSemanticSearchResult {
+struct TaskSemanticSearchResult: Sendable {
     let hits: [TaskSemanticHit]
     let fallbackReason: String?
 }
 
-final class TaskSemanticRetrievalService {
+final class TaskSemanticRetrievalService: @unchecked Sendable {
     static let shared = TaskSemanticRetrievalService()
 
     private let embeddingEngine: TaskEmbeddingEngine
@@ -76,7 +76,7 @@ final class TaskSemanticRetrievalService {
         }
     }
 
-    func activateIfNeeded(rebuildIfMissing: @escaping () async -> Void) async {
+    func activateIfNeeded(rebuildIfMissing: @escaping @Sendable () async -> Void) async {
         let activationDecision = activationStateQueue.sync { () -> (shouldLoadPersisted: Bool, shouldRebuild: Bool)? in
             switch activationState {
             case .activating, .active:
@@ -90,7 +90,7 @@ final class TaskSemanticRetrievalService {
         }
         guard let activationDecision else { return }
 
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "semantic_activation_started",
             message: "Activating semantic retrieval resources",
             fields: [
@@ -111,7 +111,7 @@ final class TaskSemanticRetrievalService {
             needsFullRebuild = false
         }
 
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "semantic_activation_finished",
             message: "Semantic retrieval resources are ready",
             counts: ["semantic_items": indexStore.itemCount]

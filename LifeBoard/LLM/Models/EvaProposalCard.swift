@@ -186,7 +186,7 @@ struct EvaAppliedRunHistoryEntry: Codable, Equatable, Identifiable {
     let undoStatus: String
 }
 
-final class EvaAppliedRunHistoryStore {
+final class EvaAppliedRunHistoryStore: @unchecked Sendable {
     static let shared = EvaAppliedRunHistoryStore()
 
     private let defaults: UserDefaults

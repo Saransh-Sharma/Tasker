@@ -86,8 +86,8 @@ struct ChatView: View {
     @State private var generationRunID: UUID?
     @State private var transcriptSnapshot: ChatTranscriptSnapshot = .empty
     @State private var pendingResponsePhase: ChatPendingResponsePhase = .idle
-    @State private var chatOpenTraceInterval: TaskerPerformanceInterval?
-    @State private var promptSubmitTraceInterval: TaskerPerformanceInterval?
+    @State private var chatOpenTraceInterval: LifeBoardPerformanceInterval?
+    @State private var promptSubmitTraceInterval: LifeBoardPerformanceInterval?
     @State private var evaSubmittedDraft: EvaSubmittedDraft?
     @State private var hasCompletedInitialTranscriptRender = false
     @State private var consumedPromptFocusRequestID: UInt64 = 0
@@ -380,7 +380,7 @@ struct ChatView: View {
         .onReceive(contextInvalidationPublisher) { _ in
             scheduleContextInvalidationForCurrentThread()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .taskerEvaChatLaunchRequestDidChange)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .lifeboardEvaChatLaunchRequestDidChange)) { _ in
             consumePendingChatLaunchRequest()
         }
         .onReceive(NotificationCenter.default.publisher(for: .requestEvaChatSettings)) { _ in
@@ -459,7 +459,7 @@ struct ChatView: View {
     @MainActor
     private func handleChatViewAppear() {
         hasCompletedInitialTranscriptRender = false
-        chatOpenTraceInterval = TaskerPerformanceTrace.begin("ChatOpenToFirstTranscriptRender")
+        chatOpenTraceInterval = LifeBoardPerformanceTrace.begin("ChatOpenToFirstTranscriptRender")
         refreshTranscriptSnapshot()
         contextCoordinator.loadAttachments(for: currentThread?.id)
         consumePendingChatLaunchRequest()
@@ -509,7 +509,7 @@ struct ChatView: View {
         contextInvalidationTask?.cancel()
         contextInvalidationTask = nil
         if let chatOpenTraceInterval {
-            TaskerPerformanceTrace.end(chatOpenTraceInterval)
+            LifeBoardPerformanceTrace.end(chatOpenTraceInterval)
             self.chatOpenTraceInterval = nil
         }
         LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_view_disappear")
@@ -836,7 +836,7 @@ struct ChatView: View {
         let runID = UUID()
         generationRunID = runID
         llm.beginUserTurn(runID: runID)
-        promptSubmitTraceInterval = TaskerPerformanceTrace.begin("ChatPromptSubmitToFirstStateChange")
+        promptSubmitTraceInterval = LifeBoardPerformanceTrace.begin("ChatPromptSubmitToFirstStateChange")
         let evaRoute = V2FeatureFlags.evaPlanWithText ? EvaTurnRouter.route(for: message) : nil
         if let evaRoute, evaRoute != .chatAnswer {
             rememberEvaSubmittedDraft(message, runID: runID)
@@ -1016,8 +1016,9 @@ struct ChatView: View {
                     "command_count": String(plan.envelope.commands.count)
                 ]) { _, new in new }
             )
+            let proposalThreadID = thread.id.uuidString
             let proposalResult = await EvaPlanProposalPersistence.awaitResult { completion in
-                pipeline.propose(threadID: thread.id.uuidString, envelope: plan.envelope) { result in
+                pipeline.propose(threadID: proposalThreadID, envelope: plan.envelope) { result in
                     completion(result)
                 }
             }
@@ -1821,7 +1822,7 @@ struct ChatView: View {
             llm.runtimePhase == .answering ||
             llm.runtimePhase == .stopping
         if hadGenerationTask || hadSlashCommandTask || shouldCancelEvaluator {
-            TaskerPerformanceTrace.event("ChatGenerationCancelled")
+            LifeBoardPerformanceTrace.event("ChatGenerationCancelled")
             logWarning(
                 event: "chat_generation_cancelled",
                 message: "Cancelled active chat generation or slash-command work",
@@ -1843,7 +1844,7 @@ struct ChatView: View {
         generationRunID = nil
         generatingThreadID = nil
         if let promptSubmitTraceInterval {
-            TaskerPerformanceTrace.end(promptSubmitTraceInterval)
+            LifeBoardPerformanceTrace.end(promptSubmitTraceInterval)
             self.promptSubmitTraceInterval = nil
         }
         pendingResponsePhase = .idle
@@ -1861,9 +1862,9 @@ struct ChatView: View {
     private func updatePendingResponsePhase(_ phase: ChatPendingResponsePhase, for runID: UUID) {
         guard generationRunID == runID else { return }
         if phase.isActive, let promptSubmitTraceInterval {
-            TaskerPerformanceTrace.end(promptSubmitTraceInterval)
+            LifeBoardPerformanceTrace.end(promptSubmitTraceInterval)
             self.promptSubmitTraceInterval = nil
-            TaskerPerformanceTrace.event("ChatPromptStateTransition")
+            LifeBoardPerformanceTrace.event("ChatPromptStateTransition")
         }
         pendingResponsePhase = phase
     }
@@ -2137,16 +2138,16 @@ struct ChatView: View {
         guard let threadID = currentThread?.id else { return }
         contextInvalidationTask?.cancel()
         contextInvalidationTask = Task {
-            let interval = TaskerPerformanceTrace.begin("ChatContextInvalidation")
+            let interval = LifeBoardPerformanceTrace.begin("ChatContextInvalidation")
             do {
                 try await _Concurrency.Task.sleep(nanoseconds: 150_000_000)
             } catch {
-                TaskerPerformanceTrace.end(interval)
+                LifeBoardPerformanceTrace.end(interval)
                 return
             }
             await ChatView.contextInjectionTracker.clear(threadID: threadID)
             await EvaExecutiveContextService.invalidateCache()
-            TaskerPerformanceTrace.end(interval)
+            LifeBoardPerformanceTrace.end(interval)
         }
     }
 
@@ -2157,9 +2158,9 @@ struct ChatView: View {
             if hasCompletedInitialTranscriptRender == false {
                 hasCompletedInitialTranscriptRender = true
                 if let chatOpenTraceInterval {
-                    TaskerPerformanceTrace.end(chatOpenTraceInterval)
+                    LifeBoardPerformanceTrace.end(chatOpenTraceInterval)
                     self.chatOpenTraceInterval = nil
-                    TaskerPerformanceTrace.event("ChatTranscriptFirstRender")
+                    LifeBoardPerformanceTrace.event("ChatTranscriptFirstRender")
                 }
             }
             return
@@ -2169,9 +2170,9 @@ struct ChatView: View {
         if hasCompletedInitialTranscriptRender == false {
             hasCompletedInitialTranscriptRender = true
             if let chatOpenTraceInterval {
-                TaskerPerformanceTrace.end(chatOpenTraceInterval)
+                LifeBoardPerformanceTrace.end(chatOpenTraceInterval)
                 self.chatOpenTraceInterval = nil
-                TaskerPerformanceTrace.event("ChatTranscriptFirstRender")
+                LifeBoardPerformanceTrace.event("ChatTranscriptFirstRender")
             }
         }
     }

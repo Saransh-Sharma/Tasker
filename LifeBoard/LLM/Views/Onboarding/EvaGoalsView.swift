@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct EvaGoalsView: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Binding var draft: EvaProfileDraft
@@ -12,8 +12,8 @@ struct EvaGoalsView: View {
     @State private var draftGoalText = ""
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var normalizedGoals: [String] {
@@ -65,8 +65,8 @@ struct EvaGoalsView: View {
             ) {
                 if normalizedGoals.isEmpty {
                     Text("No goals added yet")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 } else {
                     EvaFlowLayout(spacing: spacing.s8, rowSpacing: spacing.s8) {
                         ForEach(Array(normalizedGoals.enumerated()), id: \.offset) { index, goal in
@@ -89,7 +89,7 @@ struct EvaGoalsView: View {
                     ) {
                         addGoal()
                     }
-                    .animation(reduceMotion ? nil : TaskerAnimation.quick, value: canAddGoal)
+                    .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: canAddGoal)
                 }
             }
             .enhancedStaggeredAppearance(index: 1)
@@ -131,7 +131,7 @@ struct EvaGoalsView: View {
         if reduceMotion {
             mutation()
         } else {
-            withAnimation(TaskerAnimation.quick, mutation)
+            withAnimation(LifeBoardAnimation.quick, mutation)
         }
     }
 

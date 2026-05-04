@@ -4,13 +4,13 @@ import SwiftUI
 struct ModelsSettingsView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(LLMEvaluator.self) var llm
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     @State private var showOnboardingInstallModelView = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var catalog: LocalModelInstallCatalog {
@@ -19,23 +19,23 @@ struct ModelsSettingsView: View {
         )
     }
 
-    private var heroItems: [TaskerSettingsStatusDescriptor] {
+    private var heroItems: [LifeBoardSettingsStatusDescriptor] {
         [
-            TaskerSettingsStatusDescriptor(
+            LifeBoardSettingsStatusDescriptor(
                 id: "active",
                 title: "Active",
                 value: activeModelName,
                 systemImage: "brain.head.profile",
                 tone: .accent
             ),
-            TaskerSettingsStatusDescriptor(
+            LifeBoardSettingsStatusDescriptor(
                 id: "installed",
                 title: "Installed",
                 value: "\(catalog.installedEntries.count) local",
                 systemImage: "arrow.down.circle.fill",
                 tone: catalog.installedEntries.isEmpty ? .warning : .success
             ),
-            TaskerSettingsStatusDescriptor(
+            LifeBoardSettingsStatusDescriptor(
                 id: "device",
                 title: "Device",
                 value: deviceCompatibilitySummary,
@@ -48,7 +48,7 @@ struct ModelsSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                TaskerSettingsHeroCard(
+                LifeBoardSettingsHeroCard(
                     eyebrow: "Models",
                     title: "Choose \(assistantIdentity.snapshot.displayName)’s model",
                     subtitle: "Keep the default model fast, or install stronger local models when needed.",
@@ -77,7 +77,7 @@ struct ModelsSettingsView: View {
             }
             .padding(.bottom, spacing.s24)
         }
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .navigationTitle("Models")
         .accessibilityIdentifier("llmSettings.modelsView")
         #if os(iOS)
@@ -100,8 +100,8 @@ struct ModelsSettingsView: View {
                     }
             }
             #if os(iOS)
-            .presentationBackground(Color.tasker(.bgElevated))
-            .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
+            .presentationBackground(Color.lifeboard(.bgElevated))
+            .presentationCornerRadius(LifeBoardTheme.CornerRadius.xl)
             #endif
         }
     }
@@ -135,7 +135,7 @@ struct ModelsSettingsView: View {
         let isActive = appManager.currentModelName == model.name
         let compatibility = entry.compatibility
 
-        TaskerCard(active: isActive, elevated: true) {
+        LifeBoardCard(active: isActive, elevated: true) {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     SettingsRowIcon(
@@ -145,12 +145,12 @@ struct ModelsSettingsView: View {
 
                     VStack(alignment: .leading, spacing: spacing.s4) {
                         Text(model.displayName)
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.headline))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
 
                         Text(modelCardDescription(for: model))
-                            .font(.tasker(.callout))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.callout))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                             .lineLimit(2)
                     }
 
@@ -167,8 +167,8 @@ struct ModelsSettingsView: View {
                 if let statusReason = compatibility.statusReason,
                    compatibility.canActivate == false {
                     Text(statusReason)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.statusWarning))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.statusWarning))
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -178,7 +178,7 @@ struct ModelsSettingsView: View {
                             showOnboardingInstallModelView = true
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(Color.tasker(.accentPrimary))
+                        .tint(Color.lifeboard(.accentPrimary))
                         .accessibilityIdentifier("llmSettings.installModelButton")
                     } else if isInstalled && isActive == false && compatibility.canActivate {
                         Button("Set Active") {
@@ -187,7 +187,7 @@ struct ModelsSettingsView: View {
                             }
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(Color.tasker(.accentPrimary))
+                        .tint(Color.lifeboard(.accentPrimary))
                     }
 
                     if isInstalled && isActive == false {
@@ -207,7 +207,7 @@ struct ModelsSettingsView: View {
                         } label: {
                             Image(systemName: "ellipsis.circle")
                                 .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                                 .frame(width: 44, height: 44)
                         }
                     }
@@ -239,9 +239,9 @@ struct ModelsSettingsView: View {
         }
     }
 
-    private func modelBadge(_ title: String, tone: TaskerSettingsTone) -> some View {
+    private func modelBadge(_ title: String, tone: LifeBoardSettingsTone) -> some View {
         Text(title)
-            .font(.tasker(.caption2))
+            .font(.lifeboard(.caption2))
             .foregroundStyle(badgeForeground(for: tone))
             .padding(.horizontal, spacing.s8)
             .padding(.vertical, spacing.s4)
@@ -249,33 +249,33 @@ struct ModelsSettingsView: View {
             .clipShape(Capsule())
     }
 
-    private func badgeForeground(for tone: TaskerSettingsTone) -> Color {
+    private func badgeForeground(for tone: LifeBoardSettingsTone) -> Color {
         switch tone {
         case .accent:
-            return Color.tasker(.accentPrimary)
+            return Color.lifeboard(.accentPrimary)
         case .neutral:
-            return Color.tasker(.textSecondary)
+            return Color.lifeboard(.textSecondary)
         case .success:
-            return Color.tasker(.statusSuccess)
+            return Color.lifeboard(.statusSuccess)
         case .warning:
-            return Color.tasker(.statusWarning)
+            return Color.lifeboard(.statusWarning)
         case .danger:
-            return Color.tasker(.statusDanger)
+            return Color.lifeboard(.statusDanger)
         }
     }
 
-    private func badgeBackground(for tone: TaskerSettingsTone) -> Color {
+    private func badgeBackground(for tone: LifeBoardSettingsTone) -> Color {
         switch tone {
         case .accent:
-            return Color.tasker(.accentWash)
+            return Color.lifeboard(.accentWash)
         case .neutral:
-            return Color.tasker(.surfaceSecondary)
+            return Color.lifeboard(.surfaceSecondary)
         case .success:
-            return Color.tasker(.statusSuccess).opacity(0.14)
+            return Color.lifeboard(.statusSuccess).opacity(0.14)
         case .warning:
-            return Color.tasker(.statusWarning).opacity(0.14)
+            return Color.lifeboard(.statusWarning).opacity(0.14)
         case .danger:
-            return Color.tasker(.statusDanger).opacity(0.14)
+            return Color.lifeboard(.statusDanger).opacity(0.14)
         }
     }
 

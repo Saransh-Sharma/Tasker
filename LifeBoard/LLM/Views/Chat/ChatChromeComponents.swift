@@ -30,27 +30,27 @@ struct ChatHeaderView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
+        HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.md) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(identity.displayName)
-                    .taskerFont(.display)
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .lifeboardFont(.display)
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
 
                 Text(title)
-                    .taskerFont(.caption1)
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .lineLimit(1)
 
                 Text(subtitle)
-                    .taskerFont(.caption1)
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .lineLimit(2)
             }
 
-            Spacer(minLength: TaskerTheme.Spacing.sm)
+            Spacer(minLength: LifeBoardTheme.Spacing.sm)
 
             if showsUtilityActions {
-                HStack(spacing: TaskerTheme.Spacing.xs) {
+                HStack(spacing: LifeBoardTheme.Spacing.xs) {
                     if showsNewChatAction {
                         newChatButton
                     }
@@ -64,34 +64,34 @@ struct ChatHeaderView: View {
                 }
             }
         }
-        .padding(.horizontal, TaskerTheme.Spacing.lg)
-        .padding(.top, TaskerTheme.Spacing.sm)
-        .padding(.bottom, TaskerTheme.Spacing.sm)
+        .padding(.horizontal, LifeBoardTheme.Spacing.lg)
+        .padding(.top, LifeBoardTheme.Spacing.sm)
+        .padding(.bottom, LifeBoardTheme.Spacing.sm)
     }
 
     private var newChatButton: some View {
         Button(action: onStartNewChat) {
             ViewThatFits(in: .horizontal) {
                 Label("New chat", systemImage: "plus.message")
-                    .font(.tasker(.buttonSmall))
+                    .font(.lifeboard(.buttonSmall))
                     .fontWeight(.semibold)
-                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
                     .lineLimit(1)
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
                     .frame(height: 44)
-                    .taskerChromeSurface(
+                    .lifeboardChromeSurface(
                         cornerRadius: 22,
-                        accentColor: Color.tasker(.accentSecondary),
+                        accentColor: Color.lifeboard(.accentSecondary),
                         level: .e1
                     )
 
                 Image(systemName: "plus.message")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
                     .frame(width: 44, height: 44)
-                    .taskerChromeSurface(
+                    .lifeboardChromeSurface(
                         cornerRadius: 22,
-                        accentColor: Color.tasker(.accentSecondary),
+                        accentColor: Color.lifeboard(.accentSecondary),
                         level: .e1
                     )
             }
@@ -100,7 +100,7 @@ struct ChatHeaderView: View {
         .accessibilityIdentifier("chat.header.new_chat")
         .accessibilityLabel("New chat")
         .accessibilityHint("Starts a fresh chat without deleting this one.")
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
     }
 
     private func iconButton(
@@ -112,18 +112,18 @@ struct ChatHeaderView: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(width: 44, height: 44)
-                .taskerChromeSurface(
+                .lifeboardChromeSurface(
                     cornerRadius: 22,
-                    accentColor: Color.tasker(.accentSecondary),
+                    accentColor: Color.lifeboard(.accentSecondary),
                     level: .e1
                 )
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
         .accessibilityLabel(label)
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
     }
 }
 
@@ -164,30 +164,30 @@ struct ChatEmptyStateView: View {
         if V2FeatureFlags.evaStructuredComposer && isActivationPresentation == false {
             structuredPlanEmptyState
         } else {
-            VStack(spacing: TaskerTheme.Spacing.lg) {
+            VStack(spacing: LifeBoardTheme.Spacing.lg) {
             Spacer()
 
             if isActivationPresentation {
-                VStack(spacing: TaskerTheme.Spacing.sm) {
+                VStack(spacing: LifeBoardTheme.Spacing.sm) {
                     EvaLoopingLottieContainer(size: 64)
-                    VStack(spacing: TaskerTheme.Spacing.xs) {
+                    VStack(spacing: LifeBoardTheme.Spacing.xs) {
                         Text("\(identity.askAction) anything")
-                            .font(.tasker(.title2))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.title2))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
                             .accessibilityIdentifier("chat.emptyState.title")
                         Text("Start with a focused prompt, or use a command for structured help.")
-                            .font(.tasker(.callout))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.callout))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                             .multilineTextAlignment(.center)
                     }
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.lg)
-                .padding(.vertical, TaskerTheme.Spacing.lg)
-                .taskerPremiumSurface(
-                    cornerRadius: TaskerTheme.CornerRadius.xl,
-                    fillColor: Color.tasker(.surfacePrimary),
-                    strokeColor: Color.tasker(.strokeHairline),
-                    accentColor: Color.tasker(.accentSecondary),
+                .padding(.horizontal, LifeBoardTheme.Spacing.lg)
+                .padding(.vertical, LifeBoardTheme.Spacing.lg)
+                .lifeboardPremiumSurface(
+                    cornerRadius: LifeBoardTheme.CornerRadius.xl,
+                    fillColor: Color.lifeboard(.surfacePrimary),
+                    strokeColor: Color.lifeboard(.strokeHairline),
+                    accentColor: Color.lifeboard(.accentSecondary),
                     level: .e1,
                     useNativeGlass: false
                 )
@@ -195,34 +195,34 @@ struct ChatEmptyStateView: View {
             } else {
                 ZStack {
                     Circle()
-                        .fill(Color.tasker(.accentWash))
+                        .fill(Color.lifeboard(.accentWash))
                         .frame(width: 80, height: 80)
                     Image(systemName: "bubble.left.and.text.bubble.right")
                         .font(.system(size: 32, weight: .light))
-                        .foregroundStyle(Color.tasker(.accentPrimary))
+                        .foregroundStyle(Color.lifeboard(.accentPrimary))
                         .symbolEffect(
                             .wiggle.byLayer,
                             options: .repeat(.periodic(delay: 3.0)),
                             isActive: !reduceMotion
                         )
                 }
-                VStack(spacing: TaskerTheme.Spacing.xs) {
+                VStack(spacing: LifeBoardTheme.Spacing.xs) {
                     Text("\(identity.askAction) anything")
-                        .font(.tasker(.title2))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.title2))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                         .accessibilityIdentifier("chat.emptyState.title")
                     Text("Type / for commands")
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
                         .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.xl)
-                .padding(.vertical, TaskerTheme.Spacing.lg)
-                .taskerPremiumSurface(
-                    cornerRadius: TaskerTheme.CornerRadius.xl,
-                    fillColor: Color.tasker(.surfacePrimary),
-                    strokeColor: Color.tasker(.strokeHairline),
-                    accentColor: Color.tasker(.accentSecondary),
+                .padding(.horizontal, LifeBoardTheme.Spacing.xl)
+                .padding(.vertical, LifeBoardTheme.Spacing.lg)
+                .lifeboardPremiumSurface(
+                    cornerRadius: LifeBoardTheme.CornerRadius.xl,
+                    fillColor: Color.lifeboard(.surfacePrimary),
+                    strokeColor: Color.lifeboard(.strokeHairline),
+                    accentColor: Color.lifeboard(.accentSecondary),
                     level: .e1
                 )
                 .enhancedStaggeredAppearance(index: 0)
@@ -239,48 +239,48 @@ struct ChatEmptyStateView: View {
 
     private var structuredPlanEmptyState: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-                    HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+            HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.md) {
+                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
+                    HStack(alignment: .center, spacing: LifeBoardTheme.Spacing.sm) {
                         EvaMascotView(placement: .chatEmptyHeader, size: .avatar)
                         Text("Hi there!")
-                            .taskerFont(.screenTitle)
-                            .foregroundStyle(Color.tasker(.accentPrimary))
+                            .lifeboardFont(.screenTitle)
+                            .foregroundStyle(Color.lifeboard(.accentPrimary))
                     }
 
                     Text("What do you need to plan?")
-                        .taskerFont(.title1)
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .lifeboardFont(.title1)
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Spacer(minLength: TaskerTheme.Spacing.md)
+                Spacer(minLength: LifeBoardTheme.Spacing.md)
 
                 Button(action: onOpenEvaGuide) {
                     EvaMascotView(placement: .chatHelp, size: .custom(46))
                         .padding(5)
                         .frame(width: 56, height: 56)
-                        .background(Color.tasker(.surfacePrimary), in: Circle())
+                        .background(Color.lifeboard(.surfacePrimary), in: Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(identity.displayName) help")
                 .accessibilityHint("Shows ways to use \(identity.displayName) as your chief of staff.")
                 .accessibilityIdentifier("eva.structured.help")
-                .taskerPressFeedback(reduceMotion: reduceMotion)
+                .lifeboardPressFeedback(reduceMotion: reduceMotion)
             }
-            .padding(.horizontal, TaskerTheme.Spacing.xl)
-            .padding(.top, TaskerTheme.Spacing.xl)
+            .padding(.horizontal, LifeBoardTheme.Spacing.xl)
+            .padding(.top, LifeBoardTheme.Spacing.xl)
 
-            Spacer(minLength: TaskerTheme.Spacing.xl)
+            Spacer(minLength: LifeBoardTheme.Spacing.xl)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: TaskerTheme.Spacing.md) {
+                HStack(spacing: LifeBoardTheme.Spacing.md) {
                     ForEach(EvaChiefOfStaffGuideContent.homePromptChips(for: identity)) { chip in
                         structuredExampleChip(chip)
                     }
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.xl)
-                .padding(.bottom, TaskerTheme.Spacing.sm)
+                .padding(.horizontal, LifeBoardTheme.Spacing.xl)
+                .padding(.bottom, LifeBoardTheme.Spacing.sm)
             }
         }
         .accessibilityIdentifier("chat.emptyState.container")
@@ -290,43 +290,43 @@ struct ChatEmptyStateView: View {
         Button {
             onSelectStarterPrompt(chip.prompt)
         } label: {
-            HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+            HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.sm) {
                 Image(systemName: chip.icon)
-                    .taskerFont(.caption1)
-                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
                     .frame(width: 32, height: 32)
-                    .background(Color.tasker(.accentWash), in: Circle())
+                    .background(Color.lifeboard(.accentWash), in: Circle())
                 VStack(alignment: .leading, spacing: 4) {
                     Text(chip.prompt.title)
-                        .taskerFont(.callout)
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .lifeboardFont(.callout)
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(chip.prompt.submissionText)
-                        .taskerFont(.caption1)
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .lifeboardFont(.caption1)
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(.horizontal, TaskerTheme.Spacing.md)
-            .padding(.vertical, TaskerTheme.Spacing.md)
+            .padding(.horizontal, LifeBoardTheme.Spacing.md)
+            .padding(.vertical, LifeBoardTheme.Spacing.md)
             .frame(width: 236, alignment: .leading)
             .frame(minHeight: 78, alignment: .leading)
-            .taskerChromeSurface(
-                cornerRadius: TaskerTheme.CornerRadius.lg,
-                accentColor: Color.tasker(.accentSecondary),
+            .lifeboardChromeSurface(
+                cornerRadius: LifeBoardTheme.CornerRadius.lg,
+                accentColor: Color.lifeboard(.accentSecondary),
                 level: .e1
             )
         }
         .buttonStyle(.plain)
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
     }
 
     @ViewBuilder
     private var promptCarousel: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: TaskerTheme.Spacing.sm) {
+            HStack(spacing: LifeBoardTheme.Spacing.sm) {
                 if isActivationPresentation {
                     ForEach(activationStarterPrompts) { prompt in
                         starterPromptChip(prompt)
@@ -337,7 +337,7 @@ struct ChatEmptyStateView: View {
                     }
                 }
             }
-            .padding(.horizontal, TaskerTheme.Spacing.xl)
+            .padding(.horizontal, LifeBoardTheme.Spacing.xl)
         }
     }
 
@@ -345,46 +345,46 @@ struct ChatEmptyStateView: View {
         Button {
             onSelectStarterPrompt(prompt)
         } label: {
-            HStack(spacing: TaskerTheme.Spacing.xs) {
+            HStack(spacing: LifeBoardTheme.Spacing.xs) {
                 Image(systemName: prompt.style == .slashCommand ? "command" : (prompt.isRecommended ? "star.fill" : "sparkle"))
-                    .font(.tasker(.caption1))
+                    .font(.lifeboard(.caption1))
                 Text(prompt.title)
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
             }
-            .foregroundStyle(prompt.isRecommended ? Color.tasker(.accentOnPrimary) : Color.tasker(.accentPrimary))
-            .padding(.horizontal, TaskerTheme.Spacing.md)
-            .padding(.vertical, TaskerTheme.Spacing.sm)
-            .background(prompt.isRecommended ? Color.tasker(.accentPrimary) : Color.tasker(.accentWash))
+            .foregroundStyle(prompt.isRecommended ? Color.lifeboard(.accentOnPrimary) : Color.lifeboard(.accentPrimary))
+            .padding(.horizontal, LifeBoardTheme.Spacing.md)
+            .padding(.vertical, LifeBoardTheme.Spacing.sm)
+            .background(prompt.isRecommended ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.accentWash))
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(prompt.isRecommended ? Color.tasker(.accentPrimary) : Color.tasker(.accentMuted), lineWidth: 1))
+            .overlay(Capsule().stroke(prompt.isRecommended ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.accentMuted), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Send \(prompt.title)")
         .accessibilityIdentifier("chat.activation_starter.\(prompt.id)")
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
     }
 
     private func commandSuggestionChip(for descriptor: SlashCommandDescriptor) -> some View {
         Button {
             onSelectSuggestion(descriptor)
         } label: {
-            HStack(spacing: TaskerTheme.Spacing.xs) {
+            HStack(spacing: LifeBoardTheme.Spacing.xs) {
                 Image(systemName: descriptor.id.icon)
-                    .font(.tasker(.caption1))
+                    .font(.lifeboard(.caption1))
                 Text(descriptor.command)
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
             }
-            .foregroundStyle(Color.tasker(.accentPrimary))
-            .padding(.horizontal, TaskerTheme.Spacing.md)
-            .padding(.vertical, TaskerTheme.Spacing.sm)
-            .background(Color.tasker(.accentWash))
+            .foregroundStyle(Color.lifeboard(.accentPrimary))
+            .padding(.horizontal, LifeBoardTheme.Spacing.md)
+            .padding(.vertical, LifeBoardTheme.Spacing.sm)
+            .background(Color.lifeboard(.accentWash))
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
+            .overlay(Capsule().stroke(Color.lifeboard(.accentMuted), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Run command \(descriptor.command)")
         .accessibilityIdentifier("chat.command_suggestion.\(descriptor.id.rawValue)")
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
     }
 }
 
@@ -634,7 +634,7 @@ struct EvaChiefOfStaffGuideView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.lg) {
                     hero
 
                     ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
@@ -642,10 +642,10 @@ struct EvaChiefOfStaffGuideView: View {
                             .enhancedStaggeredAppearance(index: index + 1)
                     }
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.lg)
-                .padding(.vertical, TaskerTheme.Spacing.lg)
+                .padding(.horizontal, LifeBoardTheme.Spacing.lg)
+                .padding(.vertical, LifeBoardTheme.Spacing.lg)
             }
-            .background(Color.tasker(.bgElevated))
+            .background(Color.lifeboard(.bgElevated))
             .navigationTitle("\(assistantIdentity.snapshot.displayName) guide")
             #if os(iOS) || os(visionOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -663,53 +663,53 @@ struct EvaChiefOfStaffGuideView: View {
     }
 
     private var hero: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-            HStack(spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
+            HStack(spacing: LifeBoardTheme.Spacing.sm) {
                 EvaMascotView(placement: .chiefOfStaffGuide, size: .custom(42))
                     .frame(width: 48, height: 48)
-                    .background(Color.tasker(.accentWash), in: Circle())
+                    .background(Color.lifeboard(.accentWash), in: Circle())
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("\(assistantIdentity.snapshot.displayName) as Chief of Staff")
-                        .font(.tasker(.title2))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.title2))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                     Text("Plan, triage, and apply with confirmation.")
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
             }
 
             Text("Start with one of these prompts, or read the examples to learn when \(assistantIdentity.snapshot.displayName) is strongest.")
-                .font(.tasker(.body))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(TaskerTheme.Spacing.lg)
-        .taskerPremiumSurface(
-            cornerRadius: TaskerTheme.CornerRadius.xl,
-            fillColor: Color.tasker(.surfacePrimary),
-            strokeColor: Color.tasker(.strokeHairline),
-            accentColor: Color.tasker(.accentSecondary),
+        .padding(LifeBoardTheme.Spacing.lg)
+        .lifeboardPremiumSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.xl,
+            fillColor: Color.lifeboard(.surfacePrimary),
+            strokeColor: Color.lifeboard(.strokeHairline),
+            accentColor: Color.lifeboard(.accentSecondary),
             level: .e1
         )
         .enhancedStaggeredAppearance(index: 0)
     }
 
     private func sectionCard(_ section: EvaChiefOfStaffGuideSection) -> some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
-            HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
+            HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.sm) {
                 Image(systemName: section.icon)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
                     .frame(width: 28, height: 28)
 
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                     Text(section.title)
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                     Text(section.body)
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -723,10 +723,10 @@ struct EvaChiefOfStaffGuideView: View {
                 }
             )
         }
-        .padding(TaskerTheme.Spacing.md)
-        .taskerChromeSurface(
-            cornerRadius: TaskerTheme.CornerRadius.lg,
-            accentColor: Color.tasker(.accentSecondary),
+        .padding(LifeBoardTheme.Spacing.md)
+        .lifeboardChromeSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.lg,
+            accentColor: Color.lifeboard(.accentSecondary),
             level: .e1
         )
         .accessibilityElement(children: .contain)
@@ -742,9 +742,9 @@ private struct FlowPromptChipsView: View {
 
     var body: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 138), spacing: TaskerTheme.Spacing.xs, alignment: .leading)],
+            columns: [GridItem(.adaptive(minimum: 138), spacing: LifeBoardTheme.Spacing.xs, alignment: .leading)],
             alignment: .leading,
-            spacing: TaskerTheme.Spacing.xs
+            spacing: LifeBoardTheme.Spacing.xs
         ) {
             ForEach(prompts) { prompt in
                 Button {
@@ -752,25 +752,25 @@ private struct FlowPromptChipsView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: prompt.style == .slashCommand ? "command" : "arrow.up.message")
-                            .font(.tasker(.caption2))
+                            .font(.lifeboard(.caption2))
                         Text(prompt.title)
-                            .font(.tasker(.caption1))
+                            .font(.lifeboard(.caption1))
                             .fontWeight(.semibold)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    .foregroundStyle(Color.tasker(.accentPrimary))
-                    .padding(.horizontal, TaskerTheme.Spacing.sm)
-                    .padding(.vertical, TaskerTheme.Spacing.xs)
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
+                    .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                    .padding(.vertical, LifeBoardTheme.Spacing.xs)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.tasker(.accentWash))
+                    .background(Color.lifeboard(.accentWash))
                     .clipShape(Capsule())
-                    .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
+                    .overlay(Capsule().stroke(Color.lifeboard(.accentMuted), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Send prompt: \(prompt.submissionText)")
                 .accessibilityIdentifier("eva.guide.prompt.\(prompt.id)")
-                .taskerPressFeedback(reduceMotion: reduceMotion)
+                .lifeboardPressFeedback(reduceMotion: reduceMotion)
             }
         }
     }
@@ -829,14 +829,14 @@ struct ChatComposerView: View {
 
     var body: some View {
         if V2FeatureFlags.evaStructuredComposer && isActivationPresentation == false {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                 if shouldShowComposerSuggestionStrip {
                     composerSuggestionStrip
                 }
                 structuredComposer
             }
         } else {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
             if activeAttachments.isEmpty == false {
                 activeAttachmentRow
             }
@@ -847,18 +847,18 @@ struct ChatComposerView: View {
 
             if let commandFeedback, !commandFeedback.isEmpty {
                 Text(commandFeedback)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.statusDanger))
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.statusDanger))
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
                     .accessibilityIdentifier("chat.command_feedback")
                     .transition(.opacity)
             }
 
             if isActivationPresentation {
                 Text(activationConfiguration?.helperCopy ?? "Type / for structured help like today, week, or project.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
                     .accessibilityIdentifier("chat.activation.slash_helper")
             }
 
@@ -872,16 +872,16 @@ struct ChatComposerView: View {
                 TextField(composerPlaceholder, text: $prompt, axis: .vertical)
                     .focused($isPromptFocused)
                     .textFieldStyle(.plain)
-                    .font(.tasker(.body))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.body))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                 #if os(iOS) || os(visionOS)
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
                 #elseif os(macOS)
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
                     .onSubmit(onSubmitPrompt)
                     .submitLabel(.send)
                 #endif
-                    .padding(.vertical, TaskerTheme.Spacing.sm)
+                    .padding(.vertical, LifeBoardTheme.Spacing.sm)
                 #if os(iOS) || os(visionOS)
                     .frame(minHeight: 48)
                     .onSubmit(onSubmitPrompt)
@@ -897,19 +897,19 @@ struct ChatComposerView: View {
             }
         }
         #if os(iOS) || os(visionOS)
-        .padding(.vertical, TaskerTheme.Spacing.sm)
+        .padding(.vertical, LifeBoardTheme.Spacing.sm)
         .padding(.horizontal, 2)
-        .taskerPremiumSurface(
-            cornerRadius: TaskerTheme.CornerRadius.xl,
-            fillColor: Color.tasker(.surfaceSecondary),
-            strokeColor: Color.tasker(.strokeHairline),
-            accentColor: Color.tasker(.accentSecondary),
+        .lifeboardPremiumSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.xl,
+            fillColor: Color.lifeboard(.surfaceSecondary),
+            strokeColor: Color.lifeboard(.strokeHairline),
+            accentColor: Color.lifeboard(.accentSecondary),
             level: .e2
         )
         #elseif os(macOS)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.tasker(.surfaceSecondary))
+                .fill(Color.lifeboard(.surfaceSecondary))
         )
         #endif
         .accessibilityIdentifier("chat.composer.container")
@@ -921,29 +921,29 @@ struct ChatComposerView: View {
     }
 
     private var structuredComposer: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
             if activeAttachments.isEmpty == false {
                 activeAttachmentRow
             }
 
             if let commandFeedback, !commandFeedback.isEmpty {
                 Text(commandFeedback)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.statusDanger))
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.statusDanger))
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
                     .accessibilityIdentifier("chat.command_feedback")
                     .transition(.opacity)
             }
 
-            HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.xs) {
+            HStack(alignment: .bottom, spacing: LifeBoardTheme.Spacing.xs) {
                 TextField("Tell me your plans...", text: $prompt, axis: .vertical)
                     .focused($isPromptFocused)
                     .textFieldStyle(.plain)
-                    .taskerFont(.body)
-                    .foregroundStyle(Color.tasker(.textPrimary))
-                    .tint(Color.tasker(.accentPrimary))
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
-                    .padding(.vertical, TaskerTheme.Spacing.sm)
+                    .lifeboardFont(.body)
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
+                    .tint(Color.lifeboard(.accentPrimary))
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                    .padding(.vertical, LifeBoardTheme.Spacing.sm)
                     .frame(minHeight: 52)
                     .onSubmit(onSubmitPrompt)
 
@@ -965,28 +965,28 @@ struct ChatComposerView: View {
 
             if let structuredDeferredFeedback {
                 Text(structuredDeferredFeedback)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
                     .accessibilityIdentifier("eva.structured.deferred.feedback")
             }
         }
-        .padding(.vertical, TaskerTheme.Spacing.xs)
-        .background(Color.tasker(.surfacePrimary))
+        .padding(.vertical, LifeBoardTheme.Spacing.xs)
+        .background(Color.lifeboard(.surfacePrimary))
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(
-                    isPromptFocused ? Color.tasker(.accentRing) : Color.tasker(.strokeHairline),
+                    isPromptFocused ? Color.lifeboard(.accentRing) : Color.lifeboard(.strokeHairline),
                     lineWidth: isPromptFocused ? 1.2 : 1
                 )
         )
         .shadow(
-            color: isPromptFocused ? Color.tasker(.accentPrimary).opacity(0.12) : Color.tasker(.textPrimary).opacity(0.04),
+            color: isPromptFocused ? Color.lifeboard(.accentPrimary).opacity(0.12) : Color.lifeboard(.textPrimary).opacity(0.04),
             radius: isPromptFocused ? 8 : 4,
             y: isPromptFocused ? 2 : 1
         )
-        .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isPromptFocused)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isPromptFocused)
         .accessibilityIdentifier("eva.structured.composer")
         .contentShape(Rectangle())
         .onTapGesture {
@@ -1000,7 +1000,7 @@ struct ChatComposerView: View {
         } label: {
             Image(systemName: systemName)
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(Color.tasker(.accentPrimary).opacity(0.82))
+                .foregroundStyle(Color.lifeboard(.accentPrimary).opacity(0.82))
                 .frame(width: 36, height: 44)
                 .padding(.bottom, 4)
         }
@@ -1012,7 +1012,7 @@ struct ChatComposerView: View {
 
     private var composerSuggestionStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: TaskerTheme.Spacing.xs) {
+            HStack(spacing: LifeBoardTheme.Spacing.xs) {
                 if isActivationPresentation {
                     ForEach(Array(activationStarterPrompts.enumerated()), id: \.element.id) { index, prompt in
                         Button {
@@ -1020,14 +1020,14 @@ struct ChatComposerView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: prompt.style == .slashCommand ? "command" : (prompt.isRecommended ? "star.fill" : "sparkle"))
-                                    .font(.tasker(.caption2))
+                                    .font(.lifeboard(.caption2))
                                 Text(prompt.title)
-                                    .font(.tasker(.caption1))
+                                    .font(.lifeboard(.caption1))
                             }
-                            .foregroundStyle(prompt.isRecommended ? Color.tasker(.accentOnPrimary) : Color.tasker(.accentPrimary))
-                            .padding(.horizontal, TaskerTheme.Spacing.sm)
-                            .padding(.vertical, TaskerTheme.Spacing.xs)
-                            .background(prompt.isRecommended ? Color.tasker(.accentPrimary) : Color.tasker(.accentWash))
+                            .foregroundStyle(prompt.isRecommended ? Color.lifeboard(.accentOnPrimary) : Color.lifeboard(.accentPrimary))
+                            .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                            .padding(.vertical, LifeBoardTheme.Spacing.xs)
+                            .background(prompt.isRecommended ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.accentWash))
                             .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -1035,9 +1035,9 @@ struct ChatComposerView: View {
                         .accessibilityIdentifier("chat.activation.composer_starter.\(prompt.id)")
                         .overlay(
                             Capsule()
-                                .stroke(prompt.isRecommended ? Color.tasker(.accentPrimary) : Color.tasker(.accentMuted), lineWidth: 1)
+                                .stroke(prompt.isRecommended ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.accentMuted), lineWidth: 1)
                         )
-                        .taskerPressFeedback(reduceMotion: reduceMotion)
+                        .lifeboardPressFeedback(reduceMotion: reduceMotion)
                         .enhancedStaggeredAppearance(index: index)
                     }
                 } else {
@@ -1046,14 +1046,14 @@ struct ChatComposerView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "sparkle")
-                                .font(.tasker(.caption2))
+                                .font(.lifeboard(.caption2))
                             Text(dayOverviewStarterPrompt.title)
-                                .font(.tasker(.caption1))
+                                .font(.lifeboard(.caption1))
                         }
-                        .foregroundStyle(Color.tasker(.accentOnPrimary))
-                        .padding(.horizontal, TaskerTheme.Spacing.sm)
-                        .padding(.vertical, TaskerTheme.Spacing.xs)
-                        .background(Color.tasker(.accentPrimary))
+                        .foregroundStyle(Color.lifeboard(.accentOnPrimary))
+                        .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                        .padding(.vertical, LifeBoardTheme.Spacing.xs)
+                        .background(Color.lifeboard(.accentPrimary))
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -1061,9 +1061,9 @@ struct ChatComposerView: View {
                     .accessibilityIdentifier("chat.command_composer_starter.\(dayOverviewStarterPrompt.id)")
                     .overlay(
                         Capsule()
-                            .stroke(Color.tasker(.accentPrimary), lineWidth: 1)
+                            .stroke(Color.lifeboard(.accentPrimary), lineWidth: 1)
                     )
-                    .taskerPressFeedback(reduceMotion: reduceMotion)
+                    .lifeboardPressFeedback(reduceMotion: reduceMotion)
 
                     ForEach(commandSuggestions, id: \.id) { descriptor in
                         Button {
@@ -1071,24 +1071,24 @@ struct ChatComposerView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: descriptor.id.icon)
-                                    .font(.tasker(.caption2))
+                                    .font(.lifeboard(.caption2))
                                 Text(descriptor.command)
-                                    .font(.tasker(.caption1))
+                                    .font(.lifeboard(.caption1))
                             }
-                            .foregroundStyle(Color.tasker(.accentPrimary))
-                            .padding(.horizontal, TaskerTheme.Spacing.sm)
-                            .padding(.vertical, TaskerTheme.Spacing.xs)
-                            .background(Color.tasker(.accentWash))
+                            .foregroundStyle(Color.lifeboard(.accentPrimary))
+                            .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                            .padding(.vertical, LifeBoardTheme.Spacing.xs)
+                            .background(Color.lifeboard(.accentWash))
                             .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Insert \(descriptor.command)")
                         .accessibilityIdentifier("chat.command_composer_suggestion.\(descriptor.id.rawValue)")
-                        .taskerPressFeedback(reduceMotion: reduceMotion)
+                        .lifeboardPressFeedback(reduceMotion: reduceMotion)
                     }
                 }
             }
-            .padding(.horizontal, TaskerTheme.Spacing.sm)
+            .padding(.horizontal, LifeBoardTheme.Spacing.sm)
         }
         .transition(.opacity)
     }
@@ -1098,41 +1098,41 @@ struct ChatComposerView: View {
     }
 
     private var activeAttachmentRow: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
             Text("Using context")
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
-                .padding(.horizontal, TaskerTheme.Spacing.sm)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
+                .padding(.horizontal, LifeBoardTheme.Spacing.sm)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: TaskerTheme.Spacing.xs) {
+                HStack(spacing: LifeBoardTheme.Spacing.xs) {
                     ForEach(activeAttachments) { attachment in
                         HStack(spacing: 6) {
                             Image(systemName: attachment.commandID.icon)
-                                .font(.tasker(.caption2))
+                                .font(.lifeboard(.caption2))
                             Text(attachment.commandLabel)
-                                .font(.tasker(.caption1))
+                                .font(.lifeboard(.caption1))
                                 .lineLimit(1)
                             Button {
                                 onRemoveAttachment(attachment)
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.tasker(.caption2))
+                                    .font(.lifeboard(.caption2))
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(Text("Remove \(attachment.commandLabel)"))
                             .accessibilityHint(Text("Removes this pinned context from the current chat."))
                         }
-                        .foregroundStyle(Color.tasker(.accentPrimary))
-                        .padding(.horizontal, TaskerTheme.Spacing.sm)
-                        .padding(.vertical, TaskerTheme.Spacing.xs)
-                        .background(Color.tasker(.accentWash))
+                        .foregroundStyle(Color.lifeboard(.accentPrimary))
+                        .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                        .padding(.vertical, LifeBoardTheme.Spacing.xs)
+                        .background(Color.lifeboard(.accentWash))
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
+                        .overlay(Capsule().stroke(Color.lifeboard(.accentMuted), lineWidth: 1))
                         .accessibilityIdentifier("chat.attachment_chip.\(attachment.id.uuidString)")
                     }
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.sm)
+                .padding(.horizontal, LifeBoardTheme.Spacing.sm)
             }
         }
         .transition(.opacity)
@@ -1155,44 +1155,44 @@ struct ChatComposerView: View {
     private var slashButton: some View {
         Button(action: onOpenSlashPicker) {
             Text("/")
-                .font(.tasker(.callout))
+                .font(.lifeboard(.callout))
                 .fontWeight(.semibold)
-                .foregroundStyle(Color.tasker(.accentPrimary))
+                .foregroundStyle(Color.lifeboard(.accentPrimary))
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
-                        .fill(Color.tasker(.accentWash))
+                        .fill(Color.lifeboard(.accentWash))
                 )
                 .overlay(
                     Circle()
-                        .stroke(Color.tasker(.accentMuted), lineWidth: 1)
+                        .stroke(Color.lifeboard(.accentMuted), lineWidth: 1)
                 )
         }
-        .padding(.leading, TaskerTheme.Spacing.sm)
-        .padding(.bottom, TaskerTheme.Spacing.xs)
+        .padding(.leading, LifeBoardTheme.Spacing.sm)
+        .padding(.bottom, LifeBoardTheme.Spacing.xs)
         .accessibilityLabel("Commands")
         .accessibilityHint("Open slash commands")
         .accessibilityIdentifier("chat.slash_button")
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
     }
 
     @ViewBuilder
     private func commandDraftRow(_ invocation: SlashCommandInvocation) -> some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-            HStack(spacing: TaskerTheme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
+            HStack(spacing: LifeBoardTheme.Spacing.xs) {
                 Label(invocation.id.canonicalCommand, systemImage: invocation.id.icon)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.accentPrimary))
-                    .padding(.horizontal, TaskerTheme.Spacing.sm)
-                    .padding(.vertical, TaskerTheme.Spacing.xs)
-                    .background(Color.tasker(.accentWash))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
+                    .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                    .padding(.vertical, LifeBoardTheme.Spacing.xs)
+                    .background(Color.lifeboard(.accentWash))
                     .clipShape(Capsule())
                     .accessibilityIdentifier("chat.command_chip.\(invocation.id.rawValue)")
 
                 Button(action: onCancelDraft) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
                 }
                 .buttonStyle(.plain)
 
@@ -1200,13 +1200,13 @@ struct ChatComposerView: View {
             }
 
             if invocation.id.requiresArgument {
-                HStack(spacing: TaskerTheme.Spacing.xs) {
+                HStack(spacing: LifeBoardTheme.Spacing.xs) {
                     Image(systemName: invocation.id.icon)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
 
                     TextField(invocation.id.argumentPlaceholder ?? "Pick value", text: projectQuery)
-                        .font(.tasker(.caption1))
+                        .font(.lifeboard(.caption1))
                         .textFieldStyle(.plain)
                         .autocorrectionDisabled()
                         .focused($isProjectFieldFocused)
@@ -1215,22 +1215,22 @@ struct ChatComposerView: View {
                     if let resolvedArgument = invocation.resolvedArgument, !resolvedArgument.isEmpty {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color.tasker(.statusSuccess))
+                                .foregroundStyle(Color.lifeboard(.statusSuccess))
                             Text(resolvedArgument)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.statusSuccess))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.statusSuccess))
                         }
                     }
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.sm)
-                .padding(.vertical, TaskerTheme.Spacing.sm)
-                .background(Color.tasker(.surfaceTertiary))
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+                .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                .padding(.vertical, LifeBoardTheme.Spacing.sm)
+                .background(Color.lifeboard(.surfaceTertiary))
+                .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
-                        .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
+                        .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
                 )
-                .padding(.horizontal, TaskerTheme.Spacing.sm)
+                .padding(.horizontal, LifeBoardTheme.Spacing.sm)
             }
         }
         .transition(.opacity)
@@ -1239,9 +1239,9 @@ struct ChatComposerView: View {
     private var generateButton: some View {
         Button(action: onGenerate) {
             Image(systemName: "arrow.up")
-                .font(.tasker(.buttonSmall))
+                .font(.lifeboard(.buttonSmall))
                 .fontWeight(.semibold)
-                .foregroundStyle(canSubmit ? Color.tasker(.accentOnPrimary) : Color.tasker(.textQuaternary))
+                .foregroundStyle(canSubmit ? Color.lifeboard(.accentOnPrimary) : Color.lifeboard(.textQuaternary))
             #if os(iOS) || os(visionOS)
                 .frame(width: 32, height: 32)
             #else
@@ -1249,19 +1249,19 @@ struct ChatComposerView: View {
             #endif
                 .background(
                     Circle()
-                        .fill(canSubmit ? Color.tasker(.accentPrimary) : Color.tasker(.surfaceTertiary))
+                        .fill(canSubmit ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.surfaceTertiary))
                 )
         }
         .disabled(!canSubmit)
         .accessibilityIdentifier("chat.send_button")
         #if os(iOS) || os(visionOS)
-            .padding(.trailing, TaskerTheme.Spacing.md)
-            .padding(.bottom, TaskerTheme.Spacing.xs)
+            .padding(.trailing, LifeBoardTheme.Spacing.md)
+            .padding(.bottom, LifeBoardTheme.Spacing.xs)
         #else
-            .padding(.trailing, TaskerTheme.Spacing.sm)
-            .padding(.bottom, TaskerTheme.Spacing.sm)
+            .padding(.trailing, LifeBoardTheme.Spacing.sm)
+            .padding(.bottom, LifeBoardTheme.Spacing.sm)
         #endif
-        .animation(reduceMotion ? nil : TaskerAnimation.quick, value: canSubmit)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: canSubmit)
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
@@ -1271,7 +1271,7 @@ struct ChatComposerView: View {
         Button(action: onStop) {
             Image(systemName: "stop.fill")
                 .font(.caption)
-                .foregroundStyle(Color.tasker(.accentOnPrimary))
+                .foregroundStyle(Color.lifeboard(.accentOnPrimary))
             #if os(iOS) || os(visionOS)
                 .frame(width: 32, height: 32)
             #else
@@ -1279,22 +1279,22 @@ struct ChatComposerView: View {
             #endif
                 .background(
                     Circle()
-                        .fill(Color.tasker(.statusDanger))
+                        .fill(Color.lifeboard(.statusDanger))
                 )
         }
         .disabled(llmCancelled)
         .accessibilityIdentifier("chat.stop_button")
         #if os(iOS) || os(visionOS)
-            .padding(.trailing, TaskerTheme.Spacing.md)
-            .padding(.bottom, TaskerTheme.Spacing.xs)
+            .padding(.trailing, LifeBoardTheme.Spacing.md)
+            .padding(.bottom, LifeBoardTheme.Spacing.xs)
         #else
-            .padding(.trailing, TaskerTheme.Spacing.sm)
-            .padding(.bottom, TaskerTheme.Spacing.sm)
+            .padding(.trailing, LifeBoardTheme.Spacing.sm)
+            .padding(.bottom, LifeBoardTheme.Spacing.sm)
         #endif
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
     }
 }
 
@@ -1304,25 +1304,25 @@ private struct ChatStorageDegradedBanner: View {
     var body: some View {
         Label {
             Text("Chat history is temporarily limited.")
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textPrimary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } icon: {
             Image(systemName: "externaldrive.badge.exclamationmark")
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.statusWarning))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.statusWarning))
         }
-        .padding(.horizontal, TaskerTheme.Spacing.sm)
-        .padding(.vertical, TaskerTheme.Spacing.xs)
+        .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+        .padding(.vertical, LifeBoardTheme.Spacing.xs)
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.sm, style: .continuous)
-                .fill(Color.tasker(.statusWarning).opacity(0.12))
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.sm, style: .continuous)
+                .fill(Color.lifeboard(.statusWarning).opacity(0.12))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.sm, style: .continuous)
-                .stroke(Color.tasker(.statusWarning).opacity(0.22), lineWidth: 1)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.sm, style: .continuous)
+                .stroke(Color.lifeboard(.statusWarning).opacity(0.22), lineWidth: 1)
         )
         .accessibilityLabel("Chat history is temporarily limited")
         .accessibilityHint("Storage fallback reason: \(reason)")
@@ -1332,7 +1332,7 @@ private struct ChatStorageDegradedBanner: View {
 struct ChatScaffoldView: View {
     @EnvironmentObject private var appManager: AppManager
     @Environment(LLMEvaluator.self) private var llm
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var showEvaGuide = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
@@ -1437,11 +1437,11 @@ struct ChatScaffoldView: View {
                     )
                 }
 
-                VStack(spacing: TaskerTheme.Spacing.xs) {
+                VStack(spacing: LifeBoardTheme.Spacing.xs) {
                     if let storageDegradedReason {
                         ChatStorageDegradedBanner(reason: storageDegradedReason)
                     }
-                    HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
+                    HStack(alignment: .bottom, spacing: LifeBoardTheme.Spacing.md) {
                         ChatComposerView(
                             identity: assistantIdentity.snapshot,
                             presentationMode: presentationMode,
@@ -1470,15 +1470,15 @@ struct ChatScaffoldView: View {
                         )
                     }
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.lg)
-                .padding(.bottom, TaskerTheme.Spacing.md)
-                .padding(.top, isActivationPresentation ? TaskerTheme.Spacing.xs : TaskerTheme.Spacing.sm)
+                .padding(.horizontal, LifeBoardTheme.Spacing.lg)
+                .padding(.bottom, LifeBoardTheme.Spacing.md)
+                .padding(.top, isActivationPresentation ? LifeBoardTheme.Spacing.xs : LifeBoardTheme.Spacing.sm)
                 .background(
-                    Color.tasker(.bgCanvas)
-                        .shadow(color: Color.tasker(.textPrimary).opacity(0.04), radius: 8, y: -4)
+                    Color.lifeboard(.bgCanvas)
+                        .shadow(color: Color.lifeboard(.textPrimary).opacity(0.04), radius: 8, y: -4)
                 )
             }
-            .background(Color.tasker(.bgCanvas))
+            .background(Color.lifeboard(.bgCanvas))
                 .onAppear {
                     publishNavigationChromeState()
                 }
@@ -1512,8 +1512,8 @@ struct ChatScaffoldView: View {
                         #endif
                     }
                     #if os(iOS)
-                    .presentationBackground(Color.tasker(.bgElevated))
-                    .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
+                    .presentationBackground(Color.lifeboard(.bgElevated))
+                    .presentationCornerRadius(LifeBoardTheme.CornerRadius.xl)
                     .presentationDragIndicator(.visible)
                     .presentationDetents(layoutClass == .phone ? [.large] : [.large])
                     #elseif os(macOS)
@@ -1534,7 +1534,7 @@ struct ChatScaffoldView: View {
                         allCommands: allCommands,
                         onSelect: onSelectSuggestion
                     )
-                    .presentationBackground(Color.tasker(.bgElevated))
+                    .presentationBackground(Color.lifeboard(.bgElevated))
                     .presentationDragIndicator(.visible)
                     .presentationDetents(layoutClass == .phone ? [.medium, .large] : [.large])
                 }
@@ -1543,8 +1543,8 @@ struct ChatScaffoldView: View {
                         onSelectStarterPrompt(prompt)
                     }
                     #if os(iOS)
-                    .presentationBackground(Color.tasker(.bgElevated))
-                    .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
+                    .presentationBackground(Color.lifeboard(.bgElevated))
+                    .presentationCornerRadius(LifeBoardTheme.CornerRadius.xl)
                     .presentationDragIndicator(.visible)
                     .presentationDetents([.large])
                     #endif

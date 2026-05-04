@@ -1,9 +1,9 @@
 import SwiftUI
 
 struct EvaActivationMetrics {
-    let spacing: TaskerSpacingTokens
-    let corner: TaskerCornerTokens
-    let layoutClass: TaskerLayoutClass
+    let spacing: LifeBoardSpacingTokens
+    let corner: LifeBoardCornerTokens
+    let layoutClass: LifeBoardLayoutClass
 
     var sectionGap: CGFloat { spacing.s20 }
     var cardGap: CGFloat { spacing.s16 }
@@ -35,28 +35,28 @@ struct EvaContentHeader: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             if let eyebrow, eyebrow.isEmpty == false {
                 Text(eyebrow)
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
                     .tracking(1.1)
             }
 
             Text(title)
-                .font(.tasker(.title1).weight(.bold))
-                .foregroundStyle(Color.tasker(.textPrimary))
+                .font(.lifeboard(.title1).weight(.bold))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
 
             Text(bodyText)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
 
 struct EvaSectionCard<Content: View>: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     let title: String
     let subtitle: String?
@@ -65,8 +65,8 @@ struct EvaSectionCard<Content: View>: View {
 
     private var metrics: EvaActivationMetrics {
         EvaActivationMetrics(
-            spacing: TaskerThemeManager.shared.tokens(for: layoutClass).spacing,
-            corner: TaskerThemeManager.shared.tokens(for: layoutClass).corner,
+            spacing: LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing,
+            corner: LifeBoardThemeManager.shared.tokens(for: layoutClass).corner,
             layoutClass: layoutClass
         )
     }
@@ -75,13 +75,13 @@ struct EvaSectionCard<Content: View>: View {
         VStack(alignment: .leading, spacing: metrics.cardGap) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
 
                 if let subtitle, subtitle.isEmpty == false {
                     Text(subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
             }
             .ifLet(accessibilityIdentifier) { view, value in
@@ -91,11 +91,11 @@ struct EvaSectionCard<Content: View>: View {
             content()
         }
         .padding(metrics.cardPadding)
-        .taskerPremiumSurface(
+        .lifeboardPremiumSurface(
             cornerRadius: metrics.cardRadius,
-            fillColor: Color.tasker(.surfacePrimary).opacity(0.98),
-            strokeColor: Color.tasker(.strokeHairline),
-            accentColor: Color.tasker(.accentSecondary).opacity(0.45),
+            fillColor: Color.lifeboard(.surfacePrimary).opacity(0.98),
+            strokeColor: Color.lifeboard(.strokeHairline),
+            accentColor: Color.lifeboard(.accentSecondary).opacity(0.45),
             level: .e1,
             useNativeGlass: false
         )
@@ -107,15 +107,15 @@ struct EvaInfoPill: View {
 
     var body: some View {
         Text(title)
-            .font(.tasker(.caption1).weight(.semibold))
-            .foregroundStyle(Color.tasker(.accentPrimary))
-            .padding(.horizontal, TaskerTheme.Spacing.md)
+            .font(.lifeboard(.caption1).weight(.semibold))
+            .foregroundStyle(Color.lifeboard(.accentPrimary))
+            .padding(.horizontal, LifeBoardTheme.Spacing.md)
             .padding(.vertical, 10)
-            .background(Color.tasker(.surfaceSecondary))
+            .background(Color.lifeboard(.surfaceSecondary))
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(Color.tasker(.accentMuted).opacity(0.42), lineWidth: 1)
+                    .stroke(Color.lifeboard(.accentMuted).opacity(0.42), lineWidth: 1)
             )
     }
 }
@@ -131,26 +131,26 @@ struct EvaSelectionChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.tasker(.callout))
-                .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.textPrimary))
+                .font(.lifeboard(.callout))
+                .foregroundStyle(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textPrimary))
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .frame(minHeight: 40, alignment: .leading)
                 .background(
-                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                        .fill(isSelected ? Color.tasker(.accentWash) : Color.tasker(.surfaceSecondary))
+                    RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                        .fill(isSelected ? Color.lifeboard(.accentWash) : Color.lifeboard(.surfaceSecondary))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                        .stroke(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.strokeHairline), lineWidth: isSelected ? 1.5 : 1)
+                    RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                        .stroke(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.strokeHairline), lineWidth: isSelected ? 1.5 : 1)
                 )
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier)
-        .taskerPressFeedback(reduceMotion: reduceMotion)
-        .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isSelected)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isSelected)
     }
 }
 
@@ -165,46 +165,46 @@ struct EvaCollapsedNoteField: View {
     @Binding var isExpanded: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             if isExpanded {
                 Text(title)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
 
                 TextField(placeholder, text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .font(.tasker(.body))
-                    .foregroundStyle(Color.tasker(.textPrimary))
-                    .padding(TaskerTheme.Spacing.md)
+                    .font(.lifeboard(.body))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
+                    .padding(LifeBoardTheme.Spacing.md)
                     .frame(minHeight: 72, alignment: .topLeading)
-                    .background(Color.tasker(.surfaceSecondary))
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+                    .background(Color.lifeboard(.surfaceSecondary))
+                    .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                            .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                            .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
                     )
                     .accessibilityIdentifier("\(accessibilityIdentifier).field")
             } else {
                 Button {
-                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : TaskerAnimation.quick) {
+                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.quick) {
                         isExpanded = true
                     }
                 } label: {
                     Label(collapsedTitle, systemImage: "plus")
-                        .font(.tasker(.caption1).weight(.semibold))
-                        .foregroundStyle(Color.tasker(.textSecondary))
-                        .padding(.horizontal, TaskerTheme.Spacing.md)
-                        .padding(.vertical, TaskerTheme.Spacing.sm)
-                        .background(Color.tasker(.surfaceSecondary))
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                        .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                        .padding(.vertical, LifeBoardTheme.Spacing.sm)
+                        .background(Color.lifeboard(.surfaceSecondary))
                         .clipShape(Capsule())
                         .overlay(
                             Capsule()
-                                .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                                .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                .taskerPressFeedback(reduceMotion: reduceMotion)
+                .lifeboardPressFeedback(reduceMotion: reduceMotion)
                 .accessibilityIdentifier("\(accessibilityIdentifier).toggle")
             }
         }
@@ -219,31 +219,31 @@ struct EvaGoalChip: View {
     let onRemove: () -> Void
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.xs) {
+        HStack(spacing: LifeBoardTheme.Spacing.xs) {
             Text(title)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker(.textPrimary))
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
                 .multilineTextAlignment(.leading)
 
             Button(action: onRemove) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .frame(width: 22, height: 22)
-                    .background(Circle().fill(Color.tasker(.surfacePrimary)))
+                    .background(Circle().fill(Color.lifeboard(.surfacePrimary)))
             }
             .buttonStyle(.plain)
-            .taskerPressFeedback(reduceMotion: reduceMotion)
+            .lifeboardPressFeedback(reduceMotion: reduceMotion)
             .accessibilityIdentifier("\(accessibilityIdentifier).remove")
         }
-        .padding(.leading, TaskerTheme.Spacing.md)
-        .padding(.trailing, TaskerTheme.Spacing.sm)
+        .padding(.leading, LifeBoardTheme.Spacing.md)
+        .padding(.trailing, LifeBoardTheme.Spacing.sm)
         .padding(.vertical, 10)
-        .background(Color.tasker(.accentWash))
+        .background(Color.lifeboard(.accentWash))
         .clipShape(Capsule())
         .overlay(
             Capsule()
-                .stroke(Color.tasker(.accentMuted), lineWidth: 1)
+                .stroke(Color.lifeboard(.accentMuted), lineWidth: 1)
         )
         .accessibilityIdentifier(accessibilityIdentifier)
     }
@@ -261,39 +261,39 @@ struct EvaGoalComposer: View {
     var body: some View {
         let canCommit = draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false && !isDisabled
 
-        HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+        HStack(alignment: .center, spacing: LifeBoardTheme.Spacing.sm) {
             TextField(placeholder, text: $draftText)
                 .textFieldStyle(.plain)
-                .font(.tasker(.body))
-                .foregroundStyle(Color.tasker(.textPrimary))
-                .padding(.horizontal, TaskerTheme.Spacing.md)
-                .padding(.vertical, TaskerTheme.Spacing.md)
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
+                .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                .padding(.vertical, LifeBoardTheme.Spacing.md)
                 .frame(minHeight: 52)
                 .accessibilityIdentifier("\(accessibilityIdentifier).field")
 
             if canCommit {
                 Button(action: onCommit) {
                     Text("Add outcome")
-                        .font(.tasker(.caption1).weight(.semibold))
-                        .foregroundStyle(Color.tasker(.accentOnPrimary))
-                        .padding(.horizontal, TaskerTheme.Spacing.md)
-                        .padding(.vertical, TaskerTheme.Spacing.sm)
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard(.accentOnPrimary))
+                        .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                        .padding(.vertical, LifeBoardTheme.Spacing.sm)
                         .background(
                             Capsule()
-                                .fill(Color.tasker(.accentPrimary))
+                                .fill(Color.lifeboard(.accentPrimary))
                         )
                 }
                 .buttonStyle(.plain)
-                .taskerPressFeedback(reduceMotion: reduceMotion)
+                .lifeboardPressFeedback(reduceMotion: reduceMotion)
                 .accessibilityIdentifier("\(accessibilityIdentifier).button")
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
-        .background(Color.tasker(.surfaceSecondary))
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+        .background(Color.lifeboard(.surfaceSecondary))
+        .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
         )
     }
 }
@@ -332,8 +332,8 @@ struct EvaReviewCard: View {
             )
 
             Text("Saved only on this device. You can edit this later in Personal Memory.")
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .padding(.top, 2)
         }
     }
@@ -341,11 +341,11 @@ struct EvaReviewCard: View {
     private func reviewRow(label: String, value: String, emptyValue: String = "Not set yet") -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
             Text(value.isEmpty ? emptyValue : value)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker(.textPrimary))
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -366,19 +366,19 @@ struct EvaInstallProgressCard: View {
     let subtitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             Text(title)
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker(.textPrimary))
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous)
-                        .fill(Color.tasker(.surfaceTertiary))
-                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous)
+                    RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous)
+                        .fill(Color.lifeboard(.surfaceTertiary))
+                    RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [Color.tasker(.accentPrimary), Color.tasker(.accentSecondary)],
+                                colors: [Color.lifeboard(.accentPrimary), Color.lifeboard(.accentSecondary)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -389,16 +389,16 @@ struct EvaInstallProgressCard: View {
             .frame(height: 10)
 
             Text(subtitle)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .monospacedDigit()
         }
-        .padding(TaskerTheme.Spacing.lg)
-        .taskerPremiumSurface(
-            cornerRadius: TaskerTheme.CornerRadius.xl,
-            fillColor: Color.tasker(.surfacePrimary),
-            strokeColor: Color.tasker(.strokeHairline),
-            accentColor: Color.tasker(.accentSecondary),
+        .padding(LifeBoardTheme.Spacing.lg)
+        .lifeboardPremiumSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.xl,
+            fillColor: Color.lifeboard(.surfacePrimary),
+            strokeColor: Color.lifeboard(.strokeHairline),
+            accentColor: Color.lifeboard(.accentSecondary),
             level: .e1,
             useNativeGlass: false
         )
@@ -417,44 +417,44 @@ struct EvaRecoveryCard: View {
     let onTertiary: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.lg) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
                 Text(title)
-                    .font(.tasker(.title2))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.title2))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                 Text(bodyText)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            VStack(spacing: TaskerTheme.Spacing.sm) {
+            VStack(spacing: LifeBoardTheme.Spacing.sm) {
                 Button(primaryTitle, action: onPrimary)
                     .buttonStyle(.borderedProminent)
-                    .tint(Color.tasker(.accentPrimary))
+                    .tint(Color.lifeboard(.accentPrimary))
                     .accessibilityIdentifier("eva.activation.recovery.retry")
 
                 Button(secondaryTitle, action: onSecondary)
                     .buttonStyle(.bordered)
-                    .tint(Color.tasker(.accentPrimary))
+                    .tint(Color.lifeboard(.accentPrimary))
                     .accessibilityIdentifier("eva.activation.recovery.switch_fast")
 
                 Button(tertiaryTitle, action: onTertiary)
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .accessibilityIdentifier("eva.activation.recovery.open_models")
             }
 
             Text(footerText)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
         }
-        .padding(TaskerTheme.Spacing.xl)
-        .taskerPremiumSurface(
-            cornerRadius: TaskerTheme.CornerRadius.modal,
-            fillColor: Color.tasker(.surfacePrimary),
-            strokeColor: Color.tasker(.strokeHairline),
-            accentColor: Color.tasker(.accentSecondary),
+        .padding(LifeBoardTheme.Spacing.xl)
+        .lifeboardPremiumSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.modal,
+            fillColor: Color.lifeboard(.surfacePrimary),
+            strokeColor: Color.lifeboard(.strokeHairline),
+            accentColor: Color.lifeboard(.accentSecondary),
             level: .e2,
             useNativeGlass: false
         )

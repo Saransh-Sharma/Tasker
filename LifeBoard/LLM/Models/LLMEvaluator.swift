@@ -9,6 +9,9 @@ import MLXLMCommon
 import Synchronization
 import SwiftUI
 
+// MLX chat messages are immutable prompt values crossing task boundaries here.
+extension Chat.Message: @unchecked @retroactive Sendable {}
+
 enum LLMEvaluatorError: Error {
     case modelNotFound(String)
     case unsupportedRuntime(String, String)
@@ -157,7 +160,7 @@ class LLMEvaluator {
         }
 
         modelConfiguration = model
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "llm_prepare_started",
             message: "Preparing LLM model",
             fields: ["model_name": modelName]
@@ -172,7 +175,7 @@ class LLMEvaluator {
         loadedModelName = modelName
         modelInfo = prepareResult.modelInfo
         progress = 1.0
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "llm_prepare_finished",
             message: "Prepared LLM model",
             fields: ["model_name": modelName]
@@ -190,7 +193,7 @@ class LLMEvaluator {
         let previousModelName = loadedModelName
         await inferenceEngine.unload()
         resetRuntimeStateForUnload()
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "llm_unload_finished",
             message: "Released evaluator model state",
             fields: ["model_name": previousModelName ?? "none"]
@@ -256,7 +259,7 @@ class LLMEvaluator {
         systemPrompt: String,
         profile: LLMGenerationProfile = .chat,
         requestOptions: LLMGenerationRequestOptions? = nil,
-        onFirstToken: (@MainActor () -> Void)? = nil
+        onFirstToken: (@MainActor @Sendable () -> Void)? = nil
     ) async -> String {
         lastGenerationTimedOut = false
         lastTerminationReason = nil
@@ -328,7 +331,7 @@ class LLMEvaluator {
         chatMessages: [Chat.Message],
         profile: LLMGenerationProfile,
         requestOptions: LLMGenerationRequestOptions?,
-        onFirstToken: (@MainActor () -> Void)?
+        onFirstToken: (@MainActor @Sendable () -> Void)?
     ) async -> String {
         let waitStartedAt = Date()
         let wasQueued = running

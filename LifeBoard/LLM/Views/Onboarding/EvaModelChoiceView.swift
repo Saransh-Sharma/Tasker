@@ -2,7 +2,7 @@ import MLXLMCommon
 import SwiftUI
 
 struct EvaModelChoiceView: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     let selectedModelName: String?
@@ -13,8 +13,8 @@ struct EvaModelChoiceView: View {
     private let fastModel = ModelConfiguration.qwen_3_0_6b_4bit
     private let smarterModel = ModelConfiguration.qwen_3_5_0_8b_optiq_4bit
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var resolvedSelection: String {
@@ -63,8 +63,8 @@ struct EvaModelChoiceView: View {
                 .enhancedStaggeredAppearance(index: 1)
 
                 Text("Other models stay available later in Settings.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .enhancedStaggeredAppearance(index: 2)
             }
         }
@@ -118,59 +118,59 @@ private struct EvaModeCard: View {
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+                HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.sm) {
                     VStack(alignment: .leading, spacing: 6) {
                         if let badge {
                             Text(badge)
-                                .font(.tasker(.caption1).weight(.semibold))
-                                .foregroundStyle(Color.tasker(.accentPrimary))
-                                .padding(.horizontal, TaskerTheme.Spacing.sm)
-                                .padding(.vertical, TaskerTheme.Spacing.xs)
-                                .background(Color.tasker(.surfacePrimary).opacity(0.9))
+                                .font(.lifeboard(.caption1).weight(.semibold))
+                                .foregroundStyle(Color.lifeboard(.accentPrimary))
+                                .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                                .padding(.vertical, LifeBoardTheme.Spacing.xs)
+                                .background(Color.lifeboard(.surfacePrimary).opacity(0.9))
                                 .clipShape(Capsule())
                                 .overlay(
                                     Capsule()
-                                        .stroke(Color.tasker(.accentMuted), lineWidth: 1)
+                                        .stroke(Color.lifeboard(.accentMuted), lineWidth: 1)
                                 )
                         }
 
                         Text(title)
-                            .font(.tasker(.title3).weight(.semibold))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.title3).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
                     }
 
-                    Spacer(minLength: TaskerTheme.Spacing.sm)
+                    Spacer(minLength: LifeBoardTheme.Spacing.sm)
 
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 30, weight: .semibold))
-                        .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.textTertiary))
+                        .foregroundStyle(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textTertiary))
                 }
 
                 Text(descriptionText)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(meta)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
 
                 Text(note)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
             .padding(20)
             .frame(maxWidth: .infinity, minHeight: 168, alignment: .leading)
-            .background(isSelected ? Color.tasker(.accentWash) : Color.tasker(.surfacePrimary))
+            .background(isSelected ? Color.lifeboard(.accentWash) : Color.lifeboard(.surfacePrimary))
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .stroke(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.strokeHairline), lineWidth: isSelected ? 1.5 : 1)
+                    .stroke(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.strokeHairline), lineWidth: isSelected ? 1.5 : 1)
             )
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityID)
-        .taskerPressFeedback(reduceMotion: reduceMotion)
-        .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isSelected)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isSelected)
     }
 }

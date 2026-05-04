@@ -95,7 +95,7 @@ final class LLMRuntimeCoordinator {
 
     func enterChatScreen(trigger: String) {
         acquireSession(reason: "chat_host_visible")
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "llm_chat_entry",
             message: "Entering chat surface",
             fields: ["trigger": trigger]
@@ -527,7 +527,7 @@ final class LLMRuntimeCoordinator {
         cancelIdleUnload()
         await unloadHandler(reason)
         activeModelName = nil
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "llm_runtime_unloaded",
             message: "Unloaded LLM runtime resources",
             fields: ["reason": reason]

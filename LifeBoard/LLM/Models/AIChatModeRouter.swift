@@ -38,7 +38,7 @@ struct AIRuntimeSnapshot {
         #elseif os(macOS)
         let layout: AppManager.LayoutType = .mac
         #elseif os(iOS)
-        let layout: AppManager.LayoutType = UIDevice.current.userInterfaceIdiom == .pad ? .pad : .phone
+        let layout: AppManager.LayoutType = .phone
         #else
         let layout: AppManager.LayoutType = .unknown
         #endif

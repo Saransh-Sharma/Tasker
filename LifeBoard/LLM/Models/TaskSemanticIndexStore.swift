@@ -15,7 +15,7 @@ final class TaskSemanticIndexStore {
     private var isDirty = false
 
     /// Initializes a new instance.
-    init(fileName: String = "tasker-semantic-index-v1.bin") {
+    init(fileName: String = "lifeboard-semantic-index-v1.bin") {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         self.fileURL = appSupport.appendingPathComponent(fileName)

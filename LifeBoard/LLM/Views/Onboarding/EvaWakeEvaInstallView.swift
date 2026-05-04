@@ -9,7 +9,7 @@ struct EvaWakeEvaInstallView: View {
 
     @EnvironmentObject private var appManager: AppManager
     @Environment(LLMEvaluator.self) private var llm
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let model: ModelConfiguration
@@ -47,8 +47,8 @@ struct EvaWakeEvaInstallView: View {
         _currentSelectionTitle = State(initialValue: selectionTitle)
     }
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var installOutcome: InstallOutcome {
@@ -193,21 +193,21 @@ struct EvaWakeEvaInstallView: View {
 
                 VStack(spacing: spacing.s8) {
                     Text(titleText)
-                        .font(.tasker(.title1).weight(.bold))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.title1).weight(.bold))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
 
                     Text(installPresentation.statusText)
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                         .multilineTextAlignment(.center)
                         .id(installPresentation.statusText)
                         .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)))
 
                     Text("Installing \(installPresentation.modeTitle)")
-                        .font(.tasker(.caption1).weight(.semibold))
-                        .foregroundStyle(Color.tasker(.accentPrimary))
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard(.accentPrimary))
                 }
-                .animation(reduceMotion ? nil : TaskerAnimation.quick, value: installPresentation.statusText)
+                .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: installPresentation.statusText)
                 .frame(maxWidth: .infinity)
             }
             .enhancedStaggeredAppearance(index: 1)
@@ -224,22 +224,22 @@ struct EvaWakeEvaInstallView: View {
                     Spacer()
                     Text(installSucceeded ? "Ready" : installPresentation.etaText)
                 }
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .monospacedDigit()
 
                 if let transferText = installPresentation.transferText {
                     Text(transferText)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
                         .monospacedDigit()
                 }
             }
             .enhancedStaggeredAppearance(index: 2)
 
             Text("Keep this screen open while \(assistantIdentity.snapshot.displayName) finishes getting ready.")
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: layoutClass.isPad ? .leading : .center)
                 .multilineTextAlignment(layoutClass.isPad ? .leading : .center)
                 .enhancedStaggeredAppearance(index: 3)
@@ -339,7 +339,7 @@ struct EvaWakeEvaInstallView: View {
     private func updateProgressPresentation(for rawProgress: Double) {
         let clampedProgress = max(0, min(rawProgress, 1))
 
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : TaskerAnimation.quick) {
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.quick) {
             displayedProgress = clampedProgress
         }
 
@@ -375,7 +375,7 @@ struct EvaWakeEvaInstallView: View {
                 try? await Task.sleep(nanoseconds: 2_600_000_000)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : TaskerAnimation.quick) {
+                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.quick) {
                         statusIndex = (statusIndex + 1) % max(statusMessages.count, 1)
                     }
                 }
@@ -395,7 +395,7 @@ struct EvaActivationRecoveryView: View {
         EvaActivationStageView(
             footer: { EmptyView() }
         ) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xl) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xl) {
                 EvaContentHeader(
                     title: "\(assistantIdentity.snapshot.displayName) couldn’t finish getting ready",
                     bodyText: "The selected mode did not prepare correctly. Try again, or switch to Fast for a lighter setup."
@@ -416,8 +416,8 @@ struct EvaActivationRecoveryView: View {
                 .enhancedStaggeredAppearance(index: 1)
 
                 Text("Last attempted mode: \(failedModelTitle)")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .enhancedStaggeredAppearance(index: 2)
             }
         }
@@ -426,7 +426,7 @@ struct EvaActivationRecoveryView: View {
 }
 
 struct EvaActivationStageView<Content: View, Footer: View>: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let showsAmbientBackground: Bool
@@ -449,8 +449,8 @@ struct EvaActivationStageView<Content: View, Footer: View>: View {
         self.content = content
     }
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var horizontalPadding: CGFloat {
@@ -467,15 +467,15 @@ struct EvaActivationStageView<Content: View, Footer: View>: View {
 
     var body: some View {
         ZStack {
-            Color.tasker(.bgCanvas)
+            Color.lifeboard(.bgCanvas)
                 .ignoresSafeArea()
 
             if showsAmbientBackground {
                 LinearGradient(
                     colors: [
-                        Color.tasker(.bgCanvas),
-                        Color.tasker(.accentWash).opacity(layoutClass.isPad ? 0.12 : 0.08),
-                        Color.tasker(.bgCanvas)
+                        Color.lifeboard(.bgCanvas),
+                        Color.lifeboard(.accentWash).opacity(layoutClass.isPad ? 0.12 : 0.08),
+                        Color.lifeboard(.bgCanvas)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -503,10 +503,10 @@ struct EvaActivationStageView<Content: View, Footer: View>: View {
                 .padding(.bottom, spacing.s12)
                 .background(
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(Color.tasker(.surfacePrimary).opacity(0.001))
-                        .taskerChromeSurface(
+                        .fill(Color.lifeboard(.surfacePrimary).opacity(0.001))
+                        .lifeboardChromeSurface(
                             cornerRadius: 28,
-                            accentColor: Color.tasker(.accentSecondary),
+                            accentColor: Color.lifeboard(.accentSecondary),
                             level: .e2
                         )
                 )
@@ -515,7 +515,7 @@ struct EvaActivationStageView<Content: View, Footer: View>: View {
                 .padding(.bottom, spacing.s8)
             }
         }
-        .animation(reduceMotion ? .easeInOut(duration: 0.18) : TaskerAnimation.gentle, value: footerIsEmpty)
+        .animation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.gentle, value: footerIsEmpty)
     }
 
     private var footerIsEmpty: Bool {
@@ -533,37 +533,37 @@ struct EvaFooterButtons: View {
     let onSecondary: () -> Void
 
     var body: some View {
-        VStack(spacing: TaskerTheme.Spacing.sm) {
+        VStack(spacing: LifeBoardTheme.Spacing.sm) {
             Button(action: onPrimary) {
                 Text(primaryTitle)
-                    .font(.tasker(.button))
-                    .foregroundStyle(isPrimaryDisabled ? Color.tasker(.textSecondary) : Color.tasker(.accentOnPrimary))
+                    .font(.lifeboard(.button))
+                    .foregroundStyle(isPrimaryDisabled ? Color.lifeboard(.textSecondary) : Color.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(isPrimaryDisabled ? Color.tasker(.surfaceTertiary) : Color.tasker(.accentPrimary))
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous))
+                    .background(isPrimaryDisabled ? Color.lifeboard(.surfaceTertiary) : Color.lifeboard(.accentPrimary))
+                    .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous))
                     .opacity(isPrimaryDisabled ? 0.72 : 1)
             }
             .buttonStyle(.plain)
             .disabled(isPrimaryDisabled)
-            .taskerPressFeedback(reduceMotion: reduceMotion)
-            .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isPrimaryDisabled)
+            .lifeboardPressFeedback(reduceMotion: reduceMotion)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isPrimaryDisabled)
 
             Button(action: onSecondary) {
                 Text(secondaryTitle)
-                    .font(.tasker(.button))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.button))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Color.tasker(.surfaceSecondary))
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous))
+                    .background(Color.lifeboard(.surfaceSecondary))
+                    .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous)
-                            .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous)
+                            .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
                     )
             }
             .buttonStyle(.plain)
-            .taskerPressFeedback(reduceMotion: reduceMotion)
+            .lifeboardPressFeedback(reduceMotion: reduceMotion)
         }
     }
 }
@@ -580,9 +580,9 @@ private struct EvaInstallHeroTile: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.tasker(.surfacePrimary),
-                            Color.tasker(.accentWash).opacity(0.78),
-                            Color.tasker(.surfacePrimary)
+                            Color.lifeboard(.surfacePrimary),
+                            Color.lifeboard(.accentWash).opacity(0.78),
+                            Color.lifeboard(.surfacePrimary)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -590,24 +590,24 @@ private struct EvaInstallHeroTile: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                        .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
                 )
 
-            VStack(spacing: TaskerTheme.Spacing.sm) {
+            VStack(spacing: LifeBoardTheme.Spacing.sm) {
                 ZStack {
                     Circle()
-                        .fill(Color.tasker(.bgCanvas).opacity(0.78))
+                        .fill(Color.lifeboard(.bgCanvas).opacity(0.78))
                         .frame(width: 92, height: 92)
                         .overlay(
                             Circle()
-                                .stroke(Color.tasker(.accentMuted).opacity(0.34), lineWidth: 1)
+                                .stroke(Color.lifeboard(.accentMuted).opacity(0.34), lineWidth: 1)
                         )
-                        .shadow(color: Color.tasker(.accentPrimary).opacity(0.12), radius: 16, y: 8)
+                        .shadow(color: Color.lifeboard(.accentPrimary).opacity(0.12), radius: 16, y: 8)
 
                     if isComplete {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 44, weight: .semibold))
-                            .foregroundStyle(Color.tasker(.statusSuccess))
+                            .foregroundStyle(Color.lifeboard(.statusSuccess))
                     } else {
                         EvaLoopingLottieContainer(size: 72)
                     }
@@ -615,11 +615,11 @@ private struct EvaInstallHeroTile: View {
                     .breathingPulse(min: reduceMotion ? 1 : 0.84, max: 1, duration: 2.3)
 
                 Text(isComplete ? "Ready" : "Private mode")
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
             }
         }
         .frame(width: 168, height: 168)
-        .shadow(color: Color.tasker(.accentPrimary).opacity(0.10), radius: 18, y: 10)
+        .shadow(color: Color.lifeboard(.accentPrimary).opacity(0.10), radius: 18, y: 10)
     }
 }

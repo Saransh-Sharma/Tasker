@@ -14,23 +14,23 @@ private struct EvaFeatureRow: View {
     let index: Int
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.lg) {
+        HStack(spacing: LifeBoardTheme.Spacing.lg) {
             ZStack {
                 Circle()
-                    .fill(Color.tasker(.accentWash))
+                    .fill(Color.lifeboard(.accentWash))
                     .frame(width: 44, height: 44)
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(Color.tasker(.accentPrimary))
+                    .foregroundColor(Color.lifeboard(.accentPrimary))
             }
 
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                 Text(title)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard(.textPrimary))
                 Text(subtitle)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard(.textSecondary))
             }
         }
         .staggeredAppearance(index: index)
@@ -58,28 +58,28 @@ struct OnboardingView: View {
                 Spacer()
 
                 // Hero section
-                VStack(spacing: TaskerTheme.Spacing.sm) {
+                VStack(spacing: LifeBoardTheme.Spacing.sm) {
                     ZStack {
                         Circle()
-                            .fill(Color.tasker(.accentWash))
+                            .fill(Color.lifeboard(.accentWash))
                             .frame(width: 88, height: 88)
                         Circle()
-                            .fill(Color.tasker(.accentMuted))
+                            .fill(Color.lifeboard(.accentMuted))
                             .frame(width: 72, height: 72)
                         Image(systemName: "bubble.left.and.text.bubble.right")
                             .font(.system(size: 32, weight: .medium))
-                            .foregroundColor(Color.tasker(.accentPrimary))
+                            .foregroundColor(Color.lifeboard(.accentPrimary))
                             .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
                     }
 
-                    VStack(spacing: TaskerTheme.Spacing.xs) {
+                    VStack(spacing: LifeBoardTheme.Spacing.xs) {
                         Text("I am \(assistantIdentity.snapshot.displayName)")
-                            .font(.tasker(.display))
-                            .foregroundColor(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.display))
+                            .foregroundColor(Color.lifeboard(.textPrimary))
                         Text("your personal AI assistant")
-                            .font(.tasker(.callout))
+                            .font(.lifeboard(.callout))
                             .fontWeight(.semibold)
-                            .foregroundColor(Color.tasker(.textSecondary))
+                            .foregroundColor(Color.lifeboard(.textSecondary))
                             .multilineTextAlignment(.center)
                     }
                 }
@@ -87,7 +87,7 @@ struct OnboardingView: View {
                 Spacer()
 
                 // Feature list
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xl) {
+                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xl) {
                     ForEach(Array(features.enumerated()), id: \.element.title) { index, feature in
                         EvaFeatureRow(
                             icon: feature.icon,
@@ -98,7 +98,7 @@ struct OnboardingView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, TaskerTheme.Spacing.xxl)
+                .padding(.horizontal, LifeBoardTheme.Spacing.xxl)
 
                 Spacer()
 
@@ -106,26 +106,26 @@ struct OnboardingView: View {
                 NavigationLink(destination: OnboardingInstallModelView(showOnboarding: $showOnboarding)) {
                     Text("get started")
                         #if os(iOS) || os(visionOS)
-                        .font(.tasker(.button))
-                        .foregroundColor(Color.tasker(.accentOnPrimary))
+                        .font(.lifeboard(.button))
+                        .foregroundColor(Color.lifeboard(.accentOnPrimary))
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.tasker(.accentPrimary))
-                        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous))
+                        .background(Color.lifeboard(.accentPrimary))
+                        .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous))
                         #endif
                 }
                 #if os(macOS)
                 .buttonStyle(.borderedProminent)
                 #endif
                 .scaleOnPress()
-                .padding(.horizontal, TaskerTheme.Spacing.xl)
+                .padding(.horizontal, LifeBoardTheme.Spacing.xl)
             }
             .padding()
-            .background(Color.tasker(.bgCanvas))
+            .background(Color.lifeboard(.bgCanvas))
             .navigationTitle("welcome")
             .toolbar(.hidden)
         }
-        .tint(Color.tasker(.accentPrimary))
+        .tint(Color.lifeboard(.accentPrimary))
         #if os(macOS)
         .frame(width: 420, height: 520)
         #endif

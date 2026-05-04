@@ -54,16 +54,16 @@ final class EvaActivationCoordinator: ObservableObject {
 
     private let appManager: AppManager
     private let defaults: UserDefaults
-    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
     private let deviceSupportsLocalEvaProvider: () -> Bool
     private var identityCancellable: AnyCancellable?
 
     init(
         appManager: AppManager,
         defaults: UserDefaults = .standard,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
         deviceSupportsLocalEvaProvider: @escaping () -> Bool = {
-            if ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_EVA_ACTIVATION_COMPLETED") {
+            if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED") {
                 return true
             }
             #if os(iOS)
@@ -84,11 +84,11 @@ final class EvaActivationCoordinator: ObservableObject {
         self.identitySnapshot = AssistantIdentitySnapshot(
             mascotID: workspacePreferencesStore.load().chiefOfStaffMascotID
         )
-        self.identityCancellable = NotificationCenter.default.publisher(for: TaskerWorkspacePreferencesStore.didChangeNotification)
+        self.identityCancellable = NotificationCenter.default.publisher(for: LifeBoardWorkspacePreferencesStore.didChangeNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] notification in
                 guard let self else { return }
-                if let preferences = notification.object as? TaskerWorkspacePreferences {
+                if let preferences = notification.object as? LifeBoardWorkspacePreferences {
                     self.identitySnapshot = AssistantIdentitySnapshot(mascotID: preferences.chiefOfStaffMascotID)
                 } else {
                     self.identitySnapshot = AssistantIdentitySnapshot(

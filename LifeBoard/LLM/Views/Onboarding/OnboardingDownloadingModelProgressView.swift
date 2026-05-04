@@ -71,37 +71,37 @@ struct OnboardingDownloadingModelProgressView: View {
         VStack {
             Spacer()
 
-            VStack(spacing: TaskerTheme.Spacing.xxxl) {
+            VStack(spacing: LifeBoardTheme.Spacing.xxxl) {
                 EvaInstallStatusView(isComplete: canContinue, progress: overallProgress)
 
-                VStack(spacing: TaskerTheme.Spacing.xs) {
+                VStack(spacing: LifeBoardTheme.Spacing.xs) {
                     Text(titleText)
-                        .font(.tasker(.title1))
-                        .foregroundColor(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.title1))
+                        .foregroundColor(Color.lifeboard(.textPrimary))
                     Text(statusSubtitle)
-                        .font(.tasker(.callout))
-                        .foregroundColor(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.callout))
+                        .foregroundColor(Color.lifeboard(.textSecondary))
                         .multilineTextAlignment(.center)
                 }
 
-                VStack(spacing: TaskerTheme.Spacing.sm) {
+                VStack(spacing: LifeBoardTheme.Spacing.sm) {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill)
-                                .fill(Color.tasker(.surfaceTertiary))
+                            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill)
+                                .fill(Color.lifeboard(.surfaceTertiary))
                                 .frame(height: 8)
 
-                            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill)
-                                .fill(Color.tasker(.accentPrimary))
+                            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill)
+                                .fill(Color.lifeboard(.accentPrimary))
                                 .frame(width: geo.size.width * overallProgress, height: 8)
-                                .animation(TaskerAnimation.gentle, value: overallProgress)
+                                .animation(LifeBoardAnimation.gentle, value: overallProgress)
                         }
                     }
                     .frame(height: 8)
 
                     Text(progressLabel)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard(.textTertiary))
                         .monospacedDigit()
                 }
                 .padding(.horizontal, 48)
@@ -110,16 +110,16 @@ struct OnboardingDownloadingModelProgressView: View {
             Spacer()
 
             if canContinue {
-                VStack(spacing: TaskerTheme.Spacing.sm) {
+                VStack(spacing: LifeBoardTheme.Spacing.sm) {
                     Button(action: { showOnboarding = false }) {
                         Text("Done")
                             #if os(iOS) || os(visionOS)
-                            .font(.tasker(.button))
-                            .foregroundColor(Color.tasker(.accentOnPrimary))
+                            .font(.lifeboard(.button))
+                            .foregroundColor(Color.lifeboard(.accentOnPrimary))
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(Color.tasker(.accentPrimary))
-                            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous))
+                            .background(Color.lifeboard(.accentPrimary))
+                            .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous))
                             #endif
                     }
                     #if os(macOS)
@@ -131,12 +131,12 @@ struct OnboardingDownloadingModelProgressView: View {
                         Button(action: retryFailedModels) {
                             Text("Retry failed downloads")
                                 #if os(iOS) || os(visionOS)
-                                .font(.tasker(.button))
-                                .foregroundColor(Color.tasker(.accentPrimary))
+                                .font(.lifeboard(.button))
+                                .foregroundColor(Color.lifeboard(.accentPrimary))
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 48)
-                                .background(Color.tasker(.accentWash))
-                                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous))
+                                .background(Color.lifeboard(.accentWash))
+                                .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous))
                                 #endif
                         }
                         #if os(macOS)
@@ -145,35 +145,35 @@ struct OnboardingDownloadingModelProgressView: View {
                         .disabled(isInstallInFlight)
                     }
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.xl)
+                .padding(.horizontal, LifeBoardTheme.Spacing.xl)
             } else {
                 Text("Keep this screen open while the selected models install in sequence.")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker(.textQuaternary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard(.textQuaternary))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, TaskerTheme.Spacing.xl)
+                    .padding(.horizontal, LifeBoardTheme.Spacing.xl)
                 if installOutcome == .failed {
                     Button(action: retryFailedModels) {
                         Text("Retry downloads")
                             #if os(iOS) || os(visionOS)
-                            .font(.tasker(.button))
-                            .foregroundColor(Color.tasker(.accentOnPrimary))
+                            .font(.lifeboard(.button))
+                            .foregroundColor(Color.lifeboard(.accentOnPrimary))
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(Color.tasker(.accentPrimary))
-                            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous))
+                            .background(Color.lifeboard(.accentPrimary))
+                            .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill, style: .continuous))
                             #endif
                     }
                     #if os(macOS)
                     .buttonStyle(.borderedProminent)
                     #endif
-                    .padding(.horizontal, TaskerTheme.Spacing.xl)
+                    .padding(.horizontal, LifeBoardTheme.Spacing.xl)
                     .disabled(isInstallInFlight)
                 }
             }
         }
         .padding()
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .navigationTitle("Wake \(identity.displayName)")
         .toolbar(canContinue ? .hidden : .visible)
         .navigationBarBackButtonHidden()

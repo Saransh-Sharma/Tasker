@@ -32,7 +32,7 @@ struct EvaActivationRootView: View {
 
     var body: some View {
         currentStageView
-            .animation(reduceMotion ? nil : TaskerAnimation.gatewayReveal, value: coordinator.state.stage)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.gatewayReveal, value: coordinator.state.stage)
     }
 
     @ViewBuilder

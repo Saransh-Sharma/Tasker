@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct EvaAboutYouView: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     @Binding var draft: EvaProfileDraft
 
@@ -12,8 +12,8 @@ struct EvaAboutYouView: View {
     @State private var isMomentumNoteExpanded = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var canContinue: Bool {
@@ -111,8 +111,8 @@ struct EvaAboutYouView: View {
             .enhancedStaggeredAppearance(index: 2)
 
             Text("Saved locally. You can edit this later.")
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .enhancedStaggeredAppearance(index: 3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

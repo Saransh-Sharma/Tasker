@@ -767,7 +767,7 @@ struct LLMSecureBlobStore {
     let account: String
 
     static let personalMemory = LLMSecureBlobStore(
-        service: (Bundle.main.bundleIdentifier ?? "Tasker") + ".secureStorage",
+        service: (Bundle.main.bundleIdentifier ?? "LifeBoard") + ".secureStorage",
         account: LLMPersonalMemoryDefaultsStore.key
     )
 

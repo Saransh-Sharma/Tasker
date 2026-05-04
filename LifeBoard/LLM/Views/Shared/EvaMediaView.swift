@@ -34,7 +34,7 @@ struct AssistantMascotPersona: Identifiable, Equatable, Sendable {
     let usesSprites: Bool
 
     static let all: [AssistantMascotPersona] = [
-        AssistantMascotPersona(id: .eva, displayName: "Eva", shortDescription: "Calm planning support with the original Tasker look.", resourceFolderName: nil, usesSprites: false),
+        AssistantMascotPersona(id: .eva, displayName: "Eva", shortDescription: "Calm planning support with the original LifeBoard look.", resourceFolderName: nil, usesSprites: false),
         AssistantMascotPersona(id: .cloudlet, displayName: "Cloudlet", shortDescription: "Soft, calm prompts for keeping the day light and clear.", resourceFolderName: "Cloudlet", usesSprites: true),
         AssistantMascotPersona(id: .dude, displayName: "Dude", shortDescription: "Relaxed, low-pressure guidance for steady follow-through.", resourceFolderName: "Dude", usesSprites: true),
         AssistantMascotPersona(id: .elon, displayName: "Elon", shortDescription: "Bold, direct energy for ambitious planning and fast decisions.", resourceFolderName: "Elon", usesSprites: true),
@@ -74,19 +74,19 @@ struct AssistantIdentitySnapshot: Equatable {
 final class AssistantIdentityModel: ObservableObject {
     @Published var snapshot: AssistantIdentitySnapshot
 
-    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
     private var cancellable: AnyCancellable?
 
-    init(workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared) {
+    init(workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared) {
         self.workspacePreferencesStore = workspacePreferencesStore
         self.snapshot = AssistantIdentitySnapshot(
             mascotID: workspacePreferencesStore.load().chiefOfStaffMascotID
         )
-        self.cancellable = NotificationCenter.default.publisher(for: TaskerWorkspacePreferencesStore.didChangeNotification)
+        self.cancellable = NotificationCenter.default.publisher(for: LifeBoardWorkspacePreferencesStore.didChangeNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] notification in
                 guard let self else { return }
-                if let preferences = notification.object as? TaskerWorkspacePreferences {
+                if let preferences = notification.object as? LifeBoardWorkspacePreferences {
                     self.snapshot = AssistantIdentitySnapshot(mascotID: preferences.chiefOfStaffMascotID)
                 } else {
                     self.snapshot = AssistantIdentitySnapshot(
@@ -103,7 +103,7 @@ enum AssistantIdentityText {
     }
 
     static func currentSnapshot() -> AssistantIdentitySnapshot {
-        AssistantIdentitySnapshot(mascotID: TaskerWorkspacePreferencesStore.shared.load().chiefOfStaffMascotID)
+        AssistantIdentitySnapshot(mascotID: LifeBoardWorkspacePreferencesStore.shared.load().chiefOfStaffMascotID)
     }
 
     static func displayName(for id: AssistantMascotID) -> String {
@@ -360,7 +360,7 @@ struct EvaMascotView: View {
     let decorative: Bool
     let accessibilityLabel: String
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var selectedMascotID = TaskerWorkspacePreferencesStore.shared.load().chiefOfStaffMascotID
+    @State private var selectedMascotID = LifeBoardWorkspacePreferencesStore.shared.load().chiefOfStaffMascotID
 
     init(
         _ asset: EvaMascotAsset,
@@ -397,12 +397,12 @@ struct EvaMascotView: View {
             .frame(width: size.points, height: size.points)
             .accessibilityHidden(decorative)
             .accessibilityLabel(accessibilityLabel)
-            .onReceive(NotificationCenter.default.publisher(for: TaskerWorkspacePreferencesStore.didChangeNotification)) { notification in
+            .onReceive(NotificationCenter.default.publisher(for: LifeBoardWorkspacePreferencesStore.didChangeNotification)) { notification in
                 guard mascotID == nil else { return }
-                if let preferences = notification.object as? TaskerWorkspacePreferences {
+                if let preferences = notification.object as? LifeBoardWorkspacePreferences {
                     selectedMascotID = preferences.chiefOfStaffMascotID
                 } else {
-                    selectedMascotID = TaskerWorkspacePreferencesStore.shared.load().chiefOfStaffMascotID
+                    selectedMascotID = LifeBoardWorkspacePreferencesStore.shared.load().chiefOfStaffMascotID
                 }
             }
     }
@@ -450,7 +450,7 @@ struct EvaMascotView: View {
 struct MascotPersonaSelector: View {
     let selectedID: AssistantMascotID
     var title: String = "Choose your chief of staff"
-    var subtitle: String = "Pick the companion style Tasker should use across assistant surfaces."
+    var subtitle: String = "Pick the companion style LifeBoard should use across assistant surfaces."
     var cardAccessibilityPrefix: String
     let onSelect: (AssistantMascotID) -> Void
 
@@ -462,11 +462,11 @@ struct MascotPersonaSelector: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.tasker(.bodyStrong))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                 Text(subtitle)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -499,7 +499,7 @@ private struct MascotPersonaChoiceContent: View {
             HStack(alignment: .center, spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(Color.tasker(.accentWash))
+                        .fill(Color.lifeboard(.accentWash))
                     EvaMascotView(
                         placement: .settingsIdentity,
                         size: .custom(42),
@@ -513,27 +513,27 @@ private struct MascotPersonaChoiceContent: View {
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.textTertiary))
+                    .foregroundStyle(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textTertiary))
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(persona.displayName)
-                    .font(.tasker(.bodyStrong))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                     .lineLimit(1)
                 Text(persona.shortDescription)
-                    .font(.tasker(.caption2))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption2))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 142, alignment: .topLeading)
-        .background(Color.tasker(.surfaceSecondary), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.lifeboard(.surfaceSecondary), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.strokeHairline), lineWidth: isSelected ? 1.5 : 1)
+                .stroke(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.strokeHairline), lineWidth: isSelected ? 1.5 : 1)
         )
     }
 }
@@ -572,7 +572,7 @@ struct MascotSpriteAnimationView: View {
             Image(systemName: "sparkles")
                 .resizable()
                 .scaledToFit()
-                .foregroundStyle(Color.tasker(.accentPrimary))
+                .foregroundStyle(Color.lifeboard(.accentPrimary))
         }
     }
 }
@@ -697,12 +697,12 @@ struct EvaLoopingLottieContainer: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color.tasker(.bgCanvas).opacity(0.78))
-                .overlay(Circle().stroke(Color.tasker(.strokeHairline), lineWidth: 1))
+                .fill(Color.lifeboard(.bgCanvas).opacity(0.78))
+                .overlay(Circle().stroke(Color.lifeboard(.strokeHairline), lineWidth: 1))
             if reduceMotion {
                 Image(systemName: "sparkles")
                     .font(.system(size: size * 0.3, weight: .medium))
-                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
             } else {
                 #if os(iOS) || os(visionOS)
                 EvaLoopingLottieView(animationName: EvaMediaAsset.introLottieName)
@@ -710,7 +710,7 @@ struct EvaLoopingLottieContainer: View {
                 #else
                 Image(systemName: "sparkles")
                     .font(.system(size: size * 0.3, weight: .medium))
-                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
                 #endif
             }
         }
@@ -725,24 +725,24 @@ struct EvaInstallStatusView: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.tasker(.surfaceTertiary), lineWidth: 12)
+                .stroke(Color.lifeboard(.surfaceTertiary), lineWidth: 12)
             Circle()
                 .trim(from: 0, to: max(0.04, min(progress, 1)))
                 .stroke(
                     LinearGradient(
-                        colors: [Color.tasker(.accentPrimary), Color.tasker(.accentSecondary)],
+                        colors: [Color.lifeboard(.accentPrimary), Color.lifeboard(.accentSecondary)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     style: StrokeStyle(lineWidth: 12, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
-                .animation(TaskerAnimation.heroReveal, value: progress)
+                .animation(LifeBoardAnimation.heroReveal, value: progress)
 
             if isComplete {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 50, weight: .semibold))
-                    .foregroundStyle(Color.tasker(.statusSuccess))
+                    .foregroundStyle(Color.lifeboard(.statusSuccess))
             } else {
                 ZStack {
                     EvaLoopingLottieContainer(size: 92)
@@ -750,7 +750,7 @@ struct EvaInstallStatusView: View {
                         .fill(Color.clear)
                         .overlay(
                             Circle()
-                                .stroke(Color.tasker(.accentMuted).opacity(0.5), lineWidth: 1)
+                                .stroke(Color.lifeboard(.accentMuted).opacity(0.5), lineWidth: 1)
                         )
                 }
             }

@@ -220,13 +220,13 @@ struct MoonAnimationView: View {
             if isDone {
                 ZStack {
                     Circle()
-                        .fill(Color.tasker(.statusSuccess).opacity(0.15))
+                        .fill(Color.lifeboard(.statusSuccess).opacity(0.15))
                         .frame(width: 88, height: 88)
                     Image(systemName: "checkmark.circle.fill")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 56, height: 56)
-                        .foregroundColor(Color.tasker(.statusSuccess))
+                        .foregroundColor(Color.lifeboard(.statusSuccess))
                 }
                 .transition(.scale.combined(with: .opacity))
             } else {
@@ -255,7 +255,7 @@ struct MoonAnimationView: View {
             }
         }
         .frame(width: 88, height: 88)
-        .animation(TaskerAnimation.bouncy, value: isDone)
+        .animation(LifeBoardAnimation.bouncy, value: isDone)
     }
 }
 

@@ -2,15 +2,15 @@ import SwiftUI
 
 struct ChatsSettingsView: View {
     @EnvironmentObject var appManager: AppManager
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var isEditingPrompt = false
     @State private var draftPrompt = ""
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     @Binding var currentThread: Thread?
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     var body: some View {
@@ -29,13 +29,13 @@ struct ChatsSettingsView: View {
                         hapticsCard
                     }
                 }
-                .taskerReadableContent(maxWidth: layoutClass.isPad ? 860 : .infinity, alignment: .center)
+                .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 860 : .infinity, alignment: .center)
                 .padding(.horizontal, spacing.screenHorizontal)
                 .padding(.top, spacing.s12)
             }
             .padding(.bottom, spacing.s24)
         }
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .navigationTitle("Chat Behavior")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -56,12 +56,12 @@ struct ChatsSettingsView: View {
                     }
                 )
             }
-            .presentationBackground(Color.tasker(.bgCanvas))
+            .presentationBackground(Color.lifeboard(.bgCanvas))
         }
     }
 
     private var promptCard: some View {
-        TaskerSettingsFieldCard(
+        LifeBoardSettingsFieldCard(
             title: "System Prompt",
             subtitle: "Sets \(assistantIdentity.snapshot.displayName)’s baseline tone before task context is added.",
             footer: "Use Default for concise planning help."
@@ -73,18 +73,18 @@ struct ChatsSettingsView: View {
                 }
 
                 Text(appManager.systemPrompt)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                     .lineLimit(4)
                     .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
                     .padding(spacing.s12)
                     .background(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.tasker(.surfaceSecondary))
+                            .fill(Color.lifeboard(.surfaceSecondary))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                            .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
                     )
 
                 HStack(spacing: spacing.s8) {
@@ -92,18 +92,18 @@ struct ChatsSettingsView: View {
                         draftPrompt = appManager.systemPrompt
                         isEditingPrompt = true
                     }
-                    .font(.tasker(.buttonSmall))
+                    .font(.lifeboard(.buttonSmall))
                     .buttonStyle(.borderedProminent)
-                    .tint(Color.tasker(.accentPrimary))
+                    .tint(Color.lifeboard(.accentPrimary))
 
                     if appManager.systemPrompt != AppManager.defaultSystemPrompt {
                         Button("Reset to Default") {
                             draftPrompt = AppManager.defaultSystemPrompt
                             isEditingPrompt = true
                         }
-                        .font(.tasker(.buttonSmall))
+                        .font(.lifeboard(.buttonSmall))
                         .buttonStyle(.bordered)
-                        .tint(Color.tasker(.accentPrimary))
+                        .tint(Color.lifeboard(.accentPrimary))
                     }
                 }
             }
@@ -111,8 +111,8 @@ struct ChatsSettingsView: View {
     }
 
     private var hapticsCard: some View {
-        TaskerCard {
-            TaskerSettingsToggleRow(
+        LifeBoardCard {
+            LifeBoardSettingsToggleRow(
                 iconName: "waveform.path",
                 title: "Chat Haptics",
                 subtitle: "Play light haptic feedback when \(assistantIdentity.snapshot.displayName) switches models or finishes key actions.",
@@ -121,9 +121,9 @@ struct ChatsSettingsView: View {
         }
     }
 
-    private func promptBadge(title: String, tone: TaskerSettingsTone) -> some View {
+    private func promptBadge(title: String, tone: LifeBoardSettingsTone) -> some View {
         Text(title)
-            .font(.tasker(.caption2))
+            .font(.lifeboard(.caption2))
             .foregroundStyle(badgeForeground(for: tone))
             .padding(.horizontal, spacing.s8)
             .padding(.vertical, spacing.s4)
@@ -131,33 +131,33 @@ struct ChatsSettingsView: View {
             .clipShape(Capsule())
     }
 
-    private func badgeForeground(for tone: TaskerSettingsTone) -> Color {
+    private func badgeForeground(for tone: LifeBoardSettingsTone) -> Color {
         switch tone {
         case .accent:
-            return Color.tasker(.accentPrimary)
+            return Color.lifeboard(.accentPrimary)
         case .neutral:
-            return Color.tasker(.textSecondary)
+            return Color.lifeboard(.textSecondary)
         case .success:
-            return Color.tasker(.statusSuccess)
+            return Color.lifeboard(.statusSuccess)
         case .warning:
-            return Color.tasker(.statusWarning)
+            return Color.lifeboard(.statusWarning)
         case .danger:
-            return Color.tasker(.statusDanger)
+            return Color.lifeboard(.statusDanger)
         }
     }
 
-    private func badgeBackground(for tone: TaskerSettingsTone) -> Color {
+    private func badgeBackground(for tone: LifeBoardSettingsTone) -> Color {
         switch tone {
         case .accent:
-            return Color.tasker(.accentWash)
+            return Color.lifeboard(.accentWash)
         case .neutral:
-            return Color.tasker(.surfaceSecondary)
+            return Color.lifeboard(.surfaceSecondary)
         case .success:
-            return Color.tasker(.statusSuccess).opacity(0.14)
+            return Color.lifeboard(.statusSuccess).opacity(0.14)
         case .warning:
-            return Color.tasker(.statusWarning).opacity(0.14)
+            return Color.lifeboard(.statusWarning).opacity(0.14)
         case .danger:
-            return Color.tasker(.statusDanger).opacity(0.14)
+            return Color.lifeboard(.statusDanger).opacity(0.14)
         }
     }
 
@@ -167,7 +167,7 @@ struct ChatsSettingsView: View {
 }
 
 private struct PromptEditorView: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Binding var prompt: String
     let onSave: () -> Void
     let onCancel: () -> Void
@@ -176,16 +176,16 @@ private struct PromptEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             TextEditor(text: $prompt)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker(.textPrimary))
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
                 .padding(16)
-                .background(Color.tasker(.surfaceSecondary))
+                .background(Color.lifeboard(.surfaceSecondary))
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .taskerReadableContent(maxWidth: layoutClass.isPad ? 900 : .infinity, alignment: .center)
-                .padding(.horizontal, TaskerSettingsMetrics.screenHorizontal)
+                .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 900 : .infinity, alignment: .center)
+                .padding(.horizontal, LifeBoardSettingsMetrics.screenHorizontal)
                 .padding(.top, 16)
         }
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .navigationTitle("Edit Prompt")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -199,7 +199,7 @@ private struct PromptEditorView: View {
             }
             ToolbarItem(placement: .bottomBar) {
                 Button("Reset to Default", action: onReset)
-                    .tint(Color.tasker(.accentPrimary))
+                    .tint(Color.lifeboard(.accentPrimary))
             }
         }
     }

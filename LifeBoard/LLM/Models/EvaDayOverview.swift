@@ -95,13 +95,13 @@ struct EvaDayOverviewPayload: Codable, Equatable, Sendable {
 typealias EvaDayTaskActionHandler = (
     _ action: EvaDayTaskAction,
     _ card: EvaDayTaskCard,
-    _ completion: @escaping (Result<Void, Error>) -> Void
+    _ completion: @escaping @Sendable (Result<Void, Error>) -> Void
 ) -> Void
 
 typealias EvaDayHabitActionHandler = (
     _ action: EvaDayHabitAction,
     _ card: EvaDayHabitCard,
-    _ completion: @escaping (Result<Void, Error>) -> Void
+    _ completion: @escaping @Sendable (Result<Void, Error>) -> Void
 ) -> Void
 
 enum EvaDayOverviewBuilder {

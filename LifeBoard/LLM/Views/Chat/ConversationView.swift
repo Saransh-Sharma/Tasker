@@ -25,7 +25,7 @@ struct TypingIndicator: View {
         HStack(spacing: 4) {
             ForEach(0..<3) { index in
                 Circle()
-                    .fill(Color.tasker(.accentPrimary))
+                    .fill(Color.lifeboard(.accentPrimary))
                     .frame(width: 6, height: 6)
                     .scaleEffect(animating ? 1.0 : 0.5)
                     .opacity(animating ? 1.0 : 0.3)
@@ -37,7 +37,7 @@ struct TypingIndicator: View {
                     )
             }
         }
-        .padding(.top, TaskerTheme.Spacing.xs)
+        .padding(.top, LifeBoardTheme.Spacing.xs)
         .onAppear { animating = true }
     }
 }
@@ -122,22 +122,22 @@ private struct EvaLiveWorkingStatusView: View {
     }
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.sm) {
+        HStack(spacing: LifeBoardTheme.Spacing.sm) {
             EvaMascotView(placement: .chatThinking, size: .chip)
             Text(currentStatus)
-                .taskerFont(.caption1)
-                .foregroundStyle(Color.tasker(.textTertiary))
+                .lifeboardFont(.caption1)
+                .foregroundStyle(Color.lifeboard(.textTertiary))
                 .lineLimit(2)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, TaskerTheme.Spacing.md)
-        .padding(.vertical, TaskerTheme.Spacing.xs)
-        .taskerChromeSurface(
+        .padding(.horizontal, LifeBoardTheme.Spacing.md)
+        .padding(.vertical, LifeBoardTheme.Spacing.xs)
+        .lifeboardChromeSurface(
             cornerRadius: 16,
-            accentColor: Color.tasker(.accentSecondary),
+            accentColor: Color.lifeboard(.accentSecondary),
             level: .e1
         )
-        .animation(reduceMotion ? nil : TaskerAnimation.quick, value: statusIndex)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: statusIndex)
         .task(id: statuses) {
             let source = statuses.isEmpty ? EvaWorkingStatusLibrary.general : statuses
             guard source.count > 1, reduceMotion == false else { return }
@@ -176,10 +176,10 @@ private struct EvaDayStatusChipsView: View {
                 ForEach(chips, id: \.self) { chip in
                     let color = colorProvider(chip.tone)
                     Text(chip.text)
-                        .font(.tasker(.caption2))
+                        .font(.lifeboard(.caption2))
                         .fontWeight(.semibold)
                         .foregroundStyle(color)
-                        .padding(.horizontal, TaskerTheme.Spacing.xs)
+                        .padding(.horizontal, LifeBoardTheme.Spacing.xs)
                         .padding(.vertical, 3)
                         .background(color.opacity(0.14))
                         .clipShape(Capsule())
@@ -197,7 +197,7 @@ private struct EvaDayTaskRowView: View {
     let actionHandler: (EvaDayTaskAction) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             EvaDayTaskHeaderView(
                 card: card,
                 overlay: overlay,
@@ -213,13 +213,13 @@ private struct EvaDayTaskRowView: View {
 
             if let statusMessage = overlay.statusMessage, statusMessage.isEmpty == false {
                 Text(statusMessage)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
         }
-        .padding(TaskerTheme.Spacing.md)
-        .background(Color.tasker(.surfaceSecondary))
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+        .padding(LifeBoardTheme.Spacing.md)
+        .background(Color.lifeboard(.surfaceSecondary))
+        .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
     }
 }
 
@@ -272,7 +272,7 @@ private struct EvaDayHabitRowView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             habitTile
 
             EvaDayHabitActionsView(
@@ -284,16 +284,16 @@ private struct EvaDayHabitRowView: View {
 
             if let statusMessage = overlay.statusMessage, statusMessage.isEmpty == false {
                 Text(statusMessage)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
         }
-        .padding(TaskerTheme.Spacing.md)
-        .background(Color.tasker(.surfacePrimary))
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+        .padding(LifeBoardTheme.Spacing.md)
+        .background(Color.lifeboard(.surfacePrimary))
+        .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
         )
     }
 
@@ -301,8 +301,8 @@ private struct EvaDayHabitRowView: View {
         Button {
             actionHandler(.open)
         } label: {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-                HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
+                HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.sm) {
                     ZStack {
                         accentColor.opacity(0.14)
                         Image(systemName: card.iconSymbolName ?? "circle.dashed")
@@ -311,34 +311,34 @@ private struct EvaDayHabitRowView: View {
                             .symbolRenderingMode(.hierarchical)
                     }
                     .frame(width: 36, height: 36)
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous))
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(card.title)
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.headline))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
 
-                        HStack(spacing: TaskerTheme.Spacing.xs) {
+                        HStack(spacing: LifeBoardTheme.Spacing.xs) {
                             Text(card.cadenceLabel)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                                 .lineLimit(1)
                             Text(streakLabel)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textTertiary))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
                                 .lineLimit(1)
                             if let projectName = card.projectName, projectName.isEmpty == false {
                                 Text(projectName)
-                                    .font(.tasker(.caption1))
-                                    .foregroundStyle(Color.tasker(.textTertiary))
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundStyle(Color.lifeboard(.textTertiary))
                                     .lineLimit(1)
                             }
                         }
                     }
 
-                    Spacer(minLength: TaskerTheme.Spacing.sm)
+                    Spacer(minLength: LifeBoardTheme.Spacing.sm)
 
                     if overlay.isProcessing {
                         ProgressView()
@@ -377,17 +377,17 @@ private struct EvaDayTaskHeaderView: View {
     let chipColorProvider: (String) -> Color
 
     var body: some View {
-        HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+        HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                 Text(card.title)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                     .multilineTextAlignment(.leading)
 
                 EvaDayTaskMetadataView(card: card)
             }
 
-            Spacer(minLength: TaskerTheme.Spacing.sm)
+            Spacer(minLength: LifeBoardTheme.Spacing.sm)
 
             if overlay.isProcessing {
                 ProgressView()
@@ -406,19 +406,19 @@ private struct EvaDayTaskMetadataView: View {
     let card: EvaDayTaskCard
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.xs) {
+        HStack(spacing: LifeBoardTheme.Spacing.xs) {
             if let dueLabel = card.dueLabel, dueLabel.isEmpty == false {
                 Text(dueLabel)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(card.isOverdue ? Color.tasker(.statusDanger) : Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(card.isOverdue ? Color.lifeboard(.statusDanger) : Color.lifeboard(.textSecondary))
             }
             Text(card.projectName)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textTertiary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textTertiary))
             if let durationLabel = card.durationLabel, durationLabel.isEmpty == false {
                 Text(durationLabel)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
             }
         }
     }
@@ -431,7 +431,7 @@ private struct EvaDayTaskActionsView: View {
     let actionHandler: (EvaDayTaskAction) -> Void
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.xs) {
+        HStack(spacing: LifeBoardTheme.Spacing.xs) {
             ForEach(actions, id: \.rawValue) { action in
                 EvaDayTaskActionButtonView(
                     action: action,
@@ -456,14 +456,14 @@ private struct EvaDayTaskActionButtonView: View {
                 actionHandler(action)
             }
             .buttonStyle(.borderedProminent)
-            .tint(Color.tasker(.accentPrimary))
+            .tint(Color.lifeboard(.accentPrimary))
             .disabled(isProcessing)
         } else {
             Button(title) {
                 actionHandler(action)
             }
             .buttonStyle(.bordered)
-            .tint(Color.tasker(.accentMuted))
+            .tint(Color.lifeboard(.accentMuted))
             .disabled(isProcessing)
         }
     }
@@ -476,22 +476,22 @@ private struct EvaDayHabitHeaderView: View {
     let chipColorProvider: (String) -> Color
 
     var body: some View {
-        HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+        HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.sm) {
             Image(systemName: card.iconSymbolName ?? "repeat.circle")
-                .font(.tasker(.title3))
-                .foregroundStyle(Color.tasker(.accentPrimary))
+                .font(.lifeboard(.title3))
+                .foregroundStyle(Color.lifeboard(.accentPrimary))
                 .frame(width: 32)
 
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                 Text(card.title)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                     .multilineTextAlignment(.leading)
 
                 EvaDayHabitMetadataView(card: card)
             }
 
-            Spacer(minLength: TaskerTheme.Spacing.sm)
+            Spacer(minLength: LifeBoardTheme.Spacing.sm)
 
             if overlay.isProcessing {
                 ProgressView()
@@ -510,19 +510,19 @@ private struct EvaDayHabitMetadataView: View {
     let card: EvaDayHabitCard
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.xs) {
+        HStack(spacing: LifeBoardTheme.Spacing.xs) {
             Text(card.cadenceLabel)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
             if let dueLabel = card.dueLabel, dueLabel.isEmpty == false {
                 Text(dueLabel)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
             }
             if card.currentStreak > 0 {
                 Text("\(card.currentStreak) day streak")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
             }
         }
     }
@@ -535,7 +535,7 @@ private struct EvaDayHabitActionsView: View {
     let actionHandler: (EvaDayHabitAction) -> Void
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.xs) {
+        HStack(spacing: LifeBoardTheme.Spacing.xs) {
             ForEach(actions, id: \.rawValue) { action in
                 EvaDayHabitActionButtonView(
                     action: action,
@@ -560,21 +560,21 @@ private struct EvaDayHabitActionButtonView: View {
                 actionHandler(action)
             }
             .buttonStyle(.borderedProminent)
-            .tint(Color.tasker(.accentPrimary))
+            .tint(Color.lifeboard(.accentPrimary))
             .disabled(isProcessing)
         } else {
             Button(title) {
                 actionHandler(action)
             }
             .buttonStyle(.bordered)
-            .tint(Color.tasker(.accentMuted))
+            .tint(Color.lifeboard(.accentMuted))
             .disabled(isProcessing)
         }
     }
 }
 
 struct MessageView: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var collapsed = true
     @State private var undoExpiredLogged = false
     @State private var selectedEvaCardIDs: Set<UUID> = []
@@ -671,26 +671,26 @@ struct MessageView: View {
     }
 
     private var thinkingLabel: some View {
-        HStack(spacing: TaskerTheme.Spacing.sm) {
+        HStack(spacing: LifeBoardTheme.Spacing.sm) {
             Button {
                 collapsed.toggle()
             } label: {
                 Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-                    .font(.tasker(.caption2))
+                    .font(.lifeboard(.caption2))
                     .fontWeight(.medium)
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
             }
 
             Text("\(isThinking ? "thinking..." : "thought for") \(time)")
-                .taskerFont(.caption1)
+                .lifeboardFont(.caption1)
                 .italic()
-                .foregroundStyle(Color.tasker(.textTertiary))
+                .foregroundStyle(Color.lifeboard(.textTertiary))
         }
-        .padding(.horizontal, TaskerTheme.Spacing.md)
-        .padding(.vertical, TaskerTheme.Spacing.xs)
-        .taskerChromeSurface(
+        .padding(.horizontal, LifeBoardTheme.Spacing.md)
+        .padding(.vertical, LifeBoardTheme.Spacing.xs)
+        .lifeboardChromeSurface(
             cornerRadius: 16,
-            accentColor: Color.tasker(.accentSecondary),
+            accentColor: Color.lifeboard(.accentSecondary),
             level: .e1
         )
         .buttonStyle(.borderless)
@@ -758,35 +758,35 @@ struct MessageView: View {
     private var assistantBody: some View {
         if let payload = renderModel.cardPayload {
             assistantCardView(payload: payload)
-                .padding(TaskerTheme.Spacing.lg)
-                .taskerPremiumSurface(
-                    cornerRadius: TaskerTheme.CornerRadius.lg,
-                    fillColor: Color.tasker(.surfacePrimary),
-                    strokeColor: Color.tasker(.strokeHairline),
-                    accentColor: Color.tasker(.accentSecondary),
+                .padding(LifeBoardTheme.Spacing.lg)
+                .lifeboardPremiumSurface(
+                    cornerRadius: LifeBoardTheme.CornerRadius.lg,
+                    fillColor: Color.lifeboard(.surfacePrimary),
+                    strokeColor: Color.lifeboard(.strokeHairline),
+                    accentColor: Color.lifeboard(.accentSecondary),
                     level: .e2
                 )
                 .frame(maxWidth: messageMaxWidth, alignment: .leading)
                 .padding(.trailing, oppositeSideInset)
         } else {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.lg) {
                 if shouldShowLiveWorkingStatus {
                     EvaLiveWorkingStatusView(statuses: activeWorkingStatuses)
                 }
 
                 if EvaThinkingVisibilityPolicy.showsVisibleThinking,
                    let thinking = renderModel.thinkingText {
-                    VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+                    VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
                         thinkingLabel
                         if !collapsed, !thinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            HStack(spacing: TaskerTheme.Spacing.md) {
+                            HStack(spacing: LifeBoardTheme.Spacing.md) {
                                 Capsule()
                                     .frame(width: 2)
                                     .padding(.vertical, 1)
-                                    .foregroundStyle(Color.tasker(.accentMuted))
+                                    .foregroundStyle(Color.lifeboard(.accentMuted))
                                 markdownText(
                                     thinking,
-                                    color: Color.tasker(.textSecondary)
+                                    color: Color.lifeboard(.textSecondary)
                                 )
                             }
                             .padding(.leading, 5)
@@ -804,7 +804,7 @@ struct MessageView: View {
                 if let answer = renderModel.answerText {
                     markdownText(
                         answer,
-                        color: Color.tasker(.textPrimary)
+                        color: Color.lifeboard(.textPrimary)
                     )
                 }
 
@@ -812,12 +812,12 @@ struct MessageView: View {
                     TypingIndicator()
                 }
             }
-            .padding(TaskerTheme.Spacing.lg)
-            .taskerPremiumSurface(
-                cornerRadius: TaskerTheme.CornerRadius.lg,
-                fillColor: Color.tasker(.surfacePrimary),
-                strokeColor: Color.tasker(.strokeHairline),
-                accentColor: Color.tasker(.accentSecondary),
+            .padding(LifeBoardTheme.Spacing.lg)
+            .lifeboardPremiumSurface(
+                cornerRadius: LifeBoardTheme.CornerRadius.lg,
+                fillColor: Color.lifeboard(.surfacePrimary),
+                strokeColor: Color.lifeboard(.strokeHairline),
+                accentColor: Color.lifeboard(.accentSecondary),
                 level: .e2
             )
             .frame(maxWidth: messageMaxWidth, alignment: .leading)
@@ -829,24 +829,24 @@ struct MessageView: View {
         Markdown(renderModel.displayContent)
             .textSelection(.enabled)
             .markdownTextStyle {
-                ForegroundColor(Color.tasker(.accentOnPrimary))
+                ForegroundColor(Color.lifeboard(.accentOnPrimary))
             }
         #if os(iOS) || os(visionOS)
-            .padding(.horizontal, TaskerTheme.Spacing.lg)
-            .padding(.vertical, TaskerTheme.Spacing.md)
+            .padding(.horizontal, LifeBoardTheme.Spacing.lg)
+            .padding(.vertical, LifeBoardTheme.Spacing.md)
         #else
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
         #endif
-            .background(Color.tasker(.accentPrimary))
+            .background(Color.lifeboard(.accentPrimary))
         #if os(iOS) || os(visionOS)
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
         #elseif os(macOS)
             .clipShape(RoundedRectangle(cornerRadius: 16))
         #endif
             .overlay(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                    .stroke(Color.tasker(.accentPrimary).opacity(0.18), lineWidth: 1)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                    .stroke(Color.lifeboard(.accentPrimary).opacity(0.18), lineWidth: 1)
             )
             .frame(maxWidth: messageMaxWidth, alignment: .trailing)
             .padding(.leading, oppositeSideInset)
@@ -856,7 +856,7 @@ struct MessageView: View {
     private func markdownText(_ text: String, color: Color) -> some View {
         if isLiveOutput && runtimeRunning {
             Text(text)
-                .taskerFont(.body)
+                .lifeboardFont(.body)
                 .foregroundStyle(color)
                 .textSelection(.enabled)
         } else {
@@ -878,38 +878,38 @@ struct MessageView: View {
         } else if payload.cardType == .commandResult, let commandResult = payload.commandResult {
             commandResultCardView(commandResult)
         } else {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-                HStack(spacing: TaskerTheme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
+                HStack(spacing: LifeBoardTheme.Spacing.sm) {
                     EvaMascotView(
                         placement: payload.cardType == .undo ? .proposalApplied : .proposalReview,
                         size: .chip
                     )
 
                     Text(payload.cardType == .undo ? "Changes applied" : "\(AssistantIdentityText.currentSnapshot().displayName)'s Plan")
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
 
                     Spacer()
                     if payload.cardType == .proposal {
                         Text("Affects \(payload.affectedTaskCount) tasks")
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker(.textTertiary))
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard(.textTertiary))
                     }
                 }
 
                 if let rationale = payload.rationale, !rationale.isEmpty {
                     Text("Rationale: \"\(rationale)\"")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
 
                 if !payload.diffLines.isEmpty {
-                    VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                    VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                         ForEach(Array(payload.diffLines.enumerated()), id: \.offset) { _, line in
                             Text("• \(line.text)")
-                                .font(.tasker(.callout))
+                                .font(.lifeboard(.callout))
                                 .foregroundStyle(
-                                    line.isDestructive ? Color.tasker(.statusDanger) : Color.tasker(.textPrimary)
+                                    line.isDestructive ? Color.lifeboard(.statusDanger) : Color.lifeboard(.textPrimary)
                                 )
                         }
                     }
@@ -918,8 +918,8 @@ struct MessageView: View {
                 if payload.cardType == .undo {
                     HStack {
                         Text(undoLabel(payload: payload))
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                         Spacer()
                         Button("Undo") {
                             if let runID = payload.runID {
@@ -932,10 +932,10 @@ struct MessageView: View {
                 } else if payload.cardType == .proposal {
                     if payload.runID == nil {
                         Text("Invalid proposal card (missing run ID).")
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker(.statusDanger))
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard(.statusDanger))
                     } else if payload.status == .pending || payload.status == .confirmed {
-                        HStack(spacing: TaskerTheme.Spacing.sm) {
+                        HStack(spacing: LifeBoardTheme.Spacing.sm) {
                             Button("Reject") {}
                                 .buttonStyle(.bordered)
 
@@ -944,13 +944,13 @@ struct MessageView: View {
                         }
                     } else {
                         Text(payload.message ?? proposalStatusText(payload.status))
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker(.textTertiary))
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard(.textTertiary))
                     }
                 } else if let status = payload.message {
                     Text(status)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
                 }
             }
         }
@@ -958,35 +958,35 @@ struct MessageView: View {
 
     private func evaProposalCardView(payload: AssistantCardPayload, proposal: EvaProposalReviewPayload) -> some View {
         let isApplyable = payload.runID != nil && proposal.cards.contains { $0.commandIndexes.isEmpty == false }
-        return VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+        return VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
             evaPromptCard(prompt: proposal.prompt)
 
-            HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+            HStack(alignment: .center, spacing: LifeBoardTheme.Spacing.sm) {
                 EvaMascotView(placement: .proposalReview, size: .inline)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("\(AssistantIdentityText.currentSnapshot().displayName) review")
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                     Text("Check the plan before anything changes.")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
                 Spacer(minLength: 0)
             }
-            .padding(TaskerTheme.Spacing.md)
-            .background(Color.tasker(.surfaceSecondary))
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+            .padding(LifeBoardTheme.Spacing.md)
+            .background(Color.lifeboard(.surfaceSecondary))
+            .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
 
             DisclosureGroup {
                 Text(proposal.contextReceipt.sources.isEmpty ? "No additional context receipt." : proposal.contextReceipt.sources.joined(separator: "\n"))
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, TaskerTheme.Spacing.xs)
+                    .padding(.top, LifeBoardTheme.Spacing.xs)
             } label: {
                 Label {
                     Text(proposal.contextReceipt.compactReviewText)
-                        .font(.tasker(.caption1))
+                        .font(.lifeboard(.caption1))
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .minimumScaleFactor(0.85)
@@ -994,29 +994,29 @@ struct MessageView: View {
                 } icon: {
                     Image(systemName: "info.circle.fill")
                 }
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
             }
-            .padding(.horizontal, TaskerTheme.Spacing.sm)
-            .padding(.vertical, TaskerTheme.Spacing.xs)
-            .background(Color.tasker(.surfaceSecondary))
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+            .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+            .padding(.vertical, LifeBoardTheme.Spacing.xs)
+            .background(Color.lifeboard(.surfaceSecondary))
+            .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
             .accessibilityLabel(proposal.contextReceipt.compactReviewText)
 
             Text(summaryText(proposal.summary))
-                .font(.tasker(.body))
-                .foregroundStyle(Color.tasker(.textPrimary))
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(TaskerTheme.Spacing.md)
-                .background(Color.tasker(.surfaceSecondary))
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+                .padding(LifeBoardTheme.Spacing.md)
+                .background(Color.lifeboard(.surfaceSecondary))
+                .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
 
             ForEach(EvaProposalCardBuilder.groups(for: proposal.cards)) { group in
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
                     Text(group.title)
-                        .font(.tasker(.caption1))
+                        .font(.lifeboard(.caption1))
                         .fontWeight(.semibold)
-                        .foregroundStyle(Color.tasker(.textTertiary))
-                        .padding(.horizontal, TaskerTheme.Spacing.xs)
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
+                        .padding(.horizontal, LifeBoardTheme.Spacing.xs)
 
                     ForEach(group.cards) { card in
                         evaProposalRow(card)
@@ -1024,7 +1024,7 @@ struct MessageView: View {
                 }
             }
 
-            HStack(spacing: TaskerTheme.Spacing.sm) {
+            HStack(spacing: LifeBoardTheme.Spacing.sm) {
                 Button {
                     selectedEvaCardIDs = Set(proposal.cards.filter(\.isSelectedByDefault).map(\.id))
                     expandedEvaCardID = nil
@@ -1034,7 +1034,7 @@ struct MessageView: View {
                     Label("Start New", systemImage: "square.and.pencil")
                 }
                 .buttonStyle(.bordered)
-                .tint(Color.tasker(.accentPrimary))
+                .tint(Color.lifeboard(.accentPrimary))
 
                 Spacer()
 
@@ -1044,7 +1044,7 @@ struct MessageView: View {
                     Image(systemName: "hand.thumbsup")
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.tasker(.textTertiary))
+                .foregroundStyle(Color.lifeboard(.textTertiary))
                 .accessibilityLabel("Helpful")
 
                 Button {
@@ -1053,41 +1053,41 @@ struct MessageView: View {
                     Image(systemName: "hand.thumbsdown")
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.tasker(.textTertiary))
+                .foregroundStyle(Color.lifeboard(.textTertiary))
                 .accessibilityLabel("Not helpful")
             }
 
             if let evaApplyMessage {
                 Text(evaApplyMessage)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
 
             if isApplyable {
                 if let payloadRunID = payload.runID,
                    let appliedRunID = appliedEvaRunIDByPayloadRunID[payloadRunID] {
                     let undoExpired = isProposalUndoExpired(payloadRunID: payloadRunID)
-                    HStack(spacing: TaskerTheme.Spacing.sm) {
+                    HStack(spacing: LifeBoardTheme.Spacing.sm) {
                         Button {
                             undoEvaRun(appliedRunID, payloadRunID: payloadRunID)
                         } label: {
                             Label(undoExpired ? "Undo expired" : "Undo", systemImage: "arrow.uturn.backward")
-                                .font(.tasker(.buttonSmall))
+                                .font(.lifeboard(.buttonSmall))
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(Color.tasker(.accentPrimary))
+                        .tint(Color.lifeboard(.accentPrimary))
                         .disabled(isUndoingEvaRun || undoExpired)
                         .accessibilityIdentifier("eva.proposal.undo")
                     }
                 } else {
                     if pendingEvaApplyConfirmationIDs == selectedEvaCardIDs {
-                        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
                             Text("Confirm before \(AssistantIdentityText.currentSnapshot().displayName) changes your tasks.")
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
 
-                            HStack(spacing: TaskerTheme.Spacing.sm) {
+                            HStack(spacing: LifeBoardTheme.Spacing.sm) {
                                 Button("Cancel") {
                                     pendingEvaApplyConfirmationIDs = nil
                                     evaApplyMessage = nil
@@ -1098,11 +1098,11 @@ struct MessageView: View {
                                     applyEvaProposal(payload: payload, proposal: proposal)
                                 } label: {
                                     Text("Confirm Apply")
-                                        .font(.tasker(.buttonSmall))
+                                        .font(.lifeboard(.buttonSmall))
                                         .frame(maxWidth: .infinity)
                                 }
                                 .buttonStyle(.borderedProminent)
-                                .tint(Color.tasker(.accentPrimary))
+                                .tint(Color.lifeboard(.accentPrimary))
                                 .disabled(isApplyingEvaProposal || selectedEvaCardIDs.isEmpty || payload.runID == nil)
                                 .accessibilityIdentifier("eva.proposal.confirm_apply")
                             }
@@ -1114,12 +1114,12 @@ struct MessageView: View {
                             HStack {
                                 Spacer()
                                 Text(applyButtonTitle(cards: proposal.cards))
-                                    .font(.tasker(.buttonSmall))
+                                    .font(.lifeboard(.buttonSmall))
                                 Spacer()
                             }
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(Color.tasker(.accentPrimary))
+                        .tint(Color.lifeboard(.accentPrimary))
                         .disabled(
                             isApplyingEvaProposal
                                 || selectedEvaCardIDs.isEmpty
@@ -1139,101 +1139,101 @@ struct MessageView: View {
     }
 
     private func evaPromptCard(prompt: String) -> some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-            HStack(spacing: TaskerTheme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
+            HStack(spacing: LifeBoardTheme.Spacing.xs) {
                 Image(systemName: "chevron.right")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
                 Text("Your plans")
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
             Text(prompt)
-                .font(.tasker(.body))
-                .foregroundStyle(Color.tasker(.textPrimary))
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
         }
-        .padding(TaskerTheme.Spacing.md)
-        .background(Color.tasker(.surfacePrimary))
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+        .padding(LifeBoardTheme.Spacing.md)
+        .background(Color.lifeboard(.surfacePrimary))
+        .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                .stroke(Color.tasker(.accentPrimary), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                .stroke(Color.lifeboard(.accentPrimary), lineWidth: 1.5)
         )
     }
 
     private func dayOverviewCardView(payload: AssistantCardPayload, overview: EvaDayOverviewPayload) -> some View {
         let sections = visibleDayOverviewSections(for: overview)
 
-        return VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+        return VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
             evaPromptCard(prompt: overview.prompt)
 
-            HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+            HStack(alignment: .center, spacing: LifeBoardTheme.Spacing.sm) {
                 EvaMascotView(placement: .dayOverview, size: .inline)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("\(AssistantIdentityText.currentSnapshot().displayName) noticed")
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                     Text("A grounded brief from your current task and habit context.")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(TaskerTheme.Spacing.md)
-            .background(Color.tasker(.surfaceSecondary))
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+            .padding(LifeBoardTheme.Spacing.md)
+            .background(Color.lifeboard(.surfaceSecondary))
+            .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
 
             if overview.isPartialContext {
-                HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+                HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(Color.tasker(.statusWarning))
+                        .foregroundStyle(Color.lifeboard(.statusWarning))
                     Text("Context is partial. \(AssistantIdentityText.currentSnapshot().displayName) is only showing grounded tasks and habits from the slices that loaded.")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.md)
-                .padding(.vertical, TaskerTheme.Spacing.sm)
-                .background(Color.tasker(.surfaceSecondary))
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+                .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                .padding(.vertical, LifeBoardTheme.Spacing.sm)
+                .background(Color.lifeboard(.surfaceSecondary))
+                .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
             }
 
             DisclosureGroup {
                 Text(overview.contextReceipt.sources.joined(separator: "\n"))
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, TaskerTheme.Spacing.xs)
+                    .padding(.top, LifeBoardTheme.Spacing.xs)
             } label: {
                 Label(overview.contextReceipt.collapsedText, systemImage: "lock.shield")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
 
-            markdownText(overview.summaryMarkdown, color: Color.tasker(.textPrimary))
-                .padding(TaskerTheme.Spacing.md)
-                .background(Color.tasker(.surfaceSecondary))
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+            markdownText(overview.summaryMarkdown, color: Color.lifeboard(.textPrimary))
+                .padding(LifeBoardTheme.Spacing.md)
+                .background(Color.lifeboard(.surfaceSecondary))
+                .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
 
             if dayOverviewNotices.isEmpty == false {
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                     ForEach(Array(dayOverviewNotices.enumerated()), id: \.offset) { _, notice in
                         Text(notice)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.md)
-                .padding(.vertical, TaskerTheme.Spacing.sm)
-                .background(Color.tasker(.accentWash).opacity(0.45))
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+                .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                .padding(.vertical, LifeBoardTheme.Spacing.sm)
+                .background(Color.lifeboard(.accentWash).opacity(0.45))
+                .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
             }
 
             if sections.isEmpty {
                 Text("Everything visible in this brief has already been handled.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
             } else {
                 ForEach(sections) { section in
                     dayOverviewSectionView(section)
@@ -1265,29 +1265,29 @@ struct MessageView: View {
     }
 
     private func dayOverviewSectionView(_ section: EvaDayOverviewSection) -> some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(section.title)
-                    .font(.tasker(.caption1))
+                    .font(.lifeboard(.caption1))
                     .fontWeight(.semibold)
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
                 if let subtitle = section.subtitle, subtitle.isEmpty == false {
                     Text(subtitle)
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption2))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
                 }
             }
-            .padding(.horizontal, TaskerTheme.Spacing.xs)
+            .padding(.horizontal, LifeBoardTheme.Spacing.xs)
 
             if let message = section.message, message.isEmpty == false,
                section.taskCards.isEmpty && section.habitCards.isEmpty {
                 Text(message)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker(.textSecondary))
-                    .padding(TaskerTheme.Spacing.md)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .padding(LifeBoardTheme.Spacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.tasker(.surfaceSecondary))
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+                    .background(Color.lifeboard(.surfaceSecondary))
+                    .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
             }
 
             ForEach(section.taskCards) { card in
@@ -1477,23 +1477,23 @@ struct MessageView: View {
     private func dayChipColor(_ tone: String) -> Color {
         switch tone {
         case "danger":
-            return Color.tasker(.statusDanger)
+            return Color.lifeboard(.statusDanger)
         case "warning":
-            return Color.tasker(.statusWarning)
+            return Color.lifeboard(.statusWarning)
         default:
-            return Color.tasker(.accentPrimary)
+            return Color.lifeboard(.accentPrimary)
         }
     }
 
     private func evaProposalRow(_ card: EvaProposalCard) -> some View {
         let isSelected = selectedEvaCardIDs.contains(card.id)
         let isExpanded = expandedEvaCardID == card.id
-        let borderColor = isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.strokeHairline)
+        let borderColor = isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.strokeHairline)
         let borderWidth: CGFloat = isSelected ? 2 : 1
 
         return HStack(spacing: 0) {
             if isSelected {
-                Color.tasker(.accentPrimary)
+                Color.lifeboard(.accentPrimary)
                     .frame(width: 4)
                     .transition(.opacity)
             }
@@ -1506,31 +1506,31 @@ struct MessageView: View {
                         expandedEvaCardID = card.id
                     }
                 } label: {
-                    HStack(alignment: .center, spacing: TaskerTheme.Spacing.md) {
+                    HStack(alignment: .center, spacing: LifeBoardTheme.Spacing.md) {
                         Image(systemName: iconName(for: card))
-                            .font(.tasker(.title3))
+                            .font(.lifeboard(.title3))
                             .foregroundStyle(toneColor(card.tone))
                             .frame(width: 36)
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(card.subtitle)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textTertiary))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
                                 .lineLimit(2)
                             Text(card.title)
-                                .font(.tasker(.headline))
-                                .foregroundStyle(Color.tasker(.textPrimary))
+                                .font(.lifeboard(.headline))
+                                .foregroundStyle(Color.lifeboard(.textPrimary))
                                 .lineLimit(2)
                         }
 
-                        Spacer(minLength: TaskerTheme.Spacing.sm)
+                        Spacer(minLength: LifeBoardTheme.Spacing.sm)
 
-                        VStack(alignment: .trailing, spacing: TaskerTheme.Spacing.xs) {
+                        VStack(alignment: .trailing, spacing: LifeBoardTheme.Spacing.xs) {
                             Text(card.badgeText)
-                                .font(.tasker(.caption2))
+                                .font(.lifeboard(.caption2))
                                 .fontWeight(.semibold)
                                 .foregroundStyle(toneColor(card.tone))
-                                .padding(.horizontal, TaskerTheme.Spacing.xs)
+                                .padding(.horizontal, LifeBoardTheme.Spacing.xs)
                                 .padding(.vertical, 3)
                                 .background(toneColor(card.tone).opacity(0.14))
                                 .clipShape(Capsule())
@@ -1540,39 +1540,39 @@ struct MessageView: View {
                             } label: {
                                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                                     .font(.system(size: 24, weight: .semibold))
-                                    .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.accentMuted))
+                                    .foregroundStyle(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.accentMuted))
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(isSelected ? "Deselect \(card.title)" : "Select \(card.title)")
                             .accessibilityValue(isSelected ? "Selected" : "Not selected")
                         }
                     }
-                    .padding(TaskerTheme.Spacing.md)
+                    .padding(LifeBoardTheme.Spacing.md)
                 }
                 .buttonStyle(.plain)
 
                 if isExpanded {
                     LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 104), spacing: TaskerTheme.Spacing.sm)],
+                        columns: [GridItem(.adaptive(minimum: 104), spacing: LifeBoardTheme.Spacing.sm)],
                         alignment: .leading,
-                        spacing: TaskerTheme.Spacing.sm
+                        spacing: LifeBoardTheme.Spacing.sm
                     ) {
                         ForEach(availableEvaActions(for: card), id: \.self) { action in
                             evaCardActionButton(action, card: card)
                         }
                     }
-                    .padding(TaskerTheme.Spacing.sm)
-                    .background(isSelected ? Color.tasker(.accentWash).opacity(0.38) : Color.tasker(.surfaceSecondary).opacity(0.72))
+                    .padding(LifeBoardTheme.Spacing.sm)
+                    .background(isSelected ? Color.lifeboard(.accentWash).opacity(0.38) : Color.lifeboard(.surfaceSecondary).opacity(0.72))
                 }
             }
         }
-        .background(isSelected ? Color.tasker(.accentWash).opacity(0.18) : Color.tasker(.surfacePrimary))
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+        .background(isSelected ? Color.lifeboard(.accentWash).opacity(0.18) : Color.lifeboard(.surfacePrimary))
+        .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
                 .stroke(borderColor, lineWidth: borderWidth)
         )
-        .shadow(color: isSelected ? Color.tasker(.accentPrimary).opacity(0.18) : .clear, radius: isSelected ? 8 : 0, x: 0, y: isSelected ? 3 : 0)
+        .shadow(color: isSelected ? Color.lifeboard(.accentPrimary).opacity(0.18) : .clear, radius: isSelected ? 8 : 0, x: 0, y: isSelected ? 3 : 0)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
     }
 
@@ -1598,12 +1598,12 @@ struct MessageView: View {
             } icon: {
                 Image(systemName: actionIcon(action))
             }
-                .font(.tasker(.buttonSmall))
+                .font(.lifeboard(.buttonSmall))
                 .frame(minWidth: 104, minHeight: 44)
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
-        .tint(action == .discard ? Color.tasker(.statusDanger) : Color.tasker(.accentPrimary))
+        .tint(action == .discard ? Color.lifeboard(.statusDanger) : Color.lifeboard(.accentPrimary))
     }
 
     private func availableEvaActions(for card: EvaProposalCard) -> [EvaProposalAction] {
@@ -1685,49 +1685,53 @@ struct MessageView: View {
         evaApplyMessage = "Applying selected changes..."
 
         pipeline.fetchRun(id: runID) { fetchResult in
-            switch fetchResult {
-            case .failure(let error):
-                finishEvaApply(message: error.localizedDescription)
-            case .success(let run):
-                guard
-                    let run,
-                    let data = run.proposalData,
-                    let envelope = try? JSONDecoder().decode(AssistantCommandEnvelope.self, from: data)
-                else {
-                    finishEvaApply(message: "\(AssistantIdentityText.currentSnapshot().displayName) could not read this proposal.")
-                    return
-                }
+            Task { @MainActor in
+                switch fetchResult {
+                case .failure(let error):
+                    finishEvaApply(message: error.localizedDescription)
+                case .success(let run):
+                    guard
+                        let run,
+                        let data = run.proposalData,
+                        let envelope = try? JSONDecoder().decode(AssistantCommandEnvelope.self, from: data)
+                    else {
+                        finishEvaApply(message: "\(AssistantIdentityText.currentSnapshot().displayName) could not read this proposal.")
+                        return
+                    }
 
-                let selectedEnvelope = EvaProposalCardBuilder.selectedEnvelope(
-                    from: envelope,
-                    selectedCardIDs: selectedEvaCardIDs,
-                    cards: proposal.cards
-                )
-                if selectedEnvelope.commands.count == envelope.commands.count {
-                    confirmAndApply(
-                        pipeline: pipeline,
-                        runID: runID,
-                        appliedCount: appliedCount,
-                        payload: payload,
-                        proposal: proposal,
-                        selectedCards: selectedCards,
-                        payloadRunID: runID
+                    let selectedEnvelope = EvaProposalCardBuilder.selectedEnvelope(
+                        from: envelope,
+                        selectedCardIDs: selectedEvaCardIDs,
+                        cards: proposal.cards
                     )
-                } else {
-                    pipeline.propose(threadID: run.threadID ?? "eva-selected-\(UUID().uuidString)", envelope: selectedEnvelope) { proposeResult in
-                        switch proposeResult {
-                        case .failure(let error):
-                            finishEvaApply(message: error.localizedDescription)
-                        case .success(let selectedRun):
-                            confirmAndApply(
-                                pipeline: pipeline,
-                                runID: selectedRun.id,
-                                appliedCount: appliedCount,
-                                payload: payload,
-                                proposal: proposal,
-                                selectedCards: selectedCards,
-                                payloadRunID: runID
-                            )
+                    if selectedEnvelope.commands.count == envelope.commands.count {
+                        confirmAndApply(
+                            pipeline: pipeline,
+                            runID: runID,
+                            appliedCount: appliedCount,
+                            payload: payload,
+                            proposal: proposal,
+                            selectedCards: selectedCards,
+                            payloadRunID: runID
+                        )
+                    } else {
+                        pipeline.propose(threadID: run.threadID ?? "eva-selected-\(UUID().uuidString)", envelope: selectedEnvelope) { proposeResult in
+                            Task { @MainActor in
+                                switch proposeResult {
+                                case .failure(let error):
+                                    finishEvaApply(message: error.localizedDescription)
+                                case .success(let selectedRun):
+                                    confirmAndApply(
+                                        pipeline: pipeline,
+                                        runID: selectedRun.id,
+                                        appliedCount: appliedCount,
+                                        payload: payload,
+                                        proposal: proposal,
+                                        selectedCards: selectedCards,
+                                        payloadRunID: runID
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -1745,26 +1749,30 @@ struct MessageView: View {
         payloadRunID: UUID
     ) {
         pipeline.confirm(runID: runID) { confirmResult in
-            switch confirmResult {
-            case .failure(let error):
-                finishEvaApply(message: error.localizedDescription)
-            case .success:
-                pipeline.applyConfirmedRun(id: runID) { applyResult in
-                    switch applyResult {
-                    case .failure(let error):
-                        finishEvaApply(message: error.localizedDescription)
-                    case .success:
-                        recordEvaAppliedRunHistory(
-                            runID: runID,
-                            payload: payload,
-                            proposal: proposal,
-                            selectedCards: selectedCards
-                        )
-                        finishEvaApply(
-                            message: "\(AssistantIdentityText.currentSnapshot().displayName) updated \(appliedCount) tasks. Undo for 30 min.",
-                            appliedRunID: runID,
-                            payloadRunID: payloadRunID
-                        )
+            Task { @MainActor in
+                switch confirmResult {
+                case .failure(let error):
+                    finishEvaApply(message: error.localizedDescription)
+                case .success:
+                    pipeline.applyConfirmedRun(id: runID) { applyResult in
+                        Task { @MainActor in
+                            switch applyResult {
+                            case .failure(let error):
+                                finishEvaApply(message: error.localizedDescription)
+                            case .success:
+                                recordEvaAppliedRunHistory(
+                                    runID: runID,
+                                    payload: payload,
+                                    proposal: proposal,
+                                    selectedCards: selectedCards
+                                )
+                                finishEvaApply(
+                                    message: "\(AssistantIdentityText.currentSnapshot().displayName) updated \(appliedCount) tasks. Undo for 30 min.",
+                                    appliedRunID: runID,
+                                    payloadRunID: payloadRunID
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1849,15 +1857,15 @@ struct MessageView: View {
     private func toneColor(_ tone: EvaProposalTone) -> Color {
         switch tone {
         case .create:
-            return Color.tasker(.accentPrimary)
+            return Color.lifeboard(.accentPrimary)
         case .edit:
-            return Color.tasker(.statusWarning)
+            return Color.lifeboard(.statusWarning)
         case .neutral:
-            return Color.tasker(.textTertiary)
+            return Color.lifeboard(.textTertiary)
         case .warning:
-            return Color.tasker(.statusWarning)
+            return Color.lifeboard(.statusWarning)
         case .destructive:
-            return Color.tasker(.statusDanger)
+            return Color.lifeboard(.statusDanger)
         }
     }
 
@@ -1904,32 +1912,32 @@ struct MessageView: View {
 
     @ViewBuilder
     private func commandResultCardView(_ result: SlashCommandExecutionResult) -> some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             HStack {
                 Label(result.commandLabel, systemImage: result.commandID.icon)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                 Spacer()
                 Text("\(result.totalTaskCount)")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
             }
 
             Text(result.summary)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
 
             if result.sections.isEmpty {
                 Text("No tasks to show.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
             } else {
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
                     ForEach(Array(result.sections.enumerated()), id: \.offset) { _, section in
-                        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                             Text("\(section.title) (\(section.totalCount))")
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textTertiary))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
 
                             ForEach(Array(section.tasks.enumerated()), id: \.element.taskID) { _, item in
                                 Button {
@@ -1943,29 +1951,29 @@ struct MessageView: View {
                                     )
                                     onOpenTaskFromCard?(item.taskSnapshot)
                                 } label: {
-                                    VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                                    VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                                         Text(item.title)
-                                            .font(.tasker(.callout))
-                                            .foregroundStyle(Color.tasker(.textPrimary))
+                                            .font(.lifeboard(.callout))
+                                            .foregroundStyle(Color.lifeboard(.textPrimary))
                                             .multilineTextAlignment(.leading)
-                                        HStack(spacing: TaskerTheme.Spacing.xs) {
+                                        HStack(spacing: LifeBoardTheme.Spacing.xs) {
                                             if let dueLabel = item.dueLabel, !dueLabel.isEmpty {
                                                 Text(dueLabel)
-                                                    .font(.tasker(.caption1))
+                                                    .font(.lifeboard(.caption1))
                                                     .foregroundStyle(dueLabelColor(dueLabel))
                                             }
                                             Text(item.projectName)
-                                                .font(.tasker(.caption1))
-                                                .foregroundStyle(Color.tasker(.textTertiary))
+                                                .font(.lifeboard(.caption1))
+                                                .foregroundStyle(Color.lifeboard(.textTertiary))
                                         }
                                     }
-                                    .padding(.horizontal, TaskerTheme.Spacing.sm)
-                                    .padding(.vertical, TaskerTheme.Spacing.sm)
+                                    .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                                    .padding(.vertical, LifeBoardTheme.Spacing.sm)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Color.tasker(.surfaceSecondary))
+                                    .background(Color.lifeboard(.surfaceSecondary))
                                     .clipShape(
                                         RoundedRectangle(
-                                            cornerRadius: TaskerTheme.CornerRadius.md,
+                                            cornerRadius: LifeBoardTheme.CornerRadius.md,
                                             style: .continuous
                                         )
                                     )
@@ -1984,8 +1992,8 @@ struct MessageView: View {
 
     private func dueLabelColor(_ dueLabel: String) -> Color {
         dueLabel.localizedCaseInsensitiveContains("late")
-            ? Color.tasker(.statusDanger)
-            : Color.tasker(.textTertiary)
+            ? Color.lifeboard(.statusDanger)
+            : Color.lifeboard(.textTertiary)
     }
 
     private func proposalStatusText(_ status: AssistantCardStatus) -> String {
@@ -2065,8 +2073,8 @@ struct ConversationView: View {
                             onPerformDayTaskAction: onPerformDayTaskAction,
                             onPerformDayHabitAction: onPerformDayHabitAction
                         )
-                        .padding(.horizontal, TaskerTheme.Spacing.lg)
-                        .padding(.vertical, TaskerTheme.Spacing.sm)
+                        .padding(.horizontal, LifeBoardTheme.Spacing.lg)
+                        .padding(.vertical, LifeBoardTheme.Spacing.sm)
                         .id(message.id.uuidString)
                     }
 
@@ -2084,8 +2092,8 @@ struct ConversationView: View {
                             onPerformDayTaskAction: onPerformDayTaskAction,
                             onPerformDayHabitAction: onPerformDayHabitAction
                         )
-                        .padding(.horizontal, TaskerTheme.Spacing.lg)
-                        .padding(.vertical, TaskerTheme.Spacing.sm)
+                        .padding(.horizontal, LifeBoardTheme.Spacing.lg)
+                        .padding(.vertical, LifeBoardTheme.Spacing.sm)
                         .id(liveOutput.responseID?.uuidString ?? liveOutput.threadID?.uuidString ?? "output")
                         .onAppear {
                             scrollInterrupted = false
@@ -2099,7 +2107,7 @@ struct ConversationView: View {
                 }
                 .scrollTargetLayout()
             }
-            .background(Color.tasker(.bgCanvas))
+            .background(Color.lifeboard(.bgCanvas))
             .scrollPosition(id: $scrollID, anchor: .bottom)
             .onAppear {
                 if !scrollInterrupted {

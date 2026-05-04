@@ -43,27 +43,53 @@ private func uniqueDictionary<Key: Hashable, Value>(
     return dictionary
 }
 
-enum LLMContextRepositoryProvider {
-    private static var taskReadModelRepositoryStorage: TaskReadModelRepositoryProtocol?
-    private static var projectRepositoryStorage: ProjectRepositoryProtocol?
-    private static var lifeAreaRepositoryStorage: LifeAreaRepositoryProtocol?
-    private static var tagRepositoryStorage: TagRepositoryProtocol?
-    private static var habitRuntimeReadRepositoryStorage: HabitRuntimeReadRepositoryProtocol?
+private final class LLMContextRepositoryStorage: @unchecked Sendable {
+    private let lock = NSLock()
+    private var taskReadModelRepositoryStorage: TaskReadModelRepositoryProtocol?
+    private var projectRepositoryStorage: ProjectRepositoryProtocol?
+    private var lifeAreaRepositoryStorage: LifeAreaRepositoryProtocol?
+    private var tagRepositoryStorage: TagRepositoryProtocol?
+    private var habitRuntimeReadRepositoryStorage: HabitRuntimeReadRepositoryProtocol?
 
-    static var taskReadModelRepository: TaskReadModelRepositoryProtocol? { taskReadModelRepositoryStorage }
-    static var projectRepository: ProjectRepositoryProtocol? { projectRepositoryStorage }
-    static var lifeAreaRepository: LifeAreaRepositoryProtocol? { lifeAreaRepositoryStorage }
-    static var tagRepository: TagRepositoryProtocol? { tagRepositoryStorage }
-    static var habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? { habitRuntimeReadRepositoryStorage }
+    var taskReadModelRepository: TaskReadModelRepositoryProtocol? {
+        lock.lock()
+        defer { lock.unlock() }
+        return taskReadModelRepositoryStorage
+    }
 
-    /// Executes configure.
-    static func configure(
+    var projectRepository: ProjectRepositoryProtocol? {
+        lock.lock()
+        defer { lock.unlock() }
+        return projectRepositoryStorage
+    }
+
+    var lifeAreaRepository: LifeAreaRepositoryProtocol? {
+        lock.lock()
+        defer { lock.unlock() }
+        return lifeAreaRepositoryStorage
+    }
+
+    var tagRepository: TagRepositoryProtocol? {
+        lock.lock()
+        defer { lock.unlock() }
+        return tagRepositoryStorage
+    }
+
+    var habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? {
+        lock.lock()
+        defer { lock.unlock() }
+        return habitRuntimeReadRepositoryStorage
+    }
+
+    func configure(
         taskReadModelRepository: TaskReadModelRepositoryProtocol?,
         projectRepository: ProjectRepositoryProtocol?,
-        lifeAreaRepository: LifeAreaRepositoryProtocol? = nil,
-        tagRepository: TagRepositoryProtocol? = nil,
-        habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? = nil
+        lifeAreaRepository: LifeAreaRepositoryProtocol?,
+        tagRepository: TagRepositoryProtocol?,
+        habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol?
     ) {
+        lock.lock()
+        defer { lock.unlock() }
         self.taskReadModelRepositoryStorage = taskReadModelRepository
         self.projectRepositoryStorage = projectRepository
         self.lifeAreaRepositoryStorage = lifeAreaRepository
@@ -71,11 +97,9 @@ enum LLMContextRepositoryProvider {
         self.habitRuntimeReadRepositoryStorage = habitRuntimeReadRepository
     }
 
-    /// Executes makeService.
-    static func makeService(
-        maxTasksPerSlice: Int = LLMChatBudgets.active.maxProjectionTasksPerSlice,
-        compactTaskPayload: Bool = (V2FeatureFlags.llmChatContextStrategy == .bounded)
-    ) -> LLMContextProjectionService? {
+    func makeService(maxTasksPerSlice: Int, compactTaskPayload: Bool) -> LLMContextProjectionService? {
+        lock.lock()
+        defer { lock.unlock() }
         guard let taskReadModelRepository = taskReadModelRepositoryStorage,
               let projectRepository = projectRepositoryStorage else {
             return nil
@@ -90,10 +114,62 @@ enum LLMContextRepositoryProvider {
             compactTaskPayload: compactTaskPayload
         )
     }
+}
+
+private final class LLMStringCompletion: @unchecked Sendable {
+    private let completion: (String) -> Void
+
+    init(_ completion: @escaping (String) -> Void) {
+        self.completion = completion
+    }
+
+    func deliver(_ value: String) {
+        DispatchQueue.main.async {
+            self.completion(value)
+        }
+    }
+}
+
+enum LLMContextRepositoryProvider {
+    private static let storage = LLMContextRepositoryStorage()
+
+    static var taskReadModelRepository: TaskReadModelRepositoryProtocol? { storage.taskReadModelRepository }
+    static var projectRepository: ProjectRepositoryProtocol? { storage.projectRepository }
+    static var lifeAreaRepository: LifeAreaRepositoryProtocol? { storage.lifeAreaRepository }
+    static var tagRepository: TagRepositoryProtocol? { storage.tagRepository }
+    static var habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? { storage.habitRuntimeReadRepository }
+
+    /// Executes configure.
+    static func configure(
+        taskReadModelRepository: TaskReadModelRepositoryProtocol?,
+        projectRepository: ProjectRepositoryProtocol?,
+        lifeAreaRepository: LifeAreaRepositoryProtocol? = nil,
+        tagRepository: TagRepositoryProtocol? = nil,
+        habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? = nil
+    ) {
+        storage.configure(
+            taskReadModelRepository: taskReadModelRepository,
+            projectRepository: projectRepository,
+            lifeAreaRepository: lifeAreaRepository,
+            tagRepository: tagRepository,
+            habitRuntimeReadRepository: habitRuntimeReadRepository
+        )
+    }
+
+    /// Executes makeService.
+    static func makeService(
+        maxTasksPerSlice: Int = LLMChatBudgets.active.maxProjectionTasksPerSlice,
+        compactTaskPayload: Bool = (V2FeatureFlags.llmChatContextStrategy == .bounded)
+    ) -> LLMContextProjectionService? {
+        storage.makeService(
+            maxTasksPerSlice: maxTasksPerSlice,
+            compactTaskPayload: compactTaskPayload
+        )
+    }
 
     /// Executes findProjectName.
     static func findProjectName(matching query: String) async -> String? {
-        guard let projectRepository = projectRepositoryStorage else { return nil }
+        guard let projectRepository = storage.projectRepository else { return nil }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return nil }
 
@@ -109,7 +185,7 @@ enum LLMContextRepositoryProvider {
     /// Executes findProjectNameSync.
     @available(*, deprecated, message: "Use async findProjectName(matching:) instead")
     static func findProjectNameSync(matching query: String, timeoutSeconds: TimeInterval = 3) async -> String? {
-        guard let projectRepository = projectRepositoryStorage else { return nil }
+        guard let projectRepository = storage.projectRepository else { return nil }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return nil }
 
@@ -123,7 +199,7 @@ enum LLMContextRepositoryProvider {
 
     /// Executes projectNameLookup.
     static func projectNameLookup() async -> [UUID: String] {
-        guard let projectRepository = projectRepositoryStorage else { return [:] }
+        guard let projectRepository = storage.projectRepository else { return [:] }
         let projects = await withCheckedContinuation { continuation in
             projectRepository.fetchAllProjects { result in
                 let resolved = (try? result.get()) ?? []
@@ -159,7 +235,7 @@ enum LLMContextRepositoryProvider {
     }
 }
 
-struct LLMContextProjectionService {
+struct LLMContextProjectionService: @unchecked Sendable {
     let taskReadModelRepository: TaskReadModelRepositoryProtocol
     let projectRepository: ProjectRepositoryProtocol
     let lifeAreaRepository: LifeAreaRepositoryProtocol?
@@ -201,12 +277,12 @@ struct LLMContextProjectionService {
     func buildChatPlanningContext(
         query: String,
         maxChars: Int,
-        habitSignals: [TaskerHabitSignal]? = nil
+        habitSignals: [LifeBoardHabitSignal]? = nil
     ) async -> String {
         let normalizedQuery = Self.searchTerms(from: query)
         async let activeProjectsTask = fetchActiveProjects()
         async let activeLifeAreasTask = fetchActiveLifeAreas()
-        async let habitSignalsTask: [TaskerHabitSignal] = {
+        async let habitSignalsTask: [LifeBoardHabitSignal] = {
             if let habitSignals {
                 return habitSignals
             }
@@ -359,13 +435,13 @@ struct LLMContextProjectionService {
     }
 
     /// Executes buildTodayJSON.
-    func buildTodayJSON(habitSignals: [TaskerHabitSignal]? = nil) async -> String {
+    func buildTodayJSON(habitSignals: [LifeBoardHabitSignal]? = nil) async -> String {
         guard !Task.isCancelled else { return "{}" }
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: Date())
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? Date()
         let endOfDay = startOfTomorrow.addingTimeInterval(-1)
-        let resolvedHabitSignals: [TaskerHabitSignal]
+        let resolvedHabitSignals: [LifeBoardHabitSignal]
         if let habitSignals {
             resolvedHabitSignals = habitSignals
         } else {
@@ -401,7 +477,7 @@ struct LLMContextProjectionService {
 
     /// Executes buildHabitJSON.
     func buildHabitJSON(
-        habitSignals: [TaskerHabitSignal]? = nil,
+        habitSignals: [LifeBoardHabitSignal]? = nil,
         start: Date? = nil,
         end: Date? = nil
     ) async -> String {
@@ -409,7 +485,7 @@ struct LLMContextProjectionService {
         let calendar = Calendar.current
         let rangeStart = start ?? (calendar.date(byAdding: .day, value: -13, to: calendar.startOfDay(for: Date())) ?? Date())
         let rangeEnd = end ?? (calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date())) ?? Date())
-        let resolvedHabitSignals: [TaskerHabitSignal]
+        let resolvedHabitSignals: [LifeBoardHabitSignal]
         if let habitSignals {
             resolvedHabitSignals = habitSignals
         } else {
@@ -509,41 +585,46 @@ struct LLMContextProjectionService {
 
     /// Executes buildTodayJSON.
     func buildTodayJSON(completion: @escaping (String) -> Void) {
+        let callback = LLMStringCompletion(completion)
         Task {
-            completion(await buildTodayJSON())
+            callback.deliver(await buildTodayJSON())
         }
     }
 
     /// Executes buildHabitJSON.
     func buildHabitJSON(
-        habitSignals: [TaskerHabitSignal]? = nil,
+        habitSignals: [LifeBoardHabitSignal]? = nil,
         start: Date? = nil,
         end: Date? = nil,
         completion: @escaping (String) -> Void
     ) {
+        let callback = LLMStringCompletion(completion)
         Task {
-            completion(await buildHabitJSON(habitSignals: habitSignals, start: start, end: end))
+            callback.deliver(await buildHabitJSON(habitSignals: habitSignals, start: start, end: end))
         }
     }
 
     /// Executes buildUpcomingJSON.
     func buildUpcomingJSON(completion: @escaping (String) -> Void) {
+        let callback = LLMStringCompletion(completion)
         Task {
-            completion(await buildUpcomingJSON())
+            callback.deliver(await buildUpcomingJSON())
         }
     }
 
     /// Executes buildOverdueJSON.
     func buildOverdueJSON(completion: @escaping (String) -> Void) {
+        let callback = LLMStringCompletion(completion)
         Task {
-            completion(await buildOverdueJSON())
+            callback.deliver(await buildOverdueJSON())
         }
     }
 
     /// Executes buildProjectJSON.
     func buildProjectJSON(projectID: UUID, completion: @escaping (String) -> Void) {
+        let callback = LLMStringCompletion(completion)
         Task {
-            completion(await buildProjectJSON(projectID: projectID))
+            callback.deliver(await buildProjectJSON(projectID: projectID))
         }
     }
 
@@ -560,14 +641,14 @@ struct LLMContextProjectionService {
         return tasks
     }
 
-    private func fetchHabitSignals(start: Date, end: Date) async -> [TaskerHabitSignal] {
+    private func fetchHabitSignals(start: Date, end: Date) async -> [LifeBoardHabitSignal] {
         guard let habitRuntimeReadRepository else { return [] }
         guard !Task.isCancelled else { return [] }
-        let signals: [TaskerHabitSignal] = await withCheckedContinuation { continuation in
+        let signals: [LifeBoardHabitSignal] = await withCheckedContinuation { continuation in
             habitRuntimeReadRepository.fetchSignals(start: start, end: end) { result in
                 let summaries = (try? result.get()) ?? []
                 continuation.resume(
-                    returning: summaries.map { TaskerHabitSignal(summary: $0, referenceDate: $0.dueAt ?? Date()) }
+                    returning: summaries.map { LifeBoardHabitSignal(summary: $0, referenceDate: $0.dueAt ?? Date()) }
                 )
             }
         }
@@ -850,7 +931,7 @@ struct LLMContextProjectionService {
     /// Executes encode.
     private static func encode(
         tasks: [TaskDefinition],
-        habits: [TaskerHabitSignal] = [],
+        habits: [LifeBoardHabitSignal] = [],
         contextType: String,
         metadata: [String: Any] = [:],
         tagNameLookup: [UUID: String] = [:],
@@ -1223,9 +1304,9 @@ struct LLMContextProjectionService {
     }
 
     private static func rankHabitSignals(
-        _ habits: [TaskerHabitSignal],
+        _ habits: [LifeBoardHabitSignal],
         queryTerms: [String]
-    ) -> [TaskerHabitSignal] {
+    ) -> [LifeBoardHabitSignal] {
         habits.sorted { lhs, rhs in
             let lhsScore = habitMatchScore(
                 lhs,
@@ -1249,7 +1330,7 @@ struct LLMContextProjectionService {
     }
 
     private static func habitMatchScore(
-        _ habit: TaskerHabitSignal,
+        _ habit: LifeBoardHabitSignal,
         queryTerms: [String]
     ) -> Int {
         guard queryTerms.isEmpty == false else { return 0 }
@@ -1289,7 +1370,7 @@ struct LLMContextProjectionService {
     }
 
     private static func compactHabitLine(
-        habit: TaskerHabitSignal
+        habit: LifeBoardHabitSignal
     ) -> String {
         var parts: [String] = [habit.title.trimmingCharacters(in: .whitespacesAndNewlines)]
         if habit.isOverdue {
@@ -1786,7 +1867,7 @@ private actor EvaExecutiveContextCache {
     }
 }
 
-struct EvaExecutiveContextService {
+struct EvaExecutiveContextService: @unchecked Sendable {
     let taskReadModelRepository: TaskReadModelRepositoryProtocol
     let projectRepository: ProjectRepositoryProtocol
     let lifeAreaRepository: LifeAreaRepositoryProtocol?

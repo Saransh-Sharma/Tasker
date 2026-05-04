@@ -1,6 +1,6 @@
 //
 //  View+IfModifier.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created to support conditional view modifiers used across the LLM module.
 //  Mirrors the helper defined in the original "fullmoon" project.

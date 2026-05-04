@@ -116,27 +116,27 @@ struct OnboardingInstallModelView: View {
     private var content: some View {
         Form {
             Section {
-                VStack(spacing: TaskerTheme.Spacing.lg) {
+                VStack(spacing: LifeBoardTheme.Spacing.lg) {
                     ZStack {
                         Circle()
-                            .fill(Color.tasker(.accentWash))
+                            .fill(Color.lifeboard(.accentWash))
                             .frame(width: 80, height: 80)
                         Image(systemName: "brain.head.profile")
                             .font(.system(size: 34, weight: .medium))
-                            .foregroundStyle(Color.tasker(.accentPrimary))
+                            .foregroundStyle(Color.lifeboard(.accentPrimary))
                     }
 
-                    VStack(spacing: TaskerTheme.Spacing.xs) {
+                    VStack(spacing: LifeBoardTheme.Spacing.xs) {
                         Text("choose your local models")
-                            .font(.tasker(.title1))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.title1))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
                         Text("install one or more local models for chat. qwen3 0.6b stays the default, qwen 3.5 improves quality, and bonsai 1.7b 1-bit is available as an experimental tiny-footprint option.")
-                            .font(.tasker(.callout))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.callout))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                             .multilineTextAlignment(.center)
                     }
                 }
-                .padding(.vertical, TaskerTheme.Spacing.lg)
+                .padding(.vertical, LifeBoardTheme.Spacing.lg)
                 .frame(maxWidth: .infinity)
             }
             .listRowBackground(Color.clear)
@@ -180,7 +180,7 @@ struct OnboardingInstallModelView: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .accessibilityIdentifier("llm.modelPicker.view")
         #if os(iOS) || os(visionOS)
         .toolbar {
@@ -192,8 +192,8 @@ struct OnboardingInstallModelView: View {
                     )
                 ) {
                     Text("install")
-                        .font(.tasker(.button))
-                        .foregroundStyle(Color.tasker(.accentPrimary))
+                        .font(.lifeboard(.button))
+                        .foregroundStyle(Color.lifeboard(.accentPrimary))
                 }
                 .disabled(!canInstall)
             }
@@ -233,24 +233,24 @@ private struct InstalledModelStatusRow: View {
     let entry: LLMCatalogEntry
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.md) {
+        HStack(spacing: LifeBoardTheme.Spacing.md) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color.tasker(.accentPrimary))
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                .foregroundStyle(Color.lifeboard(.accentPrimary))
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                 Text(entry.model.displayName.lowercased())
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                 if let statusReason = entry.compatibility.statusReason,
                    entry.compatibility.canActivate == false {
                     Text(statusReason)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
             }
             Spacer()
             Text(entry.compatibility.statusBadgeTitle ?? "installed")
-                .font(.tasker(.caption1))
-                .foregroundStyle(entry.compatibility.canActivate ? Color.tasker(.accentPrimary) : Color.tasker(.statusWarning))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(entry.compatibility.canActivate ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.statusWarning))
         }
     }
 }
@@ -278,65 +278,65 @@ private struct LLMModelOptionCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
-                HStack(spacing: TaskerTheme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
+                HStack(spacing: LifeBoardTheme.Spacing.sm) {
                     Image(systemName: isDisabled ? "minus.circle" : (isSelected ? "checkmark.circle.fill" : "circle"))
                         .font(.title3)
-                        .foregroundStyle(isDisabled ? Color.tasker(.textQuaternary) : (isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary)))
+                        .foregroundStyle(isDisabled ? Color.lifeboard(.textQuaternary) : (isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textQuaternary)))
 
                     Text(entry.model.displayName)
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
 
                     Spacer()
 
                     Text(badgeTitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(isDisabled ? Color.tasker(.statusWarning) : Color.tasker(.accentPrimary))
-                        .padding(.horizontal, TaskerTheme.Spacing.sm)
-                        .padding(.vertical, TaskerTheme.Spacing.xs)
-                        .background(isDisabled ? Color.tasker(.accentWash) : Color.tasker(.accentWash))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(isDisabled ? Color.lifeboard(.statusWarning) : Color.lifeboard(.accentPrimary))
+                        .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                        .padding(.vertical, LifeBoardTheme.Spacing.xs)
+                        .background(isDisabled ? Color.lifeboard(.accentWash) : Color.lifeboard(.accentWash))
                         .clipShape(Capsule())
                         .accessibilityIdentifier(isDefaultModel ? "llm.modelPicker.recommendedBadge" : "")
                 }
 
                 Text(entry.model.shortDescription)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .multilineTextAlignment(.leading)
 
                 if let statusReason = entry.compatibility.statusReason,
                    isDisabled {
                     Text(statusReason)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.statusWarning))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.statusWarning))
                 } else {
                     Text(entry.model.onboardingSubtitle)
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker(.textQuaternary))
+                        .font(.lifeboard(.caption2))
+                        .foregroundStyle(Color.lifeboard(.textQuaternary))
                 }
 
                 HStack {
                     Text(sizeLabel)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
                     Spacer()
                     if entry.model.sourceModelID != nil {
                         Text("converted MLX equivalent")
-                            .font(.tasker(.caption2))
-                            .foregroundStyle(Color.tasker(.textQuaternary))
+                            .font(.lifeboard(.caption2))
+                            .foregroundStyle(Color.lifeboard(.textQuaternary))
                     }
                 }
             }
-            .padding(TaskerTheme.Spacing.lg)
+            .padding(LifeBoardTheme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                    .fill(isSelected ? Color.tasker(.accentWash) : Color.tasker(.bgElevated))
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                    .fill(isSelected ? Color.lifeboard(.accentWash) : Color.lifeboard(.bgElevated))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                    .stroke(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.borderSubtle), lineWidth: 1)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                    .stroke(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.borderSubtle), lineWidth: 1)
             )
             .opacity(isDisabled ? 0.78 : 1)
         }

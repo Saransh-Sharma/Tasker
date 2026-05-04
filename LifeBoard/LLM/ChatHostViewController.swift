@@ -1,6 +1,6 @@
 //
 //  ChatHostViewController.swift
-//  To Do List
+//  LifeBoard
 //
 //  Hosts the SwiftUI EVA activation and chat UI for the local-LLM feature.
 //
@@ -9,6 +9,53 @@ import Combine
 import SwiftData
 import SwiftUI
 import UIKit
+
+private final class LockedMetadataAccumulator<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value
+    private var firstError: Error?
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func update(_ body: (inout Value) -> Void) {
+        lock.lock()
+        body(&value)
+        lock.unlock()
+    }
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<Value, Error> {
+        lock.lock()
+        let resolvedValue = value
+        let resolvedError = firstError
+        lock.unlock()
+
+        if let resolvedError {
+            return .failure(resolvedError)
+        }
+        return .success(resolvedValue)
+    }
+}
+
+private struct ChatTaskDetailMetadataState: Sendable {
+    var projects: [Project]
+    var sections: [LifeBoardProjectSection]
+}
+
+private struct ChatTaskDetailRelationshipMetadataState: Sendable {
+    var lifeAreas: [LifeArea]
+    var tags: [TagDefinition]
+    var availableTasks: [TaskDefinition]
+}
 
 /// UIKit wrapper that embeds the SwiftUI LLM module.
 extension Notification.Name {
@@ -31,7 +78,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     private var themeCancellable: AnyCancellable?
     private var activationCoordinatorCancellable: AnyCancellable?
     private var cachedProjects: [Project] = [Project.createInbox()]
-    private var currentLayoutClass: TaskerLayoutClass = .phone
+    private var currentLayoutClass: LifeBoardLayoutClass = .phone
     private let activationTitleView = EvaActivationNavigationTitleView()
     private let chatTitleView = EvaChatNavigationTitleView()
     private var chatNavigationChromeState = EvaChatNavigationChromeState.empty
@@ -91,10 +138,10 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             )
         }
 
-        let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let themeColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         view.backgroundColor = themeColors.bgCanvas
 
-        currentLayoutClass = TaskerLayoutResolver.classify(view: view)
+        currentLayoutClass = LifeBoardLayoutResolver.classify(view: view)
         hostingController = UIHostingController(rootView: makeRootView(layoutClass: currentLayoutClass))
         addChild(hostingController)
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
@@ -112,7 +159,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         bindActivationCoordinator()
         updateNavigationBarChrome()
 
-        themeCancellable = TaskerThemeManager.shared.publisher
+        themeCancellable = LifeBoardThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.applyTheme()
@@ -159,7 +206,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         }
     }
 
-    private func makeRootView(layoutClass: TaskerLayoutClass) -> AnyView {
+    private func makeRootView(layoutClass: LifeBoardLayoutClass) -> AnyView {
         let rootView: AnyView
         if let container {
             rootView = AnyView(
@@ -192,11 +239,11 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             rootView = AnyView(LLMStoreUnavailableView())
         }
 
-        return AnyView(rootView.taskerLayoutClass(layoutClass))
+        return AnyView(rootView.lifeboardLayoutClass(layoutClass))
     }
 
     private func refreshLayoutClassIfNeeded() {
-        let nextLayoutClass = TaskerLayoutResolver.classify(view: view)
+        let nextLayoutClass = LifeBoardLayoutResolver.classify(view: view)
         guard nextLayoutClass != currentLayoutClass else { return }
         currentLayoutClass = nextLayoutClass
         hostingController.rootView = makeRootView(layoutClass: nextLayoutClass)
@@ -207,7 +254,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     /// Executes setupNavigationBar.
     private func setupNavigationBar() {
-        let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let themeColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         let onAccent = themeColors.accentOnPrimary
 
         let appearance = UINavigationBarAppearance()
@@ -401,14 +448,14 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                     }
                 )
 
-                let layoutClass = TaskerLayoutResolver.classify(view: self.view)
-                let hostingController = UIHostingController(rootView: detailView.taskerLayoutClass(layoutClass))
-                hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+                let layoutClass = LifeBoardLayoutResolver.classify(view: self.view)
+                let hostingController = UIHostingController(rootView: detailView.lifeboardLayoutClass(layoutClass))
+                hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
                 hostingController.modalPresentationStyle = .pageSheet
 
                 if let sheet = hostingController.sheetPresentationController {
                     sheet.detents = [.medium(), .large()]
-                    sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                    sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                     sheet.prefersScrollingExpandsWhenScrolledToEdge = true
                 }
 
@@ -435,7 +482,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         }
 
         coordinator.getHabitLibrary.execute(habitID: habitID, includeArchived: true) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 switch result {
                 case .failure:
@@ -456,14 +503,14 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                         viewModel: presentationDependencyContainer.makeHabitDetailViewModel(row: row),
                         onMutation: {}
                     )
-                    let layoutClass = TaskerLayoutResolver.classify(view: self.view)
-                    let hostingController = UIHostingController(rootView: detailView.taskerLayoutClass(layoutClass))
-                    hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+                    let layoutClass = LifeBoardLayoutResolver.classify(view: self.view)
+                    let hostingController = UIHostingController(rootView: detailView.lifeboardLayoutClass(layoutClass))
+                    hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
                     hostingController.modalPresentationStyle = .pageSheet
 
                     if let sheet = hostingController.sheetPresentationController {
                         sheet.detents = [.medium(), .large()]
-                        sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                        sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                         sheet.prefersScrollingExpandsWhenScrolledToEdge = true
                     }
 
@@ -486,7 +533,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     private func performDayTaskAction(
         _ action: EvaDayTaskAction,
         card: EvaDayTaskCard,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard let coordinator = resolvedUseCaseCoordinator else {
             completion(.failure(NSError(
@@ -536,7 +583,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     private func performDayHabitAction(
         _ action: EvaDayHabitAction,
         card: EvaDayHabitCard,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard let coordinator = resolvedUseCaseCoordinator else {
             completion(.failure(NSError(
@@ -568,16 +615,16 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             action: habitAction ?? .complete,
             on: card.dueAt ?? Date()
         ) { result in
-            DispatchQueue.main.async { completion(result) }
+            Task { @MainActor in completion(result) }
         }
     }
 
     private func loadProjectsIfNeeded(
         coordinator: UseCaseCoordinator,
-        completion: @escaping ([Project]) -> Void
-    ) {
-        coordinator.manageProjects.getAllProjects { [weak self] result in
-            DispatchQueue.main.async {
+        completion: @escaping @MainActor @Sendable ([Project]) -> Void
+        ) {
+            coordinator.manageProjects.getAllProjects { [weak self] result in
+            Task { @MainActor in
                 switch result {
                 case .success(let projectsWithStats):
                     let projects = projectsWithStats.map(\.project)
@@ -598,7 +645,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     private func resolveTodayXPSoFar(
         coordinator: UseCaseCoordinator,
-        completion: @escaping (Int?) -> Void
+        completion: @escaping @MainActor @Sendable (Int?) -> Void
     ) {
         guard V2FeatureFlags.gamificationV2Enabled else {
             completion(0)
@@ -614,7 +661,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     private func loadTaskDetailMetadata(
         projectID: UUID,
-        completion: @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<TaskDetailMetadataPayload, Error>) -> Void
     ) {
         guard let coordinator = resolvedUseCaseCoordinator else {
             completion(.failure(NSError(
@@ -626,28 +673,21 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         }
 
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-
-        var loadedProjects: [Project] = cachedProjects
-        var loadedSections: [TaskerProjectSection] = []
-
-        func record(_ error: Error) {
-            lock.lock()
-            if firstError == nil {
-                firstError = error
-            }
-            lock.unlock()
-        }
+        let accumulator = LockedMetadataAccumulator(ChatTaskDetailMetadataState(
+            projects: cachedProjects,
+            sections: []
+        ))
 
         group.enter()
         coordinator.manageProjects.getAllProjects { result in
             defer { group.leave() }
             switch result {
             case .success(let projectsWithStats):
-                loadedProjects = projectsWithStats.map(\.project)
+                accumulator.update { state in
+                    state.projects = projectsWithStats.map(\.project)
+                }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -656,27 +696,30 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             defer { group.leave() }
             switch result {
             case .success(let sections):
-                loadedSections = sections
+                accumulator.update { state in
+                    state.sections = sections
+                }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
         group.notify(queue: .main) {
-            if let firstError {
-                completion(.failure(firstError))
-                return
+            let result = accumulator.result().map { state in
+                TaskDetailMetadataPayload(
+                    projects: state.projects,
+                    sections: state.sections
+                )
             }
-            completion(.success(TaskDetailMetadataPayload(
-                projects: loadedProjects,
-                sections: loadedSections
-            )))
+            MainActor.assumeIsolated {
+                completion(result)
+            }
         }
     }
 
     private func loadTaskDetailRelationshipMetadata(
         projectID: UUID,
-        completion: @escaping (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
     ) {
         guard let coordinator = resolvedUseCaseCoordinator else {
             completion(.failure(NSError(
@@ -688,29 +731,22 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         }
 
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-
-        var loadedLifeAreas: [LifeArea] = []
-        var loadedTags: [TagDefinition] = []
-        var availableTasks: [TaskDefinition] = []
-
-        func record(_ error: Error) {
-            lock.lock()
-            if firstError == nil {
-                firstError = error
-            }
-            lock.unlock()
-        }
+        let accumulator = LockedMetadataAccumulator(ChatTaskDetailRelationshipMetadataState(
+            lifeAreas: [],
+            tags: [],
+            availableTasks: []
+        ))
 
         group.enter()
         coordinator.manageLifeAreas.list { result in
             defer { group.leave() }
             switch result {
             case .success(let lifeAreas):
-                loadedLifeAreas = lifeAreas
+                accumulator.update { state in
+                    state.lifeAreas = lifeAreas
+                }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -719,9 +755,11 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             defer { group.leave() }
             switch result {
             case .success(let tags):
-                loadedTags = tags
+                accumulator.update { state in
+                    state.tags = tags
+                }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -730,22 +768,25 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             defer { group.leave() }
             switch result {
             case .success(let projectTasks):
-                availableTasks = projectTasks.tasks
+                accumulator.update { state in
+                    state.availableTasks = projectTasks.tasks
+                }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
         group.notify(queue: .main) {
-            if let firstError {
-                completion(.failure(firstError))
-                return
+            let result = accumulator.result().map { state in
+                TaskDetailRelationshipMetadataPayload(
+                    lifeAreas: state.lifeAreas,
+                    tags: state.tags,
+                    availableTasks: state.availableTasks
+                )
             }
-            completion(.success(TaskDetailRelationshipMetadataPayload(
-                lifeAreas: loadedLifeAreas,
-                tags: loadedTags,
-                availableTasks: availableTasks
-            )))
+            MainActor.assumeIsolated {
+                completion(result)
+            }
         }
     }
 
@@ -753,7 +794,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     /// Executes applyTheme.
     private func applyTheme() {
-        let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let themeColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         view.backgroundColor = themeColors.bgCanvas
         let onAccent = themeColors.accentOnPrimary
 
@@ -783,7 +824,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     private func updateNavigationBarChrome() {
-        let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let themeColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         let chrome = activationCoordinator.navigationChrome
 
         leadingBarButtonItem.image = UIImage(systemName: chrome.leadingActionStyle.iconName)
@@ -971,15 +1012,15 @@ struct LLMStoreUnavailableView: View {
                 .foregroundColor(.orange)
             Text("Assistant storage unavailable")
                 .font(.headline)
-                .foregroundColor(.tasker(.textPrimary))
+                .foregroundColor(.lifeboard(.textPrimary))
             Text("Restart the app to retry LLM storage initialization.")
                 .font(.subheadline)
-                .foregroundColor(.tasker(.textSecondary))
+                .foregroundColor(.lifeboard(.textSecondary))
                 .multilineTextAlignment(.center)
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
     }
 }
 
@@ -1067,7 +1108,7 @@ private final class EvaChatNavigationTitleView: UIView {
 struct ChatContainerView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(LLMEvaluator.self) var llm
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     var presentationMode: ChatPresentationMode = .normal
     var promptFocusRequestID: UInt64 = 0
@@ -1144,7 +1185,7 @@ struct ChatContainerView: View {
         }
         .environmentObject(appManager)
         .environment(llm)
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .if(useIPadSplitChatLayout) { base in
             base.accessibilityIdentifier("home.ipad.detail.chat")
         }
@@ -1155,8 +1196,8 @@ struct ChatContainerView: View {
                     #if os(iOS)
                     .presentationDragIndicator(.hidden)
                     .presentationDetents(layoutClass == .phone ? [.medium, .large] : [.large])
-                    .presentationBackground(Color.tasker(.bgElevated))
-                    .presentationCornerRadius(TaskerTheme.CornerRadius.modal)
+                    .presentationBackground(Color.lifeboard(.bgElevated))
+                    .presentationCornerRadius(LifeBoardTheme.CornerRadius.modal)
                     #endif
             }
         }
