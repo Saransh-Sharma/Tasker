@@ -77,7 +77,7 @@ final class LoggingService: @unchecked Sendable {
 
     /// Initializes a new instance.
     private init() {
-        self.osLog = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "com.tasker", category: "general")
+        self.osLog = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "com.lifeboard", category: "general")
         self.minimumLogLevel = .warning
         configureFromLaunchArguments(ProcessInfo.processInfo.arguments)
         setupLogFile()
@@ -94,11 +94,11 @@ final class LoggingService: @unchecked Sendable {
     }
 
     /// Configure runtime log verbosity from process arguments.
-    /// Currently supports `-TASKER_VERBOSE_LOGS` and `-TASKER_VERBOSE_PERF_TRACE`
+    /// Currently supports `-LIFEBOARD_VERBOSE_LOGS` and `-LIFEBOARD_VERBOSE_PERF_TRACE`
     /// for debug-level verbosity.
     func configureFromLaunchArguments(_ arguments: [String]) {
-        if arguments.contains("-TASKER_VERBOSE_LOGS")
-            || arguments.contains("-TASKER_VERBOSE_PERF_TRACE") {
+        if arguments.contains("-LIFEBOARD_VERBOSE_LOGS")
+            || arguments.contains("-LIFEBOARD_VERBOSE_PERF_TRACE") {
             stateLock.lock()
             defer { stateLock.unlock() }
             minimumLogLevel = .debug
@@ -337,7 +337,7 @@ final class LoggingService: @unchecked Sendable {
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let today = dateFormatter.string(from: Date())
 
-        logFileURL = logsDirectory.appendingPathComponent("tasker_\(today).log")
+        logFileURL = logsDirectory.appendingPathComponent("lifeboard_\(today).log")
     }
 
     /// Write a log message to the log file
@@ -365,27 +365,27 @@ final class LoggingService: @unchecked Sendable {
     }
 }
 
-public struct TaskerPerformanceInterval: Sendable {
+public struct LifeBoardPerformanceInterval: Sendable {
     fileprivate let name: StaticString
     fileprivate let signpostID: OSSignpostID?
     fileprivate let isEnabled: Bool
 }
 
-public enum TaskerPerformanceTrace {
+public enum LifeBoardPerformanceTrace {
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
     private static let launchEnvironment = ProcessInfo.processInfo.environment
     private static let performanceLog = OSLog(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.tasker",
+        subsystem: Bundle.main.bundleIdentifier ?? "com.lifeboard",
         category: "performance"
     )
     private static let pointsOfInterestLog = OSLog(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.tasker",
+        subsystem: Bundle.main.bundleIdentifier ?? "com.lifeboard",
         category: .pointsOfInterest
     )
     private static let tracingEnabled =
         launchEnvironment["PERFORMANCE_TEST"] == "1"
-        || launchArguments.contains("-TASKER_ENABLE_PERF_TRACE")
-        || launchArguments.contains("-TASKER_VERBOSE_PERF_TRACE")
+        || launchArguments.contains("-LIFEBOARD_ENABLE_PERF_TRACE")
+        || launchArguments.contains("-LIFEBOARD_VERBOSE_PERF_TRACE")
     private static let pointsOfInterestEnabled =
         tracingEnabled
         || launchEnvironment["OS_ACTIVITY_TOOLS_PRIVACY"] == "YES"
@@ -395,9 +395,9 @@ public enum TaskerPerformanceTrace {
     public static var isPointsOfInterestEnabled: Bool { pointsOfInterestEnabled }
 
     /// Begins a signposted interval for Instruments correlation.
-    public static func begin(_ name: StaticString) -> TaskerPerformanceInterval {
+    public static func begin(_ name: StaticString) -> LifeBoardPerformanceInterval {
         guard tracingEnabled || pointsOfInterestEnabled else {
-            return TaskerPerformanceInterval(name: name, signpostID: nil, isEnabled: false)
+            return LifeBoardPerformanceInterval(name: name, signpostID: nil, isEnabled: false)
         }
         let signpostID = OSSignpostID(log: performanceLog)
         if tracingEnabled {
@@ -406,11 +406,11 @@ public enum TaskerPerformanceTrace {
         if pointsOfInterestEnabled {
             os_signpost(.begin, log: pointsOfInterestLog, name: name, signpostID: signpostID)
         }
-        return TaskerPerformanceInterval(name: name, signpostID: signpostID, isEnabled: true)
+        return LifeBoardPerformanceInterval(name: name, signpostID: signpostID, isEnabled: true)
     }
 
     /// Ends a previously started signposted interval.
-    public static func end(_ interval: TaskerPerformanceInterval) {
+    public static func end(_ interval: LifeBoardPerformanceInterval) {
         guard interval.isEnabled, let signpostID = interval.signpostID else { return }
         if tracingEnabled {
             os_signpost(.end, log: performanceLog, name: interval.name, signpostID: signpostID)
@@ -443,7 +443,9 @@ public enum TaskerPerformanceTrace {
     }
 }
 
-enum TaskerMemoryDiagnostics {
+typealias TaskerPerformanceTrace = LifeBoardPerformanceTrace
+
+enum LifeBoardMemoryDiagnostics {
     #if DEBUG
     private static func makeByteFormatter() -> ByteCountFormatter {
         let formatter = ByteCountFormatter()
@@ -528,6 +530,8 @@ enum TaskerMemoryDiagnostics {
     }
     #endif
 }
+
+typealias TaskerMemoryDiagnostics = LifeBoardMemoryDiagnostics
 
 // MARK: - Global Convenience Functions
 
