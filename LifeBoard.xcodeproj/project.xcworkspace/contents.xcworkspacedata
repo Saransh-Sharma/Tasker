@@ -2,6 +2,6 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "self:To Do List.xcodeproj">
+      location = "self:LifeBoard.xcodeproj">
    </FileRef>
 </Workspace>

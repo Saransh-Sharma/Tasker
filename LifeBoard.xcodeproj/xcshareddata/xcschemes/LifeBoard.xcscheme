@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "753EFC992445A24500A739E3"
-               BuildableName = "This Day.app"
-               BlueprintName = "Tasker"
-               ReferencedContainer = "container:Tasker.xcodeproj">
+               BuildableName = "LifeBoard.app"
+               BlueprintName = "LifeBoard"
+               ReferencedContainer = "container:LifeBoard.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "753EFCAF2445A24700A739E3"
-               BuildableName = "To Do ListTests.xctest"
-               BlueprintName = "To Do ListTests"
-               ReferencedContainer = "container:Tasker.xcodeproj">
+               BuildableName = "LifeBoardTests.xctest"
+               BlueprintName = "LifeBoardTests"
+               ReferencedContainer = "container:LifeBoard.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -43,9 +43,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "753EFCBA2445A24800A739E3"
-               BuildableName = "To Do ListUITests.xctest"
-               BlueprintName = "To Do ListUITests"
-               ReferencedContainer = "container:Tasker.xcodeproj">
+               BuildableName = "LifeBoardUITests.xctest"
+               BlueprintName = "LifeBoardUITests"
+               ReferencedContainer = "container:LifeBoard.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -65,9 +65,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "753EFC992445A24500A739E3"
-            BuildableName = "This Day.app"
-            BlueprintName = "Tasker"
-            ReferencedContainer = "container:Tasker.xcodeproj">
+            BuildableName = "LifeBoard.app"
+            BlueprintName = "LifeBoard"
+            ReferencedContainer = "container:LifeBoard.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -82,9 +82,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "753EFC992445A24500A739E3"
-            BuildableName = "This Day.app"
-            BlueprintName = "Tasker"
-            ReferencedContainer = "container:Tasker.xcodeproj">
+            BuildableName = "LifeBoard.app"
+            BlueprintName = "LifeBoard"
+            ReferencedContainer = "container:LifeBoard.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
@@ -93,7 +93,7 @@
    </AnalyzeAction>
    <ArchiveAction
       buildConfiguration = "Release"
-      customArchiveName = "Tasker"
+      customArchiveName = "LifeBoard"
       revealArchiveInOrganizer = "YES">
    </ArchiveAction>
 </Scheme>
