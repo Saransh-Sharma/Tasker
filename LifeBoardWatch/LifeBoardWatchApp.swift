@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct TaskerWatchApp: App {
+struct LifeBoardWatchApp: App {
     @StateObject private var snapshotReceiver = WatchSnapshotReceiver()
 
     var body: some Scene {
@@ -20,9 +20,9 @@ private struct WatchHomeView: View {
             Image(systemName: "checklist")
                 .font(.title2)
                 .foregroundStyle(.tint)
-            Text("Tasker")
+            Text("LifeBoard")
                 .font(.headline)
-            Text("Add Tasker complications to your watch face for schedule and habit streaks.")
+            Text("Add LifeBoard complications to your watch face for schedule and habit streaks.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)

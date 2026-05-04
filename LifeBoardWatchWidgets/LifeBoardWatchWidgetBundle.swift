@@ -2,7 +2,7 @@ import SwiftUI
 import WidgetKit
 
 @main
-struct TaskerWatchWidgetBundle: WidgetBundle {
+struct LifeBoardWatchWidgetBundle: WidgetBundle {
     var body: some Widget {
         WatchTimelineComplication()
         WatchMeetingScheduleComplication()
@@ -51,7 +51,7 @@ struct WatchTimelineComplication: Widget {
         StaticConfiguration(kind: kind, provider: WatchSnapshotProvider()) { entry in
             WatchTimelineComplicationView(entry: entry)
         }
-        .configurationDisplayName("Tasker Timeline")
+        .configurationDisplayName("LifeBoard Timeline")
         .description("Current and next tasks or calendar events.")
         .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryCorner, .accessoryRectangular])
     }
@@ -64,7 +64,7 @@ struct WatchMeetingScheduleComplication: Widget {
         StaticConfiguration(kind: kind, provider: WatchSnapshotProvider()) { entry in
             WatchMeetingScheduleComplicationView(entry: entry)
         }
-        .configurationDisplayName("Tasker Meetings")
+        .configurationDisplayName("LifeBoard Meetings")
         .description("Next meeting, countdown, and clear-window status.")
         .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryCorner, .accessoryRectangular])
     }
@@ -77,7 +77,7 @@ struct WatchHabitStreakComplication: Widget {
         StaticConfiguration(kind: kind, provider: WatchSnapshotProvider()) { entry in
             WatchHabitStreakComplicationView(entry: entry)
         }
-        .configurationDisplayName("Tasker Streak")
+        .configurationDisplayName("LifeBoard Streak")
         .description("Primary habit streak and today status.")
         .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryCorner, .accessoryRectangular])
     }
@@ -146,8 +146,8 @@ private struct WatchTimelineComplicationView: View {
     }
 
     private var accessibilityText: String {
-        guard let primary else { return "Tasker timeline has no scheduled items." }
-        return "Tasker timeline. \(primary.title). \(WatchFormat.itemDetail(primary))."
+        guard let primary else { return "LifeBoard timeline has no scheduled items." }
+        return "LifeBoard timeline. \(primary.title). \(WatchFormat.itemDetail(primary))."
     }
 }
 
@@ -302,14 +302,14 @@ private struct WatchHabitStreakComplicationView: View {
 
     private var rectangularDetail: String {
         guard let primary else {
-            return "Open Tasker to choose a habit"
+            return "Open LifeBoard to choose a habit"
         }
         let status = WatchFormat.habitStatus(primary.todayState)
         return "\(primary.currentStreak)d current, best \(primary.bestStreak)d. \(status)"
     }
 
     private var accessibilityText: String {
-        guard let primary else { return "No primary habit for Tasker streak." }
+        guard let primary else { return "No primary habit for LifeBoard streak." }
         return "\(primary.title). Current streak \(primary.currentStreak) days. Best streak \(primary.bestStreak) days. \(WatchFormat.habitStatus(primary.todayState))."
     }
 }
@@ -419,7 +419,7 @@ private enum WatchFormat {
         if let accessory = item.accessoryText, accessory.isEmpty == false {
             return accessory
         }
-        return item.subtitle ?? "Tasker"
+        return item.subtitle ?? "LifeBoard"
     }
 
     static func timeOrCount(_ item: TaskListWidgetTimelineItem) -> String {
@@ -462,12 +462,12 @@ private enum WatchFormat {
 }
 
 private enum WatchRoutes {
-    static let timeline = URL(string: "tasker://tasks/today")!
-    static let calendar = URL(string: "tasker://calendar/schedule")!
-    static let habits = URL(string: "tasker://habits")!
+    static let timeline = URL(string: "lifeboard://tasks/today")!
+    static let calendar = URL(string: "lifeboard://calendar/schedule")!
+    static let habits = URL(string: "lifeboard://habits")!
 
     static func habit(_ id: UUID) -> URL {
-        URL(string: "tasker://habits/habit/\(id.uuidString)")!
+        URL(string: "lifeboard://habits/habit/\(id.uuidString)")!
     }
 }
 
