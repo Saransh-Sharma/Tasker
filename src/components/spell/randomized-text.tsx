@@ -6,6 +6,19 @@ type RandomizedTextProps = SpellTextProps & {
   split?: 'words' | 'chars';
 };
 
+function deterministicDelay(seed: string, index: number, baseDelay: number) {
+  let hash = 2166136261;
+  const input = `${seed}:${index}`;
+
+  for (let cursor = 0; cursor < input.length; cursor += 1) {
+    hash ^= input.charCodeAt(cursor);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  const normalized = (hash >>> 0) / 4294967295;
+  return baseDelay + normalized * 0.38;
+}
+
 export function RandomizedText({
   children,
   className,
@@ -31,8 +44,8 @@ export function RandomizedText({
   }, [children, split]);
 
   const randomizedDelays = useMemo(
-    () => elements.map(() => delay + Math.random() * 0.32 + Math.random() * 0.06),
-    [delay, elements],
+    () => elements.map((_, index) => deterministicDelay(children, index, delay)),
+    [children, delay, elements],
   );
 
   if (prefersReducedMotion) {
