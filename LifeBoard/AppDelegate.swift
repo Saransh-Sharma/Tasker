@@ -1,19 +1,33 @@
 //
 //  AppDelegate.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Saransh Sharma on 14/04/20.
 //  Copyright © 2020 saransh1337. All rights reserved.
 //
 
 import UIKit
- import CoreData
+import CoreData
 import CloudKit
+@preconcurrency import Dispatch
 import Firebase
-import BackgroundTasks
+@preconcurrency import BackgroundTasks
 import MetricKit
 import Synchronization
 import UserNotifications
+
+private final class ReminderReconcileCompletionGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didFinish = false
+
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard didFinish == false else { return false }
+        didFinish = true
+        return true
+    }
+}
 
 enum PersistentBootstrapState: Sendable {
     case loading
@@ -48,6 +62,10 @@ enum PersistentSyncMode: Equatable, Sendable {
             return reason
         }
     }
+}
+
+private enum PersistentSyncModeStore {
+    static let state = Mutex(PersistentSyncMode.fullSync)
 }
 
 struct PersistentStoreLoadReport {
@@ -89,11 +107,11 @@ struct CloudKitRuntimeContext {
 }
 
 extension Notification.Name {
-    static let taskerPersistentSyncModeDidChange = Notification.Name("TaskerPersistentSyncModeDidChange")
-    static let taskerPersistentBootstrapStateDidChange = Notification.Name("TaskerPersistentBootstrapStateDidChange")
+    static let lifeboardPersistentSyncModeDidChange = Notification.Name("LifeBoardPersistentSyncModeDidChange")
+    static let lifeboardPersistentBootstrapStateDidChange = Notification.Name("LifeBoardPersistentBootstrapStateDidChange")
 }
 
-private final class TaskerMetricKitSubscriber: NSObject, MXMetricManagerSubscriber {
+private final class LifeBoardMetricKitSubscriber: NSObject, MXMetricManagerSubscriber {
     private let isoFormatter = ISO8601DateFormatter()
 
     func didReceive(_ payloads: [MXMetricPayload]) {
@@ -170,22 +188,23 @@ private final class TaskerMetricKitSubscriber: NSObject, MXMetricManagerSubscrib
 }
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+@MainActor
+class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotificationCenterDelegate {
 
-    private let occurrenceRefreshTaskIdentifier = "com.tasker.refresh.occurrences"
-    private let remindersRefreshTaskIdentifier = "com.tasker.refresh.reminders"
-    private let persistentStoreLocationService = TaskerPersistentStoreLocationService()
-    private let persistentRuntimeInitializer = TaskerPersistentRuntimeInitializer()
-    private lazy var persistentStoreBootstrapService = TaskerPersistentStoreBootstrapService(
+    private let occurrenceRefreshTaskIdentifier = "com.lifeboard.refresh.occurrences"
+    private let remindersRefreshTaskIdentifier = "com.lifeboard.refresh.reminders"
+    private let persistentStoreLocationService = LifeBoardPersistentStoreLocationService()
+    private let persistentRuntimeInitializer = LifeBoardPersistentRuntimeInitializer()
+    private lazy var persistentStoreBootstrapService = LifeBoardPersistentStoreBootstrapService(
         storeLocationService: persistentStoreLocationService
     )
     private let expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"]
     private let localOnlyConfiguration: Set<String> = ["LocalOnly"]
-    private let cloudKitContainerIdentifier = TaskerPersistentStoreBootstrapService.defaultCloudKitContainerIdentifier
+    private let cloudKitContainerIdentifier = LifeBoardPersistentStoreBootstrapService.defaultCloudKitContainerIdentifier
     private let v3StoreEpoch = 4
     private let orientationPolicyResolver = DeviceOrientationPolicyResolver()
     private var notificationOrchestrator: TaskNotificationOrchestrator?
-    private var notificationActionHandler: TaskerNotificationActionHandler?
+    private var notificationActionHandler: LifeBoardNotificationActionHandler?
     private var gamificationRemoteChangeCoordinator: GamificationRemoteChangeCoordinator?
     private var cloudKitEventObserver: NSObjectProtocol?
     private var semanticTaskObservers: [NSObjectProtocol] = []
@@ -195,17 +214,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private var persistentBootstrapGeneration: UInt64 = 0
 
     private(set) static var persistentBootstrapFailureMessage: String?
-    private static let persistentSyncModeState = Mutex(PersistentSyncMode.fullSync)
     private(set) static var persistentSyncMode: PersistentSyncMode {
         get {
-            persistentSyncModeState.withLock { $0 }
+            PersistentSyncModeStore.state.withLock { $0 }
         }
         set {
-            persistentSyncModeState.withLock { $0 = newValue }
+            PersistentSyncModeStore.state.withLock { $0 = newValue }
         }
     }
     nonisolated static func persistentSyncModeSnapshot() -> PersistentSyncMode {
-        persistentSyncModeState.withLock { $0 }
+        PersistentSyncModeStore.state.withLock { $0 }
     }
     static var isPersistentStoreReady: Bool {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
@@ -227,20 +245,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private(set) var persistentContainer: NSPersistentCloudKitContainer?
     private var didScheduleDeferredLaunchServices = false
     private let persistentBootstrapQueue = DispatchQueue(
-        label: "tasker.app.persistentBootstrap",
+        label: "lifeboard.app.persistentBootstrap",
         qos: .userInitiated
     )
     private let deferredLaunchWarmupQueue = DispatchQueue(
-        label: "tasker.app.launchWarmup",
+        label: "lifeboard.app.launchWarmup",
         qos: .utility
     )
-    private let metricKitSubscriber = TaskerMetricKitSubscriber()
+    private let metricKitSubscriber = LifeBoardMetricKitSubscriber()
 
 
     /// Executes application.
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        let launchInterval = TaskerPerformanceTrace.begin("AppLaunchCriticalPath")
-        defer { TaskerPerformanceTrace.end(launchInterval) }
+        let launchInterval = LifeBoardPerformanceTrace.begin("AppLaunchCriticalPath")
+        defer { LifeBoardPerformanceTrace.end(launchInterval) }
 
         // Override point for customization after application launch.
         WatchWidgetSnapshotSync.shared.activate()
@@ -262,7 +280,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 resetAppState()
             }
 
-            if launchArguments.contains("-TASKER_TEST_EVA_ACTIVATION_COMPLETED") {
+            if launchArguments.contains("-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED") {
                 EvaActivationDefaultsStore.markCompleted()
             }
         }
@@ -270,7 +288,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // DEBUG defaults to Firebase off to avoid noisy simulator Network.framework QUIC logs.
         let shouldConfigureFirebase: Bool = {
             #if DEBUG
-            return launchArguments.contains("-TASKER_ENABLE_FIREBASE_DEBUG")
+            return launchArguments.contains("-LIFEBOARD_ENABLE_FIREBASE_DEBUG")
             #else
             return true
             #endif
@@ -288,11 +306,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         UIScrollView.appearance().isOpaque = false
         
         // Hard-reset cutover to V3 model/container.
-        let bootstrapInterval = TaskerPerformanceTrace.begin("PersistentBootstrap")
+        let bootstrapInterval = LifeBoardPerformanceTrace.begin("PersistentBootstrap")
         performV3BootstrapCutoverIfNeeded()
         registerBackgroundTasks()
         beginPersistentStoreBootstrap(trigger: "launch")
-        TaskerPerformanceTrace.end(bootstrapInterval)
+        LifeBoardPerformanceTrace.end(bootstrapInterval)
         registerPerformanceTelemetryIfNeeded()
         scheduleDeferredLaunchServices(
             application: application,
@@ -313,7 +331,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             guard let self else { return }
             self.runDeferredLaunchPostFirstFrameMain(application: application)
             self.deferredLaunchWarmupQueue.async { [weak self] in
-                self?.runDeferredLaunchBackgroundWarmup(shouldConfigureFirebase: shouldConfigureFirebase)
+                Task { @MainActor [weak self] in
+                    self?.runDeferredLaunchBackgroundWarmup(shouldConfigureFirebase: shouldConfigureFirebase)
+                }
             }
         }
     }
@@ -321,16 +341,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func runDeferredLaunchPostFirstFrameMain(
         application: UIApplication
     ) {
-        let interval = TaskerPerformanceTrace.begin("DeferredLaunchPostFirstFrameMain")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("DeferredLaunchPostFirstFrameMain")
+        defer { LifeBoardPerformanceTrace.end(interval) }
         application.registerForRemoteNotifications()
     }
 
     private func runDeferredLaunchBackgroundWarmup(
         shouldConfigureFirebase: Bool
     ) {
-        let interval = TaskerPerformanceTrace.begin("DeferredLaunchBackgroundWarmup")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("DeferredLaunchBackgroundWarmup")
+        defer { LifeBoardPerformanceTrace.end(interval) }
 
         configureFirebaseIfNeeded(shouldConfigureFirebase)
         logCloudKitPreflightTelemetry()
@@ -349,7 +369,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 fields: [
                     "enabled": "false",
                     "source": "debug_default_disabled",
-                    "launch_arg": "-TASKER_ENABLE_FIREBASE_DEBUG"
+                    "launch_arg": "-LIFEBOARD_ENABLE_FIREBASE_DEBUG"
                 ]
             )
             return
@@ -443,7 +463,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         guard previous != mode else { return }
         NotificationCenter.default.post(
-            name: .taskerPersistentSyncModeDidChange,
+            name: .lifeboardPersistentSyncModeDidChange,
             object: nil,
             userInfo: [
                 "mode": mode.modeName,
@@ -518,7 +538,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     scheduleRemindersRefresh()
                 }
             }
-            configureTaskerNotifications()
+            configureLifeBoardNotifications()
             installPersistentStoreObservers(container: container)
             TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "bootstrap_ready")
 
@@ -566,20 +586,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         _ = applyBootstrapState(.loading, trigger: trigger)
         persistentBootstrapGeneration &+= 1
         let generation = persistentBootstrapGeneration
-        let interval = TaskerPerformanceTrace.begin("PersistentBootstrapAsync")
-        Task(priority: .userInitiated) { [weak self] in
+        let interval = LifeBoardPerformanceTrace.begin("PersistentBootstrapAsync")
+        let bootstrapService = persistentStoreBootstrapService
+        Task(priority: .userInitiated) { [weak self, bootstrapService] in
             guard let self else { return }
-            let result = await self.persistentStoreBootstrapService.bootstrapV3PersistentContainer()
+            let result = await bootstrapService.bootstrapV3PersistentContainer()
             await MainActor.run {
                 guard self.persistentBootstrapGeneration == generation else {
-                    TaskerPerformanceTrace.end(interval)
+                    LifeBoardPerformanceTrace.end(interval)
                     return
                 }
                 self.updatePersistentSyncMode(result.syncMode, source: result.syncModeSource)
                 if result.shouldMarkStoreEpoch {
                     self.markV3BootstrapEpochApplied()
                 }
-                TaskerPerformanceTrace.end(interval)
+                LifeBoardPerformanceTrace.end(interval)
                 _ = self.applyBootstrapState(result.state, trigger: trigger)
             }
         }
@@ -588,7 +609,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func persistSemanticIndexForBackgroundTransition(application: UIApplication) {
         guard TaskSemanticRetrievalService.shared.shouldPersistOnBackgroundTransition else { return }
 
-        final class BackgroundTaskBox {
+        final class BackgroundTaskBox: @unchecked Sendable {
             private let lock = NSLock()
             var identifier: UIBackgroundTaskIdentifier = .invalid
 
@@ -607,7 +628,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         deferredLaunchWarmupQueue.async {
-            TaskerMemoryDiagnostics.checkpoint(
+            LifeBoardMemoryDiagnostics.checkpoint(
                 event: "semantic_persist_background_started",
                 message: "Persisting semantic index before background suspension",
                 counts: ["semantic_items": TaskSemanticRetrievalService.shared.itemCount]
@@ -620,7 +641,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     private func postPersistentBootstrapStateDidChange() {
         NotificationCenter.default.post(
-            name: .taskerPersistentBootstrapStateDidChange,
+            name: .lifeboardPersistentBootstrapStateDidChange,
             object: self
         )
     }
@@ -720,7 +741,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
             return launchMode
         } catch {
-            let message = "Tasker could not prepare local stores for iCloud recovery."
+            let message = "LifeBoard could not prepare local stores for iCloud recovery."
             logError(
                 event: "persistent_store_recovery_quarantine_failed",
                 message: "Cloud-authoritative recovery could not quarantine local stores",
@@ -873,7 +894,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     // MARK: - Local Notification Runtime
 
-    private func configureTaskerNotifications() {
+    private func configureLifeBoardNotifications() {
         guard let taskRepository = EnhancedDependencyContainer.shared.taskDefinitionRepository,
               let notificationService = EnhancedDependencyContainer.shared.notificationService
         else {
@@ -889,9 +910,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
         orchestrator.startObservingMutations()
         notificationOrchestrator = orchestrator
-        TaskerNotificationRuntime.orchestrator = orchestrator
+        LifeBoardNotificationRuntime.orchestrator = orchestrator
 
-        let actionHandler = TaskerNotificationActionHandler(
+        let actionHandler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: {
                 let container = PresentationDependencyContainer.shared
@@ -900,9 +921,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         )
         notificationActionHandler = actionHandler
-        TaskerNotificationRuntime.actionHandler = actionHandler
+        LifeBoardNotificationRuntime.actionHandler = actionHandler
 
-        notificationService.registerCategories(TaskerNotificationCategories.all())
+        notificationService.registerCategories(LifeBoardNotificationCategories.all())
         notificationService.setDelegate(self)
 
         notificationService.fetchAuthorizationStatus { status in
@@ -945,7 +966,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void
+        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
     ) {
         guard let notificationActionHandler else {
             completionHandler()
@@ -963,7 +984,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// Executes performV3BootstrapCutoverIfNeeded.
     private func performV3BootstrapCutoverIfNeeded() {
         let defaults = UserDefaults.standard
-        let epochKey = "tasker.v3.store.epoch"
+        let epochKey = "lifeboard.v3.store.epoch"
         let appliedEpoch = defaults.integer(forKey: epochKey)
         guard appliedEpoch != v3StoreEpoch else {
             return
@@ -975,7 +996,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     /// Executes markV3BootstrapEpochApplied.
     private func markV3BootstrapEpochApplied() {
-        UserDefaults.standard.set(v3StoreEpoch, forKey: "tasker.v3.store.epoch")
+        UserDefaults.standard.set(v3StoreEpoch, forKey: "lifeboard.v3.store.epoch")
     }
 
     /// Executes makeV3PersistentContainer.
@@ -1025,10 +1046,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return
         }
 
+        let cloudKitContainerIdentifier = cloudKitContainerIdentifier
         CKContainer(identifier: cloudKitContainerIdentifier).accountStatus { status, error in
             var fields: [String: String] = [
-                "container_id": self.cloudKitContainerIdentifier,
-                "account_status": self.cloudAccountStatusDescription(status)
+                "container_id": cloudKitContainerIdentifier,
+                "account_status": Self.cloudAccountStatusDescription(status)
             ]
             if let error {
                 fields["error"] = error.localizedDescription
@@ -1047,7 +1069,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         return FileManager.default.url(forUbiquityContainerIdentifier: containerIdentifier) != nil
     }
 
-    private func cloudAccountStatusDescription(_ status: CKAccountStatus) -> String {
+    nonisolated private static func cloudAccountStatusDescription(_ status: CKAccountStatus) -> String {
         switch status {
         case .available:
             return "available"
@@ -1190,7 +1212,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         persistentRuntimeInitializer.initialize(container: container)
     }
 
-    private func ensureV3DefaultsDeferred(completion: (() -> Void)? = nil) {
+    private func ensureV3DefaultsDeferred(completion: (@Sendable () -> Void)? = nil) {
         guard let container = persistentContainer else {
             completion?()
             return
@@ -1264,14 +1286,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             task.setTaskCompleted(success: false)
         }
 
-        let generateUseCase = PresentationDependencyContainer.shared.coordinator.generateOccurrences
+        let coordinator = PresentationDependencyContainer.shared.coordinator
+        let generateUseCase = coordinator.generateOccurrences
+        let maintain = coordinator.maintainOccurrences
+        let purge = coordinator.purgeExpiredTombstones
 
         generateUseCase.execute(daysAhead: 14) { result in
             switch result {
             case .success:
-                let maintain = PresentationDependencyContainer.shared.coordinator.maintainOccurrences
-                let purge = PresentationDependencyContainer.shared.coordinator.purgeExpiredTombstones
-
                 maintain.execute { maintainResult in
                     switch maintainResult {
                     case .success:
@@ -1347,7 +1369,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     return
                 }
 
-                self.processReminderReconcileQueue(
+                Self.processReminderReconcileQueue(
                     mappings: syncedMappings,
                     index: 0,
                     reconcileUseCase: reconcileUseCase,
@@ -1361,13 +1383,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     /// Executes processReminderReconcileQueue.
-    private func processReminderReconcileQueue(
+    nonisolated private static func processReminderReconcileQueue(
         mappings: [ExternalContainerMapDefinition],
         index: Int,
         reconcileUseCase: ReconcileExternalRemindersUseCase,
         externalRepository: ExternalSyncRepositoryProtocol,
         failureCount: Int,
-        completion: @escaping (Int) -> Void
+        completion: @escaping @Sendable (Int) -> Void
     ) {
         guard index < mappings.count else {
             completion(failureCount)
@@ -1375,10 +1397,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         let mapping = mappings[index]
-        var didFinish = false
-        let timeoutItem = DispatchWorkItem { [weak self] in
-            guard didFinish == false else { return }
-            didFinish = true
+        let completionGate = ReminderReconcileCompletionGate()
+        let timeoutItem = DispatchWorkItem {
+            guard completionGate.claim() else { return }
             logWarning(
                 event: "bg_reminders_project_timeout",
                 message: "Project reconcile timed out in background reminders refresh",
@@ -1387,7 +1408,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     "external_container_id": mapping.externalContainerID
                 ]
             )
-            self?.processReminderReconcileQueue(
+            Self.processReminderReconcileQueue(
                 mappings: mappings,
                 index: index + 1,
                 reconcileUseCase: reconcileUseCase,
@@ -1398,9 +1419,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 55, execute: timeoutItem)
 
-        reconcileUseCase.reconcileProject(projectID: mapping.projectID) { [weak self] result in
-            guard didFinish == false else { return }
-            didFinish = true
+        reconcileUseCase.reconcileProject(projectID: mapping.projectID) { result in
+            guard completionGate.claim() else { return }
             timeoutItem.cancel()
 
             switch result {
@@ -1414,7 +1434,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     resolved.syncEnabled = true
                     return resolved
                 } completion: { _ in
-                    self?.processReminderReconcileQueue(
+                    Self.processReminderReconcileQueue(
                         mappings: mappings,
                         index: index + 1,
                         reconcileUseCase: reconcileUseCase,
@@ -1434,7 +1454,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     ]
                 )
                 DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2) {
-                    self?.processReminderReconcileQueue(
+                    Self.processReminderReconcileQueue(
                         mappings: mappings,
                         index: index + 1,
                         reconcileUseCase: reconcileUseCase,
@@ -1513,21 +1533,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     private func scheduleDeferredStartupReconciliation(stateContainer: EnhancedDependencyContainer) {
         deferredLaunchWarmupQueue.asyncAfter(deadline: .now() + .seconds(1)) { [weak self] in
-            guard let self else { return }
-
-            if self.shouldRunStartupMutationWorkflows {
-                self.ensureV3DefaultsDeferred { [weak self] in
-                    DispatchQueue.main.async { [weak self] in
-                        self?.maintainHabitRuntimeIfNeeded(reason: "launch_deferred_warmup")
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.shouldRunStartupMutationWorkflows {
+                    self.ensureV3DefaultsDeferred { [weak self] in
+                        Task { @MainActor [weak self] in
+                            self?.maintainHabitRuntimeIfNeeded(reason: "launch_deferred_warmup")
+                        }
                     }
                 }
             }
 
             guard V2FeatureFlags.gamificationV2Enabled else { return }
             let engine = stateContainer.useCaseCoordinator.gamificationEngine
-            let interval = TaskerPerformanceTrace.begin("LaunchDeferredGamificationReconciliation")
+            let interval = LifeBoardPerformanceTrace.begin("LaunchDeferredGamificationReconciliation")
             engine.fullReconciliation { result in
-                defer { TaskerPerformanceTrace.end(interval) }
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 switch result {
                 case .success:
                     engine.writeWidgetSnapshot()
@@ -1574,10 +1595,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     TaskSemanticRetrievalService.shared.markIndexOutdated()
                     return
                 }
-                Task { [weak self] in
-                    let tagLookup = await self?.semanticTagNameLookup(stateContainer: stateContainer) ?? [:]
+                Task {
+                    let tagLookup = await Self.semanticTagNameLookup(stateContainer: stateContainer)
                     TaskSemanticRetrievalService.shared.index(tasks: [task], tagNameLookup: tagLookup)
-                    TaskerMemoryDiagnostics.checkpoint(
+                    LifeBoardMemoryDiagnostics.checkpoint(
                         event: "semantic_index_upsert",
                         message: "Updated semantic index for task mutation",
                         fields: ["notification": name.rawValue],
@@ -1588,8 +1609,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             semanticTaskObservers.append(observer)
         }
 
-        let deleteObserver = center.addObserver(forName: NSNotification.Name("TaskDeleted"), object: nil, queue: .main) { [weak self] notification in
-            let deletedTaskIDs = self?.deletedSemanticTaskIDs(from: notification) ?? []
+        let deleteObserver = center.addObserver(forName: NSNotification.Name("TaskDeleted"), object: nil, queue: .main) { notification in
+            let deletedTaskIDs = Self.deletedSemanticTaskIDs(from: notification)
             guard deletedTaskIDs.isEmpty == false else { return }
             guard TaskSemanticRetrievalService.shared.isActivated else {
                 TaskSemanticRetrievalService.shared.markIndexOutdated()
@@ -1602,14 +1623,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func activateSemanticRetrievalIfNeeded(trigger: String) async {
         guard let semanticStateContainer else { return }
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "semantic_activation_requested",
             message: "Received semantic retrieval activation request",
             fields: ["trigger": trigger]
         )
-        await TaskSemanticRetrievalService.shared.activateIfNeeded { [weak self] in
-            guard let self else { return }
-            await self.rebuildSemanticIndexIfPossible(stateContainer: semanticStateContainer)
+        await TaskSemanticRetrievalService.shared.activateIfNeeded {
+            await Self.rebuildSemanticIndexIfPossible(stateContainer: semanticStateContainer)
         }
     }
 
@@ -1630,7 +1650,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         let now = Date()
-        let shouldForceRepair = TaskerPersistentRuntimeInitializer.shouldRunRepair()
+        let shouldForceRepair = LifeBoardPersistentRuntimeInitializer.shouldRunRepair()
         if shouldForceRepair == false,
            let lastHabitRuntimeMaintenanceAt,
            now.timeIntervalSince(lastHabitRuntimeMaintenanceAt) < 45 {
@@ -1669,7 +1689,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                     ]
                                 )
                             case .success:
-                                TaskerPersistentRuntimeInitializer.markRepairCompleted()
+                                LifeBoardPersistentRuntimeInitializer.markRepairCompleted()
                             }
                             continuation.resume()
                         }
@@ -1683,9 +1703,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
-    private func rebuildSemanticIndexIfPossible(stateContainer: EnhancedDependencyContainer) async {
+    nonisolated private static func rebuildSemanticIndexIfPossible(stateContainer: EnhancedDependencyContainer) async {
         guard let repository = stateContainer.taskDefinitionRepository else { return }
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "semantic_rebuild_started",
             message: "Starting semantic index rebuild"
         )
@@ -1698,14 +1718,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let tagLookup = await semanticTagNameLookup(stateContainer: stateContainer)
 
         TaskSemanticRetrievalService.shared.rebuildIndex(tasks: tasks, tagNameLookup: tagLookup)
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "semantic_rebuild_finished",
             message: "Finished semantic index rebuild",
             counts: ["task_count": tasks.count]
         )
     }
 
-    private func semanticTagNameLookup(stateContainer: EnhancedDependencyContainer) async -> [UUID: String] {
+    nonisolated private static func semanticTagNameLookup(stateContainer: EnhancedDependencyContainer) async -> [UUID: String] {
         guard let tagRepository = stateContainer.tagRepository else { return [:] }
         return await withCheckedContinuation { continuation in
             tagRepository.fetchAll { result in
@@ -1715,7 +1735,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
-    private func deletedSemanticTaskIDs(from notification: Notification) -> [UUID] {
+    nonisolated private static func deletedSemanticTaskIDs(from notification: Notification) -> [UUID] {
         if let rawIDs = notification.userInfo?["deletedTaskIDs"] as? [String] {
             let uuids = rawIDs.compactMap(UUID.init(uuidString:))
             if uuids.isEmpty == false {
@@ -1730,7 +1750,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     /// Executes failClosedV3Runtime.
     private func failClosedV3Runtime(reason: String) -> Bool {
-        let failureMessage = "Tasker failed to initialize required V3 runtime dependencies."
+        let failureMessage = "LifeBoard failed to initialize required V3 runtime dependencies."
         persistentBootstrapState = .failed(failureMessage)
         persistentContainer = nil
         AppDelegate.persistentBootstrapFailureMessage = failureMessage
@@ -1792,13 +1812,13 @@ enum GamificationRemoteChangeClassifier {
     }
 }
 
-final class GamificationRemoteChangeCoordinator {
+final class GamificationRemoteChangeCoordinator: @unchecked Sendable {
     private enum Constants {
         static let historyTokenDefaultsKey = "gamification.remote_change.history_token"
         static let cloudSyncNotification = Notification.Name("DataDidChangeFromCloudSync")
     }
 
-    private struct HistoryScanOutcome {
+    private struct HistoryScanOutcome: @unchecked Sendable {
         let scannedTransactions: Int
         let qualifiedTransactions: Int
         let shouldReconcile: Bool
@@ -1807,9 +1827,9 @@ final class GamificationRemoteChangeCoordinator {
 
     private let container: NSPersistentCloudKitContainer
     private let notificationCenter: NotificationCenter
-    private let onQualifiedCloudImport: (_ reason: String, _ completion: @escaping (Bool) -> Void) -> Void
+    private let onQualifiedCloudImport: (_ reason: String, _ completion: @escaping @Sendable (Bool) -> Void) -> Void
     private let defaults: UserDefaults
-    private let workQueue = DispatchQueue(label: "com.tasker.gamification.remote_change", qos: .utility)
+    private let workQueue = DispatchQueue(label: "com.lifeboard.gamification.remote_change", qos: .utility)
 
     private var isProcessing = false
     private var pendingReplay = false
@@ -1819,7 +1839,7 @@ final class GamificationRemoteChangeCoordinator {
         container: NSPersistentCloudKitContainer,
         notificationCenter: NotificationCenter,
         defaults: UserDefaults = .standard,
-        onQualifiedCloudImport: @escaping (_ reason: String, _ completion: @escaping (Bool) -> Void) -> Void
+        onQualifiedCloudImport: @escaping (_ reason: String, _ completion: @escaping @Sendable (Bool) -> Void) -> Void
     ) {
         self.container = container
         self.notificationCenter = notificationCenter
@@ -1874,23 +1894,24 @@ final class GamificationRemoteChangeCoordinator {
 
     private func scanPersistentHistory() -> HistoryScanOutcome {
         let context = container.newBackgroundContext()
-        context.mergePolicy = NSMergeByPropertyStoreTrumpMergePolicy
+        context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyStoreTrumpMergePolicyType)
 
-        var transactions: [NSPersistentHistoryTransaction] = []
-        var fetchError: Error?
-
-        context.performAndWait {
+        let fetchResult: Result<[NSPersistentHistoryTransaction], Error> = context.performAndWait {
             do {
                 let historyRequest = NSPersistentHistoryChangeRequest.fetchHistory(after: historyToken)
                 historyRequest.resultType = .transactionsOnly
                 let historyResult = try context.execute(historyRequest) as? NSPersistentHistoryResult
-                transactions = historyResult?.result as? [NSPersistentHistoryTransaction] ?? []
+                return .success(historyResult?.result as? [NSPersistentHistoryTransaction] ?? [])
             } catch {
-                fetchError = error
+                return .failure(error)
             }
         }
 
-        if let fetchError {
+        let transactions: [NSPersistentHistoryTransaction]
+        switch fetchResult {
+        case .success(let fetchedTransactions):
+            transactions = fetchedTransactions
+        case .failure(let fetchError):
             logError(
                 event: "gamification_remote_history_fetch_failed",
                 message: "Failed to fetch persistent history transactions for remote-change processing",

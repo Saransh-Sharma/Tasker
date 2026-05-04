@@ -1,6 +1,6 @@
 //
 //  SceneDelegate.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Saransh Sharma on 14/04/20.
 //  Copyright © 2020 saransh1337. All rights reserved.
@@ -14,24 +14,24 @@ import SwiftUI
 // These types are defined in the Presentation layer
 
 extension Notification.Name {
-    static let taskerOpenFocusDeepLink = Notification.Name("TaskerOpenFocusDeepLink")
-    static let taskerOpenChatDeepLink = Notification.Name("TaskerOpenChatDeepLink")
-    static let taskerOpenHomeDeepLink = Notification.Name("TaskerOpenHomeDeepLink")
-    static let taskerOpenInsightsDeepLink = Notification.Name("TaskerOpenInsightsDeepLink")
-    static let taskerOpenTaskScopeDeepLink = Notification.Name("TaskerOpenTaskScopeDeepLink")
-    static let taskerOpenTaskDetailDeepLink = Notification.Name("TaskerOpenTaskDetailDeepLink")
-    static let taskerOpenWeeklyPlannerDeepLink = Notification.Name("TaskerOpenWeeklyPlannerDeepLink")
-    static let taskerOpenWeeklyReviewDeepLink = Notification.Name("TaskerOpenWeeklyReviewDeepLink")
-    static let taskerOpenQuickAddDeepLink = Notification.Name("TaskerOpenQuickAddDeepLink")
-    static let taskerOpenCalendarScheduleDeepLink = Notification.Name("TaskerOpenCalendarScheduleDeepLink")
-    static let taskerOpenCalendarChooserDeepLink = Notification.Name("TaskerOpenCalendarChooserDeepLink")
-    static let taskerOpenHabitBoardDeepLink = Notification.Name("TaskerOpenHabitBoardDeepLink")
-    static let taskerOpenHabitLibraryDeepLink = Notification.Name("TaskerOpenHabitLibraryDeepLink")
-    static let taskerOpenHabitDetailDeepLink = Notification.Name("TaskerOpenHabitDetailDeepLink")
-    static let taskerPresentHabitBoard = Notification.Name("TaskerPresentHabitBoard")
-    static let taskerPresentHabitLibrary = Notification.Name("TaskerPresentHabitLibrary")
-    static let taskerPresentHabitDetail = Notification.Name("TaskerPresentHabitDetail")
-    static let taskerProcessWidgetActionCommand = Notification.Name("TaskerProcessWidgetActionCommand")
+    static let lifeboardOpenFocusDeepLink = Notification.Name("LifeBoardOpenFocusDeepLink")
+    static let lifeboardOpenChatDeepLink = Notification.Name("LifeBoardOpenChatDeepLink")
+    static let lifeboardOpenHomeDeepLink = Notification.Name("LifeBoardOpenHomeDeepLink")
+    static let lifeboardOpenInsightsDeepLink = Notification.Name("LifeBoardOpenInsightsDeepLink")
+    static let lifeboardOpenTaskScopeDeepLink = Notification.Name("LifeBoardOpenTaskScopeDeepLink")
+    static let lifeboardOpenTaskDetailDeepLink = Notification.Name("LifeBoardOpenTaskDetailDeepLink")
+    static let lifeboardOpenWeeklyPlannerDeepLink = Notification.Name("LifeBoardOpenWeeklyPlannerDeepLink")
+    static let lifeboardOpenWeeklyReviewDeepLink = Notification.Name("LifeBoardOpenWeeklyReviewDeepLink")
+    static let lifeboardOpenQuickAddDeepLink = Notification.Name("LifeBoardOpenQuickAddDeepLink")
+    static let lifeboardOpenCalendarScheduleDeepLink = Notification.Name("LifeBoardOpenCalendarScheduleDeepLink")
+    static let lifeboardOpenCalendarChooserDeepLink = Notification.Name("LifeBoardOpenCalendarChooserDeepLink")
+    static let lifeboardOpenHabitBoardDeepLink = Notification.Name("LifeBoardOpenHabitBoardDeepLink")
+    static let lifeboardOpenHabitLibraryDeepLink = Notification.Name("LifeBoardOpenHabitLibraryDeepLink")
+    static let lifeboardOpenHabitDetailDeepLink = Notification.Name("LifeBoardOpenHabitDetailDeepLink")
+    static let lifeboardPresentHabitBoard = Notification.Name("LifeBoardPresentHabitBoard")
+    static let lifeboardPresentHabitLibrary = Notification.Name("LifeBoardPresentHabitLibrary")
+    static let lifeboardPresentHabitDetail = Notification.Name("LifeBoardPresentHabitDetail")
+    static let lifeboardProcessWidgetActionCommand = Notification.Name("LifeBoardProcessWidgetActionCommand")
 }
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
@@ -57,7 +57,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         let appDelegate = UIApplication.shared.delegate as? AppDelegate
         let rootMode = appDelegate?.makeLaunchRootMode() ?? .bootstrapFailure(
-            message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker storage is unavailable. Please relaunch the app."
+            message: AppDelegate.persistentBootstrapFailureMessage ?? "LifeBoard storage is unavailable. Please relaunch the app."
         )
         renderRoot(for: rootMode)
         installPersistentBootstrapObserver()
@@ -82,13 +82,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func renderRoot(for rootMode: LaunchRootMode) {
         switch rootMode {
         case .loading, .home:
-            if let launchHostController = window?.rootViewController as? TaskerLaunchHostController {
+            if let launchHostController = window?.rootViewController as? LifeBoardLaunchHostController {
                 launchHostController.refreshPendingHomeController()
                 window?.makeKeyAndVisible()
                 return
             }
 
-            let launchHostController = TaskerLaunchHostController { [weak self] in
+            let launchHostController = LifeBoardLaunchHostController { [weak self] in
                 self?.makeDeferredHomeRootController()
             }
             window?.rootViewController = launchHostController
@@ -99,8 +99,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func makeDeferredHomeRootController() -> UIViewController? {
-        let interval = TaskerPerformanceTrace.begin("SceneDeferredHomeAttach")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("SceneDeferredHomeAttach")
+        defer { LifeBoardPerformanceTrace.end(interval) }
 
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
             return nil
@@ -128,13 +128,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
 
         guard let homeViewController = instantiateHomeViewController() else {
-            showBootstrapFailureRoot(message: "Tasker could not load the home screen.")
+            showBootstrapFailureRoot(message: "LifeBoard could not load the home screen.")
             return nil
         }
 
         guard tryInject(homeViewController) else {
             showBootstrapFailureRoot(
-                message: failureMessage ?? "Tasker could not initialize dependencies."
+                message: failureMessage ?? "LifeBoard could not initialize dependencies."
             )
             return nil
         }
@@ -230,7 +230,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         request: UNNotificationRequest,
         actionIdentifier: String = UNNotificationDefaultActionIdentifier
     ) {
-        if let actionHandler = TaskerNotificationRuntime.actionHandler {
+        if let actionHandler = LifeBoardNotificationRuntime.actionHandler {
             actionHandler.handleAction(identifier: actionIdentifier, request: request)
             return
         }
@@ -239,57 +239,57 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func postFallbackNotificationRoute(for request: UNNotificationRequest) {
-        let payload = request.content.userInfo[TaskerLocalNotificationRequest.UserInfoKey.route] as? String
-        let taskIDRaw = request.content.userInfo[TaskerLocalNotificationRequest.UserInfoKey.taskID] as? String
+        let payload = request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.route] as? String
+        let taskIDRaw = request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.taskID] as? String
         let taskID = taskIDRaw.flatMap(UUID.init(uuidString:))
-        let route = TaskerNotificationRoute.from(
+        let route = LifeBoardNotificationRoute.from(
             payload: payload ?? "home_today",
             fallbackTaskID: taskID
         )
-        TaskerNotificationRouteBus.shared.post(route: route)
+        LifeBoardNotificationRouteBus.shared.post(route: route)
     }
 
     private func handleIncomingURL(_ url: URL) {
-        guard url.scheme?.lowercased() == "tasker" else { return }
+        guard let scheme = url.scheme?.lowercased(), ["lifeboard", "tasker"].contains(scheme) else { return }
         guard let host = url.host?.lowercased() else { return }
         let pathSegments = url.pathComponents.filter { $0 != "/" }
 
         if host == "chat" {
-            let prompt = TaskerShortcutDeepLink.chatPrompt(from: url)
+            let prompt = LifeBoardShortcutDeepLink.chatPrompt(from: url)
             var userInfo: [String: String] = [:]
             if let prompt {
                 userInfo["prompt"] = prompt
             }
             NotificationCenter.default.post(
-                name: .taskerOpenChatDeepLink,
+                name: .lifeboardOpenChatDeepLink,
                 object: nil,
                 userInfo: userInfo
             )
             return
         }
         if host == "focus" {
-            NotificationCenter.default.post(name: .taskerOpenFocusDeepLink, object: nil)
+            NotificationCenter.default.post(name: .lifeboardOpenFocusDeepLink, object: nil)
             return
         }
         if host == "home" {
-            NotificationCenter.default.post(name: .taskerOpenHomeDeepLink, object: nil)
+            NotificationCenter.default.post(name: .lifeboardOpenHomeDeepLink, object: nil)
             return
         }
         if host == "insights" {
-            NotificationCenter.default.post(name: .taskerOpenInsightsDeepLink, object: nil)
+            NotificationCenter.default.post(name: .lifeboardOpenInsightsDeepLink, object: nil)
             return
         }
         if host == "quickadd" {
-            NotificationCenter.default.post(name: .taskerOpenQuickAddDeepLink, object: nil)
+            NotificationCenter.default.post(name: .lifeboardOpenQuickAddDeepLink, object: nil)
             return
         }
         if host == "calendar" {
             let route = pathSegments.first?.lowercased() ?? "schedule"
             switch route {
             case "schedule":
-                NotificationCenter.default.post(name: .taskerOpenCalendarScheduleDeepLink, object: nil)
+                NotificationCenter.default.post(name: .lifeboardOpenCalendarScheduleDeepLink, object: nil)
             case "chooser", "calendars", "filters":
-                NotificationCenter.default.post(name: .taskerOpenCalendarChooserDeepLink, object: nil)
+                NotificationCenter.default.post(name: .lifeboardOpenCalendarChooserDeepLink, object: nil)
             default:
                 break
             }
@@ -299,12 +299,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             let route = pathSegments.first?.lowercased() ?? "planner"
             switch route {
             case "planner", "plan":
-                NotificationCenter.default.post(name: .taskerOpenWeeklyPlannerDeepLink, object: nil)
+                NotificationCenter.default.post(name: .lifeboardOpenWeeklyPlannerDeepLink, object: nil)
             case "review":
-                NotificationCenter.default.post(name: .taskerOpenWeeklyReviewDeepLink, object: nil)
+                NotificationCenter.default.post(name: .lifeboardOpenWeeklyReviewDeepLink, object: nil)
             default:
                 NotificationCenter.default.post(
-                    name: .taskerOpenHomeDeepLink,
+                    name: .lifeboardOpenHomeDeepLink,
                     object: nil,
                     userInfo: ["notice": "That weekly destination is unavailable. Opened Home instead."]
                 )
@@ -317,38 +317,38 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                pathSegments.count > 1,
                let projectID = UUID(uuidString: pathSegments[1]) {
                 NotificationCenter.default.post(
-                    name: .taskerOpenTaskScopeDeepLink,
+                    name: .lifeboardOpenTaskScopeDeepLink,
                     object: nil,
                     userInfo: [
                         "scope": "project",
                         "projectID": projectID.uuidString
                     ]
                 )
-                NotificationCenter.default.post(name: .taskerProcessWidgetActionCommand, object: nil)
+                NotificationCenter.default.post(name: .lifeboardProcessWidgetActionCommand, object: nil)
                 return
             }
             let allowedScopes: Set<String> = ["today", "upcoming", "overdue"]
             guard allowedScopes.contains(scope) else { return }
             NotificationCenter.default.post(
-                name: .taskerOpenTaskScopeDeepLink,
+                name: .lifeboardOpenTaskScopeDeepLink,
                 object: nil,
                 userInfo: ["scope": scope]
             )
-            NotificationCenter.default.post(name: .taskerProcessWidgetActionCommand, object: nil)
+            NotificationCenter.default.post(name: .lifeboardProcessWidgetActionCommand, object: nil)
             return
         }
         if host == "habits" {
             let route = pathSegments.first?.lowercased() ?? "board"
             switch route {
             case "board":
-                NotificationCenter.default.post(name: .taskerOpenHabitBoardDeepLink, object: nil)
+                NotificationCenter.default.post(name: .lifeboardOpenHabitBoardDeepLink, object: nil)
             case "library", "manage":
-                NotificationCenter.default.post(name: .taskerOpenHabitLibraryDeepLink, object: nil)
+                NotificationCenter.default.post(name: .lifeboardOpenHabitLibraryDeepLink, object: nil)
             case "habit":
                 if pathSegments.count > 1,
                    let habitID = UUID(uuidString: pathSegments[1]) {
                     NotificationCenter.default.post(
-                        name: .taskerOpenHabitDetailDeepLink,
+                        name: .lifeboardOpenHabitDetailDeepLink,
                         object: nil,
                         userInfo: ["habitID": habitID.uuidString]
                     )
@@ -362,7 +362,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
            let firstSegment = pathSegments.first,
            let habitID = UUID(uuidString: firstSegment) {
             NotificationCenter.default.post(
-                name: .taskerOpenHabitDetailDeepLink,
+                name: .lifeboardOpenHabitDetailDeepLink,
                 object: nil,
                 userInfo: ["habitID": habitID.uuidString]
             )
@@ -372,11 +372,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
            let firstSegment = pathSegments.first,
            let taskID = UUID(uuidString: firstSegment) {
             NotificationCenter.default.post(
-                name: .taskerOpenTaskDetailDeepLink,
+                name: .lifeboardOpenTaskDetailDeepLink,
                 object: nil,
                 userInfo: ["taskID": taskID.uuidString]
             )
-            NotificationCenter.default.post(name: .taskerProcessWidgetActionCommand, object: nil)
+            NotificationCenter.default.post(name: .lifeboardProcessWidgetActionCommand, object: nil)
             return
         }
     }
@@ -386,11 +386,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             NotificationCenter.default.removeObserver(persistentBootstrapObserver)
         }
         persistentBootstrapObserver = NotificationCenter.default.addObserver(
-            forName: .taskerPersistentBootstrapStateDidChange,
+            forName: .lifeboardPersistentBootstrapStateDidChange,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.handlePersistentBootstrapStateChange()
+            Task { @MainActor in
+                self?.handlePersistentBootstrapStateChange()
+            }
         }
     }
 
@@ -400,7 +402,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         switch rootMode {
         case .loading, .home:
-            if let launchHostController = window?.rootViewController as? TaskerLaunchHostController {
+            if let launchHostController = window?.rootViewController as? LifeBoardLaunchHostController {
                 launchHostController.refreshPendingHomeController()
             } else {
                 renderRoot(for: rootMode)
@@ -415,14 +417,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 }
 
-private final class TaskerLaunchHostController: UIViewController {
+private final class LifeBoardLaunchHostController: UIViewController {
     private let resolveHomeRootController: () -> UIViewController?
 
     private var hasScheduledHomeAttach = false
     private var pendingHomeController: UIViewController?
     private var attachedHomeController: UIViewController?
-    private let splashState = TaskerLaunchSplashState()
-    private var splashHostController: UIHostingController<TaskerLaunchSplashView>?
+    private let splashState = LifeBoardLaunchSplashState()
+    private var splashHostController: UIHostingController<LifeBoardLaunchSplashView>?
 
     init(resolveHomeRootController: @escaping () -> UIViewController?) {
         self.resolveHomeRootController = resolveHomeRootController
@@ -450,9 +452,9 @@ private final class TaskerLaunchHostController: UIViewController {
     }
 
     private func setupSplash() {
-        view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
 
-        let splashHostController = UIHostingController(rootView: TaskerLaunchSplashView(state: splashState))
+        let splashHostController = UIHostingController(rootView: LifeBoardLaunchSplashView(state: splashState))
         splashHostController.view.backgroundColor = .clear
         splashHostController.view.translatesAutoresizingMaskIntoConstraints = false
 
@@ -472,10 +474,10 @@ private final class TaskerLaunchHostController: UIViewController {
         guard hasScheduledHomeAttach == false else { return }
         hasScheduledHomeAttach = true
 
-        let firstFrameInterval = TaskerPerformanceTrace.begin("LaunchHostFirstFrame")
+        let firstFrameInterval = LifeBoardPerformanceTrace.begin("LaunchHostFirstFrame")
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            TaskerPerformanceTrace.end(firstFrameInterval)
+            LifeBoardPerformanceTrace.end(firstFrameInterval)
             self.refreshPendingHomeController()
         }
     }
@@ -491,7 +493,7 @@ private final class TaskerLaunchHostController: UIViewController {
         guard let homeController = pendingHomeController else { return }
         guard view.bounds.width > 1, view.bounds.height > 1 else { return }
 
-        let interval = TaskerPerformanceTrace.begin("LaunchHostAttachHome")
+        let interval = LifeBoardPerformanceTrace.begin("LaunchHostAttachHome")
         addChild(homeController)
         homeController.view.translatesAutoresizingMaskIntoConstraints = false
         homeController.view.alpha = 1
@@ -507,7 +509,7 @@ private final class TaskerLaunchHostController: UIViewController {
             homeController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         homeController.didMove(toParent: self)
-        TaskerPerformanceTrace.end(interval)
+        LifeBoardPerformanceTrace.end(interval)
         attachedHomeController = homeController
         pendingHomeController = nil
         completeSplashOverAttachedHome()
@@ -523,10 +525,10 @@ private final class TaskerLaunchHostController: UIViewController {
 
         splashState.completeReveal()
         fadeSplashOverAttachedHome(
-            duration: TaskerLaunchSplashMetrics.finalCrossfadeDuration,
+            duration: LifeBoardLaunchSplashMetrics.finalCrossfadeDuration,
             delay: max(
-                TaskerLaunchSplashMetrics.revealDuration
-                    - TaskerLaunchSplashMetrics.finalCrossfadeDuration,
+                LifeBoardLaunchSplashMetrics.revealDuration
+                    - LifeBoardLaunchSplashMetrics.finalCrossfadeDuration,
                 0
             ),
             splashHostController: splashHostController
@@ -536,7 +538,7 @@ private final class TaskerLaunchHostController: UIViewController {
     private func fadeSplashOverAttachedHome(
         duration: TimeInterval,
         delay: TimeInterval,
-        splashHostController: UIHostingController<TaskerLaunchSplashView>? = nil
+        splashHostController: UIHostingController<LifeBoardLaunchSplashView>? = nil
     ) {
         let splashHostController = splashHostController ?? self.splashHostController
         guard let splashHostController else { return }
@@ -554,7 +556,7 @@ private final class TaskerLaunchHostController: UIViewController {
     }
 
     private func removeSplashHostController(
-        _ splashHostController: UIHostingController<TaskerLaunchSplashView>
+        _ splashHostController: UIHostingController<LifeBoardLaunchSplashView>
     ) {
         splashHostController.willMove(toParent: nil)
         splashHostController.view.removeFromSuperview()
