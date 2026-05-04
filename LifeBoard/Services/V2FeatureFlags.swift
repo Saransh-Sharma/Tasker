@@ -32,10 +32,10 @@ public enum V2FeatureFlags {
 
     public static var liquidMetalCTAEnabled: Bool {
         get {
-            if launchArguments.contains("-TASKER_ENABLE_LIQUID_METAL_CTA") {
+            if launchArguments.contains("-LIFEBOARD_ENABLE_LIQUID_METAL_CTA") {
                 return true
             }
-            if launchArguments.contains("-TASKER_DISABLE_LIQUID_METAL_CTA") {
+            if launchArguments.contains("-LIFEBOARD_DISABLE_LIQUID_METAL_CTA") {
                 return false
             }
             return userDecorativeCTAEffectsEnabled && remoteDecorativeCTAEffectsAllowed
@@ -166,7 +166,7 @@ public enum V2FeatureFlags {
     public static var llmChatTemplateDiagnosticsEnabled: Bool {
         get {
             #if DEBUG
-            if launchArguments.contains("-TASKER_LLM_TEMPLATE_DIAGNOSTICS") {
+            if launchArguments.contains("-LIFEBOARD_LLM_TEMPLATE_DIAGNOSTICS") {
                 return true
             }
             return defaults.object(forKey: "debug.llm.chat_template_diagnostics") as? Bool ?? false
@@ -184,7 +184,7 @@ public enum V2FeatureFlags {
     public static var llmRuntimeSmokeEnabled: Bool {
         get {
             #if DEBUG
-            if launchArguments.contains("-TASKER_LLM_RUN_SMOKE") {
+            if launchArguments.contains("-LIFEBOARD_LLM_RUN_SMOKE") {
                 return true
             }
             return defaults.object(forKey: "debug.llm.runtime_smoke") as? Bool ?? false

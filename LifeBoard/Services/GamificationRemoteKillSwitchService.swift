@@ -44,7 +44,9 @@ final class GamificationRemoteKillSwitchService {
                 return
             }
 
-            self.apply(remoteConfig: remoteConfig, reason: reason, status: status)
+            Task { @MainActor in
+                self.apply(remoteConfig: remoteConfig, reason: reason, status: status)
+            }
         }
         #else
         _ = reason
