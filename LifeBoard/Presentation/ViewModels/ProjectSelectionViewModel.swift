@@ -2,7 +2,8 @@ import Foundation
 import Combine
 import SwiftUI
 
-public final class ProjectSelectionViewModel: ObservableObject {
+@MainActor
+public final class ProjectSelectionViewModel: ObservableObject, @unchecked Sendable {
     @Published var availableProjects: [ProjectInfo] = []
     @Published var isLoading = true
 
@@ -19,27 +20,28 @@ public final class ProjectSelectionViewModel: ObservableObject {
     }
 
     /// Executes load.
-    func load(completion: @escaping ([ProjectInfo]) -> Void) {
+    func load(completion: @escaping @MainActor @Sendable ([ProjectInfo]) -> Void) {
         isLoading = true
-        projectRepository.fetchCustomProjects { [weak self] projectResult in
-            guard let self else { return }
+        let readModelRepository = self.readModelRepository
+        projectRepository.fetchCustomProjects { [readModelRepository] projectResult in
             switch projectResult {
             case .failure(let error):
-                DispatchQueue.main.async {
-                    logError("❌ [ProjectSelectionSheet] Failed to load projects: \(error.localizedDescription)")
-                    self.availableProjects = []
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    logError("❌ [ProjectSelectionSheet] Failed to load projects: \(message)")
+                    self?.availableProjects = []
                     withAnimation {
-                        self.isLoading = false
+                        self?.isLoading = false
                     }
                     completion([])
                 }
             case .success(let projects):
-                guard let readModel = self.readModelRepository else {
-                    DispatchQueue.main.async {
+                guard let readModel = readModelRepository else {
+                    Task { @MainActor [weak self] in
                         logError("❌ [ProjectSelectionSheet] Task read-model repository is not configured")
-                        self.availableProjects = []
+                        self?.availableProjects = []
                         withAnimation {
-                            self.isLoading = false
+                            self?.isLoading = false
                         }
                         completion([])
                     }
@@ -59,7 +61,7 @@ public final class ProjectSelectionViewModel: ObservableObject {
                         }
                         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
                         self.availableProjects = infos
                         withAnimation {
                             self.isLoading = false

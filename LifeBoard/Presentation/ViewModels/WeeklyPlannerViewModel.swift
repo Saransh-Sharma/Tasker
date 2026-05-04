@@ -1,5 +1,45 @@
 import Foundation
 
+private final class LockedWeeklyPlannerLoadAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state = WeeklyPlannerLoadState()
+    private var firstError: Error?
+
+    func update(_ body: (inout WeeklyPlannerLoadState) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<WeeklyPlannerLoadState, Error> {
+        lock.lock()
+        let state = state
+        let firstError = firstError
+        lock.unlock()
+
+        if let firstError {
+            return .failure(firstError)
+        }
+        return .success(state)
+    }
+}
+
+private struct WeeklyPlannerLoadState: Sendable {
+    var snapshot: WeeklyPlanSnapshot?
+    var habits: [HabitLibraryRow] = []
+    var projects: [Project] = []
+    var capacity = 3
+    var openTasks: [TaskDefinition] = []
+}
+
 public struct WeeklyOutcomeDraft: Identifiable, Equatable {
     public let id: UUID
     public var title: String
@@ -357,7 +397,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
     init(
         referenceDate: Date = Date(),
         plannerPresentation: WeeklyPlannerPresentationMode = .thisWeek,
-        weekStartsOn: Weekday = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn,
+        weekStartsOn: Weekday = LifeBoardWorkspacePreferencesStore.shared.load().weekStartsOn,
         buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase,
         estimateWeeklyCapacity: EstimateWeeklyCapacityUseCase,
         getHabitLibraryUseCase: GetHabitLibraryUseCase,
@@ -487,26 +527,14 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         errorMessage = nil
 
         let group = DispatchGroup()
-        var fetchedSnapshot: WeeklyPlanSnapshot?
-        var fetchedHabits: [HabitLibraryRow] = []
-        var fetchedProjects: [Project] = []
-        var fetchedCapacity = 3
-        var fetchedOpenTasks: [TaskDefinition] = []
-        var firstError: Error?
-        let lock = NSLock()
-
-        func capture(_ error: Error) {
-            lock.lock()
-            if firstError == nil { firstError = error }
-            lock.unlock()
-        }
+        let accumulator = LockedWeeklyPlannerLoadAccumulator()
 
         group.enter()
         buildWeeklyPlanSnapshot.execute(referenceDate: weekStartDate) { result in
             if case .success(let snapshot) = result {
-                fetchedSnapshot = snapshot
+                accumulator.update { $0.snapshot = snapshot }
             } else if case .failure(let error) = result {
-                capture(error)
+                accumulator.record(error)
             }
             group.leave()
         }
@@ -514,9 +542,9 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         group.enter()
         getHabitLibraryUseCase.execute(includeArchived: false) { result in
             if case .success(let habits) = result {
-                fetchedHabits = habits.filter { $0.isArchived == false }
+                accumulator.update { $0.habits = habits.filter { $0.isArchived == false } }
             } else if case .failure(let error) = result {
-                capture(error)
+                accumulator.record(error)
             }
             group.leave()
         }
@@ -524,9 +552,9 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         group.enter()
         projectRepository.fetchCustomProjects { result in
             if case .success(let projects) = result {
-                fetchedProjects = projects.filter { !$0.isArchived }
+                accumulator.update { $0.projects = projects.filter { !$0.isArchived } }
             } else if case .failure(let error) = result {
-                capture(error)
+                accumulator.record(error)
             }
             group.leave()
         }
@@ -534,9 +562,9 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         group.enter()
         estimateWeeklyCapacity.execute(referenceDate: weekStartDate) { result in
             if case .success(let capacity) = result {
-                fetchedCapacity = capacity
+                accumulator.update { $0.capacity = capacity }
             } else if case .failure(let error) = result {
-                capture(error)
+                accumulator.record(error)
             }
             group.leave()
         }
@@ -544,36 +572,38 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         group.enter()
         taskDefinitionRepository.fetchAll(query: TaskDefinitionQuery(includeCompleted: false)) { result in
             if case .success(let tasks) = result {
-                fetchedOpenTasks = tasks.filter { !$0.isComplete }
+                accumulator.update { $0.openTasks = tasks.filter { !$0.isComplete } }
             } else if case .failure(let error) = result {
-                capture(error)
+                accumulator.record(error)
             }
             group.leave()
         }
 
         group.notify(queue: .main) {
             self.isLoading = false
-            if let firstError {
-                self.errorMessage = firstError.localizedDescription
+            let result = accumulator.result()
+            if case .failure(let error) = result {
+                self.errorMessage = error.localizedDescription
                 self.hasLoadedInitialData = true
                 return
             }
+            guard case .success(let loadState) = result else { return }
 
             self.performBatchedRefresh {
                 self.hasLoadedInitialData = true
-                self.availableHabits = fetchedHabits
-                self.availableProjects = fetchedProjects
-                self.estimatedCapacity = fetchedCapacity
-                self.initialSnapshot = fetchedSnapshot
-                self.allOpenTasks = fetchedOpenTasks.sorted(by: self.taskSort)
+                self.availableHabits = loadState.habits
+                self.availableProjects = loadState.projects
+                self.estimatedCapacity = loadState.capacity
+                self.initialSnapshot = loadState.snapshot
+                self.allOpenTasks = loadState.openTasks.sorted(by: self.taskSort)
                 self.currentStep = .direction
                 self.lastTriageDecision = nil
 
-                if let snapshot = fetchedSnapshot {
+                if let snapshot = loadState.snapshot {
                     self.focusStatement = snapshot.plan?.focusStatement ?? ""
-                    let selectedHabitIDs = snapshot.plan?.selectedHabitIDs ?? fetchedHabits.map(\.habitID)
+                    let selectedHabitIDs = snapshot.plan?.selectedHabitIDs ?? loadState.habits.map(\.habitID)
                     self.selectedHabitIDs = Set(selectedHabitIDs)
-                    self.targetCapacity = max(snapshot.plan?.targetCapacity ?? fetchedCapacity, 1)
+                    self.targetCapacity = max(snapshot.plan?.targetCapacity ?? loadState.capacity, 1)
                     self.minimumViableWeekEnabled = snapshot.plan?.minimumViableWeekEnabled ?? false
                     self.outcomeDrafts = snapshot.outcomes.map {
                         WeeklyOutcomeDraft(
@@ -594,8 +624,8 @@ public final class WeeklyPlannerViewModel: ObservableObject {
                     self.laterTasks = snapshot.laterTasks.filter { !$0.isComplete }.sorted(by: self.taskSort)
                 } else {
                     self.focusStatement = ""
-                    self.selectedHabitIDs = Set(fetchedHabits.map(\.habitID))
-                    self.targetCapacity = max(fetchedCapacity, 1)
+                    self.selectedHabitIDs = Set(loadState.habits.map(\.habitID))
+                    self.targetCapacity = max(loadState.capacity, 1)
                     self.minimumViableWeekEnabled = false
                     self.outcomeDrafts = [WeeklyOutcomeDraft()]
                     self.thisWeekTasks = []
@@ -742,7 +772,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         return lastTriageDecision
     }
 
-    public func save(completion: (() -> Void)? = nil) {
+    public func save(completion: (@Sendable () -> Void)? = nil) {
         isSaving = true
         errorMessage = nil
         saveMessage = nil
@@ -829,7 +859,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         }
     }
 
-    public func confirmEvaProposal(completion: (() -> Void)? = nil) {
+    public func confirmEvaProposal(completion: (@Sendable () -> Void)? = nil) {
         guard let runID = proposalState?.preview.run?.id,
               let homeAIActionCoordinator else {
             return

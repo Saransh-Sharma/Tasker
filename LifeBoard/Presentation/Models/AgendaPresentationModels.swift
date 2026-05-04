@@ -1,6 +1,6 @@
 //
 //  AgendaPresentationModels.swift
-//  Tasker
+//  LifeBoard
 //
 //  Shared presentation scaffolding for Home agenda rows and Insights modules.
 //

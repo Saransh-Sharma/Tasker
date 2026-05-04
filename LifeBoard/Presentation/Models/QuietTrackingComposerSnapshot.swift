@@ -1,6 +1,6 @@
 import Foundation
 
-enum QuietTrackingOutcome: String, CaseIterable, Identifiable {
+enum QuietTrackingOutcome: String, CaseIterable, Identifiable, Sendable {
     case progress
     case lapse
 
@@ -14,7 +14,7 @@ enum QuietTrackingOutcome: String, CaseIterable, Identifiable {
     }
 }
 
-struct QuietTrackingComposerEntry: Equatable, Identifiable {
+struct QuietTrackingComposerEntry: Equatable, Identifiable, Sendable {
     let sourceRow: HomeHabitRow
     let colorFamily: HabitColorFamily
     let historyCells: [HabitBoardCell]
@@ -55,7 +55,7 @@ struct QuietTrackingComposerEntry: Equatable, Identifiable {
     }
 }
 
-struct QuietTrackingComposerSnapshot: Equatable, Identifiable {
+struct QuietTrackingComposerSnapshot: Equatable, Identifiable, Sendable {
     let id = UUID()
     let entries: [QuietTrackingComposerEntry]
     let entriesByID: [String: QuietTrackingComposerEntry]
@@ -131,7 +131,7 @@ struct QuietTrackingComposerSnapshot: Equatable, Identifiable {
     }
 }
 
-struct QuietTrackingComposerSaveRequest: Equatable {
+struct QuietTrackingComposerSaveRequest: Equatable, Sendable {
     let habitID: String
     let date: Date
     let outcome: QuietTrackingOutcome

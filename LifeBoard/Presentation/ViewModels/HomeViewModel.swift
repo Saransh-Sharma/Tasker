@@ -1,6 +1,6 @@
 //
 //  HomeViewModel.swift
-//  Tasker
+//  LifeBoard
 //
 //  ViewModel for Home screen - manages task display, focus filters, and interactions
 //
@@ -14,7 +14,93 @@ import UIKit
 import WidgetKit
 #endif
 
-public enum HomeTaskMutationEvent: String, Codable, CaseIterable {
+final class LifeBoardCancellableDispatchWorkItem: @unchecked Sendable {
+    let workItem: DispatchWorkItem
+
+    init(_ workItem: DispatchWorkItem) {
+        self.workItem = workItem
+    }
+
+    func cancel() {
+        workItem.cancel()
+    }
+}
+
+private final class LockedHomeMetadataAccumulator<State: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state: State
+    private var firstError: Error?
+
+    init(_ state: State) {
+        self.state = state
+    }
+
+    func update(_ body: (inout State) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<State, Error> {
+        lock.lock()
+        let state = state
+        let firstError = firstError
+        lock.unlock()
+
+        if let firstError {
+            return .failure(firstError)
+        }
+        return .success(state)
+    }
+}
+
+private struct HomeTaskDetailMetadataState: Sendable {
+    var projects: [Project]
+    var sections: [LifeBoardProjectSection] = []
+    var weeklyOutcomes: [WeeklyOutcome] = []
+}
+
+private struct HomeTaskDetailRelationshipMetadataState: Sendable {
+    var lifeAreas: [LifeArea] = []
+    var tags: [TagDefinition] = []
+    var availableTasks: [TaskDefinition] = []
+    var recentReflectionNotes: [ReflectionNote] = []
+}
+
+private struct HomeDueTodayAgendaLoadState: Sendable {
+    var agendaHabitRows: [HomeHabitRow] = []
+    var trackingHabitRows: [HomeHabitRow] = []
+    var historyByHabitID: [UUID: [HabitDayMark]] = [:]
+    var libraryRowsByID: [UUID: HabitLibraryRow] = [:]
+}
+
+private struct HomeCanonicalHabitMutationLoadState: Sendable {
+    var projectionRow: HomeHabitRow?
+    var libraryRow: HabitLibraryRow?
+    var historyByHabitID: [UUID: [HabitDayMark]] = [:]
+}
+
+private struct HomeHabitWidgetRowsState: Sendable {
+    var agendaRows: [HomeHabitRow] = []
+    var trackingRows: [HomeHabitRow] = []
+}
+
+private struct DailySummaryLoadState: Sendable {
+    var allTasksResult: Result<[TaskDefinition], GetTasksError>?
+    var analytics: DailyAnalytics?
+    var streakCount: Int?
+    var dateTasks: DateTasksResult?
+}
+
+public enum HomeTaskMutationEvent: String, Codable, CaseIterable, Sendable {
     case created
     case updated
     case deleted
@@ -28,7 +114,7 @@ public enum HomeTaskMutationEvent: String, Codable, CaseIterable {
     case bulkChanged
 }
 
-public enum HomeReloadScope: String, CaseIterable, Hashable {
+public enum HomeReloadScope: String, CaseIterable, Hashable, Sendable {
     case visibleTasks
     case habits
     case facets
@@ -89,7 +175,7 @@ struct HomeTimelineWorkspacePreferencesSignature: Equatable {
     let windDownHour: Int
     let windDownMinute: Int
 
-    init(_ preferences: TaskerWorkspacePreferences) {
+    init(_ preferences: LifeBoardWorkspacePreferences) {
         weekStartsOn = preferences.weekStartsOn
         showCalendarEventsInTimeline = preferences.showCalendarEventsInTimeline
         riseAndShineHour = preferences.timelineRiseAndShineHour
@@ -105,12 +191,12 @@ struct HomeTimelineEventSignature: Equatable {
     let startDate: Date
     let endDate: Date
     let isAllDay: Bool
-    let availability: TaskerCalendarEventAvailability
-    let status: TaskerCalendarEventStatus
-    let participationStatus: TaskerCalendarEventParticipationStatus
+    let availability: LifeBoardCalendarEventAvailability
+    let status: LifeBoardCalendarEventStatus
+    let participationStatus: LifeBoardCalendarEventParticipationStatus
     let lastModifiedAt: Date?
 
-    init(_ event: TaskerCalendarEventSnapshot) {
+    init(_ event: LifeBoardCalendarEventSnapshot) {
         id = event.id
         calendarID = event.calendarID
         startDate = event.startDate
@@ -232,7 +318,7 @@ struct HomeReplanUndoEntry: Equatable {
     let candidate: HomeReplanCandidate
 }
 
-public struct HabitRecoveryReflectionPrompt: Equatable, Identifiable {
+public struct HabitRecoveryReflectionPrompt: Equatable, Identifiable, Sendable {
     public let habitID: UUID
     public let habitTitle: String
     public let date: Date
@@ -270,14 +356,14 @@ public struct HomeHabitMutationFeedback: Equatable, Identifiable {
     }
 }
 
-private final class HomeReloadBatchTracker {
+private final class HomeReloadBatchTracker: @unchecked Sendable {
     private let lock = NSLock()
-    private let onComplete: () -> Void
+    private let onComplete: @Sendable () -> Void
     private var pendingOperations: Int = 0
     private var finishedScheduling = false
     private var completed = false
 
-    init(onComplete: @escaping () -> Void) {
+    init(onComplete: @escaping @Sendable () -> Void) {
         self.onComplete = onComplete
     }
 
@@ -345,7 +431,7 @@ private struct HomeHabitMutationSnapshot {
     let quietTrackingSummaryState: QuietTrackingSummaryState
     let focusRows: [HomeTodayRow]
     let focusNowSectionState: FocusNowSectionState
-    let currentHabitSignals: [TaskerHabitSignal]
+    let currentHabitSignals: [LifeBoardHabitSignal]
 }
 
 private struct HomeDerivedTaskRowsCache {
@@ -367,7 +453,7 @@ private struct HomeHabitMutationSectionPatch {
     let quietTrackingSummaryState: QuietTrackingSummaryState
     let focusRows: [HomeTodayRow]?
     let focusNowSectionState: FocusNowSectionState?
-    let currentHabitSignals: [TaskerHabitSignal]
+    let currentHabitSignals: [LifeBoardHabitSignal]
     let affectedRowCount: Int
     let affectedSectionCount: Int
 }
@@ -717,7 +803,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private let analyticsService: AnalyticsServiceProtocol?
     private let aiSuggestionService: AISuggestionService?
     private let userDefaults: UserDefaults
-    private let workspacePreferencesProvider: () -> TaskerWorkspacePreferences
+    private let workspacePreferencesProvider: () -> LifeBoardWorkspacePreferences
     private let hiddenCalendarEventStore: HomeTimelineHiddenCalendarEventStore
     private let timelineProjectionBuilder = HomeTimelineProjectionBuilder()
     private let needsReplanViewModel = HomeNeedsReplanViewModel()
@@ -787,14 +873,14 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private var completionOverrides: [UUID: Bool] = [:]
     private var pendingHabitMutationKeys: Set<HomeHabitMutationKey> = []
     private var pendingHabitMutationSnapshots: [HomeHabitMutationKey: HomeHabitMutationSnapshot] = [:]
-    private var pendingHabitMutationIntervals: [HomeHabitMutationKey: TaskerPerformanceInterval] = [:]
+    private var pendingHabitMutationIntervals: [HomeHabitMutationKey: LifeBoardPerformanceInterval] = [:]
     private var selfOriginatedHabitMutationContextIDs: Set<UUID> = []
     private var reloadGeneration: Int = 0
     private var dataRevision: HomeDataRevision = .zero
     private var timelineSnapshotCache: (key: HomeTimelineSnapshotCacheKey, snapshot: HomeTimelineSnapshot)?
     private var suppressCompletionReloadUntil: Date?
     private var lastRecurringTopUpAt: Date?
-    private var pendingRecurringTopUpWorkItem: DispatchWorkItem?
+    private var pendingRecurringTopUpWorkItem: LifeBoardCancellableDispatchWorkItem?
     private var recentShuffledFocusTaskIDs: [UUID] = []
 
     private let completionNotificationDebounceMS = 120
@@ -828,7 +914,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private var homeRenderStateRefreshBatchDepth: Int = 0
     private var needsHomeRenderStateRefresh = false
     private var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
-    private var currentHabitSignals: [TaskerHabitSignal] = []
+    private var currentHabitSignals: [LifeBoardHabitSignal] = []
     private var habitLibraryRowsByID: [UUID: HabitLibraryRow] = [:]
     private var taskRowsDerivationRevision: UInt64 = 0
     private var habitRowsDerivationRevision: UInt64 = 0
@@ -916,8 +1002,8 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             return false
         }
         if selfOriginatedHabitMutationContextIDs.remove(context.mutationID) != nil {
-            let interval = TaskerPerformanceTrace.begin("HomeHabitNotificationSuppressed")
-            TaskerPerformanceTrace.end(interval)
+            let interval = LifeBoardPerformanceTrace.begin("HomeHabitNotificationSuppressed")
+            LifeBoardPerformanceTrace.end(interval)
             return true
         }
         return false
@@ -938,7 +1024,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     private func scheduleHomeRenderStateRefresh(_ invalidation: HomeRenderInvalidation = .all) {
         if Foundation.Thread.isMainThread == false {
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
                 self?.scheduleHomeRenderStateRefresh(invalidation)
             }
             return
@@ -976,8 +1062,8 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     private func refreshHomeRenderStates() {
-        let interval = TaskerPerformanceTrace.begin("HomeRenderStateBuild")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("HomeRenderStateBuild")
+        defer { LifeBoardPerformanceTrace.end(interval) }
         let invalidation = pendingHomeRenderInvalidation.isEmpty ? .all : pendingHomeRenderInvalidation
         pendingHomeRenderInvalidation = []
         if invalidation.includes(.timeline) {
@@ -1141,7 +1227,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         catchUpReflectionPreviewTask?.cancel()
         catchUpReflectionPreviewKey = previewKey
 
-        catchUpReflectionPreviewTask = Task { [weak self] in
+        catchUpReflectionPreviewTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 let bundle = try await useCaseCoordinator.dailyReflectionLoadCoordinator.loadCore(target: target)
@@ -1421,7 +1507,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         savedHomeViewRepository: SavedHomeViewRepositoryProtocol = UserDefaultsSavedHomeViewRepository(),
         analyticsService: AnalyticsServiceProtocol? = nil,
         aiSuggestionService: AISuggestionService? = nil,
-        workspacePreferencesProvider: @escaping () -> TaskerWorkspacePreferences = { TaskerWorkspacePreferencesStore.shared.load() },
+        workspacePreferencesProvider: @escaping () -> LifeBoardWorkspacePreferences = { LifeBoardWorkspacePreferencesStore.shared.load() },
         userDefaults: UserDefaults = .standard,
         hiddenCalendarEventStore: HomeTimelineHiddenCalendarEventStore? = nil
     ) {
@@ -1536,7 +1622,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             self.lastRecurringTopUpAt = Date()
             self.useCaseCoordinator.createTaskDefinition.maintainRecurringSeries(daysAhead: 45) { _ in }
         }
-        pendingRecurringTopUpWorkItem = workItem
+        pendingRecurringTopUpWorkItem = LifeBoardCancellableDispatchWorkItem(workItem)
         DispatchQueue.global(qos: .utility).asyncAfter(
             deadline: .now() + recurringTopUpDelaySeconds,
             execute: workItem
@@ -1601,7 +1687,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     public func setTaskCompletion(
         taskID: UUID,
         to desiredCompletion: Bool,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         setTaskCompletion(
             taskID: taskID,
@@ -1614,7 +1700,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     /// Create a new task.
     public func createTask(request: CreateTaskDefinitionRequest) {
         useCaseCoordinator.createTaskDefinition.execute(request: request) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success:
                     self?.enqueueReload(
@@ -1641,10 +1727,10 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     public func deleteTask(
         taskID: UUID,
         scope: TaskDeleteScope = .single,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID, scope: scope) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success:
                     self?.removePinnedFocusTaskID(taskID)
@@ -1674,10 +1760,10 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     public func rescheduleTask(
         taskID: UUID,
         to newDate: Date?,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         useCaseCoordinator.rescheduleTaskDefinition.execute(taskID: taskID, newDate: newDate) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let task):
                     self?.enqueueReload(
@@ -1701,12 +1787,12 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     public func updateTask(
         taskID: UUID,
         request: UpdateTaskDefinitionRequest,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         var normalizedRequest = request
         normalizedRequest.updatedAt = Date()
         useCaseCoordinator.updateTaskDefinition.execute(request: normalizedRequest) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let task):
                     self?.enqueueReload(
@@ -1729,32 +1815,21 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     /// Executes loadTaskDetailMetadata.
     public func loadTaskDetailMetadata(
         projectID: UUID,
-        completion: @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDetailMetadataPayload, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-
-        var loadedProjects: [Project] = projects
-        var loadedSections: [TaskerProjectSection] = []
-        var weeklyOutcomes: [WeeklyOutcome] = []
-
-        func record(_ error: Error) {
-            lock.lock()
-            if firstError == nil {
-                firstError = error
-            }
-            lock.unlock()
-        }
+        let accumulator = LockedHomeMetadataAccumulator(
+            HomeTaskDetailMetadataState(projects: projects)
+        )
 
         group.enter()
         useCaseCoordinator.manageProjects.getAllProjects { result in
             defer { group.leave() }
             switch result {
             case .success(let projectsWithStats):
-                loadedProjects = projectsWithStats.map(\.project)
+                accumulator.update { $0.projects = projectsWithStats.map(\.project) }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -1763,9 +1838,9 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             defer { group.leave() }
             switch result {
             case .success(let sections):
-                loadedSections = sections
+                accumulator.update { $0.sections = sections }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -1774,7 +1849,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             defer { group.leave() }
             switch result {
             case .success(let snapshot):
-                weeklyOutcomes = snapshot.outcomes.sorted { $0.orderIndex < $1.orderIndex }
+                accumulator.update { $0.weeklyOutcomes = snapshot.outcomes.sorted { $0.orderIndex < $1.orderIndex } }
             case .failure(let error):
                 logWarning(
                     event: "task_detail_metadata_weekly_snapshot_failed",
@@ -1785,11 +1860,13 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
 
         group.notify(queue: .main) {
-            if let firstError {
-                completion(.failure(firstError))
+            let result = accumulator.result()
+            if case .failure(let error) = result {
+                completion(.failure(error))
                 return
             }
-            let projectMotivation = loadedProjects.first(where: { $0.id == projectID }).map {
+            guard case .success(let metadataState) = result else { return }
+            let projectMotivation = metadataState.projects.first(where: { $0.id == projectID }).map {
                 ProjectWeeklyMotivation(
                     why: $0.motivationWhy,
                     successLooksLike: $0.motivationSuccessLooksLike,
@@ -1797,9 +1874,9 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                 )
             }
             completion(.success(TaskDetailMetadataPayload(
-                projects: loadedProjects,
-                sections: loadedSections,
-                weeklyOutcomes: weeklyOutcomes,
+                projects: metadataState.projects,
+                sections: metadataState.sections,
+                weeklyOutcomes: metadataState.weeklyOutcomes,
                 projectMotivation: projectMotivation
             )))
         }
@@ -1807,34 +1884,19 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     public func loadTaskDetailRelationshipMetadata(
         projectID: UUID,
-        completion: @escaping (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-
-        var loadedLifeAreas: [LifeArea] = []
-        var loadedTags: [TagDefinition] = []
-        var availableTasks: [TaskDefinition] = []
-        var recentReflectionNotes: [ReflectionNote] = []
-
-        /// Executes record.
-        func record(_ error: Error) {
-            lock.lock()
-            if firstError == nil {
-                firstError = error
-            }
-            lock.unlock()
-        }
+        let accumulator = LockedHomeMetadataAccumulator(HomeTaskDetailRelationshipMetadataState())
 
         group.enter()
         useCaseCoordinator.manageLifeAreas.list { result in
             defer { group.leave() }
             switch result {
             case .success(let lifeAreas):
-                loadedLifeAreas = lifeAreas
+                accumulator.update { $0.lifeAreas = lifeAreas }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -1843,9 +1905,9 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             defer { group.leave() }
             switch result {
             case .success(let tags):
-                loadedTags = tags
+                accumulator.update { $0.tags = tags }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -1854,9 +1916,9 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             defer { group.leave() }
             switch result {
             case .success(let slice):
-                availableTasks = slice.tasks
+                accumulator.update { $0.availableTasks = slice.tasks }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -1867,7 +1929,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             defer { group.leave() }
             switch result {
             case .success(let notes):
-                recentReflectionNotes = notes
+                accumulator.update { $0.recentReflectionNotes = notes }
             case .failure(let error):
                 logWarning(
                     event: "task_detail_relationship_metadata_reflections_failed",
@@ -1878,22 +1940,24 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
 
         group.notify(queue: .main) {
-            if let firstError {
-                completion(.failure(firstError))
+            let result = accumulator.result()
+            if case .failure(let error) = result {
+                completion(.failure(error))
                 return
             }
+            guard case .success(let relationshipState) = result else { return }
             completion(.success(TaskDetailRelationshipMetadataPayload(
-                lifeAreas: loadedLifeAreas,
-                tags: loadedTags,
-                availableTasks: availableTasks,
-                recentReflectionNotes: recentReflectionNotes
+                lifeAreas: relationshipState.lifeAreas,
+                tags: relationshipState.tags,
+                availableTasks: relationshipState.availableTasks,
+                recentReflectionNotes: relationshipState.recentReflectionNotes
             )))
         }
     }
 
     public func saveReflectionNote(
         _ note: ReflectionNote,
-        completion: @escaping (Result<ReflectionNote, Error>) -> Void
+        completion: @escaping @Sendable (Result<ReflectionNote, Error>) -> Void
     ) {
         useCaseCoordinator.reflectionNoteRepository.saveNote(note) { [weak self] result in
             guard let self else { return }
@@ -1910,7 +1974,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                 ) { _ in }
             }
 
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 completion(result)
             }
         }
@@ -1923,10 +1987,10 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     /// Executes loadTaskChildren.
     public func loadTaskChildren(
         parentTaskID: UUID,
-        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void
     ) {
         useCaseCoordinator.getTaskChildren.execute(parentTaskID: parentTaskID) { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 completion(result)
             }
         }
@@ -1935,10 +1999,10 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     /// Executes createTaskDefinition.
     public func createTaskDefinition(
         request: CreateTaskDefinitionRequest,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         useCaseCoordinator.createTaskDefinition.execute(request: request) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let createdTask):
                     self?.enqueueReload(
@@ -1960,10 +2024,10 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     /// Executes createTagForTaskDetail.
     public func createTagForTaskDetail(
         name: String,
-        completion: @escaping (Result<TagDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TagDefinition, Error>) -> Void
     ) {
         useCaseCoordinator.manageTags.create(name: name, color: nil, icon: nil) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 if case .success(let createdTag) = result {
                     self?.upsertTag(createdTag)
                 }
@@ -1975,10 +2039,10 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     /// Executes createProjectForTaskDetail.
     public func createProjectForTaskDetail(
         name: String,
-        completion: @escaping (Result<Project, Error>) -> Void
+        completion: @escaping @Sendable (Result<Project, Error>) -> Void
     ) {
         useCaseCoordinator.manageProjects.createProject(request: CreateProjectRequest(name: name)) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let project):
                     self?.loadProjects()
@@ -2158,7 +2222,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         let alreadySelected = isSameDay && activeScope == targetScope && activeFilterState.quickView == .today
 
         guard alreadySelected == false || forceReload else {
-            TaskerPerformanceTrace.event("HomeDaySwipeCancelled")
+            LifeBoardPerformanceTrace.event("HomeDaySwipeCancelled")
             return
         }
 
@@ -2180,7 +2244,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             )
         }
         if source == .swipe {
-            TaskerPerformanceTrace.event("HomeDaySwipeCommitted")
+            LifeBoardPerformanceTrace.event("HomeDaySwipeCommitted")
         }
         applyFocusFilters(trackAnalytics: trackAnalytics, generation: generation)
         if Calendar.current.isDateInToday(targetDay) {
@@ -2227,15 +2291,15 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     public func loadDailySummaryModal(
-        kind: TaskerDailySummaryKind,
+        kind: LifeBoardDailySummaryKind,
         dateStamp: String?,
-        completion: @escaping (Result<DailySummaryModalData, Error>) -> Void
+        completion: @escaping @Sendable (Result<DailySummaryModalData, Error>) -> Void
     ) {
         let date = Self.summaryDate(from: dateStamp) ?? Date()
         let normalizedDateStamp = Self.summaryDateStamp(from: date)
 
         getDailySummaryModalUseCase.execute(kind: kind, date: date) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let summary):
                     self?.trackHomeInteraction(
@@ -2256,7 +2320,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     public func trackDailySummaryCTA(
-        kind: TaskerDailySummaryKind,
+        kind: LifeBoardDailySummaryKind,
         cta: String,
         countsSnapshot: [String: Any]
     ) {
@@ -2271,12 +2335,16 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     public func trackDailySummaryActionResult(cta: String, success: Bool, error: Error?) {
+        trackDailySummaryActionResult(cta: cta, success: success, errorDescription: error?.localizedDescription)
+    }
+
+    public func trackDailySummaryActionResult(cta: String, success: Bool, errorDescription: String?) {
         var metadata: [String: Any] = [
             "cta": cta,
             "success": success
         ]
-        if let error {
-            metadata["error"] = error.localizedDescription
+        if let errorDescription {
+            metadata["error"] = errorDescription
         }
         trackHomeInteraction(
             action: "daily_summary_action_result",
@@ -2284,9 +2352,9 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         )
     }
 
-    public func performEndOfDayCleanup(completion: @escaping (Result<CleanupResult, Error>) -> Void) {
+    public func performEndOfDayCleanup(completion: @escaping @Sendable (Result<CleanupResult, Error>) -> Void) {
         useCaseCoordinator.performEndOfDayCleanup { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let cleanup):
                     self?.enqueueReload(
@@ -2433,7 +2501,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         )
 
         savedHomeViewRepository.save(saved) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let views):
                     self?.savedHomeViews = views.sorted { $0.updatedAt > $1.updatedAt }
@@ -2465,7 +2533,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     /// Focus Engine: delete a saved filter view.
     public func deleteSavedView(id: UUID) {
         savedHomeViewRepository.delete(id: id) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let views):
                     self?.savedHomeViews = views.sorted { $0.updatedAt > $1.updatedAt }
@@ -2494,7 +2562,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     /// Focus Engine: load saved views from persistence.
     public func loadSavedViews() {
         savedHomeViewRepository.fetchAll { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let views):
                     self?.savedHomeViews = views.sorted { $0.updatedAt > $1.updatedAt }
@@ -2534,10 +2602,10 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     /// Executes loadProjects.
     private func loadProjects(generation: Int) {
-        let interval = TaskerPerformanceTrace.begin("HomeLoadProjects")
+        let interval = LifeBoardPerformanceTrace.begin("HomeLoadProjects")
         useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
-            DispatchQueue.main.async {
-                defer { TaskerPerformanceTrace.end(interval) }
+            Task { @MainActor in
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
                     logDebug("HOME_ROW_STATE vm.drop_stale_reload source=projects generation=\(generation)")
@@ -2560,7 +2628,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     /// Executes loadLifeAreas.
     private func loadLifeAreas(generation: Int) {
         useCaseCoordinator.manageLifeAreas.list { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else { return }
 
@@ -2584,10 +2652,10 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     /// Executes loadTags.
     private func loadTags(generation: Int) {
-        let interval = TaskerPerformanceTrace.begin("HomeLoadTags")
+        let interval = LifeBoardPerformanceTrace.begin("HomeLoadTags")
         useCaseCoordinator.manageTags.list { [weak self] result in
-            DispatchQueue.main.async {
-                defer { TaskerPerformanceTrace.end(interval) }
+            Task { @MainActor in
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
                     logDebug("HOME_ROW_STATE vm.drop_stale_reload source=tags generation=\(generation)")
@@ -2614,7 +2682,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         homeFilteredTasksUseCase.invalidateCaches()
         dataRevision.advance()
         cachedGlobalReplanRevision = nil
-        TaskerPerformanceTrace.event("HomeDataInvalidated")
+        LifeBoardPerformanceTrace.event("HomeDataInvalidated")
         logDebug("HOME_CACHE invalidated scope=all")
     }
 
@@ -2636,9 +2704,9 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     /// Complete morning routine.
-    public func completeMorningRoutine(completion: ((Result<MorningRoutineResult, Error>) -> Void)? = nil) {
+    public func completeMorningRoutine(completion: (@Sendable (Result<MorningRoutineResult, Error>) -> Void)? = nil) {
         useCaseCoordinator.completeMorningRoutine { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let routineResult):
                     self?.dailyScore += routineResult.totalScore
@@ -2655,9 +2723,9 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     /// Reschedule all overdue tasks.
-    public func rescheduleOverdueTasks(completion: ((Result<RescheduleAllResult, Error>) -> Void)? = nil) {
+    public func rescheduleOverdueTasks(completion: (@Sendable (Result<RescheduleAllResult, Error>) -> Void)? = nil) {
         useCaseCoordinator.rescheduleAllOverdueTasks { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let rescheduleResult):
                     self?.loadTodayTasks()
@@ -2748,13 +2816,13 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     public func startFocusSession(
         taskID: UUID?,
         targetDurationSeconds: Int = 25 * 60,
-        completion: @escaping (Result<FocusSessionDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<FocusSessionDefinition, Error>) -> Void
     ) {
         useCaseCoordinator.focusSession.startSession(
             taskID: taskID,
             targetDurationSeconds: targetDurationSeconds,
             completion: { result in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     completion(result)
                 }
             }
@@ -2763,10 +2831,10 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     public func endFocusSession(
         sessionID: UUID,
-        completion: @escaping (Result<FocusSessionResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<FocusSessionResult, Error>) -> Void
     ) {
         useCaseCoordinator.focusSession.endSession(sessionID: sessionID) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let focusResult):
                     if focusResult.xpResult?.awardedXP ?? 0 > 0 {
@@ -2782,20 +2850,20 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     public func fetchActiveFocusSession(
-        completion: @escaping (Result<FocusSessionDefinition?, Error>) -> Void
+        completion: @escaping @Sendable (Result<FocusSessionDefinition?, Error>) -> Void
     ) {
         useCaseCoordinator.focusSession.fetchActiveSession { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 completion(result)
             }
         }
     }
 
     public func completeDailyReflection(
-        completion: @escaping (Result<XPEventResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void
     ) {
         useCaseCoordinator.markDailyReflection.execute { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let xpResult):
                     if xpResult.awardedXP > 0 {
@@ -2895,7 +2963,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     public func refreshTriageQueue(
         scope: EvaTriageScope,
-        completion: ((Result<Void, Error>) -> Void)?
+        completion: (@Sendable (Result<Void, Error>) -> Void)?
     ) {
         guard V2FeatureFlags.evaTriageEnabled else {
             completion?(.failure(NSError(
@@ -2932,7 +3000,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
         case .allInbox:
             useCaseCoordinator.getTasks.getTasksForProject(ProjectConstants.inboxProjectID, includeCompleted: false) { [weak self] result in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     guard let self else { return }
                     switch result {
                     case .success(let inboxResult):
@@ -2976,7 +3044,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         let referenceDate = selectedDate
         evaRescueSheetPresented = true
         useCaseCoordinator.getTasks.getOverdueTasks { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 let tasks: [TaskDefinition]
                 switch result {
@@ -3007,7 +3075,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     public func applyTriageDecision(
         for item: EvaTriageQueueItem,
         decision: EvaTriageDecision,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         let suggestionThreshold = 0.45
         var request = UpdateTaskDefinitionRequest(id: item.task.id)
@@ -3092,34 +3160,36 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
 
         updateTask(taskID: item.task.id, request: request) { [weak self] result in
-            guard let self else {
-                completion(result)
-                return
-            }
-            switch result {
-            case .success(let updatedTask):
-                self.removeTriageQueueItem(taskID: updatedTask.id)
-                self.trackHomeInteraction(action: "triage_apply_next", metadata: [
-                    "task_id": updatedTask.id.uuidString,
-                    "defer_preset": decision.deferPreset?.rawValue ?? "none",
-                    "used_suggested_project": decision.useSuggestedProject,
-                    "used_suggested_due": decision.useSuggestedDue,
-                    "used_suggested_duration": decision.useSuggestedDuration
-                ])
-                completion(.success(updatedTask))
-            case .failure(let error):
-                self.trackHomeInteraction(action: "triage_error", metadata: [
-                    "task_id": item.task.id.uuidString,
-                    "error": error.localizedDescription
-                ])
-                completion(.failure(error))
+            Task { @MainActor [weak self] in
+                guard let self else {
+                    completion(result)
+                    return
+                }
+                switch result {
+                case .success(let updatedTask):
+                    self.removeTriageQueueItem(taskID: updatedTask.id)
+                    self.trackHomeInteraction(action: "triage_apply_next", metadata: [
+                        "task_id": updatedTask.id.uuidString,
+                        "defer_preset": decision.deferPreset?.rawValue ?? "none",
+                        "used_suggested_project": decision.useSuggestedProject,
+                        "used_suggested_due": decision.useSuggestedDue,
+                        "used_suggested_duration": decision.useSuggestedDuration
+                    ])
+                    completion(.success(updatedTask))
+                case .failure(let error):
+                    self.trackHomeInteraction(action: "triage_error", metadata: [
+                        "task_id": item.task.id.uuidString,
+                        "error": error.localizedDescription
+                    ])
+                    completion(.failure(error))
+                }
             }
         }
     }
 
     public func applyTriageSuggestion(
         for item: EvaTriageQueueItem,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         let decision = EvaTriageDecision(
             selectedProjectID: nil,
@@ -3140,7 +3210,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     public func applyEvaBatchPlan(
         source: EvaBatchSource,
         mutations: [EvaBatchMutationInstruction],
-        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void
     ) {
         guard mutations.isEmpty == false else {
             completion(.failure(NSError(
@@ -3160,33 +3230,34 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             mutations: mutations
         )
 
-        useCaseCoordinator.assistantActionPipeline.propose(threadID: proposal.threadID, envelope: proposal.envelope) { [weak self] proposeResult in
+        let pipeline = useCaseCoordinator.assistantActionPipeline
+        pipeline.propose(threadID: proposal.threadID, envelope: proposal.envelope) { proposeResult in
             switch proposeResult {
             case .failure(let error):
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     completion(.failure(error))
                 }
             case .success(let proposedRun):
-                self?.useCaseCoordinator.assistantActionPipeline.confirm(runID: proposedRun.id) { confirmResult in
+                pipeline.confirm(runID: proposedRun.id) { confirmResult in
                     switch confirmResult {
                     case .failure(let error):
-                        DispatchQueue.main.async {
+                        Task { @MainActor in
                             completion(.failure(error))
                         }
                     case .success:
-                        self?.useCaseCoordinator.assistantActionPipeline.applyConfirmedRun(id: proposedRun.id) { applyResult in
-                            DispatchQueue.main.async {
+                        pipeline.applyConfirmedRun(id: proposedRun.id) { applyResult in
+                            Task { @MainActor in
                                 switch applyResult {
                                 case .success(let run):
-                                    self?.evaLastBatchRunID = run.id
-                                    self?.enqueueReload(
+                                    self.evaLastBatchRunID = run.id
+                                    self.enqueueReload(
                                         source: "eva_batch_apply",
                                         reason: .bulkChanged,
                                         invalidateCaches: true,
                                         includeAnalytics: false,
                                         repostEvent: true
                                     )
-                                    self?.trackHomeInteraction(action: source == .triage ? "triage_bulk_apply" : "rescue_apply_confirmed", metadata: [
+                                    self.trackHomeInteraction(action: source == .triage ? "triage_bulk_apply" : "rescue_apply_confirmed", metadata: [
                                         "mutation_count": mutations.count
                                     ])
                                     completion(.success(run))
@@ -3203,7 +3274,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     public func applyAllTriageSuggestions(
         confidenceThreshold: Double = 0.75,
-        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void
     ) {
         let mutations = evaTriageQueue.compactMap { item -> EvaBatchMutationInstruction? in
             var mutation = EvaBatchMutationInstruction(taskID: item.task.id)
@@ -3242,7 +3313,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
 
         applyEvaBatchPlan(source: .triage, mutations: mutations) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 if case .success = result {
                     self?.evaTriageQueue.removeAll()
                 }
@@ -3253,30 +3324,32 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     public func applyRescuePlan(
         mutations: [EvaBatchMutationInstruction],
-        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void
     ) {
         trackHomeInteraction(action: "rescue_apply_tap", metadata: [
             "mutation_count": mutations.count
         ])
         applyEvaBatchPlan(source: .rescue, mutations: mutations) { [weak self] result in
-            switch result {
-            case .success(let run):
-                self?.trackHomeInteraction(action: "rescue_apply_success", metadata: [
-                    "run_id": run.id.uuidString,
-                    "mutation_count": mutations.count
-                ])
-                completion(.success(run))
-            case .failure(let error):
-                self?.trackHomeInteraction(action: "rescue_apply_error", metadata: [
-                    "error": error.localizedDescription
-                ])
-                completion(.failure(error))
+            Task { @MainActor [weak self] in
+                switch result {
+                case .success(let run):
+                    self?.trackHomeInteraction(action: "rescue_apply_success", metadata: [
+                        "run_id": run.id.uuidString,
+                        "mutation_count": mutations.count
+                    ])
+                    completion(.success(run))
+                case .failure(let error):
+                    self?.trackHomeInteraction(action: "rescue_apply_error", metadata: [
+                        "error": error.localizedDescription
+                    ])
+                    completion(.failure(error))
+                }
             }
         }
     }
 
     public func undoEvaBatchPlan(
-        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void
     ) {
         guard let runID = evaLastBatchRunID else {
             completion(.failure(NSError(
@@ -3287,7 +3360,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             return
         }
         useCaseCoordinator.assistantActionPipeline.undoAppliedRun(id: runID) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let run):
                     self?.enqueueReload(
@@ -3309,21 +3382,23 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     public func undoRescueRun(
-        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void
     ) {
         trackHomeInteraction(action: "rescue_undo_tap", metadata: [:])
         undoEvaBatchPlan { [weak self] result in
-            switch result {
-            case .success(let run):
-                self?.trackHomeInteraction(action: "rescue_undo_success", metadata: [
-                    "run_id": run.id.uuidString
-                ])
-                completion(.success(run))
-            case .failure(let error):
-                self?.trackHomeInteraction(action: "rescue_undo_error", metadata: [
-                    "error": error.localizedDescription
-                ])
-                completion(.failure(error))
+            Task { @MainActor [weak self] in
+                switch result {
+                case .success(let run):
+                    self?.trackHomeInteraction(action: "rescue_undo_success", metadata: [
+                        "run_id": run.id.uuidString
+                    ])
+                    completion(.success(run))
+                case .failure(let error):
+                    self?.trackHomeInteraction(action: "rescue_undo_error", metadata: [
+                        "error": error.localizedDescription
+                    ])
+                    completion(.failure(error))
+                }
             }
         }
     }
@@ -3331,7 +3406,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     public func createSplitChildren(
         parentTaskID: UUID,
         draft: EvaSplitDraft,
-        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void
     ) {
         guard let parent = currentTaskSnapshot(for: parentTaskID) ?? focusOpenTasksForCurrentState().first(where: { $0.id == parentTaskID }) ?? overdueTasks.first(where: { $0.id == parentTaskID }) else {
             completion(.failure(NSError(
@@ -3356,9 +3431,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
         let dueDate = draft.childDuePreset?.resolveDueDate()
         let group = DispatchGroup()
-        let lock = NSLock()
-        var created: [TaskDefinition] = []
-        var firstError: Error?
+        let accumulator = LockedHomeMetadataAccumulator([TaskDefinition]())
 
         trackHomeInteraction(action: "rescue_split_open", metadata: [
             "parent_task_id": parentTaskID.uuidString
@@ -3383,15 +3456,11 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             )
 
             useCaseCoordinator.createTaskDefinition.execute(request: request) { result in
-                lock.lock()
-                defer { lock.unlock() }
                 switch result {
                 case .success(let task):
-                    created.append(task)
+                    accumulator.update { $0.append(task) }
                 case .failure(let error):
-                    if firstError == nil {
-                        firstError = error
-                    }
+                    accumulator.record(error)
                 }
                 group.leave()
             }
@@ -3399,32 +3468,34 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
         group.notify(queue: .main) { [weak self] in
             guard let self else { return }
-            if let firstError {
+            switch accumulator.result() {
+            case .failure(let firstError):
                 self.trackHomeInteraction(action: "rescue_apply_error", metadata: [
                     "split_parent_task_id": parentTaskID.uuidString,
                     "error": firstError.localizedDescription
                 ])
                 completion(.failure(firstError))
                 return
+            case .success(let created):
+                self.enqueueReload(
+                    source: "rescue_split_created",
+                    reason: .updated,
+                    invalidateCaches: true,
+                    includeAnalytics: false,
+                    repostEvent: true
+                )
+                self.trackHomeInteraction(action: "rescue_split_created", metadata: [
+                    "parent_task_id": parentTaskID.uuidString,
+                    "child_count": created.count
+                ])
+                completion(.success(created))
             }
-            self.enqueueReload(
-                source: "rescue_split_created",
-                reason: .updated,
-                invalidateCaches: true,
-                includeAnalytics: false,
-                repostEvent: true
-            )
-            self.trackHomeInteraction(action: "rescue_split_created", metadata: [
-                "parent_task_id": parentTaskID.uuidString,
-                "child_count": created.count
-            ])
-            completion(.success(created))
         }
     }
 
     public func undoCreatedSplitChildren(
         childTaskIDs: [UUID],
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard childTaskIDs.isEmpty == false else {
             completion(.success(()))
@@ -3432,24 +3503,21 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
 
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
+        let accumulator = LockedHomeMetadataAccumulator(())
 
         for taskID in childTaskIDs {
             group.enter()
             useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID, scope: .single) { result in
-                lock.lock()
-                if case .failure(let error) = result, firstError == nil {
-                    firstError = error
+                if case .failure(let error) = result {
+                    accumulator.record(error)
                 }
-                lock.unlock()
                 group.leave()
             }
         }
 
         group.notify(queue: .main) { [weak self] in
             guard let self else { return }
-            if let firstError {
+            if case .failure(let firstError) = accumulator.result() {
                 completion(.failure(firstError))
                 return
             }
@@ -3605,7 +3673,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         taskID: UUID,
         to requestedCompletion: Bool,
         taskSnapshot: TaskDefinition?,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         logDebug(
             "HOME_ROW_STATE vm.toggle_input id=\(taskID.uuidString) " +
@@ -3615,7 +3683,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             taskID: taskID,
             to: requestedCompletion
         ) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let updatedTask):
                     self?.completionOverrides[updatedTask.id] = updatedTask.isComplete
@@ -3684,8 +3752,8 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     /// Executes loadInitialData.
     private func loadInitialData() {
-        let interval = TaskerPerformanceTrace.begin("HomeInitialLoad")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("HomeInitialLoad")
+        defer { LifeBoardPerformanceTrace.end(interval) }
 
         homeOpenedAt = Date()
         didTrackFirstCompletionLatency = false
@@ -3697,7 +3765,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         if case .today = activeScope {
             selectedDate = Date()
         }
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "home_initial_load_started",
             message: "Starting home initial load",
             counts: [
@@ -3712,16 +3780,18 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         loadTags(generation: generation)
         calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: "home_initial_load")
         applyFocusFilters(trackAnalytics: false, generation: generation) { [weak self] in
-            TaskerMemoryDiagnostics.checkpoint(
-                event: "home_initial_load_finished",
-                message: "Finished home initial load",
-                counts: [
-                    "morning_count": self?.morningTasks.count ?? 0,
-                    "evening_count": self?.eveningTasks.count ?? 0,
-                    "overdue_count": self?.overdueTasks.count ?? 0
-                ]
-            )
-            self?.scheduleInitialDeferredAnalyticsRefreshIfNeeded()
+            Task { @MainActor in
+                LifeBoardMemoryDiagnostics.checkpoint(
+                    event: "home_initial_load_finished",
+                    message: "Finished home initial load",
+                    counts: [
+                        "morning_count": self?.morningTasks.count ?? 0,
+                        "evening_count": self?.eveningTasks.count ?? 0,
+                        "overdue_count": self?.overdueTasks.count ?? 0
+                    ]
+                )
+                self?.scheduleInitialDeferredAnalyticsRefreshIfNeeded()
+            }
         }
     }
 
@@ -3737,7 +3807,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     /// Executes loadDailyAnalytics.
     private func loadDailyAnalytics(
         includeGamificationRefresh: Bool = true,
-        completion: (() -> Void)? = nil
+        completion: (@Sendable () -> Void)? = nil
     ) {
         pendingAnalyticsIncludeGamificationRefresh = pendingAnalyticsIncludeGamificationRefresh || includeGamificationRefresh
         if let completion {
@@ -3772,9 +3842,9 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         pendingDeferredAnalyticsRefreshWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            let interval = TaskerPerformanceTrace.begin("HomeDeferredAnalyticsRefresh")
+            let interval = LifeBoardPerformanceTrace.begin("HomeDeferredAnalyticsRefresh")
             self.loadDailyAnalytics(includeGamificationRefresh: includeGamificationRefresh) {
-                TaskerPerformanceTrace.end(interval)
+                LifeBoardPerformanceTrace.end(interval)
                 logWarning(
                     event: "home_deferred_analytics_refresh",
                     message: "Deferred analytics refresh completed",
@@ -3805,7 +3875,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                     for: Date(),
                     habitSignals: self.currentHabitSignals
                 ) { [weak self] _ in
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
                         defer { completionGroup.leave() }
                         guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
                     }
@@ -3819,7 +3889,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
             completionGroup.enter()
             engine.fetchTodayXP { [weak self] result in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     defer { completionGroup.leave() }
                     guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
                     if case .success(let todayXP) = result {
@@ -3831,7 +3901,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
             completionGroup.enter()
             engine.fetchCurrentProfile { [weak self] result in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     defer { completionGroup.leave() }
                     guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
                     if case .success(let profile) = result {
@@ -3855,7 +3925,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             for: Date(),
             habitSignals: currentHabitSignals
         ) { [weak self] _ in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 defer { completionGroup.leave() }
                 guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
             }
@@ -3864,7 +3934,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         if !V2FeatureFlags.gamificationV2Enabled {
             completionGroup.enter()
             useCaseCoordinator.calculateAnalytics.calculateStreak { [weak self] result in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     defer { completionGroup.leave() }
                     guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
                     if case .success(let streakInfo) = result {
@@ -3917,21 +3987,15 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         targetDay: Date,
         scope: HomeListScope,
         includeAnalyticsRefresh: Bool = true,
-        completion: (() -> Void)? = nil
+        completion: (@Sendable () -> Void)? = nil
     ) {
         let day = normalizedDay(targetDay)
         let group = DispatchGroup()
-        let stateLock = NSLock()
-        var agendaHabitRows: [HomeHabitRow] = []
-        var trackingHabitRows: [HomeHabitRow] = []
-        var historyByHabitID: [UUID: [HabitDayMark]] = [:]
-        var libraryRowsByID: [UUID: HabitLibraryRow] = [:]
+        let accumulator = LockedHomeMetadataAccumulator(HomeDueTodayAgendaLoadState())
 
         group.enter()
         buildHabitHomeProjectionUseCase.execute(date: day) { result in
-            stateLock.lock()
-            agendaHabitRows = (try? result.get()) ?? []
-            stateLock.unlock()
+            accumulator.update { $0.agendaHabitRows = (try? result.get()) ?? [] }
             group.leave()
         }
 
@@ -3943,23 +4007,20 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             }
             switch result {
             case .failure:
-                stateLock.lock()
-                libraryRowsByID = [:]
-                stateLock.unlock()
+                accumulator.update { $0.libraryRowsByID = [:] }
                 group.leave()
             case .success(let libraryRows):
-                stateLock.lock()
-                libraryRowsByID = Dictionary(uniqueKeysWithValues: libraryRows.map { ($0.habitID, $0) })
-                stateLock.unlock()
+                accumulator.update {
+                    $0.libraryRowsByID = Dictionary(uniqueKeysWithValues: libraryRows.map { ($0.habitID, $0) })
+                }
                 guard libraryRows.isEmpty == false else {
-                    stateLock.lock()
-                    let lockedHistory = historyByHabitID
-                    trackingHabitRows = self.trackingHomeRows(
-                        from: libraryRows,
-                        historyByHabitID: lockedHistory,
-                        on: day
-                    )
-                    stateLock.unlock()
+                    accumulator.update { state in
+                        state.trackingHabitRows = Self.trackingHomeRows(
+                            from: libraryRows,
+                            historyByHabitID: state.historyByHabitID,
+                            on: day
+                        )
+                    }
                     group.leave()
                     return
                 }
@@ -3975,15 +4036,15 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                             partialResult[window.habitID] = window.marks
                         }
                     }
-                    let resolvedTrackingRows = self.trackingHomeRows(
+                    let resolvedTrackingRows = Self.trackingHomeRows(
                         from: libraryRows,
                         historyByHabitID: resolvedHistoryByHabitID,
                         on: day
                     )
-                    stateLock.lock()
-                    historyByHabitID = resolvedHistoryByHabitID
-                    trackingHabitRows = resolvedTrackingRows
-                    stateLock.unlock()
+                    accumulator.update {
+                        $0.historyByHabitID = resolvedHistoryByHabitID
+                        $0.trackingHabitRows = resolvedTrackingRows
+                    }
                     group.leave()
                 }
                 group.leave()
@@ -3993,19 +4054,19 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         group.notify(queue: .main) { [weak self] in
             defer { completion?() }
             guard let self, self.isCurrentReloadGeneration(generation) else {
-                TaskerPerformanceTrace.event("HomeDaySwipeStaleDrop")
+                LifeBoardPerformanceTrace.event("HomeDaySwipeStaleDrop")
                 return
             }
             guard self.selectedDayMatches(day, scope: scope) else {
-                TaskerPerformanceTrace.event("HomeDaySwipeStaleDrop")
+                LifeBoardPerformanceTrace.event("HomeDaySwipeStaleDrop")
                 return
             }
 
-            stateLock.lock()
-            let resolvedAgendaHabitRows = agendaHabitRows
-            let resolvedTrackingHabitRows = trackingHabitRows
-            let resolvedLibraryRowsByID = libraryRowsByID
-            stateLock.unlock()
+            let result = accumulator.result()
+            guard case .success(let loadState) = result else { return }
+            let resolvedAgendaHabitRows = loadState.agendaHabitRows
+            let resolvedTrackingHabitRows = loadState.trackingHabitRows
+            let resolvedLibraryRowsByID = loadState.libraryRowsByID
 
             let allHabitRows = self.mergeHabitRows(
                 agenda: resolvedAgendaHabitRows,
@@ -4086,26 +4147,18 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private func fetchCanonicalHabitMutationState(
         habitID: UUID,
         on date: Date,
-        completion: @escaping (Result<CanonicalHabitMutationState, Error>) -> Void
+        completion: @escaping @Sendable (Result<CanonicalHabitMutationState, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let stateLock = NSLock()
-        var projectionRow: HomeHabitRow?
-        var libraryRow: HabitLibraryRow?
-        var historyByHabitID: [UUID: [HabitDayMark]] = [:]
-        var reconciliationError: Error?
+        let accumulator = LockedHomeMetadataAccumulator(HomeCanonicalHabitMutationLoadState())
 
         group.enter()
         buildHabitHomeProjectionUseCase.execute(date: date, habitID: habitID) { result in
             switch result {
             case .failure(let error):
-                stateLock.lock()
-                reconciliationError = reconciliationError ?? error
-                stateLock.unlock()
+                accumulator.record(error)
             case .success(let row):
-                stateLock.lock()
-                projectionRow = row
-                stateLock.unlock()
+                accumulator.update { $0.projectionRow = row }
             }
             group.leave()
         }
@@ -4118,15 +4171,12 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             }
             switch result {
             case .failure(let error):
-                stateLock.lock()
-                reconciliationError = reconciliationError ?? error
-                stateLock.unlock()
+                accumulator.record(error)
                 group.leave()
             case .success(let rows):
-                stateLock.lock()
-                libraryRow = rows.first
-                let hasLibraryRow = libraryRow != nil
-                stateLock.unlock()
+                let resolvedLibraryRow = rows.first
+                accumulator.update { $0.libraryRow = resolvedLibraryRow }
+                let hasLibraryRow = resolvedLibraryRow != nil
                 guard hasLibraryRow else {
                     group.leave()
                     return
@@ -4139,15 +4189,12 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                 ) { historyResult in
                     switch historyResult {
                     case .failure(let error):
-                        stateLock.lock()
-                        reconciliationError = reconciliationError ?? error
-                        stateLock.unlock()
+                        accumulator.record(error)
                     case .success(let windows):
-                        stateLock.lock()
-                        historyByHabitID = windows.reduce(into: [:]) { partialResult, window in
+                        let resolvedHistoryByHabitID = windows.reduce(into: [:]) { partialResult, window in
                             partialResult[window.habitID] = window.marks
                         }
-                        stateLock.unlock()
+                        accumulator.update { $0.historyByHabitID = resolvedHistoryByHabitID }
                     }
                     group.leave()
                 }
@@ -4156,21 +4203,19 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
 
         group.notify(queue: .main) { [weak self] in
-            stateLock.lock()
-            let resolvedProjectionRow = projectionRow
-            let resolvedLibraryRow = libraryRow
-            let resolvedHistoryByHabitID = historyByHabitID
-            let resolvedError = reconciliationError
-            stateLock.unlock()
-
-            if let resolvedError {
-                completion(.failure(resolvedError))
+            let result = accumulator.result()
+            if case .failure(let error) = result {
+                completion(.failure(error))
                 return
             }
+            guard case .success(let loadState) = result else { return }
+            let resolvedProjectionRow = loadState.projectionRow
+            let resolvedLibraryRow = loadState.libraryRow
+            let resolvedHistoryByHabitID = loadState.historyByHabitID
 
             let trackingRow: HomeHabitRow?
-            if let resolvedLibraryRow, let strongSelf = self {
-                trackingRow = strongSelf.trackingHomeRows(
+            if let resolvedLibraryRow {
+                trackingRow = Self.trackingHomeRows(
                     from: [resolvedLibraryRow],
                     historyByHabitID: resolvedHistoryByHabitID,
                     on: date
@@ -4197,10 +4242,10 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         habitID: UUID,
         on date: Date
     ) {
-        let interval = TaskerPerformanceTrace.begin("HomeHabitRowReconcile")
+        let interval = LifeBoardPerformanceTrace.begin("HomeHabitRowReconcile")
         fetchCanonicalHabitMutationState(habitID: habitID, on: date) { [weak self] result in
-            DispatchQueue.main.async {
-                defer { TaskerPerformanceTrace.end(interval) }
+            Task { @MainActor in
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
                 guard Calendar.current.isDate(date, inSameDayAs: self.selectedDate) else { return }
 
@@ -4231,8 +4276,8 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                         self.habitLibraryRowsByID.removeValue(forKey: habitID)
                     }
 
-                    TaskerPerformanceTrace.event("HomeUserMutationRecomputedRows", value: patch.affectedRowCount)
-                    TaskerPerformanceTrace.event("HomeUserMutationRecomputedSections", value: patch.affectedSectionCount)
+                    LifeBoardPerformanceTrace.event("HomeUserMutationRecomputedRows", value: patch.affectedRowCount)
+                    LifeBoardPerformanceTrace.event("HomeUserMutationRecomputedSections", value: patch.affectedSectionCount)
                     logDebug(
                         "HOME_HABIT_STATE vm.reconcile_apply id=\(habitID.uuidString) " +
                         "rows=\(patch.affectedRowCount) sections=\(patch.affectedSectionCount)"
@@ -4242,9 +4287,9 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func habitSignals(from rows: [HomeHabitRow]) -> [TaskerHabitSignal] {
+    private func habitSignals(from rows: [HomeHabitRow]) -> [LifeBoardHabitSignal] {
         rows.map { row in
-            TaskerHabitSignal(
+            LifeBoardHabitSignal(
                 habitID: row.habitID,
                 title: row.title,
                 isPositive: row.kind == .positive,
@@ -4404,7 +4449,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func trackingHomeRows(
+    private nonisolated static func trackingHomeRows(
         from rows: [HabitLibraryRow],
         historyByHabitID: [UUID: [HabitDayMark]] = [:],
         on date: Date
@@ -4612,28 +4657,28 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
         habitMutationErrorMessage = nil
         pendingHabitMutationKeys.insert(key)
-        pendingHabitMutationIntervals[key] = TaskerPerformanceTrace.begin("HomeUserMutation")
+        pendingHabitMutationIntervals[key] = LifeBoardPerformanceTrace.begin("HomeUserMutation")
         if Calendar.current.isDate(date, inSameDayAs: selectedDate) {
             pendingHabitMutationSnapshots[key] = captureHabitMutationSnapshot()
 
-            let applyInterval = TaskerPerformanceTrace.begin("HomeHabitOptimisticApply")
+            let applyInterval = LifeBoardPerformanceTrace.begin("HomeHabitOptimisticApply")
             let didApplyOptimisticUpdate = applyOptimisticHabitMutation(
                 row,
                 request: request,
                 on: date
             )
-            TaskerPerformanceTrace.end(applyInterval)
+            LifeBoardPerformanceTrace.end(applyInterval)
 
             guard didApplyOptimisticUpdate else {
                 if let interval = pendingHabitMutationIntervals.removeValue(forKey: key) {
-                    TaskerPerformanceTrace.end(interval)
+                    LifeBoardPerformanceTrace.end(interval)
                 }
                 pendingHabitMutationKeys.remove(key)
                 pendingHabitMutationSnapshots.removeValue(forKey: key)
                 return
             }
             habitMutationFeedback = makeHabitMutationFeedback(for: request, row: row, date: date)
-            TaskerPerformanceTrace.event("HomeUserMutationOptimisticApplied")
+            LifeBoardPerformanceTrace.event("HomeUserMutationOptimisticApplied")
         }
 
         let mutationContext = HabitMutationContext(source: source)
@@ -4649,7 +4694,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                 on: date,
                 mutationContext: mutationContext
             ) { [weak self] result in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self?.handleHabitMutationResult(
                         result,
                         key: key,
@@ -4668,7 +4713,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                 on: date,
                 mutationContext: mutationContext
             ) { [weak self] result in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self?.handleHabitMutationResult(
                         result,
                         key: key,
@@ -4692,7 +4737,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     ) {
         defer {
             if let interval = pendingHabitMutationIntervals.removeValue(forKey: key) {
-                TaskerPerformanceTrace.end(interval)
+                LifeBoardPerformanceTrace.end(interval)
             }
         }
 
@@ -4708,7 +4753,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             errorMessage = error.localizedDescription
 
         case .success:
-            TaskerPerformanceTrace.event("HomeUserMutationPersistenceComplete")
+            LifeBoardPerformanceTrace.event("HomeUserMutationPersistenceComplete")
             pendingHabitMutationSnapshots.removeValue(forKey: key)
             pendingHabitMutationKeys.remove(key)
             habitMutationErrorMessage = nil
@@ -4808,8 +4853,8 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             "HOME_HABIT_STATE vm.local_apply id=\(row.habitID.uuidString) " +
             "state=\(updatedRow.state.rawValue) rows=\(patch.affectedRowCount) sections=\(patch.affectedSectionCount)"
         )
-        TaskerPerformanceTrace.event("HomeUserMutationRecomputedRows", value: patch.affectedRowCount)
-        TaskerPerformanceTrace.event("HomeUserMutationRecomputedSections", value: patch.affectedSectionCount)
+        LifeBoardPerformanceTrace.event("HomeUserMutationRecomputedRows", value: patch.affectedRowCount)
+        LifeBoardPerformanceTrace.event("HomeUserMutationRecomputedSections", value: patch.affectedSectionCount)
         return true
     }
 
@@ -5012,7 +5057,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private func patchCurrentHabitSignals(
         habitID: UUID,
         canonicalRow: HomeHabitRow?
-    ) -> [TaskerHabitSignal] {
+    ) -> [LifeBoardHabitSignal] {
         var signals = currentHabitSignals
         if let index = signals.firstIndex(where: { $0.habitID == habitID }) {
             if let canonicalRow {
@@ -5427,7 +5472,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         let engine = useCaseCoordinator.gamificationEngine
 
         engine.fetchTodayXP { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 if let generation, !self.isCurrentAnalyticsGeneration(generation) { return }
                 if case .success(let todayXP) = result {
@@ -5438,7 +5483,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
 
         engine.fetchCurrentProfile { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 if let generation, !self.isCurrentAnalyticsGeneration(generation) { return }
                 if case .success(let profile) = result {
@@ -5456,7 +5501,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private func refreshDailyScoreFromCompletedTasksToday(
         referenceDate: Date = Date(),
         generation: Int? = nil,
-        completion: (() -> Void)? = nil
+        completion: (@Sendable () -> Void)? = nil
     ) {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: referenceDate)
@@ -5466,7 +5511,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
 
         useCaseCoordinator.getTasks.searchTasks(query: "", in: .all) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 defer { completion?() }
                 guard let self else { return }
                 if let generation, !self.isCurrentAnalyticsGeneration(generation) { return }
@@ -5513,7 +5558,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         isLoading = true
 
         useCaseCoordinator.getTasks.getTasksForProject(projectID) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
                     logDebug("HOME_ROW_STATE vm.drop_stale_reload source=project generation=\(generation)")
@@ -5546,8 +5591,8 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private func applyReloadScopes(
         _ scopes: Set<HomeReloadScope>,
         generation: Int,
-        visibleTasksCompletion: (() -> Void)? = nil,
-        habitsCompletion: (() -> Void)? = nil
+        visibleTasksCompletion: (@Sendable () -> Void)? = nil,
+        habitsCompletion: (@Sendable () -> Void)? = nil
     ) {
         if scopes.contains(.savedViews) {
             loadSavedViews()
@@ -5564,7 +5609,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             )
         }
         if scopes.contains(.habits) {
-            let interval = TaskerPerformanceTrace.begin("HomeHabitScopedReload")
+            let interval = LifeBoardPerformanceTrace.begin("HomeHabitScopedReload")
             let targetDay = normalizedDay(activeScope.referenceDate)
             let scope = activeScope
             refreshDueTodayAgenda(
@@ -5574,7 +5619,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                 scope: scope,
                 includeAnalyticsRefresh: false,
                 completion: {
-                    TaskerPerformanceTrace.end(interval)
+                    LifeBoardPerformanceTrace.end(interval)
                     habitsCompletion?()
                 }
             )
@@ -5600,15 +5645,15 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private func applyFocusFilters(
         trackAnalytics: Bool,
         generation: Int,
-        completion: (() -> Void)? = nil
+        completion: (@Sendable () -> Void)? = nil
     ) {
-        let interval = TaskerPerformanceTrace.begin("HomeApplyFilters")
+        let interval = LifeBoardPerformanceTrace.begin("HomeApplyFilters")
         let filterState = activeFilterState
         let scope = activeScope
         let revision = dataRevision
         let targetDay = normalizedDay(scope.referenceDate)
         if scope.quickView == .today {
-            TaskerPerformanceTrace.event(
+            LifeBoardPerformanceTrace.event(
                 homeFilteredTasksUseCase.hasCachedResult(
                     state: filterState,
                     scope: scope,
@@ -5624,18 +5669,18 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             scope: scope,
             revision: revision
         ) { [weak self] result in
-            DispatchQueue.main.async {
-                defer { TaskerPerformanceTrace.end(interval) }
+            Task { @MainActor in
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 defer { completion?() }
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
                     logDebug("HOME_ROW_STATE vm.drop_stale_reload source=focus generation=\(generation)")
-                    TaskerPerformanceTrace.event("HomeDaySwipeStaleDrop")
+                    LifeBoardPerformanceTrace.event("HomeDaySwipeStaleDrop")
                     return
                 }
                 guard self.selectedDayMatches(targetDay, scope: scope) else {
                     logDebug("HOME_ROW_STATE vm.drop_stale_day source=focus generation=\(generation)")
-                    TaskerPerformanceTrace.event("HomeDaySwipeStaleDrop")
+                    LifeBoardPerformanceTrace.event("HomeDaySwipeStaleDrop")
                     return
                 }
                 self.isLoading = false
@@ -5699,7 +5744,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                 revision: revision
             ) { result in
                 if case .success = result {
-                    TaskerPerformanceTrace.event("HomeDaySwipePrefetchReady")
+                    LifeBoardPerformanceTrace.event("HomeDaySwipePrefetchReady")
                 }
             }
         }
@@ -5868,7 +5913,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         assignIfChanged(\.weeklySummaryIsLoading, true)
         assignIfChanged(\.weeklySummaryErrorMessage, nil)
         useCaseCoordinator.getWeeklySummary.execute(referenceDate: Date()) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 guard self.isCurrentWeeklySummaryGeneration(generation) else {
                     logDebug("HOME_WEEKLY_SUMMARY vm.drop_stale generation=\(generation)")
@@ -5996,7 +6041,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             focusTasks: focusTasks,
             anchorDate: anchorDate
         ) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self, self.evaInsightsGeneration == requestGeneration else { return }
                 switch result {
                 case .success(let insights):
@@ -6275,7 +6320,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             return
         }
         lastTaskListSnapshotRevision = dataRevision
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "widget_snapshot_scheduled",
             message: "Scheduling task list widget snapshot refresh",
             fields: ["reason": reason],
@@ -6393,7 +6438,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
     private func reloadTaskListWidgetTimelines() {
         #if canImport(WidgetKit)
-        DispatchQueue.main.async {
+        Task { @MainActor in
             WidgetCenter.shared.reloadAllTimelines()
         }
         #endif
@@ -6476,24 +6521,26 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         if shouldInvalidate {
             invalidateTaskCaches()
         }
-        let interval = TaskerPerformanceTrace.begin("HomeReloadBatch")
+        let interval = LifeBoardPerformanceTrace.begin("HomeReloadBatch")
         let generation = nextReloadGeneration()
         let tracker = HomeReloadBatchTracker { [weak self] in
-            TaskerPerformanceTrace.end(interval)
-            logWarning(
-                event: "home_reload_batch_applied",
-                message: "Applied coalesced Home reload batch",
-                fields: [
-                    "source_count": String(sources.count),
-                    "reason_count": String(reasons.count),
-                    "scope_count": String(scopes.count),
-                    "invalidate_caches": shouldInvalidate ? "true" : "false",
-                    "include_analytics": shouldIncludeAnalytics ? "true" : "false",
-                    "repost_event": shouldRepostEvent ? "true" : "false",
-                    "duration_ms": String(Int(Date().timeIntervalSince(reloadStartedAt) * 1_000))
-                ]
-            )
-            self?.completeReloadBatchLifecycle()
+            Task { @MainActor in
+                LifeBoardPerformanceTrace.end(interval)
+                logWarning(
+                    event: "home_reload_batch_applied",
+                    message: "Applied coalesced Home reload batch",
+                    fields: [
+                        "source_count": String(sources.count),
+                        "reason_count": String(reasons.count),
+                        "scope_count": String(scopes.count),
+                        "invalidate_caches": shouldInvalidate ? "true" : "false",
+                        "include_analytics": shouldIncludeAnalytics ? "true" : "false",
+                        "repost_event": shouldRepostEvent ? "true" : "false",
+                        "duration_ms": String(Int(Date().timeIntervalSince(reloadStartedAt) * 1_000))
+                    ]
+                )
+                self?.completeReloadBatchLifecycle()
+            }
         }
 
         if scopes.contains(.visibleTasks) {
@@ -6502,11 +6549,24 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         if scopes.contains(.habits) {
             tracker.registerOperation()
         }
+        let visibleTasksCompletion: (@Sendable () -> Void)?
+        if scopes.contains(.visibleTasks) {
+            visibleTasksCompletion = { tracker.completeOperation() }
+        } else {
+            visibleTasksCompletion = nil
+        }
+        let habitsCompletion: (@Sendable () -> Void)?
+        if scopes.contains(.habits) {
+            habitsCompletion = { tracker.completeOperation() }
+        } else {
+            habitsCompletion = nil
+        }
+
         applyReloadScopes(
             scopes,
             generation: generation,
-            visibleTasksCompletion: scopes.contains(.visibleTasks) ? { tracker.completeOperation() } : nil,
-            habitsCompletion: scopes.contains(.habits) ? { tracker.completeOperation() } : nil
+            visibleTasksCompletion: visibleTasksCompletion,
+            habitsCompletion: habitsCompletion
         )
 
         if scopes.contains(.habits),
@@ -6901,7 +6961,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         guard let entry = replanUndoStack.last else { return }
         beginReplanApplying(.undo)
         useCaseCoordinator.assistantActionPipeline.undoAppliedRun(id: entry.runID) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 switch result {
                 case .success:
@@ -6972,7 +7032,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                 offset: 0
             )
         ) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 guard self.activeGlobalReplanFetchToken == fetchToken else { return }
                 let completedRevision = self.activeGlobalReplanFetchRevision
@@ -7087,19 +7147,19 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             rationaleText: "Needs Replan"
         )
         let threadID = "home-needs-replan-\(UUID().uuidString)"
-        useCaseCoordinator.assistantActionPipeline.propose(threadID: threadID, envelope: envelope) { [weak self] proposeResult in
+        let pipeline = useCaseCoordinator.assistantActionPipeline
+        pipeline.propose(threadID: threadID, envelope: envelope) { proposeResult in
             switch proposeResult {
             case .failure(let error):
-                DispatchQueue.main.async { self?.recordReplanFailure(error) }
+                Task { @MainActor in self.recordReplanFailure(error) }
             case .success(let proposedRun):
-                self?.useCaseCoordinator.assistantActionPipeline.confirm(runID: proposedRun.id) { confirmResult in
+                pipeline.confirm(runID: proposedRun.id) { confirmResult in
                     switch confirmResult {
                     case .failure(let error):
-                        DispatchQueue.main.async { self?.recordReplanFailure(error) }
+                        Task { @MainActor in self.recordReplanFailure(error) }
                     case .success:
-                        self?.useCaseCoordinator.assistantActionPipeline.applyConfirmedRun(id: proposedRun.id) { applyResult in
-                            DispatchQueue.main.async {
-                                guard let self else { return }
+                        pipeline.applyConfirmedRun(id: proposedRun.id) { applyResult in
+                            Task { @MainActor in
                                 switch applyResult {
                                 case .failure(let error):
                                     self.recordReplanFailure(error)
@@ -7771,7 +7831,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     private static func buildHomeCalendarSnapshot(
-        from snapshot: TaskerCalendarSnapshot,
+        from snapshot: LifeBoardCalendarSnapshot,
         selectedDate: Date,
         accessAction: CalendarAccessAction
     ) -> HomeCalendarSnapshot {
@@ -7945,7 +8005,7 @@ public struct HomeProgressState: Equatable, Sendable {
     }
 }
 
-public struct SummaryTaskRow: Equatable, Identifiable {
+public struct SummaryTaskRow: Equatable, Identifiable, Sendable {
     public let taskID: UUID
     public let title: String
     public let priority: TaskPriority
@@ -7958,7 +8018,7 @@ public struct SummaryTaskRow: Equatable, Identifiable {
     public var id: UUID { taskID }
 }
 
-public struct MorningPlanSummary: Equatable {
+public struct MorningPlanSummary: Equatable, Sendable {
     public let date: Date
     public let openTodayCount: Int
     public let highPriorityCount: Int
@@ -7971,7 +8031,7 @@ public struct MorningPlanSummary: Equatable {
     public let eveningPlannedCount: Int
 }
 
-public struct NightlyRetrospectiveSummary: Equatable {
+public struct NightlyRetrospectiveSummary: Equatable, Sendable {
     public let date: Date
     public let completedCount: Int
     public let totalCount: Int
@@ -7986,7 +8046,7 @@ public struct NightlyRetrospectiveSummary: Equatable {
     public let eveningCompletedCount: Int
 }
 
-public enum DailySummaryModalData: Equatable {
+public enum DailySummaryModalData: Equatable, Sendable {
     case morning(MorningPlanSummary)
     case nightly(NightlyRetrospectiveSummary)
 
@@ -8075,8 +8135,8 @@ extension HomeViewModel {
         calendarSnapshot: HomeCalendarSnapshot,
         foredropAnchor: ForedropAnchor
     ) -> HomeTimelineSnapshot {
-        let interval = TaskerPerformanceTrace.begin("HomeTimelineSnapshotBuild")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("HomeTimelineSnapshotBuild")
+        defer { LifeBoardPerformanceTrace.end(interval) }
         let workspacePreferences = workspacePreferencesProvider()
         let showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
         let selectedDay = Calendar.current.startOfDay(for: selectedDate)
@@ -8223,7 +8283,7 @@ extension HomeViewModel {
     }
 
     func showCalendarEventsInTimelineFromHome() {
-        TaskerWorkspacePreferencesStore.shared.update { preferences in
+        LifeBoardWorkspacePreferencesStore.shared.update { preferences in
             preferences.showCalendarEventsInTimeline = true
         }
         calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: "home_timeline_show_calendar")
@@ -8486,7 +8546,7 @@ extension HomeViewModel {
         return item
     }
 
-    func timelinePlanItem(from event: TaskerCalendarEventSnapshot) -> TimelinePlanItem {
+    func timelinePlanItem(from event: LifeBoardCalendarEventSnapshot) -> TimelinePlanItem {
         TimelinePlanItem(
             id: "event:\(event.id)",
             source: .calendarEvent,
@@ -8513,7 +8573,7 @@ extension HomeViewModel {
 
     func resolvedTimelineAnchorWindow(
         on day: Date,
-        preferences: TaskerWorkspacePreferences,
+        preferences: LifeBoardWorkspacePreferences,
         calendar: Calendar = .current
     ) -> (wake: Date, sleep: Date) {
         let fallbackWake = timelineAnchorTime(on: day, hour: 5, minute: 0)
@@ -8877,7 +8937,7 @@ extension HomeViewModel {
         )
     }
 
-    func timelineIsMeetingLikeEvent(_ event: TaskerCalendarEventSnapshot) -> Bool {
+    func timelineIsMeetingLikeEvent(_ event: LifeBoardCalendarEventSnapshot) -> Bool {
         let normalized = "\(event.title) \(event.calendarTitle)".lowercased()
         return normalized.contains("meet")
             || normalized.contains("zoom")
@@ -8980,7 +9040,7 @@ extension HomeViewModel {
 
 enum TaskListWidgetCalendarProjection {
     static func make(
-        from snapshot: TaskerCalendarSnapshot,
+        from snapshot: LifeBoardCalendarSnapshot,
         weekStartsOn: Weekday,
         now: Date = Date(),
         calendar: Calendar = .current
@@ -9022,8 +9082,8 @@ enum TaskListWidgetCalendarProjection {
     }
 
     private static func status(
-        from snapshot: TaskerCalendarSnapshot,
-        todayEvents: [TaskerCalendarEventSnapshot],
+        from snapshot: LifeBoardCalendarSnapshot,
+        todayEvents: [LifeBoardCalendarEventSnapshot],
         timedEvents: [TaskListWidgetCalendarEvent]
     ) -> TaskListWidgetCalendarStatus {
         if snapshot.authorizationStatus.isAuthorizedForRead == false {
@@ -9045,7 +9105,7 @@ enum TaskListWidgetCalendarProjection {
     }
 
     private static func weekDays(
-        from sourceEvents: [TaskerCalendarEventSnapshot],
+        from sourceEvents: [LifeBoardCalendarEventSnapshot],
         anchorDate: Date,
         weekStartsOn: Weekday,
         calendar: Calendar
@@ -9079,10 +9139,10 @@ enum TaskListWidgetCalendarProjection {
     }
 
     private static func events(
-        from sourceEvents: [TaskerCalendarEventSnapshot],
+        from sourceEvents: [LifeBoardCalendarEventSnapshot],
         start: Date,
         end: Date
-    ) -> [TaskerCalendarEventSnapshot] {
+    ) -> [LifeBoardCalendarEventSnapshot] {
         sourceEvents
             .filter { $0.endDate > start && $0.startDate < end }
             .sorted { lhs, rhs in
@@ -9094,7 +9154,7 @@ enum TaskListWidgetCalendarProjection {
     }
 
     private static func nextMeeting(
-        from summary: TaskerNextMeetingSummary
+        from summary: LifeBoardNextMeetingSummary
     ) -> TaskListWidgetCalendarNextMeeting {
         TaskListWidgetCalendarNextMeeting(
             event: calendarEvent(from: summary.event),
@@ -9104,7 +9164,7 @@ enum TaskListWidgetCalendarProjection {
     }
 
     private static func calendarEvent(
-        from event: TaskerCalendarEventSnapshot
+        from event: LifeBoardCalendarEventSnapshot
     ) -> TaskListWidgetCalendarEvent {
         TaskListWidgetCalendarEvent(
             id: event.id,
@@ -9125,7 +9185,7 @@ enum TaskListWidgetTimelineProjection {
     static func make(
         tasks: [TaskDefinition],
         calendarSnapshot: TaskListWidgetCalendarSnapshot,
-        preferences: TaskerWorkspacePreferences,
+        preferences: LifeBoardWorkspacePreferences,
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> TaskListWidgetTimelineSnapshot {
@@ -9286,7 +9346,7 @@ enum TaskListWidgetTimelineProjection {
     private static func weekDays(
         tasks: [TaskDefinition],
         calendarSnapshot: TaskListWidgetCalendarSnapshot,
-        preferences: TaskerWorkspacePreferences,
+        preferences: LifeBoardWorkspacePreferences,
         anchorDate: Date,
         calendar: Calendar
     ) -> [TaskListWidgetTimelineWeekDay] {
@@ -9462,7 +9522,7 @@ enum TaskListWidgetTimelineProjection {
     private static func resolvedSleepAnchor(
         on day: Date,
         wakeAnchor: Date,
-        preferences: TaskerWorkspacePreferences,
+        preferences: LifeBoardWorkspacePreferences,
         calendar: Calendar
     ) -> Date {
         var sleep = timelineAnchorTime(
@@ -9544,10 +9604,10 @@ private extension TaskDefinition {
     }
 }
 
-final class TaskListWidgetSnapshotService {
+final class TaskListWidgetSnapshotService: @unchecked Sendable {
     static let shared = TaskListWidgetSnapshotService()
 
-    private let queue = DispatchQueue(label: "tasker.tasklist.widget.snapshot", qos: .utility)
+    private let queue = DispatchQueue(label: "lifeboard.tasklist.widget.snapshot", qos: .utility)
     private let debounceDelay: TimeInterval = 0.75
     private var pendingWorkItem: DispatchWorkItem?
     private var refreshInFlight = false
@@ -9580,7 +9640,7 @@ final class TaskListWidgetSnapshotService {
         }
         refreshInFlight = true
         pendingWorkItem = nil
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "widget_snapshot_refresh_started",
             message: "Refreshing task list widget snapshot",
             fields: ["reason": reason]
@@ -9600,7 +9660,7 @@ final class TaskListWidgetSnapshotService {
                 )
                 self.finishRefresh()
             case .success(let tasks):
-                TaskerMemoryDiagnostics.checkpoint(
+                LifeBoardMemoryDiagnostics.checkpoint(
                     event: "widget_snapshot_refresh_loaded",
                     message: "Loaded task list widget source data",
                     fields: ["reason": reason],
@@ -9610,7 +9670,7 @@ final class TaskListWidgetSnapshotService {
                     from: coordinator.calendarIntegrationService.snapshot,
                     weekStartsOn: coordinator.calendarIntegrationService.weekStartsOn
                 )
-                let workspacePreferences = TaskerWorkspacePreferencesStore.shared.load()
+                let workspacePreferences = LifeBoardWorkspacePreferencesStore.shared.load()
                 let now = Date()
                 self.loadHabitRows(coordinator: coordinator, on: now) { [weak self] habitRows in
                     guard let self else { return }
@@ -9649,7 +9709,7 @@ final class TaskListWidgetSnapshotService {
         now: Date = Date(),
         habitRows: [HomeHabitRow] = [],
         calendarSnapshot: TaskListWidgetCalendarSnapshot = .empty,
-        workspacePreferences: TaskerWorkspacePreferences = TaskerWorkspacePreferences()
+        workspacePreferences: LifeBoardWorkspacePreferences = LifeBoardWorkspacePreferences()
     ) -> TaskListWidgetSnapshot {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: now)
@@ -9772,16 +9832,12 @@ final class TaskListWidgetSnapshotService {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
         let group = DispatchGroup()
-        let stateLock = NSLock()
-        var agendaRows: [HomeHabitRow] = []
-        var trackingRows: [HomeHabitRow] = []
+        let state = LockedHomeMetadataAccumulator(HomeHabitWidgetRowsState())
 
         group.enter()
         coordinator.buildHabitHomeProjection.execute(date: day) { result in
             if case .success(let rows) = result {
-                stateLock.lock()
-                agendaRows = rows
-                stateLock.unlock()
+                state.update { $0.agendaRows = rows }
             }
             group.leave()
         }
@@ -9819,9 +9875,7 @@ final class TaskListWidgetSnapshotService {
                     on: day,
                     calendar: calendar
                 )
-                stateLock.lock()
-                trackingRows = rows
-                stateLock.unlock()
+                state.update { $0.trackingRows = rows }
                 group.leave()
             }
             group.leave()
@@ -9829,9 +9883,11 @@ final class TaskListWidgetSnapshotService {
 
         group.notify(queue: queue) { [weak self] in
             guard let self else { return }
-            stateLock.lock()
-            let mergedRows = self.mergeWidgetHabitRows(agenda: agendaRows, tracking: trackingRows)
-            stateLock.unlock()
+            let resolvedState = (try? state.result().get()) ?? HomeHabitWidgetRowsState()
+            let mergedRows = self.mergeWidgetHabitRows(
+                agenda: resolvedState.agendaRows,
+                tracking: resolvedState.trackingRows
+            )
             completion(mergedRows)
         }
     }
@@ -10139,7 +10195,7 @@ final class TaskListWidgetSnapshotService {
             "DeskTodayBoardWidget", "CountdownPanelWidget", "NightlyResetWidget",
             "MorningBriefPanelWidget", "ProjectPulseWidget", "FocusDockWidget"
         ]
-        DispatchQueue.main.async {
+        Task { @MainActor in
             let center = WidgetCenter.shared
             for kind in kinds {
                 center.reloadTimelines(ofKind: kind)
@@ -10179,65 +10235,47 @@ final class GetDailySummaryModalUseCase {
     }
 
     func execute(
-        kind: TaskerDailySummaryKind,
+        kind: LifeBoardDailySummaryKind,
         date: Date,
-        completion: @escaping (Result<DailySummaryModalData, Error>) -> Void
+        completion: @escaping @Sendable (Result<DailySummaryModalData, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let lock = NSLock()
-
-        var allTasksResult: Result<[TaskDefinition], GetTasksError>?
-        var analytics: DailyAnalytics?
-        var streakCount: Int?
-        var dateTasks: DateTasksResult?
+        let state = LockedHomeMetadataAccumulator(DailySummaryLoadState())
 
         group.enter()
         getTasksUseCase.searchTasks(query: "", in: .all) { result in
-            lock.lock()
-            allTasksResult = result
-            lock.unlock()
+            state.update { $0.allTasksResult = result }
             group.leave()
         }
 
         group.enter()
         analyticsUseCase.calculateDailyAnalytics(for: date) { result in
-            lock.lock()
             if case .success(let value) = result {
-                analytics = value
+                state.update { $0.analytics = value }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         analyticsUseCase.calculateStreak { result in
-            lock.lock()
             if case .success(let value) = result {
-                streakCount = value.currentStreak
+                state.update { $0.streakCount = value.currentStreak }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         getTasksUseCase.getTasksForDate(date) { result in
-            lock.lock()
             if case .success(let value) = result {
-                dateTasks = value
+                state.update { $0.dateTasks = value }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.notify(queue: .global(qos: .userInitiated)) {
-            lock.lock()
-            let resolvedTasksResult = allTasksResult
-            let resolvedAnalytics = analytics
-            let resolvedStreak = streakCount
-            let resolvedDateTasks = dateTasks
-            lock.unlock()
+            let resolvedState = (try? state.result().get()) ?? DailySummaryLoadState()
 
-            guard let resolvedTasksResult else {
+            guard let resolvedTasksResult = resolvedState.allTasksResult else {
                 completion(.failure(DailySummaryModalError.tasksUnavailable("Task data unavailable")))
                 return
             }
@@ -10251,9 +10289,9 @@ final class GetDailySummaryModalUseCase {
                         kind: kind,
                         date: date,
                         allTasks: allTasks,
-                        analytics: resolvedAnalytics,
-                        streakCount: resolvedStreak,
-                        dateTasks: resolvedDateTasks
+                        analytics: resolvedState.analytics,
+                        streakCount: resolvedState.streakCount,
+                        dateTasks: resolvedState.dateTasks
                     )
                 ))
             }
@@ -10261,7 +10299,7 @@ final class GetDailySummaryModalUseCase {
     }
 
     func buildSummary(
-        kind: TaskerDailySummaryKind,
+        kind: LifeBoardDailySummaryKind,
         date: Date,
         allTasks: [TaskDefinition],
         analytics: DailyAnalytics?,

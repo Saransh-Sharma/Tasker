@@ -1,6 +1,6 @@
 //
 //  PresentationDependencyContainer.swift
-//  Tasker
+//  LifeBoard
 //
 //  Dependency injection container for presentation layer with ViewModels
 //  This container receives pre-configured dependencies from the State layer

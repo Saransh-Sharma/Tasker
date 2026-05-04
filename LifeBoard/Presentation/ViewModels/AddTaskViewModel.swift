@@ -1,6 +1,6 @@
 //
 //  AddTaskViewModel.swift
-//  Tasker
+//  LifeBoard
 //
 //  ViewModel for Add Task screen - manages task creation workflow
 //
@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-public enum AddTaskPrefillDueIntent: Equatable {
+public enum AddTaskPrefillDueIntent: Equatable, Sendable {
     case none
     case today
     case exact(Date)
@@ -104,7 +104,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
     
     @Published public private(set) var projects: [Project] = []
     @Published public private(set) var lifeAreas: [LifeArea] = []
-    @Published public private(set) var sections: [TaskerProjectSection] = []
+    @Published public private(set) var sections: [LifeBoardProjectSection] = []
     @Published public private(set) var tags: [TagDefinition] = []
     @Published public private(set) var isLoading: Bool = false
     @Published public private(set) var errorMessage: String?
@@ -364,7 +364,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
     private let taskIconResolver: TaskIconResolver
     private let isAISuggestionRefinementReady: @MainActor () -> Bool
     private let nowProvider: () -> Date
-    private let taskIconResolutionQueue = DispatchQueue(label: "tasker.add-task-icon-resolution", qos: .userInitiated)
+    private let taskIconResolutionQueue = DispatchQueue(label: "lifeboard.add-task-icon-resolution", qos: .userInitiated)
     private var cancellables = Set<AnyCancellable>()
     private var suggestionTask: Task<Void, Never>?
     private var suggestionRequestToken = UUID()
@@ -541,7 +541,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
         createTaskDefinitionUseCase.execute(
             request: definitionRequest
         ) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.isLoading = false
 
                 switch result {
@@ -572,7 +572,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
     /// Load available projects
     public func loadProjects() {
         manageProjectsUseCase.getAllProjects { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let projectsWithStats):
                     let mappedProjects = projectsWithStats.map { $0.project }
@@ -612,7 +612,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
         let request = CreateProjectRequest(name: name)
         
         manageProjectsUseCase.createProject(request: request) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let project):
                     self?.selectProject(id: project.id)
@@ -633,7 +633,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
     }
 
     /// Create a tag inline from Add Task and select it on success.
-    public func createTag(name: String, completion: @escaping (Bool) -> Void) {
+    public func createTag(name: String, completion: @escaping @Sendable (Bool) -> Void) {
         let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalized.isEmpty == false else {
             completion(false)
@@ -645,7 +645,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
         }
 
         manageTagsUseCase.create(name: normalized, color: nil, icon: nil) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let createdTag):
                     guard let self else {
@@ -683,7 +683,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
         isLoading = true
 
         rescheduleTaskDefinitionUseCase.execute(taskID: taskId, newDate: newDate) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.isLoading = false
 
                 switch result {
@@ -749,7 +749,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
 
     private func loadWeeklyPlanningOptions() {
         buildWeeklyPlanSnapshotUseCase?.execute(referenceDate: Date()) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let snapshot):
                     self?.availableWeeklyOutcomes = snapshot.outcomes
@@ -947,7 +947,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
 
         guard let gamificationEngine else { return }
         gamificationEngine.fetchTodayXP { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 if let dailyXP = try? result.get() {
                     self.todayXPSoFar = max(0, dailyXP)
@@ -1018,10 +1018,10 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
         }
 
         isGeneratingSuggestion = true
-        let refineInterval = TaskerPerformanceTrace.begin("AddTaskSuggestionRefine")
-        suggestionTask = Task { [weak self] in
+        let refineInterval = LifeBoardPerformanceTrace.begin("AddTaskSuggestionRefine")
+        suggestionTask = Task { @MainActor [weak self] in
             guard let self else {
-                TaskerPerformanceTrace.end(refineInterval)
+                LifeBoardPerformanceTrace.end(refineInterval)
                 return
             }
             let suggestion = await aiSuggestionService.refineFieldSuggestion(
@@ -1029,12 +1029,12 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
                 projectName: self.selectedProject
             )
             guard Task.isCancelled == false else {
-                TaskerPerformanceTrace.end(refineInterval)
+                LifeBoardPerformanceTrace.end(refineInterval)
                 return
             }
 
             await MainActor.run {
-                defer { TaskerPerformanceTrace.end(refineInterval) }
+                defer { LifeBoardPerformanceTrace.end(refineInterval) }
                 guard self.suggestionRequestToken == requestToken else {
                     self.isGeneratingSuggestion = false
                     return
@@ -1126,13 +1126,14 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
         let category = selectedCategory
         let selectionSource = taskIconSelectionSource
         let currentSymbolName = selectionSource == .auto ? selectedTaskIconSymbolName : autoSuggestedTaskIconSymbolName
+        let taskIconResolver = self.taskIconResolver
         taskIconResolutionToken += 1
         let token = taskIconResolutionToken
 
         taskIconResolutionQueue.async { [weak self] in
             guard let self else { return }
-            let interval = TaskerPerformanceTrace.begin("AddTaskIconResolve")
-            let resolution = self.taskIconResolver.resolve(
+            let interval = LifeBoardPerformanceTrace.begin("AddTaskIconResolve")
+            let resolution = taskIconResolver.resolve(
                 title: taskName,
                 projectName: projectName,
                 projectIconSymbolName: projectIconSymbolName,
@@ -1141,9 +1142,9 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
                 currentSymbolName: currentSymbolName,
                 selectionSource: selectionSource
             )
-            TaskerPerformanceTrace.end(interval)
+            LifeBoardPerformanceTrace.end(interval)
 
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard self.taskIconResolutionToken == token else { return }
                 self.autoSuggestedTaskIconSymbolName = resolution.autoSuggestedSymbolName
                 self.suggestedTaskIcons = resolution.rankedSuggestions
@@ -1214,7 +1215,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
     /// Executes loadLifeAreas.
     private func loadLifeAreas() {
         manageLifeAreasUseCase?.list { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let areas):
                     guard let self else { return }
@@ -1537,7 +1538,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
     /// Executes loadSections.
     private func loadSections(projectID: UUID) {
         manageSectionsUseCase?.list(projectID: projectID) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let sections):
                     self?.sections = sections.sorted(by: { $0.sortOrder < $1.sortOrder })
@@ -1558,7 +1559,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
     /// Executes loadTags.
     private func loadTags() {
         manageTagsUseCase?.list { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .success(let tags):
                     self?.tags = tags.sorted(by: { $0.sortOrder < $1.sortOrder })
@@ -1585,7 +1586,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
                 offset: 0
             )
         ) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 switch result {
                 case .success(let slice):
@@ -1628,7 +1629,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
     public func loadCalendarTaskCounts(
         windowStart: Date,
         windowEnd: Date,
-        completion: @escaping ([Date: Int]) -> Void
+        completion: @escaping @Sendable ([Date: Int]) -> Void
     ) {
         guard let taskReadModelRepository else {
             completion([:])
@@ -1651,7 +1652,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
                 guard let dueDate = task.dueDate else { return }
                 grouped[calendar.startOfDay(for: dueDate), default: 0] += 1
             }
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 completion(counts)
             }
         }
@@ -1708,7 +1709,7 @@ public struct AddTaskViewState {
     public let validationErrors: [ValidationError]
     public let projects: [Project]
     public let lifeAreas: [LifeArea]
-    public let sections: [TaskerProjectSection]
+    public let sections: [LifeBoardProjectSection]
     public let tags: [TagDefinition]
     public let canSubmit: Bool
 }

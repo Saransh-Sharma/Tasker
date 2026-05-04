@@ -31,7 +31,7 @@ struct TaskIconResolution: Equatable, Sendable {
     let fallbackReason: TaskIconFallbackReason
 }
 
-protocol TaskIconResolver {
+protocol TaskIconResolver: Sendable {
     func warmIfNeeded()
     func resolve(
         title: String,
@@ -57,7 +57,7 @@ final class DefaultTaskIconResolver: TaskIconResolver, @unchecked Sendable {
         let searchIndex: [String: [Int]]
     }
 
-    private let buildQueue = DispatchQueue(label: "tasker.task-icon-resolver", qos: .userInitiated)
+    private let buildQueue = DispatchQueue(label: "lifeboard.task-icon-resolver", qos: .userInitiated)
     private let lock = NSLock()
     private var storage: Storage?
 
@@ -213,7 +213,7 @@ final class DefaultTaskIconResolver: TaskIconResolver, @unchecked Sendable {
         }
         lock.unlock()
 
-        let interval = TaskerPerformanceTrace.begin("TaskIconManifestWarm")
+        let interval = LifeBoardPerformanceTrace.begin("TaskIconManifestWarm")
         let options = dedupeSymbols(TaskIconSymbolManifest.options)
         var optionsBySymbol: [String: TaskIconOption] = [:]
         var optionIndexBySymbol: [String: Int] = [:]
@@ -257,7 +257,7 @@ final class DefaultTaskIconResolver: TaskIconResolver, @unchecked Sendable {
         let cached = storage ?? resolved
         lock.unlock()
 
-        TaskerPerformanceTrace.end(interval)
+        LifeBoardPerformanceTrace.end(interval)
         logDebug(
             event: "task_icon_manifest_warmed",
             message: "Prepared task icon manifest and search index",

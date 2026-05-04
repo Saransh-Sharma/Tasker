@@ -1,13 +1,13 @@
 //
 //  HomeHabitRow.swift
-//  Tasker
+//  LifeBoard
 //
 //  Presentation model for due habit rows on Home.
 //
 
 import Foundation
 
-public enum HomeHabitRowState: String, Equatable, Hashable {
+public enum HomeHabitRowState: String, Equatable, Hashable, Sendable {
     case due
     case overdue
     case completedToday
@@ -18,7 +18,7 @@ public enum HomeHabitRowState: String, Equatable, Hashable {
 
 public typealias HomeHabitDayMark = HabitDayMark
 
-public struct HomeHabitRow: Equatable, Identifiable {
+public struct HomeHabitRow: Equatable, Identifiable, Sendable {
     public let habitID: UUID
     public let occurrenceID: UUID?
     public let title: String

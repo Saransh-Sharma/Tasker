@@ -297,7 +297,7 @@ public final class AddHabitViewModel: ObservableObject {
         }
     }
 
-    public func createHabit(completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+    public func createHabit(completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
         guard isSaving == false else { return }
         let trimmedName = habitName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedName.isEmpty == false else {
@@ -339,7 +339,7 @@ public final class AddHabitViewModel: ObservableObject {
             kind: selectedKind == .positive ? .positive : .negative,
             trackingMode: selectedTrackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
             icon: icon,
-            colorHex: TaskerHexColor.normalized(selectedColorHex.nilIfBlank),
+            colorHex: LifeBoardHexColor.normalized(selectedColorHex.nilIfBlank),
             targetConfig: HabitTargetConfig(notes: habitNotes.nilIfBlank, targetCountPerDay: 1),
             metricConfig: HabitMetricConfig(
                 unitLabel: nil,
@@ -692,13 +692,13 @@ enum HabitDetailDayMutationRequest: Equatable {
     case reset
 }
 
-public enum HabitDetailMutationFeedbackHaptic: Equatable {
+public enum HabitDetailMutationFeedbackHaptic: Equatable, Sendable {
     case selection
     case success
     case warning
 }
 
-public struct HabitDetailMutationFeedback: Equatable, Identifiable {
+public struct HabitDetailMutationFeedback: Equatable, Identifiable, Sendable {
     public let id: UUID
     public let message: String
     public let haptic: HabitDetailMutationFeedbackHaptic
@@ -1051,7 +1051,7 @@ enum HabitDetailCalendarBuilder {
 @MainActor
 public final class HabitDetailViewModel: ObservableObject {
     private enum TestHooks {
-        private static let editorSupportDelayPrefix = "-TASKER_TEST_HABIT_DETAIL_EDITOR_SUPPORT_DELAY_MS:"
+        private static let editorSupportDelayPrefix = "-LIFEBOARD_TEST_HABIT_DETAIL_EDITOR_SUPPORT_DELAY_MS:"
 
         static var editorSupportDelay: TimeInterval {
             guard let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(editorSupportDelayPrefix) }) else {
@@ -1135,7 +1135,7 @@ public final class HabitDetailViewModel: ObservableObject {
         self.manageLifeAreasUseCase = manageLifeAreasUseCase
         self.manageProjectsUseCase = manageProjectsUseCase
         self.iconCatalog = iconCatalog
-        TaskerPerformanceTrace.event("HabitDetailViewModelInit")
+        LifeBoardPerformanceTrace.event("HabitDetailViewModelInit")
     }
 
     public var detailCalendarWeeks: [HabitDetailCalendarWeek] {
@@ -1195,11 +1195,11 @@ public final class HabitDetailViewModel: ObservableObject {
         guard hasLoadedOnce == false else { return }
         hasLoadedOnce = true
         isCalendarLoading = true
-        TaskerPerformanceTrace.event("HabitDetailSheetLoadRequested")
+        LifeBoardPerformanceTrace.event("HabitDetailSheetLoadRequested")
 
         DispatchQueue.main.async {
             self.isCalendarMounted = true
-            TaskerPerformanceTrace.event("HabitDetailCalendarMounted")
+            LifeBoardPerformanceTrace.event("HabitDetailCalendarMounted")
 
             DispatchQueue.main.async {
                 self.refreshReadOnlyData()
@@ -1211,11 +1211,11 @@ public final class HabitDetailViewModel: ObservableObject {
         refreshReadOnlyData()
     }
 
-    public func refreshReadOnlyData(completion: (() -> Void)? = nil) {
+    public func refreshReadOnlyData(completion: (@Sendable () -> Void)? = nil) {
         isLoading = true
         isCalendarLoading = true
         errorMessage = nil
-        TaskerPerformanceTrace.event("HabitDetailReadOnlyRefreshStarted")
+        LifeBoardPerformanceTrace.event("HabitDetailReadOnlyRefreshStarted")
 
         let group = DispatchGroup()
         var latestRow: HabitLibraryRow?
@@ -1293,7 +1293,7 @@ public final class HabitDetailViewModel: ObservableObject {
                 self.draft.selectedIconSymbolName = self.availableIconOptions.first?.symbolName
             }
             self.errorMessage = firstError?.localizedDescription
-            TaskerPerformanceTrace.event("HabitDetailHydrationCompleted")
+            LifeBoardPerformanceTrace.event("HabitDetailHydrationCompleted")
             completion?()
         }
     }
@@ -1332,7 +1332,7 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    public func saveChanges(completion: (() -> Void)? = nil) {
+    public func saveChanges(completion: (@Sendable () -> Void)? = nil) {
         normalizeDraftSelection()
         guard canSave else {
             errorMessage = editorReminderWindowValidationError ?? "Fill in the required habit details."
@@ -1350,7 +1350,7 @@ public final class HabitDetailViewModel: ObservableObject {
             kind: draft.kind == .positive ? .positive : .negative,
             trackingMode: draft.trackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
             icon: selectedIconOption.map { HabitIconMetadata(symbolName: $0.symbolName, categoryKey: $0.categoryKey) },
-            colorHex: TaskerHexColor.normalized(draft.colorHex.nilIfBlank),
+            colorHex: LifeBoardHexColor.normalized(draft.colorHex.nilIfBlank),
             targetConfig: HabitTargetConfig(notes: draft.notes.nilIfBlank, targetCountPerDay: 1),
             metricConfig: HabitMetricConfig(unitLabel: nil, showNotesOnCompletion: draft.notes.nilIfBlank != nil),
             cadence: draft.cadence,
@@ -1376,7 +1376,7 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    public func togglePause(completion: (() -> Void)? = nil) {
+    public func togglePause(completion: (@Sendable () -> Void)? = nil) {
         guard isSaving == false else { return }
         isSaving = true
         pauseHabitUseCase.execute(id: row.habitID, isPaused: !row.isPaused) { [weak self] result in
@@ -1395,7 +1395,7 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    public func archive(completion: (() -> Void)? = nil) {
+    public func archive(completion: (@Sendable () -> Void)? = nil) {
         guard isSaving == false else { return }
         isSaving = true
         archiveHabitUseCase.execute(id: row.habitID) { [weak self] result in
@@ -1414,7 +1414,7 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    public func logLapse(completion: (() -> Void)? = nil) {
+    public func logLapse(completion: (@Sendable () -> Void)? = nil) {
         guard row.trackingMode == .lapseOnly else { return }
         guard isSaving == false else { return }
         isSaving = true
@@ -1441,7 +1441,7 @@ public final class HabitDetailViewModel: ObservableObject {
 
     public func mutateDay(
         _ cell: HabitDetailDayCell,
-        completion: (() -> Void)? = nil
+        completion: (@Sendable () -> Void)? = nil
     ) {
         guard cell.isInteractive,
               isSaving == false,
@@ -1455,7 +1455,7 @@ public final class HabitDetailViewModel: ObservableObject {
         isSaving = true
         errorMessage = nil
 
-        let handleResult: (Result<Void, Error>) -> Void = { [weak self] result in
+        let handleResult: @Sendable (Result<Void, Error>) -> Void = { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.isSaving = false

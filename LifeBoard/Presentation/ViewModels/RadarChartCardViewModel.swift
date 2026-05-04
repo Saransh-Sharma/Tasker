@@ -1,9 +1,10 @@
 import Foundation
 import Combine
- import DGCharts
+import DGCharts
 import SwiftUI
 
-public final class RadarChartCardViewModel: ObservableObject {
+@MainActor
+public final class RadarChartCardViewModel: ObservableObject, @unchecked Sendable {
     @Published var chartData: [RadarChartDataEntry] = []
     @Published var chartLabels: [String] = []
     @Published var isLoading = true
@@ -12,7 +13,6 @@ public final class RadarChartCardViewModel: ObservableObject {
 
     private let projectRepository: ProjectRepositoryProtocol
     private let readModelRepository: TaskReadModelRepositoryProtocol?
-    private let computeQueue = DispatchQueue(label: "tasker.radarChart.compute", qos: .userInitiated)
     private var cachedWeekStart: Date?
     private var loadGeneration: Int = 0
 
@@ -45,22 +45,20 @@ public final class RadarChartCardViewModel: ObservableObject {
         loadGeneration += 1
         let requestedGeneration = loadGeneration
         isLoading = true
-        let interval = TaskerPerformanceTrace.begin("RadarChartLoad")
+        let interval = LifeBoardPerformanceTrace.begin("RadarChartLoad")
 
-        projectRepository.fetchCustomProjects { [weak self] projectResult in
-            guard let self else {
-                TaskerPerformanceTrace.end(interval)
-                return
-            }
+        let readModelRepository = self.readModelRepository
+        projectRepository.fetchCustomProjects { [readModelRepository] projectResult in
             switch projectResult {
             case .failure(let error):
-                DispatchQueue.main.async {
-                    defer { TaskerPerformanceTrace.end(interval) }
-                    guard requestedGeneration == self.loadGeneration else { return }
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    defer { LifeBoardPerformanceTrace.end(interval) }
+                    guard let self, requestedGeneration == self.loadGeneration else { return }
                     logWarning(
                         event: "radar_project_fetch_failed",
                         message: "Failed to fetch projects for radar chart",
-                        fields: ["error": error.localizedDescription]
+                        fields: ["error": message]
                     )
                     self.chartData = []
                     self.chartLabels = []
@@ -71,9 +69,9 @@ public final class RadarChartCardViewModel: ObservableObject {
             case .success(let projects):
                 let customProjects = projects.filter { !$0.isArchived && !$0.isInbox }
                 guard customProjects.isEmpty == false else {
-                    DispatchQueue.main.async {
-                        defer { TaskerPerformanceTrace.end(interval) }
-                        guard requestedGeneration == self.loadGeneration else { return }
+                    Task { @MainActor [weak self] in
+                        defer { LifeBoardPerformanceTrace.end(interval) }
+                        guard let self, requestedGeneration == self.loadGeneration else { return }
                         self.chartData = []
                         self.chartLabels = []
                         self.hasCustomProjects = false
@@ -84,10 +82,10 @@ public final class RadarChartCardViewModel: ObservableObject {
                     return
                 }
 
-                guard let readModel = self.readModelRepository else {
-                    DispatchQueue.main.async {
-                        defer { TaskerPerformanceTrace.end(interval) }
-                        guard requestedGeneration == self.loadGeneration else { return }
+                guard let readModel = readModelRepository else {
+                    Task { @MainActor [weak self] in
+                        defer { LifeBoardPerformanceTrace.end(interval) }
+                        guard let self, requestedGeneration == self.loadGeneration else { return }
                         logWarning(
                             event: "radar_read_model_missing",
                             message: "Task read-model repository is not configured for radar chart"
@@ -103,52 +101,51 @@ public final class RadarChartCardViewModel: ObservableObject {
                 }
 
                 readModel.fetchWeekChartProjection(referenceDate: currentReferenceDate) { taskResult in
-                    self.computeQueue.async {
-                        switch taskResult {
-                        case .failure(let error):
-                            DispatchQueue.main.async {
-                                defer { TaskerPerformanceTrace.end(interval) }
-                                guard requestedGeneration == self.loadGeneration else { return }
-                                logWarning(
-                                    event: "radar_task_fetch_failed",
-                                    message: "Failed to fetch tasks for radar chart",
-                                    fields: ["error": error.localizedDescription]
-                                )
-                                self.chartData = []
-                                self.chartLabels = []
-                                self.hasCustomProjects = true
-                                self.hasCompletedTasks = false
-                                self.cachedWeekStart = nil
-                                self.isLoading = false
-                            }
-                        case .success(let projection):
-                            let sortedProjects = customProjects
-                                .sorted { lhs, rhs in
-                                    let lhsScore = projection.projectScores[lhs.id, default: 0]
-                                    let rhsScore = projection.projectScores[rhs.id, default: 0]
-                                    if lhsScore == rhsScore {
-                                        return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-                                    }
-                                    return lhsScore > rhsScore
+                    switch taskResult {
+                    case .failure(let error):
+                        let message = error.localizedDescription
+                        Task { @MainActor in
+                            defer { LifeBoardPerformanceTrace.end(interval) }
+                            guard requestedGeneration == self.loadGeneration else { return }
+                            logWarning(
+                                event: "radar_task_fetch_failed",
+                                message: "Failed to fetch tasks for radar chart",
+                                fields: ["error": message]
+                            )
+                            self.chartData = []
+                            self.chartLabels = []
+                            self.hasCustomProjects = true
+                            self.hasCompletedTasks = false
+                            self.cachedWeekStart = nil
+                            self.isLoading = false
+                        }
+                    case .success(let projection):
+                        let sortedProjects = customProjects
+                            .sorted { lhs, rhs in
+                                let lhsScore = projection.projectScores[lhs.id, default: 0]
+                                let rhsScore = projection.projectScores[rhs.id, default: 0]
+                                if lhsScore == rhsScore {
+                                    return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
                                 }
-                                .prefix(5)
-
-                            let labels = sortedProjects.map(\.name)
-                            let data = sortedProjects.map { project in
-                                RadarChartDataEntry(value: Double(projection.projectScores[project.id, default: 0]))
+                                return lhsScore > rhsScore
                             }
-                            let hasCompletedTasks = data.contains(where: { $0.value > 0 })
+                            .prefix(5)
 
-                            DispatchQueue.main.async {
-                                defer { TaskerPerformanceTrace.end(interval) }
-                                guard requestedGeneration == self.loadGeneration else { return }
-                                self.chartLabels = labels
-                                self.chartData = data
-                                self.hasCustomProjects = true
-                                self.hasCompletedTasks = hasCompletedTasks
-                                self.cachedWeekStart = startOfWeek
-                                self.isLoading = false
-                            }
+                        let labels = sortedProjects.map(\.name)
+                        let scores = sortedProjects.map { project in
+                            Double(projection.projectScores[project.id, default: 0])
+                        }
+                        let hasCompletedTasks = scores.contains { $0 > 0 }
+
+                        Task { @MainActor in
+                            defer { LifeBoardPerformanceTrace.end(interval) }
+                            guard requestedGeneration == self.loadGeneration else { return }
+                            self.chartLabels = labels
+                            self.chartData = scores.map { RadarChartDataEntry(value: $0) }
+                            self.hasCustomProjects = true
+                            self.hasCompletedTasks = hasCompletedTasks
+                            self.cachedWeekStart = startOfWeek
+                            self.isLoading = false
                         }
                     }
                 }

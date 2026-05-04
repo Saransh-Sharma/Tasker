@@ -2,16 +2,16 @@ import Foundation
 import Combine
 import SwiftUI
 
-public struct TaskDetailMetadataPayload {
+public struct TaskDetailMetadataPayload: Sendable {
     public let projects: [Project]
-    public let sections: [TaskerProjectSection]
+    public let sections: [LifeBoardProjectSection]
     public let weeklyOutcomes: [WeeklyOutcome]
     public let projectMotivation: ProjectWeeklyMotivation?
 
     /// Initializes a new instance.
     public init(
         projects: [Project],
-        sections: [TaskerProjectSection],
+        sections: [LifeBoardProjectSection],
         weeklyOutcomes: [WeeklyOutcome] = [],
         projectMotivation: ProjectWeeklyMotivation? = nil
     ) {
@@ -22,7 +22,7 @@ public struct TaskDetailMetadataPayload {
     }
 }
 
-public struct TaskDetailRelationshipMetadataPayload {
+public struct TaskDetailRelationshipMetadataPayload: Sendable {
     public let lifeAreas: [LifeArea]
     public let tags: [TagDefinition]
     public let availableTasks: [TaskDefinition]
@@ -41,7 +41,7 @@ public struct TaskDetailRelationshipMetadataPayload {
     }
 }
 
-public struct ProjectWeeklyMotivation: Equatable {
+public struct ProjectWeeklyMotivation: Equatable, Sendable {
     public let why: String?
     public let successLooksLike: String?
     public let costOfNeglect: String?
@@ -92,22 +92,22 @@ public enum TaskDetailDisclosureSection: String, Hashable {
 
 @MainActor
 public final class TaskDetailViewModel: ObservableObject {
-    public typealias UpdateHandler = (UUID, UpdateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    public typealias CompletionHandler = (UUID, Bool, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    public typealias DeleteHandler = (UUID, TaskDeleteScope, @escaping (Result<Void, Error>) -> Void) -> Void
-    public typealias RescheduleHandler = (UUID, Date?, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    public typealias MetadataHandler = (UUID, @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void) -> Void
-    public typealias RelationshipMetadataHandler = (UUID, @escaping (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void) -> Void
-    public typealias ChildrenHandler = (UUID, @escaping (Result<[TaskDefinition], Error>) -> Void) -> Void
-    public typealias CreateTaskHandler = (CreateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    public typealias CreateTagHandler = (String, @escaping (Result<TagDefinition, Error>) -> Void) -> Void
-    public typealias CreateProjectHandler = (String, @escaping (Result<Project, Error>) -> Void) -> Void
-    public typealias TaskFitHintHandler = (TaskDefinition, @escaping (TaskerTaskFitHintResult) -> Void) -> Void
+    public typealias UpdateHandler = (UUID, UpdateTaskDefinitionRequest, @escaping @MainActor @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    public typealias CompletionHandler = (UUID, Bool, @escaping @MainActor @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    public typealias DeleteHandler = (UUID, TaskDeleteScope, @escaping @MainActor @Sendable (Result<Void, Error>) -> Void) -> Void
+    public typealias RescheduleHandler = (UUID, Date?, @escaping @MainActor @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    public typealias MetadataHandler = (UUID, @escaping @MainActor @Sendable (Result<TaskDetailMetadataPayload, Error>) -> Void) -> Void
+    public typealias RelationshipMetadataHandler = (UUID, @escaping @MainActor @Sendable (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void) -> Void
+    public typealias ChildrenHandler = (UUID, @escaping @MainActor @Sendable (Result<[TaskDefinition], Error>) -> Void) -> Void
+    public typealias CreateTaskHandler = (CreateTaskDefinitionRequest, @escaping @MainActor @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    public typealias CreateTagHandler = (String, @escaping @MainActor @Sendable (Result<TagDefinition, Error>) -> Void) -> Void
+    public typealias CreateProjectHandler = (String, @escaping @MainActor @Sendable (Result<Project, Error>) -> Void) -> Void
+    public typealias TaskFitHintHandler = (TaskDefinition, @escaping @MainActor @Sendable (LifeBoardTaskFitHintResult) -> Void) -> Void
 
     @Published public private(set) var persistedTask: TaskDefinition
     @Published public private(set) var projects: [Project]
     @Published public private(set) var lifeAreas: [LifeArea] = []
-    @Published public private(set) var sections: [TaskerProjectSection] = []
+    @Published public private(set) var sections: [LifeBoardProjectSection] = []
     @Published public private(set) var tags: [TagDefinition] = []
     @Published public private(set) var availableTasks: [TaskDefinition] = []
     @Published public private(set) var childSteps: [TaskDefinition] = []
@@ -147,7 +147,7 @@ public final class TaskDetailViewModel: ObservableObject {
     @Published public private(set) var aiBreakdownSteps: [String] = []
     @Published public private(set) var aiBreakdownRouteBanner: String?
     @Published public private(set) var isGeneratingAIBreakdown = false
-    @Published public private(set) var taskFitHint: TaskerTaskFitHintResult = .unknown
+    @Published public private(set) var taskFitHint: LifeBoardTaskFitHintResult = .unknown
     @Published public private(set) var isLoadingTaskFitHint = false
 
     private let onUpdate: UpdateHandler
@@ -581,10 +581,10 @@ public final class TaskDetailViewModel: ObservableObject {
         refreshDisplayProjectName()
         let requestID = UUID()
         editingMetadataRequestID = requestID
-        let interval = TaskerPerformanceTrace.begin("TaskDetailEditingMetadataLoad")
+        let interval = LifeBoardPerformanceTrace.begin("TaskDetailEditingMetadataLoad")
         onLoadMetadata(selectedProjectID) { [weak self] result in
             DispatchQueue.main.async {
-                defer { TaskerPerformanceTrace.end(interval) }
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
                 guard self.editingMetadataRequestID == requestID else { return }
                 switch result {
@@ -615,10 +615,10 @@ public final class TaskDetailViewModel: ObservableObject {
     public func refreshRelationshipMetadata() {
         let requestID = UUID()
         relationshipMetadataRequestID = requestID
-        let interval = TaskerPerformanceTrace.begin("TaskDetailRelationshipMetadataLoad")
+        let interval = LifeBoardPerformanceTrace.begin("TaskDetailRelationshipMetadataLoad")
         onLoadRelationshipMetadata(selectedProjectID) { [weak self] result in
             DispatchQueue.main.async {
-                defer { TaskerPerformanceTrace.end(interval) }
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
                 guard self.relationshipMetadataRequestID == requestID else { return }
                 switch result {
@@ -659,10 +659,10 @@ public final class TaskDetailViewModel: ObservableObject {
     public func refreshChildren() {
         let requestID = UUID()
         childrenRequestID = requestID
-        let interval = TaskerPerformanceTrace.begin("TaskDetailChildrenLoad")
+        let interval = LifeBoardPerformanceTrace.begin("TaskDetailChildrenLoad")
         onLoadChildren(persistedTask.id) { [weak self] result in
             DispatchQueue.main.async {
-                defer { TaskerPerformanceTrace.end(interval) }
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
                 guard self.childrenRequestID == requestID else { return }
                 switch result {
@@ -715,7 +715,7 @@ public final class TaskDetailViewModel: ObservableObject {
     /// Executes toggleRootCompletion.
     public func toggleRootCompletion() {
         let target = !isComplete
-        withAnimation(TaskerAnimation.bouncy) {
+        withAnimation(LifeBoardAnimation.bouncy) {
             isComplete = target
         }
 
@@ -751,7 +751,7 @@ public final class TaskDetailViewModel: ObservableObject {
     }
 
     /// Executes deleteTask.
-    public func deleteTask(scope: TaskDeleteScope, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func deleteTask(scope: TaskDeleteScope, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         onDelete(persistedTask.id, scope) { result in
             DispatchQueue.main.async {
                 completion(result)

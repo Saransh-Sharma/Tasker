@@ -37,7 +37,7 @@ public struct LifeAreaIconOption: Identifiable, Equatable, Hashable {
     }
 }
 
-public struct LifeManagementAreaRow: Identifiable, Equatable {
+public struct LifeManagementAreaRow: Identifiable, Equatable, Sendable {
     public let lifeArea: LifeArea
     public let projectCount: Int
     public let habitCount: Int
@@ -47,7 +47,7 @@ public struct LifeManagementAreaRow: Identifiable, Equatable {
     public var id: UUID { lifeArea.id }
 }
 
-public struct LifeManagementProjectRow: Identifiable, Equatable {
+public struct LifeManagementProjectRow: Identifiable, Equatable, Sendable {
     public let project: Project
     public let taskCount: Int
     public let lifeArea: LifeArea?
@@ -58,7 +58,7 @@ public struct LifeManagementProjectRow: Identifiable, Equatable {
     public var isMoveLocked: Bool { isInbox || project.isDefault }
 }
 
-public struct LifeManagementHabitRow: Identifiable, Equatable {
+public struct LifeManagementHabitRow: Identifiable, Equatable, Sendable {
     public let row: HabitLibraryRow
     public let lifeArea: LifeArea?
     public let project: Project?
@@ -66,7 +66,7 @@ public struct LifeManagementHabitRow: Identifiable, Equatable {
     public var id: UUID { row.habitID }
 }
 
-public enum LifeManagementSelection: Hashable, Identifiable {
+public enum LifeManagementSelection: Hashable, Identifiable, Sendable {
     case area(UUID)
     case project(UUID)
     case habit(UUID)
@@ -83,7 +83,7 @@ public enum LifeManagementSelection: Hashable, Identifiable {
     }
 }
 
-public enum LifeManagementTreeSectionKind: String, Hashable, Identifiable {
+public enum LifeManagementTreeSectionKind: String, Hashable, Identifiable, Sendable {
     case active
     case archived
 
@@ -99,13 +99,13 @@ public enum LifeManagementTreeSectionKind: String, Hashable, Identifiable {
     }
 }
 
-public enum LifeManagementTreeNodePayload: Equatable {
+public enum LifeManagementTreeNodePayload: Equatable, Sendable {
     case area(LifeManagementAreaRow)
     case project(LifeManagementProjectRow)
     case habit(LifeManagementHabitRow)
 }
 
-public struct LifeManagementTreeNode: Identifiable, Equatable {
+public struct LifeManagementTreeNode: Identifiable, Equatable, Sendable {
     public let payload: LifeManagementTreeNodePayload
     public let children: [LifeManagementTreeNode]
     public let isArchived: Bool
@@ -205,7 +205,7 @@ public struct LifeManagementTreeNode: Identifiable, Equatable {
     }
 }
 
-public struct LifeManagementTreeSection: Identifiable, Equatable {
+public struct LifeManagementTreeSection: Identifiable, Equatable, Sendable {
     public let kind: LifeManagementTreeSectionKind
     public let title: String
     public let nodes: [LifeManagementTreeNode]
@@ -314,25 +314,25 @@ private enum LifeManagementUndoAction {
     case habit(UUID)
 }
 
-struct LifeManagementAreaDetailSnapshot: Equatable {
+struct LifeManagementAreaDetailSnapshot: Equatable, Sendable {
     let row: LifeManagementAreaRow
     let projectRows: [LifeManagementProjectRow]
     let habitRows: [LifeManagementHabitRow]
 }
 
-struct LifeManagementProjectDetailSnapshot: Equatable {
+struct LifeManagementProjectDetailSnapshot: Equatable, Sendable {
     let row: LifeManagementProjectRow
     let linkedHabits: [LifeManagementHabitRow]
 }
 
 struct LifeManagementProjection {
-    struct Snapshot: Equatable {
+    struct Snapshot: Equatable, Sendable {
         let treeSections: [LifeManagementTreeSection]
         let searchExpandedAncestorNodeIDs: Set<String>
         let searchExpandedSectionKinds: Set<LifeManagementTreeSectionKind>
     }
 
-    struct Context: Equatable {
+    struct Context: Equatable, Sendable {
         let sections: [LifeManagementTreeSection]
         let areaRowsByID: [UUID: LifeManagementAreaRow]
         let projectRowsByID: [UUID: LifeManagementProjectRow]
@@ -1587,8 +1587,8 @@ public final class LifeManagementViewModel: ObservableObject {
         normalizedLifeAreaName(area.name) == LifeManagementConstants.generalNormalizedName
     }
 
-    private func awaitResult<T>(
-        _ body: (@escaping (Result<T, Error>) -> Void) -> Void
+    private func awaitResult<T: Sendable>(
+        _ body: (@escaping @Sendable (Result<T, Error>) -> Void) -> Void
     ) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             body { result in
@@ -1597,8 +1597,8 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    private func awaitProjectResult<T>(
-        _ body: (@escaping (Result<T, ProjectError>) -> Void) -> Void
+    private func awaitProjectResult<T: Sendable>(
+        _ body: (@escaping @Sendable (Result<T, ProjectError>) -> Void) -> Void
     ) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             body { result in
@@ -1608,7 +1608,7 @@ public final class LifeManagementViewModel: ObservableObject {
     }
 
     private func awaitVoid(
-        _ body: (@escaping (Result<Void, Error>) -> Void) -> Void
+        _ body: (@escaping @Sendable (Result<Void, Error>) -> Void) -> Void
     ) async throws {
         _ = try await awaitResult(body)
     }

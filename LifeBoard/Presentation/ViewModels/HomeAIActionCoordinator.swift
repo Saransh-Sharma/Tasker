@@ -1,6 +1,6 @@
 //
 //  HomeAIActionCoordinator.swift
-//  Tasker
+//  LifeBoard
 //
 //  Coordinates Home-specific AI propose/confirm/apply/undo actions.
 //
@@ -102,7 +102,7 @@ final class HomeAIActionCoordinator {
         task: TaskDefinition,
         threadID: String,
         rationale: @escaping (String?) -> String,
-        completion: @escaping (Result<(run: AssistantActionRunDefinition, contextJSON: String?), Error>) -> Void
+        completion: @escaping @Sendable (Result<(run: AssistantActionRunDefinition, contextJSON: String?), Error>) -> Void
     ) {
         let proposeWithContext: (String?) -> Void = { [weak self] contextJSON in
             guard let self else { return }
@@ -140,7 +140,7 @@ final class HomeAIActionCoordinator {
         threadID: String,
         weeklyOutcomeTitlesByID: [UUID: String] = [:],
         rationale: @escaping (String?) -> String,
-        completion: @escaping (Result<HomeWeeklyProposalPreview, Error>) -> Void
+        completion: @escaping @Sendable (Result<HomeWeeklyProposalPreview, Error>) -> Void
     ) {
         let normalizedChanges = taskChanges.filter(\.hasMeaningfulChange)
         guard normalizedChanges.isEmpty == false else {
@@ -221,25 +221,25 @@ final class HomeAIActionCoordinator {
     }
 
     /// Confirms and applies a previously proposed run.
-    func confirmAndApply(runID: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
-        pipeline.confirm(runID: runID) { [weak self] confirmResult in
-            guard let self else { return }
+    func confirmAndApply(runID: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
+        let pipeline = pipeline
+        pipeline.confirm(runID: runID) { confirmResult in
             switch confirmResult {
             case .failure(let error):
                 completion(.failure(error))
             case .success:
-                self.pipeline.applyConfirmedRun(id: runID, completion: completion)
+                pipeline.applyConfirmedRun(id: runID, completion: completion)
             }
         }
     }
 
     /// Rejects a pending run.
-    func reject(runID: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    func reject(runID: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         pipeline.reject(runID: runID, completion: completion)
     }
 
     /// Undoes an applied run.
-    func undo(runID: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    func undo(runID: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         pipeline.undoAppliedRun(id: runID, completion: completion)
     }
 

@@ -1,6 +1,6 @@
 //
 //  ProjectManagementViewModel.swift
-//  Tasker
+//  LifeBoard
 //
 //  ViewModel for Project Management screen - manages project operations
 //
@@ -8,8 +8,55 @@
 import Foundation
 import Combine
 
+private final class LockedProjectManagementAccumulator<State: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state: State
+    private var firstError: Error?
+
+    init(_ state: State) {
+        self.state = state
+    }
+
+    func update(_ body: (inout State) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<State, Error> {
+        lock.lock()
+        let state = state
+        let firstError = firstError
+        lock.unlock()
+
+        if let firstError {
+            return .failure(firstError)
+        }
+        return .success(state)
+    }
+}
+
+private struct ProjectDetailsLoadState: Sendable {
+    var tasks: [TaskDefinition] = []
+    var stats = ProjectWeeklyContributionStats()
+    var notes: [ReflectionNote] = []
+}
+
+private struct ProjectTaskUpdateState: Sendable {
+    var changedCount = 0
+}
+
 /// ViewModel for the Project Management screen
 /// Manages project CRUD operations and statistics
+@MainActor
 public final class ProjectManagementViewModel: ObservableObject {
     
     // MARK: - Published Properties (Observable State)
@@ -80,17 +127,19 @@ public final class ProjectManagementViewModel: ObservableObject {
         errorMessage = nil
         
         manageProjectsUseCase.getAllProjects { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                
-                switch result {
-                case .success(let projectsWithStats):
+            switch result {
+            case .success(let projectsWithStats):
+                Task { @MainActor [weak self] in
+                    self?.isLoading = false
                     self?.projects = projectsWithStats
                     self?.applyFiltersAndSorting()
                     self?.refreshSelectedProjectFromLatestList()
-                    
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                }
+            case .failure(let error):
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    self?.isLoading = false
+                    self?.errorMessage = message
                 }
             }
         }
@@ -106,16 +155,18 @@ public final class ProjectManagementViewModel: ObservableObject {
         )
 
         manageProjectsUseCase.createProject(request: request) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                
-                switch result {
-                case .success:
+            switch result {
+            case .success:
+                Task { @MainActor [weak self] in
+                    self?.isLoading = false
                     self?.loadProjects()
                     self?.showingCreateProject = false
-                    
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                }
+            case .failure(let error):
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    self?.isLoading = false
+                    self?.errorMessage = message
                 }
             }
         }
@@ -141,15 +192,17 @@ public final class ProjectManagementViewModel: ObservableObject {
         )
 
         manageProjectsUseCase.updateProject(projectId: project.id, request: request) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                
-                switch result {
-                case .success:
+            switch result {
+            case .success:
+                Task { @MainActor [weak self] in
+                    self?.isLoading = false
                     self?.loadProjects()
-                    
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                }
+            case .failure(let error):
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    self?.isLoading = false
+                    self?.errorMessage = message
                 }
             }
         }
@@ -163,17 +216,19 @@ public final class ProjectManagementViewModel: ObservableObject {
             projectId: project.project.id,
             deleteStrategy: strategy
         ) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                
-                switch result {
-                case .success:
+            switch result {
+            case .success:
+                Task { @MainActor [weak self] in
+                    self?.isLoading = false
                     self?.loadProjects()
                     self?.showingDeleteConfirmation = false
                     self?.projectToDelete = nil
-                    
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                }
+            case .failure(let error):
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    self?.isLoading = false
+                    self?.errorMessage = message
                 }
             }
         }
@@ -215,13 +270,21 @@ public final class ProjectManagementViewModel: ObservableObject {
     }
     
     /// Get tasks for specific project
-    public func loadTasksForProject(_ project: Project, completion: @escaping ([TaskDefinition]) -> Void) {
+    public func loadTasksForProject(
+        _ project: Project,
+        completion: @escaping @MainActor @Sendable ([TaskDefinition]) -> Void
+    ) {
         getTasksUseCase.getTasksForProject(project.id) { result in
             switch result {
             case .success(let projectResult):
-                completion(projectResult.tasks)
+                let tasks = projectResult.tasks
+                Task { @MainActor in
+                    completion(tasks)
+                }
             case .failure:
-                completion([])
+                Task { @MainActor in
+                    completion([])
+                }
             }
         }
     }
@@ -269,15 +332,19 @@ public final class ProjectManagementViewModel: ObservableObject {
                 motivationCostOfNeglect: normalizedCost
             )
         ) { [weak self] result in
-            DispatchQueue.main.async {
+            switch result {
+            case .success(let updatedProject):
+                Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.isSavingMotivation = false
-                switch result {
-                case .failure(let error):
-                    self.errorMessage = error.localizedDescription
-                case .success(let updatedProject):
-                    self.saveMessage = "Motivation saved"
-                    self.applyUpdatedProject(updatedProject)
+                self.saveMessage = "Motivation saved"
+                self.applyUpdatedProject(updatedProject)
+                }
+            case .failure(let error):
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    self?.isSavingMotivation = false
+                    self?.errorMessage = message
                 }
             }
         }
@@ -293,18 +360,26 @@ public final class ProjectManagementViewModel: ObservableObject {
         updateTasks(targetTasks, to: bucket)
     }
 
-    public func saveReflectionNote(_ note: ReflectionNote, completion: @escaping (Result<ReflectionNote, Error>) -> Void) {
+    public func saveReflectionNote(
+        _ note: ReflectionNote,
+        completion: @escaping @MainActor @Sendable (Result<ReflectionNote, Error>) -> Void
+    ) {
         reflectionNoteRepository.saveNote(note) { [weak self] result in
-            DispatchQueue.main.async {
-                if case .success(let saved) = result {
+            switch result {
+            case .success(let saved):
+                Task { @MainActor [weak self] in
                     self?.recentReflectionNotes.insert(saved, at: 0)
                     self?.recentReflectionNotes = Array(self?.recentReflectionNotes.prefix(6) ?? [])
                     self?.saveMessage = WeeklyCopy.reflectionSaveSuccess
                     self?.awardReflectionCaptureXP(linkedTaskID: saved.linkedTaskID, linkedHabitID: saved.linkedHabitID)
-                } else if case .failure(let error) = result {
-                    self?.errorMessage = error.localizedDescription
+                    completion(.success(saved))
                 }
-                completion(result)
+            case .failure(let error):
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    self?.errorMessage = message
+                    completion(.failure(error))
+                }
             }
         }
     }
@@ -400,29 +475,16 @@ public final class ProjectManagementViewModel: ObservableObject {
     }
 
     private func loadSelectedProjectDetails(projectID: UUID) {
-        let lock = NSLock()
         let group = DispatchGroup()
-
-        var fetchedTasks: [TaskDefinition] = []
-        var fetchedStats = ProjectWeeklyContributionStats()
-        var fetchedNotes: [ReflectionNote] = []
-        var firstError: Error?
-
-        func capture(_ error: Error) {
-            lock.lock()
-            if firstError == nil {
-                firstError = error
-            }
-            lock.unlock()
-        }
+        let accumulator = LockedProjectManagementAccumulator(ProjectDetailsLoadState())
 
         group.enter()
         getTasksUseCase.getTasksForProject(projectID) { result in
             switch result {
             case .failure(let error):
-                capture(error)
+                accumulator.record(error)
             case .success(let projectResult):
-                fetchedTasks = projectResult.tasks.sorted(by: self.taskSort)
+                accumulator.update { $0.tasks = projectResult.tasks.sorted(by: Self.taskSort) }
             }
             group.leave()
         }
@@ -431,7 +493,7 @@ public final class ProjectManagementViewModel: ObservableObject {
         buildWeeklyPlanSnapshotUseCase.execute(referenceDate: Date()) { result in
             switch result {
             case .failure(let error):
-                capture(error)
+                accumulator.record(error)
             case .success(let snapshot):
                 let projectTasks = (snapshot.thisWeekTasks + snapshot.nextWeekTasks + snapshot.laterTasks)
                     .filter { $0.projectID == projectID }
@@ -443,7 +505,7 @@ public final class ProjectManagementViewModel: ObservableObject {
                 }
                 let linkedOutcomeCount = Set(projectTasks.compactMap(\.weeklyOutcomeID)).count
                 let outcomeContributionCount = snapshot.outcomes.filter { $0.sourceProjectID == projectID }.count
-                fetchedStats = ProjectWeeklyContributionStats(
+                let stats = ProjectWeeklyContributionStats(
                     linkedOutcomeCount: linkedOutcomeCount,
                     outcomeContributionCount: outcomeContributionCount,
                     thisWeekCount: thisWeekTasks.count,
@@ -452,6 +514,7 @@ public final class ProjectManagementViewModel: ObservableObject {
                     laterCount: laterTasks.count,
                     carryPressureCount: carriedTasks.count
                 )
+                accumulator.update { $0.stats = stats }
             }
             group.leave()
         }
@@ -462,24 +525,26 @@ public final class ProjectManagementViewModel: ObservableObject {
         ) { result in
             switch result {
             case .failure(let error):
-                capture(error)
+                accumulator.record(error)
             case .success(let notes):
-                fetchedNotes = notes
+                accumulator.update { $0.notes = notes }
             }
             group.leave()
         }
 
         group.notify(queue: .main) {
             guard self.selectedProject?.project.id == projectID else { return }
-            if let firstError {
-                self.errorMessage = firstError.localizedDescription
+            let result = accumulator.result()
+            if case .failure(let error) = result {
+                self.errorMessage = error.localizedDescription
                 return
             }
+            guard case .success(let loadState) = result else { return }
 
-            self.selectedProjectTasks = fetchedTasks
-            self.weeklyContributionStats = fetchedStats
-            self.recentReflectionNotes = fetchedNotes
-            self.selectedTaskIDs = self.selectedTaskIDs.intersection(Set(fetchedTasks.map(\.id)))
+            self.selectedProjectTasks = loadState.tasks
+            self.weeklyContributionStats = loadState.stats
+            self.recentReflectionNotes = loadState.notes
+            self.selectedTaskIDs = self.selectedTaskIDs.intersection(Set(loadState.tasks.map(\.id)))
         }
     }
 
@@ -491,9 +556,7 @@ public final class ProjectManagementViewModel: ObservableObject {
         errorMessage = nil
 
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-        var changedCount = 0
+        let accumulator = LockedProjectManagementAccumulator(ProjectTaskUpdateState())
 
         for task in tasks {
             guard task.planningBucket != bucket || (bucket != .thisWeek && task.weeklyOutcomeID != nil) else {
@@ -513,13 +576,9 @@ public final class ProjectManagementViewModel: ObservableObject {
                 )
             ) { result in
                 if case .failure(let error) = result {
-                    lock.lock()
-                    if firstError == nil { firstError = error }
-                    lock.unlock()
+                    accumulator.record(error)
                 } else {
-                    lock.lock()
-                    changedCount += 1
-                    lock.unlock()
+                    accumulator.update { $0.changedCount += 1 }
                 }
                 group.leave()
             }
@@ -527,12 +586,14 @@ public final class ProjectManagementViewModel: ObservableObject {
 
         group.notify(queue: .main) {
             self.isUpdatingTaskBuckets = false
-            if let firstError {
-                self.errorMessage = firstError.localizedDescription
+            let result = accumulator.result()
+            if case .failure(let error) = result {
+                self.errorMessage = error.localizedDescription
                 return
             }
+            guard case .success(let updateState) = result else { return }
 
-            if changedCount > 0 {
+            if updateState.changedCount > 0 {
                 self.saveMessage = bucket == .thisWeek
                     ? "Added to this week"
                     : (bucket == .nextWeek ? "Moved to next week" : "Moved out of this week")
@@ -565,7 +626,7 @@ public final class ProjectManagementViewModel: ObservableObject {
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    private func taskSort(_ lhs: TaskDefinition, _ rhs: TaskDefinition) -> Bool {
+    private nonisolated static func taskSort(_ lhs: TaskDefinition, _ rhs: TaskDefinition) -> Bool {
         if lhs.isComplete != rhs.isComplete {
             return !lhs.isComplete && rhs.isComplete
         }
@@ -576,7 +637,7 @@ public final class ProjectManagementViewModel: ObservableObject {
     }
 }
 
-public struct ProjectWeeklyContributionStats: Equatable {
+public struct ProjectWeeklyContributionStats: Equatable, Sendable {
     public var linkedOutcomeCount: Int
     public var outcomeContributionCount: Int
     public var thisWeekCount: Int
@@ -606,7 +667,7 @@ public struct ProjectWeeklyContributionStats: Equatable {
 
 // MARK: - Filter and Sort Types
 
-public enum ProjectFilterType: CaseIterable {
+public enum ProjectFilterType: CaseIterable, Sendable {
     case all
     case active
     case inactive
@@ -622,7 +683,7 @@ public enum ProjectFilterType: CaseIterable {
     }
 }
 
-public enum ProjectSortOption: CaseIterable {
+public enum ProjectSortOption: CaseIterable, Sendable {
     case name
     case taskCount
     case completionRate
@@ -663,7 +724,7 @@ extension ProjectManagementViewModel {
 }
 
 /// State structure for the project management view
-public struct ProjectManagementViewState {
+public struct ProjectManagementViewState: Sendable {
     public let isLoading: Bool
     public let errorMessage: String?
     public let projects: [ProjectWithStats]

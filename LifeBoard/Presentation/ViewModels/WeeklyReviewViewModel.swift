@@ -1,5 +1,42 @@
 import Foundation
 
+private final class LockedWeeklyReviewPayloadAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state = WeeklyReviewPayloadState()
+    private var firstError: Error?
+
+    func update(_ body: (inout WeeklyReviewPayloadState) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<WeeklyReviewPayloadState, Error> {
+        lock.lock()
+        let state = state
+        let firstError = firstError
+        lock.unlock()
+
+        if let firstError {
+            return .failure(firstError)
+        }
+        return .success(state)
+    }
+}
+
+private struct WeeklyReviewPayloadState: Sendable {
+    var snapshot: WeeklyPlanSnapshot?
+    var habitRows: [HabitLibraryRow] = []
+}
+
 struct WeeklyReviewOutcomeSnapshot: Equatable, Identifiable {
     let outcome: WeeklyOutcome
     let selectedStatus: WeeklyOutcomeStatus
@@ -132,7 +169,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
 
     public init(
         referenceDate: Date = Date(),
-        weekStartsOn: Weekday = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn,
+        weekStartsOn: Weekday = LifeBoardWorkspacePreferencesStore.shared.load().weekStartsOn,
         buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase,
         getHabitLibraryUseCase: GetHabitLibraryUseCase,
         completeWeeklyReviewUseCase: CompleteWeeklyReviewUseCase,
@@ -168,14 +205,12 @@ public final class WeeklyReviewViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         fetchReviewPayload { result in
-            DispatchQueue.main.async {
-                self.isLoading = false
-                switch result {
-                case .failure(let error):
-                    self.errorMessage = self.presentationErrorMessage(for: error)
-                case .success(let payload):
-                    self.applyLoadedPayload(payload)
-                }
+            self.isLoading = false
+            switch result {
+            case .failure(let error):
+                self.errorMessage = self.presentationErrorMessage(for: error)
+            case .success(let payload):
+                self.applyLoadedPayload(payload)
             }
         }
     }
@@ -210,10 +245,10 @@ public final class WeeklyReviewViewModel: ObservableObject {
 
     public func saveReflectionNote(
         _ note: ReflectionNote,
-        completion: ((Result<ReflectionNote, Error>) -> Void)? = nil
+        completion: (@MainActor @Sendable (Result<ReflectionNote, Error>) -> Void)? = nil
     ) {
         reflectionNoteRepository.saveNote(note) { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .failure(let error):
                     self.errorMessage = self.presentationErrorMessage(for: error)
@@ -228,7 +263,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
         }
     }
 
-    public func completeReview(completion: ((String) -> Void)? = nil) {
+    public func completeReview(completion: (@MainActor @Sendable (String) -> Void)? = nil) {
         guard let plan = snapshot?.plan else {
             errorMessage = "Create the weekly plan before reviewing it."
             return
@@ -254,7 +289,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
                 outcomeStatusesByOutcomeID: outcomeStatusesByID
             )
         ) { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 switch result {
                 case .failure(let error):
                     self.isSaving = false
@@ -265,15 +300,17 @@ public final class WeeklyReviewViewModel: ObservableObject {
                     self.persistCompletionLocalState(decisions: persistedDecisions) {
                         self.awardWeeklyReviewXP(using: persistedDecisions)
                         self.reloadAfterCompletion { reloadResult in
-                            self.isSaving = false
-                            switch reloadResult {
-                            case .failure(let error):
-                                self.saveMessage = self.completionMessage(for: completionResult)
-                                self.errorMessage = self.presentationErrorMessage(for: error)
-                            case .success:
-                                let message = self.completionMessage(for: completionResult)
-                                self.saveMessage = message
-                                completion?(message)
+                            Task { @MainActor in
+                                self.isSaving = false
+                                switch reloadResult {
+                                case .failure(let error):
+                                    self.saveMessage = self.completionMessage(for: completionResult)
+                                    self.errorMessage = self.presentationErrorMessage(for: error)
+                                case .success:
+                                    let message = self.completionMessage(for: completionResult)
+                                    self.saveMessage = message
+                                    completion?(message)
+                                }
                             }
                         }
                     }
@@ -282,35 +319,24 @@ public final class WeeklyReviewViewModel: ObservableObject {
         }
     }
 
-    private struct LoadedReviewPayload {
+    private struct LoadedReviewPayload: Sendable {
         let snapshot: WeeklyPlanSnapshot
         let habitRows: [HabitLibraryRow]
     }
 
     private func fetchReviewPayload(
-        completion: @escaping (Result<LoadedReviewPayload, Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<LoadedReviewPayload, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let lock = NSLock()
-        var fetchedSnapshot: WeeklyPlanSnapshot?
-        var habitRows: [HabitLibraryRow] = []
-        var firstError: Error?
-
-        func capture(_ error: Error) {
-            lock.lock()
-            if firstError == nil {
-                firstError = error
-            }
-            lock.unlock()
-        }
+        let accumulator = LockedWeeklyReviewPayloadAccumulator()
 
         group.enter()
         buildWeeklyPlanSnapshot.execute(referenceDate: weekStartDate) { result in
             switch result {
             case .success(let snapshot):
-                fetchedSnapshot = snapshot
+                accumulator.update { $0.snapshot = snapshot }
             case .failure(let error):
-                capture(error)
+                accumulator.record(error)
             }
             group.leave()
         }
@@ -319,29 +345,36 @@ public final class WeeklyReviewViewModel: ObservableObject {
         getHabitLibraryUseCase.execute(includeArchived: true) { result in
             switch result {
             case .success(let habits):
-                habitRows = habits
+                accumulator.update { $0.habitRows = habits }
             case .failure(let error):
-                capture(error)
+                accumulator.record(error)
             }
             group.leave()
         }
 
         group.notify(queue: .main) {
-            if let firstError {
-                completion(.failure(firstError))
+            let result = accumulator.result()
+            if case .failure(let error) = result {
+                MainActor.assumeIsolated {
+                    completion(.failure(error))
+                }
                 return
             }
-            guard let fetchedSnapshot else {
-                completion(.failure(
-                    NSError(
-                        domain: "WeeklyReviewViewModel",
-                        code: 800,
-                        userInfo: [NSLocalizedDescriptionKey: "We couldn't refresh the weekly review right now."]
-                    )
-                ))
+            guard case .success(let payloadState) = result, let fetchedSnapshot = payloadState.snapshot else {
+                MainActor.assumeIsolated {
+                    completion(.failure(
+                        NSError(
+                            domain: "WeeklyReviewViewModel",
+                            code: 800,
+                            userInfo: [NSLocalizedDescriptionKey: "We couldn't refresh the weekly review right now."]
+                        )
+                    ))
+                }
                 return
             }
-            completion(.success(LoadedReviewPayload(snapshot: fetchedSnapshot, habitRows: habitRows)))
+            MainActor.assumeIsolated {
+                completion(.success(LoadedReviewPayload(snapshot: fetchedSnapshot, habitRows: payloadState.habitRows)))
+            }
         }
     }
 
@@ -392,7 +425,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
         }
     }
 
-    private func reloadAfterCompletion(completion: @escaping (Result<Void, Error>) -> Void) {
+    private func reloadAfterCompletion(completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         fetchReviewPayload { result in
             DispatchQueue.main.async {
                 switch result {
@@ -593,13 +626,13 @@ public final class WeeklyReviewViewModel: ObservableObject {
 
     private func persistCompletionLocalState(
         decisions: [WeeklyReviewTaskDecision],
-        completion: @escaping () -> Void
+        completion: @escaping @MainActor @Sendable () -> Void
     ) {
         derivedStateDebounceWorkItem?.cancel()
         autosaveWorkItem?.cancel()
         draftStore.saveCompletedTaskDecisions(decisions, weekStartDate: weekStartDate) { _ in
             self.draftStore.clearDraft(weekStartDate: self.weekStartDate) { _ in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self.lastPersistedDraftPayload = nil
                     completion()
                 }

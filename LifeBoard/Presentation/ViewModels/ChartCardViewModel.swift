@@ -1,14 +1,14 @@
 import Foundation
 import Combine
- import DGCharts
+import DGCharts
 import SwiftUI
 
+@MainActor
 public final class ChartCardViewModel: ObservableObject {
     @Published var chartData: [ChartDataEntry] = []
     @Published var isLoading = true
 
     private let readModelRepository: TaskReadModelRepositoryProtocol?
-    private let computeQueue = DispatchQueue(label: "tasker.chartCard.compute", qos: .userInitiated)
     private var cachedWeekStart: Date?
     private var loadGeneration: Int = 0
 
@@ -49,48 +49,40 @@ public final class ChartCardViewModel: ObservableObject {
         loadGeneration += 1
         let requestedGeneration = loadGeneration
         isLoading = true
-        let interval = TaskerPerformanceTrace.begin("ChartCardLoad")
+        let interval = LifeBoardPerformanceTrace.begin("ChartCardLoad")
 
         readModel.fetchWeekChartProjection(referenceDate: currentReferenceDate) { [weak self] result in
-            guard let self else {
-                TaskerPerformanceTrace.end(interval)
-                return
-            }
-            self.computeQueue.async {
-                let payload: [ChartDataEntry]
-                switch result {
-                case .success(let projection):
-                    let today = Date.today().startOfDay
-                    payload = week.enumerated().map { index, day in
-                        let score: Int
-                        if day.startOfDay > today {
-                            score = 0
-                        } else {
-                            score = max(0, projection.dayScores[day.startOfDay] ?? 0)
-                        }
-                        return ChartDataEntry(x: Double(index), y: Double(score))
+            switch result {
+            case .success(let projection):
+                let today = Date.today().startOfDay
+                let payload = week.map { day in
+                    if day.startOfDay > today {
+                        return 0.0
                     }
-                case .failure(let error):
+                    return Double(max(0, projection.dayScores[day.startOfDay] ?? 0))
+                }
+
+                Task { @MainActor [weak self] in
+                    defer { LifeBoardPerformanceTrace.end(interval) }
+                    guard let self, requestedGeneration == self.loadGeneration else { return }
+                    self.chartData = payload.enumerated().map { index, score in
+                        ChartDataEntry(x: Double(index), y: score)
+                    }
+                    self.cachedWeekStart = weekStart
+                    self.isLoading = false
+                }
+            case .failure(let error):
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    defer { LifeBoardPerformanceTrace.end(interval) }
+                    guard let self, requestedGeneration == self.loadGeneration else { return }
                     logWarning(
                         event: "chart_card_fetch_failed",
                         message: "Failed to fetch weekly tasks for chart card",
-                        fields: ["error": error.localizedDescription]
+                        fields: ["error": message]
                     )
-                    DispatchQueue.main.async {
-                        defer { TaskerPerformanceTrace.end(interval) }
-                        guard requestedGeneration == self.loadGeneration else { return }
-                        self.chartData = []
-                        self.cachedWeekStart = nil
-                        self.isLoading = false
-                    }
-                    return
-                }
-
-                DispatchQueue.main.async {
-                    defer { TaskerPerformanceTrace.end(interval) }
-                    guard requestedGeneration == self.loadGeneration else { return }
-                    self.chartData = payload
-                    self.cachedWeekStart = weekStart
+                    self.chartData = []
+                    self.cachedWeekStart = nil
                     self.isLoading = false
                 }
             }

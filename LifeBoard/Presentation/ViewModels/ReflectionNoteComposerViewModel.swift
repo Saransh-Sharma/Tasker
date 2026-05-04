@@ -17,7 +17,7 @@ public final class ReflectionNoteComposerViewModel: ObservableObject {
     private let linkedProjectID: UUID?
     private let linkedHabitID: UUID?
     private let linkedWeeklyPlanID: UUID?
-    private let saveNoteHandler: (ReflectionNote, @escaping (Result<ReflectionNote, Error>) -> Void) -> Void
+    private let saveNoteHandler: (ReflectionNote, @escaping @MainActor @Sendable (Result<ReflectionNote, Error>) -> Void) -> Void
 
     public init(
         title: String,
@@ -30,7 +30,7 @@ public final class ReflectionNoteComposerViewModel: ObservableObject {
         noteText: String = "",
         mood: Int = 3,
         energy: Int = 3,
-        saveNoteHandler: @escaping (ReflectionNote, @escaping (Result<ReflectionNote, Error>) -> Void) -> Void
+        saveNoteHandler: @escaping (ReflectionNote, @escaping @MainActor @Sendable (Result<ReflectionNote, Error>) -> Void) -> Void
     ) {
         self.title = title
         self.kind = kind
@@ -75,15 +75,13 @@ public final class ReflectionNoteComposerViewModel: ObservableObject {
         )
 
         saveNoteHandler(note) { result in
-            DispatchQueue.main.async {
-                self.isSaving = false
-                switch result {
-                case .failure(let error):
-                    self.errorMessage = error.localizedDescription
-                case .success(let savedNote):
-                    self.saveMessage = WeeklyCopy.reflectionSaveSuccess
-                    completion?(savedNote)
-                }
+            self.isSaving = false
+            switch result {
+            case .failure(let error):
+                self.errorMessage = error.localizedDescription
+            case .success(let savedNote):
+                self.saveMessage = WeeklyCopy.reflectionSaveSuccess
+                completion?(savedNote)
             }
         }
     }
@@ -169,7 +167,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
 
         openedAt = Date()
         currentLoadID = UUID()
-        TaskerPerformanceTrace.event("ReflectionShellShown")
+        LifeBoardPerformanceTrace.event("ReflectionShellShown")
         errorMessage = nil
         successMessage = nil
         target = nil
@@ -219,7 +217,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
                     planningDate: resolvedTarget.planningDate,
                     baselineContext: baselineContext
                 )
-                TaskerPerformanceTrace.event("ReflectionBaselinePlanReady")
+                LifeBoardPerformanceTrace.event("ReflectionBaselinePlanReady")
                 self.loadState = .fullyLoaded
 
                 var shouldRefreshInBackground = true
@@ -237,7 +235,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
                         )
                         self.editablePlan = plan
                     }
-                    TaskerPerformanceTrace.event("ReflectionEnrichmentApplied")
+                    LifeBoardPerformanceTrace.event("ReflectionEnrichmentApplied")
                     shouldRefreshInBackground = cachedContext.isStale
                 }
 
@@ -268,10 +266,10 @@ public final class DailyReflectPlanViewModel: ObservableObject {
 
                     switch enrichedContext.status {
                     case .loaded:
-                        TaskerPerformanceTrace.event("ReflectionEnrichmentApplied")
+                        LifeBoardPerformanceTrace.event("ReflectionEnrichmentApplied")
                     case .degraded(let message):
                         if message.localizedCaseInsensitiveContains("timed out") {
-                            TaskerPerformanceTrace.event("ReflectionEnrichmentTimedOut")
+                            LifeBoardPerformanceTrace.event("ReflectionEnrichmentTimedOut")
                         }
                     case .loading:
                         break
@@ -365,7 +363,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
             replaceExistingManualDraft: replaceManualDraft
         ) { [weak self] result in
             guard let self else { return }
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.isSaving = false
                 switch result {
                 case .failure(let error):

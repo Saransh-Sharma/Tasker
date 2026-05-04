@@ -11,7 +11,61 @@ extension XPCalculationEngine.Milestone: Equatable {
     }
 }
 
-public enum InsightsMutation: Equatable {
+private final class InsightsRefreshAccumulator<State>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state: State
+
+    init(_ state: State) {
+        self.state = state
+    }
+
+    func update(_ body: (inout State) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func snapshot() -> State {
+        lock.lock()
+        let state = state
+        lock.unlock()
+        return state
+    }
+}
+
+private struct InsightsTodayRefreshSnapshot {
+    var dailyXP: Int
+    var level: Int
+    var xpEvents: [XPEventDefinition] = []
+    var todayFocusSessions: [FocusSessionDefinition] = []
+    var dueWindowTasks: [TaskDefinition] = []
+    var recentTasks: [TaskDefinition] = []
+    var dailyAnalytics: DailyAnalytics?
+}
+
+private struct InsightsWeekRefreshSnapshot {
+    var currentAggregates: [DailyXPAggregateDefinition] = []
+    var previousAggregates: [DailyXPAggregateDefinition] = []
+    var currentWeekEvents: [XPEventDefinition] = []
+    var previousWeekEvents: [XPEventDefinition] = []
+    var recentTasks: [TaskDefinition] = []
+    var dueWindowTasks: [TaskDefinition] = []
+    var projectScores: [UUID: Int] = [:]
+    var weeklySnapshot: WeeklyPlanSnapshot?
+    var weeklyMomentum: WeeklyMomentumSummary?
+    var recoveryDecisions: [WeeklyReviewTaskDecision] = []
+}
+
+private struct InsightsSystemsRefreshSnapshot {
+    var state: InsightsSystemsState
+    var latestProfile: GamificationSnapshot?
+    var unlocks: [AchievementUnlockDefinition] = []
+    var events: [XPEventDefinition] = []
+    var focusSessions: [FocusSessionDefinition] = []
+    var reminderResponseAggregate = ReminderDeliveryResponseAggregate()
+}
+
+public enum InsightsMutation: Equatable, Sendable {
     case taskCompleted
     case taskReopened
     case focusSessionEnded
@@ -21,7 +75,7 @@ public enum InsightsMutation: Equatable {
     case dayBoundaryChanged
 }
 
-public enum InsightsWeekScaleMode: String, CaseIterable {
+public enum InsightsWeekScaleMode: String, CaseIterable, Sendable {
     case goal
     case personalMax
 
@@ -35,14 +89,14 @@ public enum InsightsWeekScaleMode: String, CaseIterable {
     }
 }
 
-public enum InsightsMetricTone: String, Equatable {
+public enum InsightsMetricTone: String, Equatable, Sendable {
     case accent
     case success
     case warning
     case neutral
 }
 
-public struct InsightsMetricTile: Identifiable, Equatable {
+public struct InsightsMetricTile: Identifiable, Equatable, Sendable {
     public let id: String
     public let title: String
     public let value: String
@@ -64,7 +118,7 @@ public struct InsightsMetricTile: Identifiable, Equatable {
     }
 }
 
-public struct InsightsDistributionItem: Identifiable, Equatable {
+public struct InsightsDistributionItem: Identifiable, Equatable, Sendable {
     public let id: String
     public let label: String
     public let value: Int
@@ -89,7 +143,7 @@ public struct InsightsDistributionItem: Identifiable, Equatable {
     }
 }
 
-public struct InsightsDistributionSection: Identifiable, Equatable {
+public struct InsightsDistributionSection: Identifiable, Equatable, Sendable {
     public let id: String
     public let title: String
     public let items: [InsightsDistributionItem]
@@ -103,7 +157,7 @@ public struct InsightsDistributionSection: Identifiable, Equatable {
     }
 }
 
-public struct InsightsNarrativeBlock: Equatable {
+public struct InsightsNarrativeBlock: Equatable, Sendable {
     public var title: String
     public var metric: String
     public var hint: String
@@ -122,7 +176,7 @@ public struct InsightsNarrativeBlock: Equatable {
     }
 }
 
-public struct InsightsLeaderboardRow: Identifiable, Equatable {
+public struct InsightsLeaderboardRow: Identifiable, Equatable, Sendable {
     public let id: String
     public let title: String
     public let subtitle: String
@@ -147,7 +201,7 @@ public struct InsightsLeaderboardRow: Identifiable, Equatable {
     }
 }
 
-public struct InsightsReminderResponseState: Equatable {
+public struct InsightsReminderResponseState: Equatable, Sendable {
     public var totalDeliveries: Int
     public var acknowledgedDeliveries: Int
     public var snoozedDeliveries: Int
@@ -178,7 +232,7 @@ public struct InsightsReminderResponseState: Equatable {
     }
 }
 
-public struct InsightsTodayState: Equatable {
+public struct InsightsTodayState: Equatable, Sendable {
     public var dailyXP: Int
     public var dailyCap: Int
     public var level: Int
@@ -244,7 +298,7 @@ public struct InsightsTodayState: Equatable {
     }
 }
 
-public struct InsightsWeekState: Equatable {
+public struct InsightsWeekState: Equatable, Sendable {
     public var weeklyOperating: InsightsWeeklyOperatingSection?
     public var weeklyBars: [WeeklyBarData]
     public var weeklyTotalXP: Int
@@ -304,7 +358,7 @@ public struct InsightsWeekState: Equatable {
     }
 }
 
-public struct InsightsWeeklyOperatingSection: Equatable {
+public struct InsightsWeeklyOperatingSection: Equatable, Sendable {
     public var momentumScore: Int
     public var momentumNarrative: String
     public var reviewStatusTitle: String
@@ -341,7 +395,7 @@ public struct InsightsWeeklyOperatingSection: Equatable {
     }
 }
 
-public struct InsightsSystemsState: Equatable {
+public struct InsightsSystemsState: Equatable, Sendable {
     public var level: Int
     public var totalXP: Int64
     public var nextLevelXP: Int64
@@ -410,7 +464,7 @@ public struct InsightsSystemsState: Equatable {
     }
 }
 
-public struct InsightsTabRefreshState: Equatable {
+public struct InsightsTabRefreshState: Equatable, Sendable {
     public var isLoaded: Bool
     public var inFlight: Bool
     public var requestedVersion: UInt64
@@ -437,6 +491,7 @@ public struct InsightsTabRefreshState: Equatable {
 
 /// ViewModel for the Insights screen.
 /// Uses per-tab event-driven invalidation and targeted recompute.
+@MainActor
 public final class InsightsViewModel: ObservableObject {
 
     public enum InsightsTab: String, CaseIterable {
@@ -488,13 +543,13 @@ public final class InsightsViewModel: ObservableObject {
     private let weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol?
     private let notificationCenter: NotificationCenter
     private let userDefaults: UserDefaults
-    private let refreshComputeQueue = DispatchQueue(label: "tasker.insights.refresh.compute", qos: .userInitiated)
+    private let refreshComputeQueue = DispatchQueue(label: "lifeboard.insights.refresh.compute", qos: .userInitiated)
 
     private var tabRefreshState: [InsightsTab: InsightsTabRefreshState] = [:]
     private var tabSnapshotCapturedAt: [InsightsTab: Date] = [:]
     private var versionCounter: UInt64 = 0
     private var cancellables = Set<AnyCancellable>()
-    private var pendingMutationWorkItem: DispatchWorkItem?
+    private var pendingMutationWorkItem: LifeBoardCancellableDispatchWorkItem?
     private var sessionDayKey: String
 
     private static let dayLetters = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
@@ -721,7 +776,7 @@ public final class InsightsViewModel: ObservableObject {
         let workItem = DispatchWorkItem { [weak self] in
             self?.refreshSelectedTabIfNeeded(force: false)
         }
-        pendingMutationWorkItem = workItem
+        pendingMutationWorkItem = LifeBoardCancellableDispatchWorkItem(workItem)
         DispatchQueue.main.asyncAfter(
             deadline: .now() + Self.mutationDebounceInterval,
             execute: workItem
@@ -920,59 +975,46 @@ public final class InsightsViewModel: ObservableObject {
     }
 
     private func refreshToday(version: UInt64) {
-        let interval = TaskerPerformanceTrace.begin("InsightsTodayRefresh")
+        let interval = LifeBoardPerformanceTrace.begin("InsightsTodayRefresh")
         let calendar = XPCalculationEngine.mondayCalendar()
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
-        let lock = NSLock()
         let group = DispatchGroup()
-
-        var dailyXP = todayState.dailyXP
-        var level = todayState.level
-        var xpEvents: [XPEventDefinition] = []
-        var todayFocusSessions: [FocusSessionDefinition] = []
-        var dueWindowTasks: [TaskDefinition] = []
-        var recentTasks: [TaskDefinition] = []
-        var dailyAnalytics: DailyAnalytics?
+        let snapshot = InsightsRefreshAccumulator(InsightsTodayRefreshSnapshot(
+            dailyXP: todayState.dailyXP,
+            level: todayState.level
+        ))
 
         group.enter()
         engine.fetchTodayXP { result in
-            lock.lock()
             if case .success(let xp) = result {
-                dailyXP = xp
+                snapshot.update { $0.dailyXP = xp }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         repository.fetchXPEvents(from: startOfToday, to: startOfTomorrow) { result in
-            lock.lock()
             if case .success(let events) = result {
-                xpEvents = events
+                snapshot.update { $0.xpEvents = events }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         repository.fetchFocusSessions(from: startOfToday, to: startOfTomorrow) { result in
-            lock.lock()
             if case .success(let sessions) = result {
-                todayFocusSessions = sessions
+                snapshot.update { $0.todayFocusSessions = sessions }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         engine.fetchCurrentProfile { result in
-            lock.lock()
             if case .success(let profile) = result {
-                level = XPCalculationEngine.levelForXP(profile.xpTotal).level
+                snapshot.update { $0.level = XPCalculationEngine.levelForXP(profile.xpTotal).level }
             }
-            lock.unlock()
             group.leave()
         }
 
@@ -985,12 +1027,12 @@ public final class InsightsViewModel: ObservableObject {
                     recentLimit: 220
                 )
             ) { result in
-                lock.lock()
                 if case .success(let projection) = result {
-                    dueWindowTasks = projection.dueWindowTasks
-                    recentTasks = projection.recentTasks
+                    snapshot.update {
+                        $0.dueWindowTasks = projection.dueWindowTasks
+                        $0.recentTasks = projection.recentTasks
+                    }
                 }
-                lock.unlock()
                 group.leave()
             }
         }
@@ -998,29 +1040,28 @@ public final class InsightsViewModel: ObservableObject {
         if let analyticsUseCase {
             group.enter()
             analyticsUseCase.calculateDailyAnalytics(for: startOfToday) { result in
-                lock.lock()
                 if case .success(let analytics) = result {
-                    dailyAnalytics = analytics
+                    snapshot.update { $0.dailyAnalytics = analytics }
                 }
-                lock.unlock()
                 group.leave()
             }
         }
 
         group.notify(queue: refreshComputeQueue) { [weak self] in
+            let snapshot = snapshot.snapshot()
             let nextState = Self.buildTodayState(
-                dailyXP: dailyXP,
-                level: level,
-                dailyAnalytics: dailyAnalytics,
-                xpEvents: xpEvents,
-                recentTasks: recentTasks,
-                dueWindowTasks: dueWindowTasks,
-                focusSessions: todayFocusSessions,
+                dailyXP: snapshot.dailyXP,
+                level: snapshot.level,
+                dailyAnalytics: snapshot.dailyAnalytics,
+                xpEvents: snapshot.xpEvents,
+                recentTasks: snapshot.recentTasks,
+                dueWindowTasks: snapshot.dueWindowTasks,
+                focusSessions: snapshot.todayFocusSessions,
                 dayStart: startOfToday,
                 calendar: calendar
             )
-            DispatchQueue.main.async {
-                defer { TaskerPerformanceTrace.end(interval) }
+            Task { @MainActor in
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
                 if self.todayState != nextState {
                     self.todayState = nextState
@@ -1031,7 +1072,7 @@ public final class InsightsViewModel: ObservableObject {
     }
 
     private func refreshWeek(version: UInt64) {
-        let interval = TaskerPerformanceTrace.begin("InsightsWeekRefresh")
+        let interval = LifeBoardPerformanceTrace.begin("InsightsWeekRefresh")
         let calendar = XPCalculationEngine.mondayCalendar()
         let today = calendar.startOfDay(for: Date())
         let weekStart = XPCalculationEngine.mondayStartOfWeek(for: today, calendar: calendar)
@@ -1046,57 +1087,38 @@ public final class InsightsViewModel: ObservableObject {
         let previousWeekStartKey = dateFormatter.string(from: previousWeekStart)
         let previousWeekEndKey = dateFormatter.string(from: previousWeekEnd)
 
-        let lock = NSLock()
         let group = DispatchGroup()
-
-        var currentAggregates: [DailyXPAggregateDefinition] = []
-        var previousAggregates: [DailyXPAggregateDefinition] = []
-        var currentWeekEvents: [XPEventDefinition] = []
-        var previousWeekEvents: [XPEventDefinition] = []
-        var recentTasks: [TaskDefinition] = []
-        var dueWindowTasks: [TaskDefinition] = []
-        var projectScores: [UUID: Int] = [:]
-        var weeklySnapshot: WeeklyPlanSnapshot?
-        var weeklyMomentum: WeeklyMomentumSummary?
-        var recoveryDecisions: [WeeklyReviewTaskDecision] = []
+        let snapshot = InsightsRefreshAccumulator(InsightsWeekRefreshSnapshot())
 
         group.enter()
         repository.fetchDailyAggregates(from: currentWeekStartKey, to: currentWeekEndKey) { result in
-            lock.lock()
             if case .success(let aggregates) = result {
-                currentAggregates = aggregates
+                snapshot.update { $0.currentAggregates = aggregates }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         repository.fetchDailyAggregates(from: previousWeekStartKey, to: previousWeekEndKey) { result in
-            lock.lock()
             if case .success(let aggregates) = result {
-                previousAggregates = aggregates
+                snapshot.update { $0.previousAggregates = aggregates }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         repository.fetchXPEvents(from: weekStart, to: startOfTomorrow) { result in
-            lock.lock()
             if case .success(let events) = result {
-                currentWeekEvents = events
+                snapshot.update { $0.currentWeekEvents = events }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         repository.fetchXPEvents(from: previousWeekStart, to: weekStart) { result in
-            lock.lock()
             if case .success(let events) = result {
-                previousWeekEvents = events
+                snapshot.update { $0.previousWeekEvents = events }
             }
-            lock.unlock()
             group.leave()
         }
 
@@ -1109,13 +1131,13 @@ public final class InsightsViewModel: ObservableObject {
                     recentLimit: 260
                 )
             ) { result in
-                lock.lock()
                 if case .success(let projection) = result {
-                    recentTasks = projection.recentTasks
-                    dueWindowTasks = projection.dueWindowTasks
-                    projectScores = projection.projectScores
+                    snapshot.update {
+                        $0.recentTasks = projection.recentTasks
+                        $0.dueWindowTasks = projection.dueWindowTasks
+                        $0.projectScores = projection.projectScores
+                    }
                 }
-                lock.unlock()
                 group.leave()
             }
         }
@@ -1125,25 +1147,21 @@ public final class InsightsViewModel: ObservableObject {
             buildWeeklyPlanSnapshotUseCase.execute(referenceDate: today) { result in
                 var reviewDecisionsWeekStart: Date?
                 var reviewDraftStore: WeeklyReviewDraftStoreProtocol?
-                lock.lock()
-                if case .success(let snapshot) = result {
-                    weeklySnapshot = snapshot
-                    if snapshot.review?.completedAt != nil {
-                        reviewDecisionsWeekStart = snapshot.weekStartDate
+                if case .success(let weeklyPlanSnapshot) = result {
+                    snapshot.update { $0.weeklySnapshot = weeklyPlanSnapshot }
+                    if weeklyPlanSnapshot.review?.completedAt != nil {
+                        reviewDecisionsWeekStart = weeklyPlanSnapshot.weekStartDate
                         reviewDraftStore = self.weeklyReviewDraftStore
                     }
                 }
-                lock.unlock()
 
                 if let reviewDecisionsWeekStart,
                    let reviewDraftStore {
                     group.enter()
                     reviewDraftStore.fetchCompletedTaskDecisions(weekStartDate: reviewDecisionsWeekStart) { decisionResult in
-                        lock.lock()
                         if case .success(let decisions) = decisionResult {
-                            recoveryDecisions = decisions
+                            snapshot.update { $0.recoveryDecisions = decisions }
                         }
-                        lock.unlock()
                         group.leave()
                     }
                 }
@@ -1155,42 +1173,41 @@ public final class InsightsViewModel: ObservableObject {
         if let calculateWeeklyMomentumUseCase {
             group.enter()
             calculateWeeklyMomentumUseCase.execute(referenceDate: today) { result in
-                lock.lock()
                 if case .success(let summary) = result {
-                    weeklyMomentum = summary
+                    snapshot.update { $0.weeklyMomentum = summary }
                 }
-                lock.unlock()
                 group.leave()
             }
         }
 
         group.notify(queue: refreshComputeQueue) { [weak self] in
+            let snapshot = snapshot.snapshot()
             var nextState = Self.buildWeekState(
-                currentAggregates: currentAggregates,
-                previousAggregates: previousAggregates,
-                currentWeekEvents: currentWeekEvents,
-                previousWeekEvents: previousWeekEvents,
-                recentTasks: recentTasks,
-                dueWindowTasks: dueWindowTasks,
-                projectScores: projectScores,
+                currentAggregates: snapshot.currentAggregates,
+                previousAggregates: snapshot.previousAggregates,
+                currentWeekEvents: snapshot.currentWeekEvents,
+                previousWeekEvents: snapshot.previousWeekEvents,
+                recentTasks: snapshot.recentTasks,
+                dueWindowTasks: snapshot.dueWindowTasks,
+                projectScores: snapshot.projectScores,
                 weekStart: weekStart,
                 today: today,
                 calendar: calendar
             )
             Self.applyWeeklyOperatingInsights(
                 to: &nextState,
-                snapshot: weeklySnapshot,
-                momentum: weeklyMomentum,
+                snapshot: snapshot.weeklySnapshot,
+                momentum: snapshot.weeklyMomentum,
                 recoveryInsights: {
                     guard let buildRecoveryInsightsUseCase = self?.buildRecoveryInsightsUseCase,
-                          recoveryDecisions.isEmpty == false else {
+                          snapshot.recoveryDecisions.isEmpty == false else {
                         return nil
                     }
-                    return buildRecoveryInsightsUseCase.execute(decisions: recoveryDecisions)
+                    return buildRecoveryInsightsUseCase.execute(decisions: snapshot.recoveryDecisions)
                 }()
             )
-            DispatchQueue.main.async {
-                defer { TaskerPerformanceTrace.end(interval) }
+            Task { @MainActor in
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
                 if self.weekState != nextState {
                     self.weekState = nextState
@@ -1201,114 +1218,104 @@ public final class InsightsViewModel: ObservableObject {
     }
 
     private func refreshSystems(version: UInt64) {
-        let interval = TaskerPerformanceTrace.begin("InsightsSystemsRefresh")
-        let lock = NSLock()
+        let interval = LifeBoardPerformanceTrace.begin("InsightsSystemsRefresh")
         let group = DispatchGroup()
         let now = Date()
         let lookbackStart = Calendar.current.date(byAdding: .day, value: -28, to: now) ?? now
         let achievementLookbackStart = Calendar.current.date(byAdding: .day, value: -365, to: now) ?? lookbackStart
 
-        var state = systemsState
-        var latestProfile: GamificationSnapshot?
-        var unlocks: [AchievementUnlockDefinition] = []
-        var events: [XPEventDefinition] = []
-        var focusSessions: [FocusSessionDefinition] = []
-        var reminderResponseAggregate = ReminderDeliveryResponseAggregate()
+        let snapshot = InsightsRefreshAccumulator(InsightsSystemsRefreshSnapshot(state: systemsState))
 
         group.enter()
         engine.fetchCurrentProfile { result in
-            lock.lock()
             if case .success(let profile) = result {
-                latestProfile = profile
                 let levelInfo = XPCalculationEngine.levelForXP(profile.xpTotal)
-                state.level = levelInfo.level
-                state.totalXP = profile.xpTotal
-                state.currentLevelThreshold = levelInfo.currentThreshold
-                state.nextLevelXP = levelInfo.nextThreshold
-                state.streakDays = profile.currentStreak
-                state.bestStreak = max(profile.bestStreak, profile.bestReturnStreak)
-                state.returnStreak = profile.returnStreak
-                state.bestReturnStreak = profile.bestReturnStreak
+                snapshot.update {
+                    $0.latestProfile = profile
+                    $0.state.level = levelInfo.level
+                    $0.state.totalXP = profile.xpTotal
+                    $0.state.currentLevelThreshold = levelInfo.currentThreshold
+                    $0.state.nextLevelXP = levelInfo.nextThreshold
+                    $0.state.streakDays = profile.currentStreak
+                    $0.state.bestStreak = max(profile.bestStreak, profile.bestReturnStreak)
+                    $0.state.returnStreak = profile.returnStreak
+                    $0.state.bestReturnStreak = profile.bestReturnStreak
 
-                if let milestone = XPCalculationEngine.nextMilestone(for: profile.xpTotal) {
-                    state.nextMilestone = milestone
-                    let previousThreshold = XPCalculationEngine.milestones
-                        .last(where: { $0.xpThreshold <= profile.xpTotal })?.xpThreshold ?? 0
-                    let range = milestone.xpThreshold - previousThreshold
-                    let progress = profile.xpTotal - previousThreshold
-                    state.milestoneProgress = range > 0 ? CGFloat(progress) / CGFloat(range) : 0
-                } else {
-                    state.nextMilestone = nil
-                    state.milestoneProgress = 0
+                    if let milestone = XPCalculationEngine.nextMilestone(for: profile.xpTotal) {
+                        $0.state.nextMilestone = milestone
+                        let previousThreshold = XPCalculationEngine.milestones
+                            .last(where: { $0.xpThreshold <= profile.xpTotal })?.xpThreshold ?? 0
+                        let range = milestone.xpThreshold - previousThreshold
+                        let progress = profile.xpTotal - previousThreshold
+                        $0.state.milestoneProgress = range > 0 ? CGFloat(progress) / CGFloat(range) : 0
+                    } else {
+                        $0.state.nextMilestone = nil
+                        $0.state.milestoneProgress = 0
+                    }
                 }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         repository.fetchAchievementUnlocks { result in
-            lock.lock()
             if case .success(let fetchedUnlocks) = result {
-                unlocks = fetchedUnlocks
-                state.unlockedAchievements = Set(fetchedUnlocks.map(\.achievementKey))
+                snapshot.update {
+                    $0.unlocks = fetchedUnlocks
+                    $0.state.unlockedAchievements = Set(fetchedUnlocks.map(\.achievementKey))
+                }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         repository.fetchXPEvents(from: achievementLookbackStart, to: now) { result in
-            lock.lock()
             if case .success(let fetchedEvents) = result {
-                events = fetchedEvents
+                snapshot.update { $0.events = fetchedEvents }
             }
-            lock.unlock()
             group.leave()
         }
 
         group.enter()
         repository.fetchFocusSessions(from: lookbackStart, to: now) { result in
-            lock.lock()
             if case .success(let fetchedSessions) = result {
-                focusSessions = fetchedSessions
+                snapshot.update { $0.focusSessions = fetchedSessions }
             }
-            lock.unlock()
             group.leave()
         }
 
         if let reminderRepository {
             group.enter()
             reminderRepository.fetchDeliveryResponseAggregate(from: lookbackStart, to: now) { result in
-                lock.lock()
                 if case .success(let aggregate) = result {
-                    reminderResponseAggregate = aggregate
+                    snapshot.update { $0.reminderResponseAggregate = aggregate }
                 }
-                lock.unlock()
                 group.leave()
             }
         }
 
         group.notify(queue: refreshComputeQueue) { [weak self] in
+            let snapshot = snapshot.snapshot()
+            var state = snapshot.state
             state.achievementProgress = Self.buildAchievementProgress(
-                profile: latestProfile,
-                unlocks: unlocks,
-                events: events
+                profile: snapshot.latestProfile,
+                unlocks: snapshot.unlocks,
+                events: snapshot.events
             )
 
-            let responseState = Self.buildReminderResponseState(aggregate: reminderResponseAggregate)
+            let responseState = Self.buildReminderResponseState(aggregate: snapshot.reminderResponseAggregate)
             state.reminderResponse = responseState
             state.streakMetrics = Self.buildStreakMetrics(
-                profile: latestProfile ?? GamificationSnapshot(),
+                profile: snapshot.latestProfile ?? GamificationSnapshot(),
                 reminderResponse: responseState
             )
-            state.achievementVelocityMetrics = Self.buildAchievementVelocityMetrics(unlocks: unlocks)
-            state.focusHealthMetrics = Self.buildFocusHealthMetrics(sessions: focusSessions)
-            state.recoveryHealthMetrics = Self.buildRecoveryHealthMetrics(events: events, now: now)
+            state.achievementVelocityMetrics = Self.buildAchievementVelocityMetrics(unlocks: snapshot.unlocks)
+            state.focusHealthMetrics = Self.buildFocusHealthMetrics(sessions: snapshot.focusSessions)
+            state.recoveryHealthMetrics = Self.buildRecoveryHealthMetrics(events: snapshot.events, now: now)
             state.heroSummary = Self.buildSystemsHeroSummary(
-                profile: latestProfile ?? GamificationSnapshot(),
+                profile: snapshot.latestProfile ?? GamificationSnapshot(),
                 reminderResponse: responseState,
-                focusSessions: focusSessions
+                focusSessions: snapshot.focusSessions
             )
             state.heroCard = InsightsNarrativeBlock(
                 title: "System health",
@@ -1317,8 +1324,8 @@ public final class InsightsViewModel: ObservableObject {
                 detail: state.heroSummary
             )
             let nextState = state
-            DispatchQueue.main.async {
-                defer { TaskerPerformanceTrace.end(interval) }
+            Task { @MainActor in
+                defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
                 if self.systemsState != nextState {
                     self.systemsState = nextState
@@ -2633,7 +2640,7 @@ private extension InsightsMutation {
     }
 }
 
-public struct XPBreakdownItem: Identifiable, Equatable {
+public struct XPBreakdownItem: Identifiable, Equatable, Sendable {
     public var id: String { category }
     public let category: String
     public let xp: Int
@@ -2655,7 +2662,7 @@ public struct XPBreakdownItem: Identifiable, Equatable {
     }
 }
 
-public struct WeeklyBarData: Identifiable, Equatable {
+public struct WeeklyBarData: Identifiable, Equatable, Sendable {
     public var id: String { dateKey }
     public let dateKey: String
     public let dayIndex: Int

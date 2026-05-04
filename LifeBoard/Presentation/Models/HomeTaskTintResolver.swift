@@ -1,6 +1,6 @@
 //
 //  HomeTaskTintResolver.swift
-//  Tasker
+//  LifeBoard
 //
 //  Shared helpers for resolving the tint used by home task rows.
 //
