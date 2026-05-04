@@ -6,11 +6,11 @@ enum V2FeatureFlags {
     static var iPadPerfHomeAnimationTrimV3Enabled: Bool { false }
 }
 
-enum TaskerTextFieldTokens {
+enum LifeBoardTextFieldTokens {
     static let singleLineHeight: CGFloat = 52
 }
 
-enum TaskerSettingsMetrics {
+enum LifeBoardSettingsMetrics {
     static let chipMinHeight: CGFloat = 32
 }
 

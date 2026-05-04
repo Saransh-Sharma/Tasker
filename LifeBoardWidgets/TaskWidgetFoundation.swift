@@ -16,18 +16,18 @@ extension Color {
 
 @MainActor
 enum TaskWidgetTypography {
-    static let eyebrow = TaskerTheme.Typography.eyebrow
-    static let caption = TaskerTheme.Typography.caption
-    static let captionStrong = TaskerTheme.Typography.captionSemibold
-    static let meta = TaskerTheme.Typography.meta
-    static let support = TaskerTheme.Typography.support
-    static let body = TaskerTheme.Typography.body
-    static let bodyStrong = TaskerTheme.Typography.bodyStrong
-    static let title = TaskerTheme.Typography.title3
-    static let titleLarge = TaskerTheme.Typography.title2
-    static let metric = TaskerTheme.Typography.metric
-    static let display = TaskerTheme.Typography.display
-    static let mono = TaskerTheme.Typography.monoMeta
+    static let eyebrow = LifeBoardTheme.Typography.eyebrow
+    static let caption = LifeBoardTheme.Typography.caption
+    static let captionStrong = LifeBoardTheme.Typography.captionSemibold
+    static let meta = LifeBoardTheme.Typography.meta
+    static let support = LifeBoardTheme.Typography.support
+    static let body = LifeBoardTheme.Typography.body
+    static let bodyStrong = LifeBoardTheme.Typography.bodyStrong
+    static let title = LifeBoardTheme.Typography.title3
+    static let titleLarge = LifeBoardTheme.Typography.title2
+    static let metric = LifeBoardTheme.Typography.metric
+    static let display = LifeBoardTheme.Typography.display
+    static let mono = LifeBoardTheme.Typography.monoMeta
 }
 
 struct TaskWidgetViewContext {
@@ -275,7 +275,7 @@ struct TaskWidgetPanel<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     private var resolvedCornerRadius: CGFloat {
-        TaskerTheme.CornerRadius.card
+        LifeBoardTheme.CornerRadius.card
     }
 
     private var effectiveAccent: Color {
@@ -433,7 +433,7 @@ struct TaskWidgetHeroMetric: View {
         if reduceMotion {
             text
         } else {
-            text.animation(TaskerAnimation.heroReveal, value: value)
+            text.animation(LifeBoardAnimation.heroReveal, value: value)
         }
     }
 }
@@ -531,7 +531,7 @@ struct TaskWidgetActionBandLabel: View {
         }
         .frame(maxWidth: .infinity, minHeight: 40)
         .padding(.horizontal, 14)
-        .background(accent, in: RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
+        .background(accent, in: RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous))
     }
 }
 
@@ -805,7 +805,7 @@ extension View {
         if let value {
             self
                 .contentTransition(reduceMotion ? .identity : .numericText(value: value))
-                .animation(reduceMotion ? nil : TaskerAnimation.quick, value: value)
+                .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: value)
         } else {
             self
         }

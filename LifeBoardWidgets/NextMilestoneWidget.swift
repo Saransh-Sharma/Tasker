@@ -74,6 +74,6 @@ struct NextMilestoneWidgetView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Next milestone \(entry.snapshot.nextMilestoneName ?? "Unknown"). \(Int(entry.snapshot.milestoneProgress * 100)) percent complete. Total XP \(entry.snapshot.totalXP).")
-        .widgetURL(URL(string: "tasker://insights"))
+        .widgetURL(URL(string: "lifeboard://insights"))
     }
 }

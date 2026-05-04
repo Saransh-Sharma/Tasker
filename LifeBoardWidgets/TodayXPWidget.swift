@@ -67,7 +67,7 @@ struct TodayXPWidgetView: View {
                 mediumView
             }
         }
-        .widgetURL(URL(string: "tasker://home"))
+        .widgetURL(URL(string: "lifeboard://home"))
     }
 
     private var smallView: some View {

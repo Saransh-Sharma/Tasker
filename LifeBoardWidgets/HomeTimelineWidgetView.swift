@@ -468,7 +468,7 @@ private struct HomeTimelineEmptyState: View {
 
     private var detail: String {
         if isStale {
-            return "Open Tasker to refresh today's timeline."
+            return "Open LifeBoard to refresh today's timeline."
         }
         if timeline.day.inboxItems.isEmpty == false {
             return "\(timeline.day.inboxItems.count) unscheduled task\(timeline.day.inboxItems.count == 1 ? "" : "s") to place."
@@ -533,7 +533,7 @@ private enum HomeTimelineFormatter {
         isStale: Bool
     ) -> String {
         if isStale {
-            return "Home timeline may be stale. Open Tasker to refresh."
+            return "Home timeline may be stale. Open LifeBoard to refresh."
         }
         if let primary = timeline.primaryItem {
             return "Home timeline, \(dateText(timeline.date)), \(primary.title), \(itemDetailText(primary))."

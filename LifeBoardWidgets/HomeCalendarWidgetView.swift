@@ -195,12 +195,12 @@ private struct HomeCalendarStatusSummary: View {
 
     private var detail: String {
         if isStale {
-            return "Open Tasker to refresh schedule context."
+            return "Open LifeBoard to refresh schedule context."
         }
 
         switch calendar.status {
         case .permissionRequired:
-            return "Allow full calendar access in Tasker."
+            return "Allow full calendar access in LifeBoard."
         case .noCalendarsSelected:
             return "Choose at least one calendar for schedule insights."
         case .empty:
@@ -214,7 +214,7 @@ private struct HomeCalendarStatusSummary: View {
             if let errorMessage = calendar.errorMessage, errorMessage.isEmpty == false {
                 return errorMessage
             }
-            return "Open Tasker to refresh."
+            return "Open LifeBoard to refresh."
         case .active:
             if let nextMeeting = calendar.nextMeeting {
                 return HomeCalendarWidgetFormatter.nextMeetingDetail(nextMeeting, freeUntil: calendar.freeUntil)
@@ -573,7 +573,7 @@ private enum HomeCalendarWidgetFormatter {
         isStale: Bool
     ) -> String {
         if isStale {
-            return "Calendar schedule may be stale. Open Tasker to refresh."
+            return "Calendar schedule may be stale. Open LifeBoard to refresh."
         }
         if let nextMeeting = calendar.nextMeeting, calendar.status == .active {
             return "Calendar, \(dateText(calendar.date)), next up \(nextMeeting.event.title), \(nextMeetingDetail(nextMeeting, freeUntil: calendar.freeUntil))."

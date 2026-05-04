@@ -76,6 +76,6 @@ struct StreakResilienceWidgetView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Current streak \(entry.snapshot.streakDays) days. Best streak \(entry.snapshot.bestStreak) days.")
-        .widgetURL(URL(string: "tasker://insights"))
+        .widgetURL(URL(string: "lifeboard://insights"))
     }
 }

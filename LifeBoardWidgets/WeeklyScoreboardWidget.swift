@@ -133,13 +133,13 @@ struct WeeklyScoreboardWidgetView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(12)
-                .background(WidgetBrand.canvasSecondary.opacity(0.72), in: RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
+                .background(WidgetBrand.canvasSecondary.opacity(0.72), in: RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Weekly XP total \(entry.snapshot.weeklyTotalXP). Scale \(scaleMode == .goal ? "goal" : "personal max"). \(freshnessText).")
-        .widgetURL(URL(string: "tasker://insights"))
+        .widgetURL(URL(string: "lifeboard://insights"))
     }
 
     private func barColor(index: Int) -> Color {

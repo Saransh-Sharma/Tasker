@@ -71,7 +71,7 @@ struct FocusSeedWidgetView: View {
 
                 Spacer(minLength: 0)
 
-                Link(destination: URL(string: "tasker://focus")!) {
+                Link(destination: URL(string: "lifeboard://focus")!) {
                     TaskWidgetActionBandLabel(title: "Start Focus", accent: WidgetBrand.actionPrimary)
                 }
             }
@@ -80,6 +80,6 @@ struct FocusSeedWidgetView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Focus today \(entry.snapshot.focusMinutesToday) minutes. Double tap to start focus.")
         .accessibilityHint("Opens focus session")
-        .widgetURL(URL(string: "tasker://focus"))
+        .widgetURL(URL(string: "lifeboard://focus"))
     }
 }

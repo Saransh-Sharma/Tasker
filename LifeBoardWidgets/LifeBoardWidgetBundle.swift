@@ -5,7 +5,7 @@ import AppIntents
 #endif
 
 @main
-struct TaskerWidgetBundle: WidgetBundle {
+struct LifeBoardWidgetBundle: WidgetBundle {
     var body: some Widget {
         TodayXPWidget()
         WeeklyScoreboardWidget()
@@ -445,7 +445,7 @@ struct TaskListProvider: TimelineProvider {
                     TaskListWidgetTask(
                         id: UUID(),
                         title: "Ship widget MVP",
-                        projectName: "Tasker",
+                        projectName: "LifeBoard",
                         priorityCode: "P1",
                         dueDate: Date().addingTimeInterval(60 * 60),
                         estimatedDurationMinutes: 25,
@@ -482,7 +482,7 @@ struct TaskListProvider: TimelineProvider {
                     TaskListWidgetTask(
                         id: UUID(),
                         title: "Reply to stakeholder",
-                        projectName: "Tasker",
+                        projectName: "LifeBoard",
                         priorityCode: "P2",
                         dueDate: Date().addingTimeInterval(2 * 60 * 60),
                         estimatedDurationMinutes: 10,
@@ -491,7 +491,7 @@ struct TaskListProvider: TimelineProvider {
                     )
                 ],
                 projectSlices: [
-                    TaskListWidgetProjectSlice(projectName: "Tasker", openCount: 5, overdueCount: 1),
+                    TaskListWidgetProjectSlice(projectName: "LifeBoard", openCount: 5, overdueCount: 1),
                     TaskListWidgetProjectSlice(projectName: "Personal", openCount: 2, overdueCount: 1)
                 ],
                 doneTodayCount: 2,
@@ -538,7 +538,7 @@ struct TaskListProvider: TimelineProvider {
                         TaskListWidgetCalendarEvent(
                             id: "preview-planning",
                             title: "Planning block",
-                            calendarTitle: "Tasker",
+                            calendarTitle: "LifeBoard",
                             calendarColorHex: "#23A36F",
                             startDate: Date().addingTimeInterval(3 * 60 * 60),
                             endDate: Date().addingTimeInterval(4 * 60 * 60),
@@ -550,7 +550,7 @@ struct TaskListProvider: TimelineProvider {
                         TaskListWidgetCalendarEvent(
                             id: "preview-launch",
                             title: "Launch week",
-                            calendarTitle: "Tasker",
+                            calendarTitle: "LifeBoard",
                             calendarColorHex: "#B06AF7",
                             startDate: Date(),
                             endDate: Date(),
@@ -629,7 +629,7 @@ struct TaskListProvider: TimelineProvider {
                 source: .task,
                 taskID: UUID(),
                 title: "Draft launch notes",
-                subtitle: "Tasker",
+                subtitle: "LifeBoard",
                 startDate: focusStart,
                 endDate: focusEnd,
                 tintHex: "#2F7CF6",
@@ -663,7 +663,7 @@ struct TaskListProvider: TimelineProvider {
                         source: .task,
                         taskID: UUID(),
                         title: "Launch week",
-                        subtitle: "Tasker",
+                        subtitle: "LifeBoard",
                         startDate: day,
                         isAllDay: true,
                         tintHex: "#B06AF7",
@@ -766,19 +766,19 @@ struct TaskListStaticWidget: Widget {
 }
 
 enum TaskWidgetRoutes {
-    static var today: URL { URL(string: "tasker://tasks/today")! }
-    static var upcoming: URL { URL(string: "tasker://tasks/upcoming")! }
-    static var overdue: URL { URL(string: "tasker://tasks/overdue")! }
-    static var weeklyPlanner: URL { URL(string: "tasker://weekly/planner")! }
-    static var calendarSchedule: URL { URL(string: "tasker://calendar/schedule")! }
-    static var quickAdd: URL { URL(string: "tasker://quickadd")! }
+    static var today: URL { URL(string: "lifeboard://tasks/today")! }
+    static var upcoming: URL { URL(string: "lifeboard://tasks/upcoming")! }
+    static var overdue: URL { URL(string: "lifeboard://tasks/overdue")! }
+    static var weeklyPlanner: URL { URL(string: "lifeboard://weekly/planner")! }
+    static var calendarSchedule: URL { URL(string: "lifeboard://calendar/schedule")! }
+    static var quickAdd: URL { URL(string: "lifeboard://quickadd")! }
 
     static func task(_ id: UUID) -> URL {
-        URL(string: "tasker://task/\(id.uuidString)")!
+        URL(string: "lifeboard://task/\(id.uuidString)")!
     }
 
     static func project(_ id: UUID) -> URL {
-        URL(string: "tasker://tasks/project/\(id.uuidString)")!
+        URL(string: "lifeboard://tasks/project/\(id.uuidString)")!
     }
 }
 
@@ -1001,7 +1001,7 @@ public struct OpenTaskScopeIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult & OpensIntent {
-        let url = URL(string: "tasker://tasks/\(scope.rawValue)")!
+        let url = URL(string: "lifeboard://tasks/\(scope.rawValue)")!
         return .result(opensIntent: OpenURLIntent(url))
     }
 }
