@@ -1,70 +1,71 @@
 import XCTest
 import UIKit
-@testable import To_Do_List
+@testable import LifeBoard
 
+@MainActor
 final class ColorTokenGenerationTests: XCTestCase {
     func testSarvamPaletteMatchesSpec() {
-        let palette = TaskerBrandPalette.sarvam
+        let palette = LifeBoardBrandPalette.sarvam
 
-        assertEqualColor(palette.brandEmerald, UIColor(taskerHex: "#293A18"))
-        assertEqualColor(palette.brandMagenta, UIColor(taskerHex: "#B1205F"))
-        assertEqualColor(palette.brandMarigold, UIColor(taskerHex: "#FEBF2B"))
-        assertEqualColor(palette.brandRed, UIColor(taskerHex: "#C11317"))
-        assertEqualColor(palette.brandSandstone, UIColor(taskerHex: "#9E5F0A"))
-        assertEqualColor(palette.neutralIvory, UIColor(taskerHex: "#FFF8EF"))
-        assertEqualColor(palette.neutralDarkInk0, UIColor(taskerHex: "#0F0C0A"))
-        assertEqualColor(palette.neutralDarkText1, UIColor(taskerHex: "#FFF3E6"))
+        assertEqualColor(palette.brandEmerald, UIColor(lifeboardHex: "#293A18"))
+        assertEqualColor(palette.brandMagenta, UIColor(lifeboardHex: "#B1205F"))
+        assertEqualColor(palette.brandMarigold, UIColor(lifeboardHex: "#FEBF2B"))
+        assertEqualColor(palette.brandRed, UIColor(lifeboardHex: "#C11317"))
+        assertEqualColor(palette.brandSandstone, UIColor(lifeboardHex: "#9E5F0A"))
+        assertEqualColor(palette.neutralIvory, UIColor(lifeboardHex: "#FFF8EF"))
+        assertEqualColor(palette.neutralDarkInk0, UIColor(lifeboardHex: "#0F0C0A"))
+        assertEqualColor(palette.neutralDarkText1, UIColor(lifeboardHex: "#FFF3E6"))
     }
 
     func testSemanticNeutralsStayStableAcrossBrandTheme() {
-        let colors = TaskerTheme(index: 0).tokens.color
+        let colors = LifeBoardTheme(index: 0).tokens.color
 
         assertEqualColor(
             colors.bgCanvas.resolvedColor(with: .init(userInterfaceStyle: .light)),
-            UIColor(taskerHex: "#FFF8EF")
+            UIColor(lifeboardHex: "#FFF8EF")
         )
         assertEqualColor(
             colors.bgCanvasSecondary.resolvedColor(with: .init(userInterfaceStyle: .light)),
-            UIColor(taskerHex: "#F7EFE4")
+            UIColor(lifeboardHex: "#F7EFE4")
         )
         assertEqualColor(
             colors.bgCanvasSecondary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
-            UIColor(taskerHex: "#15110E")
+            UIColor(lifeboardHex: "#15110E")
         )
         assertEqualColor(
             colors.surfacePrimary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
-            UIColor(taskerHex: "#15110E")
+            UIColor(lifeboardHex: "#15110E")
         )
     }
 
     func testPrimaryAndAssistantAccentsMatchBrandRoles() {
-        let colors = TaskerTheme(index: 0).tokens.color
+        let colors = LifeBoardTheme(index: 0).tokens.color
 
         assertEqualColor(
             colors.primaryAction.resolvedColor(with: .init(userInterfaceStyle: .light)),
-            UIColor(taskerHex: "#293A18")
+            UIColor(lifeboardHex: "#293A18")
         )
         assertEqualColor(
             colors.primaryAction.resolvedColor(with: .init(userInterfaceStyle: .dark)),
-            UIColor(taskerHex: "#FEBF2B")
+            UIColor(lifeboardHex: "#FEBF2B")
         )
-        assertEqualColor(colors.assistantAccent, UIColor(taskerHex: "#B1205F"))
-        assertEqualColor(colors.warningAccent, UIColor(taskerHex: "#FEBF2B"))
-        assertEqualColor(colors.dangerAccent, UIColor(taskerHex: "#C11317"))
-        assertEqualColor(colors.stateInfo, UIColor(taskerHex: "#9E5F0A"))
+        assertEqualColor(colors.assistantAccent, UIColor(lifeboardHex: "#B1205F"))
+        assertEqualColor(colors.warningAccent, UIColor(lifeboardHex: "#FEBF2B"))
+        assertEqualColor(colors.dangerAccent, UIColor(lifeboardHex: "#C11317"))
+        assertEqualColor(colors.stateInfo, UIColor(lifeboardHex: "#9E5F0A"))
     }
 
     func testPriorityColorsUseBrandFamilies() {
-        let colors = TaskerTheme(index: 0).tokens.color
+        let colors = LifeBoardTheme(index: 0).tokens.color
 
-        assertEqualColor(colors.priorityNone, UIColor(taskerHex: "#9E5F0A"))
-        assertEqualColor(colors.priorityLow, UIColor(taskerHex: "#293A18"))
-        assertEqualColor(colors.priorityHigh, UIColor(taskerHex: "#B1205F"))
-        assertEqualColor(colors.priorityMax, UIColor(taskerHex: "#C11317"))
+        assertEqualColor(colors.priorityNone, UIColor(lifeboardHex: "#9E5F0A"))
+        assertEqualColor(colors.priorityLow, UIColor(lifeboardHex: "#293A18"))
+        assertEqualColor(colors.priorityHigh, UIColor(lifeboardHex: "#B1205F"))
+        assertEqualColor(colors.priorityMax, UIColor(lifeboardHex: "#C11317"))
     }
 
     func testCompatibilityAliasesMapToSemanticRoles() {
-        let colors = TaskerTheme(index: 0).tokens.color
+        let colors = LifeBoardTheme(index: 0).tokens.color
         let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
 
         assertEqualColor(colors.accentPrimary.resolvedColor(with: darkTraits), colors.actionPrimary.resolvedColor(with: darkTraits))
@@ -108,29 +109,29 @@ final class HeaderGradientTokenTests: XCTestCase {
     func testHeaderGradientLayerOrderAndNames() {
         let hostLayer = CALayer()
         let bounds = CGRect(x: 0, y: 0, width: 320, height: 180)
-        TaskerHeaderGradient.apply(to: hostLayer, bounds: bounds, traits: UITraitCollection(userInterfaceStyle: .light))
+        LifeBoardHeaderGradient.apply(to: hostLayer, bounds: bounds, traits: UITraitCollection(userInterfaceStyle: .light))
 
         let hostNames = hostLayer.sublayers?.compactMap(\.name) ?? []
-        XCTAssertEqual(hostNames, ["taskerHeaderGradientContainer"])
+        XCTAssertEqual(hostNames, ["lifeboardHeaderGradientContainer"])
 
-        let container = hostLayer.sublayers?.first(where: { $0.name == "taskerHeaderGradientContainer" })
+        let container = hostLayer.sublayers?.first(where: { $0.name == "lifeboardHeaderGradientContainer" })
         let layerNames = container?.sublayers?.compactMap(\.name) ?? []
         XCTAssertEqual(
             layerNames,
-            ["taskerHeaderGradient", "taskerHeaderScrim", "taskerHeaderBottomFade", "taskerHeaderRadialHighlight", "taskerHeaderNoise"]
+            ["lifeboardHeaderGradient", "lifeboardHeaderScrim", "lifeboardHeaderBottomFade", "lifeboardHeaderRadialHighlight", "lifeboardHeaderNoise"]
         )
     }
 
     func testHeaderGradientUsesBrandPatternFamilies() {
         let lightLayer = CALayer()
-        TaskerHeaderGradient.apply(
+        LifeBoardHeaderGradient.apply(
             to: lightLayer,
             bounds: CGRect(x: 0, y: 0, width: 320, height: 180),
             traits: UITraitCollection(userInterfaceStyle: .light)
         )
 
-        guard let lightContainer = lightLayer.sublayers?.first(where: { $0.name == "taskerHeaderGradientContainer" }),
-              let lightGradient = lightContainer.sublayers?.first(where: { $0.name == "taskerHeaderGradient" }) as? CAGradientLayer,
+        guard let lightContainer = lightLayer.sublayers?.first(where: { $0.name == "lifeboardHeaderGradientContainer" }),
+              let lightGradient = lightContainer.sublayers?.first(where: { $0.name == "lifeboardHeaderGradient" }) as? CAGradientLayer,
               let lightColors = lightGradient.colors as? [CGColor],
               lightColors.count == 4 else {
             return XCTFail("Missing light gradient colors")
@@ -139,14 +140,14 @@ final class HeaderGradientTokenTests: XCTestCase {
         XCTAssertEqual(UIColor(cgColor: lightColors[1]).cgColor.alpha, 1, accuracy: 0.01)
 
         let darkLayer = CALayer()
-        TaskerHeaderGradient.apply(
+        LifeBoardHeaderGradient.apply(
             to: darkLayer,
             bounds: CGRect(x: 0, y: 0, width: 320, height: 180),
             traits: UITraitCollection(userInterfaceStyle: .dark)
         )
 
-        guard let darkContainer = darkLayer.sublayers?.first(where: { $0.name == "taskerHeaderGradientContainer" }),
-              let darkGradient = darkContainer.sublayers?.first(where: { $0.name == "taskerHeaderGradient" }) as? CAGradientLayer,
+        guard let darkContainer = darkLayer.sublayers?.first(where: { $0.name == "lifeboardHeaderGradientContainer" }),
+              let darkGradient = darkContainer.sublayers?.first(where: { $0.name == "lifeboardHeaderGradient" }) as? CAGradientLayer,
               let darkColors = darkGradient.colors as? [CGColor],
               darkColors.count == 4 else {
             return XCTFail("Missing dark gradient colors")

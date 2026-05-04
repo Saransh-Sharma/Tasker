@@ -1,6 +1,6 @@
 //
 //  EdgeCaseTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Secondary Tests: Edge Cases (2 tests)
 //  Tests edge cases and unusual scenarios

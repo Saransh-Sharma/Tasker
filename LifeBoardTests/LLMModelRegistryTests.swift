@@ -1,7 +1,8 @@
 import XCTest
 import MLXLMCommon
-@testable import To_Do_List
+@testable import LifeBoard
 
+@MainActor
 final class LLMModelRegistryTests: XCTestCase {
     private let unsupportedModelName = "unsupported/legacy-model"
     private let unsupportedModelNameTwo = "unsupported/legacy-model-2"
@@ -339,7 +340,7 @@ final class LLMModelRegistryTests: XCTestCase {
 
     func testPromptHistoryRespectsTokenBudgetAndKeepsLatestSuffix() {
         V2FeatureFlags.llmChatContextStrategy = .bounded
-        let thread = To_Do_List.Thread()
+        let thread = LifeBoard.Thread()
         let suffix = "LATEST_SUFFIX_SHOULD_SURVIVE"
         let oversizedContent = String(repeating: "x", count: 12_000) + suffix
         thread.messages.append(Message(role: .user, content: oversizedContent, thread: thread))
@@ -359,7 +360,7 @@ final class LLMModelRegistryTests: XCTestCase {
     }
 
     func testPromptHistoryDropsTemplateGarbage() {
-        let thread = To_Do_List.Thread()
+        let thread = LifeBoard.Thread()
         thread.messages.append(Message(role: .assistant, content: "<end_of_turn><|im_end|>", thread: thread))
 
         let history = ModelConfiguration.defaultModel.getPromptHistory(
@@ -371,7 +372,7 @@ final class LLMModelRegistryTests: XCTestCase {
     }
 
     func testPromptHistoryIncludesSlashCommandSummary() {
-        let thread = To_Do_List.Thread()
+        let thread = LifeBoard.Thread()
         let result = SlashCommandExecutionResult(
             commandID: .today,
             commandLabel: "/today",
@@ -416,7 +417,7 @@ final class LLMModelRegistryTests: XCTestCase {
 
     func testPromptHistoryWithoutRecapDropsOldestTurnFirst() {
         V2FeatureFlags.llmChatContextStrategy = .bounded
-        let thread = To_Do_List.Thread()
+        let thread = LifeBoard.Thread()
         thread.messages = [
             Message(role: .user, content: String(repeating: "OLD ", count: 2_500), thread: thread),
             Message(role: .assistant, content: String(repeating: "ASSISTANT ", count: 2_500), thread: thread),
@@ -435,7 +436,7 @@ final class LLMModelRegistryTests: XCTestCase {
 
     func testPromptHistoryDoesNotInjectRecapEvenForFullStrategy() {
         V2FeatureFlags.llmChatContextStrategy = .full
-        let thread = To_Do_List.Thread()
+        let thread = LifeBoard.Thread()
         for index in 0..<10 {
             thread.messages.append(
                 Message(

@@ -1,6 +1,6 @@
 //
 //  PerformanceMetrics.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Performance measurement utilities for UI tests
 //
@@ -9,8 +9,8 @@ import XCTest
 
 /// Performance metrics helper for measuring and asserting performance characteristics
 struct PerformanceMetrics {
-    static let taskerPerformanceSubsystem = "com.saransh1337.To-Do-List"
-    static let taskerPerformanceCategory = "performance"
+    static let lifeboardPerformanceSubsystem = "com.saransh1337.To-Do-List"
+    static let lifeboardPerformanceCategory = "performance"
 
     // MARK: - Performance Thresholds
 
@@ -130,8 +130,8 @@ struct PerformanceMetrics {
 
     static func signpostMetric(named name: String) -> XCTMetric {
         XCTOSSignpostMetric(
-            subsystem: taskerPerformanceSubsystem,
-            category: taskerPerformanceCategory,
+            subsystem: lifeboardPerformanceSubsystem,
+            category: lifeboardPerformanceCategory,
             name: name
         )
     }

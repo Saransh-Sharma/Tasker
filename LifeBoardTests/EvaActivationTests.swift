@@ -1,6 +1,6 @@
 import MLXLMCommon
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -537,7 +537,7 @@ final class EvaActivationTests: XCTestCase {
 
     func testNavigationChromeUsesSelectedMascotTitle() throws {
         let defaults = try makeDefaults()
-        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
         workspaceStore.update { preferences in
             preferences.chiefOfStaffMascotID = .sato
         }
@@ -659,7 +659,7 @@ final class EvaActivationTests: XCTestCase {
         return EvaActivationCoordinator(
             appManager: appManager,
             defaults: defaults,
-            workspacePreferencesStore: TaskerWorkspacePreferencesStore(defaults: defaults),
+            workspacePreferencesStore: LifeBoardWorkspacePreferencesStore(defaults: defaults),
             deviceSupportsLocalEvaProvider: { true }
         )
     }

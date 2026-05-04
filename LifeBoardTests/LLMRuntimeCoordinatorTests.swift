@@ -1,7 +1,7 @@
 import XCTest
 import UIKit
 import MLXLMCommon
-@testable import To_Do_List
+@testable import LifeBoard
 
 @MainActor
 final class LLMRuntimeCoordinatorTests: XCTestCase {

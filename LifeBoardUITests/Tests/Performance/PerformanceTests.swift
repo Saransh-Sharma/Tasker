@@ -1,6 +1,6 @@
 //
 //  PerformanceTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Performance Tests (10 tests)
 //  Tests app performance metrics and benchmarks

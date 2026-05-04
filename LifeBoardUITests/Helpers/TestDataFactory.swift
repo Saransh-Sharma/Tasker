@@ -1,6 +1,6 @@
 //
 //  TestDataFactory.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Factory for generating test data for UI tests
 //

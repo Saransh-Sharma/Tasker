@@ -2,7 +2,7 @@ import CoreData
 import SwiftData
 import XCTest
 import MLXLMCommon
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class LLMProjectionTimeoutTests: XCTestCase {
     func testTimeoutReturnsFallbackPayload() async {
@@ -1566,7 +1566,7 @@ private final class MockTaskReadModelRepository: TaskReadModelRepositoryProtocol
         self.onFetch = onFetch
     }
 
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         onFetch?()
         var filtered = tasks
         if let projectID = query.projectID {
@@ -1607,15 +1607,15 @@ private final class MockTaskReadModelRepository: TaskReadModelRepositoryProtocol
         completion(.success(result))
     }
 
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
-    func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+    func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void) {
         completion(.success([:]))
     }
 
-    func fetchProjectCompletionScoreTotals(from startDate: Date, to endDate: Date, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+    func fetchProjectCompletionScoreTotals(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void) {
         completion(.success([:]))
     }
 }
@@ -1627,15 +1627,15 @@ private final class MockTagRepository: TagRepositoryProtocol {
         self.tags = tags
     }
 
-    func fetchAll(completion: @escaping (Result<[TagDefinition], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[TagDefinition], Error>) -> Void) {
         completion(.success(tags))
     }
 
-    func create(_ tag: TagDefinition, completion: @escaping (Result<TagDefinition, Error>) -> Void) {
+    func create(_ tag: TagDefinition, completion: @escaping @Sendable (Result<TagDefinition, Error>) -> Void) {
         completion(.success(tag))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 }
@@ -1647,18 +1647,18 @@ private final class MockProjectRepository: ProjectRepositoryProtocol {
         self.projects = projects
     }
 
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success(projects)) }
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(projects.first { $0.id == id })) }
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(projects.first { $0.name == name })) }
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(projects.first { $0.isInbox } ?? Project.createInbox())) }
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success(projects.filter { !$0.isInbox })) }
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { projects.append(project); completion(.success(project)) }
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(projects.first { $0.isInbox } ?? Project.createInbox())) }
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) { completion(.success(projects)) }
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) { completion(.success(projects.first { $0.id == id })) }
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) { completion(.success(projects.first { $0.name == name })) }
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(projects.first { $0.isInbox } ?? Project.createInbox())) }
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) { completion(.success(projects.filter { !$0.isInbox })) }
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { projects.append(project); completion(.success(project)) }
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(projects.first { $0.isInbox } ?? Project.createInbox())) }
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(scanned: projects.count, merged: 0, deleted: 0, inboxCandidates: projects.filter { $0.isInbox }.count, warnings: [])))
     }
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if let index = projects.firstIndex(where: { $0.id == id }) {
             var updated = projects[index]
             updated.name = newName
@@ -1668,10 +1668,10 @@ private final class MockProjectRepository: ProjectRepositoryProtocol {
         }
         completion(.failure(NSError(domain: "mock", code: 404)))
     }
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) { completion(.success(0)) }
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) { completion(.success(true)) }
 }
 
 private final class MockLifeAreaRepository: LifeAreaRepositoryProtocol {
@@ -1681,19 +1681,19 @@ private final class MockLifeAreaRepository: LifeAreaRepositoryProtocol {
         self.lifeAreas = lifeAreas
     }
 
-    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[LifeArea], Error>) -> Void) {
         completion(.success(lifeAreas))
     }
 
-    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    func create(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         completion(.success(area))
     }
 
-    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    func update(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         completion(.success(area))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 }

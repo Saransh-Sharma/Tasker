@@ -1,11 +1,11 @@
 import XCTest
 import MLXLMCommon
-@testable import To_Do_List
+@testable import LifeBoard
 
 @MainActor
 final class ChatTranscriptSnapshotTests: XCTestCase {
     func testSnapshotPrecomputesRenderModelsAndUndoTimerFlag() {
-        let thread = To_Do_List.Thread()
+        let thread = LifeBoard.Thread()
         thread.messages = [
             Message(role: .user, content: "Plan my inbox", thread: thread),
             Message(role: .assistant, content: "<think>Sort urgent work</think>\n- First\n- Second", thread: thread),
@@ -140,7 +140,7 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
     }
 
     func testSnapshotUsesPersistedSourceModelNameForAssistantSanitization() {
-        let thread = To_Do_List.Thread()
+        let thread = LifeBoard.Thread()
         thread.messages = [
             Message(
                 role: .assistant,
@@ -156,7 +156,7 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
     }
 
     func testSnapshotSplitsPlainTextThinkingForReasoningDistilledModel() {
-        let thread = To_Do_List.Thread()
+        let thread = LifeBoard.Thread()
         thread.messages = [
             Message(
                 role: .assistant,

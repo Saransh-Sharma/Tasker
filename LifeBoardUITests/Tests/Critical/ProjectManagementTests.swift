@@ -1,6 +1,6 @@
 //
 //  ProjectManagementTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Critical Tests: Project Management (10 tests)
 //  Tests project creation, management, and task-project relationships

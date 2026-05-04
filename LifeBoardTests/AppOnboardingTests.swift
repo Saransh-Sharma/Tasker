@@ -1,7 +1,7 @@
 import XCTest
 import UserNotifications
 import SwiftUI
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class AppOnboardingTests: XCTestCase {
 
@@ -127,10 +127,11 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(OnboardingCopy.Welcome.changeLaterChip, "Change this later")
     }
 
+    @MainActor
     func testOnboardingAccentPairsMeetWCAGContrast() {
         let lightTraits = UITraitCollection(userInterfaceStyle: .light)
         let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
-        let tokens = TaskerTheme(index: 0).tokens.color
+        let tokens = LifeBoardTheme(index: 0).tokens.color
 
         XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.accentOnPrimary, traits: lightTraits), 4.5)
         XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.accentOnPrimary, traits: darkTraits), 4.5)
@@ -192,7 +193,19 @@ final class AppOnboardingTests: XCTestCase {
 
         let viewModel = OnboardingFlowModel(stateStore: context.store)
         viewModel.prepareForPresentation(
-            snapshot: OnboardingJourneySnapshot(step: .evaStyle, mode: .guided)
+            snapshot: OnboardingJourneySnapshot(
+                step: .evaStyle,
+                mode: .guided,
+                selectedLifeAreaIDs: [],
+                showAllLifeAreas: false,
+                projectDrafts: [],
+                resolvedLifeAreas: [],
+                resolvedProjects: [],
+                createdTasks: [],
+                createdTaskTemplateMap: [:],
+                focusIsActive: false,
+                hasSeenSuccess: false
+            )
         )
 
         viewModel.addCustomEvaWorkingStyle("Deep work mornings")
@@ -218,7 +231,19 @@ final class AppOnboardingTests: XCTestCase {
 
         let viewModel = OnboardingFlowModel(stateStore: context.store)
         viewModel.prepareForPresentation(
-            snapshot: OnboardingJourneySnapshot(step: .weeklyOutcomes, mode: .guided)
+            snapshot: OnboardingJourneySnapshot(
+                step: .weeklyOutcomes,
+                mode: .guided,
+                selectedLifeAreaIDs: [],
+                showAllLifeAreas: false,
+                projectDrafts: [],
+                resolvedLifeAreas: [],
+                resolvedProjects: [],
+                createdTasks: [],
+                createdTaskTemplateMap: [:],
+                focusIsActive: false,
+                hasSeenSuccess: false
+            )
         )
 
         viewModel.replaceEvaGoals(["  Ship launch  ", "", " Protect workouts "])
@@ -967,6 +992,77 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(context.store.load().journeySnapshot?.step, .homeDemo)
     }
 
+    @MainActor
+    func testHomeDemoContinueAdvancesWithoutCompletingDemoActions() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let viewModel = makeHomeDemoViewModel(stateStore: context.store)
+
+        viewModel.continueFromHomeDemo()
+
+        XCTAssertEqual(viewModel.step, .calendarPermission)
+        XCTAssertFalse(viewModel.didCompleteHomeDemoTask)
+        XCTAssertFalse(viewModel.didCompleteHomeDemoHabit)
+        XCTAssertFalse(viewModel.createdTasks.first?.isComplete ?? true)
+        XCTAssertEqual(context.store.load().journeySnapshot?.step, .calendarPermission)
+    }
+
+    @MainActor
+    func testHomeDemoContinueAfterOneDemoTaskMarksTaskComplete() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let viewModel = makeHomeDemoViewModel(stateStore: context.store)
+
+        viewModel.markHomeDemoTaskDone()
+        viewModel.continueFromHomeDemo()
+
+        XCTAssertEqual(viewModel.step, .calendarPermission)
+        XCTAssertTrue(viewModel.didCompleteHomeDemoTask)
+        XCTAssertTrue(viewModel.createdTasks.first?.isComplete ?? false)
+        XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Open the draft and write 3 lines")
+    }
+
+    @MainActor
+    private func makeHomeDemoViewModel(stateStore: AppOnboardingStateStore) -> OnboardingFlowModel {
+        let area = LifeArea(name: "Career")
+        let project = Project(lifeAreaID: area.id, name: "Ship one thing")
+        let task = TaskDefinition(
+            projectID: project.id,
+            projectName: project.name,
+            lifeAreaID: area.id,
+            title: "Open the draft and write 3 lines"
+        )
+        let projectDraft = tryUnwrap(
+            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["work-career"], mode: .guided).first
+        )
+
+        let viewModel = OnboardingFlowModel(stateStore: stateStore)
+        viewModel.prepareForPresentation(
+            snapshot: OnboardingJourneySnapshot(
+                step: .homeDemo,
+                mode: .guided,
+                frictionProfile: .starting,
+                selectedLifeAreaIDs: ["work-career"],
+                showAllLifeAreas: false,
+                projectDrafts: [projectDraft],
+                resolvedLifeAreas: [
+                    ResolvedLifeAreaSelection(templateID: "work-career", lifeArea: area, reusedExisting: true)
+                ],
+                resolvedProjects: [
+                    ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
+                ],
+                createdTasks: [task],
+                createdTaskTemplateMap: [:],
+                focusTaskID: task.id,
+                focusIsActive: false,
+                hasSeenSuccess: false
+            )
+        )
+        return viewModel
+    }
+
     #if targetEnvironment(simulator)
     @MainActor
     func testSkipToFocusRoomBypassesBlockingEvaPreparationOnSimulator() async {
@@ -1169,11 +1265,11 @@ private struct StoreContext {
 }
 
 private final class TestNotificationService: NotificationServiceProtocol {
-    var status: TaskerNotificationAuthorizationStatus
+    var status: LifeBoardNotificationAuthorizationStatus
     var permissionGranted = true
     private(set) var requestPermissionCallCount = 0
 
-    init(status: TaskerNotificationAuthorizationStatus) {
+    init(status: LifeBoardNotificationAuthorizationStatus) {
         self.status = status
     }
 
@@ -1181,19 +1277,19 @@ private final class TestNotificationService: NotificationServiceProtocol {
     func cancelTaskReminder(taskId: UUID) {}
     func cancelAllReminders() {}
     func send(_ notification: CollaborationNotification) {}
-    func requestPermission(completion: @escaping (Bool) -> Void) {
+    func requestPermission(completion: @escaping @Sendable (Bool) -> Void) {
         requestPermissionCallCount += 1
         completion(permissionGranted)
     }
-    func checkAuthorizationStatus(completion: @escaping (Bool) -> Void) {
+    func checkAuthorizationStatus(completion: @escaping @Sendable (Bool) -> Void) {
         completion(status == .authorized || status == .provisional || status == .ephemeral)
     }
-    func schedule(request: TaskerLocalNotificationRequest) {}
+    func schedule(request: LifeBoardLocalNotificationRequest) {}
     func cancel(ids: [String]) {}
-    func pendingRequests(completion: @escaping ([TaskerPendingNotificationRequest]) -> Void) { completion([]) }
+    func pendingRequests(completion: @escaping @Sendable ([LifeBoardPendingNotificationRequest]) -> Void) { completion([]) }
     func registerCategories(_ categories: Set<UNNotificationCategory>) {}
     func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {}
-    func fetchAuthorizationStatus(completion: @escaping (TaskerNotificationAuthorizationStatus) -> Void) {
+    func fetchAuthorizationStatus(completion: @escaping @Sendable (LifeBoardNotificationAuthorizationStatus) -> Void) {
         completion(status)
     }
 }

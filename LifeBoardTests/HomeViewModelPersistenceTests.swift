@@ -1,7 +1,8 @@
 import XCTest
 import Combine
-@testable import To_Do_List
+@testable import LifeBoard
 
+@MainActor
 final class HomeViewModelPersistenceTests: XCTestCase {
     private var cancellables = Set<AnyCancellable>()
 
@@ -2946,23 +2947,23 @@ private final class HomeViewModelMockLifeAreaRepository: LifeAreaRepositoryProto
         self.areas = areas
     }
 
-    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[LifeArea], Error>) -> Void) {
         completion(.success(areas))
     }
 
-    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    func create(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         areas.append(area)
         completion(.success(area))
     }
 
-    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    func update(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         if let index = areas.firstIndex(where: { $0.id == area.id }) {
             areas[index] = area
         }
         completion(.success(area))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         areas.removeAll { $0.id == id }
         completion(.success(()))
     }
@@ -2975,32 +2976,32 @@ private final class HomeViewModelMockProjectRepository: ProjectRepositoryProtoco
         self.projects = projects
     }
 
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(projects))
     }
 
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(projects.first(where: { $0.id == id })))
     }
 
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(projects.first(where: { $0.name == name })))
     }
 
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(projects.first(where: { $0.isInbox }) ?? Project.createInbox()))
     }
 
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(projects.filter { !$0.isInbox }))
     }
 
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         projects.append(project)
         completion(.success(project))
     }
 
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if let inbox = projects.first(where: { $0.isInbox }) {
             completion(.success(inbox))
         } else {
@@ -3010,7 +3011,7 @@ private final class HomeViewModelMockProjectRepository: ProjectRepositoryProtoco
         }
     }
 
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(
             scanned: projects.count,
             merged: 0,
@@ -3020,14 +3021,14 @@ private final class HomeViewModelMockProjectRepository: ProjectRepositoryProtoco
         )))
     }
 
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if let index = projects.firstIndex(where: { $0.id == project.id }) {
             projects[index] = project
         }
         completion(.success(project))
     }
 
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         guard let index = projects.firstIndex(where: { $0.id == id }) else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -3038,24 +3039,24 @@ private final class HomeViewModelMockProjectRepository: ProjectRepositoryProtoco
         completion(.success(updated))
     }
 
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         projects.removeAll { $0.id == id }
         completion(.success(()))
     }
 
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+    func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         completion(.success(0))
     }
 
-    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func getTasks(for projectId: UUID, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         let exists = projects.contains { project in
             if let excludingId, project.id == excludingId {
                 return false
@@ -3073,20 +3074,20 @@ private final class HomeViewModelMockTaskRepository: LegacyTaskRepositoryShim {
         self.tasks = tasks
     }
 
-    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectName == project })) }
-    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == projectID })) }
-    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.isOverdue })) }
-    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.isComplete })) }
-    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.type == type })) }
-    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) { completion(.success(tasks.first { $0.id == id })) }
-    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
-    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
-    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
+    func fetchAllTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func fetchTasks(for date: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func fetchTodayTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func fetchTasks(for project: String, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectName == project })) }
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == projectID })) }
+    func fetchOverdueTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.isOverdue })) }
+    func fetchUpcomingTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func fetchCompletedTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.isComplete })) }
+    func fetchTasks(ofType type: TaskType, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.type == type })) }
+    func fetchTask(withId id: UUID, completion: @escaping @Sendable (Result<Task?, Error>) -> Void) { completion(.success(tasks.first { $0.id == id })) }
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func createTask(_ task: Task, completion: @escaping @Sendable (Result<Task, Error>) -> Void) { completion(.success(task)) }
+    func updateTask(_ task: Task, completion: @escaping @Sendable (Result<Task, Error>) -> Void) { completion(.success(task)) }
+    func completeTask(withId id: UUID, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         guard var task = tasks.first(where: { $0.id == id }) else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -3095,7 +3096,7 @@ private final class HomeViewModelMockTaskRepository: LegacyTaskRepositoryShim {
         task.dateCompleted = Date()
         completion(.success(task))
     }
-    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
+    func uncompleteTask(withId id: UUID, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         guard var task = tasks.first(where: { $0.id == id }) else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -3104,7 +3105,7 @@ private final class HomeViewModelMockTaskRepository: LegacyTaskRepositoryShim {
         task.dateCompleted = nil
         completion(.success(task))
     }
-    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void) {
+    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         guard var task = tasks.first(where: { $0.id == id }) else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -3112,14 +3113,14 @@ private final class HomeViewModelMockTaskRepository: LegacyTaskRepositoryShim {
         task.dueDate = date
         completion(.success(task))
     }
-    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == ProjectConstants.inboxProjectID })) }
+    func deleteTask(withId id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func deleteCompletedTasks(completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func createTasks(_ tasks: [Task], completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func updateTasks(_ tasks: [Task], completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func deleteTasks(withIds ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchTasksWithoutProject(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchInboxTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == ProjectConstants.inboxProjectID })) }
 }
 
 private struct HomeHabitMutationHarness {
@@ -3138,7 +3139,7 @@ private final class HomeHabitDeferredResolveSchedulingEngine: SchedulingEnginePr
         windowStart: Date,
         windowEnd: Date,
         sourceFilter: ScheduleSourceType?,
-        completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void
     ) {
         completion(.success([]))
     }
@@ -3147,7 +3148,7 @@ private final class HomeHabitDeferredResolveSchedulingEngine: SchedulingEnginePr
         id: UUID,
         resolution: OccurrenceResolutionType,
         actor: OccurrenceActor,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         if deferResolveCompletion {
             pendingResolveCompletions.append((id: id, resolution: resolution, completion: completion))
@@ -3160,7 +3161,7 @@ private final class HomeHabitDeferredResolveSchedulingEngine: SchedulingEnginePr
     func rebuildFutureOccurrences(
         templateID: UUID,
         effectiveFrom: Date,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         completion(.success(()))
     }
@@ -3169,7 +3170,7 @@ private final class HomeHabitDeferredResolveSchedulingEngine: SchedulingEnginePr
         templateID: UUID,
         occurrenceKey: String,
         action: ScheduleExceptionAction,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         completion(.success(()))
     }
@@ -3193,31 +3194,31 @@ private final class HomeHabitRepositoryStub: HabitRepositoryProtocol {
         self.habits = habits
     }
 
-    func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[HabitDefinitionRecord], Error>) -> Void) {
         completion(.success(habits))
     }
 
-    func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+    func create(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
         completion(.success(habit))
     }
 
-    func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+    func update(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
         completion(.success(habit))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 }
 
 private final class HomeHabitScheduleRepositoryStub: ScheduleRepositoryProtocol {
-    func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) { completion(.success(template)) }
-    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func replaceRules(templateID: UUID, rules: [ScheduleRuleDefinition], completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success(rules)) }
-    func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
+    func fetchTemplates(completion: @escaping @Sendable (Result<[ScheduleTemplateDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchRules(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping @Sendable (Result<ScheduleTemplateDefinition, Error>) -> Void) { completion(.success(template)) }
+    func deleteTemplate(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func replaceRules(templateID: UUID, rules: [ScheduleRuleDefinition], completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success(rules)) }
+    func fetchExceptions(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleExceptionDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping @Sendable (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
 }
 
 private final class HomeHabitOccurrenceRepositoryStub: OccurrenceRepositoryProtocol {
@@ -3228,11 +3229,11 @@ private final class HomeHabitOccurrenceRepositoryStub: OccurrenceRepositoryProto
         self.occurrences = occurrences
     }
 
-    func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
+    func fetchInRange(start: Date, end: Date, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) {
         completion(.success(occurrences))
     }
 
-    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         for occurrence in occurrences {
             if let index = self.occurrences.firstIndex(where: { $0.id == occurrence.id }) {
                 self.occurrences[index] = occurrence
@@ -3244,11 +3245,11 @@ private final class HomeHabitOccurrenceRepositoryStub: OccurrenceRepositoryProto
         completion(.success(()))
     }
 
-    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteOccurrences(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 }
@@ -3261,40 +3262,40 @@ private final class HomeHabitTaskReadRepositorySpy: TaskReadModelRepositoryProto
         self.tasks = tasks
     }
 
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: tasks, totalCount: tasks.count, limit: max(query.limit, 1), offset: query.offset)))
     }
 
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: tasks, totalCount: tasks.count, limit: max(query.limit, 1), offset: query.offset)))
     }
 
-    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: tasks, totalCount: tasks.count, limit: max(query.limit, 1), offset: query.offset)))
     }
 
-    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         fetchHomeProjectionCallCount += 1
         completion(.success(TaskDefinitionSliceResult(tasks: tasks, totalCount: tasks.count, limit: max(query.limit, 1), offset: query.offset)))
     }
 
-    func fetchInsightsTodayProjection(referenceDate: Date, completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void) {
+    func fetchInsightsTodayProjection(referenceDate: Date, completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void) {
         completion(.success(InsightsTodayTaskProjection(dueWindowTasks: tasks, recentTasks: tasks)))
     }
 
-    func fetchInsightsWeekProjection(referenceDate: Date, completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void) {
+    func fetchInsightsWeekProjection(referenceDate: Date, completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void) {
         completion(.success(InsightsWeekTaskProjection(recentTasks: tasks, dueWindowTasks: tasks, projectScores: [:])))
     }
 
-    func fetchWeekChartProjection(referenceDate: Date, completion: @escaping (Result<WeekChartProjection, Error>) -> Void) {
+    func fetchWeekChartProjection(referenceDate: Date, completion: @escaping @Sendable (Result<WeekChartProjection, Error>) -> Void) {
         completion(.success(WeekChartProjection(weekStart: referenceDate, dayScores: [:], projectScores: [:])))
     }
 
-    func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+    func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void) {
         completion(.success([:]))
     }
 
-    func fetchProjectCompletionScoreTotals(from startDate: Date, to endDate: Date, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+    func fetchProjectCompletionScoreTotals(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void) {
         completion(.success([:]))
     }
 }
@@ -3321,7 +3322,7 @@ private final class HomeHabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositor
 
     func fetchAgendaHabits(
         for date: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         fetchAgendaCallCount += 1
         completion(.success(agendaSummaries))
@@ -3330,7 +3331,7 @@ private final class HomeHabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositor
     func fetchAgendaHabit(
         habitID: UUID,
         for date: Date,
-        completion: @escaping (Result<HabitOccurrenceSummary?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitOccurrenceSummary?, Error>) -> Void
     ) {
         fetchAgendaHabitCallCount += 1
         completion(.success(agendaSummaries.first(where: { $0.habitID == habitID })))
@@ -3340,7 +3341,7 @@ private final class HomeHabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositor
         habitIDs: [UUID],
         endingOn date: Date,
         dayCount: Int,
-        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
         fetchHistoryCallCount += 1
         let requestedIDs = Set(habitIDs)
@@ -3350,14 +3351,14 @@ private final class HomeHabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositor
     func fetchSignals(
         start: Date,
         end: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         completion(.success([]))
     }
 
     func fetchHabitLibrary(
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
         fetchHabitLibraryCallCount += 1
         completion(.success(libraryRows))
@@ -3366,7 +3367,7 @@ private final class HomeHabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositor
     func fetchHabitLibrary(
         habitIDs: [UUID]?,
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
         fetchFilteredHabitLibraryCallCount += 1
         let requestedIDs = habitIDs.map(Set.init)

@@ -1,5 +1,5 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 @MainActor
 final class HomeBottomBarStateTests: XCTestCase {

@@ -1,6 +1,6 @@
 //
 //  AnalyticsAndChartsTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Secondary Tests: Analytics & Charts (4 tests)
 //  Tests analytics display and chart rendering

@@ -1,6 +1,6 @@
 import Combine
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 @MainActor
 final class SettingsViewModelTests: XCTestCase {
@@ -21,8 +21,8 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testTimelineAnchorTimeBindingsPersistWorkspacePreferences() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let notificationStore = TaskerNotificationPreferencesStore(defaults: defaults)
-        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let notificationStore = LifeBoardNotificationPreferencesStore(defaults: defaults)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
         let calendarService = CalendarIntegrationService(
             provider: nil,
             workspacePreferencesStore: workspaceStore
@@ -45,7 +45,7 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testTimelineAnchorSelectionPersistsWakePreference() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
 
         TimelineAnchorSelection.wake.save(time: time(hour: 5, minute: 45), to: workspaceStore)
 
@@ -58,7 +58,7 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testTimelineAnchorSelectionPersistsWindDownPreference() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
 
         TimelineAnchorSelection.windDown.save(time: time(hour: 23, minute: 30), to: workspaceStore)
 
@@ -86,16 +86,16 @@ final class SettingsViewModelTests: XCTestCase {
         }
         """.utf8)
 
-        let preferences = try JSONDecoder().decode(TaskerWorkspacePreferences.self, from: data)
+        let preferences = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: data)
 
         XCTAssertEqual(preferences.chiefOfStaffMascotID, .eva)
     }
 
     func testMascotSelectionPersistsAndPostsWorkspaceChange() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
         let expectation = expectation(
-            forNotification: TaskerWorkspacePreferencesStore.didChangeNotification,
+            forNotification: LifeBoardWorkspacePreferencesStore.didChangeNotification,
             object: nil,
             handler: nil
         )
@@ -110,7 +110,7 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testAssistantIdentityModelPublishesWorkspacePreferenceChanges() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
         let model = AssistantIdentityModel(workspacePreferencesStore: workspaceStore)
         var cancellables = Set<AnyCancellable>()
         let expectation = expectation(description: "identity model publishes selected mascot")
@@ -134,8 +134,8 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testSettingsViewModelSelectChiefOfStaffMascotPersistsSelection() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let notificationStore = TaskerNotificationPreferencesStore(defaults: defaults)
-        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let notificationStore = LifeBoardNotificationPreferencesStore(defaults: defaults)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
         let calendarService = CalendarIntegrationService(
             provider: nil,
             workspacePreferencesStore: workspaceStore
@@ -155,7 +155,7 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testOnboardingFlowModelSelectChiefOfStaffMascotPersistsSelection() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
         let flowModel = OnboardingFlowModel(
             workspacePreferencesStore: workspaceStore,
             isEvaBackgroundPreparationEnabled: false

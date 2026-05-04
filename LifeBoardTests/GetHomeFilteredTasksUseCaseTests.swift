@@ -1,5 +1,5 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
@@ -650,20 +650,20 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim {
         self.tasks = tasks
     }
 
-    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == projectID })) }
-    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.isOverdue })) }
-    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.isComplete })) }
-    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.type == type })) }
-    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) { completion(.success(tasks.first { $0.id == id })) }
-    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
-    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
-    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
+    func fetchAllTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func fetchTasks(for date: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func fetchTodayTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func fetchTasks(for project: String, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == projectID })) }
+    func fetchOverdueTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.isOverdue })) }
+    func fetchUpcomingTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func fetchCompletedTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.isComplete })) }
+    func fetchTasks(ofType type: TaskType, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.type == type })) }
+    func fetchTask(withId id: UUID, completion: @escaping @Sendable (Result<Task?, Error>) -> Void) { completion(.success(tasks.first { $0.id == id })) }
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func createTask(_ task: Task, completion: @escaping @Sendable (Result<Task, Error>) -> Void) { completion(.success(task)) }
+    func updateTask(_ task: Task, completion: @escaping @Sendable (Result<Task, Error>) -> Void) { completion(.success(task)) }
+    func completeTask(withId id: UUID, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         guard let task = tasks.first(where: { $0.id == id }) else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -673,7 +673,7 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim {
         updated.dateCompleted = Date()
         completion(.success(updated))
     }
-    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
+    func uncompleteTask(withId id: UUID, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         guard let task = tasks.first(where: { $0.id == id }) else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -683,7 +683,7 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim {
         updated.dateCompleted = nil
         completion(.success(updated))
     }
-    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void) {
+    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         guard let task = tasks.first(where: { $0.id == id }) else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -692,14 +692,14 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim {
         updated.dueDate = date
         completion(.success(updated))
     }
-    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == ProjectConstants.inboxProjectID })) }
+    func deleteTask(withId id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func deleteCompletedTasks(completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func createTasks(_ tasks: [Task], completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func updateTasks(_ tasks: [Task], completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func deleteTasks(withIds ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchTasksWithoutProject(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchInboxTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == ProjectConstants.inboxProjectID })) }
 }
 
 private final class CountingReadModelRepository: TaskReadModelRepositoryProtocol {
@@ -711,18 +711,18 @@ private final class CountingReadModelRepository: TaskReadModelRepositoryProtocol
         self.tasks = tasks
     }
 
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completeSlice(limit: query.limit, offset: query.offset, completion: completion)
     }
 
-    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completeSlice(limit: query.limit, offset: query.offset, completion: completion)
     }
 
     private func completeSlice(
         limit: Int,
         offset: Int,
-        completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void
     ) {
         fetchCount += 1
         let start = min(offset, tasks.count)
@@ -736,13 +736,13 @@ private final class CountingReadModelRepository: TaskReadModelRepositoryProtocol
         )))
     }
 
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
-        completion: @escaping (Result<[UUID : Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID : Int], Error>) -> Void
     ) {
         completion(.success([:]))
     }
@@ -750,7 +750,7 @@ private final class CountingReadModelRepository: TaskReadModelRepositoryProtocol
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
-        completion: @escaping (Result<[UUID : Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID : Int], Error>) -> Void
     ) {
         completion(.success([:]))
     }

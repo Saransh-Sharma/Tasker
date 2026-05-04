@@ -1,6 +1,6 @@
 //
 //  DailySummaryModalTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Secondary tests for notification-routed daily summary modals.
 //

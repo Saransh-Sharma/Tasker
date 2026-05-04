@@ -1,6 +1,6 @@
 //
 //  SearchAndFilteringTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Secondary Tests: Search & Filtering (5 tests)
 //  Tests search functionality and task filtering

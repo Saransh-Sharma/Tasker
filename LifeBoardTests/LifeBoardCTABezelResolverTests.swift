@@ -1,7 +1,7 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
-final class TaskerCTABezelResolverTests: XCTestCase {
+final class LifeBoardCTABezelResolverTests: XCTestCase {
     private let userDecorativeCTAEffectsKey = "feature.ui.decorative_cta_effects.user_enabled"
     private let remoteDecorativeCTAEffectsKey = "feature.ui.decorative_cta_effects.remote_allowed"
     private let homeBackdropNoiseAmountKey = V2FeatureFlags.homeBackdropNoiseAmountUserKey
@@ -14,7 +14,7 @@ final class TaskerCTABezelResolverTests: XCTestCase {
     }
 
     func testOnboardingHighlightMovesPastCreatedTemplate() {
-        let highlighted = TaskerCTABezelResolver.highlightedOnboardingTemplateID(
+        let highlighted = LifeBoardCTABezelResolver.highlightedOnboardingTemplateID(
             primarySuggestionIDs: ["first", "second", "third"],
             taskTemplateStates: [
                 "first": .created(UUID()),
@@ -27,7 +27,7 @@ final class TaskerCTABezelResolverTests: XCTestCase {
     }
 
     func testOnboardingHighlightReturnsNilWhenAllPrimarySuggestionsAreCreated() {
-        let highlighted = TaskerCTABezelResolver.highlightedOnboardingTemplateID(
+        let highlighted = LifeBoardCTABezelResolver.highlightedOnboardingTemplateID(
             primarySuggestionIDs: ["first", "second"],
             taskTemplateStates: [
                 "first": .created(UUID()),
@@ -71,11 +71,11 @@ final class TaskerCTABezelResolverTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            TaskerCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: morning),
+            LifeBoardCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: morning),
             "home.dailySummary.cta.startToday"
         )
         XCTAssertEqual(
-            TaskerCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: nightly),
+            LifeBoardCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: nightly),
             "home.dailySummary.cta.planTomorrow"
         )
     }
@@ -136,7 +136,7 @@ final class TaskerCTABezelResolverTests: XCTestCase {
     }
 
     func testHomeBackdropNoiseOpacityMappingTracksPercentage() {
-        XCTAssertEqual(TaskerBackdropNoise.opacity(for: 20), 0.02, accuracy: 0.0001)
-        XCTAssertEqual(TaskerBackdropNoise.opacity(for: 100), 0.10, accuracy: 0.0001)
+        XCTAssertEqual(LifeBoardBackdropNoise.opacity(for: 20), 0.02, accuracy: 0.0001)
+        XCTAssertEqual(LifeBoardBackdropNoise.opacity(for: 100), 0.10, accuracy: 0.0001)
     }
 }

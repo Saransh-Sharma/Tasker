@@ -1,6 +1,6 @@
 //
 //  ThemeAndAppearanceTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Secondary Tests: Theme & Appearance (3 tests)
 //  Tests dark mode, theming, and UI appearance

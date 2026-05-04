@@ -1,21 +1,21 @@
 import CoreData
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
-final class TaskerShortcutDeepLinkTests: XCTestCase {
+final class LifeBoardShortcutDeepLinkTests: XCTestCase {
     func testChatDeepLinkRoundTripsPrompt() {
         let prompt = "What should I focus on first today?"
-        let url = TaskerShortcutDeepLink.chatURL(prompt: prompt)
+        let url = LifeBoardShortcutDeepLink.chatURL(prompt: prompt)
 
-        XCTAssertEqual(url.absoluteString, "tasker://chat?prompt=What%20should%20I%20focus%20on%20first%20today%3F")
-        XCTAssertEqual(TaskerShortcutDeepLink.chatPrompt(from: url), prompt)
+        XCTAssertEqual(url.absoluteString, "lifeboard://chat?prompt=What%20should%20I%20focus%20on%20first%20today%3F")
+        XCTAssertEqual(LifeBoardShortcutDeepLink.chatPrompt(from: url), prompt)
     }
 
     func testChatDeepLinkOmitsBlankPrompt() {
-        let url = TaskerShortcutDeepLink.chatURL(prompt: "   ")
+        let url = LifeBoardShortcutDeepLink.chatURL(prompt: "   ")
 
-        XCTAssertEqual(url.absoluteString, "tasker://chat")
-        XCTAssertNil(TaskerShortcutDeepLink.chatPrompt(from: url))
+        XCTAssertEqual(url.absoluteString, "lifeboard://chat")
+        XCTAssertNil(LifeBoardShortcutDeepLink.chatPrompt(from: url))
     }
 }
 
@@ -25,7 +25,7 @@ final class ShortcutHandoffStoreTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        suiteName = "TaskerShortcutTests.\(UUID().uuidString)"
+        suiteName = "LifeBoardShortcutTests.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -119,11 +119,11 @@ final class PersistentStoreLocationServiceTests: XCTestCase {
         XCTAssertEqual(location.legacyDirectoryURL.standardizedFileURL, legacyURL.standardizedFileURL)
         XCTAssertEqual(
             location.cloudStoreURL,
-            appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
+            appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
         )
         XCTAssertEqual(
             location.localStoreURL,
-            appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.localStoreFileName)
+            appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.localStoreFileName)
         )
         XCTAssertTrue(location.usesSharedAppGroupStore)
     }
@@ -149,8 +149,8 @@ final class PersistentStoreLocationServiceTests: XCTestCase {
 
     func testPrepareSharedStoreLocationSkipsMigrationWhenCanonicalStoreAlreadyExists() throws {
         let service = makeService()
-        let canonicalCloudURL = appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
-        let legacyCloudURL = legacyURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
+        let canonicalCloudURL = appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
+        let legacyCloudURL = legacyURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
         XCTAssertTrue(fileManager.createFile(atPath: canonicalCloudURL.path, contents: Data("canonical".utf8)))
         XCTAssertTrue(fileManager.createFile(atPath: legacyCloudURL.path, contents: Data("legacy".utf8)))
 
@@ -162,8 +162,8 @@ final class PersistentStoreLocationServiceTests: XCTestCase {
         XCTAssertTrue(fileManager.fileExists(atPath: legacyCloudURL.path))
     }
 
-    private func makeService() -> TaskerPersistentStoreLocationService {
-        TaskerPersistentStoreLocationService(
+    private func makeService() -> LifeBoardPersistentStoreLocationService {
+        LifeBoardPersistentStoreLocationService(
             fileManager: fileManager,
             appGroupContainerURLProvider: { [appGroupURL] in appGroupURL },
             legacyStoreDirectoryURLProvider: { [legacyURL] in
@@ -207,7 +207,7 @@ final class PersistentRuntimeInitializerTests: XCTestCase {
 
         try context.save()
 
-        let initializer = TaskerPersistentRuntimeInitializer()
+        let initializer = LifeBoardPersistentRuntimeInitializer()
         initializer.initialize(container: container)
         initializer.initialize(container: container)
 
@@ -411,19 +411,19 @@ private final class ShortcutProjectRepositoryStub: ProjectRepositoryProtocol {
         self.projects = projects
     }
 
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(projects))
     }
 
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(projects.first(where: { $0.id == id })))
     }
 
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(projects.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame })))
     }
 
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if let inbox = projects.first(where: { $0.id == ProjectConstants.inboxProjectID || $0.isInbox }) {
             completion(.success(inbox))
         } else {
@@ -431,17 +431,17 @@ private final class ShortcutProjectRepositoryStub: ProjectRepositoryProtocol {
         }
     }
 
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(projects.filter { !$0.isInbox }))
     }
 
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         createProjectCallCount += 1
         projects.append(project)
         completion(.success(project))
     }
 
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if let inbox = projects.first(where: { $0.id == ProjectConstants.inboxProjectID || $0.isInbox }) {
             completion(.success(inbox))
             return
@@ -451,15 +451,15 @@ private final class ShortcutProjectRepositoryStub: ProjectRepositoryProtocol {
         createProject(inbox, completion: completion)
     }
 
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
     }
 
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(project))
     }
 
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         guard let index = projects.firstIndex(where: { $0.id == id }) else {
             return completion(.failure(NSError(domain: "ShortcutProjectRepositoryStub", code: 404)))
         }
@@ -467,20 +467,20 @@ private final class ShortcutProjectRepositoryStub: ProjectRepositoryProtocol {
         completion(.success(projects[index]))
     }
 
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         projects.removeAll { $0.id == id }
         completion(.success(()))
     }
 
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+    func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         completion(.success(0))
     }
 
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(true))
     }
 }
@@ -492,20 +492,20 @@ private final class ShortcutFocusSessionRepositoryStub: GamificationRepositoryPr
         self.sessions = sessions
     }
 
-    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(false)) }
-    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+    func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) { completion(.success(false)) }
+    func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
         completion(.success(sessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }))
     }
 }
@@ -524,7 +524,7 @@ private func awaitResult<T>(
 
     let waitResult = semaphore.wait(timeout: .now() + timeout)
     if waitResult == .timedOut {
-        throw NSError(domain: "TaskerAppShortcutsTests", code: 408, userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for result"])
+        throw NSError(domain: "LifeBoardAppShortcutsTests", code: 408, userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for result"])
     }
 
     return try XCTUnwrap(capturedResult).get()

@@ -1,6 +1,6 @@
 //
 //  TaskCompletionTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Critical Tests: Task Completion (7 tests)
 //  Tests the core functionality of completing tasks and score updates

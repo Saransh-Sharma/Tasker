@@ -1,6 +1,6 @@
 import XCTest
 import MLXLMCommon
-@testable import To_Do_List
+@testable import LifeBoard
 
 @MainActor
 final class AssistantPlannerServiceTests: XCTestCase {
@@ -83,7 +83,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         }
         """
         let service = AssistantPlannerService(llm: evaluator)
-        let thread = To_Do_List.Thread()
+        let thread = LifeBoard.Thread()
         thread.messages.append(Message(role: .assistant, content: "EVA could not finish this plan.", thread: thread))
 
         let result = await service.generatePlan(
@@ -1679,7 +1679,7 @@ private final class PlannerEvaluatorSpy: LLMEvaluator {
 
     override func generate(
         modelName: String,
-        thread: To_Do_List.Thread,
+        thread: LifeBoard.Thread,
         systemPrompt: String,
         profile: LLMGenerationProfile = .chat,
         requestOptions: LLMGenerationRequestOptions? = nil,
@@ -1715,7 +1715,7 @@ private final class AssistantPlannerTaskReadRepositoryStub: TaskReadModelReposit
         self.tasks = tasks
     }
 
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         fetchQueries.append(query)
         let filtered = tasks.filter { task in
             if query.includeCompleted == false, task.isComplete {
@@ -1740,26 +1740,26 @@ private final class AssistantPlannerTaskReadRepositoryStub: TaskReadModelReposit
         )))
     }
 
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
-    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
-    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
-    func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+    func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void) {
         completion(.success([:]))
     }
 
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
         completion(.success([:]))
     }

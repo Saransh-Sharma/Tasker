@@ -1,5 +1,5 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class HomeForedropLayoutMetricsTests: XCTestCase {
 
@@ -2293,7 +2293,7 @@ private final class MockHomeSearchEngine: HomeSearchEngine {
         onResultsUpdated?(revision, payload)
     }
 
-    func loadProjects(completion: (() -> Void)?) {
+    func loadProjects(completion: (@MainActor @Sendable () -> Void)?) {
         completion?()
     }
 

@@ -1,6 +1,7 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
+@MainActor
 final class HomeChromeSnapshotPresentationTests: XCTestCase {
     func testHomeTasksSnapshotEqualityIgnoresHabitOnlyMutations() {
         let row = HomeHabitRow(

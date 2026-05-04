@@ -1,6 +1,6 @@
 import CoreGraphics
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class HabitBoardPresentationBuilderTests: XCTestCase {
 

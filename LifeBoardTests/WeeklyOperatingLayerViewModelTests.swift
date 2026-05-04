@@ -1,12 +1,12 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class WeeklyOperatingLayerViewModelTests: XCTestCase {
     func testWorkspacePreferencesStoreRoundTripsWeekStartDay() {
         let defaults = UserDefaults(suiteName: "weekly.workspace.preferences.\(UUID().uuidString)")!
-        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
 
-        store.save(TaskerWorkspacePreferences(weekStartsOn: .wednesday))
+        store.save(LifeBoardWorkspacePreferences(weekStartsOn: .wednesday))
 
         XCTAssertEqual(store.load().weekStartsOn, .wednesday)
     }
@@ -792,16 +792,16 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         Date(timeIntervalSince1970: 1_712_592_000) // 2024-04-01 Monday UTC
     }
 
-    private func makeWorkspacePreferencesStore(weekStartsOn: Weekday) -> TaskerWorkspacePreferencesStore {
+    private func makeWorkspacePreferencesStore(weekStartsOn: Weekday) -> LifeBoardWorkspacePreferencesStore {
         let defaults = UserDefaults(suiteName: "weekly.workspace.preferences.\(UUID().uuidString)")!
-        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
-        store.save(TaskerWorkspacePreferences(weekStartsOn: weekStartsOn))
+        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        store.save(LifeBoardWorkspacePreferences(weekStartsOn: weekStartsOn))
         return store
     }
 
     private func makeWeeklySummaryUseCase(
         plan: WeeklyPlan? = nil,
-        workspaceStore: TaskerWorkspacePreferencesStore
+        workspaceStore: LifeBoardWorkspacePreferencesStore
     ) -> GetWeeklySummaryUseCase {
         let taskRepository = InMemoryTaskDefinitionRepositoryStub(seed: [])
         let buildSnapshot = BuildWeeklyPlanSnapshotUseCase(
@@ -842,24 +842,24 @@ private final class StubWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
         self.plan = plan
     }
 
-    func fetchPlan(id: UUID, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) {
+    func fetchPlan(id: UUID, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) {
         completion(.success(plan?.id == id ? plan : nil))
     }
 
-    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) {
+    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) {
         guard let plan else { return completion(.success(nil)) }
         let calendar = Calendar(identifier: .gregorian)
         completion(.success(calendar.isDate(plan.weekStartDate, inSameDayAs: weekStartDate) ? plan : nil))
     }
 
-    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping (Result<[WeeklyPlan], Error>) -> Void) {
+    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[WeeklyPlan], Error>) -> Void) {
         guard let plan, plan.weekStartDate >= startDate, plan.weekStartDate <= endDate else {
             return completion(.success([]))
         }
         completion(.success([plan]))
     }
 
-    func savePlan(_ plan: WeeklyPlan, completion: @escaping (Result<WeeklyPlan, Error>) -> Void) {
+    func savePlan(_ plan: WeeklyPlan, completion: @escaping @Sendable (Result<WeeklyPlan, Error>) -> Void) {
         self.plan = plan
         completion(.success(plan))
     }
@@ -872,11 +872,11 @@ private final class StubWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol
         self.outcomesByPlanID = outcomesByPlanID
     }
 
-    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) {
+    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void) {
         completion(.success(outcomesByPlanID[weeklyPlanID] ?? []))
     }
 
-    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping (Result<WeeklyOutcome, Error>) -> Void) {
+    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping @Sendable (Result<WeeklyOutcome, Error>) -> Void) {
         var outcomes = outcomesByPlanID[outcome.weeklyPlanID] ?? []
         outcomes.removeAll { $0.id == outcome.id }
         outcomes.append(outcome)
@@ -887,13 +887,13 @@ private final class StubWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol
     func replaceOutcomes(
         weeklyPlanID: UUID,
         outcomes: [WeeklyOutcome],
-        completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void
     ) {
         outcomesByPlanID[weeklyPlanID] = outcomes
         completion(.success(outcomes))
     }
 
-    func deleteOutcome(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteOutcome(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         for key in outcomesByPlanID.keys {
             outcomesByPlanID[key]?.removeAll { $0.id == id }
         }
@@ -908,11 +908,11 @@ private final class StubWeeklyReviewRepository: WeeklyReviewRepositoryProtocol {
         self.review = review
     }
 
-    func fetchReview(weeklyPlanID: UUID, completion: @escaping (Result<WeeklyReview?, Error>) -> Void) {
+    func fetchReview(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<WeeklyReview?, Error>) -> Void) {
         completion(.success(review?.weeklyPlanID == weeklyPlanID ? review : nil))
     }
 
-    func saveReview(_ review: WeeklyReview, completion: @escaping (Result<WeeklyReview, Error>) -> Void) {
+    func saveReview(_ review: WeeklyReview, completion: @escaping @Sendable (Result<WeeklyReview, Error>) -> Void) {
         self.review = review
         completion(.success(review))
     }
@@ -931,7 +931,7 @@ private final class StubWeeklyReviewMutationRepository: WeeklyReviewMutationRepo
 
     func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
         switch result {
         case .failure(let error):
@@ -962,28 +962,28 @@ private final class StubWeeklyReviewMutationRepository: WeeklyReviewMutationRepo
 private final class StubWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
     func fetchDraft(
         weekStartDate: Date,
-        completion: @escaping (Result<WeeklyReviewDraft?, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyReviewDraft?, Error>) -> Void
     ) {
         completion(.success(nil))
     }
 
     func saveDraft(
         _ draft: WeeklyReviewDraft,
-        completion: @escaping (Result<WeeklyReviewDraft, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyReviewDraft, Error>) -> Void
     ) {
         completion(.success(draft))
     }
 
     func clearDraft(
         weekStartDate: Date,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         completion(.success(()))
     }
 
     func fetchCompletedTaskDecisions(
         weekStartDate: Date,
-        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         completion(.success([]))
     }
@@ -991,7 +991,7 @@ private final class StubWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
     func saveCompletedTaskDecisions(
         _ decisions: [WeeklyReviewTaskDecision],
         weekStartDate: Date,
-        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         completion(.success(decisions))
     }
@@ -1004,14 +1004,14 @@ private final class RecordingWeeklyReviewDraftStore: WeeklyReviewDraftStoreProto
 
     func fetchDraft(
         weekStartDate: Date,
-        completion: @escaping (Result<WeeklyReviewDraft?, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyReviewDraft?, Error>) -> Void
     ) {
         completion(.success(draft))
     }
 
     func saveDraft(
         _ draft: WeeklyReviewDraft,
-        completion: @escaping (Result<WeeklyReviewDraft, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyReviewDraft, Error>) -> Void
     ) {
         self.draft = draft
         savedDrafts.append(draft)
@@ -1020,7 +1020,7 @@ private final class RecordingWeeklyReviewDraftStore: WeeklyReviewDraftStoreProto
 
     func clearDraft(
         weekStartDate: Date,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         draft = nil
         completion(.success(()))
@@ -1028,7 +1028,7 @@ private final class RecordingWeeklyReviewDraftStore: WeeklyReviewDraftStoreProto
 
     func fetchCompletedTaskDecisions(
         weekStartDate: Date,
-        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         completion(.success(savedCompletedDecisionBatches.last ?? []))
     }
@@ -1036,7 +1036,7 @@ private final class RecordingWeeklyReviewDraftStore: WeeklyReviewDraftStoreProto
     func saveCompletedTaskDecisions(
         _ decisions: [WeeklyReviewTaskDecision],
         weekStartDate: Date,
-        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         savedCompletedDecisionBatches.append(decisions)
         completion(.success(decisions))
@@ -1050,16 +1050,16 @@ private final class StubReflectionNoteRepository: ReflectionNoteRepositoryProtoc
         self.notes = notes
     }
 
-    func fetchNotes(query: ReflectionNoteQuery, completion: @escaping (Result<[ReflectionNote], Error>) -> Void) {
+    func fetchNotes(query: ReflectionNoteQuery, completion: @escaping @Sendable (Result<[ReflectionNote], Error>) -> Void) {
         completion(.success(notes))
     }
 
-    func saveNote(_ note: ReflectionNote, completion: @escaping (Result<ReflectionNote, Error>) -> Void) {
+    func saveNote(_ note: ReflectionNote, completion: @escaping @Sendable (Result<ReflectionNote, Error>) -> Void) {
         notes.append(note)
         completion(.success(note))
     }
 
-    func deleteNote(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteNote(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         notes.removeAll { $0.id == id }
         completion(.success(()))
     }
@@ -1074,7 +1074,7 @@ private final class StubHabitRuntimeReadRepository: HabitRuntimeReadRepositoryPr
 
     func fetchAgendaHabits(
         for date: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         completion(.success([]))
     }
@@ -1082,7 +1082,7 @@ private final class StubHabitRuntimeReadRepository: HabitRuntimeReadRepositoryPr
     func fetchAgendaHabit(
         habitID: UUID,
         for date: Date,
-        completion: @escaping (Result<HabitOccurrenceSummary?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitOccurrenceSummary?, Error>) -> Void
     ) {
         completion(.success(nil))
     }
@@ -1091,7 +1091,7 @@ private final class StubHabitRuntimeReadRepository: HabitRuntimeReadRepositoryPr
         habitIDs: [UUID],
         endingOn date: Date,
         dayCount: Int,
-        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
         completion(.success([]))
     }
@@ -1099,14 +1099,14 @@ private final class StubHabitRuntimeReadRepository: HabitRuntimeReadRepositoryPr
     func fetchSignals(
         start: Date,
         end: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         completion(.success([]))
     }
 
     func fetchHabitLibrary(
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
         completion(.success(libraryRows))
     }
@@ -1114,7 +1114,7 @@ private final class StubHabitRuntimeReadRepository: HabitRuntimeReadRepositoryPr
     func fetchHabitLibrary(
         habitIDs: [UUID]?,
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
         guard let habitIDs else {
             return completion(.success(libraryRows))
@@ -1132,59 +1132,59 @@ private final class StubProjectRepository: ProjectRepositoryProtocol {
         self.customProjects = customProjects
     }
 
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success([inbox]))
     }
 
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(id == inbox.id ? inbox : nil))
     }
 
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(name == inbox.name ? inbox : nil))
     }
 
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(inbox))
     }
 
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(customProjects))
     }
 
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(project))
     }
 
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(inbox))
     }
 
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
     }
 
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(project))
     }
 
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(Project(id: id, name: newName)))
     }
 
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+    func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         completion(.success(0))
     }
 
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(true))
     }
 }

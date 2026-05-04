@@ -1,7 +1,7 @@
 import XCTest
 import UIKit
 import CoreData
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class HomeViewControllerLifecycleTests: XCTestCase {
     func testStoryboardInstantiatedHomeViewControllerDeallocatesWithoutInjectedDependencies() throws {
@@ -37,7 +37,7 @@ final class HomeViewControllerLifecycleTests: XCTestCase {
         let bundle = try XCTUnwrap(mainStoryboardBundle())
 
         XCTAssertNotNil(
-            UIImage(named: "TaskerSplashIcon", in: bundle, compatibleWith: nil)
+            UIImage(named: "LifeBoardSplashIcon", in: bundle, compatibleWith: nil)
         )
         XCTAssertNotNil(
             UIColor(named: "LaunchCanvas", in: bundle, compatibleWith: nil)
@@ -49,16 +49,16 @@ final class HomeViewControllerLifecycleTests: XCTestCase {
         let landscapeSize = CGSize(width: 852, height: 393)
 
         XCTAssertGreaterThanOrEqual(
-            TaskerLaunchSplashMetrics.iconSide
-                * TaskerLaunchSplashMetrics.coverScale(for: portraitSize),
+            LifeBoardLaunchSplashMetrics.iconSide
+                * LifeBoardLaunchSplashMetrics.coverScale(for: portraitSize),
             max(portraitSize.width, portraitSize.height)
-                * TaskerLaunchSplashMetrics.coverOverscan
+                * LifeBoardLaunchSplashMetrics.coverOverscan
         )
         XCTAssertGreaterThanOrEqual(
-            TaskerLaunchSplashMetrics.iconSide
-                * TaskerLaunchSplashMetrics.coverScale(for: landscapeSize),
+            LifeBoardLaunchSplashMetrics.iconSide
+                * LifeBoardLaunchSplashMetrics.coverScale(for: landscapeSize),
             max(landscapeSize.width, landscapeSize.height)
-                * TaskerLaunchSplashMetrics.coverOverscan
+                * LifeBoardLaunchSplashMetrics.coverOverscan
         )
     }
 

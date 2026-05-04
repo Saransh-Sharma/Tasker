@@ -1,6 +1,6 @@
 //
 //  XCUIApplication+LaunchArguments.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Extension for managing app launch arguments for UI testing
 //
@@ -15,7 +15,7 @@ extension XCUIApplication {
         case resetAppState = "-RESET_APP_STATE"
         case uiTesting = "-UI_TESTING"
         case disableAnimations = "-DISABLE_ANIMATIONS"
-        case enableLiquidMetalCTA = "-TASKER_ENABLE_LIQUID_METAL_CTA"
+        case enableLiquidMetalCTA = "-LIFEBOARD_ENABLE_LIQUID_METAL_CTA"
         case skipOnboarding = "-SKIP_ONBOARDING"
         case mockDate = "-MOCK_DATE"
         case mockNetworkFailure = "-MOCK_NETWORK_FAILURE"
@@ -23,18 +23,18 @@ extension XCUIApplication {
         case enableDebugLogging = "-ENABLE_DEBUG_LOGGING"
         case mockInboxTasks = "-MOCK_INBOX_TASKS"
         case disableLLM = "-DISABLE_LLM"
-        case testRoute = "-TASKER_TEST_ROUTE"
-        case testSeedEstablishedWorkspace = "-TASKER_TEST_SEED_ESTABLISHED_WORKSPACE"
-        case testSeedRescueWorkspace = "-TASKER_TEST_SEED_RESCUE_WORKSPACE"
-        case testSeedCompactRescueWorkspace = "-TASKER_TEST_SEED_COMPACT_RESCUE_WORKSPACE"
-        case testSeedFocusWorkspace = "-TASKER_TEST_SEED_FOCUS_WORKSPACE"
-        case testSeedHabitBoardWorkspace = "-TASKER_TEST_SEED_HABIT_BOARD_WORKSPACE"
-        case testSeedQuietTrackingWorkspace = "-TASKER_TEST_SEED_QUIET_TRACKING_WORKSPACE"
-        case testPresentHabitBoard = "-TASKER_TEST_PRESENT_HABIT_BOARD"
-        case testCalendarStub = "-TASKER_TEST_CALENDAR_STUB"
-        case testCalendarMode = "-TASKER_TEST_CALENDAR_MODE"
-        case testEvaActivationCompleted = "-TASKER_TEST_EVA_ACTIVATION_COMPLETED"
-        case testHabitDetailEditorSupportDelayMilliseconds = "-TASKER_TEST_HABIT_DETAIL_EDITOR_SUPPORT_DELAY_MS"
+        case testRoute = "-LIFEBOARD_TEST_ROUTE"
+        case testSeedEstablishedWorkspace = "-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE"
+        case testSeedRescueWorkspace = "-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE"
+        case testSeedCompactRescueWorkspace = "-LIFEBOARD_TEST_SEED_COMPACT_RESCUE_WORKSPACE"
+        case testSeedFocusWorkspace = "-LIFEBOARD_TEST_SEED_FOCUS_WORKSPACE"
+        case testSeedHabitBoardWorkspace = "-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE"
+        case testSeedQuietTrackingWorkspace = "-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE"
+        case testPresentHabitBoard = "-LIFEBOARD_TEST_PRESENT_HABIT_BOARD"
+        case testCalendarStub = "-LIFEBOARD_TEST_CALENDAR_STUB"
+        case testCalendarMode = "-LIFEBOARD_TEST_CALENDAR_MODE"
+        case testEvaActivationCompleted = "-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED"
+        case testHabitDetailEditorSupportDelayMilliseconds = "-LIFEBOARD_TEST_HABIT_DETAIL_EDITOR_SUPPORT_DELAY_MS"
     }
 
     // MARK: - Convenience Launch Methods

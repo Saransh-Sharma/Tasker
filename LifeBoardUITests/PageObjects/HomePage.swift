@@ -1,6 +1,6 @@
 //
 //  HomePage.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Page Object for Home Screen
 //

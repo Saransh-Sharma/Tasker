@@ -1,6 +1,6 @@
 //
-//  To_Do_ListUITests.swift
-//  To Do ListUITests
+//  LifeBoardUITests.swift
+//  LifeBoardUITests
 //
 //  Created by Saransh Sharma on 14/04/20.
 //  Copyright © 2020 saransh1337. All rights reserved.
@@ -8,7 +8,7 @@
 
 import XCTest
 
-class To_Do_ListUITests: XCTestCase {
+class LifeBoardUITests: XCTestCase {
 
     override func setUp() {
         // Put setup code here. This method is called before the invocation of each test method in the class.

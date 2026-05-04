@@ -1,6 +1,6 @@
 //
 //  ScoringSystemTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Critical Tests: Scoring & Gamification System (6 tests)
 //  Tests the scoring calculation, streak tracking, and completion rate features

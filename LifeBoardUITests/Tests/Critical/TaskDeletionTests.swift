@@ -1,6 +1,6 @@
 //
 //  TaskDeletionTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Critical Tests: Task Deletion (3 tests)
 //  Tests the functionality of deleting tasks

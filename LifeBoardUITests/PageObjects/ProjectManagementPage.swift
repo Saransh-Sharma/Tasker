@@ -1,6 +1,6 @@
 //
 //  ProjectManagementPage.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Page Object for Project Management Screen
 //

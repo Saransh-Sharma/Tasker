@@ -1,6 +1,6 @@
 //
 //  TaskEditingTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Critical Tests: Task Editing (6 tests)
 //  Tests the functionality of editing existing tasks

@@ -1,5 +1,5 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 @MainActor
 final class HabitBoardViewModelTests: XCTestCase {
@@ -251,7 +251,7 @@ private final class HabitBoardReadRepositoryStub: HabitRuntimeReadRepositoryProt
     var pendingLibraryCount: Int { pendingLibraryResponses.count }
     var pendingHistoryCount: Int { pendingHistoryResponses.count }
 
-    func fetchAgendaHabits(for date: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) {
+    func fetchAgendaHabits(for date: Date, completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void) {
         completion(.success([]))
     }
 
@@ -259,7 +259,7 @@ private final class HabitBoardReadRepositoryStub: HabitRuntimeReadRepositoryProt
         habitIDs: [UUID],
         endingOn date: Date,
         dayCount: Int,
-        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
         let result = queuedHistoryResults.isEmpty ? Result.success(historyWindows) : queuedHistoryResults.removeFirst()
         let response = { completion(result) }
@@ -270,11 +270,11 @@ private final class HabitBoardReadRepositoryStub: HabitRuntimeReadRepositoryProt
         }
     }
 
-    func fetchSignals(start: Date, end: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) {
+    func fetchSignals(start: Date, end: Date, completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func fetchHabitLibrary(includeArchived: Bool, completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void) {
+    func fetchHabitLibrary(includeArchived: Bool, completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void) {
         let response = { completion(.success(self.libraryRows)) }
         if deferLibraryCompletion {
             pendingLibraryResponses.append(response)

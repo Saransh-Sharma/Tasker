@@ -1,8 +1,10 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
+@MainActor
 final class HomeViewModelXPScoreRegressionTests: XCTestCase {
 
+    @MainActor
     func testCompletingOverdueTaskIncreasesTodayXPByCompletionDate() {
         let suiteName = "HomeViewModelXPScoreRegressionTests.CompleteOverdue.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -41,6 +43,7 @@ final class HomeViewModelXPScoreRegressionTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    @MainActor
     func testExternalHomeTaskMutationRefreshesTodayXP() {
         let suiteName = "HomeViewModelXPScoreRegressionTests.ExternalMutation.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -88,6 +91,7 @@ final class HomeViewModelXPScoreRegressionTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    @MainActor
     func testTaskCompletionMutationNotificationIncludesTaskID() {
         let suiteName = "HomeViewModelXPScoreRegressionTests.TaskMutationIncludesTaskID.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -126,6 +130,7 @@ final class HomeViewModelXPScoreRegressionTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    @MainActor
     func testLedgerMutationNotificationImmediatelyUpdatesGamificationSurfaces() {
         let suiteName = "HomeViewModelXPScoreRegressionTests.LedgerMutation.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -216,32 +221,32 @@ private final class XPRegressionMockProjectRepository: ProjectRepositoryProtocol
         self.projects = projects
     }
 
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(projects))
     }
 
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(projects.first(where: { $0.id == id })))
     }
 
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(projects.first(where: { $0.name == name })))
     }
 
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(projects.first(where: { $0.isInbox }) ?? Project.createInbox()))
     }
 
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(projects.filter { !$0.isInbox }))
     }
 
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         projects.append(project)
         completion(.success(project))
     }
 
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if let inbox = projects.first(where: { $0.isInbox }) {
             completion(.success(inbox))
         } else {
@@ -251,7 +256,7 @@ private final class XPRegressionMockProjectRepository: ProjectRepositoryProtocol
         }
     }
 
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(
             scanned: projects.count,
             merged: 0,
@@ -261,14 +266,14 @@ private final class XPRegressionMockProjectRepository: ProjectRepositoryProtocol
         )))
     }
 
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if let index = projects.firstIndex(where: { $0.id == project.id }) {
             projects[index] = project
         }
         completion(.success(project))
     }
 
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         guard let index = projects.firstIndex(where: { $0.id == id }) else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -279,24 +284,24 @@ private final class XPRegressionMockProjectRepository: ProjectRepositoryProtocol
         completion(.success(updated))
     }
 
-    func deleteProject(withId id: UUID, deleteTasks _: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteProject(withId id: UUID, deleteTasks _: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         projects.removeAll { $0.id == id }
         completion(.success(()))
     }
 
-    func getTaskCount(for _: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+    func getTaskCount(for _: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         completion(.success(0))
     }
 
-    func getTasks(for _: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func getTasks(for _: UUID, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func moveTasks(from _: UUID, to _: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func moveTasks(from _: UUID, to _: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         let exists = projects.contains { project in
             if let excludingId, project.id == excludingId {
                 return false
@@ -322,11 +327,11 @@ private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
         tasksByID[taskID] = task
     }
 
-    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchAllTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(Array(tasksByID.values)))
     }
 
-    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasks(for date: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         let start = calendar.startOfDay(for: date)
         let end = calendar.date(byAdding: .day, value: 1, to: start) ?? date
         let filtered = tasksByID.values.filter { task in
@@ -336,7 +341,7 @@ private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
         completion(.success(filtered))
     }
 
-    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTodayTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         let today = Date()
         let start = calendar.startOfDay(for: today)
         let end = calendar.date(byAdding: .day, value: 1, to: start) ?? today
@@ -352,35 +357,35 @@ private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
         completion(.success(filtered))
     }
 
-    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasks(for project: String, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(tasksByID.values.filter { $0.projectName?.caseInsensitiveCompare(project) == .orderedSame }))
     }
 
-    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(tasksByID.values.filter { $0.projectID == projectID }))
     }
 
-    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchOverdueTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(tasksByID.values.filter { $0.isOverdue }))
     }
 
-    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchUpcomingTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(Array(tasksByID.values)))
     }
 
-    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchCompletedTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(tasksByID.values.filter { $0.isComplete }))
     }
 
-    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasks(ofType type: TaskType, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(tasksByID.values.filter { $0.type == type }))
     }
 
-    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) {
+    func fetchTask(withId id: UUID, completion: @escaping @Sendable (Result<Task?, Error>) -> Void) {
         completion(.success(tasksByID[id]))
     }
 
-    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         let filtered = tasksByID.values.filter { task in
             guard let dueDate = task.dueDate else { return false }
             return dueDate >= startDate && dueDate <= endDate
@@ -388,17 +393,17 @@ private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
         completion(.success(filtered))
     }
 
-    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
+    func createTask(_ task: Task, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         tasksByID[task.id] = task
         completion(.success(task))
     }
 
-    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
+    func updateTask(_ task: Task, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         tasksByID[task.id] = task
         completion(.success(task))
     }
 
-    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
+    func completeTask(withId id: UUID, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         guard var task = tasksByID[id] else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -409,7 +414,7 @@ private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
         completion(.success(task))
     }
 
-    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
+    func uncompleteTask(withId id: UUID, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         guard var task = tasksByID[id] else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -420,7 +425,7 @@ private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
         completion(.success(task))
     }
 
-    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void) {
+    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         guard var task = tasksByID[id] else {
             completion(.failure(NSError(domain: "mock", code: 404)))
             return
@@ -430,42 +435,42 @@ private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
         completion(.success(task))
     }
 
-    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteTask(withId id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         tasksByID.removeValue(forKey: id)
         completion(.success(()))
     }
 
-    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteCompletedTasks(completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         tasksByID = tasksByID.filter { !$0.value.isComplete }
         completion(.success(()))
     }
 
-    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) {
+    func createTasks(_ tasks: [Task], completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         for task in tasks {
             tasksByID[task.id] = task
         }
         completion(.success(tasks))
     }
 
-    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) {
+    func updateTasks(_ tasks: [Task], completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         for task in tasks {
             tasksByID[task.id] = task
         }
         completion(.success(tasks))
     }
 
-    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteTasks(withIds ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         for id in ids {
             tasksByID.removeValue(forKey: id)
         }
         completion(.success(()))
     }
 
-    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasksWithoutProject(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(tasksByID.values.filter { $0.projectID == ProjectConstants.inboxProjectID }))
     }
 
-    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         for id in taskIDs {
             guard var task = tasksByID[id] else { continue }
             task.projectID = projectID
@@ -474,7 +479,7 @@ private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
         completion(.success(()))
     }
 
-    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchInboxTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(tasksByID.values.filter { $0.projectID == ProjectConstants.inboxProjectID }))
     }
 }

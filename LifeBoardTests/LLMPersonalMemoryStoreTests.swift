@@ -1,6 +1,6 @@
 import XCTest
 import MLXLMCommon
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class LLMPersonalMemoryStoreTests: XCTestCase {
     func testNormalizationDropsWhitespaceOnlyEntries() {

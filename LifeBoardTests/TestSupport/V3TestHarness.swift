@@ -1,5 +1,5 @@
 import Foundation
-@testable import To_Do_List
+@testable import LifeBoard
 
 // Shared V3-focused test harness utilities for building coordinators/mocks without
 // relying on legacy task shim protocols.
@@ -16,7 +16,7 @@ enum V3TestHarness {
         occurrenceRepository: OccurrenceRepositoryProtocol = NoopOccurrenceRepository(),
         gamificationRepository: GamificationRepositoryProtocol = NoopGamificationRepository(),
         calendarEventsProvider: CalendarEventsProviderProtocol? = nil,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
         cacheService: CacheServiceProtocol? = nil,
         notificationService: NotificationServiceProtocol? = nil
     ) -> UseCaseCoordinator {
@@ -69,11 +69,11 @@ final class InMemoryTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtoc
         self.byID = Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
     }
 
-    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         completion(.success(Array(byID.values)))
     }
 
-    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         guard let query else {
             completion(.success(Array(byID.values)))
             return
@@ -103,27 +103,27 @@ final class InMemoryTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtoc
         completion(.success(Array(filtered)))
     }
 
-    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+    func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) {
         completion(.success(byID[id]))
     }
 
-    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         byID[task.id] = task
         completion(.success(task))
     }
 
-    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         let task = request.toTaskDefinition(projectName: request.projectName)
         byID[task.id] = task
         completion(.success(task))
     }
 
-    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         byID[task.id] = task
         completion(.success(task))
     }
 
-    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         guard var current = byID[request.id] else {
             completion(.failure(NSError(domain: "InMemoryTaskDefinitionRepositoryStub", code: 404)))
             return
@@ -197,11 +197,11 @@ final class InMemoryTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtoc
         completion(.success(current))
     }
 
-    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         completion(.success(Array(byID.values.filter { $0.parentTaskID == parentTaskID })))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         byID.removeValue(forKey: id)
         completion(.success(()))
     }
@@ -214,7 +214,7 @@ final class InMemoryTaskReadModelRepositoryStub: TaskReadModelRepositoryProtocol
         self.tasks = tasks
     }
 
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         let filtered = tasks.filter { task in
             if let projectID = query.projectID, task.projectID != projectID { return false }
             if !query.includeCompleted && task.isComplete { return false }
@@ -246,7 +246,7 @@ final class InMemoryTaskReadModelRepositoryStub: TaskReadModelRepositoryProtocol
         )))
     }
 
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         let needle = query.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let filtered = tasks.filter { task in
             if let projectID = query.projectID, task.projectID != projectID { return false }
@@ -275,7 +275,7 @@ final class InMemoryTaskReadModelRepositoryStub: TaskReadModelRepositoryProtocol
         )))
     }
 
-    func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+    func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void) {
         var counts: [UUID: Int] = [:]
         for task in tasks where includeCompleted || !task.isComplete {
             counts[task.projectID, default: 0] += 1
@@ -283,7 +283,7 @@ final class InMemoryTaskReadModelRepositoryStub: TaskReadModelRepositoryProtocol
         completion(.success(counts))
     }
 
-    func fetchProjectCompletionScoreTotals(from startDate: Date, to endDate: Date, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+    func fetchProjectCompletionScoreTotals(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void) {
         var totals: [UUID: Int] = [:]
         for task in tasks {
             guard task.isComplete, let completedAt = task.dateCompleted else { continue }
@@ -295,44 +295,44 @@ final class InMemoryTaskReadModelRepositoryStub: TaskReadModelRepositoryProtocol
 }
 
 private final class NoopLifeAreaRepository: LifeAreaRepositoryProtocol {
-    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) { completion(.success([])) }
-    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) { completion(.success(area)) }
-    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) { completion(.success(area)) }
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchAll(completion: @escaping @Sendable (Result<[LifeArea], Error>) -> Void) { completion(.success([])) }
+    func create(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) { completion(.success(area)) }
+    func update(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) { completion(.success(area)) }
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopSectionRepository: SectionRepositoryProtocol {
-    func fetchSections(projectID: UUID, completion: @escaping (Result<[TaskerProjectSection], Error>) -> Void) { completion(.success([])) }
-    func create(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) { completion(.success(section)) }
-    func update(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) { completion(.success(section)) }
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[LifeBoardProjectSection], Error>) -> Void) { completion(.success([])) }
+    func create(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) { completion(.success(section)) }
+    func update(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) { completion(.success(section)) }
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopTagRepository: TagRepositoryProtocol {
-    func fetchAll(completion: @escaping (Result<[TagDefinition], Error>) -> Void) { completion(.success([])) }
-    func create(_ tag: TagDefinition, completion: @escaping (Result<TagDefinition, Error>) -> Void) { completion(.success(tag)) }
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchAll(completion: @escaping @Sendable (Result<[TagDefinition], Error>) -> Void) { completion(.success([])) }
+    func create(_ tag: TagDefinition, completion: @escaping @Sendable (Result<TagDefinition, Error>) -> Void) { completion(.success(tag)) }
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopTaskTagLinkRepository: TaskTagLinkRepositoryProtocol {
-    func fetchTagIDs(taskID: UUID, completion: @escaping (Result<[UUID], Error>) -> Void) { completion(.success([])) }
-    func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchTagIDs(taskID: UUID, completion: @escaping @Sendable (Result<[UUID], Error>) -> Void) { completion(.success([])) }
+    func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopTaskDependencyRepository: TaskDependencyRepositoryProtocol {
-    func fetchDependencies(taskID: UUID, completion: @escaping (Result<[TaskDependencyLinkDefinition], Error>) -> Void) { completion(.success([])) }
-    func replaceDependencies(taskID: UUID, dependencies: [TaskDependencyLinkDefinition], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDependencies(taskID: UUID, completion: @escaping @Sendable (Result<[TaskDependencyLinkDefinition], Error>) -> Void) { completion(.success([])) }
+    func replaceDependencies(taskID: UUID, dependencies: [TaskDependencyLinkDefinition], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopHabitRepository: HabitRepositoryProtocol {
-    func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) { completion(.success([])) }
-    func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) { completion(.success(habit)) }
-    func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) { completion(.success(habit)) }
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchAll(completion: @escaping @Sendable (Result<[HabitDefinitionRecord], Error>) -> Void) { completion(.success([])) }
+    func create(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) { completion(.success(habit)) }
+    func update(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) { completion(.success(habit)) }
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopHabitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol {
-    func fetchAgendaHabits(for date: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) {
+    func fetchAgendaHabits(for date: Date, completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void) {
         completion(.success([]))
     }
 
@@ -340,104 +340,104 @@ private final class NoopHabitRuntimeReadRepository: HabitRuntimeReadRepositoryPr
         habitIDs: [UUID],
         endingOn date: Date,
         dayCount: Int,
-        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
         completion(.success([]))
     }
 
-    func fetchSignals(start: Date, end: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) {
+    func fetchSignals(start: Date, end: Date, completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func fetchHabitLibrary(includeArchived: Bool, completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void) {
+    func fetchHabitLibrary(includeArchived: Bool, completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void) {
         completion(.success([]))
     }
 }
 
 private final class NoopScheduleRepository: ScheduleRepositoryProtocol {
-    func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) { completion(.success(template)) }
-    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func replaceRules(templateID: UUID, rules: [ScheduleRuleDefinition], completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success(rules)) }
-    func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
+    func fetchTemplates(completion: @escaping @Sendable (Result<[ScheduleTemplateDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchRules(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping @Sendable (Result<ScheduleTemplateDefinition, Error>) -> Void) { completion(.success(template)) }
+    func deleteTemplate(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func replaceRules(templateID: UUID, rules: [ScheduleRuleDefinition], completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success(rules)) }
+    func fetchExceptions(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleExceptionDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping @Sendable (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
 }
 
 private final class NoopSchedulingEngine: SchedulingEngineProtocol {
-    func generateOccurrences(windowStart: Date, windowEnd: Date, sourceFilter: ScheduleSourceType?, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) { completion(.success([])) }
-    func resolveOccurrence(id: UUID, resolution: OccurrenceResolutionType, actor: OccurrenceActor, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func rebuildFutureOccurrences(templateID: UUID, effectiveFrom: Date, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func applyScheduleException(templateID: UUID, occurrenceKey: String, action: ScheduleExceptionAction, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func generateOccurrences(windowStart: Date, windowEnd: Date, sourceFilter: ScheduleSourceType?, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) { completion(.success([])) }
+    func resolveOccurrence(id: UUID, resolution: OccurrenceResolutionType, actor: OccurrenceActor, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func rebuildFutureOccurrences(templateID: UUID, effectiveFrom: Date, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func applyScheduleException(templateID: UUID, occurrenceKey: String, action: ScheduleExceptionAction, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopOccurrenceRepository: OccurrenceRepositoryProtocol {
-    func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchInRange(start: Date, end: Date, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func deleteOccurrences(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopTombstoneRepository: TombstoneRepositoryProtocol {
-    func create(_ tombstone: TombstoneDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchExpired(before date: Date, completion: @escaping (Result<[TombstoneDefinition], Error>) -> Void) { completion(.success([])) }
-    func delete(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func create(_ tombstone: TombstoneDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchExpired(before date: Date, completion: @escaping @Sendable (Result<[TombstoneDefinition], Error>) -> Void) { completion(.success([])) }
+    func delete(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopReminderRepository: ReminderRepositoryProtocol {
-    func fetchReminders(completion: @escaping (Result<[ReminderDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveReminder(_ reminder: ReminderDefinition, completion: @escaping (Result<ReminderDefinition, Error>) -> Void) { completion(.success(reminder)) }
-    func fetchTriggers(reminderID: UUID, completion: @escaping (Result<[ReminderTriggerDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping (Result<ReminderTriggerDefinition, Error>) -> Void) { completion(.success(trigger)) }
-    func fetchDeliveries(reminderID: UUID, completion: @escaping (Result<[ReminderDeliveryDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
-    func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
+    func fetchReminders(completion: @escaping @Sendable (Result<[ReminderDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveReminder(_ reminder: ReminderDefinition, completion: @escaping @Sendable (Result<ReminderDefinition, Error>) -> Void) { completion(.success(reminder)) }
+    func fetchTriggers(reminderID: UUID, completion: @escaping @Sendable (Result<[ReminderTriggerDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping @Sendable (Result<ReminderTriggerDefinition, Error>) -> Void) { completion(.success(trigger)) }
+    func fetchDeliveries(reminderID: UUID, completion: @escaping @Sendable (Result<[ReminderDeliveryDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
+    func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
 }
 
 private final class NoopWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
-    func fetchPlan(id: UUID, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
-    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
-    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping (Result<[WeeklyPlan], Error>) -> Void) { completion(.success([])) }
-    func savePlan(_ plan: WeeklyPlan, completion: @escaping (Result<WeeklyPlan, Error>) -> Void) { completion(.success(plan)) }
+    func fetchPlan(id: UUID, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[WeeklyPlan], Error>) -> Void) { completion(.success([])) }
+    func savePlan(_ plan: WeeklyPlan, completion: @escaping @Sendable (Result<WeeklyPlan, Error>) -> Void) { completion(.success(plan)) }
 }
 
 private final class NoopWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol {
-    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success([])) }
-    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping (Result<WeeklyOutcome, Error>) -> Void) { completion(.success(outcome)) }
-    func replaceOutcomes(weeklyPlanID: UUID, outcomes: [WeeklyOutcome], completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success(outcomes)) }
-    func deleteOutcome(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success([])) }
+    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping @Sendable (Result<WeeklyOutcome, Error>) -> Void) { completion(.success(outcome)) }
+    func replaceOutcomes(weeklyPlanID: UUID, outcomes: [WeeklyOutcome], completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success(outcomes)) }
+    func deleteOutcome(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopWeeklyReviewRepository: WeeklyReviewRepositoryProtocol {
-    func fetchReview(weeklyPlanID: UUID, completion: @escaping (Result<WeeklyReview?, Error>) -> Void) { completion(.success(nil)) }
-    func saveReview(_ review: WeeklyReview, completion: @escaping (Result<WeeklyReview, Error>) -> Void) { completion(.success(review)) }
+    func fetchReview(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<WeeklyReview?, Error>) -> Void) { completion(.success(nil)) }
+    func saveReview(_ review: WeeklyReview, completion: @escaping @Sendable (Result<WeeklyReview, Error>) -> Void) { completion(.success(review)) }
 }
 
 private final class NoopWeeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol {
     func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
         completion(.failure(NSError(domain: "NoopWeeklyReviewMutationRepository", code: 1)))
     }
 }
 
 private final class NoopWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
-    func fetchDraft(weekStartDate: Date, completion: @escaping (Result<WeeklyReviewDraft?, Error>) -> Void) {
+    func fetchDraft(weekStartDate: Date, completion: @escaping @Sendable (Result<WeeklyReviewDraft?, Error>) -> Void) {
         completion(.success(nil))
     }
 
-    func saveDraft(_ draft: WeeklyReviewDraft, completion: @escaping (Result<WeeklyReviewDraft, Error>) -> Void) {
+    func saveDraft(_ draft: WeeklyReviewDraft, completion: @escaping @Sendable (Result<WeeklyReviewDraft, Error>) -> Void) {
         completion(.success(draft))
     }
 
-    func clearDraft(weekStartDate: Date, completion: @escaping (Result<Void, Error>) -> Void) {
+    func clearDraft(weekStartDate: Date, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
     func fetchCompletedTaskDecisions(
         weekStartDate: Date,
-        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         completion(.success([]))
     }
@@ -445,50 +445,50 @@ private final class NoopWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
     func saveCompletedTaskDecisions(
         _ decisions: [WeeklyReviewTaskDecision],
         weekStartDate: Date,
-        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         completion(.success(decisions))
     }
 }
 
 private final class NoopReflectionNoteRepository: ReflectionNoteRepositoryProtocol {
-    func fetchNotes(query: ReflectionNoteQuery, completion: @escaping (Result<[ReflectionNote], Error>) -> Void) { completion(.success([])) }
-    func saveNote(_ note: ReflectionNote, completion: @escaping (Result<ReflectionNote, Error>) -> Void) { completion(.success(note)) }
-    func deleteNote(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchNotes(query: ReflectionNoteQuery, completion: @escaping @Sendable (Result<[ReflectionNote], Error>) -> Void) { completion(.success([])) }
+    func saveNote(_ note: ReflectionNote, completion: @escaping @Sendable (Result<ReflectionNote, Error>) -> Void) { completion(.success(note)) }
+    func deleteNote(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopGamificationRepository: GamificationRepositoryProtocol {
-    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(false)) }
-    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) { completion(.success(false)) }
+    func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) { completion(.success([])) }
 }
 
 private final class NoopAssistantActionRepository: AssistantActionRepositoryProtocol {
-    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) { completion(.success(run)) }
-    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) { completion(.success(run)) }
-    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) { completion(.success(run)) }
+    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) { completion(.success(run)) }
+    func fetchRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition?, Error>) -> Void) { completion(.success(nil)) }
 }
 
 private final class NoopExternalSyncRepository: ExternalSyncRepositoryProtocol {
-    func fetchContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchContainerMapping(provider: String, projectID: UUID, completion: @escaping (Result<ExternalContainerMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func upsertContainerMapping(provider: String, projectID: UUID, mutate: @escaping (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition, completion: @escaping (Result<ExternalContainerMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
-    func fetchItemMappings(completion: @escaping (Result<[ExternalItemMapDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func upsertItemMappingByLocalKey(provider: String, localEntityType: String, localEntityID: UUID, mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
-    func upsertItemMappingByExternalKey(provider: String, externalItemID: String, mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
-    func fetchItemMapping(provider: String, localEntityType: String, localEntityID: UUID, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchContainerMappings(completion: @escaping @Sendable (Result<[ExternalContainerMapDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchContainerMapping(provider: String, projectID: UUID, completion: @escaping @Sendable (Result<ExternalContainerMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func upsertContainerMapping(provider: String, projectID: UUID, mutate: @escaping @Sendable (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition, completion: @escaping @Sendable (Result<ExternalContainerMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func fetchItemMappings(completion: @escaping @Sendable (Result<[ExternalItemMapDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func upsertItemMappingByLocalKey(provider: String, localEntityType: String, localEntityID: UUID, mutate: @escaping @Sendable (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping @Sendable (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func upsertItemMappingByExternalKey(provider: String, externalItemID: String, mutate: @escaping @Sendable (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping @Sendable (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func fetchItemMapping(provider: String, localEntityType: String, localEntityID: UUID, completion: @escaping @Sendable (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping @Sendable (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
 }

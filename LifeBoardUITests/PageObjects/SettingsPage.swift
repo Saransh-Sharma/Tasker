@@ -1,6 +1,6 @@
 //
 //  SettingsPage.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Page Object for Settings Screen
 //

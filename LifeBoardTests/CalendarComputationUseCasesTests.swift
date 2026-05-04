@@ -1,5 +1,5 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class CalendarComputationUseCasesTests: XCTestCase {
     func testBusyBlockMergingHandlesOverlapAndNearAdjacency() {
@@ -93,7 +93,7 @@ final class CalendarComputationUseCasesTests: XCTestCase {
         let useCase = ComputeTaskFitHintUseCase(bufferMinutes: 15, calendar: CalendarTestClock.calendar)
         let now = CalendarTestClock.date(hour: 9)
         let dueDate = CalendarTestClock.date(hour: 12)
-        let busy = [TaskerCalendarBusyBlock(
+        let busy = [LifeBoardCalendarBusyBlock(
             startDate: CalendarTestClock.date(hour: 10),
             endDate: CalendarTestClock.date(hour: 10, minute: 30)
         )]
@@ -128,7 +128,7 @@ final class CalendarComputationUseCasesTests: XCTestCase {
         let now = CalendarTestClock.date(hour: 9)
         let dueDate = CalendarTestClock.date(hour: 10)
         let busy = [
-            TaskerCalendarBusyBlock(
+            LifeBoardCalendarBusyBlock(
                 startDate: CalendarTestClock.date(hour: 9),
                 endDate: CalendarTestClock.date(hour: 9, minute: 50)
             )
@@ -173,10 +173,10 @@ final class CalendarComputationUseCasesTests: XCTestCase {
         title: String = "Event",
         calendarID: String = "work",
         isAllDay: Bool = false,
-        availability: TaskerCalendarEventAvailability = .busy,
-        participationStatus: TaskerCalendarEventParticipationStatus = .accepted
-    ) -> TaskerCalendarEventSnapshot {
-        TaskerCalendarEventSnapshot(
+        availability: LifeBoardCalendarEventAvailability = .busy,
+        participationStatus: LifeBoardCalendarEventParticipationStatus = .accepted
+    ) -> LifeBoardCalendarEventSnapshot {
+        LifeBoardCalendarEventSnapshot(
             id: UUID().uuidString,
             calendarID: calendarID,
             calendarTitle: "Work",

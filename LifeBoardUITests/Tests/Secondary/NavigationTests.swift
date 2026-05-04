@@ -1,6 +1,6 @@
 //
 //  NavigationTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Secondary Tests: Navigation (5 tests)
 //  Tests app navigation flows and screen transitions

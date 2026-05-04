@@ -1,5 +1,5 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 private enum HomeRowDestinationSection {
     case morning
@@ -14,7 +14,7 @@ private enum HomeRowStateCanonicalizer {
         let overdue: [TaskDefinition]
     }
 
-    private static let noOverride: (UUID) -> Bool? = { _ in nil }
+    private static let noOverride: @Sendable (UUID) -> Bool? = { _ in nil }
 
     static func deduplicate(
         tasks: [TaskDefinition],
@@ -966,29 +966,29 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
     }
 
     func testHomeSurfaceSectionHeadersUseSectionAccentHexSource() throws {
-        let source = try loadWorkspaceFile("To Do List/View/TaskSectionView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/View/TaskSectionView.swift")
 
         XCTAssertTrue(source.contains("guard let accentHex = section.accentHex"))
-        XCTAssertTrue(source.contains("TaskerHexColor.color(accentHex, fallback: Color.tasker.accentPrimary)"))
+        XCTAssertTrue(source.contains("LifeBoardHexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)"))
     }
 
     func testHomeSurfacePlainSectionRowsUseCanonicalRowTintResolver() throws {
-        let source = try loadWorkspaceFile("To Do List/View/TaskSectionView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/View/TaskSectionView.swift")
 
         XCTAssertTrue(source.contains("if section.showsHeader, let sectionAccentHex = section.accentHex"))
         XCTAssertTrue(source.contains("HomeTaskTintResolver.rowAccentHex("))
     }
 
     func testHomeSurfaceDueTodayAndRescueRowsUseSharedRowResolver() throws {
-        let taskListSource = try loadWorkspaceFile("To Do List/View/TaskListView.swift")
-        let foredropSource = try loadWorkspaceFile("To Do List/View/HomeForedropView.swift")
+        let taskListSource = try loadWorkspaceFile("LifeBoard/View/TaskListView.swift")
+        let foredropSource = try loadWorkspaceFile("LifeBoard/View/HomeForedropView.swift")
 
         XCTAssertTrue(taskListSource.contains("HomeTaskTintResolver.rowAccentHex("))
         XCTAssertTrue(foredropSource.contains("HomeTaskTintResolver.rowAccentHex("))
     }
 
     func testTaskListSectionIDsAvoidRuntimeRandomizedSources() throws {
-        let source = try loadWorkspaceFile("To Do List/View/TaskListView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/View/TaskListView.swift")
 
         XCTAssertFalse(source.contains("value.hashValue"))
         XCTAssertFalse(source.contains("id: UUID(),\n                name:"))
@@ -996,7 +996,7 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
     }
 
     func testHomeSurfaceTimelineTintUsesCanonicalOwningResolver() throws {
-        let source = try loadWorkspaceFile("To Do List/Presentation/ViewModels/HomeViewModel.swift")
+        let source = try loadWorkspaceFile("LifeBoard/Presentation/ViewModels/HomeViewModel.swift")
 
         XCTAssertTrue(source.contains("HomeTaskTintResolver.owningSectionAccentHex("))
     }

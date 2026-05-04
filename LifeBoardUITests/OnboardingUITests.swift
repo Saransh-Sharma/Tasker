@@ -50,6 +50,9 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(homeDemo.waitForExistence(timeout: 12))
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.homeDemoTimeline].waitForExistence(timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.homeDemoHabits].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.nextButton].waitForExistence(timeout: 8))
+        app.buttons[AccessibilityIdentifiers.Onboarding.nextButton].tap()
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.calendarPermission].waitForExistence(timeout: 12))
     }
 
     func testSuggestionScreensPrioritizeCustomCreationAndOutcomesStayLightweight() {
@@ -230,7 +233,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
 }
 
 final class OnboardingRestartUITests: BaseUITest {
-    override var additionalLaunchArguments: [String] { ["-TASKER_TEST_OPEN_SETTINGS"] }
+    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_TEST_OPEN_SETTINGS"] }
 
     func testRestartOnboardingFromSettings() {
         let restartButton = app.buttons[AccessibilityIdentifiers.Settings.onboardingRestartButton]
@@ -246,7 +249,7 @@ final class OnboardingRestartUITests: BaseUITest {
 
 final class OnboardingPromptUITests: BaseUITest {
     override var shouldSkipOnboarding: Bool { false }
-    override var additionalLaunchArguments: [String] { ["-TASKER_TEST_SEED_ESTABLISHED_WORKSPACE"] }
+    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE"] }
 
     func testEstablishedWorkspacePromptCanStartFullOnboarding() {
         let prompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
@@ -277,7 +280,7 @@ final class OnboardingPromptUITests: BaseUITest {
 
 final class OnboardingLaunchQueueUITests: BaseUITest {
     override var shouldSkipOnboarding: Bool { false }
-    override var additionalLaunchArguments: [String] { ["-TASKER_TEST_ROUTE:daily_summary:morning"] }
+    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_TEST_ROUTE:daily_summary:morning"] }
 
     func testFreshLaunchShowsOnboardingAfterBlockingModalDismisses() {
         let dailySummary = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.dailySummaryModal]

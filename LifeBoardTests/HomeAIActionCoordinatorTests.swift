@@ -1,5 +1,5 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class HomeAIActionCoordinatorTests: XCTestCase {
     func testAskModeBuildsReadOnlyWeeklyPreview() {
@@ -126,21 +126,21 @@ final class HomeAIActionCoordinatorTests: XCTestCase {
 private final class InMemoryAssistantActionRepositoryStub: AssistantActionRepositoryProtocol {
     var runs: [UUID: AssistantActionRunDefinition] = [:]
 
-    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         runs[run.id] = run
         completion(.success(run))
     }
 
-    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         runs[run.id] = run
         completion(.success(run))
     }
 
-    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
+    func fetchRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition?, Error>) -> Void) {
         completion(.success(runs[id]))
     }
 
-    func fetchPendingRuns(threadID: String?, completion: @escaping (Result<[AssistantActionRunDefinition], Error>) -> Void) {
+    func fetchPendingRuns(threadID: String?, completion: @escaping @Sendable (Result<[AssistantActionRunDefinition], Error>) -> Void) {
         let filtered = runs.values.filter { run in
             run.status == .pending && (threadID == nil || run.threadID == threadID)
         }

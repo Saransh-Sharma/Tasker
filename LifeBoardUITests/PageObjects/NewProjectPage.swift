@@ -1,6 +1,6 @@
 //
 //  NewProjectPage.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Page Object for New Project Screen
 //

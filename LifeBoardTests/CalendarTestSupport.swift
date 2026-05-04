@@ -1,15 +1,15 @@
 import Foundation
 import Combine
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
-    var authorizationStatusValue: TaskerCalendarAuthorizationStatus = .authorized
-    var authorizationStatusAfterAccess: TaskerCalendarAuthorizationStatus?
+    var authorizationStatusValue: LifeBoardCalendarAuthorizationStatus = .authorized
+    var authorizationStatusAfterAccess: LifeBoardCalendarAuthorizationStatus?
     var requestAccessResult: Result<Bool, Error> = .success(true)
 
-    var calendarsResult: Result<[TaskerCalendarSourceSnapshot], Error> = .success([])
-    var eventsResult: Result<[TaskerCalendarEventSnapshot], Error> = .success([])
+    var calendarsResult: Result<[LifeBoardCalendarSourceSnapshot], Error> = .success([])
+    var eventsResult: Result<[LifeBoardCalendarEventSnapshot], Error> = .success([])
 
     private let storeChangedSubject = PassthroughSubject<Void, Never>()
 
@@ -23,11 +23,11 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
 
     init() {}
 
-    func authorizationStatus() -> TaskerCalendarAuthorizationStatus {
+    func authorizationStatus() -> LifeBoardCalendarAuthorizationStatus {
         authorizationStatusValue
     }
 
-    func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+    func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         requestAccessCallCount += 1
         if let nextStatus = authorizationStatusAfterAccess {
             authorizationStatusValue = nextStatus
@@ -39,7 +39,7 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
         resetStoreCallCount += 1
     }
 
-    func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
+    func fetchCalendars(completion: @escaping @Sendable (Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void) {
         fetchCalendarsCallCount += 1
         completion(calendarsResult)
     }
@@ -48,7 +48,7 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
         startDate: Date,
         endDate: Date,
         calendarIDs: Set<String>,
-        completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
+        completion: @escaping @Sendable (Result<[LifeBoardCalendarEventSnapshot], Error>) -> Void
     ) {
         fetchEventsCallCount += 1
         lastRequestedStartDate = startDate
@@ -73,19 +73,19 @@ final class CalendarProjectRepositoryStub: ProjectRepositoryProtocol {
         self.projects = projects
     }
 
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(projects))
     }
 
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(projects.first { $0.id == id }))
     }
 
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(projects.first { $0.name == name }))
     }
 
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if let inbox = projects.first(where: \.isInbox) {
             completion(.success(inbox))
             return
@@ -96,16 +96,16 @@ final class CalendarProjectRepositoryStub: ProjectRepositoryProtocol {
         completion(.success(inbox))
     }
 
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(projects.filter { !$0.isInbox }))
     }
 
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         projects.append(project)
         completion(.success(project))
     }
 
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if let inbox = projects.first(where: \.isInbox) {
             completion(.success(inbox))
             return
@@ -115,18 +115,18 @@ final class CalendarProjectRepositoryStub: ProjectRepositoryProtocol {
         completion(.success(inbox))
     }
 
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(scanned: projects.count, merged: 0, deleted: 0, inboxCandidates: projects.filter(\.isInbox).count, warnings: [])))
     }
 
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if let index = projects.firstIndex(where: { $0.id == project.id }) {
             projects[index] = project
         }
         completion(.success(project))
     }
 
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         guard let index = projects.firstIndex(where: { $0.id == id }) else {
             completion(.failure(NSError(domain: "CalendarProjectRepositoryStub", code: 404)))
             return
@@ -135,24 +135,24 @@ final class CalendarProjectRepositoryStub: ProjectRepositoryProtocol {
         completion(.success(projects[index]))
     }
 
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         _ = deleteTasks
         projects.removeAll { $0.id == id }
         completion(.success(()))
     }
 
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+    func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         _ = projectId
         completion(.success(0))
     }
 
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         _ = sourceProjectId
         _ = targetProjectId
         completion(.success(()))
     }
 
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(projects.contains { $0.name.caseInsensitiveCompare(name) == .orderedSame && $0.id != excludingId } == false))
     }
 }

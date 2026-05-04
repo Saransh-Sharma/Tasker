@@ -71,7 +71,7 @@ final class HomeReplanDayUITests: BaseUITest {
         XCTAssertTrue(app.staticTexts["Spanning 4 past days"].waitForExistence(timeout: 3))
     }
 
-    func testReplanCardExposesTaskerActionsAndHotZones() {
+    func testReplanCardExposesLifeBoardActionsAndHotZones() {
         let tray = app.buttons["home.needsReplan.tray"]
         XCTAssertTrue(tray.waitForExistence(timeout: 8), "Needs Replan tray should be visible")
         tray.tap()

@@ -1,6 +1,6 @@
 //
 //  AddTaskPage.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Page Object for Add Task Screen
 //
@@ -613,8 +613,7 @@ class AddTaskPage {
                 return true
             }
 
-            let homePage = HomePage(app: self.app)
-            return homePage.verifyBottomBarExists(timeout: 1) && homePage.verifyIsDisplayed(timeout: 1)
+            return false
         }
 
         let candidates: [XCUIElement] = [

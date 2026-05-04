@@ -1,6 +1,6 @@
 //
 //  TaskCreationTests.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Critical Tests: Task Creation
 //  Tests the core functionality of creating tasks with various properties and validation
@@ -9,7 +9,7 @@
 import XCTest
 
 class TaskCreationTests: BaseUITest {
-    override var additionalLaunchArguments: [String] { ["-TASKER_ENABLE_LIQUID_METAL_CTA"] }
+    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_ENABLE_LIQUID_METAL_CTA"] }
 
     var homePage: HomePage!
 

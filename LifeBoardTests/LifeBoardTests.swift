@@ -1,6 +1,6 @@
 //
-//  To_Do_ListTests.swift
-//  To Do ListTests
+//  LifeBoardTests.swift
+//  LifeBoardTests
 //
 //  Created by Saransh Sharma on 14/04/20.
 //  Copyright © 2020 saransh1337. All rights reserved.
@@ -11,8 +11,9 @@ import Combine
 import CoreData
 import UserNotifications
 import MLXLMCommon
-@testable import To_Do_List
+@testable import LifeBoard
 
+@MainActor
 final class AppDelegateCloudKitPreflightTests: XCTestCase {
 
     func testCloudKitMirroringModeDisablesForXCTestConfigurationRuntime() {
@@ -34,7 +35,7 @@ final class AppDelegateCloudKitPreflightTests: XCTestCase {
 
         let mode = appDelegate.cloudKitMirroringMode(
             context: CloudKitRuntimeContext(
-                environment: ["XCInjectBundleInto": "/tmp/This Day.app/This Day"],
+                environment: ["XCInjectBundleInto": "/tmp/LifeBoard.app/LifeBoard"],
                 arguments: [],
                 isSimulator: false
             )
@@ -64,7 +65,7 @@ final class AppDelegateCloudKitPreflightTests: XCTestCase {
         let mode = appDelegate.cloudKitMirroringMode(
             context: CloudKitRuntimeContext(
                 environment: [:],
-                arguments: ["-TASKER_DISABLE_CLOUDKIT"],
+                arguments: ["-LIFEBOARD_DISABLE_CLOUDKIT"],
                 isSimulator: false
             )
         )
@@ -88,6 +89,7 @@ final class AppDelegateCloudKitPreflightTests: XCTestCase {
     }
 }
 
+@MainActor
 final class HomeSectionStateRegressionTests: XCTestCase {
     func testFocusNowSectionStateClampsNegativeMaxVisibleCount() {
         let state = FocusNowSectionState(
@@ -300,6 +302,7 @@ final class HomeReloadCoordinatorTests: XCTestCase {
     }
 }
 
+@MainActor
 final class BuildNeedsReplanCandidatesUseCaseTests: XCTestCase {
     func testFiltersCompletedSubtaskRecurringHabitAndArchivedProjectCandidates() {
         let activeProjectID = UUID()
@@ -408,7 +411,7 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
     private(set) var didConsumeUITestInjectedRouteCount = 0
     private(set) var didConsumeUITestOpenSettingsCount = 0
     private(set) var didProcessPendingIPadModalRequestCount = 0
-    private(set) var dailySummaries: [(kind: TaskerDailySummaryKind, dateStamp: String?)] = []
+    private(set) var dailySummaries: [(kind: LifeBoardDailySummaryKind, dateStamp: String?)] = []
     private(set) var reflectPlanDates: [Date?] = []
     private(set) var performedIntents: [HomeNavigationIntent] = []
 
@@ -504,7 +507,7 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
         didProcessPendingIPadModalRequestCount += 1
     }
 
-    func homeNavigationPresentDailySummary(kind: TaskerDailySummaryKind, dateStamp: String?) {
+    func homeNavigationPresentDailySummary(kind: LifeBoardDailySummaryKind, dateStamp: String?) {
         dailySummaries.append((kind, dateStamp))
     }
 
@@ -522,6 +525,7 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
     }
 }
 
+@MainActor
 final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     func testCurrentCompiledTaskModelIncludesHabitRuntimeAndGamificationSchema() throws {
         let model = try currentCompiledTaskModel()
@@ -570,7 +574,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let currentVersionFile = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("To Do List/TaskModelV3.xcdatamodeld/.xccurrentversion")
+            .appendingPathComponent("LifeBoard/TaskModelV3.xcdatamodeld/.xccurrentversion")
         let contents = try String(contentsOf: currentVersionFile, encoding: .utf8)
 
         XCTAssertTrue(contents.contains("TaskModelV3_TaskIcons.xcdatamodel"))
@@ -663,7 +667,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     func testBootstrapSchemaValidationRejectsMissingHabitRuntimeFields() {
         let model = makeInvalidHabitSchemaModel()
 
-        let error = TaskerPersistentStoreBootstrapService.validateRuntimeSchema(in: model)
+        let error = LifeBoardPersistentStoreBootstrapService.validateRuntimeSchema(in: model)
 
         let schemaError = try? XCTUnwrap(error)
         XCTAssertEqual(schemaError?.domain, "CoreDataHabitRepository.Schema")
@@ -673,10 +677,10 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     func testBootstrapSchemaValidationRejectsMissingTaskIconField() throws {
         let model = try compiledTaskModelVersion(named: "TaskModelV3_Timeline.mom")
 
-        let error = TaskerPersistentStoreBootstrapService.validateRuntimeSchema(in: model)
+        let error = LifeBoardPersistentStoreBootstrapService.validateRuntimeSchema(in: model)
 
         let schemaError = try XCTUnwrap(error)
-        XCTAssertEqual(schemaError.domain, "TaskerPersistentStoreBootstrapService")
+        XCTAssertEqual(schemaError.domain, "LifeBoardPersistentStoreBootstrapService")
         XCTAssertEqual(schemaError.code, 301)
         XCTAssertTrue((schemaError.userInfo["missingRequirements"] as? String)?.contains("TaskDefinition.iconSymbolName") ?? false)
     }
@@ -922,9 +926,9 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         defer { removeSQLiteArtifacts(at: storeURL) }
         let defaults = UserDefaults.standard
         let runtimeFlagKeys = [
-            "tasker.habit.runtime.field_backfill.v1",
-            "tasker.habit.runtime.repair_required.v1",
-            "tasker.habit.runtime.repair_completed.v1"
+            "lifeboard.habit.runtime.field_backfill.v1",
+            "lifeboard.habit.runtime.repair_required.v1",
+            "lifeboard.habit.runtime.repair_completed.v1"
         ]
         let originalRuntimeFlagValues: [String: Any?] = Dictionary(uniqueKeysWithValues: runtimeFlagKeys.map { key in
             (key, defaults.object(forKey: key))
@@ -972,7 +976,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             url: storeURL
         )
 
-        TaskerPersistentRuntimeInitializer().initialize(container: migratedContainer)
+        LifeBoardPersistentRuntimeInitializer().initialize(container: migratedContainer)
 
         let request = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
         request.predicate = NSPredicate(format: "id == %@", habitID as CVarArg)
@@ -987,13 +991,13 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let storeURL = temporaryStoreURL(name: "habit-runtime-migration-flagged")
         defer { removeSQLiteArtifacts(at: storeURL) }
         let defaults = UserDefaults.standard
-        defaults.set(true, forKey: "tasker.habit.runtime.field_backfill.v1")
-        defaults.set(false, forKey: "tasker.habit.runtime.repair_required.v1")
-        defaults.set(false, forKey: "tasker.habit.runtime.repair_completed.v1")
+        defaults.set(true, forKey: "lifeboard.habit.runtime.field_backfill.v1")
+        defaults.set(false, forKey: "lifeboard.habit.runtime.repair_required.v1")
+        defaults.set(false, forKey: "lifeboard.habit.runtime.repair_completed.v1")
         defer {
-            defaults.removeObject(forKey: "tasker.habit.runtime.field_backfill.v1")
-            defaults.removeObject(forKey: "tasker.habit.runtime.repair_required.v1")
-            defaults.removeObject(forKey: "tasker.habit.runtime.repair_completed.v1")
+            defaults.removeObject(forKey: "lifeboard.habit.runtime.field_backfill.v1")
+            defaults.removeObject(forKey: "lifeboard.habit.runtime.repair_required.v1")
+            defaults.removeObject(forKey: "lifeboard.habit.runtime.repair_completed.v1")
         }
 
         let legacyModel = try compiledTaskModelVersion(named: "TaskModelV3_Gamification.mom")
@@ -1025,7 +1029,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             url: storeURL
         )
 
-        TaskerPersistentRuntimeInitializer().initialize(container: migratedContainer)
+        LifeBoardPersistentRuntimeInitializer().initialize(container: migratedContainer)
 
         let request = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
         request.predicate = NSPredicate(format: "id == %@", habitID as CVarArg)
@@ -1074,9 +1078,9 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         defer { removeSQLiteArtifacts(at: storeURL) }
 
         let defaults = UserDefaults.standard
-        defaults.removeObject(forKey: "tasker.occurrence.key_backfill.v1")
+        defaults.removeObject(forKey: "lifeboard.occurrence.key_backfill.v1")
         defer {
-            defaults.removeObject(forKey: "tasker.occurrence.key_backfill.v1")
+            defaults.removeObject(forKey: "lifeboard.occurrence.key_backfill.v1")
         }
 
         let templateID = UUID()
@@ -1159,7 +1163,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             url: storeURL
         )
 
-        TaskerPersistentRuntimeInitializer().initialize(container: migratedContainer)
+        LifeBoardPersistentRuntimeInitializer().initialize(container: migratedContainer)
 
         let occurrenceRequest = NSFetchRequest<NSManagedObject>(entityName: "Occurrence")
         let migratedOccurrences = try migratedContainer.viewContext.fetch(occurrenceRequest)
@@ -1195,15 +1199,15 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         try FileManager.default.createDirectory(at: legacyURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
-        let locationService = TaskerPersistentStoreLocationService(
+        let locationService = LifeBoardPersistentStoreLocationService(
             fileManager: .default,
             appGroupContainerURLProvider: { appGroupURL },
             legacyStoreDirectoryURLProvider: { legacyURL }
         )
         let legacyModel = try compiledTaskModelVersion(named: "TaskModelV3_Gamification.mom")
         let currentModel = try currentCompiledTaskModel()
-        let cloudURL = appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
-        let localURL = appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.localStoreFileName)
+        let cloudURL = appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
+        let localURL = appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.localStoreFileName)
 
         let legacyCloud = try makeConfiguredContainer(
             name: "TaskModelV3",
@@ -1244,7 +1248,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         }
         unloadPersistentStores(from: currentLocal)
 
-        let service = TaskerPersistentStoreBootstrapService(
+        let service = LifeBoardPersistentStoreBootstrapService(
             storeLocationService: locationService,
             cloudKitRuntimeContextProvider: { CloudKitRuntimeContext(environment: [:], arguments: [], isSimulator: false) },
             enableCloudKitContainerOptions: false
@@ -1274,14 +1278,14 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         try FileManager.default.createDirectory(at: legacyURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
-        let locationService = TaskerPersistentStoreLocationService(
+        let locationService = LifeBoardPersistentStoreLocationService(
             fileManager: .default,
             appGroupContainerURLProvider: { appGroupURL },
             legacyStoreDirectoryURLProvider: { legacyURL }
         )
         let currentModel = try currentCompiledTaskModel()
-        let cloudURL = appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
-        let localURL = appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.localStoreFileName)
+        let cloudURL = appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
+        let localURL = appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.localStoreFileName)
 
         let incompatibleCloud = try makeContainer(
             name: "TaskModelV3",
@@ -1316,7 +1320,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         }
         unloadPersistentStores(from: currentLocal)
 
-        let service = TaskerPersistentStoreBootstrapService(
+        let service = LifeBoardPersistentStoreBootstrapService(
             storeLocationService: locationService,
             cloudKitRuntimeContextProvider: { CloudKitRuntimeContext(environment: [:], arguments: [], isSimulator: false) },
             enableCloudKitContainerOptions: false
@@ -1476,7 +1480,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     }
 
     func testWriteClosedLaunchSkipsStartupMutationWorkflows() throws {
-        let appDelegateSource = try workspaceFileContents("To Do List/AppDelegate.swift")
+        let appDelegateSource = try workspaceFileContents("LifeBoard/AppDelegate.swift")
         XCTAssertTrue(
             appDelegateSource.contains("if shouldRunStartupMutationWorkflows {"),
             "setupCleanArchitecture should gate startup mutation workflows behind shouldRunStartupMutationWorkflows"
@@ -1727,30 +1731,30 @@ extension TaskDefinition {
 }
 
 protocol LegacyTaskRepositoryShim {
-    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void)
-    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void)
-    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void)
-    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void)
-    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void)
-    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void)
-    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void)
-    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void)
-    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void)
-    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void)
-    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void)
-    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void)
-    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void)
-    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void)
-    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void)
-    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void)
-    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void)
-    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void)
-    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void)
-    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void)
-    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void)
-    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void)
-    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void)
-    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void)
+    func fetchAllTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func fetchTasks(for date: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func fetchTodayTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func fetchTasks(for project: String, completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func fetchOverdueTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func fetchUpcomingTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func fetchCompletedTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func fetchTasks(ofType type: TaskType, completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func fetchTask(withId id: UUID, completion: @escaping @Sendable (Result<Task?, Error>) -> Void)
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func createTask(_ task: Task, completion: @escaping @Sendable (Result<Task, Error>) -> Void)
+    func updateTask(_ task: Task, completion: @escaping @Sendable (Result<Task, Error>) -> Void)
+    func completeTask(withId id: UUID, completion: @escaping @Sendable (Result<Task, Error>) -> Void)
+    func uncompleteTask(withId id: UUID, completion: @escaping @Sendable (Result<Task, Error>) -> Void)
+    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping @Sendable (Result<Task, Error>) -> Void)
+    func deleteTask(withId id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
+    func deleteCompletedTasks(completion: @escaping @Sendable (Result<Void, Error>) -> Void)
+    func createTasks(_ tasks: [Task], completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func updateTasks(_ tasks: [Task], completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func deleteTasks(withIds ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void)
+    func fetchTasksWithoutProject(completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
+    func fetchInboxTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
 }
 
 struct LegacyTaskUpdatePayload {
@@ -1793,7 +1797,7 @@ final class LocalTaskUpdateUseCase {
     func execute(
         taskId: UUID,
         request: LegacyTaskUpdatePayload,
-        completion: @escaping (Result<Task, Error>) -> Void
+        completion: @escaping @Sendable (Result<Task, Error>) -> Void
     ) {
         taskRepository.fetchTask(withId: taskId) { [weak self] result in
             guard let self else { return }
@@ -1860,7 +1864,7 @@ private final class ShimTaskReadModelAdapter: TaskReadModelRepositoryProtocol {
         self.legacyRepository = legacyRepository
     }
 
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         legacyRepository.fetchAllTasks { result in
             switch result {
             case .success(let tasks):
@@ -1877,7 +1881,7 @@ private final class ShimTaskReadModelAdapter: TaskReadModelRepositoryProtocol {
         }
     }
 
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         legacyRepository.fetchAllTasks { result in
             switch result {
             case .success(let tasks):
@@ -1896,7 +1900,7 @@ private final class ShimTaskReadModelAdapter: TaskReadModelRepositoryProtocol {
 
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
-        completion: @escaping (Result<[UUID : Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID : Int], Error>) -> Void
     ) {
         legacyRepository.fetchAllTasks { result in
             switch result {
@@ -1915,7 +1919,7 @@ private final class ShimTaskReadModelAdapter: TaskReadModelRepositoryProtocol {
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
-        completion: @escaping (Result<[UUID : Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID : Int], Error>) -> Void
     ) {
         legacyRepository.fetchAllTasks { result in
             switch result {
@@ -1994,11 +1998,11 @@ private final class ShimTaskDefinitionRepositoryAdapter: TaskDefinitionRepositor
         self.legacyRepository = legacyRepository
     }
 
-    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         legacyRepository.fetchAllTasks(completion: completion)
     }
 
-    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         legacyRepository.fetchAllTasks { result in
             switch result {
             case .success(let tasks):
@@ -2009,23 +2013,23 @@ private final class ShimTaskDefinitionRepositoryAdapter: TaskDefinitionRepositor
         }
     }
 
-    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+    func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) {
         legacyRepository.fetchTask(withId: id, completion: completion)
     }
 
-    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         legacyRepository.createTask(task, completion: completion)
     }
 
-    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         create(request.toTaskDefinition(projectName: request.projectName), completion: completion)
     }
 
-    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         legacyRepository.updateTask(task, completion: completion)
     }
 
-    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         legacyRepository.fetchTask(withId: request.id) { [weak self] result in
             guard let self else { return }
 
@@ -2106,7 +2110,7 @@ private final class ShimTaskDefinitionRepositoryAdapter: TaskDefinitionRepositor
         }
     }
 
-    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         fetchAll { result in
             completion(result.map { tasks in
                 tasks.filter { $0.parentTaskID == parentTaskID }
@@ -2114,7 +2118,7 @@ private final class ShimTaskDefinitionRepositoryAdapter: TaskDefinitionRepositor
         }
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         legacyRepository.deleteTask(withId: id, completion: completion)
     }
 
@@ -2151,133 +2155,133 @@ private final class ShimTaskDefinitionRepositoryAdapter: TaskDefinitionRepositor
 }
 
 private final class LegacyNoopLifeAreaRepository: LifeAreaRepositoryProtocol {
-    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) { completion(.success([])) }
-    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) { completion(.success(area)) }
-    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) { completion(.success(area)) }
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchAll(completion: @escaping @Sendable (Result<[LifeArea], Error>) -> Void) { completion(.success([])) }
+    func create(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) { completion(.success(area)) }
+    func update(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) { completion(.success(area)) }
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopSectionRepository: SectionRepositoryProtocol {
-    func fetchSections(projectID: UUID, completion: @escaping (Result<[TaskerProjectSection], Error>) -> Void) { completion(.success([])) }
-    func create(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) { completion(.success(section)) }
-    func update(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) { completion(.success(section)) }
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[LifeBoardProjectSection], Error>) -> Void) { completion(.success([])) }
+    func create(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) { completion(.success(section)) }
+    func update(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) { completion(.success(section)) }
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopTagRepository: TagRepositoryProtocol {
-    func fetchAll(completion: @escaping (Result<[TagDefinition], Error>) -> Void) { completion(.success([])) }
-    func create(_ tag: TagDefinition, completion: @escaping (Result<TagDefinition, Error>) -> Void) { completion(.success(tag)) }
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchAll(completion: @escaping @Sendable (Result<[TagDefinition], Error>) -> Void) { completion(.success([])) }
+    func create(_ tag: TagDefinition, completion: @escaping @Sendable (Result<TagDefinition, Error>) -> Void) { completion(.success(tag)) }
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopTaskTagLinkRepository: TaskTagLinkRepositoryProtocol {
-    func fetchTagIDs(taskID: UUID, completion: @escaping (Result<[UUID], Error>) -> Void) { completion(.success([])) }
-    func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchTagIDs(taskID: UUID, completion: @escaping @Sendable (Result<[UUID], Error>) -> Void) { completion(.success([])) }
+    func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopTaskDependencyRepository: TaskDependencyRepositoryProtocol {
-    func fetchDependencies(taskID: UUID, completion: @escaping (Result<[TaskDependencyLinkDefinition], Error>) -> Void) { completion(.success([])) }
-    func replaceDependencies(taskID: UUID, dependencies: [TaskDependencyLinkDefinition], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDependencies(taskID: UUID, completion: @escaping @Sendable (Result<[TaskDependencyLinkDefinition], Error>) -> Void) { completion(.success([])) }
+    func replaceDependencies(taskID: UUID, dependencies: [TaskDependencyLinkDefinition], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopHabitRepository: HabitRepositoryProtocol {
-    func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) { completion(.success([])) }
-    func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) { completion(.success(habit)) }
-    func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) { completion(.success(habit)) }
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchAll(completion: @escaping @Sendable (Result<[HabitDefinitionRecord], Error>) -> Void) { completion(.success([])) }
+    func create(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) { completion(.success(habit)) }
+    func update(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) { completion(.success(habit)) }
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopHabitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol {
-    func fetchAgendaHabits(for date: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) { completion(.success([])) }
-    func fetchHistory(habitIDs: [UUID], endingOn date: Date, dayCount: Int, completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void) { completion(.success([])) }
-    func fetchSignals(start: Date, end: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) { completion(.success([])) }
-    func fetchHabitLibrary(includeArchived: Bool, completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void) { completion(.success([])) }
+    func fetchAgendaHabits(for date: Date, completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void) { completion(.success([])) }
+    func fetchHistory(habitIDs: [UUID], endingOn date: Date, dayCount: Int, completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void) { completion(.success([])) }
+    func fetchSignals(start: Date, end: Date, completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void) { completion(.success([])) }
+    func fetchHabitLibrary(includeArchived: Bool, completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void) { completion(.success([])) }
 }
 
 private final class LegacyNoopScheduleRepository: ScheduleRepositoryProtocol {
-    func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) { completion(.success(template)) }
-    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func replaceRules(templateID: UUID, rules: [ScheduleRuleDefinition], completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success(rules)) }
-    func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
+    func fetchTemplates(completion: @escaping @Sendable (Result<[ScheduleTemplateDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchRules(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping @Sendable (Result<ScheduleTemplateDefinition, Error>) -> Void) { completion(.success(template)) }
+    func deleteTemplate(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func replaceRules(templateID: UUID, rules: [ScheduleRuleDefinition], completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success(rules)) }
+    func fetchExceptions(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleExceptionDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping @Sendable (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
 }
 
 private final class LegacyNoopSchedulingEngine: SchedulingEngineProtocol {
-    func generateOccurrences(windowStart: Date, windowEnd: Date, sourceFilter: ScheduleSourceType?, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) { completion(.success([])) }
-    func resolveOccurrence(id: UUID, resolution: OccurrenceResolutionType, actor: OccurrenceActor, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func rebuildFutureOccurrences(templateID: UUID, effectiveFrom: Date, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func applyScheduleException(templateID: UUID, occurrenceKey: String, action: ScheduleExceptionAction, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func generateOccurrences(windowStart: Date, windowEnd: Date, sourceFilter: ScheduleSourceType?, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) { completion(.success([])) }
+    func resolveOccurrence(id: UUID, resolution: OccurrenceResolutionType, actor: OccurrenceActor, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func rebuildFutureOccurrences(templateID: UUID, effectiveFrom: Date, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func applyScheduleException(templateID: UUID, occurrenceKey: String, action: ScheduleExceptionAction, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopOccurrenceRepository: OccurrenceRepositoryProtocol {
-    func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchInRange(start: Date, end: Date, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func deleteOccurrences(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopTombstoneRepository: TombstoneRepositoryProtocol {
-    func create(_ tombstone: TombstoneDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchExpired(before date: Date, completion: @escaping (Result<[TombstoneDefinition], Error>) -> Void) { completion(.success([])) }
-    func delete(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func create(_ tombstone: TombstoneDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchExpired(before date: Date, completion: @escaping @Sendable (Result<[TombstoneDefinition], Error>) -> Void) { completion(.success([])) }
+    func delete(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopReminderRepository: ReminderRepositoryProtocol {
-    func fetchReminders(completion: @escaping (Result<[ReminderDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveReminder(_ reminder: ReminderDefinition, completion: @escaping (Result<ReminderDefinition, Error>) -> Void) { completion(.success(reminder)) }
-    func fetchTriggers(reminderID: UUID, completion: @escaping (Result<[ReminderTriggerDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping (Result<ReminderTriggerDefinition, Error>) -> Void) { completion(.success(trigger)) }
-    func fetchDeliveries(reminderID: UUID, completion: @escaping (Result<[ReminderDeliveryDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
-    func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
+    func fetchReminders(completion: @escaping @Sendable (Result<[ReminderDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveReminder(_ reminder: ReminderDefinition, completion: @escaping @Sendable (Result<ReminderDefinition, Error>) -> Void) { completion(.success(reminder)) }
+    func fetchTriggers(reminderID: UUID, completion: @escaping @Sendable (Result<[ReminderTriggerDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping @Sendable (Result<ReminderTriggerDefinition, Error>) -> Void) { completion(.success(trigger)) }
+    func fetchDeliveries(reminderID: UUID, completion: @escaping @Sendable (Result<[ReminderDeliveryDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
+    func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
 }
 
 private final class LegacyNoopWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
-    func fetchPlan(id: UUID, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
-    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
-    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping (Result<[WeeklyPlan], Error>) -> Void) { completion(.success([])) }
-    func savePlan(_ plan: WeeklyPlan, completion: @escaping (Result<WeeklyPlan, Error>) -> Void) { completion(.success(plan)) }
+    func fetchPlan(id: UUID, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[WeeklyPlan], Error>) -> Void) { completion(.success([])) }
+    func savePlan(_ plan: WeeklyPlan, completion: @escaping @Sendable (Result<WeeklyPlan, Error>) -> Void) { completion(.success(plan)) }
 }
 
 private final class LegacyNoopWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol {
-    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success([])) }
-    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping (Result<WeeklyOutcome, Error>) -> Void) { completion(.success(outcome)) }
-    func replaceOutcomes(weeklyPlanID: UUID, outcomes: [WeeklyOutcome], completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success(outcomes)) }
-    func deleteOutcome(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success([])) }
+    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping @Sendable (Result<WeeklyOutcome, Error>) -> Void) { completion(.success(outcome)) }
+    func replaceOutcomes(weeklyPlanID: UUID, outcomes: [WeeklyOutcome], completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success(outcomes)) }
+    func deleteOutcome(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopWeeklyReviewRepository: WeeklyReviewRepositoryProtocol {
-    func fetchReview(weeklyPlanID: UUID, completion: @escaping (Result<WeeklyReview?, Error>) -> Void) { completion(.success(nil)) }
-    func saveReview(_ review: WeeklyReview, completion: @escaping (Result<WeeklyReview, Error>) -> Void) { completion(.success(review)) }
+    func fetchReview(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<WeeklyReview?, Error>) -> Void) { completion(.success(nil)) }
+    func saveReview(_ review: WeeklyReview, completion: @escaping @Sendable (Result<WeeklyReview, Error>) -> Void) { completion(.success(review)) }
 }
 
 private final class LegacyNoopWeeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol {
     func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
         completion(.failure(NSError(domain: "LegacyNoopWeeklyReviewMutationRepository", code: 1)))
     }
 }
 
 private final class LegacyNoopWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
-    func fetchDraft(weekStartDate: Date, completion: @escaping (Result<WeeklyReviewDraft?, Error>) -> Void) {
+    func fetchDraft(weekStartDate: Date, completion: @escaping @Sendable (Result<WeeklyReviewDraft?, Error>) -> Void) {
         completion(.success(nil))
     }
 
-    func saveDraft(_ draft: WeeklyReviewDraft, completion: @escaping (Result<WeeklyReviewDraft, Error>) -> Void) {
+    func saveDraft(_ draft: WeeklyReviewDraft, completion: @escaping @Sendable (Result<WeeklyReviewDraft, Error>) -> Void) {
         completion(.success(draft))
     }
 
-    func clearDraft(weekStartDate: Date, completion: @escaping (Result<Void, Error>) -> Void) {
+    func clearDraft(weekStartDate: Date, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
     func fetchCompletedTaskDecisions(
         weekStartDate: Date,
-        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         completion(.success([]))
     }
@@ -2285,52 +2289,52 @@ private final class LegacyNoopWeeklyReviewDraftStore: WeeklyReviewDraftStoreProt
     func saveCompletedTaskDecisions(
         _ decisions: [WeeklyReviewTaskDecision],
         weekStartDate: Date,
-        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         completion(.success(decisions))
     }
 }
 
 private final class LegacyNoopReflectionNoteRepository: ReflectionNoteRepositoryProtocol {
-    func fetchNotes(query: ReflectionNoteQuery, completion: @escaping (Result<[ReflectionNote], Error>) -> Void) { completion(.success([])) }
-    func saveNote(_ note: ReflectionNote, completion: @escaping (Result<ReflectionNote, Error>) -> Void) { completion(.success(note)) }
-    func deleteNote(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchNotes(query: ReflectionNoteQuery, completion: @escaping @Sendable (Result<[ReflectionNote], Error>) -> Void) { completion(.success([])) }
+    func saveNote(_ note: ReflectionNote, completion: @escaping @Sendable (Result<ReflectionNote, Error>) -> Void) { completion(.success(note)) }
+    func deleteNote(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class LegacyNoopGamificationRepository: GamificationRepositoryProtocol {
-    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(false)) }
-    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) { completion(.success(false)) }
+    func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) { completion(.success([])) }
 }
 
 private final class LegacyNoopAssistantActionRepository: AssistantActionRepositoryProtocol {
-    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) { completion(.success(run)) }
-    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) { completion(.success(run)) }
-    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) { completion(.success(run)) }
+    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) { completion(.success(run)) }
+    func fetchRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition?, Error>) -> Void) { completion(.success(nil)) }
 }
 
 private final class LegacyNoopExternalSyncRepository: ExternalSyncRepositoryProtocol {
-    func fetchContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchContainerMapping(provider: String, projectID: UUID, completion: @escaping (Result<ExternalContainerMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func upsertContainerMapping(provider: String, projectID: UUID, mutate: @escaping (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition, completion: @escaping (Result<ExternalContainerMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
-    func fetchItemMappings(completion: @escaping (Result<[ExternalItemMapDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func upsertItemMappingByLocalKey(provider: String, localEntityType: String, localEntityID: UUID, mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
-    func upsertItemMappingByExternalKey(provider: String, externalItemID: String, mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
-    func fetchItemMapping(provider: String, localEntityType: String, localEntityID: UUID, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchContainerMappings(completion: @escaping @Sendable (Result<[ExternalContainerMapDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchContainerMapping(provider: String, projectID: UUID, completion: @escaping @Sendable (Result<ExternalContainerMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func upsertContainerMapping(provider: String, projectID: UUID, mutate: @escaping @Sendable (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition, completion: @escaping @Sendable (Result<ExternalContainerMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func fetchItemMappings(completion: @escaping @Sendable (Result<[ExternalItemMapDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func upsertItemMappingByLocalKey(provider: String, localEntityType: String, localEntityID: UUID, mutate: @escaping @Sendable (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping @Sendable (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func upsertItemMappingByExternalKey(provider: String, externalItemID: String, mutate: @escaping @Sendable (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping @Sendable (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func fetchItemMapping(provider: String, localEntityType: String, localEntityID: UUID, completion: @escaping @Sendable (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping @Sendable (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
 }
 
 extension GetHomeFilteredTasksUseCase {
@@ -2408,7 +2412,8 @@ extension UseCaseCoordinator {
     }
 }
 
-class To_Do_ListTests: XCTestCase {
+@MainActor
+class LifeBoardTests: XCTestCase {
 
     func testUpdateTaskUseCaseUpdatesProjectIDAndNameWhenProjectIDProvided() {
         let inbox = Project.createInbox()
@@ -2539,6 +2544,7 @@ class To_Do_ListTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ArchitectureBoundaryTests: XCTestCase {
     private static let legacySingletonRegex = try! NSRegularExpression(
         pattern: "(^|[^A-Za-z0-9_])DependencyContainer\\.shared\\b"
@@ -2550,9 +2556,9 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testViewLayerDoesNotUseSingletonDependencyContainers() throws {
         let directories = [
-            "To Do List/View",
-            "To Do List/Views",
-            "To Do List/ViewControllers"
+            "LifeBoard/View",
+            "LifeBoard/Views",
+            "LifeBoard/ViewControllers"
         ]
         let forbiddenPatterns = [
             "PresentationDependencyContainer.shared",
@@ -2575,10 +2581,10 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testTargetedViewsDoNotAccessEnhancedDependencyContainerSingleton() throws {
         let files = [
-            "To Do List/Views/Cards/ChartCard.swift",
-            "To Do List/Views/Cards/RadarChartCard.swift",
-            "To Do List/Views/ProjectSelectionSheet.swift",
-            "To Do List/View/AddTaskForedropView.swift"
+            "LifeBoard/Views/Cards/ChartCard.swift",
+            "LifeBoard/Views/Cards/RadarChartCard.swift",
+            "LifeBoard/Views/ProjectSelectionSheet.swift",
+            "LifeBoard/View/AddTaskForedropView.swift"
         ]
 
         for relativePath in files {
@@ -2592,9 +2598,9 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testTargetedControllersDoNotFallbackToEnhancedCoordinatorSingleton() throws {
         let files = [
-            "To Do List/ViewControllers/HomeViewController.swift",
-            "To Do List/ViewControllers/NewProjectViewController.swift",
-            "To Do List/ViewControllers/LGSearchViewController.swift"
+            "LifeBoard/ViewControllers/HomeViewController.swift",
+            "LifeBoard/ViewControllers/NewProjectViewController.swift",
+            "LifeBoard/ViewControllers/LGSearchViewController.swift"
         ]
 
         for relativePath in files {
@@ -2607,32 +2613,32 @@ final class ArchitectureBoundaryTests: XCTestCase {
     }
 
     func testMainStoryboardDoesNotContainLegacyAddTaskScene() throws {
-        let storyboard = try loadWorkspaceFile("To Do List/Storyboards/Base.lproj/Main.storyboard")
+        let storyboard = try loadWorkspaceFile("LifeBoard/Storyboards/Base.lproj/Main.storyboard")
         XCTAssertFalse(storyboard.contains("storyboardIdentifier=\"addTask\""))
         XCTAssertFalse(storyboard.contains("addTaskLegacy_unreachable"))
         XCTAssertFalse(storyboard.contains("customClass=\"NAddTaskScreen\""))
     }
 
     func testProjectBuildGraphExcludesLegacyAddTaskRuntimeSources() throws {
-        let projectFile = try loadWorkspaceFile("Tasker.xcodeproj/project.pbxproj")
+        let projectFile = try loadWorkspaceFile("LifeBoard.xcodeproj/project.pbxproj")
         XCTAssertFalse(projectFile.contains("/* NAddTaskScreen.swift in Sources */"))
         XCTAssertFalse(projectFile.contains("/* DependencyContainer.swift in Sources */"))
         XCTAssertFalse(projectFile.contains("/* AddTaskLegacyStubs.swift in Sources */"))
     }
 
     func testProjectBuildGraphExcludesHandwrittenCoreDataPropertiesFromSources() throws {
-        let projectFile = try loadWorkspaceFile("Tasker.xcodeproj/project.pbxproj")
+        let projectFile = try loadWorkspaceFile("LifeBoard.xcodeproj/project.pbxproj")
         XCTAssertFalse(projectFile.contains("/* TaskDefinitionEntity+CoreDataProperties.swift in Sources */"))
         XCTAssertFalse(projectFile.contains("/* ProjectEntity+CoreDataProperties.swift in Sources */"))
     }
 
     func testPrimaryRuntimeFilesDoNotReferenceLegacyDependencyContainerSingleton() throws {
         let runtimeFiles = [
-            "To Do List/AppDelegate.swift",
-            "To Do List/SceneDelegate.swift",
-            "To Do List/Presentation/DI/PresentationDependencyContainer.swift",
-            "To Do List/State/DI/EnhancedDependencyContainer.swift",
-            "To Do List/UseCases/Coordinator/UseCaseCoordinator.swift"
+            "LifeBoard/AppDelegate.swift",
+            "LifeBoard/SceneDelegate.swift",
+            "LifeBoard/Presentation/DI/PresentationDependencyContainer.swift",
+            "LifeBoard/State/DI/EnhancedDependencyContainer.swift",
+            "LifeBoard/UseCases/Coordinator/UseCaseCoordinator.swift"
         ]
 
         for relativePath in runtimeFiles {
@@ -2669,8 +2675,8 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testProjectAndRescheduleUseCasesDoNotPostNotificationCenterDirectly() throws {
         let files = [
-            "To Do List/UseCases/Project/ManageProjectsUseCase.swift",
-            "To Do List/UseCases/Task/RescheduleTaskDefinitionUseCase.swift"
+            "LifeBoard/UseCases/Project/ManageProjectsUseCase.swift",
+            "LifeBoard/UseCases/Task/RescheduleTaskDefinitionUseCase.swift"
         ]
 
         for relativePath in files {
@@ -2684,8 +2690,8 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testChartAndProjectSelectionViewsDoNotPublishDirectShowProjectManagementNotifications() throws {
         let files = [
-            "To Do List/Views/Cards/ChartCardsScrollView.swift",
-            "To Do List/Views/ProjectSelectionSheet.swift"
+            "LifeBoard/Views/Cards/ChartCardsScrollView.swift",
+            "LifeBoard/Views/ProjectSelectionSheet.swift"
         ]
 
         for relativePath in files {
@@ -2708,7 +2714,7 @@ final class ArchitectureBoundaryTests: XCTestCase {
             "class ProjectSelectionViewModel"
         ]
 
-        let files = try listSwiftFiles(in: "To Do List/Views")
+        let files = try listSwiftFiles(in: "LifeBoard/Views")
         for fileURL in files {
             let content = try String(contentsOf: fileURL, encoding: .utf8)
             for forbidden in forbiddenDeclarations {
@@ -2759,6 +2765,7 @@ final class ArchitectureBoundaryTests: XCTestCase {
     }
 }
 
+@MainActor
 final class LaunchResilienceTests: XCTestCase {
     func testMakeLaunchRootModeReturnsHomeWhenStateReady() {
         let delegate = AppDelegate()
@@ -2790,6 +2797,7 @@ final class LaunchResilienceTests: XCTestCase {
     }
 }
 
+@MainActor
 final class GamificationRemoteChangeClassifierTests: XCTestCase {
     func testClassifiesCloudKitImportTransactions() {
         XCTAssertTrue(
@@ -2803,7 +2811,7 @@ final class GamificationRemoteChangeClassifierTests: XCTestCase {
     func testRejectsNonImportOrNonCloudKitTransactions() {
         XCTAssertFalse(
             GamificationRemoteChangeClassifier.isQualifiedCloudImport(
-                author: "tasker.gamification.local",
+                author: "lifeboard.gamification.local",
                 contextName: "home.update"
             )
         )
@@ -2822,6 +2830,7 @@ final class GamificationRemoteChangeClassifierTests: XCTestCase {
     }
 }
 
+@MainActor
 final class TaskDefinitionLinkHydrationTests: XCTestCase {
     func testFetchHydratesTagAndDependencyLinksFromLinkTables() throws {
         let container = try makeInMemoryV2Container()
@@ -2912,6 +2921,7 @@ final class TaskDefinitionLinkHydrationTests: XCTestCase {
     }
 }
 
+@MainActor
 final class DeterministicFetchTests: XCTestCase {
     func testTaskDefinitionFetchByIDUsesStableSelectionOrderWithDuplicateRows() throws {
         let container = try makeInMemoryV2Container()
@@ -3207,6 +3217,7 @@ final class DeterministicFetchTests: XCTestCase {
     }
 }
 
+@MainActor
 final class OccurrenceKeyCodecTests: XCTestCase {
     func testCanonicalRoundTrip() {
         let templateID = UUID()
@@ -3249,6 +3260,7 @@ final class OccurrenceKeyCodecTests: XCTestCase {
     }
 }
 
+@MainActor
 final class FeatureFlagKillSwitchTests: XCTestCase {
     private var originalV2Enabled = true
     private var originalRemindersSyncEnabled = true
@@ -3329,7 +3341,7 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
         V2FeatureFlags.remindersBackgroundRefreshEnabled = false
         XCTAssertFalse(V2FeatureFlags.remindersBackgroundRefreshEnabled)
 
-        let appDelegateSource = try loadWorkspaceFile("To Do List/AppDelegate.swift")
+        let appDelegateSource = try loadWorkspaceFile("LifeBoard/AppDelegate.swift")
         XCTAssertTrue(
             appDelegateSource.contains("V2FeatureFlags.remindersBackgroundRefreshEnabled"),
             "AppDelegate must gate reminders refresh with remindersBackgroundRefreshEnabled"
@@ -3337,7 +3349,7 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 
     func testPersistentStoreDescriptionsEnableAutomaticMigrationOptions() throws {
-        let appDelegateSource = try loadWorkspaceFile("To Do List/AppDelegate.swift")
+        let appDelegateSource = try loadWorkspaceFile("LifeBoard/AppDelegate.swift")
         XCTAssertTrue(
             appDelegateSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
             "Cloud store description must enable automatic migration"
@@ -3357,7 +3369,7 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 
     func testGamificationStartupReconciliationFailureIsHandledBeforeFollowups() throws {
-        let appDelegateSource = try loadWorkspaceFile("To Do List/AppDelegate.swift")
+        let appDelegateSource = try loadWorkspaceFile("LifeBoard/AppDelegate.swift")
         XCTAssertTrue(
             appDelegateSource.contains("gamification_startup_reconciliation_failed"),
             "Startup path must log reconciliation failures explicitly"
@@ -3387,9 +3399,10 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 }
 
+@MainActor
 final class TaskListWidgetSourceContractTests: XCTestCase {
     func testSceneDelegateRestrictsTaskScopesToDocumentedRoutes() throws {
-        let source = try loadWorkspaceFile("To Do List/SceneDelegate.swift")
+        let source = try loadWorkspaceFile("LifeBoard/SceneDelegate.swift")
         XCTAssertTrue(
             source.contains("let allowedScopes: Set<String> = [\"today\", \"upcoming\", \"overdue\"]"),
             "SceneDelegate must restrict task scopes to today/upcoming/overdue."
@@ -3401,7 +3414,7 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
     }
 
     func testWidgetBundleDoesNotUseActionQueryDeepLinks() throws {
-        let source = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
+        let source = try loadWorkspaceFile("LifeBoardWidgets/LifeBoardWidgetBundle.swift")
         XCTAssertFalse(
             source.contains("?action="),
             "Widget intents must not rely on URL query mutation actions."
@@ -3409,47 +3422,47 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
     }
 
     func testSceneDelegateRegistersHabitDeepLinkRoutes() throws {
-        let source = try loadWorkspaceFile("To Do List/SceneDelegate.swift")
+        let source = try loadWorkspaceFile("LifeBoard/SceneDelegate.swift")
         XCTAssertTrue(source.contains("if host == \"habits\""))
         XCTAssertTrue(source.contains("if host == \"habit\""))
-        XCTAssertTrue(source.contains("taskerOpenHabitBoardDeepLink"))
-        XCTAssertTrue(source.contains("taskerOpenHabitLibraryDeepLink"))
-        XCTAssertTrue(source.contains("taskerOpenHabitDetailDeepLink"))
+        XCTAssertTrue(source.contains("lifeboardOpenHabitBoardDeepLink"))
+        XCTAssertTrue(source.contains("lifeboardOpenHabitLibraryDeepLink"))
+        XCTAssertTrue(source.contains("lifeboardOpenHabitDetailDeepLink"))
     }
 
     func testSceneDelegateRegistersWeeklyDeepLinkRoutesAndFallbackNotice() throws {
-        let source = try loadWorkspaceFile("To Do List/SceneDelegate.swift")
+        let source = try loadWorkspaceFile("LifeBoard/SceneDelegate.swift")
         XCTAssertTrue(source.contains("if host == \"weekly\""))
-        XCTAssertTrue(source.contains("taskerOpenWeeklyPlannerDeepLink"))
-        XCTAssertTrue(source.contains("taskerOpenWeeklyReviewDeepLink"))
+        XCTAssertTrue(source.contains("lifeboardOpenWeeklyPlannerDeepLink"))
+        XCTAssertTrue(source.contains("lifeboardOpenWeeklyReviewDeepLink"))
         XCTAssertTrue(source.contains("That weekly destination is unavailable. Opened Home instead."))
     }
 
     func testWeekTaskPlannerWidgetRoutesToWeeklyPlannerDeepLink() throws {
-        let routesSource = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
-        XCTAssertTrue(routesSource.contains("static var weeklyPlanner: URL { URL(string: \"tasker://weekly/planner\")! }"))
+        let routesSource = try loadWorkspaceFile("LifeBoardWidgets/LifeBoardWidgetBundle.swift")
+        XCTAssertTrue(routesSource.contains("static var weeklyPlanner: URL { URL(string: \"lifeboard://weekly/planner\")! }"))
 
-        let widgetSource = try loadWorkspaceFile("TaskerWidgets/TaskWidgetHomeViews.swift")
+        let widgetSource = try loadWorkspaceFile("LifeBoardWidgets/TaskWidgetHomeViews.swift")
         XCTAssertTrue(widgetSource.contains(".widgetURL(TaskWidgetRoutes.weeklyPlanner)"))
     }
 
     func testWeeklyPlanningScreensRenderLoadingAndRetryContracts() throws {
-        let plannerSource = try loadWorkspaceFile("To Do List/View/WeeklyPlannerView.swift")
+        let plannerSource = try loadWorkspaceFile("LifeBoard/View/WeeklyPlannerView.swift")
         XCTAssertTrue(plannerSource.contains("WeeklyBlockingStateCard("))
         XCTAssertTrue(plannerSource.contains("primaryActionTitle: \"Retry\""))
 
-        let reviewSource = try loadWorkspaceFile("To Do List/View/WeeklyReviewView.swift")
+        let reviewSource = try loadWorkspaceFile("LifeBoard/View/WeeklyReviewView.swift")
         XCTAssertTrue(reviewSource.contains("WeeklyReviewBlockingStateCard("))
         XCTAssertTrue(reviewSource.contains("primaryActionTitle: \"Retry\""))
 
-        let cardSource = try loadWorkspaceFile("To Do List/View/HomeWeeklySummaryCard.swift")
+        let cardSource = try loadWorkspaceFile("LifeBoard/View/HomeWeeklySummaryCard.swift")
         XCTAssertTrue(cardSource.contains("isLoading"))
         XCTAssertTrue(cardSource.contains("errorMessage"))
         XCTAssertTrue(cardSource.contains("Retry"))
     }
 
     func testWidgetBundleRegistersFullTaskListCatalogKinds() throws {
-        let source = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
+        let source = try loadWorkspaceFile("LifeBoardWidgets/LifeBoardWidgetBundle.swift")
         let expectedKinds = [
             "TopTaskNowWidget", "TodayCounterNextWidget", "OverdueRescueWidget", "QuickWin15mWidget",
             "MorningKickoffWidget", "EveningWrapWidget", "WaitingOnWidget", "InboxTriageWidget",
@@ -3479,13 +3492,13 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
     }
 
     func testWidgetBundleHasNonEmptyDisplayMetadata() throws {
-        let source = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
+        let source = try loadWorkspaceFile("LifeBoardWidgets/LifeBoardWidgetBundle.swift")
         XCTAssertFalse(source.contains("displayName: \"\""))
         XCTAssertFalse(source.contains("description: \"\""))
     }
 
     func testRemoteKillSwitchMapsTaskWidgetFlags() throws {
-        let source = try loadWorkspaceFile("To Do List/Services/GamificationRemoteKillSwitchService.swift")
+        let source = try loadWorkspaceFile("LifeBoard/Services/GamificationRemoteKillSwitchService.swift")
         XCTAssertTrue(source.contains("feature_task_list_widgets_enabled"))
         XCTAssertTrue(source.contains("feature_task_list_widgets_interactive_enabled"))
         XCTAssertTrue(source.contains("V2FeatureFlags.taskListWidgetsEnabled"))
@@ -3493,26 +3506,26 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
     }
 
     func testWidgetTargetCompilesAgainstDesignSystemSources() throws {
-        let project = try loadWorkspaceFile("Tasker.xcodeproj/project.pbxproj")
+        let project = try loadWorkspaceFile("LifeBoard.xcodeproj/project.pbxproj")
 
-        XCTAssertTrue(project.contains("TaskerTokens.swift in Sources"))
-        XCTAssertTrue(project.contains("TaskerTheme.swift in Sources"))
-        XCTAssertTrue(project.contains("TaskerTheme+SwiftUI.swift in Sources"))
+        XCTAssertTrue(project.contains("LifeBoardTokens.swift in Sources"))
+        XCTAssertTrue(project.contains("LifeBoardTheme.swift in Sources"))
+        XCTAssertTrue(project.contains("LifeBoardTheme+SwiftUI.swift in Sources"))
         XCTAssertTrue(project.contains("SwiftUI+TokenAdapters.swift in Sources"))
-        XCTAssertTrue(project.contains("TaskerAnimations.swift in Sources"))
+        XCTAssertTrue(project.contains("LifeBoardAnimations.swift in Sources"))
     }
 
-    func testWidgetBrandBridgesToTaskerThemeRoles() throws {
-        let source = try loadWorkspaceFile("TaskerWidgets/WidgetBrand.swift")
+    func testWidgetBrandBridgesToLifeBoardThemeRoles() throws {
+        let source = try loadWorkspaceFile("LifeBoardWidgets/WidgetBrand.swift")
 
-        XCTAssertTrue(source.contains("TaskerTheme.Colors"))
-        XCTAssertTrue(source.contains("Color.tasker("))
+        XCTAssertTrue(source.contains("LifeBoardTheme.Colors"))
+        XCTAssertTrue(source.contains("Color.lifeboard("))
         XCTAssertFalse(source.contains("dynamic(light:"))
         XCTAssertFalse(source.contains("Color(hex:"))
     }
 
     func testWidgetFoundationDefinesWeightedContextAndAccessibilityPrimitives() throws {
-        let source = try loadWorkspaceFile("TaskerWidgets/TaskWidgetFoundation.swift")
+        let source = try loadWorkspaceFile("LifeBoardWidgets/TaskWidgetFoundation.swift")
 
         XCTAssertTrue(source.contains("isStandByLike"))
         XCTAssertTrue(source.contains("isBackgroundRemoved"))
@@ -3527,7 +3540,7 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
     }
 
     func testInteractiveWidgetAffordancesRespectFeatureFlagAtRenderTime() throws {
-        let source = try loadWorkspaceFile("TaskerWidgets/TaskWidgetHomeViews.swift")
+        let source = try loadWorkspaceFile("LifeBoardWidgets/TaskWidgetHomeViews.swift")
 
         XCTAssertTrue(
             source.contains("if #available(iOSApplicationExtension 17.0, *), TaskWidgetFeatureGate.interactiveTaskWidgetsEnabled"),
@@ -3547,6 +3560,7 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
     }
 }
 
+@MainActor
 final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
     func testSnapshotV1PayloadDecodesWithBackwardCompatibleDefaults() throws {
         let json = """
@@ -3969,7 +3983,7 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
     }
 
     func testTimelineProjectionUsesWorkspaceAnchorsIncludingOvernightWindDown() {
-        let preferences = TaskerWorkspacePreferences(
+        let preferences = LifeBoardWorkspacePreferences(
             weekStartsOn: .monday,
             showCalendarEventsInTimeline: false,
             timelineRiseAndShineHour: 22,
@@ -4008,8 +4022,8 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         fixedCalendar.date(from: DateComponents(year: 2026, month: 4, day: 27, hour: hour, minute: minute))!
     }
 
-    private func timelinePreferences(showCalendar: Bool) -> TaskerWorkspacePreferences {
-        TaskerWorkspacePreferences(
+    private func timelinePreferences(showCalendar: Bool) -> LifeBoardWorkspacePreferences {
+        LifeBoardWorkspacePreferences(
             weekStartsOn: .monday,
             selectedCalendarIDs: ["work"],
             showCalendarEventsInTimeline: showCalendar,
@@ -4021,15 +4035,15 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
     }
 
     private func calendarSnapshot(
-        status: TaskerCalendarAuthorizationStatus = .authorized,
+        status: LifeBoardCalendarAuthorizationStatus = .authorized,
         selectedCalendarIDs: [String] = ["work"],
-        events: [TaskerCalendarEventSnapshot] = [],
+        events: [LifeBoardCalendarEventSnapshot] = [],
         errorMessage: String? = nil
-    ) -> TaskerCalendarSnapshot {
-        TaskerCalendarSnapshot(
+    ) -> LifeBoardCalendarSnapshot {
+        LifeBoardCalendarSnapshot(
             authorizationStatus: status,
             availableCalendars: [
-                TaskerCalendarSourceSnapshot(
+                LifeBoardCalendarSourceSnapshot(
                     id: "work",
                     title: "Work",
                     sourceTitle: "iCloud",
@@ -4045,7 +4059,7 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
             eventsInRange: events,
             busyBlocks: [],
             nextMeeting: events.first(where: { $0.isAllDay == false }).map {
-                TaskerNextMeetingSummary(event: $0, isInProgress: false, minutesUntilStart: 60)
+                LifeBoardNextMeetingSummary(event: $0, isInProgress: false, minutesUntilStart: 60)
             },
             freeUntil: Self.date(hour: 10),
             isLoading: false,
@@ -4059,8 +4073,8 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         start: Date,
         end: Date,
         isAllDay: Bool
-    ) -> TaskerCalendarEventSnapshot {
-        TaskerCalendarEventSnapshot(
+    ) -> LifeBoardCalendarEventSnapshot {
+        LifeBoardCalendarEventSnapshot(
             id: id,
             calendarID: "work",
             calendarTitle: "Work",
@@ -4076,46 +4090,46 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
 }
 
 private final class NoopAssistantActionRepository: AssistantActionRepositoryProtocol {
-    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         completion(.success(run))
     }
 
-    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         completion(.success(run))
     }
 
-    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
+    func fetchRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition?, Error>) -> Void) {
         completion(.success(nil))
     }
 }
 
 private final class NoopTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
-    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
-    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         completion(.success(request.toTaskDefinition(projectName: request.projectName)))
     }
-    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
-    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         completion(.failure(NSError(domain: "NoopTaskDefinitionRepository", code: 1)))
     }
-    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopExternalSyncRepository: ExternalSyncRepositoryProtocol {
-    func fetchContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchContainerMapping(provider: String, projectID: UUID, completion: @escaping (Result<ExternalContainerMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func upsertContainerMapping(provider: String, projectID: UUID, mutate: @escaping (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition, completion: @escaping (Result<ExternalContainerMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
-    func fetchItemMappings(completion: @escaping (Result<[ExternalItemMapDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func upsertItemMappingByLocalKey(provider: String, localEntityType: String, localEntityID: UUID, mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
-    func upsertItemMappingByExternalKey(provider: String, externalItemID: String, mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
-    func fetchItemMapping(provider: String, localEntityType: String, localEntityID: UUID, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchContainerMappings(completion: @escaping @Sendable (Result<[ExternalContainerMapDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchContainerMapping(provider: String, projectID: UUID, completion: @escaping @Sendable (Result<ExternalContainerMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func upsertContainerMapping(provider: String, projectID: UUID, mutate: @escaping @Sendable (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition, completion: @escaping @Sendable (Result<ExternalContainerMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func fetchItemMappings(completion: @escaping @Sendable (Result<[ExternalItemMapDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func upsertItemMappingByLocalKey(provider: String, localEntityType: String, localEntityID: UUID, mutate: @escaping @Sendable (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping @Sendable (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func upsertItemMappingByExternalKey(provider: String, externalItemID: String, mutate: @escaping @Sendable (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping @Sendable (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func fetchItemMapping(provider: String, localEntityType: String, localEntityID: UUID, completion: @escaping @Sendable (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping @Sendable (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
 }
 
 private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelRepositoryProtocol {
@@ -4143,12 +4157,12 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelR
         lock.unlock()
     }
 
-    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchAllTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         fetchAllTasksCallCount += 1
         completion(.success([readStoredTask()]))
     }
 
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         readModelFetchCallCount += 1
         let base = [readStoredTask()].filter { task in
             if let projectID = query.projectID, task.projectID != projectID { return false }
@@ -4168,7 +4182,7 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelR
         )))
     }
 
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         readModelSearchCallCount += 1
         let normalized = query.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let base = [readStoredTask()].filter { task in
@@ -4192,7 +4206,7 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelR
 
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
-        completion: @escaping (Result<[UUID : Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID : Int], Error>) -> Void
     ) {
         let task = readStoredTask()
         if includeCompleted || task.isComplete == false {
@@ -4205,7 +4219,7 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelR
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
-        completion: @escaping (Result<[UUID : Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID : Int], Error>) -> Void
     ) {
         let task = readStoredTask()
         guard
@@ -4220,64 +4234,64 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelR
         completion(.success([task.projectID: task.priority.scorePoints]))
     }
 
-    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasks(for date: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([readStoredTask()]))
     }
 
-    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTodayTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([readStoredTask()]))
     }
 
-    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasks(for project: String, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([readStoredTask()]))
     }
 
-    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([readStoredTask()]))
     }
 
-    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchOverdueTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchUpcomingTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchCompletedTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         let task = readStoredTask()
         completion(.success(task.isComplete ? [task] : []))
     }
 
-    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasks(ofType type: TaskType, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         let task = readStoredTask()
         completion(.success(task.type == type ? [task] : []))
     }
 
-    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) {
+    func fetchTask(withId id: UUID, completion: @escaping @Sendable (Result<Task?, Error>) -> Void) {
         let task = readStoredTask()
         DispatchQueue.main.async {
             completion(.success(task.id == id ? task : nil))
         }
     }
 
-    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([readStoredTask()]))
     }
 
-    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
+    func createTask(_ task: Task, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         replaceStoredTask(with: task)
         completion(.success(task))
     }
 
-    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
+    func updateTask(_ task: Task, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         replaceStoredTask(with: task)
         DispatchQueue.main.async {
             completion(.success(task))
         }
     }
 
-    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
+    func completeTask(withId id: UUID, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         var task = readStoredTask()
         task.isComplete = true
         task.dateCompleted = Date()
@@ -4285,7 +4299,7 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelR
         completion(.success(task))
     }
 
-    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
+    func uncompleteTask(withId id: UUID, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         var task = readStoredTask()
         task.isComplete = false
         task.dateCompleted = nil
@@ -4293,42 +4307,42 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelR
         completion(.success(task))
     }
 
-    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void) {
+    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping @Sendable (Result<Task, Error>) -> Void) {
         var task = readStoredTask()
         task.dueDate = date
         replaceStoredTask(with: task)
         completion(.success(task))
     }
 
-    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteTask(withId id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteCompletedTasks(completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) {
+    func createTasks(_ tasks: [Task], completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(tasks))
     }
 
-    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) {
+    func updateTasks(_ tasks: [Task], completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success(tasks))
     }
 
-    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteTasks(withIds ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchTasksWithoutProject(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+    func fetchInboxTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([readStoredTask()]))
     }
 }
@@ -4340,44 +4354,44 @@ private final class MockProjectRepository: ProjectRepositoryProtocol {
         self.projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
     }
 
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(Array(projectsByID.values)))
     }
 
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         completion(.success(projectsByID[id]))
     }
 
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         let match = projectsByID.values.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
         completion(.success(match))
     }
 
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(Project.createInbox()))
     }
 
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         completion(.success(Array(projectsByID.values)))
     }
 
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(project))
     }
 
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(Project.createInbox()))
     }
 
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
     }
 
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         completion(.success(project))
     }
 
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         if var project = projectsByID[id] {
             project.name = newName
             completion(.success(project))
@@ -4386,23 +4400,23 @@ private final class MockProjectRepository: ProjectRepositoryProtocol {
         }
     }
 
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+    func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         completion(.success(0))
     }
 
-    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+    func getTasks(for projectId: UUID, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(true))
     }
 }
@@ -4430,7 +4444,7 @@ private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadReposit
 
     func fetchAgendaHabits(
         for date: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         fetchAgendaCallCount += 1
         completion(.success(agendaSummaries))
@@ -4440,7 +4454,7 @@ private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadReposit
         habitIDs: [UUID],
         endingOn date: Date,
         dayCount: Int,
-        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
         completion(.success(historyWindows))
     }
@@ -4448,7 +4462,7 @@ private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadReposit
     func fetchSignals(
         start: Date,
         end: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         fetchSignalsCallCount += 1
         completion(.success(signalSummaries))
@@ -4456,13 +4470,14 @@ private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadReposit
 
     func fetchHabitLibrary(
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
         fetchLibraryCallCount += 1
         completion(.success(libraryRows))
     }
 }
 
+@MainActor
 final class OccurrenceIdentityTests: XCTestCase {
     func testGeneratedOccurrenceKeyContainsTemplateScheduledDateAndSourceID() throws {
         let templateID = UUID()
@@ -4566,6 +4581,7 @@ final class OccurrenceIdentityTests: XCTestCase {
     }
 }
 
+@MainActor
 final class OccurrenceMaintenanceTests: XCTestCase {
     func testMaintenanceMarksStalePendingAsMissedAndPurgesResolvedIntoTombstones() throws {
         let now = Date()
@@ -4624,6 +4640,7 @@ final class OccurrenceMaintenanceTests: XCTestCase {
     }
 }
 
+@MainActor
 final class TombstoneRetentionTests: XCTestCase {
     func testExpiredTombstonesArePurged() throws {
         let now = Date()
@@ -4658,6 +4675,7 @@ final class TombstoneRetentionTests: XCTestCase {
     }
 }
 
+@MainActor
 final class V2RepositoryInvariantTests: XCTestCase {
     func testTaskDefinitionUpsertRepairsDuplicateIDsDeterministically() throws {
         let container = try makeInMemoryV2Container()
@@ -4904,6 +4922,7 @@ final class V2RepositoryInvariantTests: XCTestCase {
     }
 }
 
+@MainActor
 final class TaskTagLinkUniquenessTests: XCTestCase {
     func testDuplicateTaskTagLinksCollapseToUniquePairs() throws {
         let container = try makeInMemoryV2Container()
@@ -4953,6 +4972,7 @@ final class TaskTagLinkUniquenessTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ExternalMapUniquenessTests: XCTestCase {
     func testCompositeKeyUpsertsResolveToSingleCanonicalMap() throws {
         let container = try makeInMemoryV2Container()
@@ -5076,6 +5096,7 @@ final class ExternalMapUniquenessTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ScheduleExceptionRebuildTests: XCTestCase {
     func testSkipExceptionDeletesTargetOccurrenceWithoutMassSkippingFutureRows() throws {
         let templateID = UUID()
@@ -5152,6 +5173,7 @@ final class ScheduleExceptionRebuildTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ConcurrencyRaceTests: XCTestCase {
     func testConcurrentTagCreatesConvergeToSingleNormalizedRow() throws {
         let container = try makeInMemoryV2Container()
@@ -5519,6 +5541,7 @@ final class ConcurrencyRaceTests: XCTestCase {
     }
 }
 
+@MainActor
 final class FocusSessionUseCaseTests: XCTestCase {
     override func setUp() {
         super.setUp()
@@ -5606,26 +5629,26 @@ private final class FocusSessionRepositorySpy: GamificationRepositoryProtocol {
     private(set) var createFocusSessionCallCount = 0
     private(set) var createdSessions: [FocusSessionDefinition] = []
 
-    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(false)) }
-    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) { completion(.success(false)) }
+    func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
 
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         createFocusSessionCallCount += 1
         createdSessions.append(session)
         focusSessions.append(session)
         completion(.success(()))
     }
 
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         if let index = focusSessions.firstIndex(where: { $0.id == session.id }) {
             focusSessions[index] = session
         } else {
@@ -5634,12 +5657,13 @@ private final class FocusSessionRepositorySpy: GamificationRepositoryProtocol {
         completion(.success(()))
     }
 
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
         let filtered = focusSessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }
         completion(.success(filtered))
     }
 }
 
+@MainActor
 final class HomeViewModelFocusSessionThreadingTests: XCTestCase {
     func testStartFocusSessionCompletionIsDeliveredOnMainQueue() {
         let suiteName = "HomeViewModelFocusSessionThreadingTests.\(UUID().uuidString)"
@@ -5687,67 +5711,68 @@ final class HomeViewModelFocusSessionThreadingTests: XCTestCase {
 private final class BackgroundFocusSessionRepository: GamificationRepositoryProtocol {
     private let callbackQueue = DispatchQueue(label: "BackgroundFocusSessionRepository.callback")
 
-    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
+    func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) {
         completion(.success(nil))
     }
 
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+    func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(false))
     }
 
-    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) {
+    func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
+    func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
         completion(.success(nil))
     }
 
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         callbackQueue.async {
             completion(.success(()))
         }
     }
 
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
         callbackQueue.async {
             completion(.success([]))
         }
     }
 }
 
+@MainActor
 final class GamificationEngineMutationOrderingTests: XCTestCase {
     func testRecordEventEmitsLedgerMutationWithUpdatedStreak() throws {
         let repository = InMemoryGamificationEngineRepository()
@@ -6048,14 +6073,14 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
         lock.unlock()
     }
 
-    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
+    func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) {
         lock.lock()
         let snapshot = profile
         lock.unlock()
         completion(.success(snapshot))
     }
 
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         lock.lock()
         self.profile = profile
         saveProfileCount += 1
@@ -6063,21 +6088,21 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
         completion(.success(()))
     }
 
-    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+    func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
         lock.lock()
         let current = events
         lock.unlock()
         completion(.success(current))
     }
 
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
         lock.lock()
         let filtered = events.filter { $0.createdAt >= startDate && $0.createdAt < endDate }
         lock.unlock()
         completion(.success(filtered))
     }
 
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         lock.lock()
         if let injectedError = failNextSaveXPEventError {
             failNextSaveXPEventError = nil
@@ -6092,7 +6117,7 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
         completion(.success(()))
     }
 
-    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         lock.lock()
         if let override = hasXPEventOverride {
             lock.unlock()
@@ -6104,14 +6129,14 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
         completion(.success(exists))
     }
 
-    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) {
+    func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) {
         lock.lock()
         let current = unlocks
         lock.unlock()
         completion(.success(current))
     }
 
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         let write = {
             self.lock.lock()
             if self.unlocks.contains(where: { $0.achievementKey == unlock.achievementKey }) == false {
@@ -6127,14 +6152,14 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
         write()
     }
 
-    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
+    func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
         lock.lock()
         let aggregate = dailyAggregates[dateKey]
         lock.unlock()
         completion(.success(aggregate))
     }
 
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         lock.lock()
         if failNextDailyAggregateSave {
             failNextDailyAggregateSave = false
@@ -6152,7 +6177,7 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
         completion(.success(()))
     }
 
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
         lock.lock()
         let values = dailyAggregates.values
             .filter { $0.dateKey >= startDateKey && $0.dateKey <= endDateKey }
@@ -6161,14 +6186,14 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
         completion(.success(values))
     }
 
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         lock.lock()
         focusSessions.append(session)
         lock.unlock()
         completion(.success(()))
     }
 
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         lock.lock()
         if let index = focusSessions.firstIndex(where: { $0.id == session.id }) {
             focusSessions[index] = session
@@ -6179,7 +6204,7 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
         completion(.success(()))
     }
 
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
         lock.lock()
         let current = focusSessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }
         lock.unlock()
@@ -6187,6 +6212,7 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
     }
 }
 
+@MainActor
 final class TaskDefinitionCreationMetadataTests: XCTestCase {
     func testCreateTaskDefinitionPersistsMetadataAndLinks() throws {
         let taskRepository = MetadataCapturingTaskDefinitionRepository()
@@ -6248,21 +6274,21 @@ private final class InMemoryScheduleRepository: ScheduleRepositoryProtocol {
     var exceptionsByTemplateID: [UUID: [ScheduleExceptionDefinition]] = [:]
     var deleteTemplateErrorsByID: [UUID: Error] = [:]
 
-    func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) {
+    func fetchTemplates(completion: @escaping @Sendable (Result<[ScheduleTemplateDefinition], Error>) -> Void) {
         completion(.success(templates))
     }
 
-    func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) {
+    func fetchRules(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void) {
         completion(.success(rulesByTemplateID[templateID] ?? []))
     }
 
-    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) {
+    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping @Sendable (Result<ScheduleTemplateDefinition, Error>) -> Void) {
         templates.removeAll { $0.id == template.id }
         templates.append(template)
         completion(.success(template))
     }
 
-    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteTemplate(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         if let error = deleteTemplateErrorsByID[id] {
             completion(.failure(error))
             return
@@ -6276,17 +6302,17 @@ private final class InMemoryScheduleRepository: ScheduleRepositoryProtocol {
     func replaceRules(
         templateID: UUID,
         rules: [ScheduleRuleDefinition],
-        completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void
     ) {
         rulesByTemplateID[templateID] = rules
         completion(.success(rules))
     }
 
-    func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) {
+    func fetchExceptions(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleExceptionDefinition], Error>) -> Void) {
         completion(.success(exceptionsByTemplateID[templateID] ?? []))
     }
 
-    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) {
+    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping @Sendable (Result<ScheduleExceptionDefinition, Error>) -> Void) {
         var current = exceptionsByTemplateID[exception.scheduleTemplateID] ?? []
         current.append(exception)
         exceptionsByTemplateID[exception.scheduleTemplateID] = current
@@ -6298,36 +6324,36 @@ private final class MetadataCapturingTaskDefinitionRepository: TaskDefinitionRep
     var lastCreateRequest: CreateTaskDefinitionRequest?
     var byID: [UUID: TaskDefinition] = [:]
 
-    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         completion(.success(Array(byID.values)))
     }
 
-    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         completion(.success(Array(byID.values)))
     }
 
-    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+    func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) {
         completion(.success(byID[id]))
     }
 
-    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         byID[task.id] = task
         completion(.success(task))
     }
 
-    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         lastCreateRequest = request
         let task = request.toTaskDefinition(projectName: request.projectName)
         byID[task.id] = task
         completion(.success(task))
     }
 
-    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         byID[task.id] = task
         completion(.success(task))
     }
 
-    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         guard var current = byID[request.id] else {
             completion(.failure(NSError(domain: "MetadataCapturingTaskDefinitionRepository", code: 404)))
             return
@@ -6346,11 +6372,11 @@ private final class MetadataCapturingTaskDefinitionRepository: TaskDefinitionRep
         completion(.success(current))
     }
 
-    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         byID.removeValue(forKey: id)
         completion(.success(()))
     }
@@ -6360,11 +6386,11 @@ private final class MetadataCapturingTaskTagLinkRepository: TaskTagLinkRepositor
     var lastTaskID: UUID?
     var lastTagIDs: [UUID]?
 
-    func fetchTagIDs(taskID: UUID, completion: @escaping (Result<[UUID], Error>) -> Void) {
+    func fetchTagIDs(taskID: UUID, completion: @escaping @Sendable (Result<[UUID], Error>) -> Void) {
         completion(.success(lastTaskID == taskID ? (lastTagIDs ?? []) : []))
     }
 
-    func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+    func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         lastTaskID = taskID
         lastTagIDs = tagIDs
         completion(.success(()))
@@ -6375,14 +6401,14 @@ private final class MetadataCapturingTaskDependencyRepository: TaskDependencyRep
     var lastTaskID: UUID?
     var lastDependencies: [TaskDependencyLinkDefinition]?
 
-    func fetchDependencies(taskID: UUID, completion: @escaping (Result<[TaskDependencyLinkDefinition], Error>) -> Void) {
+    func fetchDependencies(taskID: UUID, completion: @escaping @Sendable (Result<[TaskDependencyLinkDefinition], Error>) -> Void) {
         completion(.success(lastTaskID == taskID ? (lastDependencies ?? []) : []))
     }
 
     func replaceDependencies(
         taskID: UUID,
         dependencies: [TaskDependencyLinkDefinition],
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         lastTaskID = taskID
         lastDependencies = dependencies
@@ -6395,14 +6421,14 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol {
     var resolutions: [OccurrenceResolutionDefinition] = []
     var deletedOccurrenceIDs: [UUID] = []
 
-    func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
+    func fetchInRange(start: Date, end: Date, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) {
         completion(.success(occurrences.filter {
             let effectiveDate = $0.dueAt ?? $0.scheduledAt
             return effectiveDate >= start && effectiveDate <= end
         }))
     }
 
-    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         for occurrence in occurrences {
             if let index = self.occurrences.firstIndex(where: { $0.id == occurrence.id }) {
                 self.occurrences[index] = occurrence
@@ -6413,7 +6439,7 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol {
         completion(.success(()))
     }
 
-    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         resolutions.append(resolution)
         if let index = occurrences.firstIndex(where: { $0.id == resolution.occurrenceID }) {
             switch resolution.resolutionType {
@@ -6431,7 +6457,7 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol {
         completion(.success(()))
     }
 
-    func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteOccurrences(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         deletedOccurrenceIDs.append(contentsOf: ids)
         occurrences.removeAll { ids.contains($0.id) }
         completion(.success(()))
@@ -6442,22 +6468,23 @@ private final class InMemoryTombstoneRepository: TombstoneRepositoryProtocol {
     var tombstones: [TombstoneDefinition] = []
     var deletedIDs: [UUID] = []
 
-    func create(_ tombstone: TombstoneDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func create(_ tombstone: TombstoneDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         tombstones.append(tombstone)
         completion(.success(()))
     }
 
-    func fetchExpired(before date: Date, completion: @escaping (Result<[TombstoneDefinition], Error>) -> Void) {
+    func fetchExpired(before date: Date, completion: @escaping @Sendable (Result<[TombstoneDefinition], Error>) -> Void) {
         completion(.success(tombstones.filter { $0.purgeAfter <= date }))
     }
 
-    func delete(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         deletedIDs.append(contentsOf: ids)
         tombstones.removeAll { ids.contains($0.id) }
         completion(.success(()))
     }
 }
 
+@MainActor
 final class ReconcileExternalRemindersConflictTests: XCTestCase {
     private var originalV2Enabled = true
     private var originalRemindersSyncEnabled = true
@@ -6833,6 +6860,7 @@ final class ReconcileExternalRemindersConflictTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ReminderPayloadRoundTripTests: XCTestCase {
     private var originalV2Enabled = true
     private var originalRemindersSyncEnabled = true
@@ -6974,6 +7002,7 @@ final class ReminderPayloadRoundTripTests: XCTestCase {
     }
 }
 
+@MainActor
 final class SyncClockDeterminismTests: XCTestCase {
     func testLogicalCounterBreaksPhysicalTimestampTie() {
         let lhs = SyncClock(physicalMillis: 1_000, logicalCounter: 1, nodeID: "node-a")
@@ -6989,6 +7018,7 @@ final class SyncClockDeterminismTests: XCTestCase {
     }
 }
 
+@MainActor
 final class AssistantPipelineTransactionalTests: XCTestCase {
     private var originalV2Enabled = true
     private var originalAssistantApplyEnabled = true
@@ -7271,6 +7301,7 @@ final class AssistantPipelineTransactionalTests: XCTestCase {
     }
 }
 
+@MainActor
 final class AssistantUndoWindowTests: XCTestCase {
     private var originalV2Enabled = true
     private var originalAssistantUndoEnabled = true
@@ -7330,6 +7361,7 @@ final class AssistantUndoWindowTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ReadModelQueryPathTests: XCTestCase {
     func testHomeAndSearchUseCasesPreferReadModelQueriesOverFetchAll() {
         let inbox = Project.createInbox()
@@ -7371,6 +7403,7 @@ final class ReadModelQueryPathTests: XCTestCase {
     }
 }
 
+@MainActor
 final class V2PerformanceGateTests: XCTestCase {
     private struct PerfSnapshot: Decodable {
         struct Percentiles: Decodable {
@@ -7416,6 +7449,7 @@ final class V2PerformanceGateTests: XCTestCase {
     }
 }
 
+@MainActor
 final class FlowctlToolingTests: XCTestCase {
     func testFlowctlInstallAndVerifyScriptsSucceed() throws {
 #if !os(macOS)
@@ -7430,13 +7464,14 @@ final class FlowctlToolingTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ProcessExecutionTests: XCTestCase {
     func testRunProcessPreservesArgumentsContainingSpaces() throws {
 #if !os(macOS)
         throw XCTSkip("Process execution checks are only supported on macOS host tests")
 #endif
         let tempDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("tasker process helper \(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("lifeboard process helper \(UUID().uuidString)", isDirectory: true)
         let outputURL = tempDirectory.appendingPathComponent("output file.txt")
         try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
@@ -7452,10 +7487,11 @@ final class ProcessExecutionTests: XCTestCase {
     }
 }
 
+@MainActor
 final class AssistantPipelineImplementationTests: XCTestCase {
     func testPipelineImplementationContainsNoSemaphoreWaits() throws {
         let root = workspaceRootURLForTests()
-        let sourceURL = root.appendingPathComponent("To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift")
+        let sourceURL = root.appendingPathComponent("LifeBoard/UseCases/LLM/AssistantActionPipelineUseCase.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
         XCTAssertFalse(source.contains("DispatchSemaphore"))
         XCTAssertFalse(source.contains(".wait(timeout:"))
@@ -7465,17 +7501,17 @@ final class AssistantPipelineImplementationTests: XCTestCase {
 private final class InMemoryAssistantActionRepository: AssistantActionRepositoryProtocol {
     private var byID: [UUID: AssistantActionRunDefinition] = [:]
 
-    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         byID[run.id] = run
         completion(.success(run))
     }
 
-    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         byID[run.id] = run
         completion(.success(run))
     }
 
-    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
+    func fetchRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition?, Error>) -> Void) {
         completion(.success(byID[id]))
     }
 }
@@ -7489,11 +7525,11 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
         byID = Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
     }
 
-    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         completion(.success(Array(byID.values)))
     }
 
-    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         let filtered = Array(byID.values).filter { task in
             guard let query else { return true }
             if let projectID = query.projectID, task.projectID != projectID { return false }
@@ -7511,16 +7547,16 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
         completion(.success(filtered))
     }
 
-    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+    func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) {
         completion(.success(byID[id]))
     }
 
-    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         byID[task.id] = task
         completion(.success(task))
     }
 
-    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         let task = TaskDefinition(
             id: request.id,
             projectID: request.projectID,
@@ -7549,7 +7585,7 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
         completion(.success(task))
     }
 
-    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         updateCallCount += 1
         if failUpdateOnCall == updateCallCount {
             completion(.failure(NSError(domain: "InMemoryTaskDefinitionRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Injected update failure"])))
@@ -7559,7 +7595,7 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
         completion(.success(task))
     }
 
-    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         guard var current = byID[request.id] else {
             completion(.failure(NSError(domain: "InMemoryTaskDefinitionRepository", code: 404)))
             return
@@ -7579,11 +7615,11 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
         completion(.success(current))
     }
 
-    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         completion(.success(Array(byID.values.filter { $0.parentTaskID == parentTaskID })))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         byID.removeValue(forKey: id)
         completion(.success(()))
     }
@@ -7593,11 +7629,11 @@ private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtoc
     var containerMappings: [ExternalContainerMapDefinition] = []
     var itemMappings: [ExternalItemMapDefinition] = []
 
-    func fetchContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) {
+    func fetchContainerMappings(completion: @escaping @Sendable (Result<[ExternalContainerMapDefinition], Error>) -> Void) {
         completion(.success(containerMappings))
     }
 
-    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         if let index = containerMappings.firstIndex(where: { $0.id == mapping.id }) {
             containerMappings[index] = mapping
         } else if let index = containerMappings.firstIndex(where: {
@@ -7613,7 +7649,7 @@ private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtoc
     func fetchContainerMapping(
         provider: String,
         projectID: UUID,
-        completion: @escaping (Result<ExternalContainerMapDefinition?, Error>) -> Void
+        completion: @escaping @Sendable (Result<ExternalContainerMapDefinition?, Error>) -> Void
     ) {
         completion(.success(containerMappings.first { $0.provider == provider && $0.projectID == projectID }))
     }
@@ -7621,8 +7657,8 @@ private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtoc
     func upsertContainerMapping(
         provider: String,
         projectID: UUID,
-        mutate: @escaping (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition,
-        completion: @escaping (Result<ExternalContainerMapDefinition, Error>) -> Void
+        mutate: @escaping @Sendable (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition,
+        completion: @escaping @Sendable (Result<ExternalContainerMapDefinition, Error>) -> Void
     ) {
         let existing = containerMappings.first { $0.provider == provider && $0.projectID == projectID }
         let mutated = mutate(existing)
@@ -7631,11 +7667,11 @@ private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtoc
         }
     }
 
-    func fetchItemMappings(completion: @escaping (Result<[ExternalItemMapDefinition], Error>) -> Void) {
+    func fetchItemMappings(completion: @escaping @Sendable (Result<[ExternalItemMapDefinition], Error>) -> Void) {
         completion(.success(itemMappings))
     }
 
-    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         if let index = itemMappings.firstIndex(where: { $0.id == mapping.id }) {
             itemMappings[index] = mapping
         } else if let index = itemMappings.firstIndex(where: {
@@ -7658,8 +7694,8 @@ private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtoc
         provider: String,
         localEntityType: String,
         localEntityID: UUID,
-        mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
-        completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void
+        mutate: @escaping @Sendable (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
+        completion: @escaping @Sendable (Result<ExternalItemMapDefinition, Error>) -> Void
     ) {
         let existing = itemMappings.first {
             $0.provider == provider && $0.localEntityType == localEntityType && $0.localEntityID == localEntityID
@@ -7673,8 +7709,8 @@ private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtoc
     func upsertItemMappingByExternalKey(
         provider: String,
         externalItemID: String,
-        mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
-        completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void
+        mutate: @escaping @Sendable (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
+        completion: @escaping @Sendable (Result<ExternalItemMapDefinition, Error>) -> Void
     ) {
         let existing = itemMappings.first { $0.provider == provider && $0.externalItemID == externalItemID }
         let mutated = mutate(existing)
@@ -7687,14 +7723,14 @@ private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtoc
         provider: String,
         localEntityType: String,
         localEntityID: UUID,
-        completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void
+        completion: @escaping @Sendable (Result<ExternalItemMapDefinition?, Error>) -> Void
     ) {
         completion(.success(itemMappings.first {
             $0.provider == provider && $0.localEntityType == localEntityType && $0.localEntityID == localEntityID
         }))
     }
 
-    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) {
+    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping @Sendable (Result<ExternalItemMapDefinition?, Error>) -> Void) {
         completion(.success(itemMappings.first { $0.provider == provider && $0.externalItemID == externalItemID }))
     }
 }
@@ -7705,22 +7741,22 @@ private final class InMemoryAppleRemindersProvider: AppleRemindersProviderProtoc
     var remindersByListID: [String: [AppleReminderItemSnapshot]] = [:]
     var upsertedSnapshots: [AppleReminderItemSnapshot] = []
 
-    func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+    func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(requestAccessGranted))
     }
 
-    func fetchLists(completion: @escaping (Result<[AppleReminderListSnapshot], Error>) -> Void) {
+    func fetchLists(completion: @escaping @Sendable (Result<[AppleReminderListSnapshot], Error>) -> Void) {
         completion(.success(lists))
     }
 
-    func fetchReminders(listID: String, completion: @escaping (Result<[AppleReminderItemSnapshot], Error>) -> Void) {
+    func fetchReminders(listID: String, completion: @escaping @Sendable (Result<[AppleReminderItemSnapshot], Error>) -> Void) {
         completion(.success(remindersByListID[listID] ?? []))
     }
 
     func upsertReminder(
         listID: String,
         snapshot: AppleReminderItemSnapshot,
-        completion: @escaping (Result<AppleReminderItemSnapshot, Error>) -> Void
+        completion: @escaping @Sendable (Result<AppleReminderItemSnapshot, Error>) -> Void
     ) {
         upsertedSnapshots.append(snapshot)
         var persisted = snapshot
@@ -7735,7 +7771,7 @@ private final class InMemoryAppleRemindersProvider: AppleRemindersProviderProtoc
         completion(.success(persisted))
     }
 
-    func deleteReminder(itemID: String, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteReminder(itemID: String, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         for key in remindersByListID.keys {
             remindersByListID[key]?.removeAll(where: { $0.itemID == itemID })
         }
@@ -7743,6 +7779,7 @@ private final class InMemoryAppleRemindersProvider: AppleRemindersProviderProtoc
     }
 }
 
+@MainActor
 final class LifeAreaIdentityRepairTests: XCTestCase {
     func testLifeAreaRepairMergesDuplicateGeneralAndRepointsProjectTaskHabit() throws {
         let container = try makeInMemoryV2Container()
@@ -7990,6 +8027,7 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ManageLifeAreasUseCaseValidationTests: XCTestCase {
     func testManageLifeAreasCreateRejectsDuplicateNormalizedName() {
         let existing = LifeArea(name: "General", color: nil, icon: nil)
@@ -8018,23 +8056,24 @@ private final class CapturingAddTaskRepository: TaskDefinitionRepositoryProtocol
     var lastCreateRequest: CreateTaskDefinitionRequest?
     var onCreateRequest: ((CreateTaskDefinitionRequest) -> Void)?
 
-    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
-    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         lastCreateRequest = request
         onCreateRequest?(request)
         completion(.success(request.toTaskDefinition(projectName: request.projectName)))
     }
-    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
-    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         completion(.failure(NSError(domain: "CapturingAddTaskRepository", code: 1)))
     }
-    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
+@MainActor
 private func makeAddTaskScheduleViewModel(
     now: Date = Date(timeIntervalSince1970: 1_777_000_000),
     repository: TaskDefinitionRepositoryProtocol = CapturingAddTaskRepository(),
@@ -8110,6 +8149,7 @@ private final class StubTaskIconResolver: TaskIconResolver {
     }
 }
 
+@MainActor
 final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
     func testAddTaskScheduleDefaultsToTwentyMinutesFromNowAndFifteenMinuteDuration() {
         let calendar = Calendar.current
@@ -8374,6 +8414,7 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
     }
 }
 
+@MainActor
 final class AddTaskViewModelTagCreationTests: XCTestCase {
     func testCreateTagAddsChipAndSelectsTag() throws {
         let tagRepository = InMemoryTagRepositoryForAddTaskTests()
@@ -8568,6 +8609,7 @@ final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
     }
 }
 
+@MainActor
 final class DefaultTaskIconResolverTests: XCTestCase {
     func testSearchUsesBundledSymbolManifest() {
         let results = DefaultTaskIconResolver.shared.search(
@@ -8752,6 +8794,7 @@ final class AddTaskViewModelTaskIconTests: XCTestCase {
     }
 }
 
+@MainActor
 final class HomeViewModelTaskIconTimelineTests: XCTestCase {
     func testTimelinePrefersPersistedTaskIconOverProjectIcon() {
         let suiteName = "HomeViewModelTaskIconTimelineTests.\(UUID().uuidString)"
@@ -8790,6 +8833,7 @@ final class HomeViewModelTaskIconTimelineTests: XCTestCase {
     }
 }
 
+@MainActor
 final class RecurringTaskSeriesMaterializationTests: XCTestCase {
     func testCreateDailyRecurringTaskMaterializesConcreteSeriesWithSharedSeriesID() throws {
         let repository = InMemoryTaskDefinitionRepositoryStub()
@@ -8875,6 +8919,7 @@ final class RecurringTaskSeriesMaterializationTests: XCTestCase {
     }
 }
 
+@MainActor
 final class DeleteTaskDefinitionUseCaseSeriesScopeTests: XCTestCase {
     func testDeleteSingleScopeDeletesOnlyTargetTask() throws {
         let seriesID = UUID()
@@ -8920,17 +8965,17 @@ final class DeleteTaskDefinitionUseCaseSeriesScopeTests: XCTestCase {
 private final class InMemoryTagRepositoryForAddTaskTests: TagRepositoryProtocol {
     private(set) var tags: [TagDefinition] = []
 
-    func fetchAll(completion: @escaping (Result<[TagDefinition], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[TagDefinition], Error>) -> Void) {
         completion(.success(tags))
     }
 
-    func create(_ tag: TagDefinition, completion: @escaping (Result<TagDefinition, Error>) -> Void) {
+    func create(_ tag: TagDefinition, completion: @escaping @Sendable (Result<TagDefinition, Error>) -> Void) {
         tags.removeAll(where: { $0.id == tag.id })
         tags.append(tag)
         completion(.success(tag))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         tags.removeAll(where: { $0.id == id })
         completion(.success(()))
     }
@@ -8939,11 +8984,11 @@ private final class InMemoryTagRepositoryForAddTaskTests: TagRepositoryProtocol 
 private final class CapturingTaskTagLinkRepositoryForRecurrenceTests: TaskTagLinkRepositoryProtocol {
     private var linksByTaskID: [UUID: Set<UUID>] = [:]
 
-    func fetchTagIDs(taskID: UUID, completion: @escaping (Result<[UUID], Error>) -> Void) {
+    func fetchTagIDs(taskID: UUID, completion: @escaping @Sendable (Result<[UUID], Error>) -> Void) {
         completion(.success(Array(linksByTaskID[taskID] ?? []).sorted { $0.uuidString < $1.uuidString }))
     }
 
-    func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+    func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         linksByTaskID[taskID] = Set(tagIDs)
         completion(.success(()))
     }
@@ -8957,21 +9002,21 @@ private final class CapturingLifeAreaRepository: LifeAreaRepositoryProtocol {
         self.storedAreas = storedAreas
     }
 
-    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[LifeArea], Error>) -> Void) {
         completion(.success(storedAreas))
     }
 
-    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    func create(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         createCallCount += 1
         storedAreas.append(area)
         completion(.success(area))
     }
 
-    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    func update(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         completion(.success(area))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 }
@@ -8984,19 +9029,19 @@ private final class DeferredLifeAreaRepository: LifeAreaRepositoryProtocol {
         self.storedAreas = storedAreas
     }
 
-    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[LifeArea], Error>) -> Void) {
         pendingFetchCompletion = completion
     }
 
-    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    func create(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         completion(.success(area))
     }
 
-    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    func update(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         completion(.success(area))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
@@ -9006,6 +9051,7 @@ private final class DeferredLifeAreaRepository: LifeAreaRepositoryProtocol {
     }
 }
 
+@MainActor
 final class HabitRuntimeRemediationTests: XCTestCase {
     func testCreateHabitKeepsLapseOnlyTemplateActiveAndGeneratesOccurrences() throws {
         let anchorDate = Date(timeIntervalSince1970: 1_704_132_000) // 2024-01-01 18:00:00 UTC
@@ -9275,7 +9321,7 @@ final class HabitRuntimeRemediationTests: XCTestCase {
             habitRuntimeReadRepository: habitReadRepository
         )
 
-        let analytics = try awaitResult { (completion: @escaping (Result<DailyAnalytics, Error>) -> Void) in
+        let analytics = try awaitResult { (completion: @escaping @Sendable (Result<DailyAnalytics, Error>) -> Void) in
             useCase.calculateDailyAnalytics(for: date) { result in
                 completion(result.mapError { $0 })
             }
@@ -9579,6 +9625,7 @@ private func runShellCommand(_ command: String, in directory: URL) throws -> Int
 }
 
 private extension XCTestCase {
+    @MainActor
     func awaitResult<T>(
         timeout: TimeInterval = 2.0,
         _ execute: (@escaping (Result<T, Error>) -> Void) -> Void
@@ -9594,6 +9641,7 @@ private extension XCTestCase {
     }
 }
 
+@MainActor
 final class TaskDefinitionClearFlagPersistenceTests: XCTestCase {
     func testUpdateRequestClearFlagsRemovePersistedOptionalFields() throws {
         let container = try makeInMemoryV2Container()
@@ -9686,45 +9734,46 @@ private final class CountingTaskDefinitionRepositorySpy: TaskDefinitionRepositor
         self.base = InMemoryTaskDefinitionRepositoryStub(seed: seed)
     }
 
-    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         fetchAllInvocationCount += 1
         base.fetchAll(completion: completion)
     }
 
-    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         fetchAllInvocationCount += 1
         base.fetchAll(query: query, completion: completion)
     }
 
-    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+    func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) {
         base.fetchTaskDefinition(id: id, completion: completion)
     }
 
-    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         base.create(task, completion: completion)
     }
 
-    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         base.create(request: request, completion: completion)
     }
 
-    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         base.update(task, completion: completion)
     }
 
-    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         base.update(request: request, completion: completion)
     }
 
-    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         base.fetchChildren(parentTaskID: parentTaskID, completion: completion)
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         base.delete(id: id, completion: completion)
     }
 }
 
+@MainActor
 final class TaskNotificationOrchestratorTests: XCTestCase {
     func testReconcileCoalescesBurstReasonsIntoSingleFetchPass() {
         let notificationService = CapturingNotificationService()
@@ -9891,7 +9940,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
         XCTAssertEqual(
             nightly?.body,
-            "Completed 1/1 tasks. Biggest win: \"Close loops\". Open Tasker for exact XP."
+            "Completed 1/1 tasks. Biggest win: \"Close loops\". Open LifeBoard for exact XP."
         )
     }
 
@@ -9967,15 +10016,15 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         let repository = InMemoryTaskDefinitionRepositoryStub(seed: [])
         let notificationService = CapturingNotificationService()
         notificationService.pending = [
-            TaskerPendingNotificationRequest(id: "task.reminder.\(UUID().uuidString)", fireDate: nil, kind: .taskReminder),
-            TaskerPendingNotificationRequest(id: "task.snooze.task.reminder.\(UUID().uuidString).1772000000", fireDate: nil, kind: .snoozedTask),
-            TaskerPendingNotificationRequest(id: "daily.morning.20260224", fireDate: nil, kind: .morningPlan),
-            TaskerPendingNotificationRequest(id: "external.alert.keep", fireDate: nil, kind: nil)
+            LifeBoardPendingNotificationRequest(id: "task.reminder.\(UUID().uuidString)", fireDate: nil, kind: .taskReminder),
+            LifeBoardPendingNotificationRequest(id: "task.snooze.task.reminder.\(UUID().uuidString).1772000000", fireDate: nil, kind: .snoozedTask),
+            LifeBoardPendingNotificationRequest(id: "daily.morning.20260224", fireDate: nil, kind: .morningPlan),
+            LifeBoardPendingNotificationRequest(id: "external.alert.keep", fireDate: nil, kind: nil)
         ]
 
         let store = makePreferencesStore()
         store.save(
-            TaskerNotificationPreferences(
+            LifeBoardNotificationPreferences(
                 taskRemindersEnabled: false,
                 dueSoonEnabled: false,
                 overdueNudgesEnabled: false,
@@ -10055,7 +10104,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
 
         notificationService.pending = notificationService.pending.map { pending in
             guard pending.id == reminderID else { return pending }
-            return TaskerPendingNotificationRequest(
+            return LifeBoardPendingNotificationRequest(
                 id: pending.id,
                 fireDate: pending.fireDate?.addingTimeInterval(60),
                 kind: pending.kind,
@@ -10084,7 +10133,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         let notificationService = CapturingNotificationService()
         let store = makePreferencesStore()
         store.save(
-            TaskerNotificationPreferences(
+            LifeBoardNotificationPreferences(
                 taskRemindersEnabled: false,
                 dueSoonEnabled: true,
                 overdueNudgesEnabled: false,
@@ -10124,7 +10173,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         let notificationService = CapturingNotificationService()
         let store = makePreferencesStore()
         store.save(
-            TaskerNotificationPreferences(
+            LifeBoardNotificationPreferences(
                 taskRemindersEnabled: true,
                 dueSoonEnabled: false,
                 overdueNudgesEnabled: false,
@@ -10165,7 +10214,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         let notificationService = CapturingNotificationService()
         let store = makePreferencesStore()
         store.save(
-            TaskerNotificationPreferences(
+            LifeBoardNotificationPreferences(
                 taskRemindersEnabled: false,
                 dueSoonEnabled: false,
                 overdueNudgesEnabled: false,
@@ -10200,34 +10249,36 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(calendar.component(.minute, from: morning.fireDate), 0)
     }
 
-    private func makePreferencesStore() -> TaskerNotificationPreferencesStore {
-        let suiteName = "tasker.notification.tests.\(UUID().uuidString)"
+    private func makePreferencesStore() -> LifeBoardNotificationPreferencesStore {
+        let suiteName = "lifeboard.notification.tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
-        return TaskerNotificationPreferencesStore(defaults: defaults)
+        return LifeBoardNotificationPreferencesStore(defaults: defaults)
     }
 }
 
-final class TaskerNotificationRouteTests: XCTestCase {
+@MainActor
+final class LifeBoardNotificationRouteTests: XCTestCase {
     func testDailySummaryRoutePayloadRoundTrip() {
-        let morning: TaskerNotificationRoute = .dailySummary(kind: .morning, dateStamp: "20260225")
+        let morning: LifeBoardNotificationRoute = .dailySummary(kind: .morning, dateStamp: "20260225")
         XCTAssertEqual(
-            TaskerNotificationRoute.from(payload: morning.payload, fallbackTaskID: nil),
+            LifeBoardNotificationRoute.from(payload: morning.payload, fallbackTaskID: nil),
             morning
         )
 
-        let nightlyNoDate: TaskerNotificationRoute = .dailySummary(kind: .nightly, dateStamp: nil)
+        let nightlyNoDate: LifeBoardNotificationRoute = .dailySummary(kind: .nightly, dateStamp: nil)
         XCTAssertEqual(
-            TaskerNotificationRoute.from(payload: nightlyNoDate.payload, fallbackTaskID: nil),
+            LifeBoardNotificationRoute.from(payload: nightlyNoDate.payload, fallbackTaskID: nil),
             nightlyNoDate
         )
     }
 }
 
+@MainActor
 final class SceneDelegateNotificationRoutingTests: XCTestCase {
     override func tearDown() {
         clearRouteBus()
-        TaskerNotificationRuntime.actionHandler = nil
+        LifeBoardNotificationRuntime.actionHandler = nil
         super.tearDown()
     }
 
@@ -10244,12 +10295,12 @@ final class SceneDelegateNotificationRoutingTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(TaskerNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
+        XCTAssertEqual(LifeBoardNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
     }
 
     func testHandleNotificationLaunchUsesRuntimeActionHandlerWhenAvailable() {
         let notificationService = CapturingNotificationService()
-        TaskerNotificationRuntime.actionHandler = TaskerNotificationActionHandler(
+        LifeBoardNotificationRuntime.actionHandler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: { nil }
         )
@@ -10260,19 +10311,20 @@ final class SceneDelegateNotificationRoutingTests: XCTestCase {
                 id: "daily.nightly.20260224",
                 kind: .nightlyRetrospective,
                 route: .dailySummary(kind: .nightly, dateStamp: "20260224"),
-                category: TaskerNotificationCategoryID.dailyNightly.rawValue
+                category: LifeBoardNotificationCategoryID.dailyNightly.rawValue
             ),
-            actionIdentifier: TaskerNotificationActionID.openDone.rawValue
+            actionIdentifier: LifeBoardNotificationActionID.openDone.rawValue
         )
 
-        XCTAssertEqual(TaskerNotificationRouteBus.shared.consumePendingRoute(), .homeDone)
+        XCTAssertEqual(LifeBoardNotificationRouteBus.shared.consumePendingRoute(), .homeDone)
     }
 
     private func clearRouteBus() {
-        while TaskerNotificationRouteBus.shared.consumePendingRoute() != nil {}
+        while LifeBoardNotificationRouteBus.shared.consumePendingRoute() != nil {}
     }
 }
 
+@MainActor
 final class DailySummaryModalUseCaseTests: XCTestCase {
     func testBuildSummaryMorningIncludesFocusRiskAndAgenda() {
         let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
@@ -10496,7 +10548,8 @@ final class DailySummaryModalUseCaseTests: XCTestCase {
     }
 }
 
-final class TaskerNotificationActionHandlerTests: XCTestCase {
+@MainActor
+final class LifeBoardNotificationActionHandlerTests: XCTestCase {
     func testCompleteActionMarksTaskDoneAndCancelsTaskBoundNotifications() throws {
         let taskID = UUID()
         let task = TaskDefinition(
@@ -10515,19 +10568,19 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
 
         let notificationService = CapturingNotificationService()
         notificationService.pending = [
-            TaskerPendingNotificationRequest(id: "task.reminder.\(taskID.uuidString)", fireDate: nil, kind: .taskReminder),
-            TaskerPendingNotificationRequest(id: "task.overdue.\(taskID.uuidString).20260224.am", fireDate: nil, kind: .overdue),
-            TaskerPendingNotificationRequest(id: "task.snooze.task.reminder.\(taskID.uuidString).1772000000", fireDate: nil, kind: .snoozedTask, taskID: taskID)
+            LifeBoardPendingNotificationRequest(id: "task.reminder.\(taskID.uuidString)", fireDate: nil, kind: .taskReminder),
+            LifeBoardPendingNotificationRequest(id: "task.overdue.\(taskID.uuidString).20260224.am", fireDate: nil, kind: .overdue),
+            LifeBoardPendingNotificationRequest(id: "task.snooze.task.reminder.\(taskID.uuidString).1772000000", fireDate: nil, kind: .snoozedTask, taskID: taskID)
         ]
 
-        let handler = TaskerNotificationActionHandler(
+        let handler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: { coordinator },
             now: { Date(timeIntervalSince1970: 1_772_000_000) }
         )
 
         handler.handleAction(
-            identifier: TaskerNotificationActionID.complete.rawValue,
+            identifier: LifeBoardNotificationActionID.complete.rawValue,
             request: makeUNNotificationRequest(
                 id: "task.reminder.\(taskID.uuidString)",
                 kind: .taskReminder,
@@ -10548,19 +10601,19 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
     func testSnoozeActionsUseCategoryDurations() {
         let fixedNow = Date(timeIntervalSince1970: 1_772_000_000)
         let notificationService = CapturingNotificationService()
-        let handler = TaskerNotificationActionHandler(
+        let handler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: { nil },
             now: { fixedNow }
         )
 
         handler.handleAction(
-            identifier: TaskerNotificationActionID.snooze30m.rawValue,
+            identifier: LifeBoardNotificationActionID.snooze30m.rawValue,
             request: makeUNNotificationRequest(
                 id: "daily.morning.20260224",
                 kind: .morningPlan,
                 route: .homeToday(taskID: nil),
-                category: TaskerNotificationCategoryID.dailyMorning.rawValue
+                category: LifeBoardNotificationCategoryID.dailyMorning.rawValue
             )
         )
 
@@ -10576,12 +10629,12 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
     func testSnoozeRespectsQuietHoursWhenEnabledForTaskAlerts() {
         let fixedNow = makeUTCDate(year: 2026, month: 2, day: 24, hour: 23, minute: 0)
         let notificationService = CapturingNotificationService()
-        let suiteName = "tasker.notification.action.tests.\(UUID().uuidString)"
+        let suiteName = "lifeboard.notification.action.tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
-        let preferencesStore = TaskerNotificationPreferencesStore(defaults: defaults)
+        let preferencesStore = LifeBoardNotificationPreferencesStore(defaults: defaults)
         preferencesStore.save(
-            TaskerNotificationPreferences(
+            LifeBoardNotificationPreferences(
                 quietHoursEnabled: true,
                 quietHoursStartHour: 22,
                 quietHoursStartMinute: 0,
@@ -10592,7 +10645,7 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
             )
         )
 
-        let handler = TaskerNotificationActionHandler(
+        let handler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: { nil },
             preferencesStore: preferencesStore,
@@ -10601,12 +10654,12 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
         )
 
         handler.handleAction(
-            identifier: TaskerNotificationActionID.snooze15m.rawValue,
+            identifier: LifeBoardNotificationActionID.snooze15m.rawValue,
             request: makeUNNotificationRequest(
                 id: "task.reminder.\(UUID().uuidString)",
                 kind: .taskReminder,
                 route: .homeToday(taskID: nil),
-                category: TaskerNotificationCategoryID.taskActionable.rawValue
+                category: LifeBoardNotificationCategoryID.taskActionable.rawValue
             )
         )
 
@@ -10621,22 +10674,22 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
     func testOpenDoneActionRoutesToDoneQuickView() {
         clearRouteBus()
         let notificationService = CapturingNotificationService()
-        let handler = TaskerNotificationActionHandler(
+        let handler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: { nil }
         )
 
         handler.handleAction(
-            identifier: TaskerNotificationActionID.openDone.rawValue,
+            identifier: LifeBoardNotificationActionID.openDone.rawValue,
             request: makeUNNotificationRequest(
                 id: "daily.nightly.20260224",
                 kind: .nightlyRetrospective,
                 route: .homeDone,
-                category: TaskerNotificationCategoryID.dailyNightly.rawValue
+                category: LifeBoardNotificationCategoryID.dailyNightly.rawValue
             )
         )
 
-        let routed = TaskerNotificationRouteBus.shared.consumePendingRoute()
+        let routed = LifeBoardNotificationRouteBus.shared.consumePendingRoute()
         if case .some(.homeDone) = routed {
             XCTAssertTrue(true)
         } else {
@@ -10647,23 +10700,23 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
     func testDefaultTapRoutesToDailySummaryWhenPayloadContainsDailySummaryRoute() {
         clearRouteBus()
         let notificationService = CapturingNotificationService()
-        let handler = TaskerNotificationActionHandler(
+        let handler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: { nil }
         )
 
-        let expectedRoute: TaskerNotificationRoute = .dailySummary(kind: .morning, dateStamp: "20260225")
+        let expectedRoute: LifeBoardNotificationRoute = .dailySummary(kind: .morning, dateStamp: "20260225")
         handler.handleAction(
             identifier: UNNotificationDefaultActionIdentifier,
             request: makeUNNotificationRequest(
                 id: "daily.morning.20260225",
                 kind: .morningPlan,
                 route: expectedRoute,
-                category: TaskerNotificationCategoryID.dailyMorning.rawValue
+                category: LifeBoardNotificationCategoryID.dailyMorning.rawValue
             )
         )
 
-        let routed = TaskerNotificationRouteBus.shared.consumePendingRoute()
+        let routed = LifeBoardNotificationRouteBus.shared.consumePendingRoute()
         XCTAssertEqual(routed, expectedRoute)
     }
 
@@ -10671,7 +10724,7 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
         clearRouteBus()
         let taskID = UUID()
         let notificationService = CapturingNotificationService()
-        let handler = TaskerNotificationActionHandler(
+        let handler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: { nil }
         )
@@ -10686,20 +10739,20 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(TaskerNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
+        XCTAssertEqual(LifeBoardNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
     }
 
     func testOpenActionRoutesTaskAlertToTaskDetail() {
         clearRouteBus()
         let taskID = UUID()
         let notificationService = CapturingNotificationService()
-        let handler = TaskerNotificationActionHandler(
+        let handler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: { nil }
         )
 
         handler.handleAction(
-            identifier: TaskerNotificationActionID.open.rawValue,
+            identifier: LifeBoardNotificationActionID.open.rawValue,
             request: makeUNNotificationRequest(
                 id: "task.dueSoon.\(taskID.uuidString).20260224",
                 kind: .dueSoon,
@@ -10708,7 +10761,7 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(TaskerNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
+        XCTAssertEqual(LifeBoardNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
     }
 
     func testCompleteActionInvokesCompletionExactlyOnce() throws {
@@ -10727,7 +10780,7 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
             projectRepository: MockProjectRepository(projects: [Project.createInbox()])
         )
         let notificationService = CapturingNotificationService()
-        let handler = TaskerNotificationActionHandler(
+        let handler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: { coordinator },
             now: { Date(timeIntervalSince1970: 1_772_000_000) }
@@ -10737,7 +10790,7 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
         var completionCount = 0
 
         handler.handleAction(
-            identifier: TaskerNotificationActionID.complete.rawValue,
+            identifier: LifeBoardNotificationActionID.complete.rawValue,
             request: makeUNNotificationRequest(
                 id: "task.reminder.\(taskID.uuidString)",
                 kind: .taskReminder,
@@ -10758,23 +10811,23 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
         clearRouteBus()
         let taskID = UUID()
         let notificationService = CapturingNotificationService()
-        let handler = TaskerNotificationActionHandler(
+        let handler = LifeBoardNotificationActionHandler(
             notificationService: notificationService,
             coordinatorProvider: { nil }
         )
 
         handler.handleAction(
-            identifier: TaskerNotificationActionID.openToday.rawValue,
+            identifier: LifeBoardNotificationActionID.openToday.rawValue,
             request: makeUNNotificationRequest(
                 id: "daily.morning.20260224",
                 kind: .morningPlan,
                 route: .homeToday(taskID: taskID),
                 taskID: taskID,
-                category: TaskerNotificationCategoryID.dailyMorning.rawValue
+                category: LifeBoardNotificationCategoryID.dailyMorning.rawValue
             )
         )
 
-        let routed = TaskerNotificationRouteBus.shared.consumePendingRoute()
+        let routed = LifeBoardNotificationRouteBus.shared.consumePendingRoute()
         if case .some(.homeToday(let routedTaskID)) = routed {
             XCTAssertEqual(routedTaskID, taskID)
         } else {
@@ -10783,34 +10836,34 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
     }
 
     private func clearRouteBus() {
-        while TaskerNotificationRouteBus.shared.consumePendingRoute() != nil {}
+        while LifeBoardNotificationRouteBus.shared.consumePendingRoute() != nil {}
     }
 }
 
 private final class CapturingNotificationService: NotificationServiceProtocol {
-    var scheduled: [TaskerLocalNotificationRequest] = []
+    var scheduled: [LifeBoardLocalNotificationRequest] = []
     var canceledIDs: [String] = []
-    var pending: [TaskerPendingNotificationRequest] = []
+    var pending: [LifeBoardPendingNotificationRequest] = []
     var scheduleInvocationIDs: [String] = []
-    var authorizationStatus: TaskerNotificationAuthorizationStatus = .authorized
+    var authorizationStatus: LifeBoardNotificationAuthorizationStatus = .authorized
 
     func scheduleTaskReminder(taskId: UUID, taskName: String, at date: Date) {}
     func cancelTaskReminder(taskId: UUID) {}
     func cancelAllReminders() {}
     func send(_ notification: CollaborationNotification) {}
-    func requestPermission(completion: @escaping (Bool) -> Void) { completion(true) }
-    func checkAuthorizationStatus(completion: @escaping (Bool) -> Void) { completion(true) }
-    func fetchAuthorizationStatus(completion: @escaping (TaskerNotificationAuthorizationStatus) -> Void) { completion(authorizationStatus) }
+    func requestPermission(completion: @escaping @Sendable (Bool) -> Void) { completion(true) }
+    func checkAuthorizationStatus(completion: @escaping @Sendable (Bool) -> Void) { completion(true) }
+    func fetchAuthorizationStatus(completion: @escaping @Sendable (LifeBoardNotificationAuthorizationStatus) -> Void) { completion(authorizationStatus) }
     func registerCategories(_ categories: Set<UNNotificationCategory>) {}
     func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {}
 
-    func schedule(request: TaskerLocalNotificationRequest) {
+    func schedule(request: LifeBoardLocalNotificationRequest) {
         scheduleInvocationIDs.append(request.id)
         scheduled.removeAll(where: { $0.id == request.id })
         scheduled.append(request)
         pending.removeAll(where: { $0.id == request.id })
         pending.append(
-            TaskerPendingNotificationRequest(
+            LifeBoardPendingNotificationRequest(
                 id: request.id,
                 fireDate: request.fireDate,
                 kind: request.kind,
@@ -10829,28 +10882,28 @@ private final class CapturingNotificationService: NotificationServiceProtocol {
         scheduled.removeAll(where: { ids.contains($0.id) })
     }
 
-    func pendingRequests(completion: @escaping ([TaskerPendingNotificationRequest]) -> Void) {
+    func pendingRequests(completion: @escaping @Sendable ([LifeBoardPendingNotificationRequest]) -> Void) {
         completion(pending)
     }
 }
 
 private func makeUNNotificationRequest(
     id: String,
-    kind: TaskerLocalNotificationKind,
-    route: TaskerNotificationRoute,
+    kind: LifeBoardLocalNotificationKind,
+    route: LifeBoardNotificationRoute,
     taskID: UUID? = nil,
-    category: String = TaskerNotificationCategoryID.taskActionable.rawValue
+    category: String = LifeBoardNotificationCategoryID.taskActionable.rawValue
 ) -> UNNotificationRequest {
     let content = UNMutableNotificationContent()
     content.title = "Title"
     content.body = "Body"
     content.categoryIdentifier = category
     var userInfo: [AnyHashable: Any] = [
-        TaskerLocalNotificationRequest.UserInfoKey.kind: kind.rawValue,
-        TaskerLocalNotificationRequest.UserInfoKey.route: route.payload
+        LifeBoardLocalNotificationRequest.UserInfoKey.kind: kind.rawValue,
+        LifeBoardLocalNotificationRequest.UserInfoKey.route: route.payload
     ]
     if let taskID {
-        userInfo[TaskerLocalNotificationRequest.UserInfoKey.taskID] = taskID.uuidString
+        userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.taskID] = taskID.uuidString
     }
     content.userInfo = userInfo
     let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 60, repeats: false)
@@ -10876,6 +10929,7 @@ private extension Calendar {
     }
 }
 
+@MainActor
 final class InsightsViewModelPerformanceLogicTests: XCTestCase {
     func testOnAppearLoadsSelectedTabOnly() {
         let repository = InsightsRepositorySpy()
@@ -11450,6 +11504,7 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
     }
 }
 
+@MainActor
 final class CelebrationRouterBehaviorTests: XCTestCase {
     func testXPBurstCooldownSuppressesRapidRepeatBursts() {
         let router = DefaultCelebrationRouter()
@@ -11506,6 +11561,7 @@ final class CelebrationRouterBehaviorTests: XCTestCase {
     }
 }
 
+@MainActor
 final class XPCalculationEngineExactPreviewTests: XCTestCase {
     func testCompletionXPIfCompletedNowIncludesOnTimeBonus() {
         let completedAt = Date(timeIntervalSince1970: 1_700_000_000)
@@ -11585,6 +11641,7 @@ final class XPCalculationEngineExactPreviewTests: XCTestCase {
     }
 }
 
+@MainActor
 final class XPExactPreviewParityTests: XCTestCase {
     func testPreviewMatchesGamificationEngineAwardForStandardCompletion() throws {
         let repository = InMemoryGamificationEngineRepository()
@@ -11674,12 +11731,13 @@ final class XPExactPreviewParityTests: XCTestCase {
     }
 }
 
+@MainActor
 final class XPRewardPreviewCopyRegressionTests: XCTestCase {
     func testCompletionRewardSurfacesUseExactPreviewAPI() throws {
         let rewardSurfaceFiles = [
-            "To Do List/View/TaskRowView.swift",
-            "To Do List/View/TaskDetailSheetView.swift",
-            "To Do List/View/AddTaskXPPreview.swift"
+            "LifeBoard/View/TaskRowView.swift",
+            "LifeBoard/View/TaskDetailSheetView.swift",
+            "LifeBoard/View/AddTaskXPPreview.swift"
         ]
 
         for relativePath in rewardSurfaceFiles {
@@ -11697,9 +11755,9 @@ final class XPRewardPreviewCopyRegressionTests: XCTestCase {
 
     func testCompletionRewardSurfacesDoNotUseApproximateCopy() throws {
         let rewardCopyFiles = [
-            "To Do List/View/TaskRowView.swift",
-            "To Do List/View/TaskDetailComponents.swift",
-            "To Do List/View/AddTaskXPPreview.swift"
+            "LifeBoard/View/TaskRowView.swift",
+            "LifeBoard/View/TaskDetailComponents.swift",
+            "LifeBoard/View/AddTaskXPPreview.swift"
         ]
 
         for relativePath in rewardCopyFiles {
@@ -11746,7 +11804,7 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
     private(set) var fetchAchievementUnlocksCount = 0
     private(set) var fetchFocusSessionsCount = 0
 
-    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
+    func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) {
         lock.lock()
         fetchProfileCount += 1
         let snapshot = profile
@@ -11754,11 +11812,11 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
         completion(.success(snapshot))
     }
 
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+    func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
         lock.lock()
         fetchXPEventsAllCount += 1
         let events = allEvents.isEmpty ? todayEvents : allEvents
@@ -11766,7 +11824,7 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
         completion(.success(events))
     }
 
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
         lock.lock()
         fetchXPEventsRangeCount += 1
         let sourceEvents = allEvents.isEmpty ? todayEvents : allEvents
@@ -11784,15 +11842,15 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
         completion(.success(events))
     }
 
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(false))
     }
 
-    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) {
+    func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) {
         lock.lock()
         fetchAchievementUnlocksCount += 1
         let unlocks = achievements
@@ -11800,11 +11858,11 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
         completion(.success(unlocks))
     }
 
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
+    func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
         lock.lock()
         fetchDailyAggregateCount += 1
         let aggregate = dailyAggregatesByDateKey[dateKey]
@@ -11812,11 +11870,11 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
         completion(.success(aggregate))
     }
 
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
         lock.lock()
         fetchDailyAggregatesCount += 1
         let values = weekAggregates.filter { $0.dateKey >= startDateKey && $0.dateKey <= endDateKey }
@@ -11824,15 +11882,15 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
         completion(.success(values.sorted { $0.dateKey < $1.dateKey }))
     }
 
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
         lock.lock()
         fetchFocusSessionsCount += 1
         let sessions = focusSessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }
@@ -11845,35 +11903,36 @@ private final class InsightsReminderRepositorySpy: ReminderRepositoryProtocol {
     var reminders: [ReminderDefinition] = []
     var deliveriesByReminderID: [UUID: [ReminderDeliveryDefinition]] = [:]
 
-    func fetchReminders(completion: @escaping (Result<[ReminderDefinition], Error>) -> Void) {
+    func fetchReminders(completion: @escaping @Sendable (Result<[ReminderDefinition], Error>) -> Void) {
         completion(.success(reminders))
     }
 
-    func saveReminder(_ reminder: ReminderDefinition, completion: @escaping (Result<ReminderDefinition, Error>) -> Void) {
+    func saveReminder(_ reminder: ReminderDefinition, completion: @escaping @Sendable (Result<ReminderDefinition, Error>) -> Void) {
         completion(.success(reminder))
     }
 
-    func fetchTriggers(reminderID: UUID, completion: @escaping (Result<[ReminderTriggerDefinition], Error>) -> Void) {
+    func fetchTriggers(reminderID: UUID, completion: @escaping @Sendable (Result<[ReminderTriggerDefinition], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping (Result<ReminderTriggerDefinition, Error>) -> Void) {
+    func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping @Sendable (Result<ReminderTriggerDefinition, Error>) -> Void) {
         completion(.success(trigger))
     }
 
-    func fetchDeliveries(reminderID: UUID, completion: @escaping (Result<[ReminderDeliveryDefinition], Error>) -> Void) {
+    func fetchDeliveries(reminderID: UUID, completion: @escaping @Sendable (Result<[ReminderDeliveryDefinition], Error>) -> Void) {
         completion(.success(deliveriesByReminderID[reminderID] ?? []))
     }
 
-    func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
+    func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         completion(.success(delivery))
     }
 
-    func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
+    func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         completion(.success(delivery))
     }
 }
 
+@MainActor
 final class HabitRuntimeMaintenanceTests: XCTestCase {
     func testMaintainRuntimeActivatesLapseOnlyTemplateAndRollsPendingOccurrence() throws {
         let calendar = Calendar.current
@@ -12045,6 +12104,7 @@ final class HabitRuntimeMaintenanceTests: XCTestCase {
     }
 }
 
+@MainActor
 final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
     func testCalculateDailyAnalyticsFetchesHabitSignalsByDefault() throws {
         let calendar = Calendar.current
@@ -12063,7 +12123,7 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
             habitRuntimeReadRepository: habitReadRepository
         )
 
-        let analytics = try awaitResult { (completion: @escaping (Result<DailyAnalytics, Error>) -> Void) in
+        let analytics = try awaitResult { (completion: @escaping @Sendable (Result<DailyAnalytics, Error>) -> Void) in
             useCase.calculateDailyAnalytics(for: anchorDate) { result in
                 completion(result.mapError { $0 })
             }
@@ -12079,7 +12139,7 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
     func testCalculateDailyAnalyticsDoesNotReuseStaleCacheWhenSuppliedSignalsChange() throws {
         let calendar = Calendar.current
         let anchorDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_711_036_800))
-        let positiveSignal = TaskerHabitSignal(summary: makeHabitSummary(
+        let positiveSignal = LifeBoardHabitSignal(summary: makeHabitSummary(
             title: "Meditate",
             kind: .positive,
             trackingMode: .dailyCheckIn,
@@ -12087,7 +12147,7 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
             state: .completed,
             riskState: .stable
         ), referenceDate: anchorDate)
-        let failedSignal = TaskerHabitSignal(summary: makeHabitSummary(
+        let failedSignal = LifeBoardHabitSignal(summary: makeHabitSummary(
             title: "Meditate",
             kind: .positive,
             trackingMode: .dailyCheckIn,
@@ -12100,12 +12160,12 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
             taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: [])
         )
 
-        let firstAnalytics = try awaitResult { (completion: @escaping (Result<DailyAnalytics, Error>) -> Void) in
+        let firstAnalytics = try awaitResult { (completion: @escaping @Sendable (Result<DailyAnalytics, Error>) -> Void) in
             useCase.calculateDailyAnalytics(for: anchorDate, habitSignals: [positiveSignal]) { result in
                 completion(result.mapError { $0 })
             }
         }
-        let secondAnalytics = try awaitResult { (completion: @escaping (Result<DailyAnalytics, Error>) -> Void) in
+        let secondAnalytics = try awaitResult { (completion: @escaping @Sendable (Result<DailyAnalytics, Error>) -> Void) in
             useCase.calculateDailyAnalytics(for: anchorDate, habitSignals: [failedSignal]) { result in
                 completion(result.mapError { $0 })
             }
@@ -12146,6 +12206,7 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
     }
 }
 
+@MainActor
 final class SaveWeeklyPlanUseCaseTests: XCTestCase {
     func testExecutePreservesExistingOutcomeStatusAndUpdatesAssignments() throws {
         let calendar = XPCalculationEngine.mondayCalendar()
@@ -12302,6 +12363,7 @@ private func isSameCanonicalISOWeek(_ lhs: Date?, _ rhs: Date) -> Bool {
     return canonicalISOWeekStart(lhs) == canonicalISOWeekStart(rhs)
 }
 
+@MainActor
 final class WeeklyReviewDraftStoreTests: XCTestCase {
     private struct LegacyWeeklyReviewLocalStateFile: Codable {
         var draftsByWeekKey: [String: WeeklyReviewDraft]
@@ -12311,7 +12373,7 @@ final class WeeklyReviewDraftStoreTests: XCTestCase {
     func testRoundTripsDraftAndCompletedTaskDecisions() throws {
         let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
-        let storageKey = "tasker.weekly.review.localstate.tests"
+        let storageKey = "lifeboard.weekly.review.localstate.tests"
         let store = UserDefaultsWeeklyReviewDraftStore(defaults: defaults, storageKey: storageKey)
         let weekStart = XPCalculationEngine.mondayStartOfWeek(
             for: Date(timeIntervalSince1970: 1_720_224_000),
@@ -12370,7 +12432,7 @@ final class WeeklyReviewDraftStoreTests: XCTestCase {
     func testFetchDraftMigratesLegacyAliasKeyToCanonicalWeekIdentity() throws {
         let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
-        let storageKey = "tasker.weekly.review.localstate.tests"
+        let storageKey = "lifeboard.weekly.review.localstate.tests"
         defer {
             defaults.removePersistentDomain(forName: suiteName)
         }
@@ -12433,7 +12495,7 @@ final class WeeklyReviewDraftStoreTests: XCTestCase {
     func testDraftStorePrunesToMostRecentTwentySixWeeks() throws {
         let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
-        let storageKey = "tasker.weekly.review.localstate.tests"
+        let storageKey = "lifeboard.weekly.review.localstate.tests"
         let store = UserDefaultsWeeklyReviewDraftStore(defaults: defaults, storageKey: storageKey)
         defer {
             defaults.removePersistentDomain(forName: suiteName)
@@ -12504,6 +12566,7 @@ final class WeeklyReviewDraftStoreTests: XCTestCase {
     }
 }
 
+@MainActor
 final class BuildRecoveryInsightsUseCaseTests: XCTestCase {
     func testExecuteBuildsRecoveryNarrativeFromTaskDecisions() {
         let useCase = BuildRecoveryInsightsUseCase()
@@ -12522,6 +12585,7 @@ final class BuildRecoveryInsightsUseCaseTests: XCTestCase {
     }
 }
 
+@MainActor
 final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
     func testFinalizeReviewAppliesTaskDecisionOutcomeStatusAndPlanCompletion() throws {
         let container = try makeWeeklyContainer()
@@ -12917,19 +12981,19 @@ private final class InMemoryWeeklyPlanRepositoryStub: WeeklyPlanRepositoryProtoc
         self.plansByID = Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
     }
 
-    func fetchPlan(id: UUID, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) {
+    func fetchPlan(id: UUID, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) {
         completion(.success(plansByID[id]))
     }
 
-    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) {
+    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) {
         completion(.success(plansByID.values.first(where: { Calendar(identifier: .gregorian).isDate($0.weekStartDate, inSameDayAs: weekStartDate) })))
     }
 
-    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping (Result<[WeeklyPlan], Error>) -> Void) {
+    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[WeeklyPlan], Error>) -> Void) {
         completion(.success(plansByID.values.filter { $0.weekStartDate >= startDate && $0.weekStartDate <= endDate }))
     }
 
-    func savePlan(_ plan: WeeklyPlan, completion: @escaping (Result<WeeklyPlan, Error>) -> Void) {
+    func savePlan(_ plan: WeeklyPlan, completion: @escaping @Sendable (Result<WeeklyPlan, Error>) -> Void) {
         plansByID[plan.id] = plan
         completion(.success(plan))
     }
@@ -12942,11 +13006,11 @@ private final class InMemoryWeeklyOutcomeRepositoryStub: WeeklyOutcomeRepository
         self.outcomesByPlanID = seed
     }
 
-    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) {
+    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void) {
         completion(.success(outcomesByPlanID[weeklyPlanID] ?? []))
     }
 
-    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping (Result<WeeklyOutcome, Error>) -> Void) {
+    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping @Sendable (Result<WeeklyOutcome, Error>) -> Void) {
         var outcomes = outcomesByPlanID[outcome.weeklyPlanID] ?? []
         outcomes.removeAll { $0.id == outcome.id }
         outcomes.append(outcome)
@@ -12958,13 +13022,13 @@ private final class InMemoryWeeklyOutcomeRepositoryStub: WeeklyOutcomeRepository
     func replaceOutcomes(
         weeklyPlanID: UUID,
         outcomes: [WeeklyOutcome],
-        completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void
     ) {
         outcomesByPlanID[weeklyPlanID] = outcomes.sorted { $0.orderIndex < $1.orderIndex }
         completion(.success(outcomesByPlanID[weeklyPlanID] ?? []))
     }
 
-    func deleteOutcome(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteOutcome(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         for key in outcomesByPlanID.keys {
             outcomesByPlanID[key]?.removeAll { $0.id == id }
         }
@@ -12981,27 +13045,27 @@ private final class FailingTaskDefinitionRepositoryStub: TaskDefinitionRepositor
         self.failingIDs = failingIDs
     }
 
-    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         base.fetchAll(completion: completion)
     }
 
-    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         base.fetchAll(query: query, completion: completion)
     }
 
-    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+    func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) {
         base.fetchTaskDefinition(id: id, completion: completion)
     }
 
-    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         base.create(task, completion: completion)
     }
 
-    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         base.create(request: request, completion: completion)
     }
 
-    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         if failingIDs.contains(task.id) {
             completion(.failure(NSError(domain: "FailingTaskDefinitionRepositoryStub", code: 1)))
             return
@@ -13009,7 +13073,7 @@ private final class FailingTaskDefinitionRepositoryStub: TaskDefinitionRepositor
         base.update(task, completion: completion)
     }
 
-    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         if failingIDs.contains(request.id) {
             completion(.failure(NSError(domain: "FailingTaskDefinitionRepositoryStub", code: 1)))
             return
@@ -13017,11 +13081,11 @@ private final class FailingTaskDefinitionRepositoryStub: TaskDefinitionRepositor
         base.update(request: request, completion: completion)
     }
 
-    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         base.fetchChildren(parentTaskID: parentTaskID, completion: completion)
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         base.delete(id: id, completion: completion)
     }
 }
@@ -13036,7 +13100,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
 
         XCTAssertNotNil(viewModel.selectedLifeAreaID)
         XCTAssertNotNil(viewModel.selectedIconSymbolName)
-        XCTAssertNotNil(TaskerHexColor.normalized(viewModel.selectedColorHex))
+        XCTAssertNotNil(LifeBoardHexColor.normalized(viewModel.selectedColorHex))
         XCTAssertFalse(viewModel.hasUnsavedChanges)
 
         viewModel.habitName = "Walk"
@@ -13057,7 +13121,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
 
         XCTAssertEqual(viewModel.habitName, "")
         XCTAssertNotNil(viewModel.selectedIconSymbolName)
-        XCTAssertNotNil(TaskerHexColor.normalized(viewModel.selectedColorHex))
+        XCTAssertNotNil(LifeBoardHexColor.normalized(viewModel.selectedColorHex))
         XCTAssertFalse(viewModel.hasUnsavedChanges)
     }
 
@@ -13134,7 +13198,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         )
 
         XCTAssertEqual(viewModel.selectedIconSymbolName, explicitIcon)
-        XCTAssertNotNil(TaskerHexColor.normalized(viewModel.selectedColorHex))
+        XCTAssertNotNil(LifeBoardHexColor.normalized(viewModel.selectedColorHex))
     }
 
     func testLoadIfNeededBackfillsLifeAreaFromPrefilledProjectSelection() async {
@@ -13298,7 +13362,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
     private func assertHabitAppearanceAssigned(_ habit: HabitDefinitionRecord) {
         XCTAssertNotNil(habit.iconSymbolName)
         XCTAssertNotNil(habit.colorHex)
-        XCTAssertNotNil(TaskerHexColor.normalized(habit.colorHex))
+        XCTAssertNotNil(LifeBoardHexColor.normalized(habit.colorHex))
     }
 
     private func waitUntil(
@@ -13520,7 +13584,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
 
         func fetchAgendaHabits(
             for date: Date,
-            completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+            completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
         ) {
             completion(.success([]))
         }
@@ -13529,7 +13593,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
             habitIDs: [UUID],
             endingOn date: Date,
             dayCount: Int,
-            completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+            completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
         ) {
             fetchHistoryCallCount += 1
             let requestedIDs = Set(habitIDs)
@@ -13539,14 +13603,14 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         func fetchSignals(
             start: Date,
             end: Date,
-            completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+            completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
         ) {
             completion(.success([]))
         }
 
         func fetchHabitLibrary(
             includeArchived: Bool,
-            completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+            completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
         ) {
             fetchAllLibraryCallCount += 1
             completion(.success(libraryRows))
@@ -13555,7 +13619,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         func fetchHabitLibrary(
             habitIDs: [UUID]?,
             includeArchived: Bool,
-            completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+            completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
         ) {
             fetchFilteredLibraryCallCount += 1
             guard let habitIDs, habitIDs.isEmpty == false else {
@@ -13569,7 +13633,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         func fetchHabitDetailSummary(
             habitID: UUID,
             includeArchived: Bool,
-            completion: @escaping (Result<HabitLibraryRow?, Error>) -> Void
+            completion: @escaping @Sendable (Result<HabitLibraryRow?, Error>) -> Void
         ) {
             fetchDetailSummaryCallCount += 1
             completion(.success(libraryRows.first(where: { $0.habitID == habitID })))
@@ -13584,20 +13648,20 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
             self.storedAreas = storedAreas
         }
 
-        func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+        func fetchAll(completion: @escaping @Sendable (Result<[LifeArea], Error>) -> Void) {
             fetchAllCallCount += 1
             completion(.success(storedAreas))
         }
 
-        func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+        func create(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
             completion(.success(area))
         }
 
-        func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+        func update(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
             completion(.success(area))
         }
 
-        func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
             completion(.success(()))
         }
     }
@@ -13613,44 +13677,44 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
 
         var projectCount: Int { projectsByID.count }
 
-        func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+        func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
             fetchAllProjectsCallCount += 1
             completion(.success(Array(projectsByID.values)))
         }
 
-        func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+        func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
             completion(.success(projectsByID[id]))
         }
 
-        func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+        func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
             completion(.success(projectsByID.values.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }))
         }
 
-        func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+        func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
             completion(.success(Project.createInbox()))
         }
 
-        func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+        func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
             completion(.success(Array(projectsByID.values)))
         }
 
-        func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+        func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
             completion(.success(project))
         }
 
-        func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+        func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
             completion(.success(Project.createInbox()))
         }
 
-        func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+        func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
             completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
         }
 
-        func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+        func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
             completion(.success(project))
         }
 
-        func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+        func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
             if var project = projectsByID[id] {
                 project.name = newName
                 completion(.success(project))
@@ -13659,24 +13723,24 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
             }
         }
 
-        func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
             completion(.success(()))
         }
 
-        func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+        func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
             getTaskCountCallCount += 1
             completion(.success(0))
         }
 
-        func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+        func getTasks(for projectId: UUID, completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
             completion(.success([]))
         }
 
-        func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
             completion(.success(()))
         }
 
-        func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+        func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
             completion(.success(true))
         }
     }
@@ -13877,6 +13941,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
     }
 }
 
+@MainActor
 final class DeleteHabitUseCaseCompensationTests: XCTestCase {
     func testDeleteHabitReturnsOriginalErrorWhenRestoreSucceeds() {
         let habitID = UUID()
@@ -14066,6 +14131,7 @@ final class DailyBriefServiceTests: XCTestCase {
     }
 }
 
+@MainActor
 final class BuildHomeAgendaUseCaseOrderingTests: XCTestCase {
     func testAgendaOrdersOverdueBeforeDueAndPreservesMixedRows() {
         let calendar = Calendar.current
@@ -14123,18 +14189,19 @@ final class BuildHomeAgendaUseCaseOrderingTests: XCTestCase {
     }
 }
 
+@MainActor
 final class HabitRuntimeMigrationFlagTests: XCTestCase {
     func testRepairFlagRoundTripClearsPendingRepair() {
-        let suiteName = "tasker.habit.runtime.tests.\(UUID().uuidString)"
+        let suiteName = "lifeboard.habit.runtime.tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.set(true, forKey: "tasker.habit.runtime.repair_required.v1")
-        defaults.set(false, forKey: "tasker.habit.runtime.repair_completed.v1")
+        defaults.set(true, forKey: "lifeboard.habit.runtime.repair_required.v1")
+        defaults.set(false, forKey: "lifeboard.habit.runtime.repair_completed.v1")
 
-        XCTAssertTrue(TaskerPersistentRuntimeInitializer.shouldRunRepair(defaults: defaults))
+        XCTAssertTrue(LifeBoardPersistentRuntimeInitializer.shouldRunRepair(defaults: defaults))
 
-        TaskerPersistentRuntimeInitializer.markRepairCompleted(defaults: defaults)
+        LifeBoardPersistentRuntimeInitializer.markRepairCompleted(defaults: defaults)
 
-        XCTAssertFalse(TaskerPersistentRuntimeInitializer.shouldRunRepair(defaults: defaults))
+        XCTAssertFalse(LifeBoardPersistentRuntimeInitializer.shouldRunRepair(defaults: defaults))
         defaults.removePersistentDomain(forName: suiteName)
     }
 }
@@ -14183,11 +14250,11 @@ private final class InMemoryHabitRepository: HabitRepositoryProtocol {
         self.init(habits: seed)
     }
 
-    func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
+    func fetchAll(completion: @escaping @Sendable (Result<[HabitDefinitionRecord], Error>) -> Void) {
         completion(.success(Array(habitsByID.values)))
     }
 
-    func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+    func create(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
         createCallCount += 1
         if let createError {
             completion(.failure(createError))
@@ -14201,12 +14268,12 @@ private final class InMemoryHabitRepository: HabitRepositoryProtocol {
         completion(.success(habit))
     }
 
-    func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+    func update(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
         habitsByID[habit.id] = habit
         completion(.success(habit))
     }
 
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         habitsByID.removeValue(forKey: id)
         completion(.success(()))
     }
@@ -14237,7 +14304,7 @@ private final class RecordingSchedulingEngine: SchedulingEngineProtocol {
         windowStart: Date,
         windowEnd: Date,
         sourceFilter: ScheduleSourceType?,
-        completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void
     ) {
         generateSourceFilters.append(sourceFilter)
         if let occurrenceRepository, generatedOccurrences.isEmpty == false {
@@ -14253,7 +14320,7 @@ private final class RecordingSchedulingEngine: SchedulingEngineProtocol {
         id: UUID,
         resolution: OccurrenceResolutionType,
         actor: OccurrenceActor,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         resolvedOccurrences.append(ResolveCall(id: id, resolution: resolution, actor: actor))
         guard let occurrenceRepository else {
@@ -14277,7 +14344,7 @@ private final class RecordingSchedulingEngine: SchedulingEngineProtocol {
     func rebuildFutureOccurrences(
         templateID: UUID,
         effectiveFrom: Date,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         rebuildTemplateIDs.append(templateID)
         completion(.success(()))
@@ -14287,7 +14354,7 @@ private final class RecordingSchedulingEngine: SchedulingEngineProtocol {
         templateID: UUID,
         occurrenceKey: String,
         action: ScheduleExceptionAction,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         completion(.success(()))
     }
@@ -14319,7 +14386,7 @@ private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryPro
 
     func fetchAgendaHabits(
         for date: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         fetchAgendaCallCount += 1
         completion(.success(agendaSummaries))
@@ -14329,7 +14396,7 @@ private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryPro
         habitIDs: [UUID],
         endingOn date: Date,
         dayCount: Int,
-        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
         fetchHistoryCallCount += 1
         completion(.success(historyWindows))
@@ -14338,7 +14405,7 @@ private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryPro
     func fetchSignals(
         start: Date,
         end: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         fetchSignalsCallCount += 1
         lastFetchSignalsStart = start
@@ -14348,7 +14415,7 @@ private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryPro
 
     func fetchHabitLibrary(
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
         fetchHabitLibraryCallCount += 1
         completion(.success(libraryRows))
@@ -14359,8 +14426,9 @@ private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryPro
 // MARK: - Daily Reflection Tests
 
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
+@MainActor
 final class DailyReflectionUseCasesTests: XCTestCase {
     func testResolveTargetReturnsSameDayWhenYesterdayIsComplete() throws {
         let defaults = UserDefaults(suiteName: "DailyReflectionUseCasesTests.sameDay")!
@@ -14628,7 +14696,7 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         await ReflectionCalendarContextCacheStore.shared.clearAll()
         let provider = DelayedCalendarEventsProviderStub(
             events: [
-                TaskerCalendarEventSnapshot(
+                LifeBoardCalendarEventSnapshot(
                     id: "first",
                     calendarID: "calendar",
                     calendarTitle: "Primary",
@@ -14637,7 +14705,7 @@ final class DailyReflectionUseCasesTests: XCTestCase {
                     endDate: planningDate.addingTimeInterval(30 * 60),
                     isAllDay: false
                 ),
-                TaskerCalendarEventSnapshot(
+                LifeBoardCalendarEventSnapshot(
                     id: "second",
                     calendarID: "calendar",
                     calendarTitle: "Primary",
@@ -14663,7 +14731,7 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         await ReflectionCalendarContextCacheStore.shared.clearAll()
         let provider = MainQueueCalendarEventsProviderStub(
             events: [
-                TaskerCalendarEventSnapshot(
+                LifeBoardCalendarEventSnapshot(
                     id: "main_queue_event",
                     calendarID: "calendar",
                     calendarTitle: "Primary",
@@ -14710,8 +14778,8 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         let suiteName = "DailyReflectionUseCasesTests.workspace.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
-        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
-        workspaceStore.save(TaskerWorkspacePreferences(selectedCalendarIDs: ["work", "personal"]))
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work", "personal"]))
 
         let useCase = BuildNextDayPlanSuggestionUseCase(
             calendarEventsProvider: provider,
@@ -14730,7 +14798,7 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         await ReflectionCalendarContextCacheStore.shared.clearAll()
         let provider = DelayedCalendarEventsProviderStub(
             events: [
-                TaskerCalendarEventSnapshot(
+                LifeBoardCalendarEventSnapshot(
                     id: "should-not-fetch",
                     calendarID: "calendar",
                     calendarTitle: "Primary",
@@ -14744,8 +14812,8 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         let suiteName = "DailyReflectionUseCasesTests.workspace.empty.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
-        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
-        workspaceStore.save(TaskerWorkspacePreferences(selectedCalendarIDs: []))
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: []))
 
         let useCase = BuildNextDayPlanSuggestionUseCase(
             calendarEventsProvider: provider,
@@ -14775,7 +14843,7 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         await ReflectionCalendarContextCacheStore.shared.clearAll()
         let provider = DelayedCalendarEventsProviderStub(
             events: [
-                TaskerCalendarEventSnapshot(
+                LifeBoardCalendarEventSnapshot(
                     id: "cache-fresh",
                     calendarID: "calendar",
                     calendarTitle: "Primary",
@@ -14812,7 +14880,7 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         await ReflectionCalendarContextCacheStore.shared.clearAll()
         let provider = DelayedCalendarEventsProviderStub(
             events: [
-                TaskerCalendarEventSnapshot(
+                LifeBoardCalendarEventSnapshot(
                     id: "cache-stale",
                     calendarID: "calendar",
                     calendarTitle: "Primary",
@@ -14994,7 +15062,7 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         ]
         let provider = DelayedCalendarEventsProviderStub(
             events: [
-                TaskerCalendarEventSnapshot(
+                LifeBoardCalendarEventSnapshot(
                     id: "meeting",
                     calendarID: "calendar",
                     calendarTitle: "Primary",
@@ -15089,74 +15157,74 @@ private final class InMemoryGamificationRepositoryStub: GamificationRepositoryPr
     private var xpEvents: [XPEventDefinition] = []
     private var dailyAggregates: [String: DailyXPAggregateDefinition] = [:]
 
-    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
+    func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) {
         completion(.success(profile))
     }
 
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         self.profile = profile
         completion(.success(()))
     }
 
-    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+    func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
         completion(.success(xpEvents))
     }
 
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
         completion(.success(xpEvents.filter { $0.createdAt >= startDate && $0.createdAt <= endDate }))
     }
 
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         xpEvents.append(event)
         completion(.success(()))
     }
 
-    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(xpEvents.contains(where: { $0.idempotencyKey == idempotencyKey })))
     }
 
-    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) {
+    func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) {
         completion(.success([]))
     }
 
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
+    func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
         completion(.success(dailyAggregates[dateKey]))
     }
 
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         dailyAggregates[aggregate.dateKey] = aggregate
         completion(.success(()))
     }
 
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
         completion(.success(dailyAggregates.values.filter { $0.dateKey >= startDateKey && $0.dateKey <= endDateKey }))
     }
 
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
 
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
         completion(.success([]))
     }
 }
 
 private final class DelayedCalendarEventsProviderStub: CalendarEventsProviderProtocol {
-    private let events: [TaskerCalendarEventSnapshot]
+    private let events: [LifeBoardCalendarEventSnapshot]
     private let delayNanoseconds: UInt64
     private let lock = NSLock()
     private var _fetchEventsCallCount = 0
     private var _lastRequestedCalendarIDs: Set<String> = []
 
-    init(events: [TaskerCalendarEventSnapshot], delayNanoseconds: UInt64 = 0) {
+    init(events: [LifeBoardCalendarEventSnapshot], delayNanoseconds: UInt64 = 0) {
         self.events = events
         self.delayNanoseconds = delayNanoseconds
     }
@@ -15173,17 +15241,17 @@ private final class DelayedCalendarEventsProviderStub: CalendarEventsProviderPro
         return _lastRequestedCalendarIDs
     }
 
-    func authorizationStatus() -> TaskerCalendarAuthorizationStatus {
+    func authorizationStatus() -> LifeBoardCalendarAuthorizationStatus {
         .authorized
     }
 
-    func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+    func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(true))
     }
 
     func resetStoreStateAfterPermissionChange() {}
 
-    func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
+    func fetchCalendars(completion: @escaping @Sendable (Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void) {
         completion(.success([]))
     }
 
@@ -15191,7 +15259,7 @@ private final class DelayedCalendarEventsProviderStub: CalendarEventsProviderPro
         startDate _: Date,
         endDate _: Date,
         calendarIDs: Set<String>,
-        completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
+        completion: @escaping @Sendable (Result<[LifeBoardCalendarEventSnapshot], Error>) -> Void
     ) {
         lock.lock()
         _fetchEventsCallCount += 1
@@ -15211,23 +15279,23 @@ private final class DelayedCalendarEventsProviderStub: CalendarEventsProviderPro
 }
 
 private final class MainQueueCalendarEventsProviderStub: CalendarEventsProviderProtocol {
-    private let events: [TaskerCalendarEventSnapshot]
+    private let events: [LifeBoardCalendarEventSnapshot]
 
-    init(events: [TaskerCalendarEventSnapshot]) {
+    init(events: [LifeBoardCalendarEventSnapshot]) {
         self.events = events
     }
 
-    func authorizationStatus() -> TaskerCalendarAuthorizationStatus {
+    func authorizationStatus() -> LifeBoardCalendarAuthorizationStatus {
         .authorized
     }
 
-    func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+    func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(true))
     }
 
     func resetStoreStateAfterPermissionChange() {}
 
-    func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
+    func fetchCalendars(completion: @escaping @Sendable (Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void) {
         DispatchQueue.main.async {
             completion(.success([]))
         }
@@ -15237,7 +15305,7 @@ private final class MainQueueCalendarEventsProviderStub: CalendarEventsProviderP
         startDate _: Date,
         endDate _: Date,
         calendarIDs _: Set<String>,
-        completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
+        completion: @escaping @Sendable (Result<[LifeBoardCalendarEventSnapshot], Error>) -> Void
     ) {
         DispatchQueue.main.async {
             completion(.success(self.events))

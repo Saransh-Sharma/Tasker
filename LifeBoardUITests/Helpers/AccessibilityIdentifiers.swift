@@ -1,6 +1,6 @@
 //
 //  AccessibilityIdentifiers.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Centralized accessibility identifiers for UI testing
 //  NOTE: These identifiers need to be added to the actual UI elements in the app
@@ -178,10 +178,10 @@ enum AccessibilityIdentifiers {
     }
 
     enum DatePickerSheet {
-        static let sheet = "tasker.datePicker.sheet"
-        static let calendar = "tasker.datePicker.calendar"
-        static let confirmButton = "tasker.datePicker.confirmButton"
-        static let customDateChip = "tasker.datePicker.customDateChip"
+        static let sheet = "lifeboard.datePicker.sheet"
+        static let calendar = "lifeboard.datePicker.calendar"
+        static let confirmButton = "lifeboard.datePicker.confirmButton"
+        static let customDateChip = "lifeboard.datePicker.customDateChip"
     }
 
     // MARK: - Task Detail Screen

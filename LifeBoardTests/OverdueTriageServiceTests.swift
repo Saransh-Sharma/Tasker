@@ -1,5 +1,5 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class OverdueTriageServiceTests: XCTestCase {
     private let service = OverdueTriageService()

@@ -1,6 +1,6 @@
 //
 //  BaseUITest.swift
-//  To Do ListUITests
+//  LifeBoardUITests
 //
 //  Base test class providing fresh app state, common utilities, and test lifecycle management
 //

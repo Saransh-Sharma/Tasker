@@ -1,6 +1,6 @@
 import XCTest
 import UIKit
-@testable import To_Do_List
+@testable import LifeBoard
 
 final class DeviceOrientationPolicyResolverTests: XCTestCase {
     func testPhoneUsesPortraitAndUpsideDownOnly() {

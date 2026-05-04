@@ -1,10 +1,11 @@
 import XCTest
 import UIKit
-@testable import To_Do_List
+@testable import LifeBoard
 
+@MainActor
 final class SpacingElevationCornerTests: XCTestCase {
     func testSpacingRecipeValues() {
-        let spacing = TaskerTheme(index: 0).tokens.spacing
+        let spacing = LifeBoardTheme(index: 0).tokens.spacing
 
         XCTAssertEqual(spacing.screenHorizontal, 20)
         XCTAssertEqual(spacing.cardPadding, 20)
@@ -13,7 +14,7 @@ final class SpacingElevationCornerTests: XCTestCase {
     }
 
     func testCornerScaleValues() {
-        let corner = TaskerTheme(index: 0).tokens.corner
+        let corner = LifeBoardTheme(index: 0).tokens.corner
 
         XCTAssertEqual(corner.r1, 12)
         XCTAssertEqual(corner.r2, 14)
@@ -23,24 +24,24 @@ final class SpacingElevationCornerTests: XCTestCase {
     }
 
     func testElevationOrdering() {
-        let elevation = TaskerTheme(index: 0).tokens.elevation
+        let elevation = LifeBoardTheme(index: 0).tokens.elevation
 
         XCTAssertLessThan(elevation.e1.shadowOffsetY, elevation.e2.shadowOffsetY)
         XCTAssertLessThan(elevation.e2.shadowOffsetY, elevation.e3.shadowOffsetY)
     }
 
     func testLayoutResolverClassifiesBreakpointsAsExpected() {
-        let phoneMetrics = TaskerLayoutMetrics(width: 390, height: 844, idiom: .phone)
-        XCTAssertEqual(TaskerLayoutResolver.classify(metrics: phoneMetrics), .phone)
+        let phoneMetrics = LifeBoardLayoutMetrics(width: 390, height: 844, idiom: .phone)
+        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: phoneMetrics), .phone)
 
-        let compactPad = TaskerLayoutMetrics(width: 699, height: 1024, idiom: .pad)
-        XCTAssertEqual(TaskerLayoutResolver.classify(metrics: compactPad), .padCompact)
+        let compactPad = LifeBoardLayoutMetrics(width: 699, height: 1024, idiom: .pad)
+        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: compactPad), .padCompact)
 
-        let regularPad = TaskerLayoutMetrics(width: 700, height: 1024, idiom: .pad)
-        XCTAssertEqual(TaskerLayoutResolver.classify(metrics: regularPad), .padRegular)
+        let regularPad = LifeBoardLayoutMetrics(width: 700, height: 1024, idiom: .pad)
+        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: regularPad), .padRegular)
 
-        let expandedPad = TaskerLayoutMetrics(width: 1024, height: 1366, idiom: .pad)
-        XCTAssertEqual(TaskerLayoutResolver.classify(metrics: expandedPad), .padExpanded)
+        let expandedPad = LifeBoardLayoutMetrics(width: 1024, height: 1366, idiom: .pad)
+        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: expandedPad), .padExpanded)
     }
 
     @MainActor
@@ -50,13 +51,13 @@ final class SpacingElevationCornerTests: XCTestCase {
         window.addSubview(view)
         window.layoutIfNeeded()
 
-        let metrics = TaskerLayoutResolver.metrics(for: view)
+        let metrics = LifeBoardLayoutResolver.metrics(for: view)
         XCTAssertEqual(metrics.width, 900, accuracy: 0.1)
         XCTAssertEqual(metrics.height, 700, accuracy: 0.1)
     }
 
     func testPhoneLayoutTokensMatchLegacyThemeTokens() {
-        let theme = TaskerTheme(index: 0)
+        let theme = LifeBoardTheme(index: 0)
         let legacy = theme.tokens
         let phone = theme.tokens(for: .phone)
 
@@ -70,7 +71,7 @@ final class SpacingElevationCornerTests: XCTestCase {
     }
 
     func testPadLayoutTokensIncreaseDensityAndScale() {
-        let theme = TaskerTheme(index: 0)
+        let theme = LifeBoardTheme(index: 0)
         let phone = theme.tokens(for: .phone)
         let pad = theme.tokens(for: .padRegular)
 
@@ -81,36 +82,36 @@ final class SpacingElevationCornerTests: XCTestCase {
     }
 
     @MainActor
-    func testTaskerChipTintedSelectionUsesMutedBackground() {
-        let chip = TaskerChipView(frame: CGRect(x: 0, y: 0, width: 120, height: 44))
+    func testLifeBoardChipTintedSelectionUsesMutedBackground() {
+        let chip = LifeBoardChipView(frame: CGRect(x: 0, y: 0, width: 120, height: 44))
         chip.selectedStyle = .tinted
         chip.isSelected = true
 
-        let expected = TaskerThemeManager.shared.currentTheme.tokens.color.accentWash
+        let expected = LifeBoardThemeManager.shared.currentTheme.tokens.color.accentWash
         XCTAssertEqualColor(chip.backgroundColor, expected)
     }
 
     @MainActor
-    func testTaskerChipFilledSelectionUsesPrimaryBackground() {
-        let chip = TaskerChipView(frame: CGRect(x: 0, y: 0, width: 120, height: 44))
+    func testLifeBoardChipFilledSelectionUsesPrimaryBackground() {
+        let chip = LifeBoardChipView(frame: CGRect(x: 0, y: 0, width: 120, height: 44))
         chip.selectedStyle = .filled
         chip.isSelected = true
 
-        let expected = TaskerThemeManager.shared.currentTheme.tokens.color.chipSelectedBackground
+        let expected = LifeBoardThemeManager.shared.currentTheme.tokens.color.chipSelectedBackground
         XCTAssertEqualColor(chip.backgroundColor, expected)
     }
 
     @MainActor
-    func testTaskerTextFieldFocusRingUsesActionFocus() {
-        let textField = TaskerTextField(kind: .singleLine)
+    func testLifeBoardTextFieldFocusRingUsesActionFocus() {
+        let textField = LifeBoardTextField(kind: .singleLine)
         textField.sendActions(for: .editingDidBegin)
 
         XCTAssertEqual(textField.layer.borderWidth, 2)
-        XCTAssertEqualColor(UIColor(cgColor: textField.layer.borderColor ?? UIColor.clear.cgColor), UIColor.tasker.actionFocus)
+        XCTAssertEqualColor(UIColor(cgColor: textField.layer.borderColor ?? UIColor.clear.cgColor), UIColor.lifeboard.actionFocus)
 
         textField.sendActions(for: .editingDidEnd)
         XCTAssertEqual(textField.layer.borderWidth, 1)
-        XCTAssertEqualColor(UIColor(cgColor: textField.layer.borderColor ?? UIColor.clear.cgColor), UIColor.tasker.borderDefault)
+        XCTAssertEqualColor(UIColor(cgColor: textField.layer.borderColor ?? UIColor.clear.cgColor), UIColor.lifeboard.borderDefault)
     }
 
     private func XCTAssertEqualColor(

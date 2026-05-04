@@ -1,5 +1,5 @@
 import XCTest
-@testable import To_Do_List
+@testable import LifeBoard
 
 @MainActor
 final class HomeSearchStateTests: XCTestCase {
@@ -79,7 +79,7 @@ private final class MockHomeSearchEngine: HomeSearchEngine {
         }
     }
 
-    func loadProjects(completion: (() -> Void)?) {
+    func loadProjects(completion: (@MainActor @Sendable () -> Void)?) {
         completion?()
     }
 
