@@ -1,6 +1,6 @@
 //
 //  StateProjectMapper.swift
-//  Tasker
+//  LifeBoard
 //
 //  Mapper for converting between Project domain model and Core Data representation
 //

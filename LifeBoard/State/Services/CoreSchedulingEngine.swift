@@ -1,9 +1,51 @@
 import Foundation
 
-public final class CoreSchedulingEngine: SchedulingEngineProtocol {
+public final class CoreSchedulingEngine: SchedulingEngineProtocol, @unchecked Sendable {
     private struct TemplateMetadata {
         let rulesByTemplate: [UUID: [ScheduleRuleDefinition]]
         let exceptionsByTemplate: [UUID: [ScheduleExceptionDefinition]]
+    }
+
+    private final class TemplateMetadataState: @unchecked Sendable {
+        private let lock = NSLock()
+        private var rulesByTemplate: [UUID: [ScheduleRuleDefinition]] = [:]
+        private var exceptionsByTemplate: [UUID: [ScheduleExceptionDefinition]] = [:]
+        private var storedError: Error?
+
+        func setRules(_ rules: [ScheduleRuleDefinition], templateID: UUID) {
+            lock.lock()
+            rulesByTemplate[templateID] = rules
+            lock.unlock()
+        }
+
+        func setExceptions(_ exceptions: [ScheduleExceptionDefinition], templateID: UUID) {
+            lock.lock()
+            exceptionsByTemplate[templateID] = exceptions
+            lock.unlock()
+        }
+
+        func recordError(_ error: Error) {
+            lock.lock()
+            if storedError == nil {
+                storedError = error
+            }
+            lock.unlock()
+        }
+
+        func result() -> Result<TemplateMetadata, Error> {
+            lock.lock()
+            let error = storedError
+            let metadata = TemplateMetadata(
+                rulesByTemplate: rulesByTemplate,
+                exceptionsByTemplate: exceptionsByTemplate
+            )
+            lock.unlock()
+
+            if let error {
+                return .failure(error)
+            }
+            return .success(metadata)
+        }
     }
 
     private let scheduleRepository: ScheduleRepositoryProtocol
@@ -23,7 +65,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         windowStart: Date,
         windowEnd: Date,
         sourceFilter: ScheduleSourceType?,
-        completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void
     ) {
         scheduleRepository.fetchTemplates { result in
             switch result {
@@ -71,7 +113,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         id: UUID,
         resolution: OccurrenceResolutionType,
         actor: OccurrenceActor,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let resolutionRecord = OccurrenceResolutionDefinition(
             id: UUID(),
@@ -86,7 +128,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
     }
 
     /// Executes rebuildFutureOccurrences.
-    public func rebuildFutureOccurrences(templateID: UUID, effectiveFrom: Date, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func rebuildFutureOccurrences(templateID: UUID, effectiveFrom: Date, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         let rebuildEnd = Calendar.current.date(byAdding: .day, value: 14, to: effectiveFrom) ?? effectiveFrom
         occurrenceRepository.fetchInRange(start: effectiveFrom, end: rebuildEnd) { result in
             switch result {
@@ -97,7 +139,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
                     .filter { $0.scheduleTemplateID == templateID && $0.state == .pending }
                     .map(\.id)
 
-                let regenerate: () -> Void = {
+                let regenerate: @Sendable () -> Void = {
                     self.generateOccurrences(windowStart: effectiveFrom, windowEnd: rebuildEnd, sourceFilter: nil) { generateResult in
                         switch generateResult {
                         case .success:
@@ -126,7 +168,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
     }
 
     /// Executes applyScheduleException.
-    public func applyScheduleException(templateID: UUID, occurrenceKey: String, action: ScheduleExceptionAction, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func applyScheduleException(templateID: UUID, occurrenceKey: String, action: ScheduleExceptionAction, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         let normalizedOccurrenceKey = OccurrenceKeyCodec.canonicalize(
             occurrenceKey,
             fallbackTemplateID: templateID,
@@ -160,21 +202,19 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
     /// Executes fetchTemplateMetadata.
     private func fetchTemplateMetadata(
         for templates: [ScheduleTemplateDefinition],
-        completion: @escaping (Result<TemplateMetadata, Error>) -> Void
+        completion: @escaping @Sendable (Result<TemplateMetadata, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        var rulesByTemplate: [UUID: [ScheduleRuleDefinition]] = [:]
-        var exceptionsByTemplate: [UUID: [ScheduleExceptionDefinition]] = [:]
-        var firstError: Error?
+        let state = TemplateMetadataState()
 
         for template in templates {
             group.enter()
             scheduleRepository.fetchRules(templateID: template.id) { result in
                 switch result {
                 case .success(let rules):
-                    rulesByTemplate[template.id] = rules
+                    state.setRules(rules, templateID: template.id)
                 case .failure(let error):
-                    firstError = firstError ?? error
+                    state.recordError(error)
                 }
                 group.leave()
             }
@@ -183,23 +223,16 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
             scheduleRepository.fetchExceptions(templateID: template.id) { result in
                 switch result {
                 case .success(let exceptions):
-                    exceptionsByTemplate[template.id] = exceptions
+                    state.setExceptions(exceptions, templateID: template.id)
                 case .failure(let error):
-                    firstError = firstError ?? error
+                    state.recordError(error)
                 }
                 group.leave()
             }
         }
 
         group.notify(queue: .global()) {
-            if let firstError {
-                completion(.failure(firstError))
-            } else {
-                completion(.success(TemplateMetadata(
-                    rulesByTemplate: rulesByTemplate,
-                    exceptionsByTemplate: exceptionsByTemplate
-                )))
-            }
+            completion(state.result())
         }
     }
 

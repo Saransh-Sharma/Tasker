@@ -8,8 +8,22 @@
 import Foundation
 import CoreData
 
+private final class CoreDataRepositoryCompletion<Value: Sendable>: @unchecked Sendable {
+    private let completion: @Sendable (Result<Value, Error>) -> Void
+
+    init(_ completion: @escaping @Sendable (Result<Value, Error>) -> Void) {
+        self.completion = completion
+    }
+
+    func deliver(_ result: Result<Value, Error>) {
+        DispatchQueue.main.async {
+            self.completion(result)
+        }
+    }
+}
+
 /// Core Data implementation of the ProjectRepositoryProtocol
-public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
+public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchecked Sendable {
     
     // MARK: - Properties
     
@@ -30,7 +44,8 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     // MARK: - Fetch Operations
     
     /// Executes fetchAllProjects.
-    public func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    public func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
             request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
@@ -38,15 +53,16 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
             do {
                 let entities = try self.viewContext.fetch(request)
                 let projects = ProjectMapper.toDomainArray(from: entities)
-                DispatchQueue.main.async { completion(.success(projects)) }
+                callback.deliver(.success(projects))
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }
     
     /// Executes fetchProject.
-    public func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+    public func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
             request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
@@ -55,15 +71,16 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
             do {
                 let entities = try self.viewContext.fetch(request)
                 let project = entities.first.map { ProjectMapper.toDomain(from: $0) }
-                DispatchQueue.main.async { completion(.success(project)) }
+                callback.deliver(.success(project))
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }
     
     /// Executes fetchProject.
-    public func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+    public func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
             request.predicate = NSPredicate(format: "name ==[c] %@", name)
@@ -72,21 +89,22 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
             do {
                 let entities = try self.viewContext.fetch(request)
                 let project = entities.first.map { ProjectMapper.toDomain(from: $0) }
-                DispatchQueue.main.async { completion(.success(project)) }
+                callback.deliver(.success(project))
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }
     
     /// Executes fetchInboxProject.
-    public func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    public func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         let inboxProject = Project.createInbox()
         completion(.success(inboxProject))
     }
     
     /// Executes fetchCustomProjects.
-    public func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    public func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
             request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
@@ -96,9 +114,9 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                 let projects = ProjectMapper
                     .toDomainArray(from: entities)
                     .filter { !$0.isDefault && !$0.isInbox }
-                DispatchQueue.main.async { completion(.success(projects)) }
+                callback.deliver(.success(projects))
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -106,7 +124,8 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     // MARK: - Create Operations
     
     /// Executes createProject.
-    public func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    public func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         // First validate the name is unique
         isProjectNameAvailable(project.name, excludingId: nil) { [weak self] result in
             guard let self = self else { return }
@@ -115,7 +134,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
             case .success(let isAvailable):
                 if !isAvailable {
                     let error = ProjectValidationError.duplicateName
-                    completion(.failure(error))
+                    callback.deliver(.failure(error))
                     return
                 }
 
@@ -128,28 +147,29 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                                 message: "Rejected duplicate project name before Core Data write",
                                 fields: ["project_name": project.name]
                             )
-                            DispatchQueue.main.async { completion(.failure(ProjectValidationError.duplicateName)) }
+                            callback.deliver(.failure(ProjectValidationError.duplicateName))
                             return
                         }
 
                         _ = ProjectMapper.toEntity(from: project, in: self.backgroundContext)
                         try self.backgroundContext.save()
                         logDebug("✅ Created project '\(project.name)' with UUID: \(project.id)")
-                        DispatchQueue.main.async { completion(.success(project)) }
+                        callback.deliver(.success(project))
                     } catch {
                         logError(" Failed to create project: \(error)")
-                        DispatchQueue.main.async { completion(.failure(error)) }
+                        callback.deliver(.failure(error))
                     }
                 }
 
             case .failure(let error):
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
     
     /// Executes ensureInboxProject.
-    public func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    public func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
             request.predicate = self.inboxCandidatePredicate()
@@ -164,15 +184,13 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                             self.fetchProject(withId: ProjectConstants.inboxProjectID) { fetchResult in
                                 switch fetchResult {
                                 case .success(let project):
-                                    DispatchQueue.main.async {
-                                        completion(.success(project ?? Project.createInbox()))
-                                    }
+                                    callback.deliver(.success(project ?? Project.createInbox()))
                                 case .failure(let error):
-                                    DispatchQueue.main.async { completion(.failure(error)) }
+                                    callback.deliver(.failure(error))
                                 }
                             }
                         case .failure(let error):
-                            DispatchQueue.main.async { completion(.failure(error)) }
+                            callback.deliver(.failure(error))
                         }
                     }
                     return
@@ -180,7 +198,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
 
                 if let existingProject = existingProjects.first {
                     let inboxProject = ProjectMapper.toDomain(from: existingProject)
-                    DispatchQueue.main.async { completion(.success(inboxProject)) }
+                    callback.deliver(.success(inboxProject))
                 } else {
                     self.backgroundContext.perform {
                         let inboxProject = Project.createInbox()
@@ -189,21 +207,22 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         do {
                             try self.backgroundContext.save()
                             logDebug("✅ Created Inbox project with UUID: \(ProjectConstants.inboxProjectID)")
-                            DispatchQueue.main.async { completion(.success(inboxProject)) }
+                            callback.deliver(.success(inboxProject))
                         } catch {
                             logError(" Failed to create Inbox project: \(error)")
-                            DispatchQueue.main.async { completion(.failure(error)) }
+                            callback.deliver(.failure(error))
                         }
                     }
                 }
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }
 
     /// Executes repairProjectIdentityCollisions.
-    public func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    public func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 let projectRequest: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
@@ -261,9 +280,9 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                     inboxCandidates: inboxCandidates.count,
                     warnings: warnings
                 )
-                DispatchQueue.main.async { completion(.success(report)) }
+                callback.deliver(.success(report))
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -271,7 +290,8 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     // MARK: - Update Operations
     
     /// Executes updateProject.
-    public func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    public func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         backgroundContext.perform {
             // Find the existing entity
             if let entity = ProjectMapper.findEntity(byId: project.id, in: self.backgroundContext) {
@@ -285,7 +305,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                                 "project_name": project.name
                             ]
                         )
-                        DispatchQueue.main.async { completion(.failure(ProjectValidationError.duplicateName)) }
+                        callback.deliver(.failure(ProjectValidationError.duplicateName))
                         return
                     }
 
@@ -293,40 +313,42 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                     ProjectMapper.updateEntity(entity, from: project)
                     try self.backgroundContext.save()
                     logDebug("✅ Updated project '\(project.name)' with UUID: \(project.id)")
-                    DispatchQueue.main.async { completion(.success(project)) }
+                    callback.deliver(.success(project))
                 } catch {
                     logError(" Failed to update project: \(error)")
-                    DispatchQueue.main.async { completion(.failure(error)) }
+                    callback.deliver(.failure(error))
                 }
             } else {
                 let error = NSError(domain: "ProjectRepository", code: 404,
                                   userInfo: [NSLocalizedDescriptionKey: "Project not found"])
                 logError(" Project not found: \(project.id)")
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }
     
     /// Executes renameProject.
-    public func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+    public func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         fetchProject(withId: id) { [weak self] result in
             switch result {
             case .success(let project):
                 guard let project = project else {
                     let error = NSError(domain: "ProjectRepository", code: 404,
                                       userInfo: [NSLocalizedDescriptionKey: "Project not found"])
-                    completion(.failure(error))
+                    callback.deliver(.failure(error))
                     return
                 }
                 
                 // Update project entity by project UUID.
-                self?.backgroundContext.perform {
+                guard let self else { return }
+                self.backgroundContext.perform {
                     let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
                     request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
                     request.fetchLimit = 1
 
                     do {
-                        if try self?.findProjectNamed(newName, excludingId: id, in: self?.backgroundContext) != nil {
+                        if try self.findProjectNamed(newName, excludingId: id, in: self.backgroundContext) != nil {
                             logWarning(
                                 event: "cloudkit_project_uniqueness_rejected",
                                 message: "Rejected duplicate project name before Core Data rename",
@@ -335,35 +357,35 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                                     "project_name": newName
                                 ]
                             )
-                            DispatchQueue.main.async { completion(.failure(ProjectValidationError.duplicateName)) }
+                            callback.deliver(.failure(ProjectValidationError.duplicateName))
                             return
                         }
 
-                        guard let entity = try self?.backgroundContext.fetch(request).first else {
+                        guard let entity = try self.backgroundContext.fetch(request).first else {
                             let notFound = NSError(
                                 domain: "ProjectRepository",
                                 code: 404,
                                 userInfo: [NSLocalizedDescriptionKey: "Project not found"]
                             )
-                            DispatchQueue.main.async { completion(.failure(notFound)) }
+                            callback.deliver(.failure(notFound))
                             return
                         }
 
                         entity.name = newName
                         entity.updatedAt = Date()
                         entity.modifiedDate = Date()
-                        try self?.backgroundContext.save()
+                        try self.backgroundContext.save()
 
                         var renamedProject = project
                         renamedProject.name = newName
-                        DispatchQueue.main.async { completion(.success(renamedProject)) }
+                        callback.deliver(.success(renamedProject))
                     } catch {
-                        DispatchQueue.main.async { completion(.failure(error)) }
+                        callback.deliver(.failure(error))
                     }
                 }
                 
             case .failure(let error):
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -371,13 +393,14 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     // MARK: - Delete Operations
     
     /// Executes deleteProject.
-    public func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         fetchProject(withId: id) { [weak self] result in
             switch result {
             case .success(let project):
                 guard let project = project else {
                     // Project not found, consider it already deleted
-                    completion(.success(()))
+                    callback.deliver(.success(()))
                     return
                 }
                 
@@ -385,25 +408,26 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                 if project.isDefault {
                     let error = NSError(domain: "ProjectRepository", code: 403,
                                       userInfo: [NSLocalizedDescriptionKey: "Cannot delete the default Inbox project"])
-                    completion(.failure(error))
+                    callback.deliver(.failure(error))
                     return
                 }
                 
-                self?.backgroundContext.perform {
+                guard let self else { return }
+                self.backgroundContext.perform {
                     let request: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
                     request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
 
                     do {
-                        let tasks = try self?.backgroundContext.fetch(request) ?? []
+                        let tasks = try self.backgroundContext.fetch(request)
                         let habitRequest = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
                         habitRequest.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
-                        let habits = try self?.backgroundContext.fetch(habitRequest) ?? []
+                        let habits = try self.backgroundContext.fetch(habitRequest)
 
                         logDebug("🗑️ Deleting project '\(project.name)' with \(tasks.count) tasks and \(habits.count) habits (deleteTasks: \(deleteTasks))")
 
                         if deleteTasks {
                             // Delete all tasks in the project
-                            tasks.forEach { self?.backgroundContext.delete($0) }
+                            tasks.forEach { self.backgroundContext.delete($0) }
                             logDebug("  ❌ Deleted \(tasks.count) tasks")
                         } else {
                             // Move tasks to Inbox.
@@ -411,7 +435,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                             let inboxRequest: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
                             inboxRequest.predicate = NSPredicate(format: "id == %@", inboxID as CVarArg)
                             inboxRequest.fetchLimit = 1
-                            let inboxLifeAreaID = try self?.backgroundContext.fetch(inboxRequest).first?.lifeAreaID
+                            let inboxLifeAreaID = try self.backgroundContext.fetch(inboxRequest).first?.lifeAreaID
 
                             tasks.forEach { task in
                                 task.projectID = inboxID
@@ -429,22 +453,22 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         let projectFetchRequest: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
                         projectFetchRequest.predicate = NSPredicate(format: "id == %@", id as CVarArg)
 
-                        if let projectEntity = try self?.backgroundContext.fetch(projectFetchRequest).first {
-                            self?.backgroundContext.delete(projectEntity)
+                        if let projectEntity = try self.backgroundContext.fetch(projectFetchRequest).first {
+                            self.backgroundContext.delete(projectEntity)
                             logDebug("  🗑️ Deleted ProjectEntity entity: '\(projectEntity.name ?? "Unknown")'")
                         }
 
-                        try self?.backgroundContext.save()
+                        try self.backgroundContext.save()
                         logDebug("✅ Project deletion completed successfully")
-                        DispatchQueue.main.async { completion(.success(())) }
+                        callback.deliver(.success(()))
                     } catch {
                         logError(" Project deletion failed: \(error)")
-                        DispatchQueue.main.async { completion(.failure(error)) }
+                        callback.deliver(.failure(error))
                     }
                 }
                 
             case .failure(let error):
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -452,67 +476,71 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     // MARK: - Task Association
     
     /// Executes getTaskCount.
-    public func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+    public func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         viewContext.perform {
             let request: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
             request.predicate = NSPredicate(format: "projectID == %@", projectId as CVarArg)
 
             do {
                 let count = try self.viewContext.count(for: request)
-                DispatchQueue.main.async { completion(.success(count)) }
+                callback.deliver(.success(count))
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }
     
     /// Executes moveTasks.
-    public func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         fetchProject(withId: sourceProjectId) { [weak self] sourceResult in
             switch sourceResult {
             case .success(let sourceProject):
                 guard sourceProject != nil else {
                     let error = NSError(domain: "ProjectRepository", code: 404,
                                       userInfo: [NSLocalizedDescriptionKey: "Source project not found"])
-                    completion(.failure(error))
+                    callback.deliver(.failure(error))
                     return
                 }
                 
-                self?.fetchProject(withId: targetProjectId) { targetResult in
+                guard let self else { return }
+                self.fetchProject(withId: targetProjectId) { targetResult in
                     switch targetResult {
                     case .success(let targetProject):
                         guard targetProject != nil else {
                             let error = NSError(domain: "ProjectRepository", code: 404,
                                               userInfo: [NSLocalizedDescriptionKey: "Target project not found"])
-                            completion(.failure(error))
+                            callback.deliver(.failure(error))
                             return
                         }
+                        let targetLifeAreaID = targetProject?.lifeAreaID
                         
-                        self?.backgroundContext.perform {
+                        self.backgroundContext.perform {
                             let request: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
                             request.predicate = NSPredicate(format: "projectID == %@", sourceProjectId as CVarArg)
                             
                             do {
-                                let tasks = try self?.backgroundContext.fetch(request) ?? []
+                                let tasks = try self.backgroundContext.fetch(request)
                                 tasks.forEach {
                                     $0.projectID = targetProjectId
-                                    $0.lifeAreaID = targetProject?.lifeAreaID
+                                    $0.lifeAreaID = targetLifeAreaID
                                 }
                                 
-                                try self?.backgroundContext.save()
-                                DispatchQueue.main.async { completion(.success(())) }
+                                try self.backgroundContext.save()
+                                callback.deliver(.success(()))
                             } catch {
-                                DispatchQueue.main.async { completion(.failure(error)) }
+                                callback.deliver(.failure(error))
                             }
                         }
                         
                     case .failure(let error):
-                        completion(.failure(error))
+                        callback.deliver(.failure(error))
                     }
                 }
                 
             case .failure(let error):
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -521,8 +549,9 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     public func moveProjectToLifeArea(
         projectID: UUID,
         lifeAreaID: UUID,
-        completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<ProjectLifeAreaMoveResult, Error>) -> Void
     ) {
+        let callback = CoreDataRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 let lifeAreaRequest = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
@@ -534,7 +563,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         code: 404,
                         userInfo: [NSLocalizedDescriptionKey: "Target life area not found"]
                     )
-                    DispatchQueue.main.async { completion(.failure(error)) }
+                    callback.deliver(.failure(error))
                     return
                 }
 
@@ -545,7 +574,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         code: 409,
                         userInfo: [NSLocalizedDescriptionKey: "Cannot move project into an archived life area"]
                     )
-                    DispatchQueue.main.async { completion(.failure(error)) }
+                    callback.deliver(.failure(error))
                     return
                 }
 
@@ -558,7 +587,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         code: 404,
                         userInfo: [NSLocalizedDescriptionKey: "Project not found"]
                     )
-                    DispatchQueue.main.async { completion(.failure(error)) }
+                    callback.deliver(.failure(error))
                     return
                 }
 
@@ -568,7 +597,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         code: 403,
                         userInfo: [NSLocalizedDescriptionKey: "Cannot move the default Inbox project"]
                     )
-                    DispatchQueue.main.async { completion(.failure(error)) }
+                    callback.deliver(.failure(error))
                     return
                 }
 
@@ -580,7 +609,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         toLifeAreaID: lifeAreaID,
                         tasksRemappedCount: 0
                     )
-                    DispatchQueue.main.async { completion(.success(result)) }
+                    callback.deliver(.success(result))
                     return
                 }
 
@@ -611,9 +640,9 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                     toLifeAreaID: lifeAreaID,
                     tasksRemappedCount: remappedCount
                 )
-                DispatchQueue.main.async { completion(.success(result)) }
+                callback.deliver(.success(result))
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -621,8 +650,9 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     /// Executes backfillProjectsWithoutLifeArea.
     public func backfillProjectsWithoutLifeArea(
         defaultLifeAreaID: UUID,
-        completion: @escaping (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
     ) {
+        let callback = CoreDataRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 let lifeAreaRequest = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
@@ -634,7 +664,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         code: 404,
                         userInfo: [NSLocalizedDescriptionKey: "Default life area not found"]
                     )
-                    DispatchQueue.main.async { completion(.failure(error)) }
+                    callback.deliver(.failure(error))
                     return
                 }
 
@@ -689,9 +719,9 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                     tasksRemappedCount: tasksRemappedCount,
                     inboxPinned: inboxPinned
                 )
-                DispatchQueue.main.async { completion(.success(result)) }
+                callback.deliver(.success(result))
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -699,13 +729,14 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     // MARK: - Validation
     
     /// Executes isProjectNameAvailable.
-    public func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
+        let callback = CoreDataRepositoryCompletion(completion)
         viewContext.perform {
             do {
                 let existingProject = try self.findProjectNamed(name, excludingId: excludingId, in: self.viewContext)
-                DispatchQueue.main.async { completion(.success(existingProject == nil)) }
+                callback.deliver(.success(existingProject == nil))
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                callback.deliver(.failure(error))
             }
         }
     }

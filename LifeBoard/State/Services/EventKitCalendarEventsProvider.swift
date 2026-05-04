@@ -2,12 +2,25 @@ import Foundation
 import Combine
 
 #if canImport(EventKit)
- import EventKit
+ @preconcurrency import EventKit
 
-public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtocol {
-    private let store: EKEventStore
+private final class EventKitEventStoreBox: @unchecked Sendable {
+    let store: EKEventStore
+
+    init(store: EKEventStore) {
+        self.store = store
+    }
+}
+
+/// EventKit wrapper with all `EKEventStore` access confined to its worker queue or EventKit callbacks.
+public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtocol, @unchecked Sendable {
+    private let storeBox: EventKitEventStoreBox
     private let center: NotificationCenter
     private let workerQueue: DispatchQueue
+
+    private var store: EKEventStore {
+        storeBox.store
+    }
 
     public init(
         store: EKEventStore = EKEventStore(),
@@ -17,7 +30,7 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
             qos: .userInitiated
         )
     ) {
-        self.store = store
+        self.storeBox = EventKitEventStoreBox(store: store)
         self.center = center
         self.workerQueue = workerQueue
     }
@@ -59,7 +72,7 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
         }
     }
 
-    public func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         if #available(iOS 17.0, macOS 14.0, *) {
             store.requestFullAccessToEvents { granted, error in
                 if let error {
@@ -80,13 +93,14 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
     }
 
     public func resetStoreStateAfterPermissionChange() {
-        workerQueue.async { [store] in
-            store.reset()
+        workerQueue.async { [storeBox] in
+            storeBox.store.reset()
         }
     }
 
-    public func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
-        workerQueue.async { [store] in
+    public func fetchCalendars(completion: @escaping @Sendable (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
+        workerQueue.async { [storeBox] in
+            let store = storeBox.store
             let calendars = store.calendars(for: .event).map { calendar in
                 TaskerCalendarSourceSnapshot(
                     id: calendar.calendarIdentifier,
@@ -104,9 +118,10 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
         startDate: Date,
         endDate: Date,
         calendarIDs: Set<String>,
-        completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
+        completion: @escaping @Sendable (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
     ) {
-        workerQueue.async { [store, self] in
+        workerQueue.async { [storeBox, self] in
+            let store = storeBox.store
             let availableCalendars = store.calendars(for: .event)
             let selectedCalendars: [EKCalendar]
             if calendarIDs.isEmpty {
@@ -150,9 +165,10 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
         startDate: Date,
         endDate: Date,
         calendarIDs: Set<String>,
-        completion: @escaping (Result<[TaskerCalendarEventSlice], Error>) -> Void
+        completion: @escaping @Sendable (Result<[TaskerCalendarEventSlice], Error>) -> Void
     ) {
-        workerQueue.async { [store, self] in
+        workerQueue.async { [storeBox, self] in
+            let store = storeBox.store
             let availableCalendars = store.calendars(for: .event)
             let selectedCalendars: [EKCalendar]
             if calendarIDs.isEmpty {
@@ -264,20 +280,20 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
     }
 }
 #else
-public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtocol {
+public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtocol, @unchecked Sendable {
     public init() {}
 
     public func authorizationStatus() -> TaskerCalendarAuthorizationStatus {
         .denied
     }
 
-    public func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(false))
     }
 
     public func resetStoreStateAfterPermissionChange() {}
 
-    public func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
+    public func fetchCalendars(completion: @escaping @Sendable (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
         completion(.success([]))
     }
 
@@ -285,7 +301,7 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
         startDate: Date,
         endDate: Date,
         calendarIDs: Set<String>,
-        completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
+        completion: @escaping @Sendable (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
     ) {
         _ = startDate
         _ = endDate
@@ -297,7 +313,7 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
         startDate: Date,
         endDate: Date,
         calendarIDs: Set<String>,
-        completion: @escaping (Result<[TaskerCalendarEventSlice], Error>) -> Void
+        completion: @escaping @Sendable (Result<[TaskerCalendarEventSlice], Error>) -> Void
     ) {
         _ = startDate
         _ = endDate

@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-public final class CoreDataSectionRepository: SectionRepositoryProtocol {
+public final class CoreDataSectionRepository: SectionRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -13,7 +13,7 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol {
     }
 
     /// Executes fetchSections.
-    public func fetchSections(projectID: UUID, completion: @escaping (Result<[TaskerProjectSection], Error>) -> Void) {
+    public func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[TaskerProjectSection], Error>) -> Void) {
         viewContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(projectID, field: "section.projectID")
@@ -34,7 +34,7 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol {
     }
 
     /// Executes create.
-    public func create(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) {
+    public func create(_ section: TaskerProjectSection, completion: @escaping @Sendable (Result<TaskerProjectSection, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(section.id, field: "section.id")
@@ -55,12 +55,12 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol {
     }
 
     /// Executes update.
-    public func update(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) {
+    public func update(_ section: TaskerProjectSection, completion: @escaping @Sendable (Result<TaskerProjectSection, Error>) -> Void) {
         create(section, completion: completion)
     }
 
     /// Executes delete.
-    public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(id, field: "section.id")

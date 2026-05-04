@@ -1,7 +1,19 @@
 import Foundation
 import CoreData
 
-public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProtocol {
+private final class TaskReadModelCompletion<Value: Sendable>: @unchecked Sendable {
+    private let completion: @Sendable (Result<Value, Error>) -> Void
+
+    init(_ completion: @escaping @Sendable (Result<Value, Error>) -> Void) {
+        self.completion = completion
+    }
+
+    func deliver(_ result: Result<Value, Error>) {
+        completion(result)
+    }
+}
+
+public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProtocol, @unchecked Sendable {
     private let context: NSManagedObjectContext
 
     /// Initializes a new instance.
@@ -11,7 +23,8 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
     }
 
     /// Executes fetchTasks.
-    public func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    public func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 let predicate = self.predicate(for: query)
@@ -29,20 +42,21 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     limit: query.limit,
                     offset: query.offset
                 )
-                completion(.success(TaskDefinitionSliceResult(
+                callback.deliver(.success(TaskDefinitionSliceResult(
                     tasks: definitions,
                     totalCount: totalCount,
                     limit: query.limit,
                     offset: query.offset
                 )))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     /// Executes searchTasks.
-    public func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    public func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 let predicate = self.searchPredicate(for: query)
@@ -60,19 +74,20 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     limit: query.limit,
                     offset: query.offset
                 )
-                completion(.success(TaskDefinitionSliceResult(
+                callback.deliver(.success(TaskDefinitionSliceResult(
                     tasks: definitions,
                     totalCount: totalCount,
                     limit: query.limit,
                     offset: query.offset
                 )))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    public func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 let predicate = self.searchPredicate(for: query, referenceDate: Date())
@@ -90,22 +105,23 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     limit: query.limit,
                     offset: query.offset
                 )
-                completion(.success(TaskDefinitionSliceResult(
+                callback.deliver(.success(TaskDefinitionSliceResult(
                     tasks: definitions,
                     totalCount: totalCount,
                     limit: query.limit,
                     offset: query.offset
                 )))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     public func fetchHomeProjection(
         query: HomeProjectionQuery,
-        completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void
     ) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 let predicate = self.homeProjectionPredicate(for: query)
@@ -123,22 +139,23 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     limit: query.limit,
                     offset: query.offset
                 )
-                completion(.success(TaskDefinitionSliceResult(
+                callback.deliver(.success(TaskDefinitionSliceResult(
                     tasks: definitions,
                     totalCount: totalCount,
                     limit: query.limit,
                     offset: query.offset
                 )))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     public func fetchNeedsReplanCandidates(
         query: NeedsReplanCandidateQuery,
-        completion: @escaping (Result<NeedsReplanCandidateProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<NeedsReplanCandidateProjection, Error>) -> Void
     ) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 let predicate = self.needsReplanCandidatePredicate(for: query)
@@ -156,22 +173,23 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     limit: query.limit,
                     offset: query.offset
                 )
-                completion(.success(NeedsReplanCandidateProjection(
+                callback.deliver(.success(NeedsReplanCandidateProjection(
                     tasks: tasks,
                     totalCount: totalCount,
                     limit: query.limit,
                     offset: query.offset
                 )))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     public func fetchHomeTimelineProjection(
         query: HomeTimelineTaskProjectionQuery,
-        completion: @escaping (Result<HomeTimelineTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<HomeTimelineTaskProjection, Error>) -> Void
     ) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 let predicate = self.homeTimelineProjectionPredicate(for: query)
@@ -189,21 +207,21 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     limit: query.limit,
                     offset: query.offset
                 )
-                completion(.success(HomeTimelineTaskProjection(
+                callback.deliver(.success(HomeTimelineTaskProjection(
                     tasks: tasks,
                     totalCount: totalCount,
                     limit: query.limit,
                     offset: query.offset
                 )))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     public func fetchInsightsTodayProjection(
         referenceDate: Date,
-        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void
     ) {
         fetchInsightsTodayProjection(
             query: InsightsTodayProjectionQuery(referenceDate: referenceDate),
@@ -213,8 +231,9 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
 
     public func fetchInsightsTodayProjection(
         query: InsightsTodayProjectionQuery,
-        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void
     ) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 let calendar = Calendar.current
@@ -238,16 +257,16 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
 
                 let dueWindowTasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(dueWindowEntities, context: self.context)
                 let recentTasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(recentEntities, context: self.context)
-                completion(.success(InsightsTodayTaskProjection(dueWindowTasks: dueWindowTasks, recentTasks: recentTasks)))
+                callback.deliver(.success(InsightsTodayTaskProjection(dueWindowTasks: dueWindowTasks, recentTasks: recentTasks)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     public func fetchInsightsWeekProjection(
         referenceDate: Date,
-        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
     ) {
         fetchInsightsWeekProjection(
             query: InsightsWeekProjectionQuery(referenceDate: referenceDate),
@@ -257,8 +276,9 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
 
     public func fetchInsightsWeekProjection(
         query: InsightsWeekProjectionQuery,
-        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
     ) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 let calendar = XPCalculationEngine.mondayCalendar()
@@ -282,21 +302,22 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                 let recentTasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(recentEntities, context: self.context)
                 let dueWindowTasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(dueWindowEntities, context: self.context)
                 let projectScores = try self.projectCompletionScoreTotals(from: weekStart, to: weekEnd)
-                completion(.success(InsightsWeekTaskProjection(
+                callback.deliver(.success(InsightsWeekTaskProjection(
                     recentTasks: recentTasks,
                     dueWindowTasks: dueWindowTasks,
                     projectScores: projectScores
                 )))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     public func fetchDailyReflectionProjection(
         query: DailyReflectionTaskProjectionQuery,
-        completion: @escaping (Result<DailyReflectionTaskProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<DailyReflectionTaskProjection, Error>) -> Void
     ) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 let calendar = Calendar.current
@@ -335,7 +356,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     offset: 0
                 )
 
-                completion(
+                callback.deliver(
                     .success(
                         DailyReflectionTaskProjection(
                             reflectionCompletedTasks: try CoreDataTaskDefinitionRepository.mapTaskDefinitions(completedEntities, context: self.context),
@@ -345,15 +366,16 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     )
                 )
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     public func fetchWeekChartProjection(
         referenceDate: Date,
-        completion: @escaping (Result<WeekChartProjection, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeekChartProjection, Error>) -> Void
     ) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 var calendar = Calendar.autoupdatingCurrent
@@ -361,7 +383,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                 let week = calendar.daysWithSameWeekOfYear(as: referenceDate)
                 guard let weekStart = week.first?.startOfDay,
                       let weekEnd = week.last?.endOfDay else {
-                    completion(.success(WeekChartProjection(weekStart: referenceDate.startOfDay, dayScores: [:], projectScores: [:])))
+                    callback.deliver(.success(WeekChartProjection(weekStart: referenceDate.startOfDay, dayScores: [:], projectScores: [:])))
                     return
                 }
 
@@ -389,13 +411,13 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
 
                 let projectScoresResult = try self.projectCompletionScoreTotals(from: weekStart, to: weekEnd)
                 projectScores = projectScoresResult
-                completion(.success(WeekChartProjection(
+                callback.deliver(.success(WeekChartProjection(
                     weekStart: weekStart,
                     dayScores: dayScores,
                     projectScores: projectScores
                 )))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -403,8 +425,9 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
     /// Executes fetchProjectTaskCounts.
     public func fetchProjectTaskCounts(
         includeCompleted: Bool,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
                 let countExpr = NSExpressionDescription()
@@ -427,9 +450,9 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     let countValue = (row["taskCount"] as? NSNumber)?.intValue ?? 0
                     counts[projectID] = countValue
                 }
-                completion(.success(counts))
+                callback.deliver(.success(counts))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -438,13 +461,14 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
     public func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
+        let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
-                completion(.success(try self.projectCompletionScoreTotals(from: startDate, to: endDate)))
+                callback.deliver(.success(try self.projectCompletionScoreTotals(from: startDate, to: endDate)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }

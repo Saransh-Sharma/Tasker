@@ -1,7 +1,19 @@
 import Foundation
 import CoreData
 
-public final class CoreDataGamificationRepository: GamificationRepositoryProtocol {
+private final class GamificationRepositoryCompletion<Value: Sendable>: @unchecked Sendable {
+    private let completion: @Sendable (Result<Value, Error>) -> Void
+
+    init(_ completion: @escaping @Sendable (Result<Value, Error>) -> Void) {
+        self.completion = completion
+    }
+
+    func deliver(_ result: Result<Value, Error>) {
+        completion(result)
+    }
+}
+
+public final class CoreDataGamificationRepository: GamificationRepositoryProtocol, @unchecked Sendable {
     private let readContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
     private let schemaValidationError: NSError?
@@ -10,7 +22,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
     public init(container: NSPersistentContainer) {
         self.readContext = container.newBackgroundContext()
         self.backgroundContext = container.newBackgroundContext()
-        self.readContext.mergePolicy = NSMergeByPropertyStoreTrumpMergePolicy
+        self.readContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyStoreTrumpMergePolicyType)
         self.readContext.automaticallyMergesChangesFromParent = true
         self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
         self.backgroundContext.transactionAuthor = "tasker.gamification.local"
@@ -27,8 +39,9 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         }
     }
 
-    public func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
+    public func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         readContext.perform {
             do {
                 let object = try V2CoreDataRepositorySupport.fetchObject(
@@ -41,7 +54,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     ]
                 )
                 guard let object else {
-                    completion(.success(nil))
+                    callback.deliver(.success(nil))
                     return
                 }
                 let snapshot = GamificationSnapshot(
@@ -57,16 +70,17 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     returnStreak: Int(object.value(forKey: "returnStreak") as? Int32 ?? 0),
                     bestReturnStreak: Int(object.value(forKey: "bestReturnStreak") as? Int32 ?? 0)
                 )
-                completion(.success(snapshot))
+                callback.deliver(.success(snapshot))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     /// Executes saveProfile.
-    public func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(profile.id, field: "gamificationProfile.id")
@@ -107,7 +121,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     && (object.value(forKey: "bestReturnStreak") as? Int32 ?? 0) == incomingBestReturnStreak
 
                 if existingMatches {
-                    self.finalizeWrite(completion: completion)
+                    self.finalizeWrite(callback: callback)
                     return
                 }
                 object.setValue(canonicalID, forKey: "id")
@@ -122,16 +136,17 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                 object.setValue(incomingReturnStreak, forKey: "returnStreak")
                 object.setValue(incomingBestReturnStreak, forKey: "bestReturnStreak")
                 try self.backgroundContext.save()
-                self.finalizeWrite(completion: completion)
+                self.finalizeWrite(callback: callback)
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     /// Executes fetchXPEvents.
-    public func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+    public func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         readContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -155,16 +170,17 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                         metadataBlob: object.value(forKey: "metadataBlob") as? Data
                     )
                 }
-                completion(.success(events))
+                callback.deliver(.success(events))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     /// Executes saveXPEvent.
-    public func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(event.id, field: "xpEvent.id")
@@ -184,7 +200,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     }
                     self.completeIdempotentReplay(
                         key: normalizedIdempotencyKey,
-                        completion: completion
+                        callback: callback
                     )
                     return
                 }
@@ -206,23 +222,24 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                 object.setValue(event.periodKey, forKey: "periodKey")
                 object.setValue(event.metadataBlob, forKey: "metadataBlob")
                 try self.backgroundContext.save()
-                self.finalizeWrite(completion: completion)
+                self.finalizeWrite(callback: callback)
             } catch {
                 if Self.isIdempotencyConstraintConflict(error) {
                     self.completeIdempotentReplay(
                         key: event.idempotencyKey,
-                        completion: completion
+                        callback: callback
                     )
                     return
                 }
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     /// Executes fetchAchievementUnlocks.
-    public func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) {
+    public func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         readContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -238,16 +255,17 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                         sourceEventID: object.value(forKey: "sourceEventID") as? UUID
                     )
                 }
-                completion(.success(unlocks))
+                callback.deliver(.success(unlocks))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     /// Executes saveAchievementUnlock.
-    public func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(unlock.id, field: "achievementUnlock.id")
@@ -265,7 +283,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     if self.backgroundContext.hasChanges {
                         try self.backgroundContext.save()
                     }
-                    self.finalizeWrite(completion: completion)
+                    self.finalizeWrite(callback: callback)
                     return
                 }
                 let object = try V2CoreDataRepositorySupport.upsertByID(
@@ -278,17 +296,18 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                 object.setValue(unlock.unlockedAt, forKey: "unlockedAt")
                 object.setValue(unlock.sourceEventID, forKey: "sourceEventID")
                 try self.backgroundContext.save()
-                self.finalizeWrite(completion: completion)
+                self.finalizeWrite(callback: callback)
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     // MARK: - XP Events (Date Range)
 
-    public func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+    public func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         readContext.perform {
             do {
                 let predicate = NSPredicate(format: "createdAt >= %@ AND createdAt < %@", startDate as NSDate, endDate as NSDate)
@@ -314,17 +333,18 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                         metadataBlob: object.value(forKey: "metadataBlob") as? Data
                     )
                 }
-                completion(.success(events))
+                callback.deliver(.success(events))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     // MARK: - XP Event Idempotency Check
 
-    public func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         readContext.perform {
             do {
                 let normalizedKey = try V2CoreDataRepositorySupport.requireNonEmpty(
@@ -337,17 +357,18 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     predicate: NSPredicate(format: "idempotencyKey == %@", normalizedKey),
                     sort: [NSSortDescriptor(key: "id", ascending: true)]
                 )
-                completion(.success(existing != nil))
+                callback.deliver(.success(existing != nil))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     // MARK: - Daily XP Aggregates
 
-    public func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
+    public func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         readContext.perform {
             do {
                 let normalizedDateKey = try V2CoreDataRepositorySupport.requireNonEmpty(
@@ -366,7 +387,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     ]
                 )
                 guard let object = object else {
-                    completion(.success(nil))
+                    callback.deliver(.success(nil))
                     return
                 }
                 let aggregate = DailyXPAggregateDefinition(
@@ -376,15 +397,16 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     eventCount: Int(object.value(forKey: "eventCount") as? Int32 ?? 0),
                     updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
                 )
-                completion(.success(aggregate))
+                callback.deliver(.success(aggregate))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(aggregate.id, field: "dailyXPAggregate.id")
@@ -422,7 +444,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     && (object.value(forKey: "updatedAt") as? Date) == incomingUpdatedAt
 
                 if existingMatches {
-                    self.finalizeWrite(completion: completion)
+                    self.finalizeWrite(callback: callback)
                     return
                 }
                 object.setValue(canonicalID, forKey: "id")
@@ -431,15 +453,16 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                 object.setValue(incomingEventCount, forKey: "eventCount")
                 object.setValue(aggregate.updatedAt, forKey: "updatedAt")
                 try self.backgroundContext.save()
-                self.finalizeWrite(completion: completion)
+                self.finalizeWrite(callback: callback)
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
+    public func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         readContext.perform {
             do {
                 let normalizedStartDateKey = try V2CoreDataRepositorySupport.requireNonEmpty(
@@ -488,17 +511,18 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     }
                 }
                 let aggregates = canonicalByDateKey.values.sorted { $0.dateKey < $1.dateKey }
-                completion(.success(aggregates))
+                callback.deliver(.success(aggregates))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     // MARK: - Focus Sessions
 
-    public func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 let object = try V2CoreDataRepositorySupport.upsertByID(
@@ -508,15 +532,16 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                 )
                 self.applyFocusSessionValues(session, to: object)
                 try self.backgroundContext.save()
-                self.finalizeWrite(completion: completion)
+                self.finalizeWrite(callback: callback)
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 let object = try V2CoreDataRepositorySupport.upsertByID(
@@ -526,15 +551,16 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                 )
                 self.applyFocusSessionValues(session, to: object)
                 try self.backgroundContext.save()
-                self.finalizeWrite(completion: completion)
+                self.finalizeWrite(callback: callback)
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+    public func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
         guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
         readContext.perform {
             do {
                 let predicate = NSPredicate(format: "startedAt >= %@ AND startedAt < %@", startDate as NSDate, endDate as NSDate)
@@ -556,22 +582,22 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                         xpAwarded: Int(object.value(forKey: "xpAwarded") as? Int32 ?? 0)
                     )
                 }
-                completion(.success(sessions))
+                callback.deliver(.success(sessions))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     // MARK: - Private Helpers
 
-    private func guardSchemaReady<T>(completion: @escaping (Result<T, Error>) -> Void) -> Bool {
+    private func guardSchemaReady<T>(completion: @escaping @Sendable (Result<T, Error>) -> Void) -> Bool {
         guard let schemaValidationError else { return true }
         completion(.failure(schemaValidationError))
         return false
     }
 
-    private func finalizeWrite(completion: @escaping (Result<Void, Error>) -> Void) {
+    private func finalizeWrite(callback: GamificationRepositoryCompletion<Void>) {
         readContext.perform {
             let registeredObjectCount = self.readContext.registeredObjects.count
             self.readContext.reset()
@@ -581,13 +607,13 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     "registered_objects=\(registeredObjectCount)"
             )
             #endif
-            completion(.success(()))
+            callback.deliver(.success(()))
         }
     }
 
     private func completeIdempotentReplay(
         key: String,
-        completion: @escaping (Result<Void, Error>) -> Void
+        callback: GamificationRepositoryCompletion<Void>
     ) {
         readContext.perform {
             let registeredObjectCount = self.readContext.registeredObjects.count
@@ -598,7 +624,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     "registered_objects=\(registeredObjectCount)"
             )
             #endif
-            completion(.failure(GamificationRepositoryWriteError.idempotentReplay(
+            callback.deliver(.failure(GamificationRepositoryWriteError.idempotentReplay(
                 idempotencyKey: key
             )))
         }

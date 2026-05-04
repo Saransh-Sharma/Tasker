@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-public final class CoreDataAssistantActionRepository: AssistantActionRepositoryProtocol {
+public final class CoreDataAssistantActionRepository: AssistantActionRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
     private let completionQueue: DispatchQueue
@@ -15,17 +15,17 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
     }
 
     /// Executes createRun.
-    public func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    public func createRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         persist(run, completion: completion)
     }
 
     /// Executes updateRun.
-    public func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    public func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         persist(run, completion: completion)
     }
 
     /// Executes fetchRun.
-    public func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
+    public func fetchRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition?, Error>) -> Void) {
         viewContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(id, field: "assistantActionRun.id")
@@ -45,7 +45,7 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
     }
 
     /// Executes persist.
-    private func persist(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+    private func persist(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(run.id, field: "assistantActionRun.id")
@@ -81,12 +81,20 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
         }
     }
 
-    private func complete<T>(
+    private func complete<T: Sendable>(
         _ result: Result<T, Error>,
-        completion: @escaping (Result<T, Error>) -> Void
+        completion: @escaping @Sendable (Result<T, Error>) -> Void
     ) {
-        completionQueue.async {
-            completion(result)
+        switch result {
+        case .success(let value):
+            completionQueue.async {
+                completion(.success(value))
+            }
+        case .failure(let error):
+            let sendableError = error as NSError
+            completionQueue.async {
+                completion(.failure(sendableError))
+            }
         }
     }
 

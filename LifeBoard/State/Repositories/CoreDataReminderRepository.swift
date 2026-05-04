@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
+public final class CoreDataReminderRepository: ReminderRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -12,7 +12,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     }
 
     /// Executes fetchReminders.
-    public func fetchReminders(completion: @escaping (Result<[ReminderDefinition], Error>) -> Void) {
+    public func fetchReminders(completion: @escaping @Sendable (Result<[ReminderDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -32,7 +32,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     }
 
     /// Executes saveReminder.
-    public func saveReminder(_ reminder: ReminderDefinition, completion: @escaping (Result<ReminderDefinition, Error>) -> Void) {
+    public func saveReminder(_ reminder: ReminderDefinition, completion: @escaping @Sendable (Result<ReminderDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(reminder.id, field: "reminder.id")
@@ -60,7 +60,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     }
 
     /// Executes fetchTriggers.
-    public func fetchTriggers(reminderID: UUID, completion: @escaping (Result<[ReminderTriggerDefinition], Error>) -> Void) {
+    public func fetchTriggers(reminderID: UUID, completion: @escaping @Sendable (Result<[ReminderTriggerDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(reminderID, field: "reminderTrigger.reminderID")
@@ -81,7 +81,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     }
 
     /// Executes saveTrigger.
-    public func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping (Result<ReminderTriggerDefinition, Error>) -> Void) {
+    public func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping @Sendable (Result<ReminderTriggerDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(trigger.id, field: "reminderTrigger.id")
@@ -107,7 +107,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     }
 
     /// Executes fetchDeliveries.
-    public func fetchDeliveries(reminderID: UUID, completion: @escaping (Result<[ReminderDeliveryDefinition], Error>) -> Void) {
+    public func fetchDeliveries(reminderID: UUID, completion: @escaping @Sendable (Result<[ReminderDeliveryDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(reminderID, field: "reminderDelivery.reminderID")
@@ -130,7 +130,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     public func fetchDeliveryResponseAggregate(
         from startDate: Date?,
         to endDate: Date?,
-        completion: @escaping (Result<ReminderDeliveryResponseAggregate, Error>) -> Void
+        completion: @escaping @Sendable (Result<ReminderDeliveryResponseAggregate, Error>) -> Void
     ) {
         viewContext.perform {
             do {
@@ -193,17 +193,17 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     }
 
     /// Executes saveDelivery.
-    public func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
+    public func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         persistDelivery(delivery, completion: completion)
     }
 
     /// Executes updateDelivery.
-    public func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
+    public func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         persistDelivery(delivery, completion: completion)
     }
 
     /// Executes persistDelivery.
-    private func persistDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
+    private func persistDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping @Sendable (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(delivery.id, field: "reminderDelivery.id")

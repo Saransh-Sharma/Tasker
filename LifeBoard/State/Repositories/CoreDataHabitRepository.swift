@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-public final class CoreDataHabitRepository: HabitRepositoryProtocol {
+public final class CoreDataHabitRepository: HabitRepositoryProtocol, @unchecked Sendable {
     private let readContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
     private let schemaValidationError: NSError?
@@ -16,7 +16,7 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
     }
 
     /// Executes fetchAll.
-    public func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
+    public func fetchAll(completion: @escaping @Sendable (Result<[HabitDefinitionRecord], Error>) -> Void) {
         readContext.perform {
             if let schemaValidationError = self.schemaValidationError {
                 completion(.failure(schemaValidationError))
@@ -39,7 +39,7 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
     }
 
     /// Executes fetchByID.
-    public func fetchByID(id: UUID, completion: @escaping (Result<HabitDefinitionRecord?, Error>) -> Void) {
+    public func fetchByID(id: UUID, completion: @escaping @Sendable (Result<HabitDefinitionRecord?, Error>) -> Void) {
         readContext.perform {
             if let schemaValidationError = self.schemaValidationError {
                 completion(.failure(schemaValidationError))
@@ -60,7 +60,7 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
     }
 
     /// Executes create.
-    public func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+    public func create(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
         backgroundContext.perform {
             if let schemaValidationError = self.schemaValidationError {
                 completion(.failure(schemaValidationError))
@@ -91,12 +91,12 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
     }
 
     /// Executes update.
-    public func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+    public func update(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
         create(habit, completion: completion)
     }
 
     /// Executes delete.
-    public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             if let schemaValidationError = self.schemaValidationError {
                 completion(.failure(schemaValidationError))

@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
+public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -12,7 +12,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     }
 
     /// Executes fetchTemplates.
-    public func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) {
+    public func fetchTemplates(completion: @escaping @Sendable (Result<[ScheduleTemplateDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -46,7 +46,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     }
 
     /// Executes fetchRules.
-    public func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) {
+    public func fetchRules(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(templateID, field: "scheduleRule.scheduleTemplateID")
@@ -81,7 +81,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     }
 
     /// Executes saveTemplate.
-    public func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) {
+    public func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping @Sendable (Result<ScheduleTemplateDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(template.id, field: "scheduleTemplate.id")
@@ -112,7 +112,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     }
 
     /// Executes deleteTemplate.
-    public func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func deleteTemplate(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(id, field: "scheduleTemplate.id")
@@ -136,7 +136,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     public func replaceRules(
         templateID: UUID,
         rules: [ScheduleRuleDefinition],
-        completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void
+        completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void
     ) {
         backgroundContext.perform {
             do {
@@ -194,7 +194,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     }
 
     /// Executes fetchExceptions.
-    public func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) {
+    public func fetchExceptions(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleExceptionDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(templateID, field: "scheduleException.scheduleTemplateID")
@@ -235,7 +235,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     }
 
     /// Executes saveException.
-    public func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) {
+    public func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping @Sendable (Result<ScheduleExceptionDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(exception.id, field: "scheduleException.id")

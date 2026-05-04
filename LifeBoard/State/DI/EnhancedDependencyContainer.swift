@@ -1,6 +1,6 @@
 //
 //  EnhancedDependencyContainer.swift
-//  Tasker
+//  LifeBoard
 //
 //  Enhanced dependency injection container for Clean Architecture
 //
@@ -8,12 +8,24 @@
 import Foundation
 import CoreData
 import UIKit
-import Combine
+@preconcurrency import Combine
+
+private final class UserDefaultsWriteProxy: @unchecked Sendable {
+    private let defaults: UserDefaults
+
+    init(_ defaults: UserDefaults) {
+        self.defaults = defaults
+    }
+
+    func set(_ value: Bool, forKey key: String) {
+        defaults.set(value, forKey: key)
+    }
+}
 
 /// Enhanced dependency container supporting Clean Architecture
-public final class EnhancedDependencyContainer {
+public final class EnhancedDependencyContainer: @unchecked Sendable {
     private enum HabitRuntimeBootstrapRepair {
-        static let repairKey = "tasker.habit.runtime.bootstrap_repair.v1"
+        static let repairKey = "lifeboard.habit.runtime.bootstrap_repair.v1"
     }
 
     // MARK: - Singleton
@@ -297,10 +309,10 @@ public final class EnhancedDependencyContainer {
 
     private func calendarUITestMode() -> UITestCalendarMode? {
         let arguments = ProcessInfo.processInfo.arguments
-        guard arguments.contains("-TASKER_TEST_CALENDAR_STUB") else {
+        guard arguments.contains("-LIFEBOARD_TEST_CALENDAR_STUB") else {
             return nil
         }
-        guard let modeArgument = arguments.first(where: { $0.hasPrefix("-TASKER_TEST_CALENDAR_MODE:") }) else {
+        guard let modeArgument = arguments.first(where: { $0.hasPrefix("-LIFEBOARD_TEST_CALENDAR_MODE:") }) else {
             return .active
         }
         let rawMode = String(modeArgument.split(separator: ":", maxSplits: 1).last ?? "")
@@ -308,7 +320,7 @@ public final class EnhancedDependencyContainer {
     }
 
     private func applyCalendarUITestWorkspaceDefaults(mode: UITestCalendarMode) {
-        TaskerWorkspacePreferencesStore.shared.update { preferences in
+        LifeBoardWorkspacePreferencesStore.shared.update { preferences in
             preferences.includeDeclinedCalendarEvents = false
             preferences.includeCanceledCalendarEvents = false
             preferences.includeAllDayInAgenda = true
@@ -326,6 +338,7 @@ public final class EnhancedDependencyContainer {
 
     private func performHabitRuntimeBootstrapRepairIfNeeded() {
         let defaults = UserDefaults.standard
+        let defaultsWriter = UserDefaultsWriteProxy(defaults)
         guard defaults.bool(forKey: HabitRuntimeBootstrapRepair.repairKey) == false else {
             return
         }
@@ -348,7 +361,7 @@ public final class EnhancedDependencyContainer {
                             fields: ["error": error.localizedDescription]
                         )
                     case .success:
-                        defaults.set(true, forKey: HabitRuntimeBootstrapRepair.repairKey)
+                        defaultsWriter.set(true, forKey: HabitRuntimeBootstrapRepair.repairKey)
                     }
                 }
             }
@@ -397,6 +410,7 @@ public final class EnhancedDependencyContainer {
     // MARK: - Dependency Injection
     
     /// Inject dependencies into a view controller
+    @MainActor
     func inject(into viewController: UIViewController) {
         let vcType = String(describing: type(of: viewController))
         logDebug("💉 EnhancedDependencyContainer: Injecting into \(vcType)")
@@ -430,10 +444,10 @@ enum UITestCalendarMode: String {
     case error
 }
 
-final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
+final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol, @unchecked Sendable {
     private let mode: UITestCalendarMode
     private let storeChangedSubject = PassthroughSubject<Void, Never>()
-    private var authStatus: TaskerCalendarAuthorizationStatus
+    private var authStatus: LifeBoardCalendarAuthorizationStatus
 
     init(mode: UITestCalendarMode) {
         self.mode = mode
@@ -449,11 +463,11 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
         }
     }
 
-    func authorizationStatus() -> TaskerCalendarAuthorizationStatus {
+    func authorizationStatus() -> LifeBoardCalendarAuthorizationStatus {
         authStatus
     }
 
-    func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+    func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         switch mode {
         case .denied, .deniedAfterAttempt:
             completion(.success(false))
@@ -465,7 +479,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
 
     func resetStoreStateAfterPermissionChange() {}
 
-    func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
+    func fetchCalendars(completion: @escaping @Sendable (Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void) {
         switch mode {
         case .error:
             completion(.failure(NSError(
@@ -477,14 +491,14 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
             completion(.success([]))
         default:
             completion(.success([
-                TaskerCalendarSourceSnapshot(
+                LifeBoardCalendarSourceSnapshot(
                     id: "work",
                     title: "Work",
                     sourceTitle: "iCloud",
                     colorHex: "#007AFF",
                     allowsContentModifications: false
                 ),
-                TaskerCalendarSourceSnapshot(
+                LifeBoardCalendarSourceSnapshot(
                     id: "personal",
                     title: "Personal",
                     sourceTitle: "iCloud",
@@ -499,7 +513,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
         startDate: Date,
         endDate: Date,
         calendarIDs: Set<String>,
-        completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
+        completion: @escaping @Sendable (Result<[LifeBoardCalendarEventSnapshot], Error>) -> Void
     ) {
         switch mode {
         case .permission, .writeOnly, .denied, .deniedAfterAttempt, .noCalendars, .empty:
@@ -518,7 +532,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
             let secondStart = calendar.date(byAdding: .minute, value: 60, to: firstEnd) ?? firstEnd
             let secondEnd = calendar.date(byAdding: .minute, value: 30, to: secondStart) ?? secondStart
             let allEvents = [
-                TaskerCalendarEventSnapshot(
+                LifeBoardCalendarEventSnapshot(
                     id: "test_meeting_1",
                     calendarID: "work",
                     calendarTitle: "Work",
@@ -531,7 +545,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
                     availability: .busy,
                     participationStatus: .accepted
                 ),
-                TaskerCalendarEventSnapshot(
+                LifeBoardCalendarEventSnapshot(
                     id: "test_meeting_2",
                     calendarID: "work",
                     calendarTitle: "Work",
@@ -558,7 +572,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
             let clampedAnchor = min(max(now, startDate), endDate.addingTimeInterval(-60))
             let allDayStart = calendar.startOfDay(for: clampedAnchor)
             let allDayEnd = calendar.date(byAdding: .day, value: 1, to: allDayStart) ?? allDayStart
-            let event = TaskerCalendarEventSnapshot(
+            let event = LifeBoardCalendarEventSnapshot(
                 id: "test_all_day",
                 calendarID: "work",
                 calendarTitle: "Work",
@@ -583,7 +597,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
 }
 
 /// Project repository with caching
-private class CachedProjectRepository: ProjectRepositoryProtocol {
+private final class CachedProjectRepository: ProjectRepositoryProtocol {
     private let repository: ProjectRepositoryProtocol
     private let cache: CacheServiceProtocol
     
@@ -597,7 +611,7 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     // This is a simplified example
     
     /// Executes fetchAllProjects.
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         if let cached = cache.getCachedProjects() {
             completion(.success(cached))
             return
@@ -614,66 +628,66 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     // ... implement other methods similarly
     
     /// Executes fetchProject.
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         repository.fetchProject(withId: id, completion: completion)
     }
     
     /// Executes fetchProject.
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
         repository.fetchProject(withName: name, completion: completion)
     }
     
     /// Executes fetchInboxProject.
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         repository.fetchInboxProject(completion: completion)
     }
     
     /// Executes fetchCustomProjects.
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
         repository.fetchCustomProjects(completion: completion)
     }
     
     /// Executes createProject.
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         cache.clearAll()
         repository.createProject(project, completion: completion)
     }
     
     /// Executes ensureInboxProject.
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         repository.ensureInboxProject(completion: completion)
     }
 
     /// Executes repairProjectIdentityCollisions.
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
         repository.repairProjectIdentityCollisions(completion: completion)
     }
     
     /// Executes updateProject.
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         cache.clearAll()
         repository.updateProject(project, completion: completion)
     }
     
     /// Executes renameProject.
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
         cache.clearAll()
         repository.renameProject(withId: id, to: newName, completion: completion)
     }
     
     /// Executes deleteProject.
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         cache.clearAll()
         repository.deleteProject(withId: id, deleteTasks: deleteTasks, completion: completion)
     }
     
     /// Executes getTaskCount.
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+    func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) {
         repository.getTaskCount(for: projectId, completion: completion)
     }
     
     /// Executes moveTasks.
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         cache.clearAll()
         repository.moveTasks(from: sourceProjectId, to: targetProjectId, completion: completion)
     }
@@ -682,7 +696,7 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     func moveProjectToLifeArea(
         projectID: UUID,
         lifeAreaID: UUID,
-        completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<ProjectLifeAreaMoveResult, Error>) -> Void
     ) {
         cache.clearAll()
         repository.moveProjectToLifeArea(
@@ -695,7 +709,7 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     /// Executes backfillProjectsWithoutLifeArea.
     func backfillProjectsWithoutLifeArea(
         defaultLifeAreaID: UUID,
-        completion: @escaping (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
     ) {
         cache.clearAll()
         repository.backfillProjectsWithoutLifeArea(
@@ -705,7 +719,7 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     }
     
     /// Executes isProjectNameAvailable.
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         repository.isProjectNameAvailable(name, excludingId: excludingId, completion: completion)
     }
 }

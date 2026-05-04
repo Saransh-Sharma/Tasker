@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-public final class CoreDataTombstoneRepository: TombstoneRepositoryProtocol {
+public final class CoreDataTombstoneRepository: TombstoneRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -12,7 +12,7 @@ public final class CoreDataTombstoneRepository: TombstoneRepositoryProtocol {
     }
 
     /// Executes create.
-    public func create(_ tombstone: TombstoneDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func create(_ tombstone: TombstoneDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(tombstone.id, field: "tombstone.id")
@@ -33,7 +33,7 @@ public final class CoreDataTombstoneRepository: TombstoneRepositoryProtocol {
     }
 
     /// Executes fetchExpired.
-    public func fetchExpired(before date: Date, completion: @escaping (Result<[TombstoneDefinition], Error>) -> Void) {
+    public func fetchExpired(before date: Date, completion: @escaping @Sendable (Result<[TombstoneDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -53,7 +53,7 @@ public final class CoreDataTombstoneRepository: TombstoneRepositoryProtocol {
     }
 
     /// Executes delete.
-    public func delete(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+    public func delete(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 for id in ids {

@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtocol {
+public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -13,7 +13,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
     }
 
     /// Executes fetchContainerMappings.
-    public func fetchContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) {
+    public func fetchContainerMappings(completion: @escaping @Sendable (Result<[ExternalContainerMapDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -36,7 +36,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
     public func fetchContainerMapping(
         provider: String,
         projectID: UUID,
-        completion: @escaping (Result<ExternalContainerMapDefinition?, Error>) -> Void
+        completion: @escaping @Sendable (Result<ExternalContainerMapDefinition?, Error>) -> Void
     ) {
         viewContext.perform {
             do {
@@ -57,7 +57,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
     }
 
     /// Executes saveContainerMapping.
-    public func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         upsertContainerMapping(provider: mapping.provider, projectID: mapping.projectID, mutate: { _ in
             mapping
         }) { result in
@@ -69,8 +69,8 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
     public func upsertContainerMapping(
         provider: String,
         projectID: UUID,
-        mutate: @escaping (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition,
-        completion: @escaping (Result<ExternalContainerMapDefinition, Error>) -> Void
+        mutate: @escaping @Sendable (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition,
+        completion: @escaping @Sendable (Result<ExternalContainerMapDefinition, Error>) -> Void
     ) {
         backgroundContext.perform {
             do {
@@ -112,7 +112,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
     }
 
     /// Executes fetchItemMappings.
-    public func fetchItemMappings(completion: @escaping (Result<[ExternalItemMapDefinition], Error>) -> Void) {
+    public func fetchItemMappings(completion: @escaping @Sendable (Result<[ExternalItemMapDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -133,7 +133,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
     }
 
     /// Executes saveItemMapping.
-    public func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         upsertItemMappingByLocalKey(
             provider: mapping.provider,
             localEntityType: mapping.localEntityType,
@@ -150,8 +150,8 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         provider: String,
         localEntityType: String,
         localEntityID: UUID,
-        mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
-        completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void
+        mutate: @escaping @Sendable (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
+        completion: @escaping @Sendable (Result<ExternalItemMapDefinition, Error>) -> Void
     ) {
         backgroundContext.perform {
             do {
@@ -245,8 +245,8 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
     public func upsertItemMappingByExternalKey(
         provider: String,
         externalItemID: String,
-        mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
-        completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void
+        mutate: @escaping @Sendable (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
+        completion: @escaping @Sendable (Result<ExternalItemMapDefinition, Error>) -> Void
     ) {
         backgroundContext.perform {
             do {
@@ -330,7 +330,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         provider: String,
         localEntityType: String,
         localEntityID: UUID,
-        completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void
+        completion: @escaping @Sendable (Result<ExternalItemMapDefinition?, Error>) -> Void
     ) {
         viewContext.perform {
             do {
@@ -360,7 +360,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
     public func fetchItemMapping(
         provider: String,
         externalItemID: String,
-        completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void
+        completion: @escaping @Sendable (Result<ExternalItemMapDefinition?, Error>) -> Void
     ) {
         viewContext.perform {
             do {

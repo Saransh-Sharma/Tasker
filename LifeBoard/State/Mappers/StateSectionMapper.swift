@@ -5,8 +5,8 @@ enum StateSectionMapper {
     static let entityName = "ProjectSection"
 
     /// Executes toDomain.
-    static func toDomain(from object: NSManagedObject) -> TaskerProjectSection {
-        TaskerProjectSection(
+    static func toDomain(from object: NSManagedObject) -> LifeBoardProjectSection {
+        LifeBoardProjectSection(
             id: object.value(forKey: "id") as? UUID ?? UUID(),
             projectID: object.value(forKey: "projectID") as? UUID ?? ProjectConstants.inboxProjectID,
             name: object.value(forKey: "name") as? String ?? "Section",
@@ -19,7 +19,7 @@ enum StateSectionMapper {
 
     /// Executes apply.
     @discardableResult
-    static func apply(_ model: TaskerProjectSection, to object: NSManagedObject) -> NSManagedObject {
+    static func apply(_ model: LifeBoardProjectSection, to object: NSManagedObject) -> NSManagedObject {
         object.setValue(model.id, forKey: "id")
         object.setValue(model.projectID, forKey: "projectID")
         object.setValue(model.name, forKey: "name")

@@ -1,6 +1,6 @@
 //
 //  InMemoryCacheService.swift
-//  Tasker
+//  LifeBoard
 //
 //  In-memory implementation of CacheServiceProtocol
 //
@@ -13,7 +13,7 @@ public final class InMemoryCacheService: CacheServiceProtocol, @unchecked Sendab
     // MARK: - Properties
     
     private var cache: [String: CacheEntry] = [:]
-    private let queue = DispatchQueue(label: "com.tasker.cache", attributes: .concurrent)
+    private let queue = DispatchQueue(label: "com.lifeboard.cache", attributes: .concurrent)
     private var _statistics = CacheStatistics()
     private var statistics: CacheStatistics {
         get { queue.sync { _statistics } }

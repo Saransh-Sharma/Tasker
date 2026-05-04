@@ -1,13 +1,13 @@
 //
 //  UserDefaultsSavedHomeViewRepository.swift
-//  Tasker
+//  LifeBoard
 //
 //  Local persisted implementation for Home saved views (v2)
 //
 
 import Foundation
 
-public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryProtocol {
+public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryProtocol, @unchecked Sendable {
 
     private let defaults: UserDefaults
     private let storageKey: String
@@ -22,7 +22,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
     }
 
     /// Executes fetchAll.
-    public func fetchAll(completion: @escaping (Result<[SavedHomeView], Error>) -> Void) {
+    public func fetchAll(completion: @escaping @Sendable (Result<[SavedHomeView], Error>) -> Void) {
         do {
             let views = try loadViews()
             completion(.success(views.sorted { $0.updatedAt > $1.updatedAt }))
@@ -32,7 +32,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
     }
 
     /// Executes save.
-    public func save(_ view: SavedHomeView, completion: @escaping (Result<[SavedHomeView], Error>) -> Void) {
+    public func save(_ view: SavedHomeView, completion: @escaping @Sendable (Result<[SavedHomeView], Error>) -> Void) {
         do {
             var views = try loadViews()
 
@@ -50,7 +50,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
     }
 
     /// Executes delete.
-    public func delete(id: UUID, completion: @escaping (Result<[SavedHomeView], Error>) -> Void) {
+    public func delete(id: UUID, completion: @escaping @Sendable (Result<[SavedHomeView], Error>) -> Void) {
         do {
             var views = try loadViews()
             views.removeAll { $0.id == id }
@@ -62,7 +62,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
     }
 
     /// Executes replaceAll.
-    public func replaceAll(_ views: [SavedHomeView], completion: @escaping (Result<[SavedHomeView], Error>) -> Void) {
+    public func replaceAll(_ views: [SavedHomeView], completion: @escaping @Sendable (Result<[SavedHomeView], Error>) -> Void) {
         do {
             try persist(views)
             completion(.success(views.sorted { $0.updatedAt > $1.updatedAt }))

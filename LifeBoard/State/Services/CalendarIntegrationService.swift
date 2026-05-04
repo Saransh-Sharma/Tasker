@@ -4,7 +4,7 @@ import Combine
 public enum CalendarAccessAction: Equatable {
     case requestPermission
     case openSystemSettings
-    case unavailable(TaskerCalendarAuthorizationStatus)
+    case unavailable(LifeBoardCalendarAuthorizationStatus)
     case noneNeeded
 }
 
@@ -19,8 +19,8 @@ public enum CalendarAccessAttemptOutcome: String, Codable, Equatable {
 public struct CalendarAccessAttemptRecord: Codable, Equatable {
     public let attemptedAt: Date
     public let source: String
-    public let statusBefore: TaskerCalendarAuthorizationStatus
-    public let statusAfter: TaskerCalendarAuthorizationStatus?
+    public let statusBefore: LifeBoardCalendarAuthorizationStatus
+    public let statusAfter: LifeBoardCalendarAuthorizationStatus?
     public let outcome: CalendarAccessAttemptOutcome
     public let errorDomain: String?
     public let errorCode: Int?
@@ -30,8 +30,8 @@ public struct CalendarAccessAttemptRecord: Codable, Equatable {
     public init(
         attemptedAt: Date = Date(),
         source: String,
-        statusBefore: TaskerCalendarAuthorizationStatus,
-        statusAfter: TaskerCalendarAuthorizationStatus?,
+        statusBefore: LifeBoardCalendarAuthorizationStatus,
+        statusAfter: LifeBoardCalendarAuthorizationStatus?,
         outcome: CalendarAccessAttemptOutcome,
         errorDomain: String? = nil,
         errorCode: Int? = nil,
@@ -68,14 +68,14 @@ public struct CalendarAccessAttemptRecord: Codable, Equatable {
     }
 }
 
-public protocol CalendarAccessAttemptStore: AnyObject {
+public protocol CalendarAccessAttemptStore: AnyObject, Sendable {
     var hasAttemptedFullAccessRequest: Bool { get }
     var lastFullAccessAttempt: CalendarAccessAttemptRecord? { get }
     func recordFullAccessAttempt(_ record: CalendarAccessAttemptRecord)
     func reset()
 }
 
-public final class UserDefaultsCalendarAccessAttemptStore: CalendarAccessAttemptStore {
+public final class UserDefaultsCalendarAccessAttemptStore: CalendarAccessAttemptStore, @unchecked Sendable {
     public static let shared = UserDefaultsCalendarAccessAttemptStore()
 
     private let defaults: UserDefaults
@@ -120,7 +120,7 @@ public final class UserDefaultsCalendarAccessAttemptStore: CalendarAccessAttempt
     }
 }
 
-public final class CalendarDiagnosticsStore {
+public final class CalendarDiagnosticsStore: @unchecked Sendable {
     public static let shared = CalendarDiagnosticsStore()
 
     private let defaults: UserDefaults
@@ -207,7 +207,9 @@ public enum CalendarAccessDiagnostics {
     public static let eventKitDaemonXPCErrorCode = 1015
 }
 
-public final class CalendarIntegrationService: ObservableObject {
+/// Observable calendar state service. Mutable state is owned by the main actor; provider callbacks
+/// are allowed to arrive on arbitrary queues and hop to `MainActor` before mutating `snapshot`.
+public final class CalendarIntegrationService: ObservableObject, @unchecked Sendable {
     private struct DayProjectionKey: Hashable {
         let revision: UInt64
         let startOfDay: Date
@@ -219,10 +221,10 @@ public final class CalendarIntegrationService: ObservableObject {
         let weekStartsOn: Weekday
     }
 
-    @Published public private(set) var snapshot: TaskerCalendarSnapshot
+    @Published public private(set) var snapshot: LifeBoardCalendarSnapshot
 
     private let provider: CalendarEventsProviderProtocol?
-    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
     private let accessAttemptStore: CalendarAccessAttemptStore
     private let filterEvents = FilterCalendarEventsUseCase()
     private let buildBusyBlocks = BuildCalendarBusyBlocksUseCase()
@@ -230,17 +232,17 @@ public final class CalendarIntegrationService: ObservableObject {
     private let buildWeekAgenda = BuildCalendarWeekAgendaUseCase()
     private let taskFitUseCase = ComputeTaskFitHintUseCase(bufferMinutes: 15)
 
-    private var contextEvents: [TaskerCalendarEventSnapshot] = []
+    private var contextEvents: [LifeBoardCalendarEventSnapshot] = []
     private var contextEventFetchRange: ClosedRange<Date>?
     private var refreshGeneration: UInt64 = 0
     private var projectionRevision: UInt64 = 0
-    private var dayProjectionCache: [DayProjectionKey: [TaskerCalendarEventSnapshot]] = [:]
-    private var weekProjectionCache: [WeekProjectionKey: [TaskerCalendarDayAgenda]] = [:]
+    private var dayProjectionCache: [DayProjectionKey: [LifeBoardCalendarEventSnapshot]] = [:]
+    private var weekProjectionCache: [WeekProjectionKey: [LifeBoardCalendarDayAgenda]] = [:]
     private var cancellables: Set<AnyCancellable> = []
 
-    public init(
+    public nonisolated init(
         provider: CalendarEventsProviderProtocol?,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
         accessAttemptStore: CalendarAccessAttemptStore = UserDefaultsCalendarAccessAttemptStore.shared
     ) {
         self.provider = provider
@@ -248,7 +250,7 @@ public final class CalendarIntegrationService: ObservableObject {
         self.accessAttemptStore = accessAttemptStore
 
         let prefs = workspacePreferencesStore.load()
-        self.snapshot = TaskerCalendarSnapshot(
+        self.snapshot = LifeBoardCalendarSnapshot(
             authorizationStatus: provider?.authorizationStatus() ?? .denied,
             availableCalendars: [],
             selectedCalendarIDs: prefs.selectedCalendarIDs,
@@ -271,7 +273,7 @@ public final class CalendarIntegrationService: ObservableObject {
             }
             .store(in: &cancellables)
 
-        NotificationCenter.default.publisher(for: TaskerWorkspacePreferencesStore.didChangeNotification)
+        NotificationCenter.default.publisher(for: LifeBoardWorkspacePreferencesStore.didChangeNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.reloadPreferencesAndRefresh(reason: "workspace_preferences_changed")
@@ -320,7 +322,7 @@ public final class CalendarIntegrationService: ObservableObject {
         return action
     }
 
-    public func accessAction(for status: TaskerCalendarAuthorizationStatus) -> CalendarAccessAction {
+    public func accessAction(for status: LifeBoardCalendarAuthorizationStatus) -> CalendarAccessAction {
         switch status {
         case .notDetermined:
             return .requestPermission
@@ -339,7 +341,7 @@ public final class CalendarIntegrationService: ObservableObject {
     public func performAccessAction(
         source: String = "unknown",
         openSystemSettings: @escaping () -> Void,
-        completion: ((Bool) -> Void)? = nil
+        completion: (@Sendable (Bool) -> Void)? = nil
     ) -> CalendarAccessAction {
         let action = accessAction()
         switch action {
@@ -364,7 +366,7 @@ public final class CalendarIntegrationService: ObservableObject {
         return action
     }
 
-    public func requestAccess(source: String = "unknown", completion: ((Bool) -> Void)? = nil) {
+    public func requestAccess(source: String = "unknown", completion: (@Sendable (Bool) -> Void)? = nil) {
         guard let provider else {
             logCalendarWarning(
                 event: "calendar_full_access_request_completed",
@@ -375,7 +377,7 @@ public final class CalendarIntegrationService: ObservableObject {
                         "source": source,
                         "granted": "false",
                         "attemptOutcome": CalendarAccessAttemptOutcome.failed.rawValue,
-                        "statusAfter": TaskerCalendarAuthorizationStatus.denied.rawValue,
+                        "statusAfter": LifeBoardCalendarAuthorizationStatus.denied.rawValue,
                         "errorMessage": "provider_unavailable"
                     ]
                 )
@@ -401,7 +403,7 @@ public final class CalendarIntegrationService: ObservableObject {
         )
 
         provider.requestAccess { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 switch result {
                 case .success(let granted):
@@ -456,7 +458,7 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     public func updateSelectedCalendarIDs(_ calendarIDs: [String]) {
-        let normalizedCalendarIDs = TaskerWorkspacePreferences.normalizeSelectedCalendarIDs(calendarIDs)
+        let normalizedCalendarIDs = LifeBoardWorkspacePreferences.normalizeSelectedCalendarIDs(calendarIDs)
         guard normalizedCalendarIDs != snapshot.selectedCalendarIDs else { return }
 
         workspacePreferencesStore.update { preferences in
@@ -548,7 +550,7 @@ public final class CalendarIntegrationService: ObservableObject {
         snapshot.errorMessage = nil
 
         provider.fetchCalendars { [weak self] calendarsResult in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self, self.isCurrentRefreshGeneration(generation) else { return }
                 switch calendarsResult {
                 case .failure(let error):
@@ -577,7 +579,7 @@ public final class CalendarIntegrationService: ObservableObject {
                         endDate: fetchEnd,
                         calendarIDs: Set(self.snapshot.selectedCalendarIDs)
                     ) { [weak self] eventsResult in
-                        DispatchQueue.main.async {
+                        Task { @MainActor in
                             guard let self, self.isCurrentRefreshGeneration(generation) else { return }
                             self.snapshot.isLoading = false
                             switch eventsResult {
@@ -600,7 +602,7 @@ public final class CalendarIntegrationService: ObservableObject {
         }
     }
 
-    public func eventsForDay(_ day: Date) -> [TaskerCalendarEventSnapshot] {
+    public func eventsForDay(_ day: Date) -> [LifeBoardCalendarEventSnapshot] {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: day)
         let cacheKey = DayProjectionKey(revision: projectionRevision, startOfDay: startOfDay)
@@ -621,7 +623,7 @@ public final class CalendarIntegrationService: ObservableObject {
         return events
     }
 
-    public func weekAgenda(anchorDate: Date, weekStartsOn: Weekday) -> [TaskerCalendarDayAgenda] {
+    public func weekAgenda(anchorDate: Date, weekStartsOn: Weekday) -> [LifeBoardCalendarDayAgenda] {
         let weekStart = XPCalculationEngine.startOfWeek(for: anchorDate, startingOn: weekStartsOn)
         let cacheKey = WeekProjectionKey(
             revision: projectionRevision,
@@ -638,7 +640,7 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     @MainActor
-    public func taskFitHint(for task: TaskDefinition, now: Date = Date()) -> TaskerTaskFitHintResult {
+    public func taskFitHint(for task: TaskDefinition, now: Date = Date()) -> LifeBoardTaskFitHintResult {
         guard let dueDate = task.dueDate,
               dueDate >= now else {
             return .unknown
@@ -671,7 +673,7 @@ public final class CalendarIntegrationService: ObservableObject {
         )
     }
 
-    public func event(withID eventID: String) -> TaskerCalendarEventSnapshot? {
+    public func event(withID eventID: String) -> LifeBoardCalendarEventSnapshot? {
         snapshot.eventsInRange.first { $0.id == eventID }
     }
 
@@ -686,7 +688,7 @@ public final class CalendarIntegrationService: ObservableObject {
 
     private func reloadPreferencesAndRefresh(reason: String) {
         let preferences = workspacePreferencesStore.load()
-        snapshot.selectedCalendarIDs = TaskerWorkspacePreferences.normalizeSelectedCalendarIDs(preferences.selectedCalendarIDs)
+        snapshot.selectedCalendarIDs = LifeBoardWorkspacePreferences.normalizeSelectedCalendarIDs(preferences.selectedCalendarIDs)
         snapshot.includeDeclined = preferences.includeDeclinedCalendarEvents
         snapshot.includeCanceled = preferences.includeCanceledCalendarEvents
         snapshot.includeAllDayInAgenda = preferences.includeAllDayInAgenda
@@ -695,7 +697,7 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     private func persistSelectedCalendarIDs(_ calendarIDs: [String]) {
-        let normalizedCalendarIDs = TaskerWorkspacePreferences.normalizeSelectedCalendarIDs(calendarIDs)
+        let normalizedCalendarIDs = LifeBoardWorkspacePreferences.normalizeSelectedCalendarIDs(calendarIDs)
         workspacePreferencesStore.update { preferences in
             preferences.selectedCalendarIDs = normalizedCalendarIDs
         }
@@ -715,7 +717,7 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     private func reconcile(
-        events: [TaskerCalendarEventSnapshot],
+        events: [LifeBoardCalendarEventSnapshot],
         referenceDate: Date,
         loadedRange: ClosedRange<Date>
     ) {
@@ -768,8 +770,8 @@ public final class CalendarIntegrationService: ObservableObject {
 
     private func recordFullAccessAttempt(
         source: String,
-        statusBefore: TaskerCalendarAuthorizationStatus,
-        statusAfter: TaskerCalendarAuthorizationStatus?,
+        statusBefore: LifeBoardCalendarAuthorizationStatus,
+        statusAfter: LifeBoardCalendarAuthorizationStatus?,
         outcome: CalendarAccessAttemptOutcome,
         error: Error? = nil
     ) {
@@ -789,7 +791,7 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     private func logCalendarAccessPolicy(
-        status: TaskerCalendarAuthorizationStatus,
+        status: LifeBoardCalendarAuthorizationStatus,
         action: CalendarAccessAction
     ) {
         logCalendarWarning(
@@ -805,8 +807,8 @@ public final class CalendarIntegrationService: ObservableObject {
     private func logFullAccessRequestCompleted(
         source: String,
         granted: Bool,
-        statusBefore: TaskerCalendarAuthorizationStatus,
-        statusAfter: TaskerCalendarAuthorizationStatus,
+        statusBefore: LifeBoardCalendarAuthorizationStatus,
+        statusAfter: LifeBoardCalendarAuthorizationStatus,
         outcome: CalendarAccessAttemptOutcome,
         error: Error?
     ) {
@@ -914,7 +916,7 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     private func calendarDiagnosticFields(
-        status: TaskerCalendarAuthorizationStatus,
+        status: LifeBoardCalendarAuthorizationStatus,
         extra: [String: String] = [:]
     ) -> [String: String] {
         var fields = [

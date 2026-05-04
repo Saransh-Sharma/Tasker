@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-public final class CoreDataTagRepository: TagRepositoryProtocol {
+public final class CoreDataTagRepository: TagRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -13,7 +13,7 @@ public final class CoreDataTagRepository: TagRepositoryProtocol {
     }
 
     /// Executes fetchAll.
-    public func fetchAll(completion: @escaping (Result<[TagDefinition], Error>) -> Void) {
+    public func fetchAll(completion: @escaping @Sendable (Result<[TagDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -42,7 +42,7 @@ public final class CoreDataTagRepository: TagRepositoryProtocol {
     }
 
     /// Executes create.
-    public func create(_ tag: TagDefinition, completion: @escaping (Result<TagDefinition, Error>) -> Void) {
+    public func create(_ tag: TagDefinition, completion: @escaping @Sendable (Result<TagDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(tag.id, field: "tag.id")
@@ -105,7 +105,7 @@ public final class CoreDataTagRepository: TagRepositoryProtocol {
     }
 
     /// Executes delete.
-    public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(id, field: "tag.id")

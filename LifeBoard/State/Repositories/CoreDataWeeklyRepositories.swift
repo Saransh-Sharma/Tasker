@@ -1,6 +1,18 @@
 import CoreData
 import Foundation
 
+private final class WeeklyRepositoryCompletion<Value: Sendable>: @unchecked Sendable {
+    private let completion: @Sendable (Result<Value, Error>) -> Void
+
+    init(_ completion: @escaping @Sendable (Result<Value, Error>) -> Void) {
+        self.completion = completion
+    }
+
+    func deliver(_ result: Result<Value, Error>) {
+        completion(result)
+    }
+}
+
 private enum WeeklyRepositoryCalendar {
     struct WeekIdentity: Hashable {
         let isoYear: Int
@@ -12,12 +24,12 @@ private enum WeeklyRepositoryCalendar {
         }
     }
 
-    private static let storageDateFormatter: ISO8601DateFormatter = {
+    private static func makeStorageDateFormatter() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         return formatter
-    }()
+    }
 
     private static var canonicalCalendar: Calendar {
         var calendar = Calendar(identifier: .iso8601)
@@ -79,9 +91,10 @@ private enum WeeklyRepositoryCalendar {
         var keys = Set<String>()
         let identity = identity(for: weekStartDate)
         keys.insert(identity.storageKey)
-        keys.insert(storageDateFormatter.string(from: identity.canonicalStartUTC))
-        keys.insert(storageDateFormatter.string(from: canonicalWeekStart(for: weekStartDate)))
-        legacyWeekStarts(for: weekStartDate).forEach { keys.insert(storageDateFormatter.string(from: $0)) }
+        let formatter = makeStorageDateFormatter()
+        keys.insert(formatter.string(from: identity.canonicalStartUTC))
+        keys.insert(formatter.string(from: canonicalWeekStart(for: weekStartDate)))
+        legacyWeekStarts(for: weekStartDate).forEach { keys.insert(formatter.string(from: $0)) }
         return Array(keys)
     }
 
@@ -104,7 +117,7 @@ private enum WeeklyRepositoryCalendar {
             }
         }
 
-        if let parsed = storageDateFormatter.date(from: key) {
+        if let parsed = makeStorageDateFormatter().date(from: key) {
             return canonicalWeekStart(for: parsed)
         }
 
@@ -116,7 +129,7 @@ private enum WeeklyRepositoryCalendar {
     }
 }
 
-public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
+public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -126,7 +139,8 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
         self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
-    public func fetchPlan(id: UUID, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) {
+    public func fetchPlan(id: UUID, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         viewContext.perform {
             do {
                 let object = try V2CoreDataRepositorySupport.fetchObject(
@@ -134,14 +148,15 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
                     entityName: "WeeklyPlan",
                     predicate: NSPredicate(format: "id == %@", id as CVarArg)
                 )
-                completion(.success(object.map(Self.mapWeeklyPlan)))
+                callback.deliver(.success(object.map(Self.mapWeeklyPlan)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) {
+    public func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         let canonicalWeekStart = WeeklyRepositoryCalendar.normalizedWeekStart(for: weekStartDate)
         viewContext.perform {
             do {
@@ -151,13 +166,13 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
                     predicate: NSPredicate(format: "weekStartDate == %@", canonicalWeekStart as NSDate),
                     sort: [NSSortDescriptor(key: "createdAt", ascending: true)]
                 ) {
-                    completion(.success(Self.mapWeeklyPlan(object)))
+                    callback.deliver(.success(Self.mapWeeklyPlan(object)))
                     return
                 }
 
                 let legacyStarts = WeeklyRepositoryCalendar.legacyWeekStarts(for: weekStartDate)
                 guard legacyStarts.isEmpty == false else {
-                    completion(.success(nil))
+                    callback.deliver(.success(nil))
                     return
                 }
 
@@ -168,7 +183,7 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
                     sort: [NSSortDescriptor(key: "createdAt", ascending: true)]
                 )
                 guard let legacyObject = legacyObjects.first else {
-                    completion(.success(nil))
+                    callback.deliver(.success(nil))
                     return
                 }
 
@@ -177,14 +192,15 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
                     canonicalWeekStart: canonicalWeekStart,
                     in: self.viewContext
                 )
-                completion(.success(Self.mapWeeklyPlan(legacyObject)))
+                callback.deliver(.success(Self.mapWeeklyPlan(legacyObject)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping (Result<[WeeklyPlan], Error>) -> Void) {
+    public func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[WeeklyPlan], Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         let canonicalStart = WeeklyRepositoryCalendar.normalizedWeekStart(for: startDate)
         let canonicalEnd = WeeklyRepositoryCalendar.normalizedWeekStart(for: endDate)
         let calendar = Calendar.autoupdatingCurrent
@@ -216,14 +232,15 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
                 let plans = dedupedPlansByCanonicalStart.values
                     .filter { $0.weekStartDate >= canonicalStart && $0.weekStartDate <= canonicalEnd }
                     .sorted { $0.weekStartDate < $1.weekStartDate }
-                completion(.success(plans))
+                callback.deliver(.success(plans))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func savePlan(_ plan: WeeklyPlan, completion: @escaping (Result<WeeklyPlan, Error>) -> Void) {
+    public func savePlan(_ plan: WeeklyPlan, completion: @escaping @Sendable (Result<WeeklyPlan, Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 let object = try V2CoreDataRepositorySupport.upsertByID(
@@ -233,9 +250,9 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
                 )
                 Self.apply(plan, to: object)
                 try self.backgroundContext.save()
-                completion(.success(Self.mapWeeklyPlan(object)))
+                callback.deliver(.success(Self.mapWeeklyPlan(object)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -300,7 +317,7 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
     }
 }
 
-public final class CoreDataWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol {
+public final class CoreDataWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -310,7 +327,8 @@ public final class CoreDataWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProto
         self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
-    public func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) {
+    public func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         viewContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -322,14 +340,15 @@ public final class CoreDataWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProto
                         NSSortDescriptor(key: "createdAt", ascending: true)
                     ]
                 )
-                completion(.success(objects.map(Self.mapWeeklyOutcome)))
+                callback.deliver(.success(objects.map(Self.mapWeeklyOutcome)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping (Result<WeeklyOutcome, Error>) -> Void) {
+    public func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping @Sendable (Result<WeeklyOutcome, Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 let object = try V2CoreDataRepositorySupport.upsertByID(
@@ -339,9 +358,9 @@ public final class CoreDataWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProto
                 )
                 Self.apply(outcome, to: object)
                 try self.backgroundContext.save()
-                completion(.success(Self.mapWeeklyOutcome(object)))
+                callback.deliver(.success(Self.mapWeeklyOutcome(object)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -349,8 +368,9 @@ public final class CoreDataWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProto
     public func replaceOutcomes(
         weeklyPlanID: UUID,
         outcomes: [WeeklyOutcome],
-        completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void
     ) {
+        let callback = WeeklyRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 let existingObjects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -388,14 +408,15 @@ public final class CoreDataWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProto
                         NSSortDescriptor(key: "createdAt", ascending: true)
                     ]
                 )
-                completion(.success(persistedObjects.map(Self.mapWeeklyOutcome)))
+                callback.deliver(.success(persistedObjects.map(Self.mapWeeklyOutcome)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func deleteOutcome(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func deleteOutcome(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 if let object = try V2CoreDataRepositorySupport.fetchObject(
@@ -406,9 +427,9 @@ public final class CoreDataWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProto
                     self.backgroundContext.delete(object)
                     try self.backgroundContext.save()
                 }
-                completion(.success(()))
+                callback.deliver(.success(()))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -442,7 +463,7 @@ public final class CoreDataWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProto
     }
 }
 
-public final class CoreDataWeeklyReviewRepository: WeeklyReviewRepositoryProtocol {
+public final class CoreDataWeeklyReviewRepository: WeeklyReviewRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -452,7 +473,8 @@ public final class CoreDataWeeklyReviewRepository: WeeklyReviewRepositoryProtoco
         self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
-    public func fetchReview(weeklyPlanID: UUID, completion: @escaping (Result<WeeklyReview?, Error>) -> Void) {
+    public func fetchReview(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<WeeklyReview?, Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         viewContext.perform {
             do {
                 let object = try V2CoreDataRepositorySupport.canonicalObject(
@@ -461,14 +483,15 @@ public final class CoreDataWeeklyReviewRepository: WeeklyReviewRepositoryProtoco
                     predicate: NSPredicate(format: "weeklyPlanID == %@", weeklyPlanID as CVarArg),
                     sort: [NSSortDescriptor(key: "createdAt", ascending: true)]
                 )
-                completion(.success(object.map(Self.mapWeeklyReview)))
+                callback.deliver(.success(object.map(Self.mapWeeklyReview)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func saveReview(_ review: WeeklyReview, completion: @escaping (Result<WeeklyReview, Error>) -> Void) {
+    public func saveReview(_ review: WeeklyReview, completion: @escaping @Sendable (Result<WeeklyReview, Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 let object = try V2CoreDataRepositorySupport.upsertByID(
@@ -478,9 +501,9 @@ public final class CoreDataWeeklyReviewRepository: WeeklyReviewRepositoryProtoco
                 )
                 Self.apply(review, to: object)
                 try self.backgroundContext.save()
-                completion(.success(Self.mapWeeklyReview(object)))
+                callback.deliver(.success(Self.mapWeeklyReview(object)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -514,7 +537,7 @@ public final class CoreDataWeeklyReviewRepository: WeeklyReviewRepositoryProtoco
     }
 }
 
-public final class CoreDataReflectionNoteRepository: ReflectionNoteRepositoryProtocol {
+public final class CoreDataReflectionNoteRepository: ReflectionNoteRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -524,7 +547,8 @@ public final class CoreDataReflectionNoteRepository: ReflectionNoteRepositoryPro
         self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
     }
 
-    public func fetchNotes(query: ReflectionNoteQuery, completion: @escaping (Result<[ReflectionNote], Error>) -> Void) {
+    public func fetchNotes(query: ReflectionNoteQuery, completion: @escaping @Sendable (Result<[ReflectionNote], Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         viewContext.perform {
             do {
                 let request = NSFetchRequest<NSManagedObject>(entityName: "ReflectionNote")
@@ -534,14 +558,15 @@ public final class CoreDataReflectionNoteRepository: ReflectionNoteRepositoryPro
                     request.fetchLimit = limit
                 }
                 let objects = try self.viewContext.fetch(request)
-                completion(.success(objects.map(Self.mapReflectionNote)))
+                callback.deliver(.success(objects.map(Self.mapReflectionNote)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func saveNote(_ note: ReflectionNote, completion: @escaping (Result<ReflectionNote, Error>) -> Void) {
+    public func saveNote(_ note: ReflectionNote, completion: @escaping @Sendable (Result<ReflectionNote, Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 let object = try V2CoreDataRepositorySupport.upsertByID(
@@ -551,14 +576,15 @@ public final class CoreDataReflectionNoteRepository: ReflectionNoteRepositoryPro
                 )
                 Self.apply(note, to: object)
                 try self.backgroundContext.save()
-                completion(.success(Self.mapReflectionNote(object)))
+                callback.deliver(.success(Self.mapReflectionNote(object)))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
-    public func deleteNote(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func deleteNote(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 if let object = try V2CoreDataRepositorySupport.fetchObject(
@@ -569,9 +595,9 @@ public final class CoreDataReflectionNoteRepository: ReflectionNoteRepositoryPro
                     self.backgroundContext.delete(object)
                     try self.backgroundContext.save()
                 }
-                completion(.success(()))
+                callback.deliver(.success(()))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -632,7 +658,7 @@ public final class CoreDataReflectionNoteRepository: ReflectionNoteRepositoryPro
     }
 }
 
-public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol {
+public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -644,8 +670,9 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
 
     public func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
+        let callback = WeeklyRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
                 guard let planObject = try V2CoreDataRepositorySupport.canonicalObject(
@@ -654,7 +681,7 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
                     predicate: NSPredicate(format: "id == %@", request.weeklyPlanID as CVarArg),
                     sort: [NSSortDescriptor(key: "createdAt", ascending: true)]
                 ) else {
-                    completion(.failure(NSError(
+                    callback.deliver(.failure(NSError(
                         domain: "CoreDataWeeklyReviewMutationRepository",
                         code: 404,
                         userInfo: [NSLocalizedDescriptionKey: "Weekly plan not found."]
@@ -700,19 +727,18 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
                 planObject.setValue(request.completedAt, forKey: "updatedAt")
 
                 try self.backgroundContext.save()
+                let result = CompleteWeeklyReviewResult(
+                    review: Self.mapReview(review),
+                    skippedTaskIDs: taskResolution.skippedTaskIDs,
+                    skippedOutcomeIDs: outcomeResolution.skippedOutcomeIDs
+                )
                 self.viewContext.perform {
                     self.viewContext.refreshAllObjects()
-                    completion(.success(
-                        CompleteWeeklyReviewResult(
-                            review: Self.mapReview(review),
-                            skippedTaskIDs: taskResolution.skippedTaskIDs,
-                            skippedOutcomeIDs: outcomeResolution.skippedOutcomeIDs
-                        )
-                    ))
+                    callback.deliver(.success(result))
                 }
             } catch {
                 self.backgroundContext.rollback()
-                completion(.failure(Self.mapFinalizeError(error)))
+                callback.deliver(.failure(Self.mapFinalizeError(error)))
             }
         }
     }
@@ -893,7 +919,7 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
     }
 }
 
-public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
+public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol, @unchecked Sendable {
     private struct WeeklyReviewLocalStateFile: Codable, Equatable {
         var draftsByWeekKey: [String: WeeklyReviewDraft]
         var completedTaskDecisionsByWeekKey: [String: [WeeklyReviewTaskDecision]]
@@ -915,13 +941,14 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
 
     public func fetchDraft(
         weekStartDate: Date,
-        completion: @escaping (Result<WeeklyReviewDraft?, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyReviewDraft?, Error>) -> Void
     ) {
+        let callback = WeeklyRepositoryCompletion(completion)
         do {
             var file = normalizeAndPrune(try loadState())
             let canonicalKey = Self.weekKey(for: weekStartDate)
             if let draft = file.draftsByWeekKey[canonicalKey] {
-                completion(.success(draft))
+                callback.deliver(.success(draft))
                 return
             }
 
@@ -931,56 +958,59 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
                 file.draftsByWeekKey[legacyKey] = nil
                 file.draftsByWeekKey[canonicalKey] = normalizedDraft
                 try persist(file)
-                completion(.success(normalizedDraft))
+                callback.deliver(.success(normalizedDraft))
                 return
             }
 
-            completion(.success(nil))
+            callback.deliver(.success(nil))
         } catch {
-            completion(.failure(error))
+            callback.deliver(.failure(error))
         }
     }
 
     public func saveDraft(
         _ draft: WeeklyReviewDraft,
-        completion: @escaping (Result<WeeklyReviewDraft, Error>) -> Void
+        completion: @escaping @Sendable (Result<WeeklyReviewDraft, Error>) -> Void
     ) {
+        let callback = WeeklyRepositoryCompletion(completion)
         do {
             var file = normalizeAndPrune(try loadState())
             let normalizedDraft = Self.normalizeDraft(draft)
             file.draftsByWeekKey[Self.weekKey(for: normalizedDraft.weekStartDate)] = normalizedDraft
             try persist(file)
-            completion(.success(normalizedDraft))
+            callback.deliver(.success(normalizedDraft))
         } catch {
-            completion(.failure(error))
+            callback.deliver(.failure(error))
         }
     }
 
     public func clearDraft(
         weekStartDate: Date,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
+        let callback = WeeklyRepositoryCompletion(completion)
         do {
             var file = normalizeAndPrune(try loadState())
             for key in Self.allWeekKeys(for: weekStartDate) {
                 file.draftsByWeekKey.removeValue(forKey: key)
             }
             try persist(file)
-            completion(.success(()))
+            callback.deliver(.success(()))
         } catch {
-            completion(.failure(error))
+            callback.deliver(.failure(error))
         }
     }
 
     public func fetchCompletedTaskDecisions(
         weekStartDate: Date,
-        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
+        let callback = WeeklyRepositoryCompletion(completion)
         do {
             var file = normalizeAndPrune(try loadState())
             let canonicalKey = Self.weekKey(for: weekStartDate)
             if let decisions = file.completedTaskDecisionsByWeekKey[canonicalKey] {
-                completion(.success(decisions))
+                callback.deliver(.success(decisions))
                 return
             }
 
@@ -989,29 +1019,30 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
                 file.completedTaskDecisionsByWeekKey[legacyKey] = nil
                 file.completedTaskDecisionsByWeekKey[canonicalKey] = decisions
                 try persist(file)
-                completion(.success(decisions))
+                callback.deliver(.success(decisions))
                 return
             }
 
-            completion(.success([]))
+            callback.deliver(.success([]))
         } catch {
-            completion(.failure(error))
+            callback.deliver(.failure(error))
         }
     }
 
     public func saveCompletedTaskDecisions(
         _ decisions: [WeeklyReviewTaskDecision],
         weekStartDate: Date,
-        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+        completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
+        let callback = WeeklyRepositoryCompletion(completion)
         do {
             var file = normalizeAndPrune(try loadState())
             let normalized = decisions.sorted { $0.taskID.uuidString < $1.taskID.uuidString }
             file.completedTaskDecisionsByWeekKey[Self.weekKey(for: weekStartDate)] = normalized
             try persist(file)
-            completion(.success(normalized))
+            callback.deliver(.success(normalized))
         } catch {
-            completion(.failure(error))
+            callback.deliver(.failure(error))
         }
     }
 
@@ -1140,7 +1171,7 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
 
 import Foundation
 
-public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtocol {
+public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtocol, @unchecked Sendable {
     private struct LocalStateFile: Codable, Equatable {
         var completionDateKeys: [String]
         var payloadsByDateKey: [String: ReflectionPayload]

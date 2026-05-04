@@ -429,7 +429,7 @@ enum TaskDefinitionMutationApplier {
     }
 }
 
-public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
+public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -441,12 +441,12 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     }
 
     /// Executes fetchAll.
-    public func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    public func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         fetchAll(query: nil, completion: completion)
     }
 
     /// Executes fetchAll.
-    public func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    public func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 let request: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
@@ -521,7 +521,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     }
 
     /// Executes fetchTaskDefinition.
-    public func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+    public func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) {
         viewContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(id, field: "taskDefinition.id")
@@ -546,7 +546,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     }
 
     /// Executes create.
-    public func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    public func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         let request = CreateTaskDefinitionRequest(
             id: task.id,
             recurrenceSeriesID: task.recurrenceSeriesID,
@@ -587,7 +587,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     /// Executes create.
     public func create(
         request: CreateTaskDefinitionRequest,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         backgroundContext.perform {
             do {
@@ -618,7 +618,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     }
 
     /// Executes update.
-    public func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+    public func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         let request = UpdateTaskDefinitionRequest(
             id: task.id,
             recurrenceSeriesID: task.recurrenceSeriesID,
@@ -666,7 +666,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     /// Executes update.
     public func update(
         request: UpdateTaskDefinitionRequest,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         backgroundContext.perform {
             do {
@@ -697,7 +697,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     }
 
     /// Executes fetchChildren.
-    public func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+    public func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
         do {
             _ = try V2CoreDataRepositorySupport.requireID(parentTaskID, field: "taskDefinition.parentTaskID")
         } catch {
@@ -711,7 +711,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     }
 
     /// Executes delete.
-    public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(id, field: "taskDefinition.id")
@@ -1128,7 +1128,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     }
 }
 
-public final class CoreDataTaskTagLinkRepository: TaskTagLinkRepositoryProtocol {
+public final class CoreDataTaskTagLinkRepository: TaskTagLinkRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -1140,7 +1140,7 @@ public final class CoreDataTaskTagLinkRepository: TaskTagLinkRepositoryProtocol 
     }
 
     /// Executes fetchTagIDs.
-    public func fetchTagIDs(taskID: UUID, completion: @escaping (Result<[UUID], Error>) -> Void) {
+    public func fetchTagIDs(taskID: UUID, completion: @escaping @Sendable (Result<[UUID], Error>) -> Void) {
         viewContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(taskID, field: "taskTagLink.taskID")
@@ -1159,7 +1159,7 @@ public final class CoreDataTaskTagLinkRepository: TaskTagLinkRepositoryProtocol 
     }
 
     /// Executes replaceTagLinks.
-    public func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+    public func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(taskID, field: "taskTagLink.taskID")
@@ -1217,7 +1217,7 @@ public final class CoreDataTaskTagLinkRepository: TaskTagLinkRepositoryProtocol 
     }
 }
 
-public final class CoreDataTaskDependencyRepository: TaskDependencyRepositoryProtocol {
+public final class CoreDataTaskDependencyRepository: TaskDependencyRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -1229,7 +1229,7 @@ public final class CoreDataTaskDependencyRepository: TaskDependencyRepositoryPro
     }
 
     /// Executes fetchDependencies.
-    public func fetchDependencies(taskID: UUID, completion: @escaping (Result<[TaskDependencyLinkDefinition], Error>) -> Void) {
+    public func fetchDependencies(taskID: UUID, completion: @escaping @Sendable (Result<[TaskDependencyLinkDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(taskID, field: "taskDependency.taskID")
@@ -1267,7 +1267,7 @@ public final class CoreDataTaskDependencyRepository: TaskDependencyRepositoryPro
     public func replaceDependencies(
         taskID: UUID,
         dependencies: [TaskDependencyLinkDefinition],
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         backgroundContext.perform {
             do {

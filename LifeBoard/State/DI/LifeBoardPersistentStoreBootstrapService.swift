@@ -1,7 +1,7 @@
 import CoreData
 import Foundation
 
-fileprivate enum TaskerSplitPersistentStore: CaseIterable {
+fileprivate enum LifeBoardSplitPersistentStore: CaseIterable {
     case cloudSync
     case localOnly
 
@@ -17,9 +17,9 @@ fileprivate enum TaskerSplitPersistentStore: CaseIterable {
     var fileName: String {
         switch self {
         case .cloudSync:
-            return TaskerPersistentStoreLocationService.cloudStoreFileName
+            return LifeBoardPersistentStoreLocationService.cloudStoreFileName
         case .localOnly:
-            return TaskerPersistentStoreLocationService.localStoreFileName
+            return LifeBoardPersistentStoreLocationService.localStoreFileName
         }
     }
 
@@ -33,18 +33,18 @@ fileprivate enum TaskerSplitPersistentStore: CaseIterable {
     }
 }
 
-private final class TaskerPersistentStoreBootstrapServiceBundleLocator {}
+private final class LifeBoardPersistentStoreBootstrapServiceBundleLocator {}
 
-struct TaskerPersistentStoreLocation: Equatable {
+struct LifeBoardPersistentStoreLocation: Equatable {
     let canonicalDirectoryURL: URL
     let legacyDirectoryURL: URL
 
     var cloudStoreURL: URL {
-        canonicalDirectoryURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
+        canonicalDirectoryURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
     }
 
     var localStoreURL: URL {
-        canonicalDirectoryURL.appendingPathComponent(TaskerPersistentStoreLocationService.localStoreFileName)
+        canonicalDirectoryURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.localStoreFileName)
     }
 
     var usesSharedAppGroupStore: Bool {
@@ -52,13 +52,13 @@ struct TaskerPersistentStoreLocation: Equatable {
     }
 }
 
-struct TaskerPersistentStoreMigrationResult: Equatable {
+struct LifeBoardPersistentStoreMigrationResult: Equatable {
     let didMigrateLegacyStore: Bool
     let detectedStoreConflict: Bool
     let migratedFileNames: [String]
 }
 
-final class TaskerPersistentStoreLocationService {
+final class LifeBoardPersistentStoreLocationService {
     static let cloudStoreFileName = "TaskModelV3-cloud.sqlite"
     static let localStoreFileName = "TaskModelV3-local.sqlite"
 
@@ -76,16 +76,16 @@ final class TaskerPersistentStoreLocationService {
         self.legacyStoreDirectoryURLProvider = legacyStoreDirectoryURLProvider
     }
 
-    func resolvedV3StoreLocation() -> TaskerPersistentStoreLocation {
+    func resolvedV3StoreLocation() -> LifeBoardPersistentStoreLocation {
         let legacyDirectoryURL = legacyStoreDirectoryURLProvider().standardizedFileURL
         let canonicalDirectoryURL = appGroupContainerURLProvider()?.standardizedFileURL ?? legacyDirectoryURL
-        return TaskerPersistentStoreLocation(
+        return LifeBoardPersistentStoreLocation(
             canonicalDirectoryURL: canonicalDirectoryURL,
             legacyDirectoryURL: legacyDirectoryURL
         )
     }
 
-    func prepareSharedStoreLocationForBootstrap() throws -> TaskerPersistentStoreMigrationResult {
+    func prepareSharedStoreLocationForBootstrap() throws -> LifeBoardPersistentStoreMigrationResult {
         let location = resolvedV3StoreLocation()
         try fileManager.createDirectory(
             at: location.canonicalDirectoryURL,
@@ -137,7 +137,7 @@ final class TaskerPersistentStoreLocationService {
         return v3SplitStoreFileNames().map { location.canonicalDirectoryURL.appendingPathComponent($0) }
     }
 
-    fileprivate func activeV3StoreURLs(for store: TaskerSplitPersistentStore) -> [URL] {
+    fileprivate func activeV3StoreURLs(for store: LifeBoardSplitPersistentStore) -> [URL] {
         let location = resolvedV3StoreLocation()
         return storeFileURLs(
             forFileName: store.fileName,
@@ -158,7 +158,7 @@ final class TaskerPersistentStoreLocationService {
 
         let location = resolvedV3StoreLocation()
         let backupRoot = location.canonicalDirectoryURL.appendingPathComponent(
-            "TaskerStoreQuarantine",
+            "LifeBoardStoreQuarantine",
             isDirectory: true
         )
         let backupDirectory = backupRoot.appendingPathComponent(
@@ -180,7 +180,7 @@ final class TaskerPersistentStoreLocationService {
     }
 
     fileprivate func quarantineActiveV3StoreFiles(
-        for store: TaskerSplitPersistentStore,
+        for store: LifeBoardSplitPersistentStore,
         reason: String
     ) throws -> URL? {
         let existingURLs = activeV3StoreURLs(for: store).filter { fileManager.fileExists(atPath: $0.path) }
@@ -195,7 +195,7 @@ final class TaskerPersistentStoreLocationService {
 
         let location = resolvedV3StoreLocation()
         let backupRoot = location.canonicalDirectoryURL.appendingPathComponent(
-            "TaskerStoreQuarantine",
+            "LifeBoardStoreQuarantine",
             isDirectory: true
         )
         let backupDirectory = backupRoot.appendingPathComponent(
@@ -233,7 +233,7 @@ final class TaskerPersistentStoreLocationService {
         }
     }
 
-    fileprivate func clearActiveV3StoreFiles(for store: TaskerSplitPersistentStore) {
+    fileprivate func clearActiveV3StoreFiles(for store: LifeBoardSplitPersistentStore) {
         for fileURL in activeV3StoreURLs(for: store) where fileManager.fileExists(atPath: fileURL.path) {
             do {
                 try fileManager.removeItem(at: fileURL)
@@ -252,7 +252,7 @@ final class TaskerPersistentStoreLocationService {
     }
 
     fileprivate func replaceStoreFiles(
-        for store: TaskerSplitPersistentStore,
+        for store: LifeBoardSplitPersistentStore,
         withMigratedBaseURL migratedBaseURL: URL
     ) throws {
         let targetURLs = activeV3StoreURLs(for: store)
@@ -288,10 +288,10 @@ final class TaskerPersistentStoreLocationService {
     }
 
     private func migrateLegacySplitStoresIfNeeded(
-        location: TaskerPersistentStoreLocation
-    ) throws -> TaskerPersistentStoreMigrationResult {
+        location: LifeBoardPersistentStoreLocation
+    ) throws -> LifeBoardPersistentStoreMigrationResult {
         guard location.usesSharedAppGroupStore else {
-            return TaskerPersistentStoreMigrationResult(
+            return LifeBoardPersistentStoreMigrationResult(
                 didMigrateLegacyStore: false,
                 detectedStoreConflict: false,
                 migratedFileNames: []
@@ -309,7 +309,7 @@ final class TaskerPersistentStoreLocationService {
         let existingLegacyURLs = legacyURLs.filter { fileManager.fileExists(atPath: $0.path) }
 
         guard existingLegacyURLs.isEmpty == false else {
-            return TaskerPersistentStoreMigrationResult(
+            return LifeBoardPersistentStoreMigrationResult(
                 didMigrateLegacyStore: false,
                 detectedStoreConflict: false,
                 migratedFileNames: []
@@ -327,7 +327,7 @@ final class TaskerPersistentStoreLocationService {
                     "legacy_files": existingLegacyURLs.map(\.lastPathComponent).sorted().joined(separator: ",")
                 ]
             )
-            return TaskerPersistentStoreMigrationResult(
+            return LifeBoardPersistentStoreMigrationResult(
                 didMigrateLegacyStore: false,
                 detectedStoreConflict: true,
                 migratedFileNames: []
@@ -341,7 +341,7 @@ final class TaskerPersistentStoreLocationService {
             migratedFileNames.append(sourceURL.lastPathComponent)
         }
 
-        return TaskerPersistentStoreMigrationResult(
+        return LifeBoardPersistentStoreMigrationResult(
             didMigrateLegacyStore: migratedFileNames.isEmpty == false,
             detectedStoreConflict: false,
             migratedFileNames: migratedFileNames.sorted()
@@ -379,19 +379,19 @@ final class TaskerPersistentStoreLocationService {
     }
 }
 
-struct TaskerPersistentRuntimeInitializer {
+struct LifeBoardPersistentRuntimeInitializer {
     private enum HabitRuntimeMigration {
-        static let fieldBackfillKey = "tasker.habit.runtime.field_backfill.v1"
-        static let repairRequiredKey = "tasker.habit.runtime.repair_required.v1"
-        static let repairCompletedKey = "tasker.habit.runtime.repair_completed.v1"
+        static let fieldBackfillKey = "lifeboard.habit.runtime.field_backfill.v1"
+        static let repairRequiredKey = "lifeboard.habit.runtime.repair_required.v1"
+        static let repairCompletedKey = "lifeboard.habit.runtime.repair_completed.v1"
     }
 
     private enum OccurrenceKeyMigration {
-        static let backfillKey = "tasker.occurrence.key_backfill.v1"
+        static let backfillKey = "lifeboard.occurrence.key_backfill.v1"
     }
 
     private enum LifeAreaColorMigration {
-        static let backfillKey = "tasker.life_area_color_palette_backfill.v1"
+        static let backfillKey = "lifeboard.life_area_color_palette_backfill.v1"
     }
 
     static func shouldRunRepair(defaults: UserDefaults = .standard) -> Bool {
@@ -413,7 +413,7 @@ struct TaskerPersistentRuntimeInitializer {
 
     func initializeDeferred(
         container: NSPersistentCloudKitContainer,
-        completion: (() -> Void)? = nil
+        completion: (@Sendable () -> Void)? = nil
     ) {
         let context = container.newBackgroundContext()
         context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
@@ -1093,15 +1093,15 @@ struct TaskerPersistentRuntimeInitializer {
     }
 }
 
-struct TaskerPersistentStoreBootstrapResult {
+struct LifeBoardPersistentStoreBootstrapResult {
     let state: PersistentBootstrapState
     let syncMode: PersistentSyncMode
     let syncModeSource: String
     let shouldMarkStoreEpoch: Bool
 }
 
-private struct TaskerStoreCompatibilityReport {
-    let store: TaskerSplitPersistentStore
+private struct LifeBoardStoreCompatibilityReport {
+    let store: LifeBoardSplitPersistentStore
     let storeURL: URL
     let metadataSummary: String
     let destinationCompatible: Bool
@@ -1109,21 +1109,21 @@ private struct TaskerStoreCompatibilityReport {
     let fileExists: Bool
 }
 
-final class TaskerPersistentStoreBootstrapService {
+final class LifeBoardPersistentStoreBootstrapService: @unchecked Sendable {
     static let defaultCloudKitContainerIdentifier = "iCloud.TaskerCloudKitV3"
 
     private let expectedStoreConfigurations: Set<String>
     private let localOnlyConfiguration: Set<String>
     private let cloudKitRuntimeContextProvider: () -> CloudKitRuntimeContext
     private let enableCloudKitContainerOptions: Bool
-    let storeLocationService: TaskerPersistentStoreLocationService
+    let storeLocationService: LifeBoardPersistentStoreLocationService
     let cloudKitContainerIdentifier: String
 
     init(
         expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"],
         localOnlyConfiguration: Set<String> = ["LocalOnly"],
-        storeLocationService: TaskerPersistentStoreLocationService = TaskerPersistentStoreLocationService(),
-        cloudKitContainerIdentifier: String = TaskerPersistentStoreBootstrapService.defaultCloudKitContainerIdentifier,
+        storeLocationService: LifeBoardPersistentStoreLocationService = LifeBoardPersistentStoreLocationService(),
+        cloudKitContainerIdentifier: String = LifeBoardPersistentStoreBootstrapService.defaultCloudKitContainerIdentifier,
         cloudKitRuntimeContextProvider: @escaping () -> CloudKitRuntimeContext = { .current() },
         enableCloudKitContainerOptions: Bool = true
     ) {
@@ -1144,7 +1144,7 @@ final class TaskerPersistentStoreBootstrapService {
         let localURL = location.localStoreURL
 
         let cloudDescription = NSPersistentStoreDescription(url: cloudURL)
-        cloudDescription.configuration = TaskerSplitPersistentStore.cloudSync.configurationName
+        cloudDescription.configuration = LifeBoardSplitPersistentStore.cloudSync.configurationName
         if case .enabled = cloudKitMode {
             if enableCloudKitContainerOptions {
                 cloudDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
@@ -1167,7 +1167,7 @@ final class TaskerPersistentStoreBootstrapService {
         cloudDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
 
         let localDescription = NSPersistentStoreDescription(url: localURL)
-        localDescription.configuration = TaskerSplitPersistentStore.localOnly.configurationName
+        localDescription.configuration = LifeBoardSplitPersistentStore.localOnly.configurationName
         localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
         localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
@@ -1185,7 +1185,7 @@ final class TaskerPersistentStoreBootstrapService {
         let location = storeLocationService.resolvedV3StoreLocation()
         let localURL = location.localStoreURL
         let localDescription = NSPersistentStoreDescription(url: localURL)
-        localDescription.configuration = TaskerSplitPersistentStore.localOnly.configurationName
+        localDescription.configuration = LifeBoardSplitPersistentStore.localOnly.configurationName
         localDescription.cloudKitContainerOptions = nil
         localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
@@ -1211,7 +1211,7 @@ final class TaskerPersistentStoreBootstrapService {
         }
 
         #if DEBUG
-            if context.arguments.contains("-TASKER_DISABLE_CLOUDKIT") {
+            if context.arguments.contains("-LIFEBOARD_DISABLE_CLOUDKIT") {
                 return .disabled(reason: "launch_arg_disable_cloudkit")
             }
         #endif
@@ -1223,7 +1223,7 @@ final class TaskerPersistentStoreBootstrapService {
         cloudKitMirroringMode(context: cloudKitRuntimeContextProvider())
     }
 
-    func bootstrapV3PersistentContainer() async -> TaskerPersistentStoreBootstrapResult {
+    func bootstrapV3PersistentContainer() async -> LifeBoardPersistentStoreBootstrapResult {
         do {
             let migrationResult = try storeLocationService.prepareSharedStoreLocationForBootstrap()
             if migrationResult.didMigrateLegacyStore {
@@ -1246,8 +1246,8 @@ final class TaskerPersistentStoreBootstrapService {
                     "error": error.localizedDescription
                 ]
             )
-            return TaskerPersistentStoreBootstrapResult(
-                state: .failed("Tasker could not prepare local storage. Please relaunch the app."),
+            return LifeBoardPersistentStoreBootstrapResult(
+                state: .failed("LifeBoard could not prepare local storage. Please relaunch the app."),
                 syncMode: .writeClosed(reason: "persistent_store_prepare_failed"),
                 syncModeSource: "bootstrap_prepare_failed",
                 shouldMarkStoreEpoch: false
@@ -1273,14 +1273,14 @@ final class TaskerPersistentStoreBootstrapService {
         if initialHealthy {
             if Self.validateRuntimeSchema(in: initialContainer.managedObjectModel) != nil {
                 unloadPersistentStores(initialContainer)
-                return TaskerPersistentStoreBootstrapResult(
-                    state: .failed("Tasker's data model is out of date. Please reinstall or update the app."),
+                return LifeBoardPersistentStoreBootstrapResult(
+                    state: .failed("LifeBoard's data model is out of date. Please reinstall or update the app."),
                     syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
                     syncModeSource: "bootstrap_initial_schema_invalid",
                     shouldMarkStoreEpoch: false
                 )
             }
-            return TaskerPersistentStoreBootstrapResult(
+            return LifeBoardPersistentStoreBootstrapResult(
                 state: .ready(initialContainer),
                 syncMode: .fullSync,
                 syncModeSource: "bootstrap_initial",
@@ -1323,8 +1323,8 @@ final class TaskerPersistentStoreBootstrapService {
         if writeClosedHealthy {
             if Self.validateRuntimeSchema(in: writeClosedContainer.managedObjectModel) != nil {
                 unloadPersistentStores(writeClosedContainer)
-                return TaskerPersistentStoreBootstrapResult(
-                    state: .failed("Tasker's data model is out of date. Please reinstall or update the app."),
+                return LifeBoardPersistentStoreBootstrapResult(
+                    state: .failed("LifeBoard's data model is out of date. Please reinstall or update the app."),
                     syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
                     syncModeSource: "bootstrap_write_closed_schema_invalid",
                     shouldMarkStoreEpoch: false
@@ -1342,7 +1342,7 @@ final class TaskerPersistentStoreBootstrapService {
                     "loaded_configurations": writeClosedReport.loadedConfigurations.sorted().joined(separator: ",")
                 ]
             )
-            return TaskerPersistentStoreBootstrapResult(
+            return LifeBoardPersistentStoreBootstrapResult(
                 state: .ready(writeClosedContainer),
                 syncMode: .writeClosed(reason: fallbackReason),
                 syncModeSource: "bootstrap_write_closed",
@@ -1350,7 +1350,7 @@ final class TaskerPersistentStoreBootstrapService {
             )
         }
 
-        let failureMessage = "Tasker could not initialize local storage. Please relaunch the app or recover from iCloud."
+        let failureMessage = "LifeBoard could not initialize local storage. Please relaunch the app or recover from iCloud."
         logError(
             event: "persistent_store_bootstrap_failed_unreadable",
             message: "Persistent store bootstrap failed for split and write-closed fallback topologies",
@@ -1363,7 +1363,7 @@ final class TaskerPersistentStoreBootstrapService {
                 "fallback_errors": writeClosedReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
             ]
         )
-        return TaskerPersistentStoreBootstrapResult(
+        return LifeBoardPersistentStoreBootstrapResult(
             state: .failed(failureMessage),
             syncMode: .writeClosed(reason: "persistent_store_unreadable"),
             syncModeSource: "bootstrap_failed",
@@ -1400,7 +1400,7 @@ final class TaskerPersistentStoreBootstrapService {
         return initialReport.errors.contains(where: isIncompatibleStoreError)
     }
 
-    private func attemptCloudSyncStoreRebuild() async -> TaskerPersistentStoreBootstrapResult? {
+    private func attemptCloudSyncStoreRebuild() async -> LifeBoardPersistentStoreBootstrapResult? {
         do {
             let quarantineURL = try storeLocationService.quarantineActiveV3StoreFiles(
                 for: .cloudSync,
@@ -1437,8 +1437,8 @@ final class TaskerPersistentStoreBootstrapService {
 
             if Self.validateRuntimeSchema(in: rebuiltContainer.managedObjectModel) != nil {
                 unloadPersistentStores(rebuiltContainer)
-                return TaskerPersistentStoreBootstrapResult(
-                    state: .failed("Tasker's data model is out of date. Please reinstall or update the app."),
+                return LifeBoardPersistentStoreBootstrapResult(
+                    state: .failed("LifeBoard's data model is out of date. Please reinstall or update the app."),
                     syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
                     syncModeSource: "bootstrap_cloudsync_auto_rebuild_schema_invalid",
                     shouldMarkStoreEpoch: false
@@ -1452,7 +1452,7 @@ final class TaskerPersistentStoreBootstrapService {
                     "loaded_configurations": rebuiltReport.loadedConfigurations.sorted().joined(separator: ",")
                 ]
             )
-            return TaskerPersistentStoreBootstrapResult(
+            return LifeBoardPersistentStoreBootstrapResult(
                 state: .ready(rebuiltContainer),
                 syncMode: .fullSync,
                 syncModeSource: "bootstrap_cloudsync_auto_rebuild",
@@ -1478,7 +1478,7 @@ final class TaskerPersistentStoreBootstrapService {
         )
         let destinationModel = try currentCompiledTaskModel(bundleURL: modelBundleURL)
 
-        for store in TaskerSplitPersistentStore.allCases {
+        for store in LifeBoardSplitPersistentStore.allCases {
             let compatibility = compatibilityReport(
                 for: store,
                 sourceModel: sourceModel,
@@ -1556,14 +1556,14 @@ final class TaskerPersistentStoreBootstrapService {
     }
 
     private func compatibilityReport(
-        for store: TaskerSplitPersistentStore,
+        for store: LifeBoardSplitPersistentStore,
         sourceModel: NSManagedObjectModel,
         destinationModel: NSManagedObjectModel
-    ) -> TaskerStoreCompatibilityReport {
+    ) -> LifeBoardStoreCompatibilityReport {
         let storeURL = storeLocationService.resolvedV3StoreLocation().canonicalDirectoryURL
             .appendingPathComponent(store.fileName)
         guard FileManager.default.fileExists(atPath: storeURL.path) else {
-            return TaskerStoreCompatibilityReport(
+            return LifeBoardStoreCompatibilityReport(
                 store: store,
                 storeURL: storeURL,
                 metadataSummary: "metadata_unavailable_missing_file",
@@ -1587,7 +1587,7 @@ final class TaskerPersistentStoreBootstrapService {
                 withName: store.configurationName,
                 compatibleWithStoreMetadata: metadata
             )
-            return TaskerStoreCompatibilityReport(
+            return LifeBoardStoreCompatibilityReport(
                 store: store,
                 storeURL: storeURL,
                 metadataSummary: persistentStoreMetadataSnippet(at: storeURL),
@@ -1596,7 +1596,7 @@ final class TaskerPersistentStoreBootstrapService {
                 fileExists: true
             )
         } catch {
-            return TaskerStoreCompatibilityReport(
+            return LifeBoardStoreCompatibilityReport(
                 store: store,
                 storeURL: storeURL,
                 metadataSummary: "metadata_unavailable_\(error.localizedDescription)",
@@ -1608,7 +1608,7 @@ final class TaskerPersistentStoreBootstrapService {
     }
 
     private func taskModelBundleURL() throws -> URL {
-        let bundles = [Bundle.main, Bundle(for: TaskerPersistentStoreBootstrapServiceBundleLocator.self)]
+        let bundles = [Bundle.main, Bundle(for: LifeBoardPersistentStoreBootstrapServiceBundleLocator.self)]
         for bundle in bundles {
             if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") {
                 return url
@@ -1616,7 +1616,7 @@ final class TaskerPersistentStoreBootstrapService {
         }
 
         throw NSError(
-            domain: "TaskerPersistentStoreBootstrapService.Model",
+            domain: "LifeBoardPersistentStoreBootstrapService.Model",
             code: 2,
             userInfo: [
                 NSLocalizedDescriptionKey: "Unable to locate TaskModelV3.momd"
@@ -1631,7 +1631,7 @@ final class TaskerPersistentStoreBootstrapService {
         let modelURL = bundleURL.appendingPathComponent(fileName)
         guard let model = NSManagedObjectModel(contentsOf: modelURL) else {
             throw NSError(
-                domain: "TaskerPersistentStoreBootstrapService.Model",
+                domain: "LifeBoardPersistentStoreBootstrapService.Model",
                 code: 3,
                 userInfo: [
                     NSLocalizedDescriptionKey: "Unable to load compiled model \(fileName)"
@@ -1644,7 +1644,7 @@ final class TaskerPersistentStoreBootstrapService {
     private func currentCompiledTaskModel(bundleURL: URL) throws -> NSManagedObjectModel {
         guard let model = NSManagedObjectModel(contentsOf: bundleURL) else {
             throw NSError(
-                domain: "TaskerPersistentStoreBootstrapService.Model",
+                domain: "LifeBoardPersistentStoreBootstrapService.Model",
                 code: 4,
                 userInfo: [
                     NSLocalizedDescriptionKey: "Unable to load current compiled TaskModelV3 model"
@@ -1881,7 +1881,7 @@ final class TaskerPersistentStoreBootstrapService {
         }
 
         return NSError(
-            domain: "TaskerPersistentStoreBootstrapService",
+            domain: "LifeBoardPersistentStoreBootstrapService",
             code: 301,
             userInfo: [
                 NSLocalizedDescriptionKey: "The loaded Core Data model is missing required weekly planning schema.",

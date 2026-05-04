@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
+public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol, @unchecked Sendable {
     private let readContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -14,7 +14,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
     }
 
     /// Executes fetchInRange.
-    public func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
+    public func fetchInRange(start: Date, end: Date, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) {
         guard start <= end else {
             completion(.failure(NSError(
                 domain: "CoreDataOccurrenceRepository",
@@ -43,7 +43,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
     }
 
     /// Executes fetchByID.
-    public func fetchByID(id: UUID, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void) {
+    public func fetchByID(id: UUID, completion: @escaping @Sendable (Result<OccurrenceDefinition?, Error>) -> Void) {
         readContext.perform {
             do {
                 let object = try V2CoreDataRepositorySupport.fetchObject(
@@ -63,7 +63,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
     public func fetchLatestForHabit(
         habitID: UUID,
         on date: Date,
-        completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void
+        completion: @escaping @Sendable (Result<OccurrenceDefinition?, Error>) -> Void
     ) {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
@@ -93,7 +93,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
     }
 
     /// Executes saveOccurrences.
-    public func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
+    public func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 for occurrence in occurrences {
@@ -141,7 +141,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
     }
 
     /// Executes resolve.
-    public func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(resolution.id, field: "occurrenceResolution.id")
@@ -190,7 +190,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
     }
 
     /// Executes deleteOccurrences.
-    public func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+    public func deleteOccurrences(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 for id in ids {

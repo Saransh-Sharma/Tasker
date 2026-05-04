@@ -1,7 +1,19 @@
 import Foundation
 import CoreData
 
-public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol {
+private final class HabitRuntimeReadCompletion<Value: Sendable>: @unchecked Sendable {
+    private let completion: @Sendable (Result<Value, Error>) -> Void
+
+    init(_ completion: @escaping @Sendable (Result<Value, Error>) -> Void) {
+        self.completion = completion
+    }
+
+    func deliver(_ result: Result<Value, Error>) {
+        completion(result)
+    }
+}
+
+public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol, @unchecked Sendable {
     private let context: NSManagedObjectContext
     private static let missingLifeAreaID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
 
@@ -12,8 +24,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
 
     public func fetchAgendaHabits(
         for date: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
+        let callback = HabitRuntimeReadCompletion(completion)
         context.perform {
             do {
                 let calendar = Calendar.current
@@ -25,7 +38,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     ])
                 ).filter { $0.trackingMode == .dailyCheckIn }
                 guard !activeHabits.isEmpty else {
-                    completion(.success([]))
+                    callback.deliver(.success([]))
                     return
                 }
 
@@ -79,9 +92,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     )
                 }
 
-                completion(.success(summaries.sorted(by: self.compareAgendaSummary(_:_:))))
+                callback.deliver(.success(summaries.sorted(by: self.compareAgendaSummary(_:_:))))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -89,8 +102,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
     public func fetchAgendaHabit(
         habitID: UUID,
         for date: Date,
-        completion: @escaping (Result<HabitOccurrenceSummary?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitOccurrenceSummary?, Error>) -> Void
     ) {
+        let callback = HabitRuntimeReadCompletion(completion)
         context.perform {
             do {
                 let calendar = Calendar.current
@@ -102,7 +116,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                         NSPredicate(format: "lifeAreaID != nil")
                     ])
                 ).first, habit.trackingMode == .dailyCheckIn else {
-                    completion(.success(nil))
+                    callback.deliver(.success(nil))
                     return
                 }
 
@@ -133,7 +147,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     .last
 
                 guard let chosenOccurrence = todayOccurrence ?? overdueOccurrence else {
-                    completion(.success(nil))
+                    callback.deliver(.success(nil))
                     return
                 }
 
@@ -143,7 +157,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     dayCount: 30,
                     calendar: calendar
                 )
-                completion(.success(
+                callback.deliver(.success(
                     self.buildSummary(
                         habit: habit,
                         occurrence: chosenOccurrence,
@@ -154,7 +168,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     )
                 ))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -163,12 +177,13 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
         habitIDs: [UUID],
         endingOn date: Date,
         dayCount: Int,
-        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
+        let callback = HabitRuntimeReadCompletion(completion)
         context.perform {
             do {
                 guard !habitIDs.isEmpty else {
-                    completion(.success([]))
+                    callback.deliver(.success([]))
                     return
                 }
                 let calendar = Calendar.current
@@ -192,9 +207,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                         )
                     )
                 }
-                completion(.success(history))
+                callback.deliver(.success(history))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -202,8 +217,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
     public func fetchSignals(
         start: Date,
         end: Date,
-        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
+        let callback = HabitRuntimeReadCompletion(completion)
         context.perform {
             do {
                 let calendar = Calendar.current
@@ -217,7 +233,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                 let habitsByID = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
                 let habitIDs = Set(habitsByID.keys)
                 guard habitIDs.isEmpty == false else {
-                    completion(.success([]))
+                    callback.deliver(.success([]))
                     return
                 }
                 let names = try self.fetchOwnershipLookups(habits: habits)
@@ -257,7 +273,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     )
                 }
 
-                completion(.success(summaries.sorted { lhs, rhs in
+                callback.deliver(.success(summaries.sorted { lhs, rhs in
                     let lhsDate = lhs.dueAt ?? .distantPast
                     let rhsDate = rhs.dueAt ?? .distantPast
                     if lhsDate != rhsDate {
@@ -266,15 +282,16 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
                 }))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
 
     public func fetchHabitLibrary(
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
+        let callback = HabitRuntimeReadCompletion(completion)
         context.perform {
             do {
                 let calendar = Calendar.current
@@ -282,7 +299,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     predicate: includeArchived ? nil : NSPredicate(format: "archivedAt == nil")
                 )
                 guard !habits.isEmpty else {
-                    completion(.success([]))
+                    callback.deliver(.success([]))
                     return
                 }
 
@@ -342,9 +359,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     )
                 }
 
-                completion(.success(rows.sorted(by: self.compareLibraryRow(_:_:))))
+                callback.deliver(.success(rows.sorted(by: self.compareLibraryRow(_:_:))))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -352,13 +369,14 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
     public func fetchHabitLibrary(
         habitIDs: [UUID]?,
         includeArchived: Bool,
-        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
+        let callback = HabitRuntimeReadCompletion(completion)
         context.perform {
             do {
                 let requestedIDs = habitIDs.map(Set.init)
                 if let requestedIDs, requestedIDs.isEmpty {
-                    completion(.success([]))
+                    callback.deliver(.success([]))
                     return
                 }
 
@@ -383,7 +401,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
 
                 let habits = try self.fetchHabits(predicate: predicate)
                 guard !habits.isEmpty else {
-                    completion(.success([]))
+                    callback.deliver(.success([]))
                     return
                 }
 
@@ -443,9 +461,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     )
                 }
 
-                completion(.success(rows.sorted(by: self.compareLibraryRow(_:_:))))
+                callback.deliver(.success(rows.sorted(by: self.compareLibraryRow(_:_:))))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }
@@ -453,8 +471,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
     public func fetchHabitDetailSummary(
         habitID: UUID,
         includeArchived: Bool,
-        completion: @escaping (Result<HabitLibraryRow?, Error>) -> Void
+        completion: @escaping @Sendable (Result<HabitLibraryRow?, Error>) -> Void
     ) {
+        let callback = HabitRuntimeReadCompletion(completion)
         context.perform {
             do {
                 var predicates: [NSPredicate] = [NSPredicate(format: "id == %@", habitID as CVarArg)]
@@ -464,7 +483,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
 
                 let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
                 guard let habit = try self.fetchHabits(predicate: predicate).first else {
-                    completion(.success(nil))
+                    callback.deliver(.success(nil))
                     return
                 }
 
@@ -490,9 +509,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     referenceDate: referenceDate,
                     calendar: calendar
                 )
-                completion(.success(row))
+                callback.deliver(.success(row))
             } catch {
-                completion(.failure(error))
+                callback.deliver(.failure(error))
             }
         }
     }

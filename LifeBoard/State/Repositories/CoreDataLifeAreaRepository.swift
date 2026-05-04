@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
+public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -13,7 +13,7 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
     }
 
     /// Executes fetchAll.
-    public func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+    public func fetchAll(completion: @escaping @Sendable (Result<[LifeArea], Error>) -> Void) {
         viewContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
@@ -32,7 +32,7 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
     }
 
     /// Executes create.
-    public func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    public func create(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(area.id, field: "lifeArea.id")
@@ -52,12 +52,12 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
     }
 
     /// Executes update.
-    public func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+    public func update(_ area: LifeArea, completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void) {
         create(area, completion: completion)
     }
 
     /// Executes delete.
-    public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(id, field: "lifeArea.id")
