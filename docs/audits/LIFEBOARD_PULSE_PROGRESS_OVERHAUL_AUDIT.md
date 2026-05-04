@@ -1,4 +1,4 @@
-# Tasker Pulse + Progress Overhaul Audit
+# LifeBoard Pulse + Progress Overhaul Audit
 
 Date: 2026-04-20
 Scope: Pulse widget, Pulse destination, Progress destination, FC/quest/pulse persistence, shell cutover
@@ -6,7 +6,7 @@ Verifier: Codex
 
 ## Verification Summary
 
-- `xcodebuild -workspace 'Tasker.xcworkspace' -scheme 'To Do List' -destination 'generic/platform=iOS Simulator' build` passes.
+- `xcodebuild -workspace 'LifeBoard.xcworkspace' -scheme 'LifeBoard' -destination 'generic/platform=iOS Simulator' build` passes.
 - Home now inserts a compact `HomePulseWidgetCard` at the top of the existing Home content stack.
 - Bottom shell now routes to `Home / Pulse / Progress / Chat` with Search removed from the bottom bar.
 - iPad command map and keyboard shortcuts now align to `⌘1 Tasks / ⌘2 Pulse / ⌘3 Progress / ⌘4 Chat / ⌘F Search`.
@@ -67,7 +67,7 @@ Risk:
 
 The plan required migration, unit, integration, UI, and analytics QA coverage. Current state:
 
-- no Pulse/FC/quest/reward-preview tests were added under `To Do ListTests` or `To Do ListUITests`
+- no Pulse/FC/quest/reward-preview tests were added under `LifeBoardTests` or `LifeBoardUITests`
 - no migration test currently verifies additive creation of the new Pulse/quest/FC entities
 - no UI test asserts the new shell destinations or Home widget behavior
 

@@ -1,6 +1,6 @@
 # Local LLM / EVA Architecture
 
-EVA is Tasker's local assistant layer for chat, day review, Chief of Staff planning, and planner-assisted task changes. The runtime is designed around local MLX inference, deterministic guardrails, schema-validated planner output, bounded context projection, and the existing V2 task action pipeline.
+EVA is LifeBoard's local assistant layer for chat, day review, Chief of Staff planning, and planner-assisted task changes. The runtime is designed around local MLX inference, deterministic guardrails, schema-validated planner output, bounded context projection, and the existing V2 task action pipeline.
 
 User-visible assistant identity is separate from the EVA architecture name. Eva remains the default Chief of Staff persona, but the app can render the assistant as the user's selected mascot persona while keeping internal EVA route, planner, telemetry, and persistence names where they are implementation details.
 
@@ -12,7 +12,7 @@ Product-wise, Eva's job is to help the user manage the day: understand load, dec
 - Read-only review: summarize tasks or the day without creating mutations that can be applied.
 - Chief-of-staff day overview: answer natural-language day-status prompts with a brief plus editable task and habit cards.
 - Timeline-aware planning guidance: use selected-day task, habit, routine, calendar, busy-block, free-gap, and timeline context to explain the day and suggest next moves.
-- Schedule-aware repair: propose Tasker-owned changes when flexible tasks conflict with fixed calendar commitments or overloaded timeline windows.
+- Schedule-aware repair: propose LifeBoard-owned changes when flexible tasks conflict with fixed calendar commitments or overloaded timeline windows.
 - Plan with EVA: route planning prompts to a planner that can return visible text or proposal cards.
 - Proposal review: show schema v3 task command cards, allow selected apply, and avoid cards for empty command runs.
 - Context shortcuts: include slash-command context and task projections in prompts.
@@ -26,7 +26,7 @@ The chat UI accepts a prompt in `ChatView`, assigns a run ID, clears stale evalu
 
 Context is built through the LLM context projection and envelope builders, with bounded budgets for chat-style turns. Required context failures are fail-closed: EVA persists a visible assistant message explaining the missing context instead of silently dropping the turn.
 
-Timeline-aware turns add a schedule context receipt when available. The receipt is derived from Tasker's calendar and timeline projections rather than raw EventKit data. It can include authorization state, selected-calendar state, next meeting, in-progress meeting, busy blocks, free gaps, overloaded flocks, task-fit hints, and stale/partial/timeout flags. This keeps Eva aligned with the visible Home timeline and gives the assistant enough metadata to disclose uncertainty.
+Timeline-aware turns add a schedule context receipt when available. The receipt is derived from LifeBoard's calendar and timeline projections rather than raw EventKit data. It can include authorization state, selected-calendar state, next meeting, in-progress meeting, busy blocks, free gaps, overloaded flocks, task-fit hints, and stale/partial/timeout flags. This keeps Eva aligned with the visible Home timeline and gives the assistant enough metadata to disclose uncertainty.
 
 `AssistantPlannerService` produces `AssistantPlanResult` values. Planner outputs can be deterministic fallbacks, intent-gate responses, grounding-rejected clarifications, direct model output, normalized model output, or repair output. `AssistantPlanResult.usesModelGenerationForDeliveryGate` distinguishes deterministic responses from model-backed responses so stale evaluator cancellation does not block no-model planner text.
 
@@ -36,7 +36,7 @@ Proposal cards are built from schema v3 assistant command envelopes. Non-empty c
 
 Read-only day review now has a parallel card contract. `AssistantCardType.dayOverview` carries `EvaDayOverviewPayload`, which contains `summaryMarkdown`, `contextReceipt`, `isPartialContext`, and ordered sections for overdue tasks, today tasks, focus candidates, due habits, recovery habits, quiet tracking, or an empty/degraded state. These cards persist as assistant messages, but post-render quick-action state is maintained as chat-local overlay state so the transcript remains immutable.
 
-Schedule-aware day review may add schedule sections when the context receipt supports them: current block, next meeting, busy windows, free gaps, overloaded periods, and planning opportunities. These sections are read-only context. They can link to Tasker actions or proposals, but they do not edit calendar events.
+Schedule-aware day review may add schedule sections when the context receipt supports them: current block, next meeting, busy windows, free gaps, overloaded periods, and planning opportunities. These sections are read-only context. They can link to LifeBoard actions or proposals, but they do not edit calendar events.
 
 Chat messages and threads are persisted through the chat message flow. Assistant action runs use the Core Data assistant action repository. Applied-run history currently has a foundation behind feature flags, but the complete activity/history UI is not finished.
 
@@ -48,7 +48,7 @@ Chat messages and threads are persisted through the chat message flow. Assistant
 - Chief of Staff is a behavior contract: Eva should summarize, sequence, repair, defer, protect focus, and clarify next action, but should not imply autonomous control.
 - Timeline context comes from projection receipts: assistant schedule guidance should use the same projected day model as Home and timeline surfaces.
 - Schema v3 planner contracts: task mutations flow through structured command envelopes, proposal cards, validation, selected apply, and undo.
-- Calendar remains read-only: schedule-aware planning can propose changes to Tasker-owned tasks, reminders, habits, or planning metadata, but must not create, edit, delete, or RSVP to external calendar events.
+- Calendar remains read-only: schedule-aware planning can propose changes to LifeBoard-owned tasks, reminders, habits, or planning metadata, but must not create, edit, delete, or RSVP to external calendar events.
 - Quick actions stay first-party: task and habit buttons on day overview cards invoke existing task and habit use cases directly because the user tapped them; they do not enter propose -> apply -> undo.
 - Empty commands are text-only: zero-command planner results persist assistant text and do not create proposal cards or apply buttons.
 - Required context is fail-closed: when policy says context is required but unavailable, EVA sends a visible failure/clarification message.
@@ -73,7 +73,7 @@ Expected response shapes:
 - Read-only answer when the user asks for understanding.
 - Clarifying question when required context is absent or ambiguous.
 - Day overview card when the user asks for day status.
-- Proposal cards when the user asks Eva to change Tasker-owned state.
+- Proposal cards when the user asks Eva to change LifeBoard-owned state.
 - Explicit refusal or boundary copy when the user asks Eva to edit external calendar events in the current product scope.
 
 The assistant should avoid productivity pressure. A free gap can be intentionally protected, not only filled.
@@ -83,9 +83,9 @@ The assistant should avoid productivity pressure. A free gap can be intentionall
 Schedule-aware Eva outputs must keep these boundaries clear:
 
 - Fixed calendar events are observed constraints.
-- Tasker tasks are flexible unless the task itself has a fixed schedule.
+- LifeBoard tasks are flexible unless the task itself has a fixed schedule.
 - Habits have outcome semantics and must not be auto-logged.
-- Calendar-derived recommendations are advice unless the user confirms a Tasker-owned mutation.
+- Calendar-derived recommendations are advice unless the user confirms a LifeBoard-owned mutation.
 - External calendar writes are out of scope for the current feature package.
 
 Examples:
@@ -105,7 +105,7 @@ Examples:
 - Context limits: bounded projection budgets and context timeouts may produce conservative responses or visible context-failure messages.
 - Partial day overviews: missing task or habit slices must degrade to explicit empty/degraded sections instead of inferred prose.
 - Schedule-context drift: if Eva receives a different day model than the timeline, guidance can contradict Home. Prefer shared projections and context receipts.
-- Calendar authority confusion: assistant copy can accidentally imply external calendar control. Keep wording read-only and name Tasker-owned changes explicitly.
+- Calendar authority confusion: assistant copy can accidentally imply external calendar control. Keep wording read-only and name LifeBoard-owned changes explicitly.
 - Over-planning pressure: Chief of Staff guidance can become stressful if it tries to fill every free gap. Include leave-open and protect-focus options.
 - Memory pressure: model routing must keep respecting installed model availability, runtime support, and device memory limits.
 - Draft recovery: prompt/draft preservation during stop, backgrounding, or model failure remains stateful in `ChatView` and should be tested before expanding workflows.
@@ -118,13 +118,13 @@ Examples:
 Use the workspace, not the project, for iOS builds and tests:
 
 ```bash
-xcodebuild test -workspace Tasker.xcworkspace -scheme 'To Do List' -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:'To Do ListTests/AssistantPlannerServiceTests' -only-testing:'To Do ListTests/LLMRuntimeCoordinatorTests/testBeginUserTurnClearsCancelledOutputStateWithoutUnloadingModel' -only-testing:'To Do ListTests/LLMRuntimeCoordinatorTests/testCancelGenerationClearsThinkingWhenNotRunning'
+xcodebuild test -workspace LifeBoard.xcworkspace -scheme 'LifeBoard' -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:'LifeBoardTests/AssistantPlannerServiceTests' -only-testing:'LifeBoardTests/LLMRuntimeCoordinatorTests/testBeginUserTurnClearsCancelledOutputStateWithoutUnloadingModel' -only-testing:'LifeBoardTests/LLMRuntimeCoordinatorTests/testCancelGenerationClearsThinkingWhenNotRunning'
 ```
 
 Static documentation check:
 
 ```bash
-git diff --check -- README.md docs/architecture/TASKER_V2_ARCHITECTURE_GUIDE.md docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md EVA_PLAN_WITH_STRUCTURED_UI_TODO.md
+git diff --check -- README.md docs/architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md EVA_PLAN_WITH_STRUCTURED_UI_TODO.md
 ```
 
 Manual EVA response-drop validation:
@@ -151,7 +151,7 @@ Run these scenarios in the simulator or on device:
    - Expected boundary: no external calendar mutation controls.
 5. With an overloaded timeline window, send `Help me fix this block`.
    - Expected route: day planning.
-   - Expected UI: guidance or proposal cards for Tasker-owned task changes only.
+   - Expected UI: guidance or proposal cards for LifeBoard-owned task changes only.
    - Expected boundary: calendar events are treated as fixed observed constraints.
 6. Send `Help me plan my day`.
    - Expected route: day planning.

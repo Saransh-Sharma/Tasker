@@ -1,6 +1,6 @@
 # Calendar + Timeline
 
-Tasker's calendar layer is read-only schedule context that improves execution without turning Tasker into a full calendar app.
+LifeBoard's calendar layer is read-only schedule context that improves execution without turning LifeBoard into a full calendar app.
 
 The Home timeline is the product's single-glanceable day command center: a calm visual day narrative where tasks, fixed calendar commitments, routines, busy periods, open gaps, and EVA guidance come together as one readable planning surface. It should help users understand what matters in the day right now without forcing them to switch between a calendar, task list, and planner.
 
@@ -11,7 +11,7 @@ The system observes external calendar reality through EventKit, filters it local
 - Calendar schedule views, where day, week, and month glances help the user understand fixed commitments without editing them
 - The timeline, where calendar context informs task chronology, gaps, and planning affordances
 
-Eva may read the same projected day context as a Chief of Staff layer. That lets chat and timeline guidance explain what is next, what is overloaded, what can fit, and what could be deferred. Eva still cannot mutate external calendar events in this feature package; assistant changes remain limited to Tasker-owned tasks, habits, reminders, or planning metadata through explicit user action and the assistant action pipeline.
+Eva may read the same projected day context as a Chief of Staff layer. That lets chat and timeline guidance explain what is next, what is overloaded, what can fit, and what could be deferred. Eva still cannot mutate external calendar events in this feature package; assistant changes remain limited to LifeBoard-owned tasks, habits, reminders, or planning metadata through explicit user action and the assistant action pipeline.
 
 ## Canonical Docs
 
@@ -25,10 +25,10 @@ Eva may read the same projected day context as a Chief of Staff layer. That lets
 The current implementation centers on these runtime surfaces:
 
 - `CalendarIntegrationService`
-- `TaskerCalendarSnapshot`
+- `LifeBoardCalendarSnapshot`
 - `HomeCalendarSnapshot`
-- `TaskerNextMeetingSummary`
-- `TaskerTaskFitHintResult`
+- `LifeBoardNextMeetingSummary`
+- `LifeBoardTaskFitHintResult`
 - `HomeViewModel`
 
 Those types are the source of truth for how calendar data is fetched, filtered, cached, and projected into Home and schedule surfaces.
@@ -104,6 +104,6 @@ Out of scope:
 
 ## Terminology
 
-In Tasker, "timeline" means the task chronology and schedule context inside Tasker, not a full calendar grid.
+In LifeBoard, "timeline" means the task chronology and schedule context inside LifeBoard, not a full calendar grid.
 
 Calendar data informs timeline decisions, but the timeline remains task-first.

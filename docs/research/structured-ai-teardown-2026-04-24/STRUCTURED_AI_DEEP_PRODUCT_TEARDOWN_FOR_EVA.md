@@ -295,13 +295,13 @@ V2 scope:
 | Pro/trial gating | Monetize value | Free quota + Pro apply | Premium automations |
 | Error/recovery | Avoid lost work | Retry, preserve prompt | Offline local fallback |
 
-### Porting Spec for Tasker EVA
+### Porting Spec for LifeBoard EVA
 
-This section translates the Structured patterns into concrete Tasker/EVA implementation requirements. Tasker already has the right safety backbone: `AssistantActionPipelineUseCase` supports propose -> confirm -> apply -> undo, `AssistantActionRunDefinition` persists a run, and undo is bounded by a 30-minute window. The missing layer is a richer proposal schema and a Structured-style review UI for schedule-aware actions.
+This section translates the Structured patterns into concrete LifeBoard/EVA implementation requirements. LifeBoard already has the right safety backbone: `AssistantActionPipelineUseCase` supports propose -> confirm -> apply -> undo, `AssistantActionRunDefinition` persists a run, and undo is bounded by a 30-minute window. The missing layer is a richer proposal schema and a Structured-style review UI for schedule-aware actions.
 
-#### Existing Tasker Fit
+#### Existing LifeBoard Fit
 
-| Existing Tasker concept | Current role | Fit for Structured-like EVA | Required extension |
+| Existing LifeBoard concept | Current role | Fit for Structured-like EVA | Required extension |
 | --- | --- | --- | --- |
 | `AssistantActionPipelineUseCase` | Persists proposal, confirms, applies, generates undo | Keep as mutation gate | Add richer proposal metadata and selected-command apply |
 | `AssistantCommandEnvelope` | Stores command list and rationale | Keep as run payload | Add schema v3 fields for proposal groups, source context, display cards |

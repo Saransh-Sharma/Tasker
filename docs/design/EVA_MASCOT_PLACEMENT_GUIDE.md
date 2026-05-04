@@ -1,6 +1,6 @@
 # Assistant Mascot Persona Placement Guide
 
-Tasker's visual Chief of Staff is a selectable mascot persona. Eva remains the default, but users can choose a different assistant identity during onboarding or from Settings. The selected mascot communicates product state: present, planning, thinking, reviewing, suggesting, warning, celebrating, helping, or encouraging rest. Mascots should make the app feel guided and humane without becoming a decorative sticker layer.
+LifeBoard's visual Chief of Staff is a selectable mascot persona. Eva remains the default, but users can choose a different assistant identity during onboarding or from Settings. The selected mascot communicates product state: present, planning, thinking, reviewing, suggesting, warning, celebrating, helping, or encouraging rest. Mascots should make the app feel guided and humane without becoming a decorative sticker layer.
 
 This guide owns mascot placement philosophy, persona catalog, asset contracts, and visual-state mapping. LLM routing, planner guards, model behavior, and assistant privacy posture are documented separately in `../architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
 
@@ -16,14 +16,14 @@ This guide owns mascot placement philosophy, persona catalog, asset contracts, a
 
 ## Persona Catalog
 
-Eva is the default persona and uses Tasker's original static PNG pose set. The sprite-backed personas are Cloudlet, Dude, Elon, Friday, Johnny, Maddie, Paperclip, Punch, Retriever, Sato, Steve, Theo, and YesMan.
+Eva is the default persona and uses LifeBoard's original static PNG pose set. The sprite-backed personas are Cloudlet, Dude, Elon, Friday, Johnny, Maddie, Paperclip, Punch, Retriever, Sato, Steve, Theo, and YesMan.
 
 The selected persona controls visible assistant naming, accessibility labels, and mascot artwork. Internal code, telemetry keys, persisted legacy keys, and implementation types may keep Eva-prefixed names where those names are not shown to users.
 
 ## Sprite Asset Contract
 
-- Eva static assets live in `To Do List/Assets.xcassets/EvaMascot/`.
-- Sprite-backed mascot assets live in `To Do List/LLM/MascotSprites/`.
+- Eva static assets live in `LifeBoard/Assets.xcassets/EvaMascot/`.
+- Sprite-backed mascot assets live in `LifeBoard/LLM/MascotSprites/`.
 - Each sprite persona folder must contain `pet.json` and `spritesheet.webp`.
 - Sprite sheets use an 8-column by 9-row layout with 192x208 cells.
 - Row order is `idle`, `runRight`, `runLeft`, `waving`, `jumping`, `failed`, `waiting`, `running`, and `review`.
@@ -144,8 +144,8 @@ The following `eva_*` assets apply only to Eva's static PNG fallback mapping. Sp
 
 ## Implementation Contract
 
-- Eva static assets live in `To Do List/Assets.xcassets/EvaMascot/`.
-- Sprite-backed persona assets live in `To Do List/LLM/MascotSprites/`.
+- Eva static assets live in `LifeBoard/Assets.xcassets/EvaMascot/`.
+- Sprite-backed persona assets live in `LifeBoard/LLM/MascotSprites/`.
 - SwiftUI call sites should use `EvaMascotView` with `EvaMascotPlacement` whenever the pose is tied to product state.
 - The shared API is:
   - `AssistantMascotID`

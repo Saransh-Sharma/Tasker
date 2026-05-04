@@ -1,6 +1,6 @@
 # Habit Data Model And Runtime
 
-This document describes the habit lifecycle, streak semantics, and runtime projection rules that Tasker uses for Habit Streaks.
+This document describes the habit lifecycle, streak semantics, and runtime projection rules that LifeBoard uses for Habit Streaks.
 
 ## Core Concepts
 

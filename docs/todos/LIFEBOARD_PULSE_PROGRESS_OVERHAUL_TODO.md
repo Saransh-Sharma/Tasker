@@ -1,4 +1,4 @@
-# Tasker Pulse + Progress Overhaul
+# LifeBoard Pulse + Progress Overhaul
 
 - [ ] Add Pulse/Progress feature flags and rollout plumbing.
 - [ ] Add pulse/economy domain models and repository contracts.
