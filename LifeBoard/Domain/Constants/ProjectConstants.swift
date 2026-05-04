@@ -1,6 +1,6 @@
 //
 //  ProjectConstants.swift
-//  Tasker
+//  LifeBoard
 //
 //  Domain constants for Project management
 //

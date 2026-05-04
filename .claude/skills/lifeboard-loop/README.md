@@ -1,16 +1,16 @@
-# Tasker Loop
+# LifeBoard Loop
 
-Self-referential AI loop for iterative Tasker iOS development, implementing the Ralph Wiggum technique. Optimized for Swift, Clean Architecture, CoreData, and CloudKit.
+Self-referential AI loop for iterative LifeBoard iOS development, implementing the Ralph Wiggum technique. Optimized for Swift, Clean Architecture, CoreData, and CloudKit.
 
 ## Quick Start
 
 ```bash
-/start-tasker-loop Add label feature using Clean Architecture --completion-promise 'LABELS DONE' --max-iterations 15
+/start-lifeboard-loop Add label feature using Clean Architecture --completion-promise 'LABELS DONE' --max-iterations 15
 ```
 
-## What Is Tasker Loop?
+## What Is LifeBoard Loop?
 
-Tasker Loop runs Claude in a while-true loop with the same prompt until task completion. Each iteration, Claude sees its previous work in files and git history, allowing continuous improvement and refinement.
+LifeBoard Loop runs Claude in a while-true loop with the same prompt until task completion. Each iteration, Claude sees its previous work in files and git history, allowing continuous improvement and refinement.
 
 **Key Benefit**: Transform complex multi-file tasks into iterative, self-correcting development sessions.
 
@@ -19,7 +19,7 @@ Tasker Loop runs Claude in a while-true loop with the same prompt until task com
 - ✅ Self-referential loops (Claude sees previous work)
 - ✅ Completion promises (exit only when done)
 - ✅ Max iteration limits (safety guard)
-- ✅ Tasker-specific Clean Architecture guidance
+- ✅ LifeBoard-specific Clean Architecture guidance
 - ✅ Built-in mapper pattern enforcement
 - ✅ UUID architecture support
 - ✅ Automatic state management
@@ -28,52 +28,52 @@ Tasker Loop runs Claude in a while-true loop with the same prompt until task com
 ## Architecture
 
 ```
-.claude/tasker-loop.local.md (state file)
+.claude/lifeboard-loop.local.md (state file)
     ↓
 Stop Hook (hooks/stop-hook.sh)
     ↓
-Setup Script (scripts/setup-tasker-loop.sh)
+Setup Script (scripts/setup-lifeboard-loop.sh)
     ↓
-Commands (/start-tasker-loop, /cancel-tasker-loop, /tasker-loop-help)
+Commands (/start-lifeboard-loop, /cancel-lifeboard-loop, /lifeboard-loop-help)
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/start-tasker-loop PROMPT [OPTIONS]` | Start a loop |
-| `/cancel-tasker-loop` | Cancel active loop |
-| `/tasker-loop-help` | Show full documentation |
+| `/start-lifeboard-loop PROMPT [OPTIONS]` | Start a loop |
+| `/cancel-lifeboard-loop` | Cancel active loop |
+| `/lifeboard-loop-help` | Show full documentation |
 
 ## Usage Examples
 
 ### Simple Feature
 
 ```bash
-/start-tasker-loop Add label feature using Clean Architecture
+/start-lifeboard-loop Add label feature using Clean Architecture
 ```
 
 ### With Completion Promise
 
 ```bash
-/start-tasker-loop Fix CoreData migration --completion-promise 'MIGRATION WORKING'
+/start-lifeboard-loop Fix CoreData migration --completion-promise 'MIGRATION WORKING'
 ```
 
 ### With Iteration Limit
 
 ```bash
-/start-tasker-loop Refactor HomeViewController --max-iterations 10
+/start-lifeboard-loop Refactor HomeViewController --max-iterations 10
 ```
 
 ### Both Options
 
 ```bash
-/start-tasker-loop Add unit tests --completion-promise 'TESTS PASSING' --max-iterations 20
+/start-lifeboard-loop Add unit tests --completion-promise 'TESTS PASSING' --max-iterations 20
 ```
 
 ## How It Works
 
-1. **Initialize**: `/start-tasker-loop` creates state file with YAML frontmatter
+1. **Initialize**: `/start-lifeboard-loop` creates state file with YAML frontmatter
 2. **Work**: Claude executes the task, modifying files
 3. **Exit Attempt**: When Claude tries to exit, stop hook activates
 4. **Check**: Hook reads state file, checks completion criteria
@@ -83,7 +83,7 @@ Commands (/start-tasker-loop, /cancel-tasker-loop, /tasker-loop-help)
 
 ## Clean Architecture Integration
 
-Tasker Loop is optimized for the Tasker codebase architecture:
+LifeBoard Loop is optimized for the LifeBoard codebase architecture:
 
 ### Layer Structure
 
@@ -156,31 +156,31 @@ Do not lie to exit the loop - the system is designed to continue until genuine c
 
 ```bash
 # View current iteration
-grep '^iteration:' .claude/tasker-loop.local.md
+grep '^iteration:' .claude/lifeboard-loop.local.md
 
 # View full state
-head -10 .claude/tasker-loop.local.md
+head -10 .claude/lifeboard-loop.local.md
 
 # View prompt
-tail -n +10 .claude/tasker-loop.local.md
+tail -n +10 .claude/lifeboard-loop.local.md
 ```
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| Loop won't start | Run `/cancel-tasker-loop` first |
+| Loop won't start | Run `/cancel-lifeboard-loop` first |
 | "State file corrupted" | Cancel and restart |
 | Max iterations reached | Increase limit or refine prompt |
 | Promise not detected | Check XML tags format |
 
-## Tasker-Specific Build Commands
+## LifeBoard-Specific Build Commands
 
 ```bash
-./taskerctl build              # Build simulator
-./taskerctl build device       # Build physical device
-./taskerctl clean --all        # Clean build
-./taskerctl doctor             # Diagnostics
+./lifeboardctl build              # Build simulator
+./lifeboardctl build device       # Build physical device
+./lifeboardctl clean --all        # Clean build
+./lifeboardctl doctor             # Diagnostics
 ```
 
 ## Philosophy
@@ -198,7 +198,7 @@ Let Claude attempt the same task multiple times. Each iteration builds on previo
 ## File Structure
 
 ```
-.claude/skills/tasker-loop/
+.claude/skills/lifeboard-loop/
 ├── .claude-skill/
 │   └── skill.json              # Skill metadata
 ├── README.md                   # This file
@@ -207,13 +207,13 @@ Let Claude attempt the same task multiple times. Each iteration builds on previo
 │   ├── hooks.json              # Hook configuration
 │   └── stop-hook.sh            # Stop hook logic
 └── scripts/
-    └── setup-tasker-loop.sh    # Loop initialization
+    └── setup-lifeboard-loop.sh    # Loop initialization
 ```
 
 ## Based On
 
-Tasker Loop is based on the [ralph-loop](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/ralph-loop) plugin by Anthropic, adapted specifically for the Tasker iOS codebase.
+LifeBoard Loop is based on the [ralph-loop](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/ralph-loop) plugin by Anthropic, adapted specifically for the LifeBoard iOS codebase.
 
 ## License
 
-Same as Tasker project.
+Same as LifeBoard project.

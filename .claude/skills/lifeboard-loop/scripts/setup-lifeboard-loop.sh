@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Tasker Loop Setup Script
-# Creates state file for in-session Tasker loop
+# LifeBoard Loop Setup Script
+# Creates state file for in-session LifeBoard loop
 
 set -euo pipefail
 
@@ -15,10 +15,10 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     -h|--help)
       cat << 'HELP_EOF'
-Tasker Loop - Interactive self-referential development loop for Tasker iOS
+LifeBoard Loop - Interactive self-referential development loop for LifeBoard iOS
 
 USAGE:
-  /start-tasker-loop [PROMPT...] [OPTIONS]
+  /start-lifeboard-loop [PROMPT...] [OPTIONS]
 
 ARGUMENTS:
   PROMPT...    Initial prompt to start the loop (can be multiple words without quotes)
@@ -29,10 +29,10 @@ OPTIONS:
   -h, --help                     Show this help message
 
 DESCRIPTION:
-  Starts a Tasker Loop in your CURRENT session. The stop hook prevents
+  Starts a LifeBoard Loop in your CURRENT session. The stop hook prevents
   exit and feeds your output back as input until completion or iteration limit.
 
-  This loop is optimized for the Tasker iOS codebase:
+  This loop is optimized for the LifeBoard iOS codebase:
   - Swift, SwiftUI, and UIKit development
   - Clean Architecture patterns (Domain, UseCases, State, Presentation)
   - CoreData integration
@@ -44,32 +44,32 @@ DESCRIPTION:
   Use this for:
   - Interactive iteration where you want to see progress
   - Tasks requiring self-correction and refinement
-  - Complex feature development in Tasker
+  - Complex feature development in LifeBoard
   - Refactoring with Clean Architecture
 
 EXAMPLES:
-  /start-tasker-loop Add label feature using Clean Architecture --completion-promise 'LABELS DONE' --max-iterations 15
-  /start-tasker-loop --max-iterations 10 Fix CoreData migration issue
-  /start-tasker-loop Refactor HomeViewController to use Clean Architecture
-  /start-tasker-loop --completion-promise 'TESTS PASSING' Add unit tests for TaskMapper
+  /start-lifeboard-loop Add label feature using Clean Architecture --completion-promise 'LABELS DONE' --max-iterations 15
+  /start-lifeboard-loop --max-iterations 10 Fix CoreData migration issue
+  /start-lifeboard-loop Refactor HomeViewController to use Clean Architecture
+  /start-lifeboard-loop --completion-promise 'TESTS PASSING' Add unit tests for TaskMapper
 
 STOPPING:
   Only by reaching --max-iterations or detecting --completion-promise
-  No manual stop - Tasker loop runs infinitely by default!
+  No manual stop - LifeBoard loop runs infinitely by default!
 
 MONITORING:
   # View current iteration:
-  grep '^iteration:' .claude/tasker-loop.local.md
+  grep '^iteration:' .claude/lifeboard-loop.local.md
 
   # View full state:
-  head -10 .claude/tasker-loop.local.md
+  head -10 .claude/lifeboard-loop.local.md
 
-TASKER-SPECIFIC TIPS:
+LIFEBOARD-SPECIFIC TIPS:
   - Always follow Clean Architecture: Domain → UseCases → State → Presentation
   - Use mappers: TaskMapper.toDomain(), ProjectMapper.toEntity()
   - Don't import CoreData in UseCases or Domain layers
-  - Test changes with: ./taskerctl build
-  - Use the taskerctl script for building and diagnostics
+  - Test changes with: ./lifeboardctl build
+  - Use the lifeboardctl script for building and diagnostics
 HELP_EOF
       exit 0
       ;;
@@ -131,14 +131,14 @@ PROMPT="${PROMPT_PARTS[*]}"
 if [[ -z "$PROMPT" ]]; then
   echo "❌ Error: No prompt provided" >&2
   echo "" >&2
-  echo "   Tasker loop needs a task description to work on." >&2
+  echo "   LifeBoard loop needs a task description to work on." >&2
   echo "" >&2
   echo "   Examples:" >&2
-  echo "     /start-tasker-loop Add label feature with Clean Architecture" >&2
-  echo "     /start-tasker-loop Fix CoreData migration --max-iterations 20" >&2
-  echo "     /start-tasker-loop --completion-promise 'DONE' Refactor cache layer" >&2
+  echo "     /start-lifeboard-loop Add label feature with Clean Architecture" >&2
+  echo "     /start-lifeboard-loop Fix CoreData migration --max-iterations 20" >&2
+  echo "     /start-lifeboard-loop --completion-promise 'DONE' Refactor cache layer" >&2
   echo "" >&2
-  echo "   For all options: /start-tasker-loop --help" >&2
+  echo "   For all options: /start-lifeboard-loop --help" >&2
   exit 1
 fi
 
@@ -152,7 +152,7 @@ else
   COMPLETION_PROMISE_YAML="null"
 fi
 
-cat > .claude/tasker-loop.local.md <<EOF
+cat > .claude/lifeboard-loop.local.md <<EOF
 ---
 active: true
 iteration: 1
@@ -166,7 +166,7 @@ EOF
 
 # Output setup message
 cat <<EOF
-🔄 Tasker loop activated in this session!
+🔄 LifeBoard loop activated in this session!
 
 Iteration: 1
 Max iterations: $(if [[ $MAX_ITERATIONS -gt 0 ]]; then echo $MAX_ITERATIONS; else echo "unlimited"; fi)
@@ -176,7 +176,7 @@ The stop hook is now active. When you try to exit, the SAME PROMPT will be
 fed back to you. You'll see your previous work in files, creating a
 self-referential loop where you iteratively improve on the same task.
 
-To monitor: head -10 .claude/tasker-loop.local.md
+To monitor: head -10 .claude/lifeboard-loop.local.md
 
 ⚠️  WARNING: This loop cannot be stopped manually! It will run infinitely
     unless you set --max-iterations or --completion-promise.
@@ -194,7 +194,7 @@ fi
 if [[ "$COMPLETION_PROMISE" != "null" ]]; then
   echo ""
   echo "═══════════════════════════════════════════════════════════"
-  echo "CRITICAL - Tasker Loop Completion Promise"
+  echo "CRITICAL - LifeBoard Loop Completion Promise"
   echo "═══════════════════════════════════════════════════════════"
   echo ""
   echo "To complete this loop, output this EXACT text:"

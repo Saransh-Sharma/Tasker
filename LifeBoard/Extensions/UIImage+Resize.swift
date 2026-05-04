@@ -1,8 +1,8 @@
 //
 //  UIImage+Resize.swift
-//  To Do List
+//  LifeBoard
 //
-//  Created for Tasker App
+//  Created for LifeBoard App
 //  Copyright © 2025 saransh1337. All rights reserved.
 //
 

@@ -1,6 +1,6 @@
 //
 //  AnalyticsServiceProtocol.swift
-//  Tasker
+//  LifeBoard
 //
 //  Protocol for analytics service abstraction
 //

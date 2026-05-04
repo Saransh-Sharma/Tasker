@@ -1,6 +1,6 @@
 //
 //  UUIDGenerator.swift
-//  Tasker
+//  LifeBoard
 //
 //  Service for generating UUIDs with deterministic support for migrations
 //
