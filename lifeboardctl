@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# TaskerCTL - Ultimate iOS Project Management CLI
+# LifeBoardCTL - Ultimate iOS Project Management CLI
 # Version: 1.0.0
-# Description: Comprehensive build and deployment tool for Tasker iOS app
+# Description: Comprehensive build and deployment tool for LifeBoard iOS app
 
 set -euo pipefail
 
@@ -11,7 +11,7 @@ readonly SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_VERSION="1.0.0"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$SCRIPT_DIR"
-readonly CONFIG_DIR="$HOME/.taskerctl"
+readonly CONFIG_DIR="$HOME/.lifeboardctl"
 readonly LOG_DIR="$CONFIG_DIR/logs"
 
 # Colors for terminal output
@@ -72,7 +72,7 @@ log() {
     echo -e "${color}[$timestamp] [$level] $message${NC}" >&2
 
     # Log to file
-    local log_file="$LOG_DIR/taskerctl.log"
+    local log_file="$LOG_DIR/lifeboardctl.log"
     echo "[$timestamp] [$level] $message" >> "$log_file"
 }
 
@@ -141,16 +141,16 @@ show_progress() {
 # Initialize configuration
 init_config() {
     if [[ ! -f "$CONFIG_FILE" ]]; then
-        log_info "Initializing TaskerCTL configuration..."
+        log_info "Initializing LifeBoardCTL configuration..."
         mkdir -p "$CONFIG_DIR"
 
         cat > "$CONFIG_FILE" << 'EOF'
 {
   "version": "1.0.0",
   "project": {
-    "workspace": "Tasker.xcworkspace",
-    "scheme": "To Do List",
-    "target": "Tasker"
+    "workspace": "LifeBoard.xcworkspace",
+    "scheme": "LifeBoard",
+    "target": "LifeBoard"
   },
   "build": {
     "configuration": "debug",
@@ -190,15 +190,15 @@ load_config() {
             TARGET=$(jq -r '.project.target' "$CONFIG_FILE")
         else
             log_warn "jq not found, using default configuration values"
-            WORKSPACE="Tasker.xcworkspace"
-            SCHEME="To Do List"
-            TARGET="Tasker"
+            WORKSPACE="LifeBoard.xcworkspace"
+            SCHEME="LifeBoard"
+            TARGET="LifeBoard"
         fi
     else
         log_debug "No configuration file found, using defaults"
-        WORKSPACE="Tasker.xcworkspace"
-        SCHEME="To Do List"
-        TARGET="Tasker"
+        WORKSPACE="LifeBoard.xcworkspace"
+        SCHEME="LifeBoard"
+        TARGET="LifeBoard"
     fi
 
     # Export for use in other functions
@@ -220,7 +220,7 @@ validate_project() {
         errors=$((errors + 1))
     fi
 
-    if [[ ! -f "$PROJECT_ROOT/Tasker.xcodeproj/project.pbxproj" ]]; then
+    if [[ ! -f "$PROJECT_ROOT/LifeBoard.xcodeproj/project.pbxproj" ]]; then
         log_error "Xcode project not found"
         errors=$((errors + 1))
     fi
@@ -250,17 +250,17 @@ validate_project() {
 show_help() {
     cat << 'EOF'
 ┌─────────────────────────────────────────────────────────────┐
-│                    TaskerCTL v1.0.0                        │
+│                    LifeBoardCTL v1.0.0                        │
 │                  iOS Project Builder                       │
 │                                                             │
 │  Comprehensive CLI tool for building, testing, and        │
-│  deploying your Tasker iOS application with advanced       │
+│  deploying your LifeBoard iOS application with advanced       │
 │  features like caching, parallel builds, and               │
 │  intelligent error handling.                               │
 └─────────────────────────────────────────────────────────────┘
 
 USAGE:
-    taskerctl [COMMAND] [OPTIONS]
+    lifeboardctl [COMMAND] [OPTIONS]
 
 CORE COMMANDS:
     setup           Initialize environment and dependencies
@@ -295,18 +295,18 @@ OPTIONS:
     --config FILE   Use custom configuration file
 
 EXAMPLES:
-    taskerctl setup                     # Initialize environment and install dependencies
-    taskerctl build                     # Build app with smart simulator detection
-    taskerctl build --auto-run          # Build and automatically run on simulator
-    taskerctl build --verbose           # Build with detailed logging output
-    taskerctl test --parallel           # Run tests in parallel for faster execution
-    taskerctl run --destination "iPhone 16 Pro"  # Build and launch on specific simulator
+    lifeboardctl setup                     # Initialize environment and install dependencies
+    lifeboardctl build                     # Build app with smart simulator detection
+    lifeboardctl build --auto-run          # Build and automatically run on simulator
+    lifeboardctl build --verbose           # Build with detailed logging output
+    lifeboardctl test --parallel           # Run tests in parallel for faster execution
+    lifeboardctl run --destination "iPhone 16 Pro"  # Build and launch on specific simulator
 
 FOR MORE HELP:
-    taskerctl help build                # Command-specific help
-    taskerctl topics                    # Browse help topics
-    taskerctl examples                  # View examples
-    taskerctl tutorial                  # Interactive guide
+    lifeboardctl help build                # Command-specific help
+    lifeboardctl topics                    # Browse help topics
+    lifeboardctl examples                  # View examples
+    lifeboardctl tutorial                  # Interactive guide
 
 EOF
 }
@@ -318,13 +318,13 @@ show_command_help() {
     case "$command" in
         "build")
             cat << 'EOF'
-TASKERCTL BUILD - Build iOS Application
+LIFEBOARDCTL BUILD - Build iOS Application
 
 USAGE:
-    taskerctl build [OPTIONS] [TARGET]
+    lifeboardctl build [OPTIONS] [TARGET]
 
 DESCRIPTION:
-    Build the Tasker iOS app with various configuration options.
+    Build the LifeBoard iOS app with various configuration options.
     Supports simulator, device, and archive builds with detailed
     progress reporting and error handling.
 
@@ -339,7 +339,7 @@ OPTIONS:
 
     -d, --destination <DESTINATION>
         Specific device/simulator to build for
-        Use 'taskerctl status --devices' to see available options
+        Use 'lifeboardctl status --devices' to see available options
 
     -v, --verbose
         Enable detailed logging output with timestamps
@@ -382,54 +382,54 @@ OPTIONS:
 
 EXAMPLES:
     # Basic debug build (automatically detects running simulator)
-    taskerctl build
+    lifeboardctl build
     # → Detects running simulator, builds for it, or boots best available iPhone
 
     # Build and auto-run on simulator
-    taskerctl build --auto-run
+    lifeboardctl build --auto-run
     # → Builds app and automatically installs/launches it on the simulator
 
     # Release build for iPhone 16 Pro
-    taskerctl build --configuration release --destination "iPhone 16 Pro"
+    lifeboardctl build --configuration release --destination "iPhone 16 Pro"
     # → Creates optimized release build for specific simulator
 
     # Parallel build with detailed logs and notifications
-    taskerctl build --parallel --verbose --notify
+    lifeboardctl build --parallel --verbose --notify
     # → Builds with multiple cores, shows detailed output, sends desktop notification
 
     # Build only changed files (git-aware)
-    taskerctl build --git-diff-only
+    lifeboardctl build --git-diff-only
     # → Analyzes git diff, builds only files that changed since last commit
 
     # Clean build with archive and auto-run
-    taskerctl build --clean --archive --auto-run
+    lifeboardctl build --clean --archive --auto-run
     # → Cleans artifacts, builds fresh, creates archive, runs app
 
     # Build with aggressive caching strategy
-    taskerctl build --cache-strategy aggressive
+    lifeboardctl build --cache-strategy aggressive
     # → Uses maximum caching for faster incremental builds
 
     # Build with warnings suppression for cleaner output
-    taskerctl build --suppress-warnings
+    lifeboardctl build --suppress-warnings
     # → Suppresses common CocoaPods warnings for cleaner console output
 
 SEE ALSO:
-    • taskerctl help cache
-    • taskerctl help destinations
-    • taskerctl help troubleshooting-build
-    • taskerctl examples build
+    • lifeboardctl help cache
+    • lifeboardctl help destinations
+    • lifeboardctl help troubleshooting-build
+    • lifeboardctl examples build
 
 EOF
             ;;
         "setup")
             cat << 'EOF'
-TASKERCTL SETUP - Initialize Environment
+LIFEBOARDCTL SETUP - Initialize Environment
 
 USAGE:
-    taskerctl setup [OPTIONS]
+    lifeboardctl setup [OPTIONS]
 
 DESCRIPTION:
-    Initialize the TaskerCTL environment, install dependencies,
+    Initialize the LifeBoardCTL environment, install dependencies,
     and configure the build system for first-time use.
 
 OPTIONS:
@@ -447,25 +447,25 @@ STEPS PERFORMED:
 
 EXAMPLES:
     # First-time setup
-    taskerctl setup
+    lifeboardctl setup
 
     # Force re-setup
-    taskerctl setup --force
+    lifeboardctl setup --force
 
     # Setup without installing dependencies
-    taskerctl setup --skip-deps
+    lifeboardctl setup --skip-deps
 
 EOF
             ;;
         "run")
             cat << 'EOF'
-TASKERCTL RUN - Build and Launch iOS Application
+LIFEBOARDCTL RUN - Build and Launch iOS Application
 
 USAGE:
-    taskerctl run [OPTIONS] [TARGET]
+    lifeboardctl run [OPTIONS] [TARGET]
 
 DESCRIPTION:
-    Build the Tasker iOS app and launch it on simulator or device.
+    Build the LifeBoard iOS app and launch it on simulator or device.
     Supports interactive device selection and various launch options.
 
 TARGETS:
@@ -478,7 +478,7 @@ OPTIONS:
 
     -d, --destination <DESTINATION>
         Specific device/simulator to launch on
-        Use 'taskerctl status --devices' to see available options
+        Use 'lifeboardctl status --devices' to see available options
 
     -i, --interactive
         Show interactive device picker to select target device
@@ -497,33 +497,33 @@ OPTIONS:
 
 EXAMPLES:
     # Build and run on default simulator
-    taskerctl run
+    lifeboardctl run
 
     # Interactive device selection
-    taskerctl run --interactive
+    lifeboardctl run --interactive
 
     # Run on specific device with console logs
-    taskerctl run --destination "iPhone 16 Pro" --console
+    lifeboardctl run --destination "iPhone 16 Pro" --console
 
     # Run release build without rebuilding
-    taskerctl run --configuration release --no-build
+    lifeboardctl run --configuration release --no-build
 
 SEE ALSO:
-    • taskerctl help devices
-    • taskerctl help troubleshooting-run
-    • taskerctl examples run
+    • lifeboardctl help devices
+    • lifeboardctl help troubleshooting-run
+    • lifeboardctl examples run
 
 EOF
             ;;
         "test")
             cat << 'EOF'
-TASKERCTL TEST - Run Unit and UI Tests
+LIFEBOARDCTL TEST - Run Unit and UI Tests
 
 USAGE:
-    taskerctl test [OPTIONS] [TEST_TARGET]
+    lifeboardctl test [OPTIONS] [TEST_TARGET]
 
 DESCRIPTION:
-    Run unit and UI tests for the Tasker iOS application with
+    Run unit and UI tests for the LifeBoard iOS application with
     advanced options for parallel execution, coverage, and reporting.
 
 TEST_TARGETS:
@@ -555,33 +555,33 @@ OPTIONS:
 
 EXAMPLES:
     # Run all tests with parallel execution
-    taskerctl test --parallel --coverage
+    lifeboardctl test --parallel --coverage
 
     # Run only unit tests with detailed output
-    taskerctl test unit --verbose
+    lifeboardctl test unit --verbose
 
     # Run tests with HTML report and retry on failure
-    taskerctl test --report --retry 2
+    lifeboardctl test --report --retry 2
 
     # Quick test run on specific simulator
-    taskerctl test --destination "iPhone 16 Pro"
+    lifeboardctl test --destination "iPhone 16 Pro"
 
 SEE ALSO:
-    • taskerctl help coverage
-    • taskerctl help troubleshooting-test
-    • taskerctl examples test
+    • lifeboardctl help coverage
+    • lifeboardctl help troubleshooting-test
+    • lifeboardctl examples test
 
 EOF
             ;;
         "archive")
             cat << 'EOF'
-TASKERCTL ARCHIVE - Create Distributable Archive
+LIFEBOARDCTL ARCHIVE - Create Distributable Archive
 
 USAGE:
-    taskerctl archive [OPTIONS]
+    lifeboardctl archive [OPTIONS]
 
 DESCRIPTION:
-    Create an .xcarchive of the Tasker iOS application for distribution.
+    Create an .xcarchive of the LifeBoard iOS application for distribution.
     Supports various configurations and signing options for different deployment targets.
 
 OPTIONS:
@@ -593,7 +593,7 @@ OPTIONS:
 
     -o, --output <PATH>
         Custom output path for the archive file
-        Default: ./build/Tasker-YYYYMMDD-HHMMSS.xcarchive
+        Default: ./build/LifeBoard-YYYYMMDD-HHMMSS.xcarchive
 
     --signing-identity <IDENTITY>
         Specific signing identity to use for the archive
@@ -606,30 +606,30 @@ OPTIONS:
 
 EXAMPLES:
     # Create release archive for App Store
-    taskerctl archive
+    lifeboardctl archive
 
     # Create archive with custom output path
-    taskerctl archive --output "./build/Tasker-Staging.xcarchive"
+    lifeboardctl archive --output "./build/LifeBoard-Staging.xcarchive"
 
     # Create debug archive for testing
-    taskerctl archive --configuration debug
+    lifeboardctl archive --configuration debug
 
     # Clean build and create verbose archive
-    taskerctl archive --clean --verbose
+    lifeboardctl archive --clean --verbose
 
 SEE ALSO:
-    • taskerctl help export
-    • taskerctl help code-signing
-    • taskerctl examples archive
+    • lifeboardctl help export
+    • lifeboardctl help code-signing
+    • lifeboardctl examples archive
 
 EOF
             ;;
         "export")
             cat << 'EOF'
-TASKERCTL EXPORT - Export Archive for Distribution
+LIFEBOARDCTL EXPORT - Export Archive for Distribution
 
 USAGE:
-    taskerctl export --archive-path <PATH> [OPTIONS]
+    lifeboardctl export --archive-path <PATH> [OPTIONS]
 
 DESCRIPTION:
     Export an .xcarchive to IPA file for distribution using various
@@ -654,34 +654,34 @@ OPTIONS:
 
 EXAMPLES:
     # Export archive for App Store submission
-    taskerctl export --archive-path "./build/Tasker.xcarchive"
+    lifeboardctl export --archive-path "./build/LifeBoard.xcarchive"
 
     # Export for Ad Hoc distribution
-    taskerctl export --archive-path "./build/Tasker.xcarchive" --export-method ad-hoc
+    lifeboardctl export --archive-path "./build/LifeBoard.xcarchive" --export-method ad-hoc
 
     # Export with custom output directory
-    taskerctl export --archive-path "./build/Tasker.xcarchive" --output "./dist"
+    lifeboardctl export --archive-path "./build/LifeBoard.xcarchive" --output "./dist"
 
     # Export using custom export options
-    taskerctl export --archive-path "./build/Tasker.xcarchive" --export-options-plist "ExportOptions.plist"
+    lifeboardctl export --archive-path "./build/LifeBoard.xcarchive" --export-options-plist "ExportOptions.plist"
 
 SEE ALSO:
-    • taskerctl help archive
-    • taskerctl help code-signing
-    • taskerctl examples export
+    • lifeboardctl help archive
+    • lifeboardctl help code-signing
+    • lifeboardctl examples export
 
 EOF
             ;;
         "logs")
             cat << 'EOF'
-TASKERCTL LOGS - View Build and Application Logs
+LIFEBOARDCTL LOGS - View Build and Application Logs
 
 USAGE:
-    taskerctl logs [OPTIONS] [LOG_TYPE]
+    lifeboardctl logs [OPTIONS] [LOG_TYPE]
 
 DESCRIPTION:
     View and search through build, test, archive, and export logs
-    generated by TaskerCTL operations.
+    generated by LifeBoardCTL operations.
 
 LOG_TYPES:
     build            Show build logs only
@@ -699,32 +699,32 @@ OPTIONS:
 
 EXAMPLES:
     # Show all recent logs
-    taskerctl logs
+    lifeboardctl logs
 
     # Show only build logs
-    taskerctl logs build
+    lifeboardctl logs build
 
     # Follow main log in real-time
-    taskerctl logs --follow
+    lifeboardctl logs --follow
 
     # Search logs for specific pattern
-    taskerctl logs --filter "error"
+    lifeboardctl logs --filter "error"
 
     # Show test logs and filter for failures
-    taskerctl logs test --filter "failed"
+    lifeboardctl logs test --filter "failed"
 
 SEE ALSO:
-    • taskerctl help troubleshooting
-    • taskerctl examples logs
+    • lifeboardctl help troubleshooting
+    • lifeboardctl examples logs
 
 EOF
             ;;
         "cache")
             cat << 'EOF'
-TASKERCTL CACHE - Intelligent Build Cache Management
+LIFEBOARDCTL CACHE - Intelligent Build Cache Management
 
 USAGE:
-    taskerctl cache [ACTION] [OPTIONS]
+    lifeboardctl cache [ACTION] [OPTIONS]
 
 DESCRIPTION:
     Manage intelligent build cache with file change detection and
@@ -754,36 +754,36 @@ CACHE TYPES:
 
 EXAMPLES:
     # Show cache status
-    taskerctl cache status
+    lifeboardctl cache status
 
     # Clean all cache files
-    taskerctl cache clean --all
+    lifeboardctl cache clean --all
 
     # Analyze cache effectiveness
-    taskerctl cache analyze
+    lifeboardctl cache analyze
 
     # Warm up cache before build
-    taskerctl cache warm
+    lifeboardctl cache warm
 
     # Get cache information
-    taskerctl cache info
+    lifeboardctl cache info
 
 SEE ALSO:
-    • taskerctl help performance
-    • taskerctl help troubleshooting-cache
-    • taskerctl examples cache
+    • lifeboardctl help performance
+    • lifeboardctl help troubleshooting-cache
+    • lifeboardctl examples cache
 
 EOF
             ;;
         "config")
             cat << 'EOF'
-TASKERCTL CONFIG - Configuration Management
+LIFEBOARDCTL CONFIG - Configuration Management
 
 USAGE:
-    taskerctl config [ACTION] [OPTIONS]
+    lifeboardctl config [ACTION] [OPTIONS]
 
 DESCRIPTION:
-    Manage TaskerCTL configuration including build settings,
+    Manage LifeBoardCTL configuration including build settings,
     performance options, notifications, and advanced features.
 
 ACTIONS:
@@ -831,39 +831,39 @@ CONFIGURATION CATEGORIES:
 
 EXAMPLES:
     # Initialize configuration
-    taskerctl config init
+    lifeboardctl config init
 
     # Show current configuration
-    taskerctl config show
+    lifeboardctl config show
 
     # Set cache strategy
-    taskerctl config set build.cache_strategy aggressive
+    lifeboardctl config set build.cache_strategy aggressive
 
     # Get notification setting
-    taskerctl config get notifications.enabled
+    lifeboardctl config get notifications.enabled
 
     # Validate configuration
-    taskerctl config validate
+    lifeboardctl config validate
 
     # List all configuration options
-    taskerctl config list
+    lifeboardctl config list
 
 SEE ALSO:
-    • taskerctl help performance
-    • taskerctl help notifications
-    • taskerctl examples config
+    • lifeboardctl help performance
+    • lifeboardctl help notifications
+    • lifeboardctl examples config
 
 EOF
             ;;
         "deploy")
             cat << 'EOF'
-TASKERCTL DEPLOY - Multi-Environment Deployment
+LIFEBOARDCTL DEPLOY - Multi-Environment Deployment
 
 USAGE:
-    taskerctl deploy [TYPE] [OPTIONS]
+    lifeboardctl deploy [TYPE] [OPTIONS]
 
 DESCRIPTION:
-    Deploy the Tasker iOS application to different environments with
+    Deploy the LifeBoard iOS application to different environments with
     appropriate build configurations, testing, and validation.
 
 DEPLOYMENT TYPES:
@@ -909,31 +909,31 @@ Production Deployment:
 
 EXAMPLES:
     # Development deployment
-    taskerctl deploy development
+    lifeboardctl deploy development
 
     # Staging deployment with dry run
-    taskerctl deploy staging --dry-run
+    lifeboardctl deploy staging --dry-run
 
     # Production deployment (requires confirmation)
-    taskerctl deploy production
+    lifeboardctl deploy production
 
     # Force production deployment
-    taskerctl deploy production --force
+    lifeboardctl deploy production --force
 
     # Deploy to specific environment
-    taskerctl deploy staging --environment testing
+    lifeboardctl deploy staging --environment testing
 
 SEE ALSO:
-    • taskerctl help archive
-    • taskerctl help test
-    • taskerctl help production-workflow
+    • lifeboardctl help archive
+    • lifeboardctl help test
+    • lifeboardctl help production-workflow
 
 EOF
             ;;
         *)
             log_error "Unknown command: $command"
             echo "Available commands: setup, build, run, test, clean, status, doctor, archive, export, logs, cache, config, deploy"
-            echo "Use 'taskerctl --help' for general help"
+            echo "Use 'lifeboardctl --help' for general help"
             ;;
     esac
 }
@@ -965,7 +965,7 @@ cmd_setup() {
         esac
     done
 
-    log_info "Starting TaskerCTL setup..."
+    log_info "Starting LifeBoardCTL setup..."
 
     # Step 1: Initialize configuration
     if [[ $force_setup -eq 1 ]]; then
@@ -1024,7 +1024,7 @@ cmd_setup() {
     log_success "Cache directory created"
 
     log_success "Setup completed successfully! 🎉"
-    log_info "Try: taskerctl status"
+    log_info "Try: lifeboardctl status"
 }
 
 # Status command
@@ -1063,7 +1063,7 @@ cmd_status() {
     load_config
 
     echo
-    echo "${BOLD}📱 Tasker iOS Project Status${NC}"
+    echo "${BOLD}📱 LifeBoard iOS Project Status${NC}"
     echo "=================================="
     echo
 
@@ -1171,7 +1171,7 @@ cmd_clean() {
 # Doctor command
 cmd_doctor() {
     echo
-    echo "${BOLD}🩺 TaskerCTL Diagnostic Tool${NC}"
+    echo "${BOLD}🩺 LifeBoardCTL Diagnostic Tool${NC}"
     echo "==============================="
     echo
 
@@ -1226,18 +1226,18 @@ cmd_doctor() {
     if [[ -f "$CONFIG_FILE" ]]; then
         echo "  ✅ Configuration found"
     else
-        echo "  ⚠️  Configuration not found (run 'taskerctl setup')"
+        echo "  ⚠️  Configuration not found (run 'lifeboardctl setup')"
     fi
 
     echo
     if [[ $issues -eq 0 ]]; then
         log_success "No issues found! 🎉"
-        echo "Your TaskerCTL environment is ready to use."
+        echo "Your LifeBoardCTL environment is ready to use."
     else
         log_error "Found $issues issue(s) that need attention"
         echo
         echo "Suggested fixes:"
-        echo "• Run 'taskerctl setup' to initialize environment"
+        echo "• Run 'lifeboardctl setup' to initialize environment"
         echo "• Install missing dependencies"
         echo "• Verify project structure"
     fi
@@ -1340,7 +1340,7 @@ cmd_build() {
                 ;;
             *)
                 log_error "Unknown build option: $1"
-                echo "Use 'taskerctl help build' for available options"
+                echo "Use 'lifeboardctl help build' for available options"
                 return 1
                 ;;
         esac
@@ -1527,9 +1527,9 @@ cmd_build() {
     # Build completion notification
     if [[ $notify_on_completion -eq 1 ]]; then
         if [[ $build_result -eq 0 ]]; then
-            send_notification "Build Successful" "Tasker build completed in ${build_duration}s" "success"
+            send_notification "Build Successful" "LifeBoard build completed in ${build_duration}s" "success"
         else
-            send_notification "Build Failed" "Tasker build failed after ${build_duration}s" "error"
+            send_notification "Build Failed" "LifeBoard build failed after ${build_duration}s" "error"
         fi
     fi
 
@@ -1540,7 +1540,7 @@ cmd_build() {
         # Create archive if requested
         if [[ $create_archive -eq 1 ]]; then
             log_info "Creating archive..."
-            local archive_path="$PROJECT_ROOT/build/Tasker-$(date +%Y%m%d-%H%M%S).xcarchive"
+            local archive_path="$PROJECT_ROOT/build/LifeBoard-$(date +%Y%m%d-%H%M%S).xcarchive"
 
             local archive_cmd="xcodebuild -workspace $WORKSPACE -scheme $SCHEME -configuration $configuration -destination $destination archive -archivePath $archive_path"
 
@@ -1606,7 +1606,7 @@ cmd_build() {
 
                                 # Auto-run notification
                                 if [[ $notify_on_completion -eq 1 ]]; then
-                                    send_notification "App Launched" "Tasker app is running on simulator" "success"
+                                    send_notification "App Launched" "LifeBoard app is running on simulator" "success"
                                 fi
                             else
                                 log_error "Failed to launch app on simulator"
@@ -1633,9 +1633,9 @@ cmd_build() {
         # Try to provide helpful error analysis
         if [[ -f "$build_log" ]]; then
             if grep -q "Code signing error" "$build_log"; then
-                log_error "Code signing issue detected. Run 'taskerctl help code-signing' for help."
+                log_error "Code signing issue detected. Run 'lifeboardctl help code-signing' for help."
             elif grep -q "No such module" "$build_log"; then
-                log_error "Missing module detected. Try running 'taskerctl setup --force'."
+                log_error "Missing module detected. Try running 'lifeboardctl setup --force'."
             elif grep -q "Command failed" "$build_log"; then
                 log_error "Build command failed. Check xcodebuild output above."
             fi
@@ -1786,7 +1786,7 @@ cmd_run() {
                 ;;
             *)
                 log_error "Unknown run option: $1"
-                echo "Use 'taskerctl help run' for available options"
+                echo "Use 'lifeboardctl help run' for available options"
                 return 1
                 ;;
         esac
@@ -1849,7 +1849,7 @@ cmd_run() {
 
     if [[ -z "$app_path" || ! -d "$app_path" ]]; then
         log_error "Built application not found at expected location"
-        log_info "Try building first with: taskerctl build"
+        log_info "Try building first with: lifeboardctl build"
         return 1
     fi
 
@@ -1900,7 +1900,7 @@ cmd_run() {
         log_info "Please open Xcode and select your device to run the app"
 
         # Open Xcode with the project
-        open "$PROJECT_ROOT/Tasker.xcworkspace"
+        open "$PROJECT_ROOT/LifeBoard.xcworkspace"
     fi
 
     # Wait if requested
@@ -1972,7 +1972,7 @@ cmd_test() {
                 ;;
             *)
                 log_error "Unknown test option: $1"
-                echo "Use 'taskerctl help test' for available options"
+                echo "Use 'lifeboardctl help test' for available options"
                 return 1
                 ;;
         esac
@@ -2006,43 +2006,43 @@ cmd_test() {
 
     case "$test_target" in
         "unit")
-            test_scheme="TaskerTests"
+            test_scheme="LifeBoardTests"
             ;;
         "ui")
-            test_scheme="To Do List"  # Main scheme for UI tests
+            test_scheme="LifeBoard"  # Main scheme for UI tests
 
             # Handle E2E test suite selection
             case "$test_suite" in
                 "critical")
                     log_info "Running CRITICAL test suite (40 tests)"
-                    only_testing="-only-testing:To_Do_ListUITests/TaskCreationTests \
-                                 -only-testing:To_Do_ListUITests/TaskCompletionTests \
-                                 -only-testing:To_Do_ListUITests/TaskEditingTests \
-                                 -only-testing:To_Do_ListUITests/TaskDeletionTests \
-                                 -only-testing:To_Do_ListUITests/ProjectManagementTests \
-                                 -only-testing:To_Do_ListUITests/ScoringSystemTests"
+                    only_testing="-only-testing:LifeBoardUITests/TaskCreationTests \
+                                 -only-testing:LifeBoardUITests/TaskCompletionTests \
+                                 -only-testing:LifeBoardUITests/TaskEditingTests \
+                                 -only-testing:LifeBoardUITests/TaskDeletionTests \
+                                 -only-testing:LifeBoardUITests/ProjectManagementTests \
+                                 -only-testing:LifeBoardUITests/ScoringSystemTests"
                     ;;
                 "secondary")
                     log_info "Running SECONDARY test suite (25 tests)"
-                    only_testing="-only-testing:To_Do_ListUITests/NavigationTests \
-                                 -only-testing:To_Do_ListUITests/SettingsTests \
-                                 -only-testing:To_Do_ListUITests/SearchAndFilteringTests \
-                                 -only-testing:To_Do_ListUITests/AnalyticsAndChartsTests \
-                                 -only-testing:To_Do_ListUITests/ThemeAndAppearanceTests \
-                                 -only-testing:To_Do_ListUITests/EdgeCaseTests"
+                    only_testing="-only-testing:LifeBoardUITests/NavigationTests \
+                                 -only-testing:LifeBoardUITests/SettingsTests \
+                                 -only-testing:LifeBoardUITests/SearchAndFilteringTests \
+                                 -only-testing:LifeBoardUITests/AnalyticsAndChartsTests \
+                                 -only-testing:LifeBoardUITests/ThemeAndAppearanceTests \
+                                 -only-testing:LifeBoardUITests/EdgeCaseTests"
                     ;;
                 "performance")
                     log_info "Running PERFORMANCE test suite (10 tests)"
-                    only_testing="-only-testing:To_Do_ListUITests/PerformanceTests"
+                    only_testing="-only-testing:LifeBoardUITests/PerformanceTests"
                     ;;
                 "all")
                     log_info "Running ALL E2E tests (75 tests)"
-                    # Run all To Do ListUITests
-                    only_testing="-only-testing:To_Do_ListUITests"
+                    # Run all LifeBoardUITests
+                    only_testing="-only-testing:LifeBoardUITests"
                     ;;
                 *)
                     log_warn "Unknown test suite: $test_suite, defaulting to 'all'"
-                    only_testing="-only-testing:To_Do_ListUITests"
+                    only_testing="-only-testing:LifeBoardUITests"
                     ;;
             esac
             ;;
@@ -2118,7 +2118,7 @@ cmd_test() {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Tasker E2E Test Report</title>
+    <title>LifeBoard E2E Test Report</title>
     <meta charset="utf-8">
     <style>
         body {
@@ -2194,7 +2194,7 @@ cmd_test() {
 <body>
     <div class="container">
         <div class="header">
-            <h1>🧪 Tasker E2E Test Report</h1>
+            <h1>🧪 LifeBoard E2E Test Report</h1>
             <div class="meta">Generated: $(date '+%B %d, %Y at %I:%M %p')</div>
             <div class="meta">Test Target: $test_target</div>
             <div class="meta">Test Suite: $test_suite</div>
@@ -2250,8 +2250,8 @@ $(tail -100 "$test_log" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
 
         <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
         <p style="text-align: center; color: #666; font-size: 12px;">
-            Generated by TaskerCTL v$SCRIPT_VERSION<br>
-            E2E Testing Framework for Tasker iOS
+            Generated by LifeBoardCTL v$SCRIPT_VERSION<br>
+            E2E Testing Framework for LifeBoard iOS
         </p>
     </div>
 </body>
@@ -2344,7 +2344,7 @@ cmd_archive() {
                 ;;
             *)
                 log_error "Unknown archive option: $1"
-                echo "Use 'taskerctl help archive' for available options"
+                echo "Use 'lifeboardctl help archive' for available options"
                 return 1
                 ;;
         esac
@@ -2361,7 +2361,7 @@ cmd_archive() {
 
     # Set default output path
     if [[ -z "$output_path" ]]; then
-        output_path="$PROJECT_ROOT/build/Tasker-$(date +%Y%m%d-%H%M%S).xcarchive"
+        output_path="$PROJECT_ROOT/build/LifeBoard-$(date +%Y%m%d-%H%M%S).xcarchive"
     fi
 
     # Ensure output directory exists
@@ -2430,7 +2430,7 @@ cmd_archive() {
             echo "  • Location: $output_path"
             echo
 
-            log_info "Use 'taskerctl export --archive-path \"$output_path\"' to export for distribution"
+            log_info "Use 'lifeboardctl export --archive-path \"$output_path\"' to export for distribution"
         fi
 
     else
@@ -2491,7 +2491,7 @@ cmd_export() {
                 ;;
             *)
                 log_error "Unknown export option: $1"
-                echo "Use 'taskerctl help export' for available options"
+                echo "Use 'lifeboardctl help export' for available options"
                 return 1
                 ;;
         esac
@@ -2550,7 +2550,7 @@ EOF
     <string>YOUR_TEAM_ID</string>
     <key>provisioningProfiles</key>
     <dict>
-        <key>com.yourbundle.tasker</key>
+        <key>com.yourbundle.lifeboard</key>
         <string>YOUR_AD_HOC_PROFILE</string>
     </dict>
 </dict>
@@ -2661,7 +2661,7 @@ cmd_cache() {
                 ;;
             *)
                 log_error "Unknown cache option: $1"
-                echo "Use 'taskerctl help cache' for available options"
+                echo "Use 'lifeboardctl help cache' for available options"
                 return 1
                 ;;
         esac
@@ -2782,7 +2782,7 @@ cmd_cache() {
 
         "info")
             echo
-            echo "${CYAN}TaskerCTL Cache Information:${NC}"
+            echo "${CYAN}LifeBoardCTL Cache Information:${NC}"
             echo "=============================="
             echo
             echo "Cache Types:"
@@ -3163,7 +3163,7 @@ send_slack_notification() {
 {
     "channel": "$channel",
     "text": "$message",
-    "username": "TaskerCTL",
+    "username": "LifeBoardCTL",
     "icon_emoji": ":robot_face:"
 }
 EOF
@@ -3199,7 +3199,7 @@ cmd_config() {
                     break
                 else
                     log_error "Unknown config option: $1"
-                    echo "Use 'taskerctl help config' for available options"
+                    echo "Use 'lifeboardctl help config' for available options"
                     return 1
                 fi
                 ;;
@@ -3222,7 +3222,7 @@ cmd_config() {
                     cat "$config_file"
                 fi
             else
-                log_warn "No configuration file found. Run 'taskerctl config init' to create one."
+                log_warn "No configuration file found. Run 'lifeboardctl config init' to create one."
             fi
             ;;
 
@@ -3244,9 +3244,9 @@ cmd_config() {
 {
   "version": "1.0.0",
   "project": {
-    "workspace": "Tasker.xcworkspace",
-    "scheme": "To Do List",
-    "target": "Tasker"
+    "workspace": "LifeBoard.xcworkspace",
+    "scheme": "LifeBoard",
+    "target": "LifeBoard"
   },
   "build": {
     "configuration": "debug",
@@ -3283,7 +3283,7 @@ cmd_config() {
 EOF
 
             log_success "Configuration initialized at $config_file"
-            log_info "Customize your settings with: taskerctl config set <key> <value>"
+            log_info "Customize your settings with: lifeboardctl config set <key> <value>"
             ;;
 
         "list")
@@ -3328,7 +3328,7 @@ EOF
 
         "set")
             if [[ $# -lt 2 ]]; then
-                log_error "Usage: taskerctl config set <key> <value>"
+                log_error "Usage: lifeboardctl config set <key> <value>"
                 return 1
             fi
 
@@ -3336,7 +3336,7 @@ EOF
             local value="$2"
 
             if [[ ! -f "$config_file" ]]; then
-                log_error "Configuration file not found. Run 'taskerctl config init' first."
+                log_error "Configuration file not found. Run 'lifeboardctl config init' first."
                 return 1
             fi
 
@@ -3375,14 +3375,14 @@ EOF
 
         "get")
             if [[ $# -lt 1 ]]; then
-                log_error "Usage: taskerctl config get <key>"
+                log_error "Usage: lifeboardctl config get <key>"
                 return 1
             fi
 
             local key="$1"
 
             if [[ ! -f "$config_file" ]]; then
-                log_error "Configuration file not found. Run 'taskerctl config init' first."
+                log_error "Configuration file not found. Run 'lifeboardctl config init' first."
                 return 1
             fi
 
@@ -3479,7 +3479,7 @@ cmd_deploy() {
                 ;;
             *)
                 log_error "Unknown deploy option: $1"
-                echo "Use 'taskerctl help deploy' for available options"
+                echo "Use 'lifeboardctl help deploy' for available options"
                 return 1
                 ;;
         esac
@@ -3546,7 +3546,7 @@ cmd_deploy() {
                 fi
 
                 log_success "Staging deployment completed successfully! 🎉"
-                log_info "Ready for production deployment with: taskerctl deploy production"
+                log_info "Ready for production deployment with: lifeboardctl deploy production"
             else
                 log_info "Would build and run comprehensive tests for staging deployment"
             fi
@@ -3616,7 +3616,7 @@ cmd_logs() {
                 ;;
             *)
                 log_error "Unknown logs option: $1"
-                echo "Use 'taskerctl help logs' for available options"
+                echo "Use 'lifeboardctl help logs' for available options"
                 return 1
                 ;;
         esac
@@ -3670,9 +3670,9 @@ cmd_logs() {
     done
 
     # Follow mode for main log
-    if [[ $follow -eq 1 && -f "$LOG_DIR/taskerctl.log" ]]; then
+    if [[ $follow -eq 1 && -f "$LOG_DIR/lifeboardctl.log" ]]; then
         log_info "Following main log (Ctrl+C to stop)..."
-        tail -f "$LOG_DIR/taskerctl.log"
+        tail -f "$LOG_DIR/lifeboardctl.log"
     fi
 }
 
@@ -3709,7 +3709,7 @@ main() {
                 shift
                 ;;
             --version)
-                echo "TaskerCTL v$SCRIPT_VERSION"
+                echo "LifeBoardCTL v$SCRIPT_VERSION"
                 exit 0
                 ;;
             --help|-h)

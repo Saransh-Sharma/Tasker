@@ -6,7 +6,7 @@
 
 ---
 
-**Project:** Tasker Gamification v2
+**Project:** LifeBoard Gamification v2
 **Generated:** 2026-02-26 17:34:58
 **Category:** Productivity Tool
 

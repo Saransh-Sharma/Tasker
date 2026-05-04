@@ -5,9 +5,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_SVG="${REPO_ROOT}/LifeBoard_Icon Abstract_Face.svg"
 
-ICON_SET_MAIN="${REPO_ROOT}/To Do List/Assets.xcassets/AppIcon.appiconset"
-ICON_SET_WHITE="${REPO_ROOT}/To Do List/Assets.xcassets/AppIcon_WHITE.appiconset"
-IN_APP_LOGO_SET="${REPO_ROOT}/To Do List/Assets.xcassets/LifeBoardLogo.imageset"
+ICON_SET_MAIN="${REPO_ROOT}/LifeBoard/Assets.xcassets/AppIcon.appiconset"
+ICON_SET_WHITE="${REPO_ROOT}/LifeBoard/Assets.xcassets/AppIcon_WHITE.appiconset"
+IN_APP_LOGO_SET="${REPO_ROOT}/LifeBoard/Assets.xcassets/LifeBoardLogo.imageset"
 
 if [[ ! -f "${SOURCE_SVG}" ]]; then
   echo "Missing source SVG: ${SOURCE_SVG}" >&2
