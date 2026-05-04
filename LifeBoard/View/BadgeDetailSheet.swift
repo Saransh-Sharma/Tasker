@@ -17,7 +17,7 @@ public struct BadgeDetailSheet: View {
         self.progressState = progressState
     }
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     public var body: some View {
         VStack(spacing: spacing.s16) {
@@ -25,42 +25,42 @@ public struct BadgeDetailSheet: View {
 
             ZStack {
                 Circle()
-                    .fill(Color.tasker.accentPrimary.opacity(0.12))
+                    .fill(Color.lifeboard.accentPrimary.opacity(0.12))
                     .frame(width: 96, height: 96)
 
                 Image(systemName: achievement.sfSymbol)
                     .font(.system(size: 40))
-                    .foregroundColor(Color.tasker.accentPrimary)
+                    .foregroundColor(Color.lifeboard.accentPrimary)
             }
 
             Text(achievement.name)
                 .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundColor(Color.tasker.textPrimary)
+                .foregroundColor(Color.lifeboard.textPrimary)
 
             Text(achievement.description)
-                .font(.tasker(.body))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.body))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .multilineTextAlignment(.center)
 
             if let progressState, progressState.unlocked == false {
                 VStack(spacing: spacing.s8) {
                     Text("Progress: \(progressState.progressLabel)")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textSecondary)
 
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            Capsule().fill(Color.tasker.surfaceTertiary)
+                            Capsule().fill(Color.lifeboard.surfaceTertiary)
                             Capsule()
-                                .fill(Color.tasker.accentPrimary)
+                                .fill(Color.lifeboard.accentPrimary)
                                 .frame(width: geo.size.width * progressState.progressFraction)
                         }
                     }
                     .frame(height: 8)
 
                     Text("Next step: complete more tasks to unlock this badge.")
-                        .font(.tasker(.caption2))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption2))
+                        .foregroundColor(Color.lifeboard.textTertiary)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -69,11 +69,11 @@ public struct BadgeDetailSheet: View {
                 HStack(spacing: spacing.s4) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(Color.tasker.statusSuccess)
+                        .foregroundColor(Color.lifeboard.statusSuccess)
 
                     Text("Unlocked \(date, style: .date)")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textTertiary)
                 }
             }
 

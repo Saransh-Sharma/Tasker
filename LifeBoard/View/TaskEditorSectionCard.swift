@@ -44,7 +44,7 @@ struct TaskEditorSectionCard<Content: View>: View {
         self.content = content()
     }
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -52,22 +52,22 @@ struct TaskEditorSectionCard<Content: View>: View {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(isExpanded ? Color.tasker.accentWash : Color.tasker.surfacePrimary.opacity(0.92))
+                            .fill(isExpanded ? Color.lifeboard.accentWash : Color.lifeboard.surfacePrimary.opacity(0.92))
                             .frame(width: 32, height: 32)
 
                         Image(systemName: systemImage)
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(isExpanded ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
+                            .foregroundStyle(isExpanded ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)
                     }
 
                     VStack(alignment: .leading, spacing: spacing.s4) {
                         Text(title)
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker.textPrimary)
+                            .font(.lifeboard(.headline))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
 
                         Text(summary)
-                            .font(.tasker(.meta))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.meta))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .multilineTextAlignment(.leading)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
@@ -77,12 +77,12 @@ struct TaskEditorSectionCard<Content: View>: View {
 
                     ZStack {
                         Circle()
-                            .fill(Color.tasker.surfacePrimary.opacity(isExpanded ? 1 : 0.72))
+                            .fill(Color.lifeboard.surfacePrimary.opacity(isExpanded ? 1 : 0.72))
                             .frame(width: 28, height: 28)
 
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(isExpanded ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                            .foregroundStyle(isExpanded ? Color.lifeboard.accentPrimary : Color.lifeboard.textTertiary)
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     }
                 }
@@ -102,12 +102,12 @@ struct TaskEditorSectionCard<Content: View>: View {
             }
         }
         .padding(spacing.s12)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: isExpanded ? Color.tasker.surfacePrimary : Color.tasker.surfaceSecondary.opacity(0.55),
-            strokeColor: isExpanded ? Color.tasker.accentSecondary.opacity(0.24) : Color.tasker.strokeHairline.opacity(0.72)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: isExpanded ? Color.lifeboard.surfacePrimary : Color.lifeboard.surfaceSecondary.opacity(0.55),
+            strokeColor: isExpanded ? Color.lifeboard.accentSecondary.opacity(0.24) : Color.lifeboard.strokeHairline.opacity(0.72)
         )
-        .taskerElevation(isExpanded ? .e1 : .e0, cornerRadius: TaskerTheme.CornerRadius.card, includesBorder: false)
-        .animation(TaskerAnimation.snappy, value: isExpanded)
+        .lifeboardElevation(isExpanded ? .e1 : .e0, cornerRadius: LifeBoardTheme.CornerRadius.card, includesBorder: false)
+        .animation(LifeBoardAnimation.snappy, value: isExpanded)
     }
 }

@@ -1,11 +1,58 @@
 //
 //  LGSearchViewModel.swift
-//  Tasker
+//  LifeBoard
 //
 //  Search ViewModel for Liquid Glass Search Screen
 //
 
 import Foundation
+
+private final class LockedSearchMetadataAccumulator<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value
+    private var firstError: Error?
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func update(_ body: (inout Value) -> Void) {
+        lock.lock()
+        body(&value)
+        lock.unlock()
+    }
+
+    func record(_ error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<Value, Error> {
+        lock.lock()
+        let resolvedValue = value
+        let resolvedError = firstError
+        lock.unlock()
+
+        if let resolvedError {
+            return .failure(resolvedError)
+        }
+        return .success(resolvedValue)
+    }
+}
+
+private struct SearchTaskDetailMetadataState: Sendable {
+    var projects: [Project]
+    var sections: [LifeBoardProjectSection]
+}
+
+private struct SearchTaskDetailRelationshipMetadataState: Sendable {
+    var lifeAreas: [LifeArea]
+    var tags: [TagDefinition]
+    var availableTasks: [TaskDefinition]
+}
 
 final class LGSearchViewModel: @unchecked Sendable {
 
@@ -38,7 +85,7 @@ final class LGSearchViewModel: @unchecked Sendable {
     }
 
     private final class SearchComputationWorker: @unchecked Sendable {
-        private let queue = DispatchQueue(label: "tasker.search.computation", qos: .userInitiated)
+        private let queue = DispatchQueue(label: "lifeboard.search.computation", qos: .userInitiated)
 
         func compute(
             preparedTasks: [PreparedTask],
@@ -50,7 +97,7 @@ final class LGSearchViewModel: @unchecked Sendable {
             queue.async {
                 let filteredPreparedTasks = filter(preparedTasks, cacheKey)
                 let groupedResults = group(filteredPreparedTasks)
-                OperationQueue.main.addOperation {
+                Task { @MainActor in
                     completion(filteredPreparedTasks, groupedResults)
                 }
             }
@@ -181,9 +228,9 @@ final class LGSearchViewModel: @unchecked Sendable {
     }
 
     /// Executes loadProjects.
-    func loadProjects(completion: (() -> Void)? = nil) {
+    func loadProjects(completion: (@MainActor @Sendable () -> Void)? = nil) {
         useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
-            OperationQueue.main.addOperation {
+            Task { @MainActor in
                 if case .success(let projectsWithStats) = result {
                     let nextProjects = projectsWithStats.map(\.project)
                     if self?.projects != nextProjects {
@@ -238,13 +285,15 @@ final class LGSearchViewModel: @unchecked Sendable {
     }
 
     /// Executes fetchTodayXPSoFar.
-    func fetchTodayXPSoFar(completion: @escaping (Int?) -> Void) {
+    func fetchTodayXPSoFar(completion: @escaping @MainActor @Sendable (Int?) -> Void) {
         guard V2FeatureFlags.gamificationV2Enabled else {
-            completion(0)
+            Task { @MainActor in
+                completion(0)
+            }
             return
         }
         useCaseCoordinator.gamificationEngine.fetchTodayXP { result in
-            OperationQueue.main.addOperation {
+            Task { @MainActor in
                 let resolvedXP = (try? result.get()).map { max(0, $0) }
                 completion(resolvedXP)
             }
@@ -252,12 +301,12 @@ final class LGSearchViewModel: @unchecked Sendable {
     }
 
     /// Executes setTaskCompletion.
-    func setTaskCompletion(taskID: UUID, to isComplete: Bool, completion: @escaping (Bool) -> Void) {
+    func setTaskCompletion(taskID: UUID, to isComplete: Bool, completion: @escaping @MainActor @Sendable (Bool) -> Void) {
         useCaseCoordinator.completeTaskDefinition.setCompletion(
             taskID: taskID,
             to: isComplete
         ) { result in
-            OperationQueue.main.addOperation {
+            Task { @MainActor in
                 if case .failure(let error) = result {
                     logError(
                         event: "search_toggle_completion_failed",
@@ -274,9 +323,9 @@ final class LGSearchViewModel: @unchecked Sendable {
     }
 
     /// Executes deleteTask.
-    func deleteTask(taskID: UUID, scope: TaskDeleteScope = .single, completion: @escaping (Bool) -> Void) {
+    func deleteTask(taskID: UUID, scope: TaskDeleteScope = .single, completion: @escaping @MainActor @Sendable (Bool) -> Void) {
         useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID, scope: scope) { result in
-            OperationQueue.main.addOperation {
+            Task { @MainActor in
                 if case .failure(let error) = result {
                     logError(
                         event: "search_delete_task_failed",
@@ -293,9 +342,9 @@ final class LGSearchViewModel: @unchecked Sendable {
     }
 
     /// Executes rescheduleTask.
-    func rescheduleTask(taskID: UUID, to newDate: Date?, completion: @escaping (Bool) -> Void) {
+    func rescheduleTask(taskID: UUID, to newDate: Date?, completion: @escaping @MainActor @Sendable (Bool) -> Void) {
         useCaseCoordinator.rescheduleTaskDefinition.execute(taskID: taskID, newDate: newDate) { result in
-            OperationQueue.main.addOperation {
+            Task { @MainActor in
                 if case .failure(let error) = result {
                     logError(
                         event: "search_reschedule_task_failed",
@@ -315,12 +364,12 @@ final class LGSearchViewModel: @unchecked Sendable {
     func updateTask(
         taskID: UUID,
         request: UpdateTaskDefinitionRequest,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         var normalizedRequest = request
         normalizedRequest.updatedAt = Date()
         useCaseCoordinator.updateTaskDefinition.execute(request: normalizedRequest) { result in
-            OperationQueue.main.addOperation {
+            Task { @MainActor in
                 if case .failure(let error) = result {
                     logError(
                         event: "search_update_task_failed",
@@ -339,31 +388,24 @@ final class LGSearchViewModel: @unchecked Sendable {
     /// Executes loadTaskDetailMetadata.
     func loadTaskDetailMetadata(
         projectID: UUID,
-        completion: @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<TaskDetailMetadataPayload, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-
-        var loadedProjects: [Project] = projects
-        var loadedSections: [TaskerProjectSection] = []
-
-        func record(_ error: Error) {
-            lock.lock()
-            if firstError == nil {
-                firstError = error
-            }
-            lock.unlock()
-        }
+        let accumulator = LockedSearchMetadataAccumulator(SearchTaskDetailMetadataState(
+            projects: projects,
+            sections: []
+        ))
 
         group.enter()
         useCaseCoordinator.manageProjects.getAllProjects { result in
             defer { group.leave() }
             switch result {
             case .success(let projectsWithStats):
-                loadedProjects = projectsWithStats.map(\.project)
+                accumulator.update { state in
+                    state.projects = projectsWithStats.map(\.project)
+                }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -372,54 +414,48 @@ final class LGSearchViewModel: @unchecked Sendable {
             defer { group.leave() }
             switch result {
             case .success(let sections):
-                loadedSections = sections
+                accumulator.update { state in
+                    state.sections = sections
+                }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
         group.notify(queue: .main) {
-            if let firstError {
-                completion(.failure(firstError))
-                return
+            let result = accumulator.result().map { state in
+                TaskDetailMetadataPayload(
+                    projects: state.projects,
+                    sections: state.sections
+                )
             }
-
-            completion(.success(TaskDetailMetadataPayload(
-                projects: loadedProjects,
-                sections: loadedSections
-            )))
+            MainActor.assumeIsolated {
+                completion(result)
+            }
         }
     }
 
     func loadTaskDetailRelationshipMetadata(
         projectID: UUID,
-        completion: @escaping (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
-
-        var loadedLifeAreas: [LifeArea] = []
-        var loadedTags: [TagDefinition] = []
-        var availableTasks: [TaskDefinition] = []
-
-        /// Executes record.
-        func record(_ error: Error) {
-            lock.lock()
-            if firstError == nil {
-                firstError = error
-            }
-            lock.unlock()
-        }
+        let accumulator = LockedSearchMetadataAccumulator(SearchTaskDetailRelationshipMetadataState(
+            lifeAreas: [],
+            tags: [],
+            availableTasks: []
+        ))
 
         group.enter()
         useCaseCoordinator.manageLifeAreas.list { result in
             defer { group.leave() }
             switch result {
             case .success(let lifeAreas):
-                loadedLifeAreas = lifeAreas
+                accumulator.update { state in
+                    state.lifeAreas = lifeAreas
+                }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -428,9 +464,11 @@ final class LGSearchViewModel: @unchecked Sendable {
             defer { group.leave() }
             switch result {
             case .success(let tags):
-                loadedTags = tags
+                accumulator.update { state in
+                    state.tags = tags
+                }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
@@ -439,33 +477,35 @@ final class LGSearchViewModel: @unchecked Sendable {
             defer { group.leave() }
             switch result {
             case .success(let slice):
-                availableTasks = slice.tasks
+                accumulator.update { state in
+                    state.availableTasks = slice.tasks
+                }
             case .failure(let error):
-                record(error)
+                accumulator.record(error)
             }
         }
 
         group.notify(queue: .main) {
-            if let firstError {
-                completion(.failure(firstError))
-                return
+            let result = accumulator.result().map { state in
+                TaskDetailRelationshipMetadataPayload(
+                    lifeAreas: state.lifeAreas,
+                    tags: state.tags,
+                    availableTasks: state.availableTasks
+                )
             }
-
-            completion(.success(TaskDetailRelationshipMetadataPayload(
-                lifeAreas: loadedLifeAreas,
-                tags: loadedTags,
-                availableTasks: availableTasks
-            )))
+            MainActor.assumeIsolated {
+                completion(result)
+            }
         }
     }
 
     /// Executes loadTaskChildren.
     func loadTaskChildren(
         parentTaskID: UUID,
-        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<[TaskDefinition], Error>) -> Void
     ) {
         useCaseCoordinator.getTaskChildren.execute(parentTaskID: parentTaskID) { result in
-            OperationQueue.main.addOperation {
+            Task { @MainActor in
                 completion(result)
             }
         }
@@ -474,10 +514,10 @@ final class LGSearchViewModel: @unchecked Sendable {
     /// Executes createTaskDefinition.
     func createTaskDefinition(
         request: CreateTaskDefinitionRequest,
-        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
         useCaseCoordinator.createTaskDefinition.execute(request: request) { result in
-            OperationQueue.main.addOperation {
+            Task { @MainActor in
                 completion(result.mapError { $0 as Error })
             }
         }
@@ -486,10 +526,10 @@ final class LGSearchViewModel: @unchecked Sendable {
     /// Executes createTagForTaskDetail.
     func createTagForTaskDetail(
         name: String,
-        completion: @escaping (Result<TagDefinition, Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<TagDefinition, Error>) -> Void
     ) {
         useCaseCoordinator.manageTags.create(name: name, color: nil, icon: nil) { result in
-            OperationQueue.main.addOperation {
+            Task { @MainActor in
                 completion(result.mapError { $0 as Error })
             }
         }
@@ -498,10 +538,10 @@ final class LGSearchViewModel: @unchecked Sendable {
     /// Executes createProjectForTaskDetail.
     func createProjectForTaskDetail(
         name: String,
-        completion: @escaping (Result<Project, Error>) -> Void
+        completion: @escaping @MainActor @Sendable (Result<Project, Error>) -> Void
     ) {
         useCaseCoordinator.manageProjects.createProject(request: CreateProjectRequest(name: name)) { result in
-            OperationQueue.main.addOperation {
+            Task { @MainActor in
                 completion(result.mapError { $0 as Error })
             }
         }
@@ -629,21 +669,23 @@ final class LGSearchViewModel: @unchecked Sendable {
 
     private func fetchPreparedTasksForCurrentStatusFilter(
         revision: Int,
-        completion: @escaping ([PreparedTask]) -> Void
+        completion: @escaping @MainActor @Sendable ([PreparedTask]) -> Void
     ) {
         let status = currentStatusFilter
         let cacheKey = CorpusCacheKey(revision: revision, status: status)
         if let cached = corpusCache[cacheKey] {
-            completion(cached)
+            Task { @MainActor in
+                completion(cached)
+            }
             return
         }
 
-        let handler: (Result<[TaskDefinition], Error>) -> Void = { [weak self] result in
+        let handler: @Sendable (Result<[TaskDefinition], Error>) -> Void = { [weak self] result in
             guard let self else { return }
             switch result {
             case .success(let tasks):
                 let preparedTasks = self.prepareTasks(tasks)
-                OperationQueue.main.addOperation {
+                Task { @MainActor in
                     self.corpusCache[cacheKey] = preparedTasks
                     completion(preparedTasks)
                 }
@@ -653,7 +695,7 @@ final class LGSearchViewModel: @unchecked Sendable {
                     message: "Failed to fetch tasks for search",
                     fields: ["error": error.localizedDescription]
                 )
-                OperationQueue.main.addOperation {
+                Task { @MainActor in
                     completion([])
                 }
             }

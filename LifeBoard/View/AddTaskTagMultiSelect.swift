@@ -1,6 +1,6 @@
 //
 //  AddTaskTagMultiSelect.swift
-//  Tasker
+//  LifeBoard
 //
 //  Tags multi-select with chip flow and inline create.
 //
@@ -12,27 +12,27 @@ import SwiftUI
 struct AddTaskTagMultiSelect: View {
     let tags: [TagDefinition]
     @Binding var selectedTagIDs: Set<UUID>
-    let onCreateTag: (String, @escaping (Bool) -> Void) -> Void
+    let onCreateTag: (String, @escaping @Sendable (Bool) -> Void) -> Void
 
     @State private var showInlineCreate = false
     @State private var newTagName = ""
     @State private var isCreatingTag = false
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text("Tags")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing.chipSpacing) {
                     // Add tag button
                     Button {
-                        TaskerFeedback.selection()
-                        withAnimation(TaskerAnimation.snappy) {
+                        LifeBoardFeedback.selection()
+                        withAnimation(LifeBoardAnimation.snappy) {
                             showInlineCreate.toggle()
                         }
                     } label: {
@@ -40,17 +40,17 @@ struct AddTaskTagMultiSelect: View {
                             Image(systemName: "plus")
                                 .font(.system(size: 10, weight: .medium))
                             Text("Add")
-                                .font(.tasker(.caption1))
+                                .font(.lifeboard(.caption1))
                         }
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
                             Capsule()
-                                .fill(Color.tasker.surfaceSecondary)
+                                .fill(Color.lifeboard.surfaceSecondary)
                                 .overlay(
                                     Capsule()
-                                        .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                                        .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
                                 )
                         )
                     }
@@ -68,13 +68,13 @@ struct AddTaskTagMultiSelect: View {
             if showInlineCreate {
                 HStack(spacing: spacing.s8) {
                     TextField("Tag name", text: $newTagName)
-                        .font(.tasker(.callout))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.callout))
+                        .foregroundColor(Color.lifeboard.textPrimary)
                         .padding(.horizontal, spacing.s12)
                         .padding(.vertical, spacing.s8)
                         .background(
                             RoundedRectangle(cornerRadius: corner.r2)
-                                .fill(Color.tasker.surfaceTertiary)
+                                .fill(Color.lifeboard.surfaceTertiary)
                         )
 
                     Button("Done") {
@@ -84,7 +84,7 @@ struct AddTaskTagMultiSelect: View {
                         }
                         isCreatingTag = true
                         onCreateTag(trimmed) { success in
-                            DispatchQueue.main.async {
+                            Task { @MainActor in
                                 isCreatingTag = false
                                 guard success else { return }
                                 newTagName = ""
@@ -92,8 +92,8 @@ struct AddTaskTagMultiSelect: View {
                             }
                         }
                     }
-                    .font(.tasker(.callout).weight(.medium))
-                    .foregroundColor(Color.tasker.accentPrimary)
+                    .font(.lifeboard(.callout).weight(.medium))
+                    .foregroundColor(Color.lifeboard.accentPrimary)
                     .disabled(isCreatingTag || newTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 .transition(.asymmetric(
@@ -102,7 +102,7 @@ struct AddTaskTagMultiSelect: View {
                 ))
             }
         }
-        .animation(TaskerAnimation.snappy, value: showInlineCreate)
+        .animation(LifeBoardAnimation.snappy, value: showInlineCreate)
     }
 
     /// Executes tagChip.
@@ -110,8 +110,8 @@ struct AddTaskTagMultiSelect: View {
         let isSelected = selectedTagIDs.contains(tag.id)
 
         return Button {
-            TaskerFeedback.selection()
-            withAnimation(TaskerAnimation.bouncy) {
+            LifeBoardFeedback.selection()
+            withAnimation(LifeBoardAnimation.bouncy) {
                 if isSelected {
                     selectedTagIDs.remove(tag.id)
                 } else {
@@ -125,29 +125,29 @@ struct AddTaskTagMultiSelect: View {
                         .font(.system(size: 10))
                 }
                 Text(tag.name)
-                    .font(.tasker(.caption1))
+                    .font(.lifeboard(.caption1))
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 8, weight: .bold))
                 }
             }
-            .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
+            .foregroundColor(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
+                    .fill(isSelected ? Color.lifeboard.accentWash : Color.lifeboard.surfaceSecondary)
             )
             .overlay(
                 Capsule()
                     .stroke(
-                        isSelected ? Color.tasker.accentRing : Color.tasker.strokeHairline,
+                        isSelected ? Color.lifeboard.accentRing : Color.lifeboard.strokeHairline,
                         lineWidth: 1
                     )
             )
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(TaskerAnimation.bouncy, value: isSelected)
+        .animation(LifeBoardAnimation.bouncy, value: isSelected)
     }
 }

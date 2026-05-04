@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-enum TaskerSearchChromeStyle {
+enum LifeBoardSearchChromeStyle {
     static let headerCornerRadius: CGFloat = 24
     static let iconButtonCornerRadius: CGFloat = 22
     static let chipCornerRadius: CGFloat = 18
@@ -11,20 +11,20 @@ enum TaskerSearchChromeStyle {
     static let projectHeaderCornerRadius: CGFloat = 16
     static let projectHeaderHeight: CGFloat = 44
 
-    static func tintedSelectedBackground(tokens: TaskerColorTokens) -> UIColor {
+    static func tintedSelectedBackground(tokens: LifeBoardColorTokens) -> UIColor {
         tokens.accentMuted.withAlphaComponent(0.92)
     }
 
-    static func tintedSelectedBorder(tokens: TaskerColorTokens) -> UIColor {
+    static func tintedSelectedBorder(tokens: LifeBoardColorTokens) -> UIColor {
         tokens.accentPrimary.withAlphaComponent(0.28)
     }
 
-    static func projectHeaderBackground(tokens: TaskerColorTokens) -> UIColor {
+    static func projectHeaderBackground(tokens: LifeBoardColorTokens) -> UIColor {
         tokens.surfaceSecondary
     }
 }
 
-struct TaskerSearchFilterChipDescriptor: Identifiable {
+struct LifeBoardSearchFilterChipDescriptor: Identifiable {
     let id: String
     let title: String
     let isSelected: Bool
@@ -33,28 +33,28 @@ struct TaskerSearchFilterChipDescriptor: Identifiable {
     let action: () -> Void
 }
 
-struct TaskerSearchHeaderView: View {
+struct LifeBoardSearchHeaderView: View {
     @Binding var query: String
     @FocusState.Binding var isFocused: Bool
     let onQueryChanged: (String) -> Void
     let onSubmit: () -> Void
     let onClear: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         HStack(spacing: spacing.s8) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .foregroundStyle(Color.lifeboard.textSecondary)
 
             TextField("Search tasks...", text: $query)
                 .focused($isFocused)
                 .submitLabel(.search)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .font(.tasker(.body))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .accessibilityIdentifier("search.searchField")
                 .onChange(of: query) { _, newValue in
                     onQueryChanged(newValue)
@@ -65,7 +65,7 @@ struct TaskerSearchHeaderView: View {
                 Button(action: onClear) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(Color.tasker.textTertiary)
+                        .foregroundStyle(Color.lifeboard.textTertiary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("search.clearButton")
@@ -73,25 +73,25 @@ struct TaskerSearchHeaderView: View {
             }
         }
         .padding(.horizontal, spacing.s12)
-        .frame(height: TaskerSearchChromeStyle.searchFieldHeight)
-        .taskerChromeSurface(
-            cornerRadius: TaskerSearchChromeStyle.headerCornerRadius,
-            accentColor: Color.tasker.accentSecondary,
+        .frame(height: LifeBoardSearchChromeStyle.searchFieldHeight)
+        .lifeboardChromeSurface(
+            cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius,
+            accentColor: Color.lifeboard.accentSecondary,
             level: .e1
         )
     }
 }
 
-struct TaskerSearchFilterChipsView: View {
-    let chips: [TaskerSearchFilterChipDescriptor]
+struct LifeBoardSearchFilterChipsView: View {
+    let chips: [LifeBoardSearchFilterChipDescriptor]
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: TaskerSearchChromeStyle.filterSpacing) {
+            HStack(spacing: LifeBoardSearchChromeStyle.filterSpacing) {
                 ForEach(chips) { chip in
-                    TaskerFilterChip(
+                    LifeBoardFilterChip(
                         title: chip.title,
                         isSelected: chip.isSelected,
                         accentColor: chip.tintColor,

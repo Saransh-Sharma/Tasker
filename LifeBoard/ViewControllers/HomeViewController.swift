@@ -1,6 +1,6 @@
 //
 //  HomeViewController.swift
-//  To Do List
+//  LifeBoard
 //
 //  SwiftUI host for Home screen with backdrop/foredrop shell.
 //
@@ -74,7 +74,7 @@ struct HomeBottomBarVisibilityPolicy {
     }
 
     static func chatComposerClearance(
-        layoutClass: TaskerLayoutClass,
+        layoutClass: LifeBoardLayoutClass,
         bottomOverlayObstruction: CGFloat,
         keyboardOverlapHeight: CGFloat,
         isBottomBarConcealed: Bool,
@@ -368,15 +368,15 @@ enum HomeCalendarModuleState: Equatable {
 struct HomeCalendarSnapshot: Equatable {
     let moduleState: HomeCalendarModuleState
     let selectedDate: Date
-    let authorizationStatus: TaskerCalendarAuthorizationStatus
+    let authorizationStatus: LifeBoardCalendarAuthorizationStatus
     let accessAction: CalendarAccessAction
     let selectedCalendarCount: Int
     let availableCalendarCount: Int
-    let nextMeeting: TaskerNextMeetingSummary?
-    let busyBlocks: [TaskerCalendarBusyBlock]
+    let nextMeeting: LifeBoardNextMeetingSummary?
+    let busyBlocks: [LifeBoardCalendarBusyBlock]
     let freeUntil: Date?
-    let selectedDayEvents: [TaskerCalendarEventSnapshot]
-    let selectedDayTimelineEvents: [TaskerCalendarEventSnapshot]
+    let selectedDayEvents: [LifeBoardCalendarEventSnapshot]
+    let selectedDayTimelineEvents: [LifeBoardCalendarEventSnapshot]
     let eventsTodayCount: Int
     let isLoading: Bool
     let errorMessage: String?
@@ -1207,15 +1207,15 @@ final class HomeFaceCoordinator: ObservableObject {
 
 private struct PhoneHomeRootContainer: View {
     let root: HomeBackdropForedropRootView
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
 
     var body: some View {
-        root.taskerLayoutClass(layoutClass)
+        root.lifeboardLayoutClass(layoutClass)
     }
 }
 
 private struct HomeHostRootView: View {
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let phoneRoot: HomeBackdropForedropRootView?
     let iPadRoot: AnyView?
 
@@ -1241,7 +1241,7 @@ private struct HomeBottomBarContainer: View {
     let onSearch: () -> Void
     let onChat: () -> Void
     let onCreate: () -> Void
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let onHeightChange: (CGFloat) -> Void
 
     var body: some View {
@@ -1255,7 +1255,7 @@ private struct HomeBottomBarContainer: View {
             onChat: onChat,
             onCreate: onCreate
         )
-        .padding(.horizontal, TaskerThemeManager.shared.tokens(for: layoutClass).spacing.s16)
+        .padding(.horizontal, LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing.s16)
         .padding(.bottom, 0)
         .ignoresSafeArea(.container, edges: .bottom)
         .offset(y: 0)
@@ -1332,7 +1332,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var pendingNotificationFocusTaskID: UUID?
     private var syncOutageBanner: UIView?
     private var syncOutageLabel: UILabel?
-    private var currentLayoutClass: TaskerLayoutClass = .phone
+    private var currentLayoutClass: LifeBoardLayoutClass = .phone
     private let iPadShellState = HomeiPadShellState()
     private let homeChatAppManager = AppManager()
     private var iPadShellEpoch = 0
@@ -1407,7 +1407,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         resetHomeSelectionAfterEvaChatDismissalIfNeeded()
-        if let pendingRoute = TaskerNotificationRouteBus.shared.consumePendingRoute() {
+        if let pendingRoute = LifeBoardNotificationRouteBus.shared.consumePendingRoute() {
             navigationCoordinator.handle(.notificationRoute(pendingRoute))
         }
         navigationCoordinator.handle(.pendingShortcutHandoff)
@@ -1482,7 +1482,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes bindTheme.
     private func bindTheme() {
-        TaskerThemeManager.shared.publisher
+        LifeBoardThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.applyTheme()
@@ -1568,7 +1568,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .store(in: &cancellables)
 
         notificationCenter.publisher(for: UIApplication.significantTimeChangeNotification)
-            .merge(with: notificationCenter.publisher(for: TaskerWorkspacePreferencesStore.didChangeNotification))
+            .merge(with: notificationCenter.publisher(for: LifeBoardWorkspacePreferencesStore.didChangeNotification))
             .receive(on: RunLoop.main)
             .sink { [weak self] notification in
                 self?.reloadCoordinator.handle(.fromTimeOrWorkspaceNotification(notification))
@@ -1600,14 +1600,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes refreshLayoutClassIfNeeded.
     private func refreshLayoutClassIfNeeded() {
-        let nextLayoutClass = TaskerLayoutResolver.classify(view: view)
+        let nextLayoutClass = LifeBoardLayoutResolver.classify(view: view)
         guard nextLayoutClass != currentLayoutClass || homeHostingController == nil else { return }
         currentLayoutClass = nextLayoutClass
         mountHomeShell()
     }
 
     private var hasStableLayoutMetrics: Bool {
-        let metrics = TaskerLayoutResolver.metrics(for: view)
+        let metrics = LifeBoardLayoutResolver.metrics(for: view)
         return metrics.width > 1 && metrics.height > 1
     }
 
@@ -1622,15 +1622,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingInsightsPreparationTask?.cancel()
         faceCoordinator.setAnalyticsSurfaceState(.placeholder)
 
-        let interval = TaskerPerformanceTrace.begin("HomeInsightsFirstMount")
+        let interval = LifeBoardPerformanceTrace.begin("HomeInsightsFirstMount")
         pendingInsightsPreparationTask = Task { @MainActor [weak self] in
             defer {
-                TaskerPerformanceTrace.end(interval)
+                LifeBoardPerformanceTrace.end(interval)
                 self?.pendingInsightsPreparationTask = nil
             }
             guard let self else { return }
 
-            TaskerPerformanceTrace.event("HomeAnalyticsPlaceholderShown")
+            LifeBoardPerformanceTrace.event("HomeAnalyticsPlaceholderShown")
             await Task.yield()
             guard Task.isCancelled == false, self.faceCoordinator.activeFace == .analytics else { return }
 
@@ -1639,7 +1639,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             guard Task.isCancelled == false else { return }
 
             self.faceCoordinator.setAnalyticsSurfaceState(.ready)
-            TaskerPerformanceTrace.event("HomeAnalyticsReady")
+            LifeBoardPerformanceTrace.event("HomeAnalyticsReady")
             self.emitAnalyticsFirstInteractiveFrameIfNeeded()
             self.applyPendingInsightsLaunchRequestIfNeeded()
         }
@@ -1735,8 +1735,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             viewModel.releaseHomeSearchViewModel()
             faceCoordinator.setSearchSurfaceState(.idle)
         }
-        TaskerPerformanceTrace.event("HomeFaceSwitch")
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardPerformanceTrace.event("HomeFaceSwitch")
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "home_schedule_open",
             message: "Opening schedule surface",
             fields: ["source": source]
@@ -1759,8 +1759,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingOnboardingEvaluationTask?.cancel()
         pendingOnboardingEvaluationTask = nil
         awaitsAnalyticsFirstInteractiveFrame = true
-        TaskerPerformanceTrace.event("HomeFaceSwitch")
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardPerformanceTrace.event("HomeFaceSwitch")
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "home_insights_open",
             message: "Opening insights surface",
             fields: ["source": source]
@@ -1820,10 +1820,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             return
         }
 
-        let interval = TaskerPerformanceTrace.begin("HomeOnboardingLaunchEval")
+        let interval = LifeBoardPerformanceTrace.begin("HomeOnboardingLaunchEval")
         self.onboardingCoordinator?.evaluateLaunchIfNeeded()
         self.onboardingCoordinator?.drainPendingPresentationIfPossible()
-        TaskerPerformanceTrace.end(interval)
+        LifeBoardPerformanceTrace.end(interval)
         self.completedOnboardingEvaluationSceneToken = sceneToken
     }
 
@@ -1833,8 +1833,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             pendingInsightsPreparationTask?.cancel()
         }
         awaitsAnalyticsFirstInteractiveFrame = false
-        TaskerPerformanceTrace.event("HomeFaceSwitch")
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardPerformanceTrace.event("HomeFaceSwitch")
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "home_insights_close",
             message: "Closing insights surface",
             fields: ["source": source]
@@ -1862,15 +1862,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingSearchWarmupTask?.cancel()
         pendingOnboardingEvaluationTask?.cancel()
         pendingOnboardingEvaluationTask = nil
-        TaskerPerformanceTrace.event("HomeFaceSwitch")
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardPerformanceTrace.event("HomeFaceSwitch")
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "home_search_open",
             message: "Opening search surface",
             fields: ["source": source]
         )
         faceCoordinator.setActiveFace(.search)
         faceCoordinator.setSearchSurfaceState(.presenting)
-        TaskerPerformanceTrace.event("HomeSearchTapped")
+        LifeBoardPerformanceTrace.event("HomeSearchTapped")
         viewModel.trackHomeInteraction(
             action: "home_search_flip_open",
             metadata: ["source": source]
@@ -1883,11 +1883,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingSearchPreparationTask?.cancel()
         pendingSearchWarmupTask?.cancel()
         pendingSearchMutationRefreshTask?.cancel()
-        TaskerPerformanceTrace.event("HomeFaceSwitch")
+        LifeBoardPerformanceTrace.event("HomeFaceSwitch")
         searchState.releaseResources()
         retainedHomeSearchEngine = nil
         viewModel.releaseHomeSearchViewModel()
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "home_search_close",
             message: "Closing search surface",
             fields: ["source": source]
@@ -1962,7 +1962,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         shouldResetHomeAfterEvaChatDismissal = true
         navController.presentationController?.delegate = self
 
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "home_chat_open",
             message: "Opening Eva chat screen",
             fields: ["source": source]
@@ -1976,8 +1976,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func closeChat(source: String) {
         guard faceCoordinator.activeFace == .chat else { return }
-        TaskerPerformanceTrace.event("HomeFaceSwitch")
-        TaskerMemoryDiagnostics.checkpoint(
+        LifeBoardPerformanceTrace.event("HomeFaceSwitch")
+        LifeBoardMemoryDiagnostics.checkpoint(
             event: "home_chat_close",
             message: "Closing Eva chat surface",
             fields: ["source": source]
@@ -1994,7 +1994,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         case .tasks:
             faceCoordinator.bottomBarState.select(.home)
         case .schedule:
-            TaskerPerformanceTrace.event("HomeFaceSwitch")
+            LifeBoardPerformanceTrace.event("HomeFaceSwitch")
             faceCoordinator.setActiveFace(.tasks)
             viewModel.trackHomeInteraction(
                 action: "home_schedule_flip_close",
@@ -2014,10 +2014,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func scheduleSearchPreparation() {
-        let interval = TaskerPerformanceTrace.begin("HomeSearchSurface")
+        let interval = LifeBoardPerformanceTrace.begin("HomeSearchSurface")
         pendingSearchPreparationTask = Task { @MainActor [weak self] in
             defer {
-                TaskerPerformanceTrace.end(interval)
+                LifeBoardPerformanceTrace.end(interval)
                 self?.pendingSearchPreparationTask = nil
             }
             guard let self else { return }
@@ -2025,7 +2025,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             await Task.yield()
             guard Task.isCancelled == false, self.faceCoordinator.activeFace == .search else { return }
 
-            TaskerPerformanceTrace.event("HomeSearchSurfaceVisible")
+            LifeBoardPerformanceTrace.event("HomeSearchSurfaceVisible")
             self.faceCoordinator.setSearchSurfaceState(.preparing)
             self.searchState.configureIfNeeded(
                 makeEngine: {
@@ -2035,12 +2035,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self.viewModel.currentDataRevision
                 }
             )
-            TaskerPerformanceTrace.event("HomeSearchConfigured")
+            LifeBoardPerformanceTrace.event("HomeSearchConfigured")
             guard Task.isCancelled == false, self.faceCoordinator.activeFace == .search else { return }
 
             self.faceCoordinator.setSearchSurfaceState(.ready)
-            TaskerPerformanceTrace.event("HomeSearchSurfaceReady")
-            TaskerPerformanceTrace.event("HomeSearchFirstInteractiveFrame")
+            LifeBoardPerformanceTrace.event("HomeSearchSurfaceReady")
+            LifeBoardPerformanceTrace.event("HomeSearchFirstInteractiveFrame")
             self.scheduleInitialSearchWarmupIfNeeded()
         }
     }
@@ -2050,7 +2050,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard faceCoordinator.activeFace == .analytics else { return }
         guard faceCoordinator.analyticsSurfaceState == .ready else { return }
         awaitsAnalyticsFirstInteractiveFrame = false
-        TaskerPerformanceTrace.event("HomeAnalyticsFirstInteractiveFrame")
+        LifeBoardPerformanceTrace.event("HomeAnalyticsFirstInteractiveFrame")
     }
 
     private func scheduleBackgroundSurfacePrewarmIfNeeded() {
@@ -2084,7 +2084,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                         self.viewModel.currentDataRevision
                     }
                 )
-                TaskerPerformanceTrace.event("HomeSearchSurfaceReady")
+                LifeBoardPerformanceTrace.event("HomeSearchSurfaceReady")
             }
         }
 
@@ -2183,7 +2183,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let safeAreaInsets = view.safeAreaInsets
         let width = view.bounds.width
         let height = view.bounds.height
-        let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
+        let tokens = LifeBoardThemeManager.shared.tokens(for: currentLayoutClass)
         let spacing = tokens.spacing
         let defaultBottomBarHeight = spacing.s12 + 56
         let shouldShowBottomBar = currentLayoutClass == .phone
@@ -2305,10 +2305,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard transaction != lastAppliedHomeRenderTransaction else { return }
 
         let changedSliceCount = transaction.changedSliceCount(comparedTo: lastAppliedHomeRenderTransaction)
-        let interval = TaskerPerformanceTrace.begin("HomeRenderTransactionCommit")
+        let interval = LifeBoardPerformanceTrace.begin("HomeRenderTransactionCommit")
         defer {
-            TaskerPerformanceTrace.event("HomeRenderSliceCommits", value: changedSliceCount)
-            TaskerPerformanceTrace.end(interval)
+            LifeBoardPerformanceTrace.event("HomeRenderSliceCommits", value: changedSliceCount)
+            LifeBoardPerformanceTrace.end(interval)
             lastAppliedHomeRenderTransaction = transaction
         }
 
@@ -2321,11 +2321,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         if transaction.habits != lastAppliedHomeRenderTransaction.habits {
             habitsStore.apply(transaction.habits)
-            TaskerPerformanceTrace.event("home.render.habitsCommitted")
+            LifeBoardPerformanceTrace.event("home.render.habitsCommitted")
         }
         if transaction.calendar != lastAppliedHomeRenderTransaction.calendar {
             calendarStore.apply(transaction.calendar)
-            TaskerPerformanceTrace.event("home.render.calendarCommitted")
+            LifeBoardPerformanceTrace.event("home.render.calendarCommitted")
         }
         if transaction.overlay != lastAppliedHomeRenderTransaction.overlay {
             applyOverlayState(transaction.overlay)
@@ -2412,7 +2412,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func resolvedBottomBarHostHeight() -> CGFloat {
         guard currentLayoutClass == .phone else { return 0 }
-        let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
+        let tokens = LifeBoardThemeManager.shared.tokens(for: currentLayoutClass)
         return max(measuredBottomBarHeight, tokens.spacing.s12 + 56)
     }
 
@@ -2475,7 +2475,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let restingDownshift = max(0, view.safeAreaInsets.bottom - 10)
         guard isBottomBarConcealedForChatInput else { return restingDownshift }
 
-        let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
+        let tokens = LifeBoardThemeManager.shared.tokens(for: currentLayoutClass)
         return restingDownshift + resolvedBottomBarHostHeight() + tokens.spacing.s16
     }
 
@@ -2495,13 +2495,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes mountHomeShell.
     private func mountHomeShell() {
-        let interval = TaskerPerformanceTrace.begin("HomeShellMount")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("HomeShellMount")
+        defer { LifeBoardPerformanceTrace.end(interval) }
 
         guard self.viewModel != nil else { return }
         guard hasMountedStableLayoutShell || hasStableLayoutMetrics else { return }
 
-        currentLayoutClass = TaskerLayoutResolver.classify(view: view)
+        currentLayoutClass = LifeBoardLayoutResolver.classify(view: view)
         if hasStableLayoutMetrics {
             hasMountedStableLayoutShell = true
             trackLayoutClassAtLaunchIfNeeded()
@@ -2572,7 +2572,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes makeHomeBackdropRoot.
     private func makeHomeBackdropRoot(
-        layoutClass: TaskerLayoutClass,
+        layoutClass: LifeBoardLayoutClass,
         forcedFace: Binding<HomeForedropFace>?
     ) -> HomeBackdropForedropRootView {
         HomeBackdropForedropRootView(
@@ -2684,7 +2684,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     /// Executes makeIPadSplitRoot.
-    private func makeIPadSplitRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+    private func makeIPadSplitRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
         let root = HomeiPadSplitShellView(
             layoutClass: layoutClass,
             shellState: iPadShellState,
@@ -2693,7 +2693,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 guard let self else { return AnyView(EmptyView()) }
                 return AnyView(
                     self.makeHomeBackdropRoot(layoutClass: layoutClass, forcedFace: forcedFace)
-                        .taskerLayoutClass(layoutClass)
+                        .lifeboardLayoutClass(layoutClass)
                 )
             },
             addTaskSurface: { [weak self] in
@@ -2724,12 +2724,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.presentTaskDetailView(for: task)
             }
         )
-        return AnyView(root.taskerLayoutClass(layoutClass))
+        return AnyView(root.lifeboardLayoutClass(layoutClass))
     }
 
-    private func makeAddTaskInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+    private func makeAddTaskInspectorRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
         guard let presentationDependencyContainer else {
-            return AnyView(Text("Add Task unavailable").font(.tasker(.body)))
+            return AnyView(Text("Add Task unavailable").font(.lifeboard(.body)))
         }
         return AnyView(
             AddTaskInspectorContainer(
@@ -2739,13 +2739,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.iPadShellState.destination = .tasks
                 }
             )
-            .taskerLayoutClass(layoutClass)
+            .lifeboardLayoutClass(layoutClass)
         )
     }
 
-    private func makeCalendarScheduleInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+    private func makeCalendarScheduleInspectorRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
         guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else {
-            return AnyView(Text("Schedule unavailable").font(.tasker(.body)))
+            return AnyView(Text("Schedule unavailable").font(.lifeboard(.body)))
         }
         return AnyView(
             CalendarScheduleView(
@@ -2754,13 +2754,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 presentationMode: .embedded,
                 selectedDate: calendarScheduleSelectedDateBinding()
             )
-            .taskerLayoutClass(layoutClass)
+            .lifeboardLayoutClass(layoutClass)
         )
     }
 
-    private func makeSettingsInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+    private func makeSettingsInspectorRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
         guard let calendarService = presentationDependencyContainer?.coordinator.calendarIntegrationService else {
-            return AnyView(Text("Settings unavailable").font(.tasker(.body)))
+            return AnyView(Text("Settings unavailable").font(.lifeboard(.body)))
         }
         return AnyView(
             HomeiPadSettingsContainer(
@@ -2774,44 +2774,44 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.iPadShellState.destination = .models
                 },
                 onRestartOnboarding: {
-                    NotificationCenter.default.post(name: .taskerStartOnboardingRequested, object: nil)
+                    NotificationCenter.default.post(name: .lifeboardStartOnboardingRequested, object: nil)
                 },
                 calendarIntegrationService: calendarService,
                 onOpenCalendarChooser: { [weak self] in
                     self?.presentCalendarChooser()
                 }
             )
-            .taskerLayoutClass(layoutClass)
+            .lifeboardLayoutClass(layoutClass)
         )
     }
 
-    private func makeLifeManagementInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+    private func makeLifeManagementInspectorRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
         guard let presentationDependencyContainer else {
-            return AnyView(Text("Life Management unavailable").font(.tasker(.body)))
+            return AnyView(Text("Life Management unavailable").font(.lifeboard(.body)))
         }
         let vm = presentationDependencyContainer.makeLifeManagementViewModel()
         return AnyView(
             LifeManagementView(viewModel: vm)
-                .taskerLayoutClass(layoutClass)
+                .lifeboardLayoutClass(layoutClass)
         )
     }
 
-    private func makeProjectManagementInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+    private func makeProjectManagementInspectorRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
         guard let presentationDependencyContainer else {
-            return AnyView(Text("Projects unavailable").font(.tasker(.body)))
+            return AnyView(Text("Projects unavailable").font(.lifeboard(.body)))
         }
         let vm = presentationDependencyContainer.makeProjectManagementViewModel()
         return AnyView(
             ProjectManagementView(viewModel: vm)
-                .taskerLayoutClass(layoutClass)
+                .lifeboardLayoutClass(layoutClass)
         )
     }
 
-    private func makeChatInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+    private func makeChatInspectorRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
         guard let container = LLMDataController.shared else {
             return AnyView(
                 LLMStoreUnavailableView()
-                    .taskerLayoutClass(layoutClass)
+                    .lifeboardLayoutClass(layoutClass)
             )
         }
 
@@ -2830,25 +2830,25 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .environmentObject(homeChatAppManager)
             .environment(LLMRuntimeCoordinator.shared.evaluator)
             .modelContainer(container)
-            .taskerLayoutClass(layoutClass)
+            .lifeboardLayoutClass(layoutClass)
         )
     }
 
-    private func makeModelsInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+    private func makeModelsInspectorRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
         AnyView(
             NavigationStack {
                 ModelsSettingsView()
                     .environmentObject(homeChatAppManager)
                     .environment(LLMRuntimeCoordinator.shared.evaluator)
             }
-            .taskerLayoutClass(layoutClass)
+            .lifeboardLayoutClass(layoutClass)
         )
     }
 
-    private func makeTaskInspectorRoot(_ task: TaskDefinition, layoutClass: TaskerLayoutClass) -> AnyView {
+    private func makeTaskInspectorRoot(_ task: TaskDefinition, layoutClass: LifeBoardLayoutClass) -> AnyView {
         AnyView(
             makeTaskDetailView(for: task, containerMode: .inspector)
-                .taskerLayoutClass(layoutClass)
+                .lifeboardLayoutClass(layoutClass)
         )
     }
 
@@ -3048,7 +3048,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func seedUITestEstablishedWorkspaceIfNeeded(completion: @escaping () -> Void) {
-        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_ESTABLISHED_WORKSPACE") else {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE") else {
             completion()
             return
         }
@@ -3129,8 +3129,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func seedUITestRescueWorkspaceIfNeeded(completion: @escaping () -> Void) {
         let arguments = ProcessInfo.processInfo.arguments
-        let shouldSeedExpandedRescue = arguments.contains("-TASKER_TEST_SEED_RESCUE_WORKSPACE")
-        let shouldSeedCompactRescue = arguments.contains("-TASKER_TEST_SEED_COMPACT_RESCUE_WORKSPACE")
+        let shouldSeedExpandedRescue = arguments.contains("-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE")
+        let shouldSeedCompactRescue = arguments.contains("-LIFEBOARD_TEST_SEED_COMPACT_RESCUE_WORKSPACE")
         guard shouldSeedExpandedRescue || shouldSeedCompactRescue else {
             completion()
             return
@@ -3246,7 +3246,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func seedUITestFocusWorkspaceIfNeeded(completion: @escaping () -> Void) {
-        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_FOCUS_WORKSPACE") else {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_FOCUS_WORKSPACE") else {
             completion()
             return
         }
@@ -3403,7 +3403,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func seedUITestHabitBoardWorkspaceIfNeeded(completion: @escaping () -> Void) {
-        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_HABIT_BOARD_WORKSPACE") else {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE") else {
             completion()
             return
         }
@@ -3489,7 +3489,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func seedUITestQuietTrackingWorkspaceIfNeeded(completion: @escaping () -> Void) {
-        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_QUIET_TRACKING_WORKSPACE") else {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE") else {
             completion()
             return
         }
@@ -3563,7 +3563,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
-    var currentOnboardingLayoutClass: TaskerLayoutClass {
+    var currentOnboardingLayoutClass: LifeBoardLayoutClass {
         currentLayoutClass
     }
 
@@ -3589,7 +3589,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             onTaskCreated: onTaskCreated,
             onDismissWithoutTask: onDismissWithoutTask
         )
-        let hostingController = UIHostingController(rootView: AnyView(sheet.taskerLayoutClass(currentLayoutClass)))
+        let hostingController = UIHostingController(rootView: AnyView(sheet.lifeboardLayoutClass(currentLayoutClass)))
         hostingController.modalPresentationStyle = .pageSheet
         if let sheetController = hostingController.sheetPresentationController {
             sheetController.detents = [.medium(), .large()]
@@ -3621,7 +3621,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             onHabitCreated: onHabitCreated,
             onDismissWithoutTask: onDismissWithoutTask
         )
-        let hostingController = UIHostingController(rootView: AnyView(sheet.taskerLayoutClass(currentLayoutClass)))
+        let hostingController = UIHostingController(rootView: AnyView(sheet.lifeboardLayoutClass(currentLayoutClass)))
         hostingController.modalPresentationStyle = .pageSheet
         if let sheetController = hostingController.sheetPresentationController {
             sheetController.detents = [.medium(), .large()]
@@ -3636,8 +3636,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         onDismiss: @escaping () -> Void
     ) -> UIViewController? {
         let detailView = makeTaskDetailView(for: task, containerMode: .sheet)
-        let hostingController = UIHostingController(rootView: AnyView(detailView.taskerLayoutClass(currentLayoutClass)))
-        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        let hostingController = UIHostingController(rootView: AnyView(detailView.lifeboardLayoutClass(currentLayoutClass)))
+        hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
 
         if isUsingIPadNativeShell {
             switch currentLayoutClass {
@@ -3646,7 +3646,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 hostingController.preferredContentSize = CGSize(width: 540, height: 680)
                 if let sheet = hostingController.sheetPresentationController {
                     sheet.detents = [.large()]
-                    sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                    sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                     sheet.prefersScrollingExpandsWhenScrolledToEdge = false
                 }
             case .phone:
@@ -3656,7 +3656,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             hostingController.modalPresentationStyle = .pageSheet
             if let sheet = hostingController.sheetPresentationController {
                 sheet.detents = [.medium(), .large()]
-                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                 sheet.prefersScrollingExpandsWhenScrolledToEdge = true
             }
         }
@@ -3723,9 +3723,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             sheetController.prefersGrabberVisible = true
             sheetController.prefersScrollingExpandsWhenScrolledToEdge = false
         }
-        let interval = TaskerPerformanceTrace.begin("AddTaskSheetOpen")
+        let interval = LifeBoardPerformanceTrace.begin("AddTaskSheetOpen")
         present(hostingVC, animated: true) {
-            TaskerPerformanceTrace.end(interval)
+            LifeBoardPerformanceTrace.end(interval)
         }
     }
 
@@ -3744,7 +3744,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
             modePolicy: .unified(defaultMode: .task)
         )
-        let hostingVC = UIHostingController(rootView: sheet.taskerLayoutClass(currentLayoutClass))
+        let hostingVC = UIHostingController(rootView: sheet.lifeboardLayoutClass(currentLayoutClass))
         hostingVC.modalPresentationStyle = .formSheet
         hostingVC.preferredContentSize = CGSize(width: 540, height: 620)
         if let sheetController = hostingVC.sheetPresentationController {
@@ -3759,9 +3759,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 "surface": "add_task"
             ]
         )
-        let interval = TaskerPerformanceTrace.begin("AddTaskSheetOpen")
+        let interval = LifeBoardPerformanceTrace.begin("AddTaskSheetOpen")
         present(hostingVC, animated: true) {
-            TaskerPerformanceTrace.end(interval)
+            LifeBoardPerformanceTrace.end(interval)
         }
     }
 
@@ -3788,7 +3788,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         let viewModel = presentationDependencyContainer.makeProjectManagementViewModel()
         let rootView = ProjectManagementView(viewModel: viewModel)
-            .taskerLayoutClass(currentLayoutClass)
+            .lifeboardLayoutClass(currentLayoutClass)
         let controller = UIHostingController(rootView: rootView)
         controller.title = "Projects"
 
@@ -3822,7 +3822,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.dismiss(animated: true)
             }
         )
-        .taskerLayoutClass(currentLayoutClass)
+        .lifeboardLayoutClass(currentLayoutClass)
 
         let hostingController = UIHostingController(rootView: plannerView)
         hostingController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
@@ -3854,7 +3854,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 }
             }
         )
-        .taskerLayoutClass(currentLayoutClass)
+        .lifeboardLayoutClass(currentLayoutClass)
 
         let hostingController = UIHostingController(rootView: reviewView)
         hostingController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
@@ -3916,7 +3916,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func performEmbeddedChatDayTaskAction(
         _ action: EvaDayTaskAction,
         card: EvaDayTaskCard,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         guard let viewModel else {
             completion(.failure(embeddedChatError(code: 1, message: "Home view model unavailable")))
@@ -3951,7 +3951,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func performEmbeddedChatDayHabitAction(
         _ action: EvaDayHabitAction,
         card: EvaDayHabitCard,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         if action == .open {
             handleHabitDetailDeepLink(habitID: card.habitID)
@@ -3985,7 +3985,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             action: habitAction,
             on: card.dueAt ?? Date()
         ) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 if case .success = result {
                     self?.viewModel?.refreshCurrentScopeContent(source: "eva_chat_habit_action")
                 }
@@ -4062,22 +4062,22 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         )
 
         let detailView = TimelineAnchorDetailSheetView(selection: selection)
-        let hostingController = UIHostingController(rootView: detailView.taskerLayoutClass(currentLayoutClass))
-        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        let hostingController = UIHostingController(rootView: detailView.lifeboardLayoutClass(currentLayoutClass))
+        hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
 
         if isUsingIPadNativeShell {
             hostingController.modalPresentationStyle = .formSheet
             hostingController.preferredContentSize = CGSize(width: 540, height: 520)
             if let sheet = hostingController.sheetPresentationController {
                 sheet.detents = [.large()]
-                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                 sheet.prefersScrollingExpandsWhenScrolledToEdge = false
             }
         } else {
             hostingController.modalPresentationStyle = .pageSheet
             if let sheet = hostingController.sheetPresentationController {
                 sheet.detents = [.medium(), .large()]
-                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                 sheet.prefersScrollingExpandsWhenScrolledToEdge = true
             }
         }
@@ -4089,8 +4089,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func presentTaskDetailView(for task: TaskDefinition) {
         let detailView = makeTaskDetailView(for: task, containerMode: .sheet)
 
-        let hostingController = UIHostingController(rootView: detailView.taskerLayoutClass(currentLayoutClass))
-        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        let hostingController = UIHostingController(rootView: detailView.lifeboardLayoutClass(currentLayoutClass))
+        hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
         if isUsingIPadNativeShell {
             switch currentLayoutClass {
             case .padCompact:
@@ -4109,7 +4109,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 hostingController.preferredContentSize = CGSize(width: 540, height: 680)
                 if let sheet = hostingController.sheetPresentationController {
                     sheet.detents = [.large()]
-                    sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                    sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                     sheet.prefersScrollingExpandsWhenScrolledToEdge = false
                 }
                 viewModel?.trackHomeInteraction(
@@ -4125,7 +4125,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 hostingController.preferredContentSize = CGSize(width: 540, height: 680)
                 if let sheet = hostingController.sheetPresentationController {
                     sheet.detents = [.large()]
-                    sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                    sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                     sheet.prefersScrollingExpandsWhenScrolledToEdge = false
                 }
             case .phone:
@@ -4135,14 +4135,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             hostingController.modalPresentationStyle = .pageSheet
             if let sheet = hostingController.sheetPresentationController {
                 sheet.detents = [.medium(), .large()]
-                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                 sheet.prefersScrollingExpandsWhenScrolledToEdge = true
             }
         }
 
-        let interval = TaskerPerformanceTrace.begin("TaskDetailOpen")
+        let interval = LifeBoardPerformanceTrace.begin("TaskDetailOpen")
         present(hostingController, animated: true) {
-            TaskerPerformanceTrace.end(interval)
+            LifeBoardPerformanceTrace.end(interval)
         }
     }
 
@@ -4172,7 +4172,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.updateTask(taskID: taskID, request: request, completion: completion)
+                viewModel.updateTask(taskID: taskID, request: request) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onSetCompletion: { [weak self] taskID, isComplete, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -4183,7 +4185,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.setTaskCompletion(taskID: taskID, to: isComplete, completion: completion)
+                viewModel.setTaskCompletion(taskID: taskID, to: isComplete) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onDelete: { [weak self] taskID, scope, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -4194,7 +4198,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.deleteTask(taskID: taskID, scope: scope, completion: completion)
+                viewModel.deleteTask(taskID: taskID, scope: scope) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onReschedule: { [weak self] taskID, date, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -4205,7 +4211,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.rescheduleTask(taskID: taskID, to: date, completion: completion)
+                viewModel.rescheduleTask(taskID: taskID, to: date) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onLoadMetadata: { [weak self] projectID, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -4216,7 +4224,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.loadTaskDetailMetadata(projectID: projectID, completion: completion)
+                viewModel.loadTaskDetailMetadata(projectID: projectID) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onLoadRelationshipMetadata: { [weak self] projectID, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -4227,7 +4237,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.loadTaskDetailRelationshipMetadata(projectID: projectID, completion: completion)
+                viewModel.loadTaskDetailRelationshipMetadata(projectID: projectID) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onLoadChildren: { [weak self] parentTaskID, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -4238,7 +4250,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.loadTaskChildren(parentTaskID: parentTaskID, completion: completion)
+                viewModel.loadTaskChildren(parentTaskID: parentTaskID) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onCreateTask: { [weak self] request, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -4249,7 +4263,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.createTaskDefinition(request: request, completion: completion)
+                viewModel.createTaskDefinition(request: request) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onCreateTag: { [weak self] name, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -4260,7 +4276,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.createTagForTaskDetail(name: name, completion: completion)
+                viewModel.createTagForTaskDetail(name: name) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onCreateProject: { [weak self] name, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -4271,7 +4289,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.createProjectForTaskDetail(name: name, completion: completion)
+                viewModel.createProjectForTaskDetail(name: name) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onSaveReflectionNote: { [weak self] note, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -4282,7 +4302,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.saveReflectionNote(note, completion: completion)
+                viewModel.saveReflectionNote(note) { result in
+                    Task { @MainActor in completion(result) }
+                }
             },
             onLoadTaskFitHint: { [weak self] task, completion in
                 Task { @MainActor [weak self] in
@@ -4305,15 +4327,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 service.updateSelectedCalendarIDs(selectedIDs)
             }
         )
-        let host = UIHostingController(rootView: AnyView(chooser.taskerLayoutClass(currentLayoutClass)))
+        let host = UIHostingController(rootView: AnyView(chooser.lifeboardLayoutClass(currentLayoutClass)))
         host.modalPresentationStyle = UIModalPresentationStyle.pageSheet
-        host.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        host.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
         if let sheet = host.sheetPresentationController {
             let detents: [UISheetPresentationController.Detent] = [.medium(), .large()]
             sheet.detents = detents
             sheet.prefersGrabberVisible = true
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
-            sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+            sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
         }
         present(host, animated: true)
     }
@@ -4331,16 +4353,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             presentationMode: .modal,
             selectedDate: calendarScheduleSelectedDateBinding()
         )
-        let host = UIHostingController(rootView: AnyView(view.taskerLayoutClass(currentLayoutClass)))
+        let host = UIHostingController(rootView: AnyView(view.lifeboardLayoutClass(currentLayoutClass)))
         host.modalPresentationStyle = UIModalPresentationStyle.pageSheet
-        host.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        host.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
         if let sheet = host.sheetPresentationController {
             let detents: [UISheetPresentationController.Detent] = currentLayoutClass.isPad
                 ? [.large()]
                 : [.medium(), .large()]
             sheet.detents = detents
             sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+            sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
         }
         presentedCalendarScheduleController = host
         host.presentationController?.delegate = self
@@ -4477,20 +4499,20 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func handleHabitBoardDeepLink() {
         routeToHabitDeepLinkDestination {
-            NotificationCenter.default.post(name: .taskerPresentHabitBoard, object: nil)
+            NotificationCenter.default.post(name: .lifeboardPresentHabitBoard, object: nil)
         }
     }
 
     private func handleHabitLibraryDeepLink() {
         routeToHabitDeepLinkDestination {
-            NotificationCenter.default.post(name: .taskerPresentHabitLibrary, object: nil)
+            NotificationCenter.default.post(name: .lifeboardPresentHabitLibrary, object: nil)
         }
     }
 
     private func handleHabitDetailDeepLink(habitID: UUID) {
         routeToHabitDeepLinkDestination {
             NotificationCenter.default.post(
-                name: .taskerPresentHabitDetail,
+                name: .lifeboardPresentHabitDetail,
                 object: nil,
                 userInfo: ["habitID": habitID.uuidString]
             )
@@ -4505,14 +4527,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         if presentedViewController != nil {
             dismiss(animated: true) {
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     completion()
                 }
             }
             return
         }
 
-        DispatchQueue.main.async {
+        Task { @MainActor in
             completion()
         }
     }
@@ -4698,7 +4720,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
 
         viewModel.startFocusSession(taskID: task?.id) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 switch result {
                 case .success(let session):
@@ -4723,31 +4745,33 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func resumeActiveFocusSession(source: String) {
         viewModel?.fetchActiveFocusSession { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success(let session):
-                guard let session else {
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success(let session):
+                    guard let session else {
+                        self.viewModel?.setQuickView(.today)
+                        logWarning(
+                            event: "focus_session_resume_missing",
+                            message: "Expected an active focus session to resume, but none was found",
+                            fields: ["source": source]
+                        )
+                        return
+                    }
+
+                    let task = self.resolveTaskForFocusSession(taskID: session.taskID)
+                    self.presentFocusTimer(task: task, session: session, source: "\(source)_resume")
+                case .failure(let error):
                     self.viewModel?.setQuickView(.today)
                     logWarning(
-                        event: "focus_session_resume_missing",
-                        message: "Expected an active focus session to resume, but none was found",
-                        fields: ["source": source]
+                        event: "focus_session_resume_failed",
+                        message: "Failed to resume active focus session",
+                        fields: [
+                            "source": source,
+                            "error": error.localizedDescription
+                        ]
                     )
-                    return
                 }
-
-                let task = resolveTaskForFocusSession(taskID: session.taskID)
-                presentFocusTimer(task: task, session: session, source: "\(source)_resume")
-            case .failure(let error):
-                self.viewModel?.setQuickView(.today)
-                logWarning(
-                    event: "focus_session_resume_failed",
-                    message: "Failed to resume active focus session",
-                    fields: [
-                        "source": source,
-                        "error": error.localizedDescription
-                    ]
-                )
             }
         }
     }
@@ -4785,7 +4809,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func finishFocusSession(sessionID: UUID, source: String) {
         viewModel?.endFocusSession(sessionID: sessionID) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 switch result {
                 case .success(let focusResult):
@@ -4836,7 +4860,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(host, animated: true)
     }
 
-    private func handleNotificationRoute(_ route: TaskerNotificationRoute) {
+    private func handleNotificationRoute(_ route: LifeBoardNotificationRoute) {
         guard viewModel != nil else { return }
         navigationCoordinator.handle(.notificationRoute(route))
     }
@@ -4862,10 +4886,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
-    private func presentDailySummaryModal(kind: TaskerDailySummaryKind, dateStamp: String?) {
+    private func presentDailySummaryModal(kind: LifeBoardDailySummaryKind, dateStamp: String?) {
         guard let viewModel else { return }
 
-        let presentSummary: (DailySummaryModalData) -> Void = { [weak self] summary in
+        let presentSummary: @Sendable (DailySummaryModalData) -> Void = { [weak self] summary in
+            Task { @MainActor in
             guard let self else { return }
             let dismissSummary: (@escaping () -> Void) -> Void = { [weak self] completion in
                 self?.dismiss(animated: true) {
@@ -4891,18 +4916,21 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     guard let self else { return }
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "complete_morning_routine", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.completeMorningRoutine { result in
+                        let succeeded: Bool
+                        let errorDescription: String?
                         switch result {
                         case .success:
-                            self.viewModel.trackDailySummaryActionResult(
-                                cta: "complete_morning_routine",
-                                success: true,
-                                error: nil
-                            )
+                            succeeded = true
+                            errorDescription = nil
                         case .failure(let error):
+                            succeeded = false
+                            errorDescription = error.localizedDescription
+                        }
+                        Task { @MainActor in
                             self.viewModel.trackDailySummaryActionResult(
                                 cta: "complete_morning_routine",
-                                success: false,
-                                error: error
+                                success: succeeded,
+                                errorDescription: errorDescription
                             )
                         }
                     }
@@ -4936,11 +4964,22 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     guard let self else { return }
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "plan_tomorrow", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.performEndOfDayCleanup { result in
+                        let succeeded: Bool
+                        let errorDescription: String?
                         switch result {
                         case .success:
-                            self.viewModel.trackDailySummaryActionResult(cta: "plan_tomorrow", success: true, error: nil)
+                            succeeded = true
+                            errorDescription = nil
                         case .failure(let error):
-                            self.viewModel.trackDailySummaryActionResult(cta: "plan_tomorrow", success: false, error: error)
+                            succeeded = false
+                            errorDescription = error.localizedDescription
+                        }
+                        Task { @MainActor in
+                            self.viewModel.trackDailySummaryActionResult(
+                                cta: "plan_tomorrow",
+                                success: succeeded,
+                                errorDescription: errorDescription
+                            )
                         }
                     }
                     dismissSummary {}
@@ -4957,18 +4996,21 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "reschedule_overdue", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.setQuickView(.today)
                     self.viewModel.rescheduleOverdueTasks { result in
+                        let succeeded: Bool
+                        let errorDescription: String?
                         switch result {
                         case .success:
-                            self.viewModel.trackDailySummaryActionResult(
-                                cta: "reschedule_overdue",
-                                success: true,
-                                error: nil
-                            )
+                            succeeded = true
+                            errorDescription = nil
                         case .failure(let error):
+                            succeeded = false
+                            errorDescription = error.localizedDescription
+                        }
+                        Task { @MainActor in
                             self.viewModel.trackDailySummaryActionResult(
                                 cta: "reschedule_overdue",
-                                success: false,
-                                error: error
+                                success: succeeded,
+                                errorDescription: errorDescription
                             )
                         }
                     }
@@ -4985,7 +5027,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             )
 
             let hostingController = UIHostingController(rootView: summaryView)
-            hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+            hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
             hostingController.view.accessibilityIdentifier = "home.dailySummaryModal"
             hostingController.modalPresentationStyle = .pageSheet
             hostingController.presentationController?.delegate = self
@@ -4993,20 +5035,23 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             if let sheet = hostingController.sheetPresentationController {
                 sheet.detents = [.large()]
                 sheet.prefersGrabberVisible = true
-                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                 sheet.prefersScrollingExpandsWhenScrolledToEdge = true
             }
 
             self.present(hostingController, animated: true)
+            }
         }
 
         viewModel.loadDailySummaryModal(kind: kind, dateStamp: dateStamp) { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .failure:
-                presentSummary(self.fallbackDailySummary(kind: kind, dateStamp: dateStamp))
-            case .success(let summary):
-                presentSummary(summary)
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .failure:
+                    presentSummary(self.fallbackDailySummary(kind: kind, dateStamp: dateStamp))
+                case .success(let summary):
+                    presentSummary(summary)
+                }
             }
         }
     }
@@ -5056,7 +5101,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         )
     }
 
-    private func fallbackDailySummary(kind: TaskerDailySummaryKind, dateStamp: String?) -> DailySummaryModalData {
+    private func fallbackDailySummary(kind: LifeBoardDailySummaryKind, dateStamp: String?) -> DailySummaryModalData {
         let date = fallbackSummaryDate(from: dateStamp)
         switch kind {
         case .morning:
@@ -5136,7 +5181,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes applyTheme.
     private func applyTheme() {
-        view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
     }
 }
 
@@ -5253,7 +5298,7 @@ extension HomeViewController: HomeNavigationCoordinatorDelegate {
         processPendingIPadModalRequest()
     }
 
-    func homeNavigationPresentDailySummary(kind: TaskerDailySummaryKind, dateStamp: String?) {
+    func homeNavigationPresentDailySummary(kind: LifeBoardDailySummaryKind, dateStamp: String?) {
         guard viewModel != nil else { return }
         presentDailySummaryModal(kind: kind, dateStamp: dateStamp)
     }
@@ -5279,7 +5324,7 @@ extension HomeViewController: HomeNavigationEventAdapterDelegate {
 
 extension HomeViewController: HomeReloadCoordinatorDelegate {
     func homeReloadCoordinatorDidReceiveTaskMutation(_ mutation: HomeTaskMutationReloadEvent) {
-        TaskerPerformanceTrace.event("HomeTaskMutationReloadEvent")
+        LifeBoardPerformanceTrace.event("HomeTaskMutationReloadEvent")
         if let reason = mutation.reason {
             logDebug("HOME_RELOAD_COORDINATOR mutation reason=\(reason.rawValue) source=\(mutation.source ?? "unknown")")
         }
@@ -5362,7 +5407,7 @@ private final class RescheduleViewController: UIViewController {
     /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
         title = "Reschedule"
 
         datePicker.translatesAutoresizingMaskIntoConstraints = false
@@ -5414,7 +5459,7 @@ extension HomeViewController {
     }
 
     private func observeOnboardingRequests() {
-        notificationCenter.publisher(for: .taskerStartOnboardingRequested)
+        notificationCenter.publisher(for: .lifeboardStartOnboardingRequested)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.onboardingCoordinator?.restartOnboarding()
@@ -5445,7 +5490,7 @@ extension HomeViewController {
     private func showHomeSnackbar(data: SnackbarData) {
         guard homeHostingController != nil else { return }
 
-        let snackbar = TaskerSnackbar(data: data, onDismiss: {})
+        let snackbar = LifeBoardSnackbar(data: data, onDismiss: {})
         let snackbarVC = UIHostingController(rootView: snackbar)
         snackbarVC.view.backgroundColor = .clear
         snackbarVC.view.translatesAutoresizingMaskIntoConstraints = false
@@ -5494,7 +5539,7 @@ private struct DailySummaryModalView: View {
                 .padding(.bottom, 12)
 
             Divider()
-                .background(Color.tasker.strokeHairline)
+                .background(Color.lifeboard.strokeHairline)
 
             ScrollView {
                 scrollableContent
@@ -5504,15 +5549,15 @@ private struct DailySummaryModalView: View {
             }
 
             Divider()
-                .background(Color.tasker.strokeHairline)
+                .background(Color.lifeboard.strokeHairline)
 
             ctaBar
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 16)
-                .background(Color.tasker.surfacePrimary)
+                .background(Color.lifeboard.surfacePrimary)
         }
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .accessibilityIdentifier("home.dailySummaryModal")
     }
 
@@ -5543,20 +5588,20 @@ private struct DailySummaryModalView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text(title)
-                            .font(.tasker(.title3))
-                            .foregroundStyle(Color.tasker.textPrimary)
-                        TaskerStatusPill(
+                            .font(.lifeboard(.title3))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
+                        LifeBoardStatusPill(
                             text: summaryBadgeText,
                             systemImage: summaryBadgeSymbol,
                             tone: summaryBadgeTone
                         )
                     }
                     Text(summaryNarrative)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                     Text(subtitle)
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption2))
+                        .foregroundStyle(Color.lifeboard.textTertiary)
                 }
                 Spacer(minLength: 8)
                 Button("Close") {
@@ -5567,9 +5612,9 @@ private struct DailySummaryModalView: View {
             summaryHeroMetrics
         }
         .padding(16)
-        .taskerPremiumSurface(
+        .lifeboardPremiumSurface(
             cornerRadius: 16,
-            fillColor: Color.tasker.surfacePrimary,
+            fillColor: Color.lifeboard.surfacePrimary,
             accentColor: headerAccentColor,
             level: .e2
         )
@@ -5645,8 +5690,8 @@ private struct DailySummaryModalView: View {
             sectionCard(title: "Focus Now") {
                 if summary.focusTasks.isEmpty {
                     Text("No tasks queued. Capture one meaningful win.")
-                        .font(.tasker(.body))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.body))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                 } else {
                     ForEach(summary.focusTasks) { row in
                         taskRow(row)
@@ -5676,8 +5721,8 @@ private struct DailySummaryModalView: View {
             sectionCard(title: "Biggest Wins") {
                 if summary.biggestWins.isEmpty {
                     Text("No completions today. Pick one tiny restart for tomorrow.")
-                        .font(.tasker(.body))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.body))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                 } else {
                     ForEach(summary.biggestWins) { row in
                         taskRow(row)
@@ -5695,8 +5740,8 @@ private struct DailySummaryModalView: View {
             sectionCard(title: "Tomorrow Preview") {
                 if summary.tomorrowPreview.isEmpty {
                     Text("No tasks due tomorrow yet.")
-                        .font(.tasker(.body))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.body))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                 } else {
                     ForEach(summary.tomorrowPreview) { row in
                         taskRow(row)
@@ -5716,15 +5761,15 @@ private struct DailySummaryModalView: View {
     private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
             content()
         }
         .padding(14)
-        .taskerDenseSurface(
+        .lifeboardDenseSurface(
             cornerRadius: 14,
-            fillColor: Color.tasker.surfaceSecondary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+            fillColor: Color.lifeboard.surfaceSecondary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
         )
     }
 
@@ -5737,36 +5782,36 @@ private struct DailySummaryModalView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(row.title)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                     .lineLimit(2)
                 HStack(spacing: 6) {
                     priorityBadge(row.priority)
                     if row.isOverdue {
                         statusBadge(
                             text: "Overdue",
-                            foreground: Color.tasker.statusDanger,
-                            background: Color.tasker.statusDanger.opacity(0.14)
+                            foreground: Color.lifeboard.statusDanger,
+                            background: Color.lifeboard.statusDanger.opacity(0.14)
                         )
                     }
                     if row.isBlocked {
                         statusBadge(
                             text: "Blocked",
-                            foreground: Color.tasker.statusWarning,
-                            background: Color.tasker.statusWarning.opacity(0.16)
+                            foreground: Color.lifeboard.statusWarning,
+                            background: Color.lifeboard.statusWarning.opacity(0.16)
                         )
                     }
                 }
                 HStack(spacing: 8) {
                     if let dueLabel = dueLabel(for: row) {
                         Text(dueLabel)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(row.isOverdue ? Color.tasker.statusDanger : Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(row.isOverdue ? Color.lifeboard.statusDanger : Color.lifeboard.textSecondary)
                     }
                     if let estimatedDuration = row.estimatedDuration {
                         Text(durationLabel(seconds: estimatedDuration))
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(Color.lifeboard.textTertiary)
                     }
                 }
             }
@@ -5778,17 +5823,17 @@ private struct DailySummaryModalView: View {
     private func riskLine(title: String, value: Int) -> some View {
         HStack {
             Text(title)
-                .font(.tasker(.body))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.body))
+                .foregroundColor(Color.lifeboard.textSecondary)
             Spacer()
             Text("\(value)")
-                .font(.tasker(.bodyEmphasis))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.bodyEmphasis))
+                .foregroundColor(Color.lifeboard.textPrimary)
         }
     }
 
     private func agendaPill(title: String, value: Int) -> some View {
-        TaskerHeroMetricTile(
+        LifeBoardHeroMetricTile(
             title: title,
             value: "\(value)",
             detail: value == 0 ? "Quiet" : "Visible progress",
@@ -5804,7 +5849,7 @@ private struct DailySummaryModalView: View {
         numericSuffix: String = "",
         detail: String? = nil
     ) -> some View {
-        return TaskerHeroMetricTile(
+        return LifeBoardHeroMetricTile(
             title: title,
             value: numericValue != nil ? "\(numericValue ?? 0)\(numericSuffix)" : value,
             detail: detail,
@@ -5814,19 +5859,19 @@ private struct DailySummaryModalView: View {
     }
 
     private var ctaBar: some View {
-        let primaryCTAIdentifier = TaskerCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: summary)
+        let primaryCTAIdentifier = LifeBoardCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: summary)
 
         return VStack(alignment: .leading, spacing: 10) {
             switch summary {
             case .morning(let value):
                 Button("Start Today") { onStartToday() }
                     .buttonStyle(.borderedProminent)
-                    .taskerCTABezel(
+                    .lifeboardCTABezel(
                         style: .summaryPrimary,
                         idleMotion: .slowLoop,
                         isEnabled: primaryCTAIdentifier == "home.dailySummary.cta.startToday"
                     )
-                    .taskerSuccessPulse(isActive: primaryCTAIdentifier == "home.dailySummary.cta.startToday")
+                    .lifeboardSuccessPulse(isActive: primaryCTAIdentifier == "home.dailySummary.cta.startToday")
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.startToday")
 
@@ -5856,12 +5901,12 @@ private struct DailySummaryModalView: View {
             case .nightly(let value):
                 Button("Plan Tomorrow") { onPlanTomorrow() }
                     .buttonStyle(.borderedProminent)
-                    .taskerCTABezel(
+                    .lifeboardCTABezel(
                         style: .summaryPrimary,
                         idleMotion: .slowLoop,
                         isEnabled: primaryCTAIdentifier == "home.dailySummary.cta.planTomorrow"
                     )
-                    .taskerSuccessPulse(isActive: primaryCTAIdentifier == "home.dailySummary.cta.planTomorrow")
+                    .lifeboardSuccessPulse(isActive: primaryCTAIdentifier == "home.dailySummary.cta.planTomorrow")
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.planTomorrow")
 
@@ -5905,7 +5950,7 @@ private struct DailySummaryModalView: View {
         }
     }
 
-    private var summaryBadgeTone: TaskerStatusPillTone {
+    private var summaryBadgeTone: LifeBoardStatusPillTone {
         switch summary {
         case .morning:
             return .accent
@@ -5930,9 +5975,9 @@ private struct DailySummaryModalView: View {
     private var headerAccentColor: Color {
         switch summary {
         case .morning:
-            return Color.tasker.accentSecondary
+            return Color.lifeboard.accentSecondary
         case .nightly:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         }
     }
 
@@ -5954,15 +5999,15 @@ private struct DailySummaryModalView: View {
 
     private func priorityColor(_ priority: TaskPriority) -> Color {
         if priority == .max {
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         }
         if priority == .high {
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         }
         if priority == .low {
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         }
-        return Color.tasker.textTertiary
+        return Color.lifeboard.textTertiary
     }
 
     private func priorityBadge(_ priority: TaskPriority) -> some View {
@@ -5975,7 +6020,7 @@ private struct DailySummaryModalView: View {
 
     private func statusBadge(text: String, foreground: Color, background: Color) -> some View {
         Text(text)
-            .font(.tasker(.caption2))
+            .font(.lifeboard(.caption2))
             .foregroundColor(foreground)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)

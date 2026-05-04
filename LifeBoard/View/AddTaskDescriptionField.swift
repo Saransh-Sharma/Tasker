@@ -1,6 +1,6 @@
 //
 //  AddTaskDescriptionField.swift
-//  Tasker
+//  LifeBoard
 //
 //  Optional description text editor with placeholder and focus state.
 //
@@ -13,38 +13,38 @@ struct AddTaskDescriptionField: View {
     @Binding var text: String
     @FocusState.Binding var isFocused: Bool
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             // Placeholder
             if text.isEmpty {
                 Text("Description (optional)")
-                    .font(.tasker(.body))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.body))
+                    .foregroundColor(Color.lifeboard.textTertiary)
                     .padding(spacing.s12)
             }
 
             // Text editor
             TextEditor(text: $text)
-                .font(.tasker(.body))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.body))
+                .foregroundColor(Color.lifeboard.textPrimary)
                 .focused($isFocused)
                 .padding(spacing.s4)
                 .frame(minHeight: 80, maxHeight: 120)
                 .scrollContentBackground(.hidden)
         }
-        .background(Color.tasker.surfaceSecondary)
+        .background(Color.lifeboard.surfaceSecondary)
         .overlay(
             RoundedRectangle(cornerRadius: corner.r2)
                 .stroke(
-                    isFocused ? Color.tasker.accentRing : Color.tasker.strokeHairline,
+                    isFocused ? Color.lifeboard.accentRing : Color.lifeboard.strokeHairline,
                     lineWidth: isFocused ? 2 : 1
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: corner.r2))
-        .animation(TaskerAnimation.quick, value: isFocused)
+        .animation(LifeBoardAnimation.quick, value: isFocused)
         .accessibilityIdentifier("addTask.descriptionField")
     }
 }
@@ -61,11 +61,11 @@ struct AddTaskDescriptionField_Previews: PreviewProvider {
             AddTaskDescriptionField(text: $text, isFocused: $isFocused)
 
             Text("Character count: \(text.count)")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
         }
         .padding()
-        .background(Color.tasker.surfacePrimary)
+        .background(Color.lifeboard.surfacePrimary)
         .previewLayout(.sizeThatFits)
     }
 }

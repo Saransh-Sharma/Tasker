@@ -1,6 +1,6 @@
 //
 //  AddTaskAdvancedPlanningSection.swift
-//  Tasker
+//  LifeBoard
 //
 //  Collapsible "Advanced" section: Parent task, Dependencies, Energy, Category,
 //  Context, Duration, Repeat schedule.
@@ -15,7 +15,7 @@ struct AddTaskAdvancedPlanningSection: View {
     let onExpand: () -> Void
 
     var body: some View {
-        VStack(spacing: TaskerTheme.Spacing.sm) {
+        VStack(spacing: LifeBoardTheme.Spacing.sm) {
             TaskEditorSectionCard(
                 section: .execution,
                 summary: viewModel.executionSummary,
@@ -26,7 +26,7 @@ struct AddTaskAdvancedPlanningSection: View {
                     onExpand()
                 }
             } content: {
-                VStack(spacing: TaskerTheme.Spacing.sm) {
+                VStack(spacing: LifeBoardTheme.Spacing.sm) {
                     AddTaskEnumChipRow(
                         label: "Energy",
                         displayName: { $0.displayName },
@@ -63,7 +63,7 @@ struct AddTaskAdvancedPlanningSection: View {
                     onExpand()
                 }
             } content: {
-                VStack(spacing: TaskerTheme.Spacing.sm) {
+                VStack(spacing: LifeBoardTheme.Spacing.sm) {
                     if !viewModel.availableParentTasks.isEmpty {
                         AddTaskTaskPicker(
                             label: "Parent Task",
@@ -92,13 +92,13 @@ struct AddTaskDependenciesPicker: View {
     @Binding var selectedTaskIDs: Set<UUID>
     @Binding var dependencyKind: TaskDependencyKind
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text("Dependencies")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             // Kind selector
             ScrollView(.horizontal, showsIndicators: false) {
@@ -109,7 +109,7 @@ struct AddTaskDependenciesPicker: View {
                             text: kind == .blocks ? "Blocks" : "Related",
                             isActive: dependencyKind == kind
                         ) {
-                            withAnimation(TaskerAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.snappy) {
                                 dependencyKind = kind
                             }
                         }

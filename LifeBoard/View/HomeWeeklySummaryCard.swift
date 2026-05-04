@@ -7,7 +7,7 @@ struct HomeWeeklySummaryCard: View {
     let onPrimaryAction: () -> Void
     let onRetryAction: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var titleText: String {
         guard let summary else { return "Weekly planning" }
@@ -44,28 +44,28 @@ struct HomeWeeklySummaryCard: View {
         HStack(alignment: .center, spacing: spacing.s12) {
             VStack(alignment: .leading, spacing: spacing.s4) {
                 Text(titleText)
-                    .font(.tasker(.callout).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 if isLoading {
                     Text("Loading weekly summary…")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                 } else if let errorMessage, summary == nil {
                     Text(errorMessage)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.statusWarning)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.statusWarning)
                         .lineLimit(2)
                 } else if let summary {
                     Text(statusText(for: summary))
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                 } else {
                     Text("Start your weekly plan.")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -78,21 +78,21 @@ struct HomeWeeklySummaryCard: View {
             } else if errorMessage != nil, summary == nil {
                 Button("Retry", action: onRetryAction)
                     .buttonStyle(.plain)
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
             } else if let summary {
                 Button(actionTitle(for: summary), action: onPrimaryAction)
                     .buttonStyle(.plain)
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
             }
         }
         .padding(.horizontal, spacing.s12)
         .padding(.vertical, spacing.s12)
-        .background(Color.tasker.surfaceSecondary.opacity(0.28))
+        .background(Color.lifeboard.surfaceSecondary.opacity(0.28))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.55), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }

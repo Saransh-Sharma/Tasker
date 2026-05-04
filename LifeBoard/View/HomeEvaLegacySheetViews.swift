@@ -12,8 +12,8 @@ struct EvaFocusWhySheetView: View {
     @State private var expandedTaskIDs = Set<UUID>()
     @State private var selectedCandidateID: UUID?
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
     private var selectedCandidate: TaskDefinition? {
         guard let selectedCandidateID else { return nil }
         return shuffleCandidates.first(where: { $0.id == selectedCandidateID })
@@ -28,7 +28,7 @@ struct EvaFocusWhySheetView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.tasker.bgCanvas
+                Color.lifeboard.bgCanvas
                     .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
@@ -57,8 +57,8 @@ struct EvaFocusWhySheetView: View {
     private var headerCard: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text("Review why these tasks are in Focus Now, start a timer, or swap in a better fit.")
-                .font(.tasker(.callout))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.callout))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(spacing.s12)
@@ -71,12 +71,12 @@ struct EvaFocusWhySheetView: View {
             HStack(alignment: .center, spacing: spacing.s8) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "Shuffle View"))
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundColor(Color.lifeboard.textPrimary)
 
                     Text(shuffleSubtitleText)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                 }
 
                 Spacer(minLength: 0)
@@ -86,13 +86,13 @@ struct EvaFocusWhySheetView: View {
                     onShuffleCandidates()
                 }) {
                     Text(String(localized: "Shuffle Again"))
-                        .font(.tasker(.caption1).weight(.medium))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .font(.lifeboard(.caption1).weight(.medium))
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
                         .background(
                             Capsule()
-                                .fill(Color.tasker.surfaceSecondary)
+                                .fill(Color.lifeboard.surfaceSecondary)
                         )
                 }
                 .buttonStyle(.plain)
@@ -101,8 +101,8 @@ struct EvaFocusWhySheetView: View {
 
             if shuffleCandidates.isEmpty {
                 Text("No new candidates are available right now. Finish a focus task and try again.")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                     .padding(.top, spacing.s2)
             } else {
                 VStack(spacing: spacing.s8) {
@@ -128,12 +128,12 @@ struct EvaFocusWhySheetView: View {
 
             if let selectedCandidate {
                 Divider()
-                    .overlay(Color.tasker.strokeHairline.opacity(0.8))
+                    .overlay(Color.lifeboard.strokeHairline.opacity(0.8))
                     .padding(.vertical, spacing.s2)
 
                 Text(String(format: String(localized: "Replace With %@"), locale: Locale.current, selectedCandidate.title))
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 VStack(spacing: spacing.s8) {
                     ForEach(focusTasks, id: \.id) { focusTask in
@@ -154,8 +154,8 @@ struct EvaFocusWhySheetView: View {
                         selectedCandidateID = nil
                     }
                 }
-                .font(.tasker(.caption1).weight(.medium))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1).weight(.medium))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .buttonStyle(.plain)
                 .padding(.top, spacing.s2)
             }
@@ -168,13 +168,13 @@ struct EvaFocusWhySheetView: View {
     private var currentFocusSection: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text(String(localized: "Current Focus Now"))
-                .font(.tasker(.callout).weight(.semibold))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.callout).weight(.semibold))
+                .foregroundColor(Color.lifeboard.textPrimary)
 
             if focusTasks.isEmpty {
                 Text(String(localized: "Focus Now is empty right now."))
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                     .padding(spacing.s12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(cardBackground(accentOpacity: 0.10))
@@ -211,15 +211,15 @@ struct EvaFocusWhySheetView: View {
         return HStack(alignment: .center, spacing: spacing.s8) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
-                    .font(.tasker(.callout).weight(.semibold))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout).weight(.semibold))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
                 if let context = metadata.text {
                     Text(context)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -228,11 +228,11 @@ struct EvaFocusWhySheetView: View {
 
             Image(systemName: "arrow.left.arrow.right")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Color.tasker.accentPrimary)
+                .foregroundColor(Color.lifeboard.accentPrimary)
                 .frame(width: 30, height: 30)
                 .background(
                     Circle()
-                        .fill(Color.tasker.surfaceSecondary)
+                        .fill(Color.lifeboard.surfaceSecondary)
                 )
         }
         .padding(.horizontal, spacing.s8)
@@ -240,20 +240,20 @@ struct EvaFocusWhySheetView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary.opacity(0.66))
+                .fill(Color.lifeboard.surfaceSecondary.opacity(0.66))
         )
     }
 
     private func cardBackground(accentOpacity: Double) -> some View {
         RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-            .fill(Color.tasker.surfacePrimary.opacity(0.96))
+            .fill(Color.lifeboard.surfacePrimary.opacity(0.96))
             .overlay(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.92), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.92), lineWidth: 1)
             )
             .overlay(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 999, style: .continuous)
-                    .fill(Color.tasker.accentPrimary.opacity(accentOpacity))
+                    .fill(Color.lifeboard.accentPrimary.opacity(accentOpacity))
                     .frame(width: 40, height: 3)
                     .padding(.horizontal, spacing.s12)
                     .padding(.top, 1)
@@ -307,8 +307,8 @@ private struct EvaFocusWhyTaskCard: View {
     let onStartFocus: () -> Void
     let onToggleExpanded: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
@@ -320,15 +320,15 @@ private struct EvaFocusWhyTaskCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(presentation.title)
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundColor(presentation.isComplete ? Color.tasker.textSecondary : Color.tasker.textPrimary)
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundColor(presentation.isComplete ? Color.lifeboard.textSecondary : Color.lifeboard.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
                     if let contextText = presentation.contextText {
                         Text(contextText)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                             .lineLimit(1)
                     }
                 }
@@ -338,11 +338,11 @@ private struct EvaFocusWhyTaskCard: View {
                 Button(action: onStartFocus) {
                     Image(systemName: "timer")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(presentation.isComplete ? Color.tasker.textTertiary : Color.tasker.accentPrimary)
+                        .foregroundColor(presentation.isComplete ? Color.lifeboard.textTertiary : Color.lifeboard.accentPrimary)
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
-                                .fill(Color.tasker.surfaceSecondary)
+                                .fill(Color.lifeboard.surfaceSecondary)
                         )
                 }
                 .buttonStyle(.plain)
@@ -354,18 +354,18 @@ private struct EvaFocusWhyTaskCard: View {
                 HStack(alignment: .center, spacing: spacing.s4) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(Color.tasker.accentPrimary.opacity(0.85))
+                        .foregroundColor(Color.lifeboard.accentPrimary.opacity(0.85))
 
                     Text(presentation.summaryText)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .lineLimit(1)
 
                     Spacer(minLength: 0)
 
                     Text(isExpanded ? String(localized: "Less") : String(localized: "More"))
-                        .font(.tasker(.caption2).weight(.semibold))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .font(.lifeboard(.caption2).weight(.semibold))
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                 }
                 .contentShape(Rectangle())
             }
@@ -375,8 +375,8 @@ private struct EvaFocusWhyTaskCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(presentation.reasonLines.isEmpty ? [presentation.summaryText] : presentation.reasonLines, id: \.self) { line in
                         Text("• \(line)")
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -388,10 +388,10 @@ private struct EvaFocusWhyTaskCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
-                .fill(Color.tasker.surfacePrimary.opacity(0.94))
+                .fill(Color.lifeboard.surfacePrimary.opacity(0.94))
                 .overlay(
                     RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
-                        .stroke(Color.tasker.strokeHairline.opacity(0.9), lineWidth: 1)
+                        .stroke(Color.lifeboard.strokeHairline.opacity(0.9), lineWidth: 1)
                 )
         )
         .opacity(presentation.isComplete ? 0.68 : 1)
@@ -402,28 +402,28 @@ private struct EvaFocusShuffleCandidateRow: View {
     let presentation: EvaFocusWhyCandidatePresentation
     let isSelected: Bool
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         HStack(alignment: .center, spacing: spacing.s8) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(presentation.title)
-                    .font(.tasker(.callout).weight(.semibold))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout).weight(.semibold))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
                 if let contextText = presentation.contextText {
                     Text(contextText)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                 }
 
                 Text(presentation.summaryText)
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                     .lineLimit(1)
             }
 
@@ -431,18 +431,18 @@ private struct EvaFocusShuffleCandidateRow: View {
 
             Image(systemName: isSelected ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
+                .foregroundColor(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)
         }
         .padding(.horizontal, spacing.s8)
         .padding(.vertical, spacing.s8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
-                .fill(isSelected ? Color.tasker.surfaceSecondary.opacity(0.9) : Color.tasker.surfaceSecondary.opacity(0.55))
+                .fill(isSelected ? Color.lifeboard.surfaceSecondary.opacity(0.9) : Color.lifeboard.surfaceSecondary.opacity(0.55))
                 .overlay(
                     RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
                         .stroke(
-                            isSelected ? Color.tasker.accentPrimary.opacity(0.28) : Color.tasker.strokeHairline.opacity(0.82),
+                            isSelected ? Color.lifeboard.accentPrimary.opacity(0.28) : Color.lifeboard.strokeHairline.opacity(0.82),
                             lineWidth: 1
                         )
                 )
@@ -475,18 +475,18 @@ private struct EvaTriageSprintSheetView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Triage Sprint")
-                    .font(.tasker(.title3))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.title3))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 if let currentItem {
                     Text("Card \(min(currentIndex + 1, queue.count))/\(queue.count)")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textSecondary)
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text(currentItem.task.title)
-                            .font(.tasker(.headline))
-                            .foregroundColor(Color.tasker.textPrimary)
+                            .font(.lifeboard(.headline))
+                            .foregroundColor(Color.lifeboard.textPrimary)
                             .lineLimit(3)
 
                         suggestionRow(title: "Project", value: projectText(for: currentItem))
@@ -499,13 +499,13 @@ private struct EvaTriageSprintSheetView: View {
                     .padding(14)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.tasker.surfaceSecondary)
+                            .fill(Color.lifeboard.surfaceSecondary)
                     )
 
                     if let errorMessage {
                         Text(errorMessage)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.statusDanger)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.statusDanger)
                     }
 
                     HStack(spacing: 10) {
@@ -542,7 +542,7 @@ private struct EvaTriageSprintSheetView: View {
                             showDeleteConfirm = true
                         }
                         .buttonStyle(.bordered)
-                        .tint(Color.tasker.statusDanger)
+                        .tint(Color.lifeboard.statusDanger)
                     }
 
                     if queue.count > 1 {
@@ -567,11 +567,11 @@ private struct EvaTriageSprintSheetView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("You're all triaged.")
-                            .font(.tasker(.headline))
-                            .foregroundColor(Color.tasker.textPrimary)
+                            .font(.lifeboard(.headline))
+                            .foregroundColor(Color.lifeboard.textPrimary)
                         Text("Inbox is clear for now.")
-                            .font(.tasker(.body))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.body))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                     }
 
                     Button("Done") {
@@ -601,12 +601,12 @@ private struct EvaTriageSprintSheetView: View {
     private func suggestionRow(title: String, value: String) -> some View {
         HStack {
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
             Spacer()
             Text(value)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
         }
     }
 
@@ -662,11 +662,11 @@ private struct EvaOverdueRescueSheetView: View {
                 if let plan {
                     HStack {
                         Text("Debt: \(plan.debtLevel.rawValue.capitalized)")
-                            .font(.tasker(.headline))
+                            .font(.lifeboard(.headline))
                         Spacer()
                         Text(String(format: "%.1f", plan.debtScore))
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                     }
 
                     ScrollView {
@@ -700,8 +700,8 @@ private struct EvaOverdueRescueSheetView: View {
                     }
                 } else {
                     Text("No overdue tasks to rescue.")
-                        .font(.tasker(.body))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.body))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                 }
                 Spacer()
             }
@@ -738,14 +738,14 @@ private struct EvaOverdueRescueSheetView: View {
     private func rescueRows(title: String, items: [EvaRescueRecommendation]) -> some View {
         if items.isEmpty == false {
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             ForEach(items, id: \.taskID) { item in
                 HStack(spacing: 8) {
                     Text(tasksByID[item.taskID]?.title ?? "Task")
-                        .font(.tasker(.body))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.body))
+                        .foregroundColor(Color.lifeboard.textPrimary)
                         .lineLimit(2)
 
                     Spacer()
@@ -757,8 +757,8 @@ private struct EvaOverdueRescueSheetView: View {
                         Button("Drop?") { selectedActionByTaskID[item.taskID] = .dropCandidate }
                     } label: {
                         Text(actionTitle(for: selectedActionByTaskID[item.taskID] ?? item.action))
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.accentPrimary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.accentPrimary)
                     }
                     .frame(minHeight: 44)
                 }
@@ -768,8 +768,8 @@ private struct EvaOverdueRescueSheetView: View {
                         onSplitTask(item.taskID)
                     }
                     .buttonStyle(.plain)
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                 }
             }
         }

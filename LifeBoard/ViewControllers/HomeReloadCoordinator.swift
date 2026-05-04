@@ -120,7 +120,7 @@ final class HomeReloadCoordinator {
                 return
             }
             guard Task.isCancelled == false else { return }
-            TaskerPerformanceTrace.event("HomeTaskMutationChartRefreshDebounced")
+            LifeBoardPerformanceTrace.event("HomeTaskMutationChartRefreshDebounced")
             delegate?.homeReloadCoordinatorRefreshCharts(reason: reason)
             pendingChartRefreshTask = nil
         }
@@ -129,7 +129,7 @@ final class HomeReloadCoordinator {
 
 extension HomeReloadEvent {
     static func fromTimeOrWorkspaceNotification(_ notification: Notification) -> HomeReloadEvent {
-        if notification.name == TaskerWorkspacePreferencesStore.didChangeNotification {
+        if notification.name == LifeBoardWorkspacePreferencesStore.didChangeNotification {
             return .workspacePreferencesChanged
         }
         return .significantTimeChanged

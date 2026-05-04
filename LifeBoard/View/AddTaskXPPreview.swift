@@ -1,6 +1,6 @@
 //
 //  AddTaskXPPreview.swift
-//  Tasker
+//  LifeBoard
 //
 //  Dynamic XP preview badge — shows exact XP if completed now.
 //  Uses .contentTransition(.numericText()) for rolling counter animation.
@@ -43,10 +43,10 @@ struct AddTaskXPPreview: View {
 
     private var priorityColor: Color {
         switch priority {
-        case .max: return Color.tasker.priorityMax
-        case .high: return Color.tasker.priorityHigh
-        case .low: return Color.tasker.priorityLow
-        case .none: return Color.tasker.priorityNone
+        case .max: return Color.lifeboard.priorityMax
+        case .high: return Color.lifeboard.priorityHigh
+        case .low: return Color.lifeboard.priorityLow
+        case .none: return Color.lifeboard.priorityNone
         }
     }
 
@@ -59,19 +59,19 @@ struct AddTaskXPPreview: View {
             HStack(spacing: 4) {
                 Image(systemName: "star.fill")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(isHighValue ? Color.tasker.accentSecondary : Color.tasker.textTertiary)
+                    .foregroundColor(isHighValue ? Color.lifeboard.accentSecondary : Color.lifeboard.textTertiary)
 
                 Text(preview?.shortLabel ?? "XP pending")
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
                     .fontWeight(.medium)
-                    .foregroundColor(isHighValue ? Color.tasker.textSecondary : Color.tasker.textTertiary)
+                    .foregroundColor(isHighValue ? Color.lifeboard.textSecondary : Color.lifeboard.textTertiary)
                     .contentTransition(.numericText())
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(isHighValue ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
+                    .fill(isHighValue ? Color.lifeboard.accentWash : Color.lifeboard.surfaceSecondary)
             )
             .overlay(
                 Capsule()
@@ -81,14 +81,14 @@ struct AddTaskXPPreview: View {
                     )
             )
         }
-        .animation(TaskerAnimation.quick, value: priority)
+        .animation(LifeBoardAnimation.quick, value: priority)
         .onChange(of: priority) { _, newPriority in
             if newPriority == .high || newPriority == .max {
-                withAnimation(TaskerAnimation.gentle) {
+                withAnimation(LifeBoardAnimation.gentle) {
                     pulsing = true
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    withAnimation(TaskerAnimation.gentle) {
+                    withAnimation(LifeBoardAnimation.gentle) {
                         pulsing = false
                     }
                 }

@@ -1,6 +1,6 @@
 //
 //  TaskRowView.swift
-//  Tasker
+//  LifeBoard
 //
 //  Compact Home row optimized for scan speed and low-friction completion.
 //
@@ -253,12 +253,15 @@ private struct TaskRowDerivedStateCacheKey: Hashable {
     let tagDisplaySignature: [String]
 }
 
-@MainActor
+private final class TaskRowDerivedStateCacheStorage: @unchecked Sendable {
+    let lock = NSLock()
+    var cache: [TaskRowDerivedStateCacheKey: TaskRowDerivedState] = [:]
+    var insertionOrder: [TaskRowDerivedStateCacheKey] = []
+}
+
 private enum TaskRowDerivedStateCache {
-    private static let lock = NSLock()
+    private static let storage = TaskRowDerivedStateCacheStorage()
     private static let cacheLimit = 512
-    private static var cache: [TaskRowDerivedStateCacheKey: TaskRowDerivedState] = [:]
-    private static var insertionOrder: [TaskRowDerivedStateCacheKey] = []
 
     static func resolve(
         task: TaskDefinition,
@@ -304,12 +307,12 @@ private enum TaskRowDerivedStateCache {
             tagDisplaySignature: tagDisplaySignature
         )
 
-        lock.lock()
-        if let cached = cache[key] {
-            lock.unlock()
+        storage.lock.lock()
+        if let cached = storage.cache[key] {
+            storage.lock.unlock()
             return cached
         }
-        lock.unlock()
+        storage.lock.unlock()
 
         let displayModel = TaskRowDisplayModel.from(
             task: task,
@@ -385,19 +388,18 @@ private enum TaskRowDerivedStateCache {
             tagDisplaySignature: tagDisplaySignature
         )
 
-        lock.lock()
-        cache[key] = resolved
-        insertionOrder.append(key)
-        if insertionOrder.count > cacheLimit, let oldest = insertionOrder.first {
-            insertionOrder.removeFirst()
-            cache.removeValue(forKey: oldest)
+        storage.lock.lock()
+        storage.cache[key] = resolved
+        storage.insertionOrder.append(key)
+        if storage.insertionOrder.count > cacheLimit, let oldest = storage.insertionOrder.first {
+            storage.insertionOrder.removeFirst()
+            storage.cache.removeValue(forKey: oldest)
         }
-        lock.unlock()
+        storage.lock.unlock()
         return resolved
     }
 }
 
-@MainActor
 struct TaskRowView: View, Equatable {
     let task: TaskDefinition
     let fallbackIconSymbolName: String?
@@ -412,6 +414,11 @@ struct TaskRowView: View, Equatable {
     let metadataPolicy: TaskRowMetadataPolicy
     let chromeStyle: TaskRowChromeStyle
     private let derivedState: TaskRowDerivedState
+    private let hasTapAction: Bool
+    private let hasToggleAction: Bool
+    private let hasDeleteAction: Bool
+    private let hasRescheduleAction: Bool
+    private let hasPromoteAction: Bool
     var onTap: (() -> Void)? = nil
     var onToggleComplete: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
@@ -419,7 +426,7 @@ struct TaskRowView: View, Equatable {
     var onPromoteToFocus: (() -> Void)? = nil
     var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var highlightPulse = false
 
@@ -456,6 +463,11 @@ struct TaskRowView: View, Equatable {
         self.highlightedTaskID = highlightedTaskID
         self.metadataPolicy = metadataPolicy
         self.chromeStyle = chromeStyle
+        self.hasTapAction = onTap != nil
+        self.hasToggleAction = onToggleComplete != nil
+        self.hasDeleteAction = onDelete != nil
+        self.hasRescheduleAction = onReschedule != nil
+        self.hasPromoteAction = onPromoteToFocus != nil
         self.derivedState = TaskRowDerivedStateCache.resolve(
             task: task,
             showTypeBadge: showTypeBadge,
@@ -464,11 +476,11 @@ struct TaskRowView: View, Equatable {
             todayXPSoFar: todayXPSoFar,
             isGamificationV2Enabled: isGamificationV2Enabled,
             isTaskDragEnabled: isTaskDragEnabled,
-            hasTapAction: onTap != nil,
-            hasToggleAction: onToggleComplete != nil,
-            hasDeleteAction: onDelete != nil,
-            hasRescheduleAction: onReschedule != nil,
-            hasPromoteAction: onPromoteToFocus != nil,
+            hasTapAction: hasTapAction,
+            hasToggleAction: hasToggleAction,
+            hasDeleteAction: hasDeleteAction,
+            hasRescheduleAction: hasRescheduleAction,
+            hasPromoteAction: hasPromoteAction,
             fallbackIconSymbolName: fallbackIconSymbolName,
             metadataPolicy: metadataPolicy
         )
@@ -484,12 +496,12 @@ struct TaskRowView: View, Equatable {
         derivedState.displayModel
     }
 
-    private var themeColors: TaskerColorTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).color
+    private var themeColors: LifeBoardColorTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).color
     }
 
     nonisolated static func == (lhs: TaskRowView, rhs: TaskRowView) -> Bool {
-        lhs.task.id == rhs.task.id &&
+        return lhs.task.id == rhs.task.id &&
         lhs.task.updatedAt == rhs.task.updatedAt &&
         lhs.task.isComplete == rhs.task.isComplete &&
         lhs.task.dateCompleted == rhs.task.dateCompleted &&
@@ -497,12 +509,18 @@ struct TaskRowView: View, Equatable {
         lhs.accentHex == rhs.accentHex &&
         lhs.showTypeBadge == rhs.showTypeBadge &&
         lhs.isInOverdueSection == rhs.isInOverdueSection &&
+        lhs.tagNameByID == rhs.tagNameByID &&
         lhs.todayXPSoFar == rhs.todayXPSoFar &&
+        lhs.isGamificationV2Enabled == rhs.isGamificationV2Enabled &&
         lhs.isTaskDragEnabled == rhs.isTaskDragEnabled &&
         lhs.highlightedTaskID == rhs.highlightedTaskID &&
         lhs.metadataPolicy == rhs.metadataPolicy &&
         lhs.chromeStyle == rhs.chromeStyle &&
-        lhs.derivedState == rhs.derivedState
+        lhs.hasTapAction == rhs.hasTapAction &&
+        lhs.hasToggleAction == rhs.hasToggleAction &&
+        lhs.hasDeleteAction == rhs.hasDeleteAction &&
+        lhs.hasRescheduleAction == rhs.hasRescheduleAction &&
+        lhs.hasPromoteAction == rhs.hasPromoteAction
     }
 
     private var rowBase: some View {
@@ -518,7 +536,7 @@ struct TaskRowView: View, Equatable {
                 } label: {
                     Label(task.isComplete ? "Reopen" : "Complete", systemImage: task.isComplete ? "arrow.uturn.backward" : "checkmark")
                 }
-                .tint(task.isComplete ? Color.tasker.accentSecondary : Color.tasker.statusSuccess)
+                .tint(task.isComplete ? Color.lifeboard.accentSecondary : Color.lifeboard.statusSuccess)
 
                 if !task.isComplete, let onPromoteToFocus {
                     Button {
@@ -526,7 +544,7 @@ struct TaskRowView: View, Equatable {
                     } label: {
                         Label("Focus", systemImage: "scope")
                     }
-                    .tint(Color.tasker.accentPrimary)
+                    .tint(Color.lifeboard.accentPrimary)
                 }
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -537,7 +555,7 @@ struct TaskRowView: View, Equatable {
                         } label: {
                             Label("Move to Focus Now", systemImage: "scope")
                         }
-                        .tint(Color.tasker.accentPrimary)
+                        .tint(Color.lifeboard.accentPrimary)
                     }
 
                     Button {
@@ -545,7 +563,7 @@ struct TaskRowView: View, Equatable {
                     } label: {
                         Label("Reschedule", systemImage: "calendar")
                     }
-                    .tint(Color.tasker.accentPrimary)
+                    .tint(Color.lifeboard.accentPrimary)
                 }
 
                 Button(role: .destructive) {
@@ -625,18 +643,18 @@ struct TaskRowView: View, Equatable {
     private var isPad: Bool { layoutClass.isPad }
     private var isOnboardingHighlighted: Bool { highlightedTaskID == task.id && task.isComplete == false }
     private var highlightStrokeColor: Color {
-        isOnboardingHighlighted ? Color.tasker.accentPrimary : Color.tasker.strokeHairline
+        isOnboardingHighlighted ? Color.lifeboard.accentPrimary : Color.lifeboard.strokeHairline
     }
 
     private var resolvedIconTint: Color {
-        TaskerHexColor.color(accentHex, fallback: Color.tasker.accentPrimary)
+        LifeBoardHexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)
     }
 
     private var rowContent: some View {
         HStack(spacing: 0) {
             priorityStripe
 
-            HStack(alignment: .center, spacing: isPad ? TaskerTheme.Spacing.sm : TaskerTheme.Spacing.xs) {
+            HStack(alignment: .center, spacing: isPad ? LifeBoardTheme.Spacing.sm : LifeBoardTheme.Spacing.xs) {
                 CompletionCheckbox(isComplete: task.isComplete, compact: true) {
                     onToggleComplete?()
                 }
@@ -648,35 +666,35 @@ struct TaskRowView: View, Equatable {
                 if let iconSymbolName = task.iconSymbolName ?? fallbackIconSymbolName {
                     Image(systemName: iconSymbolName)
                         .font(.system(size: isPad ? 16 : 15, weight: .semibold))
-                        .foregroundStyle(task.isComplete ? Color.tasker.textQuaternary : resolvedIconTint)
+                        .foregroundStyle(task.isComplete ? Color.lifeboard.textQuaternary : resolvedIconTint)
                         .frame(width: 20, alignment: .center)
                         .accessibilityHidden(true)
                 }
 
                 VStack(alignment: .leading, spacing: isPad ? 3 : 1) {
                     Text(task.title)
-                        .font(.tasker(.body))
-                        .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
+                        .font(.lifeboard(.body))
+                        .foregroundColor(task.isComplete ? Color.lifeboard.textTertiary : Color.lifeboard.textPrimary)
                         .lineLimit(displayModel.hasDescription ? 1 : 2)
                         .multilineTextAlignment(.leading)
 
                     if isPad, let description = task.details?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty, !task.isComplete {
                         // iPad: always show description if available
                         Text(description)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(Color.lifeboard.textTertiary)
                             .lineLimit(1)
                     } else if let descriptionText = displayModel.descriptionText {
                         Text(descriptionText)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(task.isComplete ? Color.lifeboard.textQuaternary : Color.lifeboard.textTertiary)
                             .lineLimit(1)
                     }
 
                     if let metadataText = displayModel.metadataText {
                         Text(metadataText)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(task.isComplete ? Color.lifeboard.textQuaternary : Color.lifeboard.textTertiary)
                             .lineLimit(1)
                     }
                 }
@@ -696,15 +714,15 @@ struct TaskRowView: View, Equatable {
                 }
             }
             .padding(.vertical, isPad ? 8 : (displayModel.hasSecondaryContent ? 6 : 4))
-            .padding(.trailing, TaskerTheme.Spacing.md)
-            .padding(.leading, TaskerTheme.Spacing.xs)
+            .padding(.trailing, LifeBoardTheme.Spacing.md)
+            .padding(.leading, LifeBoardTheme.Spacing.xs)
             .frame(minHeight: isPad ? 60 : (displayModel.hasDescription ? 56 : 50))
         }
-        .animation(TaskerAnimation.quick, value: task.isComplete)
+        .animation(LifeBoardAnimation.quick, value: task.isComplete)
         .overlay {
             if isOnboardingHighlighted {
                 taskRowHighlightShape
-                    .fill(Color.tasker.accentPrimary.opacity(reduceMotion ? 0.08 : (highlightPulse ? 0.12 : 0.04)))
+                    .fill(Color.lifeboard.accentPrimary.opacity(reduceMotion ? 0.08 : (highlightPulse ? 0.12 : 0.04)))
                     .padding(1)
                     .allowsHitTesting(false)
             }
@@ -716,7 +734,7 @@ struct TaskRowView: View, Equatable {
             highlightPulse = false
             return
         }
-        withAnimation(TaskerAnimation.gentle.repeatForever(autoreverses: true)) {
+        withAnimation(LifeBoardAnimation.gentle.repeatForever(autoreverses: true)) {
             highlightPulse = true
         }
     }
@@ -725,13 +743,13 @@ struct TaskRowView: View, Equatable {
     private var iPadTrailingMetadata: some View {
         if let dueDate = task.dueDate, !task.isComplete {
             Text(dueDate, style: .date)
-                .font(.tasker(.caption2))
-                .foregroundColor(task.isOverdue ? Color.tasker.statusDanger : Color.tasker.textTertiary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(task.isOverdue ? Color.lifeboard.statusDanger : Color.lifeboard.textTertiary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(
                     Capsule()
-                        .fill(task.isOverdue ? Color.tasker.statusDanger.opacity(0.1) : Color.tasker.surfaceSecondary)
+                        .fill(task.isOverdue ? Color.lifeboard.statusDanger.opacity(0.1) : Color.lifeboard.surfaceSecondary)
                 )
                 .fixedSize()
         }
@@ -739,12 +757,12 @@ struct TaskRowView: View, Equatable {
 
     private var rowBackground: Color {
         if task.isComplete {
-            return Color.tasker.surfacePrimary.opacity(0.7)
+            return Color.lifeboard.surfacePrimary.opacity(0.7)
         }
         if task.isOverdue {
-            return Color.tasker.statusDanger.opacity(0.03)
+            return Color.lifeboard.statusDanger.opacity(0.03)
         }
-        return Color.tasker.surfacePrimary
+        return Color.lifeboard.surfacePrimary
     }
 
     @ViewBuilder
@@ -762,7 +780,7 @@ struct TaskRowView: View, Equatable {
 
     private var stripeFill: some ShapeStyle {
         if task.isComplete {
-            return AnyShapeStyle(Color.tasker.textQuaternary.opacity(0.3))
+            return AnyShapeStyle(Color.lifeboard.textQuaternary.opacity(0.3))
         }
         if task.isOverdue {
             return AnyShapeStyle(
@@ -777,7 +795,7 @@ struct TaskRowView: View, Equatable {
         case .max:
             return AnyShapeStyle(
                 LinearGradient(
-                    colors: [Color.tasker.priorityMax, Color.tasker.priorityMax.opacity(0.75)],
+                    colors: [Color.lifeboard.priorityMax, Color.lifeboard.priorityMax.opacity(0.75)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -785,7 +803,7 @@ struct TaskRowView: View, Equatable {
         case .high:
             return AnyShapeStyle(
                 LinearGradient(
-                    colors: [Color.tasker.priorityHigh, Color.tasker.priorityHigh.opacity(0.75)],
+                    colors: [Color.lifeboard.priorityHigh, Color.lifeboard.priorityHigh.opacity(0.75)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -793,13 +811,13 @@ struct TaskRowView: View, Equatable {
         case .low:
             return AnyShapeStyle(
                 LinearGradient(
-                    colors: [Color.tasker.priorityLow, Color.tasker.priorityLow.opacity(0.8)],
+                    colors: [Color.lifeboard.priorityLow, Color.lifeboard.priorityLow.opacity(0.8)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
             )
         case .none:
-            return AnyShapeStyle(Color.tasker.priorityNone.opacity(0.5))
+            return AnyShapeStyle(Color.lifeboard.priorityNone.opacity(0.5))
         }
     }
 
@@ -818,7 +836,7 @@ struct TaskRowView: View, Equatable {
     private var taskRowHighlightShape: AnyShape {
         switch chromeStyle {
         case .card:
-            return AnyShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+            return AnyShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md))
         case .flatHomeList:
             return AnyShape(Rectangle())
         }
@@ -829,8 +847,8 @@ struct TaskRowView: View, Equatable {
         case .card:
             return AnyShape(
                 UnevenRoundedRectangle(
-                    topLeadingRadius: TaskerTheme.CornerRadius.md,
-                    bottomLeadingRadius: TaskerTheme.CornerRadius.md,
+                    topLeadingRadius: LifeBoardTheme.CornerRadius.md,
+                    bottomLeadingRadius: LifeBoardTheme.CornerRadius.md,
                     bottomTrailingRadius: 0,
                     topTrailingRadius: 0
                 )
@@ -844,37 +862,37 @@ struct TaskRowView: View, Equatable {
     @ViewBuilder
     private func statusChipView(_ statusChip: TaskRowStatusChip) -> some View {
         Text(statusChip.text)
-            .font(.tasker(.caption2))
+            .font(.lifeboard(.caption2))
             .fontWeight(.medium)
-            .foregroundColor(Color.tasker.statusWarning)
+            .foregroundColor(Color.lifeboard.statusWarning)
             .padding(.horizontal, 5)
             .padding(.vertical, 3)
-            .background(Capsule().fill(Color.tasker.statusWarning.opacity(0.15)))
+            .background(Capsule().fill(Color.lifeboard.statusWarning.opacity(0.15)))
             .fixedSize()
             .transition(.scale.combined(with: .opacity))
-            .animation(TaskerAnimation.bouncy, value: displayModel.statusChip)
+            .animation(LifeBoardAnimation.bouncy, value: displayModel.statusChip)
     }
 
     private var compactXPBadge: some View {
         let preview = derivedState.xpPreview
 
         return Text(preview?.compactLabel ?? "XP pending")
-            .font(.tasker(.caption2))
+            .font(.lifeboard(.caption2))
             .fontWeight(task.priority == .max || task.priority == .high ? .bold : .medium)
-            .foregroundColor(task.priority == .max || task.priority == .high ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+            .foregroundColor(task.priority == .max || task.priority == .high ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
             .padding(.horizontal, 5)
             .padding(.vertical, 3)
             .background(
                 Capsule()
-                    .fill(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                    .fill(task.priority == .max || task.priority == .high ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
             )
             .overlay(
                 Capsule()
-                    .stroke(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary.opacity(0.3) : .clear, lineWidth: 1)
+                    .stroke(task.priority == .max || task.priority == .high ? Color.lifeboard.accentPrimary.opacity(0.3) : .clear, lineWidth: 1)
             )
             .fixedSize()
             .scaleEffect(task.isComplete ? 1.15 : 1.0)
-            .animation(TaskerAnimation.bouncy, value: task.isComplete)
+            .animation(LifeBoardAnimation.bouncy, value: task.isComplete)
             .accessibilityLabel(preview.map { "Reward \($0.shortLabel)" } ?? "Reward pending")
             .accessibilityHint(
                 "Reward factors: \(XPCalculationEngine.estimateReasonHints(estimatedDuration: task.estimatedDuration, isFocusSessionActive: false, isPinnedInFocusStrip: false))"
@@ -893,9 +911,9 @@ private struct TaskRowChromeModifier: ViewModifier {
         switch chromeStyle {
         case .card:
             content
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
-                .taskerDenseSurface(
-                    cornerRadius: TaskerTheme.CornerRadius.md,
+                .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md))
+                .lifeboardDenseSurface(
+                    cornerRadius: LifeBoardTheme.CornerRadius.md,
                     fillColor: rowBackground,
                     strokeColor: highlightStrokeColor,
                     lineWidth: isOnboardingHighlighted ? 2 : 1
@@ -942,7 +960,7 @@ struct TaskRowView_Previews: PreviewProvider {
             )
         }
         .padding(.horizontal, 20)
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .previewLayout(.sizeThatFits)
     }
 }

@@ -3,10 +3,10 @@ import SwiftUI
 struct SettingsFooterView: View {
     var body: some View {
         Text("Made with care by Saransh")
-            .font(.tasker(.caption2))
-            .foregroundColor(.tasker(.textQuaternary))
+            .font(.lifeboard(.caption2))
+            .foregroundColor(.lifeboard(.textQuaternary))
         .frame(maxWidth: .infinity)
-        .padding(.top, TaskerSwiftUITokens.spacing.s24)
-        .padding(.bottom, TaskerSwiftUITokens.spacing.s40)
+        .padding(.top, LifeBoardSwiftUITokens.spacing.s24)
+        .padding(.bottom, LifeBoardSwiftUITokens.spacing.s40)
     }
 }

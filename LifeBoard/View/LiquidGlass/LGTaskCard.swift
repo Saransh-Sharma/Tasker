@@ -1,6 +1,6 @@
 //
 //  LGTaskCard.swift
-//  Tasker
+//  LifeBoard
 //
 //  iOS 16+ Liquid Glass Task Card with glass morphism effects
 //
@@ -19,9 +19,9 @@ class LGTaskCard: LGBaseView {
     var onToggleComplete: ((TaskDefinition) -> Void)?
 
     // Theme support
-    private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var todoColors: LifeBoardColorTokens { LifeBoardThemeManager.shared.currentTheme.tokens.color }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corners: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
     
     private let checkboxButton: UIButton = {
         let button = UIButton(type: .system)
@@ -32,7 +32,7 @@ class LGTaskCard: LGBaseView {
     
     private let titleLabel: UILabel = {
         let label = UILabel()
-        label.font = UIFont.tasker.bodyEmphasis
+        label.font = UIFont.lifeboard.bodyEmphasis
         label.textColor = .label // Will be updated in updateUI with theme colors
         label.numberOfLines = 2
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -41,7 +41,7 @@ class LGTaskCard: LGBaseView {
 
     private let detailsLabel: UILabel = {
         let label = UILabel()
-        label.font = UIFont.tasker.callout
+        label.font = UIFont.lifeboard.callout
         label.textColor = .label.withAlphaComponent(0.7) // Will be updated in updateUI with theme colors
         label.numberOfLines = 1
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -57,7 +57,7 @@ class LGTaskCard: LGBaseView {
 
     private let projectLabel: UILabel = {
         let label = UILabel()
-        label.font = UIFont.tasker.caption1
+        label.font = UIFont.lifeboard.caption1
         label.textColor = .label.withAlphaComponent(0.8) // Will be updated in updateUI with theme colors
         label.translatesAutoresizingMaskIntoConstraints = false
         return label

@@ -1,6 +1,6 @@
 //
 //  AddTaskProjectPill.swift
-//  Tasker
+//  LifeBoard
 //
 //  Individual project pill for the project selection bar.
 //
@@ -16,24 +16,24 @@ struct AddTaskProjectPill: View {
 
     var body: some View {
         Button {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         } label: {
             Text(name)
-                .font(.tasker(.callout))
+                .font(.lifeboard(.callout))
                 .fontWeight(isSelected ? .semibold : .regular)
                 .fixedSize(horizontal: true, vertical: false)
-                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                        .fill(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                 )
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(TaskerAnimation.quick, value: isSelected)
+        .animation(LifeBoardAnimation.quick, value: isSelected)
     }
 }
 
@@ -50,7 +50,7 @@ struct AddTaskProjectPill_Previews: PreviewProvider {
             AddTaskProjectPill(name: "Personal", isSelected: false, action: {})
         }
         .padding()
-        .background(Color.tasker.surfacePrimary)
+        .background(Color.lifeboard.surfacePrimary)
         .previewLayout(.sizeThatFits)
     }
 }

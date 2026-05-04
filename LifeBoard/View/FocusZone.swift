@@ -1,6 +1,6 @@
 //
 //  FocusZone.swift
-//  Tasker
+//  LifeBoard
 //
 //  Compact, low-noise Focus Now surface for the Home screen.
 //
@@ -32,8 +32,8 @@ public struct FocusZone: View {
 
     @State private var isTargeted = false
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
     private var prefersBudgetVisuals: Bool { shellPhase != .interactive }
     private var taskRows: [TaskDefinition] {
         rows.compactMap { row in
@@ -113,20 +113,20 @@ public struct FocusZone: View {
         }
         .background(
             RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-                .fill(Color.tasker.surfacePrimary.opacity(0.96))
+                .fill(Color.lifeboard.surfacePrimary.opacity(0.96))
         )
         .overlay(
             RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
                 .stroke(
                     isTargeted
-                        ? Color.tasker.accentPrimary.opacity(0.30)
-                        : Color.tasker.strokeHairline.opacity(0.92),
+                        ? Color.lifeboard.accentPrimary.opacity(0.30)
+                        : Color.lifeboard.strokeHairline.opacity(0.92),
                     lineWidth: 1
                 )
         )
         .overlay(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 999, style: .continuous)
-                .fill(Color.tasker.accentPrimary.opacity(rows.isEmpty ? 0.18 : 0.34))
+                .fill(Color.lifeboard.accentPrimary.opacity(rows.isEmpty ? 0.18 : 0.34))
                 .frame(width: 44, height: 3)
                 .padding(.horizontal, spacing.s12)
                 .padding(.top, 1)
@@ -164,8 +164,8 @@ public struct FocusZone: View {
                 .opacity(hasTaskRows ? 1.0 : 0.72)
 
             Text(LocalizedStringKey("Focus Now"))
-                .font(.tasker(.callout).weight(.semibold))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.callout).weight(.semibold))
+                .foregroundColor(Color.lifeboard.textPrimary)
         }
         .frame(minHeight: 36, alignment: .leading)
     }
@@ -177,8 +177,8 @@ public struct FocusZone: View {
                 .accessibilityHidden(true)
 
             Text(LocalizedStringKey(Self.emptyStateMessage(maxVisibleRows: maxVisibleRows)))
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -279,11 +279,11 @@ enum FocusZoneBadgeTone: Equatable {
     var foregroundColor: Color {
         switch self {
         case .danger:
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .success:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         }
     }
 }
@@ -426,7 +426,7 @@ private struct FocusZoneRow: View {
     let onStartFocus: () -> Void
     let onDragStarted: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
     private var presentation: FocusZoneRowPresentation {
         FocusZoneRowPresentation.make(task: task, insight: insight)
     }
@@ -442,8 +442,8 @@ private struct FocusZoneRow: View {
             HStack(alignment: .top, spacing: spacing.s8) {
                 VStack(alignment: .leading, spacing: spacing.s2) {
                     Text(presentation.title)
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundColor(task.isComplete ? Color.tasker.textSecondary : Color.tasker.textPrimary)
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundColor(task.isComplete ? Color.lifeboard.textSecondary : Color.lifeboard.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
@@ -465,7 +465,7 @@ private struct FocusZoneRow: View {
             } label: {
                 Label(task.isComplete ? "Reopen" : "Complete", systemImage: task.isComplete ? "arrow.uturn.backward" : "checkmark")
             }
-            .tint(task.isComplete ? Color.tasker.accentSecondary : Color.tasker.statusSuccess)
+            .tint(task.isComplete ? Color.lifeboard.accentSecondary : Color.lifeboard.statusSuccess)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if showStartFocusAction && !task.isComplete {
@@ -474,7 +474,7 @@ private struct FocusZoneRow: View {
                 } label: {
                     Label("Start focus session", systemImage: "timer")
                 }
-                .tint(Color.tasker.accentPrimary)
+                .tint(Color.lifeboard.accentPrimary)
             }
         }
         .contextMenu {
@@ -513,12 +513,12 @@ private struct FocusZoneRow: View {
                     }
                     return partialResult
                         + Text(FocusZoneSecondaryFormatting.separator)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textTertiary)
                         + segmentText
                 }
             )
-            .font(.tasker(.caption1))
+            .font(.lifeboard(.caption1))
             .lineLimit(1)
         }
     }
@@ -528,12 +528,12 @@ private struct FocusZoneRow: View {
         switch segment.kind {
         case .urgency(let tone):
             return Text(segment.text)
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .foregroundColor(tone.foregroundColor)
         case .metadata:
             return Text(segment.text)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
         }
     }
 }
@@ -578,7 +578,7 @@ struct FocusZone_Previews: PreviewProvider {
             )
         }
         .padding()
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .previewLayout(.sizeThatFits)
     }
 }

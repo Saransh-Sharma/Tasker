@@ -1,6 +1,6 @@
 //
 //  SettingsBackdrop.swift
-//  Tasker
+//  LifeBoard
 //
 //  Created by Saransh Sharma on 27/06/21.
 //  Copyright © 2021 saransh1337. All rights reserved.
@@ -33,15 +33,15 @@ extension SettingsPageViewController {
     func setupBackdropBackground() {
         
         backdropBackgroundImageView.frame =  CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-        backdropBackgroundImageView.backgroundColor = UIColor.tasker.bgCanvas
+        backdropBackgroundImageView.backgroundColor = UIColor.lifeboard.bgCanvas
         homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
         
         
         let settingsTitle = UILabel()
         settingsTitle.frame =  CGRect(x: 0, y: 10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
         settingsTitle.text = "Settings"
-        settingsTitle.textColor = UIColor.tasker.textPrimary
-        settingsTitle.font = UIFont.tasker.font(for: .title1)
+        settingsTitle.textColor = UIColor.lifeboard.textPrimary
+        settingsTitle.font = UIFont.lifeboard.font(for: .title1)
         
         homeTopBar.addSubview(settingsTitle)
         

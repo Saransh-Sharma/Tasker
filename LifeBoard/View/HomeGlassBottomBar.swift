@@ -1,6 +1,6 @@
 //
 //  HomeGlassBottomBar.swift
-//  Tasker
+//  LifeBoard
 //
 
 import SwiftUI
@@ -17,7 +17,7 @@ struct HomeGlassBottomBar: View {
     let onChat: () -> Void
     let onCreate: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
     private var prefersReducedMotion: Bool { shellPhase != .interactive }
 
     var body: some View {
@@ -32,7 +32,7 @@ struct HomeGlassBottomBar: View {
         .padding(.bottom, 0)
         .scaleEffect(state.isMinimized ? 0.96 : 1.0, anchor: .bottom)
         .offset(y: state.isMinimized ? spacing.s20 : 0)
-        .animation(prefersReducedMotion ? .easeOut(duration: 0.14) : TaskerAnimation.snappy, value: state.isMinimized)
+        .animation(prefersReducedMotion ? .easeOut(duration: 0.14) : LifeBoardAnimation.snappy, value: state.isMinimized)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.bottomBar")
         .accessibilityValue(state.isMinimized ? "minimized" : "expanded")
@@ -48,7 +48,7 @@ struct HomeGlassBottomBar: View {
     }
 
     private func handleToolTap(_ item: HomeBottomBarItem) {
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
         withAnimation(selectionAnimation) {
             state.select(item)
         }
@@ -72,7 +72,7 @@ struct HomeGlassBottomBar: View {
     }
 
     private func handleCreateTap() {
-        TaskerFeedback.medium()
+        LifeBoardFeedback.medium()
         withAnimation(selectionAnimation) {
             state.selectMomentaryCreate()
         }
@@ -201,7 +201,7 @@ private struct HomeAnimatedTabBar: View {
 
             if hasMeasuredSelectedFrame {
                 Circle()
-                    .fill(Color.tasker.accentPrimary)
+                    .fill(Color.lifeboard.accentPrimary)
                     .frame(width: ballSize, height: ballSize)
                     .modifier(HomeParabolicBallEffect(
                         t: tBall,
@@ -209,7 +209,7 @@ private struct HomeAnimatedTabBar: View {
                         to: ballCoordinate(for: selectedIndex),
                         lift: prefersReducedMotion ? 0 : 58
                     ))
-                    .shadow(color: Color.tasker.accentPrimary.opacity(colorScheme == .dark ? 0.42 : 0.26), radius: 8, y: 3)
+                    .shadow(color: Color.lifeboard.accentPrimary.opacity(colorScheme == .dark ? 0.42 : 0.26), radius: 8, y: 3)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
@@ -244,14 +244,14 @@ private struct HomeAnimatedTabBar: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.46 : 0.34), lineWidth: 1)
+                .stroke(Color.lifeboard.strokeHairline.opacity(colorScheme == .dark ? 0.46 : 0.34), lineWidth: 1)
         )
         .background {
             if #available(iOS 26.0, *) {
                 Color.clear
             } else {
                 RoundedRectangle(cornerRadius: 32, style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary.opacity(colorScheme == .dark ? 0.36 : 0.30))
+                    .fill(Color.lifeboard.surfaceSecondary.opacity(colorScheme == .dark ? 0.36 : 0.30))
                     .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.30 : 0.13), radius: 18, y: 8)
             }
         }
@@ -273,7 +273,7 @@ private struct HomeAnimatedTabBar: View {
                 .animation(indentAnimation, value: selectedIndex)
         } else {
             shape
-                .fill(Color.tasker.surfacePrimary.opacity(colorScheme == .dark ? 0.82 : 0.76))
+                .fill(Color.lifeboard.surfacePrimary.opacity(colorScheme == .dark ? 0.82 : 0.76))
                 .animation(indentAnimation, value: selectedIndex)
         }
     }
@@ -316,9 +316,9 @@ private struct HomeAnimatedTabBar: View {
 
     private func foregroundStyle(isSelected: Bool, item: HomeBottomBarItem) -> Color {
         if item == .create {
-            return isSelected ? Color.tasker.accentPrimary : Color.tasker.textPrimary
+            return isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textPrimary
         }
-        return isSelected ? Color.tasker.accentPrimary : Color.tasker.textSecondary
+        return isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary
     }
 
     private func ballCoordinate(for index: Int) -> CGPoint {

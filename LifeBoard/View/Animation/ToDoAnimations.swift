@@ -1,6 +1,6 @@
 //
 //  ToDoAnimations.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Saransh Sharma on 07/06/20.
 //  Copyright © 2020 saransh1337. All rights reserved.

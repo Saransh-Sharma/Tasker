@@ -23,25 +23,25 @@ final class HomeNavigationEventAdapter {
     func start() {
         stop()
 
-        notificationCenter.publisher(for: TaskerNotificationRouteBus.routeDidChange)
+        notificationCenter.publisher(for: LifeBoardNotificationRouteBus.routeDidChange)
             .receive(on: RunLoop.main)
             .sink { [weak self] notification in
                 guard let self else { return }
                 guard let payload = notification.userInfo?["payload"] as? String else { return }
-                let route = TaskerNotificationRoute.from(payload: payload, fallbackTaskID: nil)
+                let route = LifeBoardNotificationRoute.from(payload: payload, fallbackTaskID: nil)
                 delegate?.homeNavigationEventAdapter(self, didReceive: .notificationRoute(route))
-                _ = TaskerNotificationRouteBus.shared.consumePendingRoute()
+                _ = LifeBoardNotificationRouteBus.shared.consumePendingRoute()
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenFocusDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenFocusDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.focusDeepLink)
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenChatDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenChatDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] notification in
                 let prompt = (notification.userInfo?["prompt"] as? String)?
@@ -50,21 +50,21 @@ final class HomeNavigationEventAdapter {
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenHomeDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenHomeDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] notification in
                 self?.emit(.homeDeepLink(notice: notification.userInfo?["notice"] as? String))
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenInsightsDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenInsightsDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.insightsDeepLink)
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenTaskScopeDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenTaskScopeDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] notification in
                 let scope = (notification.userInfo?["scope"] as? String)?.lowercased() ?? "today"
@@ -73,7 +73,7 @@ final class HomeNavigationEventAdapter {
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenTaskDetailDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenTaskDetailDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] notification in
                 guard let taskIDRaw = notification.userInfo?["taskID"] as? String,
@@ -84,21 +84,21 @@ final class HomeNavigationEventAdapter {
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenHabitBoardDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenHabitBoardDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.habitBoardDeepLink)
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenHabitLibraryDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenHabitLibraryDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.habitLibraryDeepLink)
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenHabitDetailDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenHabitDetailDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] notification in
                 guard let habitIDRaw = notification.userInfo?["habitID"] as? String,
@@ -109,49 +109,49 @@ final class HomeNavigationEventAdapter {
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenQuickAddDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenQuickAddDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.quickAddDeepLink)
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenCalendarScheduleDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenCalendarScheduleDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.calendarScheduleDeepLink)
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenCalendarChooserDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenCalendarChooserDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.calendarChooserDeepLink)
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenWeeklyPlannerDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenWeeklyPlannerDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.weeklyPlannerDeepLink)
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerOpenWeeklyReviewDeepLink)
+        notificationCenter.publisher(for: .lifeboardOpenWeeklyReviewDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.weeklyReviewDeepLink)
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerProcessWidgetActionCommand)
+        notificationCenter.publisher(for: .lifeboardProcessWidgetActionCommand)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.widgetActionCommand)
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .taskerPersistentSyncModeDidChange)
+        notificationCenter.publisher(for: .lifeboardPersistentSyncModeDidChange)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.emit(.persistentSyncModeChanged)

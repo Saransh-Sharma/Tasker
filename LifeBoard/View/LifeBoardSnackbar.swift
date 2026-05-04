@@ -1,6 +1,6 @@
 //
-//  TaskerSnackbar.swift
-//  Tasker
+//  LifeBoardSnackbar.swift
+//  LifeBoard
 //
 //  Lightweight snackbar overlay with auto-dismiss, action buttons.
 //  Slides up from the bottom with spring animation.
@@ -40,35 +40,35 @@ struct SnackbarAction: Equatable {
 
 // MARK: - Snackbar View
 
-struct TaskerSnackbar: View {
+struct LifeBoardSnackbar: View {
     let data: SnackbarData
     let onDismiss: () -> Void
 
     @State private var isVisible = false
     @State private var dragOffset: CGFloat = 0
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         HStack(spacing: spacing.s12) {
             // Message
             Text(data.message)
-                .font(.tasker(.callout))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.callout))
+                .foregroundColor(Color.lifeboard.textPrimary)
 
             Spacer()
 
             // Action buttons
             ForEach(data.actions, id: \.title) { action in
                 Button {
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                     action.action()
                     dismissSnackbar()
                 } label: {
                     Text(action.title)
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                 }
                 .buttonStyle(.plain)
             }
@@ -77,12 +77,12 @@ struct TaskerSnackbar: View {
         .padding(.vertical, spacing.s12)
         .background(
             RoundedRectangle(cornerRadius: corner.r3)
-                .fill(Color.tasker.surfacePrimary)
+                .fill(Color.lifeboard.surfacePrimary)
                 .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
         )
         .overlay(
             RoundedRectangle(cornerRadius: corner.r3)
-                .stroke(Color.tasker.strokeHairline, lineWidth: 0.5)
+                .stroke(Color.lifeboard.strokeHairline, lineWidth: 0.5)
         )
         .padding(.horizontal, spacing.s16)
         .offset(y: isVisible ? dragOffset : 100)
@@ -98,14 +98,14 @@ struct TaskerSnackbar: View {
                     if value.translation.height > 40 {
                         dismissSnackbar()
                     } else {
-                        withAnimation(TaskerAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.snappy) {
                             dragOffset = 0
                         }
                     }
                 }
         )
         .onAppear {
-            withAnimation(TaskerAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.snappy) {
                 isVisible = true
             }
 
@@ -118,7 +118,7 @@ struct TaskerSnackbar: View {
 
     /// Executes dismissSnackbar.
     private func dismissSnackbar() {
-        withAnimation(TaskerAnimation.gentle) {
+        withAnimation(LifeBoardAnimation.gentle) {
             isVisible = false
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
@@ -138,20 +138,20 @@ struct SnackbarModifier: ViewModifier {
             content
 
             if let data = snackbar {
-                TaskerSnackbar(data: data) {
+                LifeBoardSnackbar(data: data) {
                     snackbar = nil
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(100)
             }
         }
-        .animation(TaskerAnimation.snappy, value: snackbar != nil)
+        .animation(LifeBoardAnimation.snappy, value: snackbar != nil)
     }
 }
 
 extension View {
-    /// Executes taskerSnackbar.
-    func taskerSnackbar(_ snackbar: Binding<SnackbarData?>) -> some View {
+    /// Executes lifeboardSnackbar.
+    func lifeboardSnackbar(_ snackbar: Binding<SnackbarData?>) -> some View {
         modifier(SnackbarModifier(snackbar: snackbar))
     }
 }

@@ -1,6 +1,6 @@
 //
 //  ProjectSelectionSheet.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Assistant on Radar Chart Implementation
 //  Copyright 2025 saransh1337. All rights reserved.
@@ -20,9 +20,9 @@ struct ProjectSelectionSheet: View {
 
     @State private var currentSelection: Set<UUID>
     @State private var pinnedProjects: Set<UUID> // Track pinned state separately
-    private var colors: TaskerSwiftUIColorTokens { Color.tasker }
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var colors: LifeBoardSwiftUIColorTokens { Color.lifeboard }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corners: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     private let maxSelections = 5
 
@@ -53,7 +53,7 @@ struct ProjectSelectionSheet: View {
                     projectListView
                 }
             }
-            .taskerReadableContent(maxWidth: 760, alignment: .center)
+            .lifeboardReadableContent(maxWidth: 760, alignment: .center)
             .navigationTitle("Select Projects")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -137,41 +137,41 @@ struct ProjectSelectionSheet: View {
                     .foregroundColor(colors.accentPrimary)
 
                 Text("Pin up to \(maxSelections) projects for radar chart")
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
                     .foregroundColor(colors.textSecondary)
 
                 Spacer()
 
                 // Show valid pinned count vs available projects
                 Text("\(validPinnedCount)/\(maxSelections)")
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
                     .fontWeight(.semibold)
                     .foregroundColor(validPinnedCount >= maxSelections ? colors.statusDanger : colors.accentPrimary)
             }
 
             if validPinnedCount >= maxSelections {
                 Text("Maximum pins reached")
-                    .font(.tasker(.caption1))
+                    .font(.lifeboard(.caption1))
                     .foregroundColor(colors.statusDanger)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if pinnedProjects.isEmpty {
                 Text("Tap pin icon to select projects for radar chart")
-                    .font(.tasker(.caption1))
+                    .font(.lifeboard(.caption1))
                     .foregroundColor(colors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if hasStalePins {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(colors.statusWarning)
-                        .font(.tasker(.caption1))
+                        .font(.lifeboard(.caption1))
                     Text("Cleaning up invalid project pins...")
-                        .font(.tasker(.caption1))
+                        .font(.lifeboard(.caption1))
                         .foregroundColor(colors.statusWarning)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text("\(validPinnedCount) project\(validPinnedCount == 1 ? "" : "s") pinned")
-                    .font(.tasker(.caption1))
+                    .font(.lifeboard(.caption1))
                     .foregroundColor(colors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -185,16 +185,16 @@ struct ProjectSelectionSheet: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "folder.badge.questionmark")
-                .font(.tasker(.display))
+                .font(.lifeboard(.display))
                 .foregroundColor(colors.textTertiary.opacity(0.5))
 
             VStack(spacing: 8) {
                 Text("No Custom Projects")
-                    .font(.tasker(.headline))
+                    .font(.lifeboard(.headline))
                     .foregroundColor(colors.textPrimary)
 
                 Text("Create custom projects to see them here")
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
                     .foregroundColor(colors.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -204,7 +204,7 @@ struct ProjectSelectionSheet: View {
                 onCreateProject()
             }) {
                 Text("Create Project")
-                    .font(.tasker(.bodyEmphasis))
+                    .font(.lifeboard(.bodyEmphasis))
                     .fontWeight(.semibold)
                     .foregroundColor(colors.accentOnPrimary)
                     .padding(.horizontal, 24)
@@ -270,9 +270,9 @@ struct ProjectRow: View {
     let project: ProjectInfo
     let isPinned: Bool
     let onTogglePin: () -> Void
-    private var colors: TaskerSwiftUIColorTokens { Color.tasker }
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var colors: LifeBoardSwiftUIColorTokens { Color.lifeboard }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corners: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         Button(action: onTogglePin) {
@@ -281,20 +281,20 @@ struct ProjectRow: View {
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     HStack(spacing: 8) {
                         Text(project.name)
-                            .font(.tasker(.body))
+                            .font(.lifeboard(.body))
                             .fontWeight(isPinned ? .semibold : .medium)
                             .foregroundColor(colors.textPrimary)
 
                         // Pin badge for pinned projects
                         if isPinned {
                             Image(systemName: "pin.fill")
-                                .font(.tasker(.caption2))
+                                .font(.lifeboard(.caption2))
                                 .foregroundColor(colors.accentPrimary)
                         }
                     }
 
                     Text("\(project.taskCount) tasks")
-                        .font(.tasker(.caption1))
+                        .font(.lifeboard(.caption1))
                         .foregroundColor(colors.textSecondary)
                 }
 
@@ -302,7 +302,7 @@ struct ProjectRow: View {
 
                 // Pin button
                 Image(systemName: isPinned ? "pin.circle.fill" : "pin.circle")
-                    .font(.tasker(.title1))
+                    .font(.lifeboard(.title1))
                     .foregroundColor(isPinned ? colors.accentPrimary : colors.textQuaternary)
                     .symbolRenderingMode(.hierarchical)
             }
@@ -324,7 +324,7 @@ struct ProjectRow: View {
 
 // MARK: - Project Info Model
 
-struct ProjectInfo: Identifiable {
+struct ProjectInfo: Identifiable, Sendable {
     let id: UUID
     let name: String
     let taskCount: Int
@@ -346,19 +346,19 @@ struct ProjectSelectionSheet_Previews: PreviewProvider {
 
 private final class PreviewProjectSelectionReadModelRepository: TaskReadModelRepositoryProtocol {
     /// Executes fetchTasks.
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
     /// Executes searchTasks.
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
     /// Executes fetchProjectTaskCounts.
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
         completion(.success([:]))
     }
@@ -367,7 +367,7 @@ private final class PreviewProjectSelectionReadModelRepository: TaskReadModelRep
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
         completion(.success([:]))
     }
@@ -375,33 +375,33 @@ private final class PreviewProjectSelectionReadModelRepository: TaskReadModelRep
 
 private final class PreviewProjectSelectionProjectRepository: ProjectRepositoryProtocol {
     /// Executes fetchAllProjects.
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) { completion(.success([])) }
     /// Executes fetchProject.
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
     /// Executes fetchProject.
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
     /// Executes fetchInboxProject.
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
     /// Executes fetchCustomProjects.
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) { completion(.success([])) }
     /// Executes createProject.
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(project)) }
     /// Executes ensureInboxProject.
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
     /// Executes repairProjectIdentityCollisions.
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
     }
     /// Executes updateProject.
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(project)) }
     /// Executes renameProject.
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
     /// Executes deleteProject.
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
     /// Executes getTaskCount.
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
+    func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) { completion(.success(0)) }
     /// Executes moveTasks.
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
     /// Executes isProjectNameAvailable.
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) { completion(.success(true)) }
 }

@@ -10,32 +10,32 @@ public struct InsightsTabView: View {
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var scrollTraceCoordinator = InsightsScrollTraceCoordinator()
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     public var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text("Insights")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textTertiary)
 
                     Text("Reflection without overload")
-                        .font(.tasker(.title3))
+                        .font(.lifeboard(.title3))
                         .fontWeight(.semibold)
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .foregroundStyle(Color.lifeboard.textPrimary)
 
                     Text("Today for execution, Week for patterns, Systems for reliability.")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
 
                 tabSelector
             }
-            .taskerReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
+            .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
             .padding(.horizontal, spacing.screenHorizontal)
             .padding(.vertical, spacing.s12)
 
@@ -62,7 +62,7 @@ public struct InsightsTabView: View {
                             .accessibilityIdentifier("home.insights.content.systems")
                     }
                 }
-                .taskerReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
+                .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
                 .padding(.bottom, spacing.s16)
             }
             .onScrollGeometryChange(
@@ -83,10 +83,10 @@ public struct InsightsTabView: View {
             .accessibilityIdentifier("home.insights.scroll")
         }
         .accessibilityIdentifier("home.insights.container")
-        .background(Color.tasker.bgCanvas.ignoresSafeArea())
+        .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
         .onAppear { viewModel.onAppear() }
         .onChange(of: viewModel.selectedTab) { _, _ in
-            TaskerPerformanceTrace.event("InsightsTabSwitch")
+            LifeBoardPerformanceTrace.event("InsightsTabSwitch")
             scrollTraceCoordinator.finishIfNeeded()
         }
     }
@@ -108,25 +108,25 @@ public struct InsightsTabView: View {
             Button(action: { viewModel.selectTab(tab) }) {
                 VStack(alignment: .leading, spacing: spacing.s2) {
                     Text(tab.rawValue)
-                        .font(.tasker(.callout))
+                        .font(.lifeboard(.callout))
                         .fontWeight(.semibold)
                         .foregroundStyle(
                             viewModel.selectedTab == tab
-                                ? Color.tasker.textPrimary
-                                : Color.tasker.textTertiary
+                                ? Color.lifeboard.textPrimary
+                                : Color.lifeboard.textTertiary
                         )
                     Text(tabSubtitle(for: tab))
-                        .font(.tasker(.caption2))
+                        .font(.lifeboard(.caption2))
                         .foregroundStyle(
                             viewModel.selectedTab == tab
-                                ? Color.tasker.textSecondary
-                                : Color.tasker.textQuaternary
+                                ? Color.lifeboard.textSecondary
+                                : Color.lifeboard.textQuaternary
                         )
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, spacing.s12)
                 .padding(.vertical, spacing.s12)
-                .taskerChromeSurface(
+                .lifeboardChromeSurface(
                     cornerRadius: 18,
                     accentColor: accentColor(for: tab),
                     level: .e1
@@ -177,11 +177,11 @@ public struct InsightsTabView: View {
     private func accentColor(for tab: InsightsViewModel.InsightsTab) -> Color {
         switch tab {
         case .today:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .week:
-            return Color.tasker.accentSecondary
+            return Color.lifeboard.accentSecondary
         case .systems:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         }
     }
 }
@@ -190,7 +190,7 @@ public struct InsightsTabView: View {
 private final class InsightsScrollTraceCoordinator {
     private static let scrollTraceIdleDelayNanoseconds: UInt64 = 250_000_000
 
-    private var interval: TaskerPerformanceInterval?
+    private var interval: LifeBoardPerformanceInterval?
     private var pendingIdleTask: Task<Void, Never>?
 
     deinit {
@@ -201,7 +201,7 @@ private final class InsightsScrollTraceCoordinator {
         guard abs(newOffset - oldOffset) > 1 else { return }
 
         if interval == nil {
-            interval = TaskerPerformanceTrace.begin("AnalyticsScrollSession")
+            interval = LifeBoardPerformanceTrace.begin("AnalyticsScrollSession")
         }
 
         pendingIdleTask?.cancel()
@@ -220,7 +220,7 @@ private final class InsightsScrollTraceCoordinator {
         pendingIdleTask = nil
 
         guard let interval else { return }
-        TaskerPerformanceTrace.end(interval)
+        LifeBoardPerformanceTrace.end(interval)
         self.interval = nil
     }
 }

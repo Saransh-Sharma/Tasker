@@ -1,6 +1,6 @@
 //
 //  AddTaskForedropView.swift
-//  Tasker
+//  LifeBoard
 //
 //  Three-tier form: Primary Capture → Secondary Details → Advanced Planning.
 //  Quick + Expand pattern optimized for ADHD execution.
@@ -25,11 +25,11 @@ struct AddTaskForedropView: View {
     @State private var errorShakeTrigger = false
     @State private var didAutoFocusTitleField = false
     @State private var isTaskIconPickerPresented = false
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).corner }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -51,16 +51,16 @@ struct AddTaskForedropView: View {
                         EvaMascotView(placement: .taskCapture, size: .inline)
                         VStack(alignment: .leading, spacing: spacing.s4) {
                             Text("Capture it with \(AssistantIdentityText.currentSnapshot().displayName)")
-                                .font(.tasker(.headline))
-                                .foregroundStyle(Color.tasker.textPrimary)
+                                .font(.lifeboard(.headline))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
                             Text("Start with the task; details can come after.")
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker.textSecondary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
                         }
                         Spacer(minLength: 0)
                     }
                     .padding(spacing.s12)
-                    .background(Color.tasker.surfaceSecondary.opacity(0.72), in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+                    .background(Color.lifeboard.surfaceSecondary.opacity(0.72), in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
                     .enhancedStaggeredAppearance(index: 0)
 
                     AddTaskTitleField(
@@ -115,7 +115,7 @@ struct AddTaskForedropView: View {
         }
         .background {
             ZStack(alignment: .topLeading) {
-                Color.tasker.surfacePrimary
+                Color.lifeboard.surfacePrimary
                 Rectangle()
                     .fill(Color.clear)
                     .frame(width: 1, height: 1)
@@ -131,9 +131,9 @@ struct AddTaskForedropView: View {
             )
         }
         .overlay(
-            Color.tasker.statusSuccess
+            Color.lifeboard.statusSuccess
                 .opacity(successFlash ? 0.05 : 0)
-                .animation(TaskerAnimation.gentle, value: successFlash)
+                .animation(LifeBoardAnimation.gentle, value: successFlash)
                 .allowsHitTesting(false)
         )
         .onChange(of: viewModel.errorMessage) { _, errorMessage in
@@ -160,13 +160,13 @@ struct AddTaskForedropView: View {
         VStack(spacing: spacing.s16) {
             ownershipSection
 
-            TaskerComposerDisclosureRow(
+            LifeBoardComposerDisclosureRow(
                 title: "Add details",
                 summary: coreDetailsSummary,
                 isExpanded: viewModel.isCoreDetailsExpanded,
                 accessibilityIdentifier: "addTask.detailsDisclosure"
             ) {
-                withAnimation(TaskerAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.snappy) {
                     viewModel.isCoreDetailsExpanded.toggle()
                 }
                 if viewModel.isCoreDetailsExpanded {
@@ -187,11 +187,11 @@ struct AddTaskForedropView: View {
 
     private var ownershipSection: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
-            TaskerComposerOptionGrid(
+            LifeBoardComposerOptionGrid(
                 title: "Life Area",
                 helperText: "Pick an area to narrow projects.",
                 options: viewModel.lifeAreas.map {
-                    TaskerComposerOption(
+                    LifeBoardComposerOption(
                         id: $0.id,
                         title: $0.name,
                         icon: $0.icon,
@@ -203,23 +203,23 @@ struct AddTaskForedropView: View {
                 emptyStateText: viewModel.lifeAreas.isEmpty ? "No life areas yet." : nil,
                 accessibilityIdentifier: "addTask.lifeAreaSelector"
             ) { selectedID in
-                withAnimation(TaskerAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.snappy) {
                     viewModel.selectedLifeAreaID = selectedID
                 }
             }
 
-            TaskerComposerOptionGrid(
+            LifeBoardComposerOptionGrid(
                 title: "Project",
                 helperText: "Choose a project or leave this in Inbox.",
                 options: viewModel.filteredProjectsForSelectedLifeArea.map {
-                    TaskerComposerOption(id: $0.id, title: $0.name, icon: nil, accentHex: nil)
+                    LifeBoardComposerOption(id: $0.id, title: $0.name, icon: nil, accentHex: nil)
                 },
                 selectedID: viewModel.selectedProjectID == ProjectConstants.inboxProjectID ? nil : viewModel.selectedProjectID,
                 noneOptionTitle: "Inbox",
                 emptyStateText: viewModel.filteredProjectsForSelectedLifeArea.isEmpty ? "No projects in this area." : nil,
                 accessibilityIdentifier: "addTask.projectSelector"
             ) { selectedProjectID in
-                withAnimation(TaskerAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.snappy) {
                     viewModel.selectProject(id: selectedProjectID)
                 }
             }
@@ -239,8 +239,8 @@ struct AddTaskForedropView: View {
                 HStack(spacing: spacing.s8) {
                     ProgressView()
                     Text(viewModel.aiSuggestion == nil ? "Thinking through the details…" : "Refreshing suggestions…")
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -265,8 +265,8 @@ struct AddTaskForedropView: View {
                         Button("Clear schedule") {
                             viewModel.clearSchedule()
                         }
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.statusWarning)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.statusWarning)
                         .buttonStyle(.plain)
                     }
                 }
@@ -293,7 +293,9 @@ struct AddTaskForedropView: View {
                         tags: viewModel.tags,
                         selectedTagIDs: $viewModel.selectedTagIDs,
                         onCreateTag: { name, completion in
-                            viewModel.createTag(name: name, completion: completion)
+                            viewModel.createTag(name: name) { didCreate in
+                                completion(didCreate)
+                            }
                         }
                     )
                 }
@@ -375,7 +377,7 @@ struct AddTaskForedropView: View {
             summary: viewModel.summary(for: section),
             isExpanded: viewModel.isSectionExpanded(section)
         ) {
-            TaskerFeedback.light()
+            LifeBoardFeedback.light()
             viewModel.toggleSection(section)
             if viewModel.isSectionExpanded(section) {
                 if section == .relationships {
@@ -400,19 +402,19 @@ struct AddTaskForedropView: View {
         HStack(spacing: spacing.s8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color.tasker.statusWarning)
+                .foregroundColor(Color.lifeboard.statusWarning)
 
             Text(message)
-                .font(.tasker(.callout))
-                .foregroundColor(Color.tasker.statusWarning)
+                .font(.lifeboard(.callout))
+                .foregroundColor(Color.lifeboard.statusWarning)
         }
         .padding(.horizontal, spacing.s12)
         .padding(.vertical, spacing.s8)
         .background(
             RoundedRectangle(cornerRadius: corner.r2)
-                .fill(Color.tasker.statusWarning.opacity(0.12))
+                .fill(Color.lifeboard.statusWarning.opacity(0.12))
         )
-        .animation(TaskerAnimation.bouncy, value: viewModel.errorMessage != nil)
+        .animation(LifeBoardAnimation.bouncy, value: viewModel.errorMessage != nil)
     }
 
     /// Executes aiSuggestionCard.
@@ -421,23 +423,23 @@ struct AddTaskForedropView: View {
             if let routeBanner = suggestion.routeBanner, routeBanner.isEmpty == false {
                 HStack(alignment: .top, spacing: spacing.s8) {
                     Image(systemName: "cpu")
-                        .foregroundStyle(Color.tasker.accentPrimary)
+                        .foregroundStyle(Color.lifeboard.accentPrimary)
                     Text(routeBanner)
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.textTertiary)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textTertiary)
                     Spacer(minLength: 0)
                 }
             }
             HStack {
                 Text(viewModel.aiSuggestionIsRefined ? "AI refined" : "Instant suggestion")
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                 Spacer()
                 Button("Accept all") {
                     viewModel.applyAISuggestion(suggestion)
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                 }
-                .font(.tasker(.meta).weight(.semibold))
+                .font(.lifeboard(.meta).weight(.semibold))
                 .buttonStyle(.plain)
             }
 
@@ -459,17 +461,17 @@ struct AddTaskForedropView: View {
             }
 
             Text(suggestion.rationale)
-                .font(.tasker(.meta))
-                .foregroundStyle(Color.tasker.textTertiary)
+                .font(.lifeboard(.meta))
+                .foregroundStyle(Color.lifeboard.textTertiary)
         }
         .padding(.horizontal, spacing.s12)
         .padding(.vertical, spacing.s12)
         .background(
             RoundedRectangle(cornerRadius: corner.r2)
-                .fill(Color.tasker.surfaceSecondary)
+                .fill(Color.lifeboard.surfaceSecondary)
                 .overlay(
                     RoundedRectangle(cornerRadius: corner.r2)
-                        .stroke(Color.tasker.accentMuted.opacity(0.35), lineWidth: 1)
+                        .stroke(Color.lifeboard.accentMuted.opacity(0.35), lineWidth: 1)
                 )
         )
     }
@@ -477,18 +479,18 @@ struct AddTaskForedropView: View {
     /// Executes suggestionChip.
     private func suggestionChip(_ text: String, action: @escaping () -> Void) -> some View {
         Button {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         } label: {
             Text(text)
-                .font(.tasker(.meta))
-                .foregroundStyle(Color.tasker.accentPrimary)
+                .font(.lifeboard(.meta))
+                .foregroundStyle(Color.lifeboard.accentPrimary)
                 .padding(.horizontal, spacing.s12)
                 .padding(.vertical, spacing.s8)
-                .background(Color.tasker.accentWash)
+                .background(Color.lifeboard.accentWash)
                 .overlay(
                     Capsule()
-                        .stroke(Color.tasker.accentPrimary.opacity(0.18), lineWidth: 1)
+                        .stroke(Color.lifeboard.accentPrimary.opacity(0.18), lineWidth: 1)
                 )
                 .clipShape(Capsule())
         }
@@ -528,8 +530,8 @@ struct AddTaskScheduleQuickEditor: View {
     @State private var showCustomDuration = false
     @State private var customDurationMinutes = ""
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     private let durationPresets: [(label: String, seconds: TimeInterval, minutes: Int)] = [
         ("15m", 15 * 60, 15),
@@ -544,10 +546,10 @@ struct AddTaskScheduleQuickEditor: View {
             HStack(spacing: spacing.s8) {
                 Image(systemName: "clock")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
                 Text("Schedule")
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                 Spacer(minLength: 0)
             }
 
@@ -567,10 +569,10 @@ struct AddTaskScheduleQuickEditor: View {
         .padding(.vertical, spacing.s12)
         .background(
             RoundedRectangle(cornerRadius: corner.r3)
-                .fill(Color.tasker.surfaceSecondary)
+                .fill(Color.lifeboard.surfaceSecondary)
                 .overlay(
                     RoundedRectangle(cornerRadius: corner.r3)
-                        .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                        .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
                 )
         )
         .accessibilityIdentifier(AddTaskScheduleAccessibilityID.editor)
@@ -592,7 +594,7 @@ struct AddTaskScheduleQuickEditor: View {
                 }
             )
         }
-        .animation(TaskerAnimation.snappy, value: showCustomDuration)
+        .animation(LifeBoardAnimation.snappy, value: showCustomDuration)
     }
 
     private var datePresetRow: some View {
@@ -637,7 +639,7 @@ struct AddTaskScheduleQuickEditor: View {
                     text: "Someday",
                     isActive: viewModel.scheduledStartAt == nil
                 ) {
-                    withAnimation(TaskerAnimation.snappy) {
+                    withAnimation(LifeBoardAnimation.snappy) {
                         viewModel.clearSchedule()
                     }
                 }
@@ -656,17 +658,17 @@ struct AddTaskScheduleQuickEditor: View {
             HStack(spacing: spacing.s12) {
                 Image(systemName: "clock.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
                     .frame(width: 24, height: 24)
-                    .background(Circle().fill(Color.tasker.accentWash))
+                    .background(Circle().fill(Color.lifeboard.accentWash))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Time")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textTertiary)
                     Text(timeRangeText)
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                 }
 
@@ -674,13 +676,13 @@ struct AddTaskScheduleQuickEditor: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.tasker.textQuaternary)
+                    .foregroundStyle(Color.lifeboard.textQuaternary)
             }
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s8)
             .background(
                 RoundedRectangle(cornerRadius: corner.r2)
-                    .fill(Color.tasker.surfacePrimary)
+                    .fill(Color.lifeboard.surfacePrimary)
             )
         }
         .buttonStyle(.plain)
@@ -691,8 +693,8 @@ struct AddTaskScheduleQuickEditor: View {
     private var durationRow: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text("Duration")
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textTertiary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing.chipSpacing) {
@@ -702,7 +704,7 @@ struct AddTaskScheduleQuickEditor: View {
                             text: preset.label,
                             isActive: durationMatches(preset.seconds)
                         ) {
-                            withAnimation(TaskerAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.snappy) {
                                 viewModel.setEstimatedDuration(preset.seconds)
                                 showCustomDuration = false
                             }
@@ -716,7 +718,7 @@ struct AddTaskScheduleQuickEditor: View {
                         isActive: showCustomDuration || isCustomDurationSelected
                     ) {
                         customDurationMinutes = currentDurationMinutesText
-                        withAnimation(TaskerAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.snappy) {
                             showCustomDuration.toggle()
                         }
                     }
@@ -728,21 +730,21 @@ struct AddTaskScheduleQuickEditor: View {
     private var customDurationRow: some View {
         HStack(spacing: spacing.s8) {
             TextField("Minutes", text: $customDurationMinutes)
-                .font(.tasker(.callout))
+                .font(.lifeboard(.callout))
                 .keyboardType(.numberPad)
-                .foregroundStyle(Color.tasker.textPrimary)
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .padding(.horizontal, spacing.s12)
                 .padding(.vertical, spacing.s8)
                 .background(
                     RoundedRectangle(cornerRadius: corner.r2)
-                        .fill(Color.tasker.surfacePrimary)
+                        .fill(Color.lifeboard.surfacePrimary)
                 )
                 .frame(width: 112)
                 .accessibilityIdentifier(AddTaskScheduleAccessibilityID.customDurationField)
 
             Text("minutes")
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.textTertiary)
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard.textTertiary)
 
             Spacer(minLength: 0)
 
@@ -751,8 +753,8 @@ struct AddTaskScheduleQuickEditor: View {
                 viewModel.setEstimatedDuration(TimeInterval(minutes) * 60)
                 showCustomDuration = false
             }
-            .font(.tasker(.callout).weight(.semibold))
-            .foregroundStyle(Color.tasker.accentPrimary)
+            .font(.lifeboard(.callout).weight(.semibold))
+            .foregroundStyle(Color.lifeboard.accentPrimary)
             .buttonStyle(.plain)
         }
     }
@@ -829,7 +831,7 @@ private struct AddTaskScheduleDatePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedDate: Date
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     init(initialDate: Date, onSet: @escaping (Date) -> Void) {
         _selectedDate = State(initialValue: initialDate)
@@ -863,7 +865,7 @@ private struct AddTaskScheduleDatePickerSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Set Date") {
                         onSet(selectedDate)
-                        TaskerFeedback.success()
+                        LifeBoardFeedback.success()
                         dismiss()
                     }
                     .accessibilityIdentifier(AddTaskScheduleAccessibilityID.datePickerConfirm)
@@ -879,7 +881,7 @@ private struct AddTaskScheduleTimePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTime: Date
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     init(initialTime: Date, onSet: @escaping (Date) -> Void) {
         _selectedTime = State(initialValue: initialTime)
@@ -913,7 +915,7 @@ private struct AddTaskScheduleTimePickerSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Set Time") {
                         onSet(selectedTime)
-                        TaskerFeedback.success()
+                        LifeBoardFeedback.success()
                         dismiss()
                     }
                     .accessibilityIdentifier(AddTaskScheduleAccessibilityID.timePickerConfirm)
@@ -929,7 +931,7 @@ private struct AddTaskScheduleTimePickerSheet: View {
 struct AddTaskTypeChips: View {
     @Binding var selectedType: TaskType
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private let types: [(type: TaskType, icon: String, label: String)] = [
         (.morning, "sun.max", "Morning"),
@@ -945,7 +947,7 @@ struct AddTaskTypeChips: View {
                     text: item.label,
                     isActive: selectedType == item.type
                 ) {
-                    withAnimation(TaskerAnimation.snappy) {
+                    withAnimation(LifeBoardAnimation.snappy) {
                         selectedType = item.type
                     }
                 }
@@ -954,17 +956,17 @@ struct AddTaskTypeChips: View {
     }
 }
 
-struct TaskerComposerOption<ID: Hashable>: Identifiable {
+struct LifeBoardComposerOption<ID: Hashable>: Identifiable {
     let id: ID
     let title: String
     let icon: String?
     let accentHex: String?
 }
 
-struct TaskerComposerOptionGrid<ID: Hashable>: View {
+struct LifeBoardComposerOptionGrid<ID: Hashable>: View {
     let title: String
     let helperText: String?
-    let options: [TaskerComposerOption<ID>]
+    let options: [LifeBoardComposerOption<ID>]
     let selectedID: ID?
     let noneOptionTitle: String?
     let emptyStateText: String?
@@ -972,10 +974,10 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
     let onSelect: (ID?) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).corner }
     private var columns: [GridItem] {
         [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 168 : 128), spacing: spacing.s8, alignment: .leading)]
     }
@@ -984,13 +986,13 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             VStack(alignment: .leading, spacing: spacing.s4) {
                 Text(title)
-                    .font(.tasker(.callout).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 if let helperText, helperText.isEmpty == false {
                     Text(helperText)
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -1022,8 +1024,8 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
 
             if options.isEmpty, let emptyStateText, emptyStateText.isEmpty == false {
                 Text(emptyStateText)
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .padding(.top, spacing.s4)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1037,10 +1039,10 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
         isSelected: Bool,
         action: @escaping () -> Void
     ) -> some View {
-        let hasAccent = TaskerHexColor.normalized(accentHex) != nil
-        let accentColor = TaskerHexColor.color(accentHex, fallback: Color.tasker.accentPrimary)
+        let hasAccent = LifeBoardHexColor.normalized(accentHex) != nil
+        let accentColor = LifeBoardHexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)
         return Button {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
@@ -1049,14 +1051,14 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(
                             isSelected
-                                ? (hasAccent ? accentColor : Color.tasker.accentPrimary)
-                                : (hasAccent ? accentColor.opacity(0.86) : Color.tasker.textTertiary)
+                                ? (hasAccent ? accentColor : Color.lifeboard.accentPrimary)
+                                : (hasAccent ? accentColor.opacity(0.86) : Color.lifeboard.textTertiary)
                         )
                 }
 
                 Text(title)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1064,7 +1066,7 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(hasAccent ? accentColor : Color.tasker.accentPrimary)
+                        .foregroundStyle(hasAccent ? accentColor : Color.lifeboard.accentPrimary)
                         .accessibilityHidden(true)
                 }
             }
@@ -1075,16 +1077,16 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
                     .fill(
                         isSelected
-                            ? (hasAccent ? accentColor.opacity(0.18) : Color.tasker.accentWash)
-                            : (hasAccent ? accentColor.opacity(0.08) : Color.tasker.surfaceSecondary)
+                            ? (hasAccent ? accentColor.opacity(0.18) : Color.lifeboard.accentWash)
+                            : (hasAccent ? accentColor.opacity(0.08) : Color.lifeboard.surfaceSecondary)
                     )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
                     .stroke(
                         isSelected
-                            ? (hasAccent ? accentColor.opacity(0.52) : Color.tasker.accentRing)
-                            : (hasAccent ? accentColor.opacity(0.24) : Color.tasker.strokeHairline),
+                            ? (hasAccent ? accentColor.opacity(0.52) : Color.lifeboard.accentRing)
+                            : (hasAccent ? accentColor.opacity(0.24) : Color.lifeboard.strokeHairline),
                         lineWidth: isSelected ? 1.5 : 1
                     )
             )
@@ -1093,35 +1095,35 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
-        .animation(TaskerAnimation.quick, value: isSelected)
+        .animation(LifeBoardAnimation.quick, value: isSelected)
     }
 }
 
-struct TaskerComposerDisclosureRow: View {
+struct LifeBoardComposerDisclosureRow: View {
     let title: String
     let summary: String
     let isExpanded: Bool
     let accessibilityIdentifier: String?
     let action: () -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).corner }
 
     var body: some View {
         Button {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         } label: {
             HStack(alignment: .top, spacing: spacing.s12) {
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(title)
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
 
                     Text(summary)
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -1129,7 +1131,7 @@ struct TaskerComposerDisclosureRow: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.tasker.textTertiary)
+                    .foregroundStyle(Color.lifeboard.textTertiary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .padding(.top, 2)
             }
@@ -1137,18 +1139,18 @@ struct TaskerComposerDisclosureRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary.opacity(isExpanded ? 0.72 : 1))
+                    .fill(Color.lifeboard.surfaceSecondary.opacity(isExpanded ? 0.72 : 1))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier ?? "")
         .accessibilityLabel("\(title). \(summary)")
         .accessibilityHint(isExpanded ? "Collapse details" : "Expand details")
-        .animation(TaskerAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.snappy, value: isExpanded)
     }
 }
 
@@ -1156,9 +1158,9 @@ private struct AddTaskIconPickerSheet: View {
     @ObservedObject var viewModel: AddTaskViewModel
     @Binding var isPresented: Bool
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
     private let columns = [GridItem(.adaptive(minimum: 88), spacing: 12)]
 
     var body: some View {
@@ -1173,7 +1175,7 @@ private struct AddTaskIconPickerSheet: View {
                                 option: option,
                                 isSelected: viewModel.displayedTaskIconSymbolName == option.symbolName
                             ) {
-                                TaskerFeedback.selection()
+                                LifeBoardFeedback.selection()
                                 viewModel.applyManualTaskIconSelection(symbolName: option.symbolName)
                                 isPresented = false
                             }
@@ -1182,7 +1184,7 @@ private struct AddTaskIconPickerSheet: View {
                 }
                 .padding(spacing.s16)
             }
-            .background(Color.tasker.surfacePrimary)
+            .background(Color.lifeboard.surfacePrimary)
             .navigationTitle("Task Icon")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1201,21 +1203,21 @@ private struct AddTaskIconPickerSheet: View {
             HStack(spacing: spacing.s12) {
                 Image(systemName: viewModel.displayedTaskIconSymbolName)
                     .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
                     .frame(width: 40, height: 40)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.tasker.accentWash)
+                            .fill(Color.lifeboard.accentWash)
                     )
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(viewModel.displayedTaskIconLabel)
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                     Text(viewModel.taskIconSelectionSource == .manual ? "Manual override" : "Live suggestion")
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
 
                 Spacer(minLength: 0)
@@ -1230,7 +1232,7 @@ private struct AddTaskIconPickerSheet: View {
                 }()
                 let systemImage = autoSuggested ?? "wand.and.stars"
                 Button(title, systemImage: systemImage) {
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                     viewModel.resetTaskIconToAuto()
                 }
                 .accessibilityIdentifier("addTask.iconResetButton")
@@ -1239,11 +1241,11 @@ private struct AddTaskIconPickerSheet: View {
         .padding(spacing.s16)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary)
+                .fill(Color.lifeboard.surfaceSecondary)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
         )
     }
 
@@ -1251,16 +1253,16 @@ private struct AddTaskIconPickerSheet: View {
         TextField("Search SF Symbols", text: $viewModel.taskIconSearchQuery)
             .textInputAutocapitalization(.never)
             .disableAutocorrection(true)
-            .font(.tasker(.body))
+            .font(.lifeboard(.body))
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s8)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary)
+                    .fill(Color.lifeboard.surfaceSecondary)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
             )
             .accessibilityIdentifier("addTask.iconSearchField")
     }
@@ -1276,17 +1278,17 @@ private struct AddTaskIconOptionButton: View {
             VStack(spacing: 8) {
                 Image(systemName: option.symbolName)
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(isSelected ? Color.tasker.accentPrimary : Color.tasker.textPrimary)
+                    .foregroundStyle(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textPrimary)
                     .frame(width: 44, height: 44)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfacePrimary)
+                            .fill(isSelected ? Color.lifeboard.accentWash : Color.lifeboard.surfacePrimary)
                     )
                     .accessibilityHidden(true)
 
                 Text(option.displayName)
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity)
@@ -1295,11 +1297,11 @@ private struct AddTaskIconOptionButton: View {
             .frame(maxWidth: .infinity, minHeight: 110)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary)
+                    .fill(Color.lifeboard.surfaceSecondary)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(isSelected ? Color.tasker.accentRing : Color.tasker.strokeHairline, lineWidth: isSelected ? 1.5 : 1)
+                    .stroke(isSelected ? Color.lifeboard.accentRing : Color.lifeboard.strokeHairline, lineWidth: isSelected ? 1.5 : 1)
             )
         }
         .buttonStyle(.plain)

@@ -1,6 +1,6 @@
 //
 //  ProjectPillCell.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Saransh Sharma on 31/05/25.
 //  Copyright 2025 saransh1337. All rights reserved.
@@ -11,7 +11,7 @@ import UIKit
 class ProjectPillCell: UICollectionViewCell {
     
     private let titleLabel = UILabel()
-    var selectedStyle: TaskerChipSelectionStyle = .tinted
+    var selectedStyle: LifeBoardChipSelectionStyle = .tinted
     
     override var isSelected: Bool {
         didSet {
@@ -32,16 +32,16 @@ class ProjectPillCell: UICollectionViewCell {
     
     /// Executes setupView.
     private func setupView() {
-        contentView.backgroundColor = UIColor.tasker.chipUnselectedBackground
-        contentView.layer.cornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.chip
+        contentView.backgroundColor = UIColor.lifeboard.chipUnselectedBackground
+        contentView.layer.cornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.chip
         contentView.layer.cornerCurve = .continuous
         contentView.layer.borderWidth = 0
         contentView.layer.borderColor = UIColor.clear.cgColor
         
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = UIFont.tasker.font(for: .callout)
+        titleLabel.font = UIFont.lifeboard.font(for: .callout)
         titleLabel.textAlignment = .center
-        titleLabel.textColor = UIColor.tasker.textSecondary
+        titleLabel.textColor = UIColor.lifeboard.textSecondary
         
         contentView.addSubview(titleLabel)
         
@@ -64,7 +64,7 @@ class ProjectPillCell: UICollectionViewCell {
     
     /// Executes updateAppearance.
     private func updateAppearance() {
-        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let colors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         if isSelected {
             switch selectedStyle {
             case .tinted:

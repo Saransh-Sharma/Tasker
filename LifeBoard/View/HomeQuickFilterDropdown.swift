@@ -1,6 +1,6 @@
 //
 //  HomeQuickFilterDropdown.swift
-//  Tasker
+//  LifeBoard
 //
 //  Dropdown menu containing all quick filter options.
 //
@@ -18,7 +18,7 @@ public struct HomeQuickFilterDropdown: View {
     @ObservedObject var viewModel: HomeViewModel
     @Binding var isPresented: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     let onShowDatePicker: () -> Void
     let onShowAdvancedFilters: () -> Void
@@ -29,8 +29,8 @@ public struct HomeQuickFilterDropdown: View {
 
     // MARK: - Tokens
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     // MARK: - Initialization
 
@@ -55,8 +55,8 @@ public struct HomeQuickFilterDropdown: View {
                 if isVisible {
                     LinearGradient(
                         colors: [
-                            Color.tasker(.overlayScrim).opacity(0.18),
-                            Color.tasker(.overlayScrim).opacity(0.72)
+                            Color.lifeboard(.overlayScrim).opacity(0.18),
+                            Color.lifeboard(.overlayScrim).opacity(0.72)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -118,7 +118,7 @@ public struct HomeQuickFilterDropdown: View {
     // MARK: - Dropdown Content
 
     private func dropdownContent(maxScrollableHeight: CGFloat, safeAreaBottom: CGFloat) -> some View {
-        TaskerFilterSheetContainer(
+        LifeBoardFilterSheetContainer(
             horizontalPadding: spacing.s16,
             bottomPadding: safeAreaBottom + spacing.s16
         ) {
@@ -153,16 +153,16 @@ public struct HomeQuickFilterDropdown: View {
         HStack(alignment: .top, spacing: spacing.s12) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.tasker.textQuaternary.opacity(0.28))
+                    .fill(Color.lifeboard.textQuaternary.opacity(0.28))
                     .frame(width: 42, height: 5)
 
                 Text("Quick filters")
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 Text("Keep the board calm while you narrow the scope.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
             }
 
             Spacer(minLength: spacing.s12)
@@ -172,16 +172,16 @@ public struct HomeQuickFilterDropdown: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(width: 34, height: 34)
-                    .taskerChromeSurface(
+                    .lifeboardChromeSurface(
                         cornerRadius: 17,
-                        accentColor: Color.tasker.accentSecondary,
+                        accentColor: Color.lifeboard.accentSecondary,
                         level: .e1
                     )
             }
             .buttonStyle(.plain)
-            .taskerPressFeedback(reduceMotion: reduceMotion)
+            .lifeboardPressFeedback(reduceMotion: reduceMotion)
         }
         .padding(.horizontal, spacing.s20)
         .padding(.top, spacing.s12)
@@ -195,7 +195,7 @@ public struct HomeQuickFilterDropdown: View {
             sectionHeader("Quick View", index: 0)
 
             ForEach(HomeQuickView.allCases, id: \.rawValue) { quickView in
-                TaskerFilterRow(
+                LifeBoardFilterRow(
                     title: quickView.title,
                     isSelected: viewModel.activeScope.quickView == quickView,
                     count: viewModel.quickViewCounts[quickView]
@@ -214,7 +214,7 @@ public struct HomeQuickFilterDropdown: View {
         VStack(alignment: .leading, spacing: 0) {
             sectionHeader("Date", index: 1)
 
-            TaskerFilterRow(
+            LifeBoardFilterRow(
                 title: "Select specific date...",
                 isSelected: false,
                 systemImage: "calendar"
@@ -232,7 +232,7 @@ public struct HomeQuickFilterDropdown: View {
             sectionHeader("Projects", index: 2)
 
             // All Projects option
-            TaskerFilterRow(
+            LifeBoardFilterRow(
                 title: "All Projects",
                 isSelected: viewModel.activeFilterState.selectedProjectIDs.isEmpty,
                 systemImage: "folder"
@@ -247,7 +247,7 @@ public struct HomeQuickFilterDropdown: View {
             }
 
             ForEach(pinnedProjects, id: \.id) { project in
-                TaskerFilterRow(
+                LifeBoardFilterRow(
                     title: project.name,
                     isSelected: viewModel.activeFilterState.selectedProjectIDSet.contains(project.id),
                     isMultiSelect: true
@@ -259,8 +259,8 @@ public struct HomeQuickFilterDropdown: View {
 
             if pinnedProjects.isEmpty {
                 Text("No pinned projects")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
                     .padding(.horizontal, spacing.s20)
                     .padding(.vertical, spacing.s8)
             }
@@ -275,8 +275,8 @@ public struct HomeQuickFilterDropdown: View {
 
             if viewModel.savedHomeViews.isEmpty {
                 Text("No saved views")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
                     .padding(.horizontal, spacing.s20)
                     .padding(.vertical, spacing.s8)
             } else {
@@ -288,18 +288,18 @@ public struct HomeQuickFilterDropdown: View {
                         } label: {
                             HStack {
                                 Text(savedView.name)
-                                    .font(.tasker(.callout))
-                                    .foregroundColor(Color.tasker.textPrimary)
+                                    .font(.lifeboard(.callout))
+                                    .foregroundColor(Color.lifeboard.textPrimary)
 
                                 if viewModel.activeFilterState.selectedSavedViewID == savedView.id {
                                     Text("Active")
-                                        .font(.tasker(.caption2))
-                                        .foregroundColor(Color.tasker.accentOnPrimary)
+                                        .font(.lifeboard(.caption2))
+                                        .foregroundColor(Color.lifeboard.accentOnPrimary)
                                         .padding(.horizontal, spacing.s8)
                                         .padding(.vertical, spacing.s2)
                                         .background(
                                             Capsule()
-                                                .fill(Color.tasker.accentPrimary)
+                                                .fill(Color.lifeboard.accentPrimary)
                                         )
                                 }
                             }
@@ -314,7 +314,7 @@ public struct HomeQuickFilterDropdown: View {
                         } label: {
                             Image(systemName: "trash")
                                 .font(.system(size: 16))
-                                .foregroundColor(Color.tasker.statusDanger)
+                                .foregroundColor(Color.lifeboard.statusDanger)
                         }
                     }
                     .padding(.horizontal, spacing.s20)
@@ -327,7 +327,7 @@ public struct HomeQuickFilterDropdown: View {
     // MARK: - Advanced Filters Row
 
     private var advancedFiltersRow: some View {
-        TaskerFilterRow(
+        LifeBoardFilterRow(
             title: "Advanced Filters",
             subtitle: advancedFiltersSubtitle,
             isSelected: viewModel.activeFilterState.advancedFilter != nil,
@@ -359,22 +359,22 @@ public struct HomeQuickFilterDropdown: View {
                 Image(systemName: "line.3.horizontal.decrease.circle")
                     .font(.system(size: 14, weight: .semibold))
                 Text("Reset all filters")
-                    .font(.tasker(.bodyEmphasis))
+                    .font(.lifeboard(.bodyEmphasis))
             }
-            .foregroundStyle(Color.tasker.statusDanger)
+            .foregroundStyle(Color.lifeboard.statusDanger)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
-            .taskerChromeSurface(
+            .lifeboardChromeSurface(
                 cornerRadius: corner.r3,
-                accentColor: Color.tasker.statusDanger,
+                accentColor: Color.lifeboard.statusDanger,
                 level: .e1
             )
             .overlay(
                 RoundedRectangle(cornerRadius: corner.r3, style: .continuous)
-                    .stroke(Color.tasker.statusDanger.opacity(0.28), lineWidth: 1)
+                    .stroke(Color.lifeboard.statusDanger.opacity(0.28), lineWidth: 1)
             )
         }
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
         .accessibilityIdentifier("home.focus.menu.reset")
         .padding(.horizontal, spacing.s20)
         .padding(.vertical, spacing.s12)
@@ -384,19 +384,19 @@ public struct HomeQuickFilterDropdown: View {
 
     private var divider: some View {
         Rectangle()
-            .fill(Color.tasker.divider)
+            .fill(Color.lifeboard.divider)
             .frame(height: 1)
             .padding(.horizontal, spacing.s20)
     }
 
     /// Executes sectionHeader.
     private func sectionHeader(_ title: String, index: Int = 0) -> some View {
-        TaskerFilterSectionHeader(title: title, index: index)
+        LifeBoardFilterSectionHeader(title: title, index: index)
     }
 
     /// Executes provideHapticFeedback.
     private func provideHapticFeedback() {
-        TaskerFeedback.light()
+        LifeBoardFeedback.light()
     }
 
     /// Executes dismissWithAnimation.

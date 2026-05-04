@@ -1,6 +1,6 @@
 //
 //  NavPieChart.swift
-//  Tasker
+//  LifeBoard
 //
 //  Compact navigation bar pie chart showing today's XP.
 //  SwiftUI replacement for legacy TinyPieChart (DGCharts).
@@ -48,7 +48,7 @@ public struct NavPieChart: View {
                     // Background ring
                     Circle()
                         .stroke(
-                            Color.tasker.accentSecondaryMuted,
+                            Color.lifeboard.accentSecondaryMuted,
                             lineWidth: ringWidth
                         )
 
@@ -58,9 +58,9 @@ public struct NavPieChart: View {
                         .stroke(
                             AngularGradient(
                                 colors: [
-                                    Color.tasker.accentPrimary,
-                                    Color.tasker.accentSecondary,
-                                    Color.tasker.accentPrimary
+                                    Color.lifeboard.accentPrimary,
+                                    Color.lifeboard.accentSecondary,
+                                    Color.lifeboard.accentPrimary
                                 ],
                                 center: .center,
                                 startAngle: .degrees(-90),
@@ -73,7 +73,7 @@ public struct NavPieChart: View {
                     // XP value
                     Text("\(score)")
                         .font(.system(size: scoreFont, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                 }
                 .frame(width: size, height: size)
             }
@@ -134,10 +134,10 @@ public struct NavPieChartDetailed: View {
     // Priority colors in order: None, Low, High, Max
     private var segmentColors: [Color] {
         [
-            Color.tasker.priorityNone,
-            Color.tasker.priorityLow,
-            Color.tasker.priorityHigh,
-            Color.tasker.priorityMax
+            Color.lifeboard.priorityNone,
+            Color.lifeboard.priorityLow,
+            Color.lifeboard.priorityHigh,
+            Color.lifeboard.priorityMax
         ]
     }
 
@@ -154,7 +154,7 @@ public struct NavPieChartDetailed: View {
                 // Background ring
                 Circle()
                     .stroke(
-                        Color.tasker.accentSecondaryMuted,
+                        Color.lifeboard.accentSecondaryMuted,
                         lineWidth: ringWidth
                     )
 
@@ -172,11 +172,11 @@ public struct NavPieChartDetailed: View {
                 // XP value
                 Text("\(score)")
                     .font(.system(size: scoreFont, weight: .semibold, design: .rounded))
-                    .foregroundColor(Color.tasker.accentPrimary)
+                    .foregroundColor(Color.lifeboard.accentPrimary)
             }
             .frame(width: size, height: size)
             .shadow(
-                color: Color.tasker.accentPrimary.opacity(0.2),
+                color: Color.lifeboard.accentPrimary.opacity(0.2),
                 radius: 2,
                 x: 0,
                 y: 1
@@ -205,7 +205,7 @@ public struct NavPieChartDetailed: View {
             }
         }
 
-        return colors.isEmpty ? [Color.tasker.accentMuted] : colors
+        return colors.isEmpty ? [Color.lifeboard.accentMuted] : colors
     }
 
     private var segmentStops: [Gradient.Stop] {
@@ -226,7 +226,7 @@ public struct NavPieChartDetailed: View {
             }
         }
 
-        return stops.isEmpty ? [Gradient.Stop(color: Color.tasker.accentMuted, location: 0)] : stops
+        return stops.isEmpty ? [Gradient.Stop(color: Color.lifeboard.accentMuted, location: 0)] : stops
     }
 
     /// Executes animateSegments.
@@ -268,7 +268,7 @@ struct NavPieChart_Previews: PreviewProvider {
                 .foregroundColor(.secondary)
         }
         .padding()
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .previewLayout(.sizeThatFits)
     }
 }

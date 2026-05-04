@@ -12,7 +12,7 @@ struct SettingsRootView: View {
     }
 
     @ObservedObject var viewModel: SettingsViewModel
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var expandedNotificationRow: NotificationExpansion?
 
     private let dueSoonLeadOptions: [(value: Int, label: String)] = [
@@ -28,8 +28,8 @@ struct SettingsRootView: View {
         ($0, $0.displayTitle)
     }
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var isPadLayout: Bool {
@@ -37,26 +37,26 @@ struct SettingsRootView: View {
     }
 
     private var sectionTopPadding: CGFloat {
-        TaskerSettingsMetrics.sectionSpacing
+        LifeBoardSettingsMetrics.sectionSpacing
     }
 
-    private var overviewStatusItems: [TaskerSettingsStatusDescriptor] {
+    private var overviewStatusItems: [LifeBoardSettingsStatusDescriptor] {
         [
-            TaskerSettingsStatusDescriptor(
+            LifeBoardSettingsStatusDescriptor(
                 id: "notifications",
                 title: "Notifications",
                 value: viewModel.notificationEnabledSummary,
                 systemImage: viewModel.isPermissionGranted ? "bell.badge.fill" : "bell.slash.fill",
                 tone: viewModel.notificationTone
             ),
-            TaskerSettingsStatusDescriptor(
+            LifeBoardSettingsStatusDescriptor(
                 id: "model",
                 title: "Chief of staff",
                 value: viewModel.chiefOfStaffSummary,
                 systemImage: "brain.head.profile",
                 tone: .accent
             ),
-            TaskerSettingsStatusDescriptor(
+            LifeBoardSettingsStatusDescriptor(
                 id: "setup",
                 title: "Setup",
                 value: viewModel.setupStatusLabel,
@@ -83,15 +83,15 @@ struct SettingsRootView: View {
             }
             .padding(.bottom, spacing.s24)
         }
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .onAppear {
             viewModel.reload()
         }
     }
 
     private var overviewSection: some View {
-        TaskerSettingsHeroCard(
-            eyebrow: "Tasker Settings",
+        LifeBoardSettingsHeroCard(
+            eyebrow: "LifeBoard Settings",
             title: "Tune your workspace",
             subtitle: "Manage reminders, AI, and workspace preferences in one place.",
             statusItems: overviewStatusItems,
@@ -144,9 +144,9 @@ struct SettingsRootView: View {
             includeHorizontalPadding: includeHorizontalPadding
         ) {
             VStack(spacing: spacing.cardStackVertical) {
-                TaskerSettingsCard {
+                LifeBoardSettingsCard {
                     SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "square.grid.2x2.fill",
                             title: "Life Management",
                             subtitle: "Review life areas, projects, and daily structure.",
@@ -157,9 +157,9 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
 
-                TaskerSettingsCard {
-                    VStack(alignment: .leading, spacing: TaskerSettingsMetrics.cardInnerPadding) {
-                        TaskerSettingsInfoRow(
+                LifeBoardSettingsCard {
+                    VStack(alignment: .leading, spacing: LifeBoardSettingsMetrics.cardInnerPadding) {
+                        LifeBoardSettingsInfoRow(
                             iconName: "calendar",
                             title: "Start of week",
                             subtitle: "This sets when weekly planning rolls over and when upcoming-week planning appears.",
@@ -189,9 +189,9 @@ struct SettingsRootView: View {
             includeHorizontalPadding: includeHorizontalPadding
         ) {
             VStack(spacing: spacing.cardStackVertical) {
-                TaskerSettingsCard(active: viewModel.calendarAuthorizationStatus.isAuthorizedForRead) {
+                LifeBoardSettingsCard(active: viewModel.calendarAuthorizationStatus.isAuthorizedForRead) {
                     SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: viewModel.calendarAuthorizationStatus.isAuthorizedForRead ? "calendar.badge.checkmark" : "calendar.badge.exclamationmark",
                             title: String(localized: "Calendar access"),
                             subtitle: viewModel.calendarAccessSubtitle,
@@ -204,9 +204,9 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
 
-                TaskerSettingsCard {
+                LifeBoardSettingsCard {
                     SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "slider.horizontal.3",
                             title: String(localized: "Calendar selection"),
                             subtitle: viewModel.calendarAuthorizationStatus.isAuthorizedForRead
@@ -221,9 +221,9 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
 
-                TaskerSettingsCard {
-                    VStack(spacing: TaskerSettingsMetrics.cardInnerPadding) {
-                        TaskerSettingsToggleRow(
+                LifeBoardSettingsCard {
+                    VStack(spacing: LifeBoardSettingsMetrics.cardInnerPadding) {
+                        LifeBoardSettingsToggleRow(
                             iconName: "person.crop.circle.badge.xmark",
                             title: String(localized: "Include declined events"),
                             subtitle: String(localized: "Show declined meetings in agenda and Home context."),
@@ -237,7 +237,7 @@ struct SettingsRootView: View {
 
                         Divider()
 
-                        TaskerSettingsToggleRow(
+                        LifeBoardSettingsToggleRow(
                             iconName: "calendar.badge.exclamationmark",
                             title: String(localized: "Include canceled events"),
                             subtitle: String(localized: "Show canceled events in Home, schedule, and task-fit context."),
@@ -251,7 +251,7 @@ struct SettingsRootView: View {
 
                         Divider()
 
-                        TaskerSettingsToggleRow(
+                        LifeBoardSettingsToggleRow(
                             iconName: "sun.max",
                             title: String(localized: "Include all-day events in agenda"),
                             subtitle: String(localized: "Show all-day events in Today/Week lists."),
@@ -265,7 +265,7 @@ struct SettingsRootView: View {
 
                         Divider()
 
-                        TaskerSettingsToggleRow(
+                        LifeBoardSettingsToggleRow(
                             iconName: "chart.bar.xaxis",
                             title: String(localized: "Include all-day events in busy strip"),
                             subtitle: String(localized: "Use all-day events when calculating compact busy blocks."),
@@ -291,12 +291,12 @@ struct SettingsRootView: View {
             includeHorizontalPadding: includeHorizontalPadding
         ) {
             VStack(spacing: spacing.cardStackVertical) {
-                TaskerSettingsCard(active: true) {
+                LifeBoardSettingsCard(active: true) {
                     chiefOfStaffIdentityCard
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
 
-                TaskerSettingsCard(active: true) {
+                LifeBoardSettingsCard(active: true) {
                     MascotPersonaSelector(
                         selectedID: viewModel.selectedMascotID,
                         cardAccessibilityPrefix: "settings.chiefOfStaff.persona",
@@ -305,14 +305,14 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
 
-                TaskerSettingsCard(active: viewModel.memoryItemCount > 0) {
+                LifeBoardSettingsCard(active: viewModel.memoryItemCount > 0) {
                     SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "sparkles.rectangle.stack.fill",
                             title: "AI Assistant",
                             subtitle: "Manage chat behavior, models, memory, and privacy.",
                             trailingStatus: viewModel.aiAssistantSummary,
-                            inlineBadge: viewModel.memoryItemCount == 0 ? TaskerSettingsInlineBadge(title: "Memory empty") : nil,
+                            inlineBadge: viewModel.memoryItemCount == 0 ? LifeBoardSettingsInlineBadge(title: "Memory empty") : nil,
                             tone: .accent,
                             accessibilityIdentifier: "settings.aiAssistant.row"
                         ),
@@ -321,9 +321,9 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 2)
 
-                TaskerSettingsCard {
+                LifeBoardSettingsCard {
                     SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "cpu.fill",
                             title: "Models",
                             subtitle: "Review installed models and choose the assistant’s default runtime.",
@@ -349,12 +349,12 @@ struct SettingsRootView: View {
             )
             VStack(alignment: .leading, spacing: spacing.s4) {
                 Text(viewModel.selectedMascotPersona.displayName)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                     .accessibilityIdentifier("settings.chiefOfStaff.name")
                 Text("Your chief of staff for tasks, habits, calendar, and planning.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
@@ -372,8 +372,8 @@ struct SettingsRootView: View {
             includeHorizontalPadding: includeHorizontalPadding
         ) {
             VStack(spacing: spacing.cardStackVertical) {
-                TaskerSettingsCard {
-                    TaskerSettingsToggleRow(
+                LifeBoardSettingsCard {
+                    LifeBoardSettingsToggleRow(
                         iconName: "calendar.badge.clock",
                         title: String(localized: "Show calendar events in timeline"),
                         subtitle: String(localized: "Affects Home timeline rows and weekly timeline markers. The calendar card stays unchanged."),
@@ -387,7 +387,7 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
 
-                TaskerSettingsFieldCard(
+                LifeBoardSettingsFieldCard(
                     title: String(localized: "Timeline Anchors"),
                     subtitle: String(localized: "Set the start and wind-down times shown in your Home timeline."),
                     footer: String(localized: "If Wind Down is earlier than Rise & Shine, the timeline carries into the next day."),
@@ -396,8 +396,8 @@ struct SettingsRootView: View {
                     VStack(spacing: spacing.s12) {
                         HStack(spacing: spacing.s12) {
                             Text(String(localized: "Rise & Shine"))
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
 
                             Spacer()
 
@@ -411,15 +411,15 @@ struct SettingsRootView: View {
                             )
                             .labelsHidden()
                             .datePickerStyle(.compact)
-                            .tint(Color.tasker(.accentPrimary))
+                            .tint(Color.lifeboard(.accentPrimary))
                             .accessibilityIdentifier("settings.timeline.riseAndShine.picker")
                             .accessibilityValue(viewModel.timelineRiseAndShineSummary)
                         }
 
                         HStack(spacing: spacing.s12) {
                             Text(String(localized: "Wind Down"))
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
 
                             Spacer()
 
@@ -433,7 +433,7 @@ struct SettingsRootView: View {
                             )
                             .labelsHidden()
                             .datePickerStyle(.compact)
-                            .tint(Color.tasker(.accentPrimary))
+                            .tint(Color.lifeboard(.accentPrimary))
                             .accessibilityIdentifier("settings.timeline.windDown.picker")
                             .accessibilityValue(viewModel.timelineWindDownSummary)
                         }
@@ -452,8 +452,8 @@ struct SettingsRootView: View {
             includeHorizontalPadding: includeHorizontalPadding
         ) {
             VStack(spacing: spacing.cardStackVertical) {
-                TaskerSettingsCard {
-                    TaskerSettingsToggleRow(
+                LifeBoardSettingsCard {
+                    LifeBoardSettingsToggleRow(
                         iconName: "bell.badge.fill",
                         title: "Task Reminders",
                         subtitle: "Get alerts for scheduled tasks.",
@@ -466,9 +466,9 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
 
-                TaskerSettingsCard {
-                    TaskerSettingsToggleSummaryRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                LifeBoardSettingsCard {
+                    LifeBoardSettingsToggleSummaryRow(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "clock.badge.exclamationmark",
                             title: "Due Soon Nudges",
                             subtitle: "Remind me before a task is due.",
@@ -500,8 +500,8 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
 
-                TaskerSettingsCard {
-                    TaskerSettingsToggleRow(
+                LifeBoardSettingsCard {
+                    LifeBoardSettingsToggleRow(
                         iconName: "exclamationmark.triangle.fill",
                         title: "Overdue Nudges",
                         subtitle: "Get reminders when tasks become overdue.",
@@ -515,9 +515,9 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 2)
 
-                TaskerSettingsCard {
-                    TaskerSettingsToggleSummaryRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                LifeBoardSettingsCard {
+                    LifeBoardSettingsToggleSummaryRow(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "sunrise.fill",
                             title: "Morning Agenda",
                             subtitle: "Daily planning summary.",
@@ -543,9 +543,9 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 3)
 
-                TaskerSettingsCard {
-                    TaskerSettingsToggleSummaryRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                LifeBoardSettingsCard {
+                    LifeBoardSettingsToggleSummaryRow(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "moon.stars.fill",
                             title: "Nightly Retrospective",
                             subtitle: "End-of-day reflection summary.",
@@ -571,9 +571,9 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 4)
 
-                TaskerSettingsCard {
-                    TaskerSettingsToggleSummaryRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                LifeBoardSettingsCard {
+                    LifeBoardSettingsToggleSummaryRow(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "moon.zzz.fill",
                             title: "Quiet Hours",
                             subtitle: "Pause notifications during selected hours.",
@@ -604,8 +604,8 @@ struct SettingsRootView: View {
             includeHorizontalPadding: includeHorizontalPadding
         ) {
             VStack(spacing: spacing.cardStackVertical) {
-                TaskerSettingsCard {
-                    TaskerSettingsToggleRow(
+                LifeBoardSettingsCard {
+                    LifeBoardSettingsToggleRow(
                         iconName: "sparkles",
                         title: "Decorative Button Effects",
                         subtitle: "Add visual accents to primary buttons.",
@@ -619,7 +619,7 @@ struct SettingsRootView: View {
                 .enhancedStaggeredAppearance(index: baseIndex)
                 .accessibilityIdentifier("settings.appearance.decorativeButtonEffects.card")
 
-                TaskerSettingsFieldCard(
+                LifeBoardSettingsFieldCard(
                     title: "Home Background Noise",
                     subtitle: "Add film grain above the animated home gradient.",
                     footer: "Use 0% to disable the grain overlay.",
@@ -628,14 +628,14 @@ struct SettingsRootView: View {
                     VStack(alignment: .leading, spacing: spacing.s12) {
                         HStack(spacing: spacing.s12) {
                             Text("Amount")
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
 
                             Spacer()
 
                             Text("\(viewModel.homeBackdropNoiseAmount)%")
-                                .font(.tasker(.bodyStrong))
-                                .foregroundStyle(Color.tasker(.textPrimary))
+                                .font(.lifeboard(.bodyStrong))
+                                .foregroundStyle(Color.lifeboard(.textPrimary))
                                 .monospacedDigit()
                         }
 
@@ -644,7 +644,7 @@ struct SettingsRootView: View {
                             in: 0...100,
                             step: 1
                         )
-                        .tint(Color.tasker(.accentPrimary))
+                        .tint(Color.lifeboard(.accentPrimary))
                         .accessibilityIdentifier("settings.appearance.homeBackgroundNoise.slider")
                         .accessibilityLabel("Home Background Noise")
                         .accessibilityValue(Text("\(viewModel.homeBackdropNoiseAmount) percent"))
@@ -667,9 +667,9 @@ struct SettingsRootView: View {
             includeHorizontalPadding: includeHorizontalPadding
         ) {
             VStack(spacing: spacing.cardStackVertical) {
-                TaskerSettingsCard {
+                LifeBoardSettingsCard {
                     SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "arrow.clockwise.circle.fill",
                             title: "Guided Setup",
                             subtitle: "Replay onboarding any time.",
@@ -680,9 +680,9 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
 
-                TaskerSettingsCard {
+                LifeBoardSettingsCard {
                     SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "info.circle.fill",
                             title: "App Version",
                             subtitle: "View version and build details.",
@@ -693,7 +693,7 @@ struct SettingsRootView: View {
                         action: {
                             #if os(iOS)
                             UIPasteboard.general.string = "v\(viewModel.appVersion) (\(viewModel.buildNumber))"
-                            TaskerFeedback.selection()
+                            LifeBoardFeedback.selection()
                             #endif
                         }
                     )
@@ -701,9 +701,9 @@ struct SettingsRootView: View {
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
 
                 #if DEBUG
-                TaskerSettingsCard {
+                LifeBoardSettingsCard {
                     SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "doc.on.clipboard.fill",
                             title: "Copy Calendar Diagnostics",
                             subtitle: "Copy the latest privacy-safe calendar access logs.",
@@ -722,15 +722,15 @@ struct SettingsRootView: View {
     private func summaryTimePicker(label: String, selection: Binding<Date>) -> some View {
         HStack(spacing: spacing.s12) {
             Text(label)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
 
             Spacer()
 
             DatePicker("", selection: selection, displayedComponents: .hourAndMinute)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .tint(Color.tasker(.accentPrimary))
+                .tint(Color.lifeboard(.accentPrimary))
         }
     }
 
@@ -746,8 +746,8 @@ struct SettingsRootView: View {
             HStack(spacing: spacing.s12) {
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text("Start")
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption2))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
 
                     DatePicker(
                         "",
@@ -759,15 +759,15 @@ struct SettingsRootView: View {
                     )
                     .labelsHidden()
                     .datePickerStyle(.compact)
-                    .tint(Color.tasker(.accentPrimary))
+                    .tint(Color.lifeboard(.accentPrimary))
                 }
 
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: spacing.s4) {
                     Text("End")
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption2))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
 
                     DatePicker(
                         "",
@@ -779,18 +779,18 @@ struct SettingsRootView: View {
                     )
                     .labelsHidden()
                     .datePickerStyle(.compact)
-                    .tint(Color.tasker(.accentPrimary))
+                    .tint(Color.lifeboard(.accentPrimary))
                 }
             }
 
             VStack(alignment: .leading, spacing: spacing.s8) {
                 Text("Applies to")
-                    .font(.tasker(.caption2))
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .font(.lifeboard(.caption2))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: spacing.s8) {
-                        TaskerChip(
+                        LifeBoardChip(
                             title: "Task Alerts",
                             isSelected: viewModel.preferences.quietHoursAppliesToTaskAlerts,
                             selectedStyle: .tinted,
@@ -802,7 +802,7 @@ struct SettingsRootView: View {
                             }
                         )
 
-                        TaskerChip(
+                        LifeBoardChip(
                             title: "Daily Summaries",
                             isSelected: viewModel.preferences.quietHoursAppliesToDailySummaries,
                             selectedStyle: .tinted,
@@ -820,8 +820,8 @@ struct SettingsRootView: View {
                 if viewModel.preferences.quietHoursAppliesToTaskAlerts == false &&
                     viewModel.preferences.quietHoursAppliesToDailySummaries == false {
                     Text("Quiet hours are enabled, but they do not currently apply to any notification type.")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

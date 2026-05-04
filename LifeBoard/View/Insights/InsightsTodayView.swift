@@ -12,7 +12,7 @@ struct InsightsTodayView: View {
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsTodayState { viewModel.todayState }
 
     private var progress: CGFloat {
@@ -96,20 +96,20 @@ struct InsightsTodayView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Today")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text(state.heroCard.title)
-                    .font(.tasker(.title2))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.title2))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 Text(state.heroCard.metric)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 Text(state.heroCard.hint)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textSecondary)
 
                 HStack(alignment: .bottom, spacing: spacing.s16) {
                     xpGauge
@@ -131,12 +131,12 @@ struct InsightsTodayView: View {
                 if let detail = state.heroCard.detail, detail.isEmpty == false {
                     DisclosureGroup("Details") {
                         Text(detail)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                             .padding(.top, spacing.s4)
                     }
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
                 }
             }
             .accessibilityElement(children: .combine)
@@ -148,12 +148,12 @@ struct InsightsTodayView: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             ZStack {
                 Circle()
-                    .stroke(Color.tasker.surfaceTertiary, lineWidth: 10)
+                    .stroke(Color.lifeboard.surfaceTertiary, lineWidth: 10)
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.tasker.accentPrimary, Color.tasker.accentSecondary],
+                            colors: [Color.lifeboard.accentPrimary, Color.lifeboard.accentSecondary],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
@@ -163,17 +163,17 @@ struct InsightsTodayView: View {
                 VStack(spacing: 2) {
                     Text("\(state.dailyXP)")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .foregroundColor(Color.lifeboard.textPrimary)
                     Text("/ \(state.dailyCap)")
-                        .font(.tasker(.caption2))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption2))
+                        .foregroundColor(Color.lifeboard.textTertiary)
                 }
             }
             .frame(width: 116, height: 116)
 
             Text(progress >= 1 ? "Daily cap reached" : "\(max(0, state.dailyCap - state.dailyXP)) XP still available")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
         }
     }
 
@@ -181,12 +181,12 @@ struct InsightsTodayView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Goal + pace")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text("Keep output and effort aligned.")
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 progressTrack(
                     title: "Daily cap",
@@ -199,16 +199,16 @@ struct InsightsTodayView: View {
                     HStack(alignment: .top, spacing: spacing.s8) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(metric.title)
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textTertiary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundColor(Color.lifeboard.textTertiary)
                             Text(metric.value)
-                                .font(.tasker(.headline))
+                                .font(.lifeboard(.headline))
                                 .foregroundColor(toneColor(metric.tone))
                         }
                         Spacer()
                         Text(metric.detail)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                             .multilineTextAlignment(.trailing)
                     }
                     .padding(.top, 2)
@@ -221,25 +221,25 @@ struct InsightsTodayView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Completion mix")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text(state.completionMixSections.isEmpty
                         ? "Complete one task to unlock today’s mix."
                         : "What got finished.")
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 if state.completionMixSections.isEmpty {
                     Text("Mix appears after the first completion.")
-                        .font(.tasker(.callout))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.callout))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                 } else {
                     ForEach(state.completionMixSections) { section in
                         VStack(alignment: .leading, spacing: spacing.s8) {
                             Text(section.title)
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textSecondary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundColor(Color.lifeboard.textSecondary)
 
                             ForEach(section.items) { item in
                                 distributionRow(item)
@@ -260,16 +260,16 @@ struct InsightsTodayView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text(eyebrow)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text(title)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 Text(subtitle)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.textSecondary)
 
                 LazyVGrid(columns: columns, spacing: spacing.s8) {
                     ForEach(metrics) { metric in
@@ -283,22 +283,22 @@ struct InsightsTodayView: View {
     private func metricCard(_ metric: InsightsMetricTile) -> some View {
         VStack(alignment: .leading, spacing: spacing.s4) {
             Text(metric.title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textTertiary)
             Text(metric.value)
-                .font(.tasker(.headline))
+                .font(.lifeboard(.headline))
                 .foregroundColor(toneColor(metric.tone))
                 .fixedSize(horizontal: false, vertical: true)
             Text(metric.detail)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
         .padding(spacing.s12)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary)
+                .fill(Color.lifeboard.surfaceSecondary)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -311,10 +311,10 @@ struct InsightsTodayView: View {
     private func metricPill(title: String, value: String, tone: InsightsMetricTone) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textTertiary)
             Text(value)
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .foregroundColor(toneColor(tone))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -323,7 +323,7 @@ struct InsightsTodayView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary)
+                .fill(Color.lifeboard.surfaceSecondary)
         )
     }
 
@@ -332,16 +332,16 @@ struct InsightsTodayView: View {
         return VStack(alignment: .leading, spacing: spacing.s4) {
             HStack {
                 Text(title)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                 Spacer()
                 Text("\(value) / \(total)")
-                    .font(.tasker(.caption1))
+                    .font(.lifeboard(.caption1))
                     .foregroundColor(toneColor(tone))
             }
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.tasker.surfaceTertiary)
+                    .fill(Color.lifeboard.surfaceTertiary)
                 Capsule()
                     .fill(toneColor(tone))
                     .frame(maxWidth: .infinity)
@@ -355,16 +355,16 @@ struct InsightsTodayView: View {
         HStack(spacing: spacing.s8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.label)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                 Text(item.valueText)
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(Color.lifeboard.textTertiary)
             }
             Spacer()
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.tasker.surfaceTertiary)
+                    .fill(Color.lifeboard.surfaceTertiary)
                     .frame(width: 84, height: 8)
                 Capsule()
                     .fill(toneColor(item.tone))
@@ -384,11 +384,11 @@ struct InsightsTodayView: View {
         content()
             .padding(spacing.s16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .taskerAnalyticsSurface(
+            .lifeboardAnalyticsSurface(
                 cornerRadius: 24,
-                fillColor: Color.tasker.surfacePrimary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.82),
-                accentColor: Color.tasker.accentSecondary,
+                fillColor: Color.lifeboard.surfacePrimary,
+                strokeColor: Color.lifeboard.strokeHairline.opacity(0.82),
+                accentColor: Color.lifeboard.accentSecondary,
                 level: .e1
             )
     }
@@ -396,13 +396,13 @@ struct InsightsTodayView: View {
     private func toneColor(_ tone: InsightsMetricTone) -> Color {
         switch tone {
         case .accent:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .success:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .neutral:
-            return Color.tasker.textPrimary
+            return Color.lifeboard.textPrimary
         }
     }
 }

@@ -1,6 +1,6 @@
 //
 //  AddTaskSheetView.swift
-//  Tasker
+//  LifeBoard
 //
 //  V3-native Add sheet. Backward compatible with task-only callers, but now
 //  scaffolded as a unified Task / Habit composer.
@@ -135,10 +135,10 @@ public struct AddTaskSheetView: View {
 
     private func handleCancel() {
         if viewModel.hasUnsavedChanges {
-            TaskerFeedback.medium()
+            LifeBoardFeedback.medium()
             showDiscardConfirmation = true
         } else {
-            TaskerFeedback.light()
+            LifeBoardFeedback.light()
             dismiss()
         }
     }
@@ -163,11 +163,13 @@ public struct AddTaskSheetView: View {
         guard viewModel.allowedModes.contains(.habit) else { return }
         guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
         viewModel.habitViewModel.createHabit { result in
-            guard case .success(let habit) = result else { return }
-            didCreateItem = true
-            onHabitCreated?(habit.id)
-            TaskerFeedback.success()
-            dismiss()
+            Task { @MainActor in
+                guard case .success(let habit) = result else { return }
+                didCreateItem = true
+                onHabitCreated?(habit.id)
+                LifeBoardFeedback.success()
+                dismiss()
+            }
         }
     }
 
@@ -175,20 +177,22 @@ public struct AddTaskSheetView: View {
         guard viewModel.allowedModes.contains(.habit) else { return }
         guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
         viewModel.habitViewModel.createHabit { result in
-            guard case .success(let habit) = result else { return }
-            didCreateItem = true
-            onHabitCreated?(habit.id)
-            runSuccessReset {
-                viewModel.habitViewModel.resetForm()
-                showAddAnother = true
-                selectedDetent = .medium
+            Task { @MainActor in
+                guard case .success(let habit) = result else { return }
+                didCreateItem = true
+                onHabitCreated?(habit.id)
+                runSuccessReset {
+                    viewModel.habitViewModel.resetForm()
+                    showAddAnother = true
+                    selectedDetent = .medium
+                }
             }
         }
     }
 
     private func expandToLarge() {
-        TaskerFeedback.light()
-        withAnimation(TaskerAnimation.gentle) {
+        LifeBoardFeedback.light()
+        withAnimation(LifeBoardAnimation.gentle) {
             selectedDetent = .large
         }
     }
@@ -204,7 +208,7 @@ public struct AddTaskSheetView: View {
 
         switch behavior {
         case .dismiss:
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
             dismiss()
         case .addAnother:
             runSuccessReset {
@@ -217,14 +221,14 @@ public struct AddTaskSheetView: View {
 
     private func runSuccessReset(afterReset: @escaping @MainActor () -> Void) {
         successResetTask?.cancel()
-        TaskerFeedback.success()
-        withAnimation(TaskerAnimation.snappy) {
+        LifeBoardFeedback.success()
+        withAnimation(LifeBoardAnimation.snappy) {
             successFlash = true
         }
         successResetTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 450_000_000)
             guard Task.isCancelled == false else { return }
-            withAnimation(TaskerAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.snappy) {
                 successFlash = false
                 afterReset()
             }
@@ -284,23 +288,25 @@ struct AddTaskInspectorContainer: View {
     private func handleHabitCreate() {
         guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
         viewModel.habitViewModel.createHabit { result in
-            guard case .success = result else { return }
-            runInspectorSuccessReset {
-                viewModel.habitViewModel.resetForm()
+            Task { @MainActor in
+                guard case .success = result else { return }
+                runInspectorSuccessReset {
+                    viewModel.habitViewModel.resetForm()
+                }
             }
         }
     }
 
     private func runInspectorSuccessReset(afterReset: @escaping @MainActor () -> Void) {
         successResetTask?.cancel()
-        TaskerFeedback.success()
-        withAnimation(TaskerAnimation.snappy) {
+        LifeBoardFeedback.success()
+        withAnimation(LifeBoardAnimation.snappy) {
             successFlash = true
         }
         successResetTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard Task.isCancelled == false else { return }
-            withAnimation(TaskerAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.snappy) {
                 successFlash = false
                 afterReset()
             }

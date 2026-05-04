@@ -3,7 +3,7 @@
 
 using namespace metal;
 
-namespace TaskerMetalBezel {
+namespace LifeBoardMetalBezel {
     constant float PI = 3.14159265358979323846;
     constant float4 C = float4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
 
@@ -63,7 +63,7 @@ namespace TaskerMetalBezel {
     }
 }
 
-[[ stitchable ]] half4 TaskerLiquidMetalBezel(
+[[ stitchable ]] half4 LifeBoardLiquidMetalBezel(
     float2 position,
     half4 currentColor,
     float2 size,
@@ -80,11 +80,11 @@ namespace TaskerMetalBezel {
 
     float2 uv = position / size;
     float2 centered = uv - 0.5;
-    float2 rotated = TaskerMetalBezel::rotate(centered, 0.16 * TaskerMetalBezel::PI);
+    float2 rotated = LifeBoardMetalBezel::rotate(centered, 0.16 * LifeBoardMetalBezel::PI);
     float diagonal = uv.x - uv.y;
 
     float movingTime = time * 0.62;
-    float noise = TaskerMetalBezel::snoise((uv * 3.2) + float2(0.0, movingTime * 0.38));
+    float noise = LifeBoardMetalBezel::snoise((uv * 3.2) + float2(0.0, movingTime * 0.38));
     float wave = 0.5 + 0.5 * sin((rotated.y + diagonal * 0.6 - movingTime) * 13.5);
     float band = smoothstep(0.18, 0.86, wave + noise * liquid * 0.32);
     float sheen = pow(band, max(0.45, edge));
@@ -96,17 +96,17 @@ namespace TaskerMetalBezel {
     float chromaLift = chromatic * (0.35 + 0.65 * sparkle);
     float3 metal;
     if (palette >= 1.5) {
-        metal = mix(TaskerMetalBezel::copper(sheen), float3(0.97, 0.84, 0.70), 0.18 + sparkle * 0.16);
+        metal = mix(LifeBoardMetalBezel::copper(sheen), float3(0.97, 0.84, 0.70), 0.18 + sparkle * 0.16);
         metal.r += chromaLift * 0.20;
         metal.g += chromaLift * 0.08;
         metal.b += chromaLift * 0.03;
     } else if (palette >= 0.5) {
-        metal = mix(TaskerMetalBezel::roseGold(sheen), float3(0.99, 0.91, 0.88), 0.22 + sparkle * 0.18);
+        metal = mix(LifeBoardMetalBezel::roseGold(sheen), float3(0.99, 0.91, 0.88), 0.22 + sparkle * 0.18);
         metal.r += chromaLift * 0.18;
         metal.g += chromaLift * 0.05;
         metal.b += chromaLift * 0.08;
     } else {
-        metal = mix(TaskerMetalBezel::titanium(sparkle), TaskerMetalBezel::silver(sheen), 0.6);
+        metal = mix(LifeBoardMetalBezel::titanium(sparkle), LifeBoardMetalBezel::silver(sheen), 0.6);
         metal.r += chromaLift * 0.12;
         metal.b += chromaLift * 0.22;
     }
@@ -117,7 +117,7 @@ namespace TaskerMetalBezel {
     return half4(half3(color), currentColor.a);
 }
 
-[[ stitchable ]] half4 TaskerNoisyGradient(float2 pos, SwiftUI::Layer l, float4 bounds, float time) {
+[[ stitchable ]] half4 LifeBoardNoisyGradient(float2 pos, SwiftUI::Layer l, float4 bounds, float time) {
     // Kept for SwiftUI layer-effect compatibility; intentionally unused.
     float2 size = bounds.zw;
     float2 uv = pos / size;

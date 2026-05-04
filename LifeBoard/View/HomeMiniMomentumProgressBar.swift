@@ -8,7 +8,7 @@ struct HomeMiniMomentumProgressBar: View {
     var body: some View {
         ProgressView(value: min(max(progress, 0), 1))
             .progressViewStyle(.linear)
-            .tint(isStreakSafeToday ? Color.tasker.accentPrimary : Color.tasker.statusWarning)
+            .tint(isStreakSafeToday ? Color.lifeboard.accentPrimary : Color.lifeboard.statusWarning)
             .scaleEffect(x: 1, y: 0.8, anchor: .center)
             .animation(
                 animate ? .easeOut(duration: 0.22) : .linear(duration: 0.01),

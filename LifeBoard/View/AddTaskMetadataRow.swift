@@ -1,6 +1,6 @@
 //
 //  AddTaskMetadataRow.swift
-//  Tasker
+//  LifeBoard
 //
 //  Reminder toggle chip for the quick capture section.
 //  Date presets moved to AddTaskDatePresetRow; this handles reminder only.
@@ -26,10 +26,10 @@ struct AddTaskReminderChip: View {
                 isActive: hasReminder
             ) {
                 if hasReminder {
-                    withAnimation(TaskerAnimation.quick) {
+                    withAnimation(LifeBoardAnimation.quick) {
                         hasReminder = false
                     }
-                    TaskerFeedback.light()
+                    LifeBoardFeedback.light()
                 } else {
                     showTimePicker = true
                 }
@@ -67,12 +67,12 @@ struct AddTaskTimePickerSheet: View {
     @Binding var reminderTime: Date
     @Binding var hasReminder: Bool
     @Binding var isPresented: Bool
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     @State private var selectedTime = Date()
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         NavigationStack {
@@ -81,17 +81,17 @@ struct AddTaskTimePickerSheet: View {
                 HStack(spacing: spacing.s8) {
                     ForEach(ReminderPreset.allCases, id: \.self) { preset in
                         Button {
-                            TaskerFeedback.selection()
+                            LifeBoardFeedback.selection()
                             selectedTime = preset.date
                         } label: {
                             Text(preset.label)
-                                .font(.tasker(.callout))
-                                .foregroundColor(Color.tasker.textSecondary)
+                                .font(.lifeboard(.callout))
+                                .foregroundColor(Color.lifeboard.textSecondary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(
                                     Capsule()
-                                        .fill(Color.tasker.surfaceSecondary)
+                                        .fill(Color.lifeboard.surfaceSecondary)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -111,23 +111,23 @@ struct AddTaskTimePickerSheet: View {
                 Button {
                     reminderTime = selectedTime
                     hasReminder = true
-                    TaskerFeedback.success()
+                    LifeBoardFeedback.success()
                     isPresented = false
                 } label: {
                     Text("Set Reminder")
-                        .font(.tasker(.button))
-                        .foregroundColor(Color.tasker.accentOnPrimary)
+                        .font(.lifeboard(.button))
+                        .foregroundColor(Color.lifeboard.accentOnPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: spacing.buttonHeight)
                         .background(
                             RoundedRectangle(cornerRadius: corner.r2)
-                                .fill(Color.tasker.accentPrimary)
+                                .fill(Color.lifeboard.accentPrimary)
                         )
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, spacing.s16)
             }
-            .taskerReadableContent(maxWidth: 460, alignment: .center)
+            .lifeboardReadableContent(maxWidth: 460, alignment: .center)
             .navigationTitle("Set Reminder")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

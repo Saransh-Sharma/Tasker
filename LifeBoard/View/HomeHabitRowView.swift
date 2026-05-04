@@ -49,7 +49,7 @@ private struct HomeHabitRowInteractiveButton<Label: View>: View {
         func play() {
             switch self {
             case .selection:
-                TaskerFeedback.selection()
+                LifeBoardFeedback.selection()
             }
         }
     }
@@ -159,12 +159,12 @@ struct HomeHabitRowView: View {
         self.onLastCellAction = onLastCellAction
     }
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
     @State private var measuredStreakWidth: CGFloat = 0
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     private var family: HabitColorFamily {
         HabitColorFamily.family(for: row.accentHex, fallback: row.kind == .positive ? .green : .coral)
@@ -287,7 +287,7 @@ struct HomeHabitRowView: View {
         .frame(maxHeight: .infinity)
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(Color.tasker.strokeHairline.opacity(0.55))
+                .fill(Color.lifeboard.strokeHairline.opacity(0.55))
                 .frame(width: 1)
         }
         .accessibilityHidden(true)
@@ -332,8 +332,8 @@ struct HomeHabitRowView: View {
 
     private func titleView(lineLimit: Int) -> some View {
         Text(row.title)
-            .font(.tasker(usesExpandedTitle ? .bodyStrong : .body))
-            .foregroundStyle(Color.tasker.textPrimary)
+            .font(.lifeboard(usesExpandedTitle ? .bodyStrong : .body))
+            .foregroundStyle(Color.lifeboard.textPrimary)
             .lineLimit(lineLimit)
             .multilineTextAlignment(.leading)
             .truncationMode(.tail)
@@ -368,9 +368,9 @@ struct HomeHabitRowView: View {
     private var titleReadabilityScrim: some View {
         LinearGradient(
             colors: [
-                Color.tasker.surfacePrimary.opacity(0.82),
-                Color.tasker.surfacePrimary.opacity(0.56),
-                Color.tasker.surfacePrimary.opacity(0.12),
+                Color.lifeboard.surfacePrimary.opacity(0.82),
+                Color.lifeboard.surfacePrimary.opacity(0.56),
+                Color.lifeboard.surfacePrimary.opacity(0.12),
                 .clear
             ],
             startPoint: .leading,

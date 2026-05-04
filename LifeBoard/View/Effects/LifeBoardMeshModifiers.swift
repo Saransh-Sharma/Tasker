@@ -1,47 +1,47 @@
 import SwiftUI
 
 extension View {
-    func taskerMeshBackground(
-        _ role: TaskerMeshRole,
-        intensity: TaskerMeshIntensity = TaskerMeshTuning.defaultIntensity,
+    func lifeboardMeshBackground(
+        _ role: LifeBoardMeshRole,
+        intensity: LifeBoardMeshIntensity = LifeBoardMeshTuning.defaultIntensity,
         isAnimating: Bool = true
     ) -> some View {
         background {
-            TaskerAnimatedMesh(role: role, intensity: intensity, isAnimating: isAnimating)
+            LifeBoardAnimatedMesh(role: role, intensity: intensity, isAnimating: isAnimating)
         }
     }
 
-    func taskerMeshCardOverlay(
-        _ role: TaskerMeshRole,
+    func lifeboardMeshCardOverlay(
+        _ role: LifeBoardMeshRole,
         cornerRadius: CGFloat,
-        intensity: TaskerMeshIntensity = TaskerMeshTuning.defaultIntensity,
+        intensity: LifeBoardMeshIntensity = LifeBoardMeshTuning.defaultIntensity,
         isAnimating: Bool = true
     ) -> some View {
         overlay {
-            TaskerAnimatedMesh(role: role, intensity: intensity, isAnimating: isAnimating)
+            LifeBoardAnimatedMesh(role: role, intensity: intensity, isAnimating: isAnimating)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
     }
 
-    func taskerMeshCTA(
-        _ role: TaskerMeshRole,
+    func lifeboardMeshCTA(
+        _ role: LifeBoardMeshRole,
         cornerRadius: CGFloat,
-        intensity: TaskerMeshIntensity = TaskerMeshTuning.defaultIntensity,
+        intensity: LifeBoardMeshIntensity = LifeBoardMeshTuning.defaultIntensity,
         isAnimating: Bool = true
     ) -> some View {
         background {
-            TaskerAnimatedMesh(role: role, intensity: intensity, isAnimating: isAnimating)
+            LifeBoardAnimatedMesh(role: role, intensity: intensity, isAnimating: isAnimating)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
     }
 
-    func taskerMeshCTA(
-        _ role: TaskerMeshRole,
-        intensity: TaskerMeshIntensity = TaskerMeshTuning.defaultIntensity,
+    func lifeboardMeshCTA(
+        _ role: LifeBoardMeshRole,
+        intensity: LifeBoardMeshIntensity = LifeBoardMeshTuning.defaultIntensity,
         isAnimating: Bool = true
     ) -> some View {
         background {
-            TaskerAnimatedMesh(role: role, intensity: intensity, isAnimating: isAnimating)
+            LifeBoardAnimatedMesh(role: role, intensity: intensity, isAnimating: isAnimating)
                 .clipShape(Capsule(style: .continuous))
         }
     }

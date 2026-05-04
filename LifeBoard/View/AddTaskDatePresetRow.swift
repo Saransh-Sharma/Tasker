@@ -1,6 +1,6 @@
 //
 //  AddTaskDatePresetRow.swift
-//  Tasker
+//  LifeBoard
 //
 //  Pill group for quick date selection: Today / Tomorrow / This Week / Someday + custom.
 //
@@ -10,10 +10,10 @@ import SwiftUI
 // MARK: - Add Task Date Preset Row
 
 private enum AddTaskDatePickerAccessibilityID {
-    static let customDateChip = "tasker.datePicker.customDateChip"
-    static let sheet = "tasker.datePicker.sheet"
-    static let calendar = "tasker.datePicker.calendar"
-    static let confirmButton = "tasker.datePicker.confirmButton"
+    static let customDateChip = "lifeboard.datePicker.customDateChip"
+    static let sheet = "lifeboard.datePicker.sheet"
+    static let calendar = "lifeboard.datePicker.calendar"
+    static let confirmButton = "lifeboard.datePicker.confirmButton"
 }
 
 struct AddTaskDatePresetRow: View {
@@ -21,7 +21,7 @@ struct AddTaskDatePresetRow: View {
     let customChipAccessibilityIdentifier: String?
     @State private var showDatePicker = false
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var activePreset: DatePreset? {
         guard let dueDate else { return .someday }
@@ -48,8 +48,8 @@ struct AddTaskDatePresetRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text("Due")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing.chipSpacing) {
@@ -59,7 +59,7 @@ struct AddTaskDatePresetRow: View {
                             text: preset.label,
                             isActive: activePreset == preset
                         ) {
-                            withAnimation(TaskerAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.snappy) {
                                 applyPreset(preset)
                             }
                         }
@@ -150,7 +150,7 @@ struct AddTaskCustomDatePickerSheet: View {
 
     @State private var selectedDate = Date()
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         NavigationStack {
@@ -180,10 +180,10 @@ struct AddTaskCustomDatePickerSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Set Date") {
                         dueDate = selectedDate
-                        TaskerFeedback.success()
+                        LifeBoardFeedback.success()
                         isPresented = false
                     }
-                    .font(.tasker(.button))
+                    .font(.lifeboard(.button))
                     .accessibilityIdentifier(AddTaskDatePickerAccessibilityID.confirmButton)
                 }
             }

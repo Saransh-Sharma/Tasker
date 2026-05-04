@@ -7,8 +7,8 @@ struct HomeMiniMomentumCardView: View {
     let animate: Bool
     let onTap: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     private var completionPercent: Int {
         Int((completionRate * 100).rounded())
@@ -24,16 +24,16 @@ struct HomeMiniMomentumCardView: View {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                     Text("\(progress.earnedXP)/\(progress.todayTargetXP) XP")
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(1)
                         .accessibilityIdentifier("home.dailyScoreLabel")
 
                     Spacer(minLength: spacing.s4)
 
                     Text("\(completionPercent)% done")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                         .accessibilityIdentifier("home.completionRateLabel")
 
@@ -42,15 +42,15 @@ struct HomeMiniMomentumCardView: View {
                     } icon: {
                         Image(systemName: "flame.fill")
                     }
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(progress.isStreakSafeToday ? Color.tasker.textSecondary : Color.tasker.statusWarning)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(progress.isStreakSafeToday ? Color.lifeboard.textSecondary : Color.lifeboard.statusWarning)
                     .lineLimit(1)
                     .accessibilityIdentifier("home.streakLabel")
 
                     if reflectionEligible {
                         Text("Reflection ready")
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                             .lineLimit(1)
                     }
                 }
@@ -64,11 +64,11 @@ struct HomeMiniMomentumCardView: View {
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .taskerPremiumSurface(
+            .lifeboardPremiumSurface(
                 cornerRadius: corner.card,
-                fillColor: Color.tasker.surfaceSecondary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.8),
-                accentColor: Color.tasker.accentSecondary,
+                fillColor: Color.lifeboard.surfaceSecondary,
+                strokeColor: Color.lifeboard.strokeHairline.opacity(0.8),
+                accentColor: Color.lifeboard.accentSecondary,
                 level: .e2
             )
         }

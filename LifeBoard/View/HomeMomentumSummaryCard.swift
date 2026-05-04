@@ -9,8 +9,8 @@ struct HomeMomentumSummaryCard: View {
     var onChartTap: (() -> Void)? = nil
     var onOpenReflection: (() -> Void)? = nil
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     private var progressRatio: Double {
         min(1, Double(progress.earnedXP) / Double(safeTodayTargetXP))
@@ -35,23 +35,23 @@ struct HomeMomentumSummaryCard: View {
                     onTap: { onChartTap?() }
                 )
                 .padding(4)
-                .taskerChromeSurface(
+                .lifeboardChromeSurface(
                     cornerRadius: 26,
-                    accentColor: Color.tasker.accentSecondary,
+                    accentColor: Color.lifeboard.accentSecondary,
                     level: .e1
                 )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(progress.earnedXP)/\(safeTodayTargetXP) XP")
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .accessibilityIdentifier("home.dailyScoreLabel")
                         .lineLimit(1)
 
                     HStack(spacing: spacing.s8) {
                         Text("\(completionPercent)% complete")
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .accessibilityIdentifier("home.completionRateLabel")
                             .lineLimit(1)
 
@@ -66,7 +66,7 @@ struct HomeMomentumSummaryCard: View {
                     Button("Reflection", action: onOpenReflection)
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
-                        .tint(Color.tasker.accentPrimary)
+                        .tint(Color.lifeboard.accentPrimary)
                         .accessibilityIdentifier("home.reflectionChip")
                 }
             }
@@ -78,33 +78,33 @@ struct HomeMomentumSummaryCard: View {
             )
 
             Text(momentumGuidanceText)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .lineLimit(2)
         }
         .padding(.horizontal, spacing.s12)
         .padding(.vertical, spacing.s12)
-        .taskerPremiumSurface(
+        .lifeboardPremiumSurface(
             cornerRadius: corner.card,
-            fillColor: Color.tasker.surfaceSecondary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.8),
-            accentColor: Color.tasker.accentSecondary,
+            fillColor: Color.lifeboard.surfaceSecondary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.8),
+            accentColor: Color.lifeboard.accentSecondary,
             level: .e2
         )
     }
 
     private var progressGradientColors: [Color] {
         if progress.isStreakSafeToday {
-            return [Color.tasker.accentPrimary, Color.tasker.accentSecondary]
+            return [Color.lifeboard.accentPrimary, Color.lifeboard.accentSecondary]
         }
-        return [Color.tasker.statusWarning, Color.tasker.statusWarning.opacity(0.7)]
+        return [Color.lifeboard.statusWarning, Color.lifeboard.statusWarning.opacity(0.7)]
     }
 
     private var streakIndicator: some View {
         HStack(spacing: 4) {
             Image(systemName: "flame.fill")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(progress.isStreakSafeToday ? Color.tasker.accentSecondary : Color.tasker.statusWarning)
+                .foregroundStyle(progress.isStreakSafeToday ? Color.lifeboard.accentSecondary : Color.lifeboard.statusWarning)
                 .symbolEffect(
                     .pulse,
                     options: .repeating.speed(0.5),
@@ -112,9 +112,9 @@ struct HomeMomentumSummaryCard: View {
                 )
 
             Text("\(progress.streakDays)d")
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .fontWeight(.medium)
-                .foregroundStyle(progress.isStreakSafeToday ? Color.tasker.textSecondary : Color.tasker.statusWarning)
+                .foregroundStyle(progress.isStreakSafeToday ? Color.lifeboard.textSecondary : Color.lifeboard.statusWarning)
         }
     }
 }

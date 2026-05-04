@@ -1,6 +1,6 @@
 //
 //  CardViewModifier.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Assistant on Card View Implementation
 //
@@ -33,17 +33,17 @@ struct CardViewModifier: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(Color.tasker.surfacePrimary)
+                    .fill(Color.lifeboard.surfacePrimary)
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius)
-                            .stroke(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.strokeHairline), lineWidth: 1)
+                            .stroke(Color(uiColor: LifeBoardThemeManager.shared.currentTheme.tokens.color.strokeHairline), lineWidth: 1)
                     )
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .taskerElevation(elevationLevel, cornerRadius: cornerRadius, includesBorder: false)
+            .lifeboardElevation(elevationLevel, cornerRadius: cornerRadius, includesBorder: false)
     }
 
-    private var elevationLevel: TaskerElevationLevel {
+    private var elevationLevel: LifeBoardElevationLevel {
         if shadowRadius >= 16 {
             return .e3
         }
@@ -82,17 +82,17 @@ struct ThemedCardViewModifier: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(Color.tasker.surfacePrimary)
+                    .fill(Color.lifeboard.surfacePrimary)
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius)
-                            .stroke(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.strokeHairline), lineWidth: 1)
+                            .stroke(Color(uiColor: LifeBoardThemeManager.shared.currentTheme.tokens.color.strokeHairline), lineWidth: 1)
                     )
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .taskerElevation(elevationLevel, cornerRadius: cornerRadius, includesBorder: false)
+            .lifeboardElevation(elevationLevel, cornerRadius: cornerRadius, includesBorder: false)
     }
 
-    private var elevationLevel: TaskerElevationLevel {
+    private var elevationLevel: LifeBoardElevationLevel {
         if shadowRadius >= 16 {
             return .e3
         }
@@ -112,7 +112,7 @@ extension View {
         shadowOffset: CGSize? = nil,
         shadowOpacity: Double? = nil
     ) -> some View {
-        let tokens = TaskerThemeManager.shared.currentTheme.tokens
+        let tokens = LifeBoardThemeManager.shared.currentTheme.tokens
         let elevation = tokens.elevation.e1
         return self.modifier(
             CardViewModifier(
@@ -132,7 +132,7 @@ extension View {
         shadowOpacity: Double? = nil,
         useThemeColors: Bool = true
     ) -> some View {
-        let tokens = TaskerThemeManager.shared.currentTheme.tokens
+        let tokens = LifeBoardThemeManager.shared.currentTheme.tokens
         let elevation = tokens.elevation.e1
         return self.modifier(
             ThemedCardViewModifier(
@@ -150,31 +150,31 @@ extension View {
 extension View {
     /// Small card style for compact content
     func smallCard() -> some View {
-        self.cardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r1)
+        self.cardStyle(cornerRadius: LifeBoardThemeManager.shared.currentTheme.tokens.corner.r1)
     }
     
     /// Medium card style for standard content
     func mediumCard() -> some View {
-        self.cardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r2)
+        self.cardStyle(cornerRadius: LifeBoardThemeManager.shared.currentTheme.tokens.corner.r2)
     }
     
     /// Large card style for prominent content
     func largeCard() -> some View {
-        self.cardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r3)
+        self.cardStyle(cornerRadius: LifeBoardThemeManager.shared.currentTheme.tokens.corner.r3)
     }
     
     /// Themed small card
     func themedSmallCard() -> some View {
-        self.themedCardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r1)
+        self.themedCardStyle(cornerRadius: LifeBoardThemeManager.shared.currentTheme.tokens.corner.r1)
     }
     
     /// Themed medium card
     func themedMediumCard() -> some View {
-        self.themedCardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r2)
+        self.themedCardStyle(cornerRadius: LifeBoardThemeManager.shared.currentTheme.tokens.corner.r2)
     }
     
     /// Themed large card
     func themedLargeCard() -> some View {
-        self.themedCardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r3)
+        self.themedCardStyle(cornerRadius: LifeBoardThemeManager.shared.currentTheme.tokens.corner.r3)
     }
 }

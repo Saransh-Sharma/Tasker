@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
+    private var todoColors: LifeBoardColorTokens { LifeBoardThemeManager.shared.currentTheme.tokens.color }
     private let projectManagementDestination: AnyView
 
     @Environment(\.presentationMode) var presentationMode // To dismiss the view later
@@ -40,7 +40,7 @@ struct SettingsView: View {
                         Label("System appearance", systemImage: "circle.lefthalf.filled")
                             .foregroundColor(Color(uiColor: todoColors.textPrimary))
 
-                        Text("To Do List follows your iPhone or iPad light and dark appearance automatically.")
+                        Text("LifeBoard follows your iPhone or iPad light and dark appearance automatically.")
                             .font(.footnote)
                             .foregroundColor(Color(uiColor: todoColors.textSecondary))
                     }

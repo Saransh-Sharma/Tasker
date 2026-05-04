@@ -17,17 +17,17 @@ struct DueSoonLeadTimeCard: View {
     }
 
     var body: some View {
-        TaskerCard {
-            VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s12) {
+        LifeBoardCard {
+            VStack(alignment: .leading, spacing: LifeBoardSwiftUITokens.spacing.s12) {
                 Text("DUE SOON LEAD TIME")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(.tasker(.textTertiary))
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(.lifeboard(.textTertiary))
                     .tracking(0.5)
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: TaskerSwiftUITokens.spacing.s8) {
+                    HStack(spacing: LifeBoardSwiftUITokens.spacing.s8) {
                         ForEach(options, id: \.minutes) { option in
-                            TaskerChip(
+                            LifeBoardChip(
                                 title: option.label,
                                 isSelected: viewModel.preferences.dueSoonLeadMinutes == option.minutes,
                                 selectedStyle: .filled,

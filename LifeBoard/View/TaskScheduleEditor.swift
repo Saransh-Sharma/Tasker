@@ -1,6 +1,6 @@
 //
 //  TaskScheduleEditor.swift
-//  Tasker
+//  LifeBoard
 //
 //  Compact task start-time and duration editing controls.
 //
@@ -14,7 +14,7 @@ struct TaskScheduleEditor: View {
     let defaultStartDate: Date
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             TaskTimeWheelPicker(
                 startDate: $startDate,
                 durationMinutes: durationMinutes,
@@ -59,10 +59,10 @@ struct TaskTimeWheelPicker: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
             Text("Time")
-                .font(.tasker(.headline).leading(.tight))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline).leading(.tight))
+                .foregroundStyle(Color.lifeboard.textPrimary)
 
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
@@ -110,12 +110,12 @@ struct TaskTimeWheelPicker: View {
                     select(slot)
                 }
             }
-            .padding(.horizontal, TaskerTheme.Spacing.sm)
-            .padding(.vertical, TaskerTheme.Spacing.xs)
-            .taskerDenseSurface(
-                cornerRadius: TaskerTheme.CornerRadius.card,
-                fillColor: Color.tasker.surfacePrimary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+            .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+            .padding(.vertical, LifeBoardTheme.Spacing.xs)
+            .lifeboardDenseSurface(
+                cornerRadius: LifeBoardTheme.CornerRadius.card,
+                fillColor: Color.lifeboard.surfacePrimary,
+                strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
             )
             .accessibilityElement(children: .contain)
             .accessibilityLabel(accessibilityLabel ?? String(localized: "Start time"))
@@ -155,8 +155,8 @@ struct TaskTimeWheelPicker: View {
         guard TaskDetailViewModel.roundedToNearestScheduleSlot(slot.date, intervalMinutes: intervalMinutes) != startDate else {
             return
         }
-        TaskerFeedback.selection()
-        withAnimation(reduceMotion ? nil : TaskerAnimation.snappy) {
+        LifeBoardFeedback.selection()
+        withAnimation(reduceMotion ? nil : LifeBoardAnimation.snappy) {
             startDate = slot.date
         }
     }
@@ -178,7 +178,7 @@ struct TaskTimeWheelPicker: View {
     }
 
     private func scroll(to id: Int, proxy: ScrollViewProxy) {
-        withAnimation(reduceMotion ? nil : TaskerAnimation.snappy) {
+        withAnimation(reduceMotion ? nil : LifeBoardAnimation.snappy) {
             proxy.scrollTo(id, anchor: .center)
         }
     }
@@ -268,7 +268,7 @@ enum TimelineAnchorSelection: String, Equatable, Identifiable {
         }
     }
 
-    func date(from preferences: TaskerWorkspacePreferences, calendar: Calendar = .current) -> Date {
+    func date(from preferences: LifeBoardWorkspacePreferences, calendar: Calendar = .current) -> Date {
         switch self {
         case .wake:
             return Self.date(
@@ -285,7 +285,7 @@ enum TimelineAnchorSelection: String, Equatable, Identifiable {
         }
     }
 
-    func save(time: Date, to store: TaskerWorkspacePreferencesStore, calendar: Calendar = .current) {
+    func save(time: Date, to store: LifeBoardWorkspacePreferencesStore, calendar: Calendar = .current) {
         let components = calendar.dateComponents([.hour, .minute], from: time)
         store.update { preferences in
             switch self {
@@ -314,11 +314,11 @@ struct TimelineAnchorDetailSheetView: View {
     @State private var selectedTime: Date?
 
     let selection: TimelineAnchorSelection
-    let preferencesStore: TaskerWorkspacePreferencesStore
+    let preferencesStore: LifeBoardWorkspacePreferencesStore
 
     init(
         selection: TimelineAnchorSelection,
-        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+        preferencesStore: LifeBoardWorkspacePreferencesStore = .shared
     ) {
         self.selection = selection
         self.preferencesStore = preferencesStore
@@ -328,15 +328,15 @@ struct TimelineAnchorDetailSheetView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.lg) {
                 topBar
                 header
                 timeEditor
             }
-            .taskerReadableContent(maxWidth: 560, alignment: .center)
-            .padding(.bottom, TaskerTheme.Spacing.xxxl)
+            .lifeboardReadableContent(maxWidth: 560, alignment: .center)
+            .padding(.bottom, LifeBoardTheme.Spacing.xxxl)
         }
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .presentationDragIndicator(.visible)
         .accessibilityIdentifier("timelineAnchorDetail.view")
         .onChange(of: selectedTime) { _, newValue in
@@ -352,9 +352,9 @@ struct TimelineAnchorDetailSheetView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .foregroundColor(Color.lifeboard.textSecondary)
                     .frame(width: 30, height: 30)
-                    .background(Color.tasker.surfaceSecondary)
+                    .background(Color.lifeboard.surfaceSecondary)
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -363,47 +363,47 @@ struct TimelineAnchorDetailSheetView: View {
 
             Spacer()
         }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .padding(.top, TaskerTheme.Spacing.sm)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
+        .padding(.top, LifeBoardTheme.Spacing.sm)
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
+        HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.md) {
             Image(systemName: selection.systemImageName)
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(Color.tasker.accentPrimary)
+                .foregroundStyle(Color.lifeboard.accentPrimary)
                 .frame(width: 42, height: 42)
-                .background(Color.tasker.accentWash, in: Circle())
+                .background(Color.lifeboard.accentWash, in: Circle())
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                 Text(selection.title)
-                    .font(.tasker(.title1))
+                    .font(.lifeboard(.title1))
                     .fontWeight(.semibold)
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(selection.subtitle)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(currentTimeLabel)
-                    .font(.tasker(.meta).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textTertiary)
+                    .font(.lifeboard(.meta).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textTertiary)
                     .monospacedDigit()
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .padding(.vertical, TaskerTheme.Spacing.md)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
+        .padding(.vertical, LifeBoardTheme.Spacing.md)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
         )
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
     }
 
     private var timeEditor: some View {
@@ -419,7 +419,7 @@ struct TimelineAnchorDetailSheetView: View {
             )
         )
         .accessibilityIdentifier("timelineAnchorDetail.timePicker")
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
     }
 
     private var currentTimeLabel: String {
@@ -441,19 +441,19 @@ private struct TimeWheelSlotRow: View {
 
     var body: some View {
         Text(label)
-            .font(.tasker(isSelected ? .headline : .bodyEmphasis))
+            .font(.lifeboard(isSelected ? .headline : .bodyEmphasis))
             .fontWeight(isSelected ? .semibold : .regular)
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.85)
-            .foregroundStyle(isSelected ? Color.white : Color.tasker.textSecondary.opacity(opacity))
+            .foregroundStyle(isSelected ? Color.white : Color.lifeboard.textSecondary.opacity(opacity))
             .frame(maxWidth: .infinity, minHeight: 44)
-            .padding(.horizontal, TaskerTheme.Spacing.md)
+            .padding(.horizontal, LifeBoardTheme.Spacing.md)
             .background(
                 Capsule()
-                    .fill(isSelected ? Color.tasker.accentPrimary : Color.clear)
+                    .fill(isSelected ? Color.lifeboard.accentPrimary : Color.clear)
             )
-            .padding(.horizontal, TaskerTheme.Spacing.xl)
+            .padding(.horizontal, LifeBoardTheme.Spacing.xl)
     }
 
     private var opacity: Double {
@@ -485,10 +485,10 @@ private struct TaskDurationSegmentedPicker: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
             Text("Duration")
-                .font(.tasker(.headline).leading(.tight))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline).leading(.tight))
+                .foregroundStyle(Color.lifeboard.textPrimary)
 
             HStack(spacing: 4) {
                 ForEach(options, id: \.minutes) { option in
@@ -496,15 +496,15 @@ private struct TaskDurationSegmentedPicker: View {
                         select(option.minutes)
                     } label: {
                         Text(option.label)
-                            .font(.tasker(.callout).weight(option.minutes == durationMinutes ? .semibold : .regular))
+                            .font(.lifeboard(.callout).weight(option.minutes == durationMinutes ? .semibold : .regular))
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
-                            .foregroundStyle(option.minutes == durationMinutes ? Color.white : Color.tasker.textSecondary)
+                            .foregroundStyle(option.minutes == durationMinutes ? Color.white : Color.lifeboard.textSecondary)
                             .frame(maxWidth: .infinity, minHeight: 44)
                             .background(
                                 Capsule()
-                                    .fill(option.minutes == durationMinutes ? Color.tasker.accentPrimary : Color.clear)
+                                    .fill(option.minutes == durationMinutes ? Color.lifeboard.accentPrimary : Color.clear)
                             )
                     }
                     .buttonStyle(.plain)
@@ -515,19 +515,19 @@ private struct TaskDurationSegmentedPicker: View {
                 }
             }
             .padding(4)
-            .taskerDenseSurface(
-                cornerRadius: TaskerTheme.CornerRadius.card,
-                fillColor: Color.tasker.surfacePrimary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+            .lifeboardDenseSurface(
+                cornerRadius: LifeBoardTheme.CornerRadius.card,
+                fillColor: Color.lifeboard.surfacePrimary,
+                strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
             )
-            .animation(reduceMotion ? nil : TaskerAnimation.snappy, value: durationMinutes)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.snappy, value: durationMinutes)
         }
     }
 
     private func select(_ minutes: Int) {
         guard durationMinutes != minutes else { return }
-        TaskerFeedback.selection()
-        withAnimation(reduceMotion ? nil : TaskerAnimation.snappy) {
+        LifeBoardFeedback.selection()
+        withAnimation(reduceMotion ? nil : LifeBoardAnimation.snappy) {
             durationMinutes = minutes
         }
     }

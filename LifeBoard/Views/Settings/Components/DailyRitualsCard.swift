@@ -6,12 +6,12 @@ struct DailyRitualsCard: View {
     private var disabled: Bool { viewModel.isPermissionDenied }
 
     var body: some View {
-        TaskerCard {
-            VStack(spacing: TaskerSwiftUITokens.spacing.s24) {
+        LifeBoardCard {
+            VStack(spacing: LifeBoardSwiftUITokens.spacing.s24) {
                 // Morning Agenda
                 ritualSection(
                     icon: "sunrise.fill",
-                    iconColor: .tasker(.statusWarning),
+                    iconColor: .lifeboard(.statusWarning),
                     title: "Morning Agenda",
                     isEnabled: Binding(
                         get: { viewModel.preferences.morningAgendaEnabled },
@@ -28,12 +28,12 @@ struct DailyRitualsCard: View {
                 )
 
                 Divider()
-                    .background(Color.tasker.strokeHairline)
+                    .background(Color.lifeboard.strokeHairline)
 
                 // Nightly Retrospective
                 ritualSection(
                     icon: "moon.stars.fill",
-                    iconColor: .tasker(.accentSecondary),
+                    iconColor: .lifeboard(.accentSecondary),
                     title: "Nightly Retrospective",
                     isEnabled: Binding(
                         get: { viewModel.preferences.nightlyRetrospectiveEnabled },
@@ -62,23 +62,23 @@ struct DailyRitualsCard: View {
         time: Binding<Date>,
         timeLabel: String
     ) -> some View {
-        VStack(spacing: TaskerSwiftUITokens.spacing.s12) {
+        VStack(spacing: LifeBoardSwiftUITokens.spacing.s12) {
             // Toggle row
-            HStack(spacing: TaskerSwiftUITokens.spacing.s12) {
+            HStack(spacing: LifeBoardSwiftUITokens.spacing.s12) {
                 Image(systemName: icon)
-                    .font(.tasker(.sectionTitle))
+                    .font(.lifeboard(.sectionTitle))
                     .foregroundColor(iconColor)
                     .frame(width: 24)
 
                 Text(title)
-                    .font(.tasker(.bodyStrong))
-                    .foregroundColor(.tasker(.textPrimary))
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundColor(.lifeboard(.textPrimary))
 
                 Spacer()
 
                 Toggle("", isOn: isEnabled)
                     .labelsHidden()
-                    .tint(Color.tasker(.accentPrimary))
+                    .tint(Color.lifeboard(.accentPrimary))
                     .disabled(disabled)
             }
 
@@ -86,21 +86,21 @@ struct DailyRitualsCard: View {
             if isEnabled.wrappedValue {
                 HStack {
                     Text("Scheduled at")
-                        .font(.tasker(.callout))
-                        .foregroundColor(.tasker(.textSecondary))
+                        .font(.lifeboard(.callout))
+                        .foregroundColor(.lifeboard(.textSecondary))
 
                     Spacer()
 
                     DatePicker("", selection: time, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                         .datePickerStyle(.compact)
-                        .tint(Color.tasker(.accentPrimary))
+                        .tint(Color.lifeboard(.accentPrimary))
                         .disabled(disabled)
                 }
                 .padding(.leading, 36) // Align with text after icon
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(TaskerAnimation.gentle, value: isEnabled.wrappedValue)
+        .animation(LifeBoardAnimation.gentle, value: isEnabled.wrappedValue)
     }
 }

@@ -12,8 +12,8 @@ struct AddItemComposerView: View {
     let onHabitAddAnother: () -> Void
     let onExpandToLarge: () -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
     private var readableWidth: CGFloat {
         switch containerMode {
         case .inspector:
@@ -59,7 +59,7 @@ struct AddItemComposerView: View {
                 )
             }
         }
-        .taskerReadableContent(maxWidth: readableWidth, alignment: .center)
+        .lifeboardReadableContent(maxWidth: readableWidth, alignment: .center)
     }
 }
 
@@ -67,7 +67,7 @@ private struct AddItemModeSwitcher: View {
     @Binding var selectedMode: AddItemMode
     let allowedModes: [AddItemMode]
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         HStack(spacing: spacing.s8) {
@@ -75,19 +75,19 @@ private struct AddItemModeSwitcher: View {
                 let isSelected = selectedMode == mode
                 Button {
                     guard selectedMode != mode else { return }
-                    TaskerFeedback.selection()
-                    withAnimation(TaskerAnimation.snappy) {
+                    LifeBoardFeedback.selection()
+                    withAnimation(LifeBoardAnimation.snappy) {
                         selectedMode = mode
                     }
                 } label: {
                     Text(mode.displayName)
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundStyle(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundStyle(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 40)
                         .background(
                             Capsule()
-                                .fill(isSelected ? Color.tasker.accentPrimary : Color.clear)
+                                .fill(isSelected ? Color.lifeboard.accentPrimary : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
@@ -98,9 +98,9 @@ private struct AddItemModeSwitcher: View {
             }
         }
         .padding(spacing.s4)
-        .taskerChromeSurface(
-            cornerRadius: TaskerTheme.CornerRadius.pill,
-            accentColor: Color.tasker.accentSecondary,
+        .lifeboardChromeSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.pill,
+            accentColor: Color.lifeboard.accentSecondary,
             level: .e1
         )
         .accessibilityElement(children: .contain)

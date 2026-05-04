@@ -5,7 +5,7 @@ struct InsightsWeekView: View {
 
     @ObservedObject var viewModel: InsightsViewModel
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsWeekState { viewModel.weekState }
     private var weekRangeText: String {
         let calendar = XPCalculationEngine.mondayCalendar()
@@ -67,21 +67,21 @@ struct InsightsWeekView: View {
                     HStack(alignment: .firstTextBaseline) {
                         VStack(alignment: .leading, spacing: spacing.s4) {
                             Text("Review this week")
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textTertiary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundColor(Color.lifeboard.textTertiary)
                             Text("\(weeklyOperating.momentumScore)")
                                 .font(.system(size: 28, weight: .bold, design: .rounded))
-                                .foregroundColor(Color.tasker.textPrimary)
+                                .foregroundColor(Color.lifeboard.textPrimary)
                         }
                         Spacer()
                         Text(weeklyOperating.reviewStatusTitle)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                     }
 
                     Text(weeklyOperating.momentumNarrative)
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundColor(Color.lifeboard.textPrimary)
 
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         insightsSummaryRow(title: "What still needs a decision", body: weeklyOperating.carryOverSummary)
@@ -91,19 +91,19 @@ struct InsightsWeekView: View {
 
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         Text(weeklyOperating.recoveryHeadline)
-                            .font(.tasker(.callout))
-                            .foregroundColor(Color.tasker.textPrimary)
+                            .font(.lifeboard(.callout))
+                            .foregroundColor(Color.lifeboard.textPrimary)
                         Text(weeklyOperating.recoverySummary)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                         DisclosureGroup("Details") {
                             Text(weeklyOperating.recoveryNarrative)
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textSecondary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundColor(Color.lifeboard.textSecondary)
                                 .padding(.top, spacing.s4)
                         }
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textTertiary)
                     }
 
                     if weeklyOperating.momentumDrivers.isEmpty == false {
@@ -126,10 +126,10 @@ struct InsightsWeekView: View {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 HStack(alignment: .center, spacing: spacing.s8) {
                     Text("This Week")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textTertiary)
 
-                    TaskerStatusPill(
+                    LifeBoardStatusPill(
                         text: weekRangeText,
                         systemImage: "calendar",
                         tone: .quiet
@@ -137,26 +137,26 @@ struct InsightsWeekView: View {
                 }
 
                 Text(state.heroCard.title)
-                    .font(.tasker(.title2))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.title2))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 Text(state.heroCard.metric)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 Text(state.heroCard.hint)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textSecondary)
 
                 if let detail = state.heroCard.detail, detail.isEmpty == false {
                     DisclosureGroup("Details") {
                         Text(detail)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                             .padding(.top, spacing.s4)
                     }
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
                 }
 
                 LazyVGrid(columns: [
@@ -177,11 +177,11 @@ struct InsightsWeekView: View {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: spacing.s4) {
                         Text("Weekly momentum")
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textTertiary)
                         Text("\(state.weeklyTotalXP) XP")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundColor(Color.tasker.textPrimary)
+                            .foregroundColor(Color.lifeboard.textPrimary)
                     }
                     Spacer()
                     Picker("Scale", selection: Binding(
@@ -202,11 +202,11 @@ struct InsightsWeekView: View {
                         VStack(spacing: spacing.s4) {
                             xpBar(for: bar)
                             Text(bar.label)
-                                .font(.tasker(.caption2))
-                                .foregroundColor(bar.isToday ? Color.tasker.textPrimary : Color.tasker.textTertiary)
+                                .font(.lifeboard(.caption2))
+                                .foregroundColor(bar.isToday ? Color.lifeboard.textPrimary : Color.lifeboard.textTertiary)
                             Text("\(bar.completionCount)")
-                                .font(.tasker(.caption2))
-                                .foregroundColor(Color.tasker.textQuaternary)
+                                .font(.lifeboard(.caption2))
+                                .foregroundColor(Color.lifeboard.textQuaternary)
                         }
                         .frame(maxWidth: .infinity)
                         .accessibilityElement(children: .combine)
@@ -217,8 +217,8 @@ struct InsightsWeekView: View {
                 }
 
                 Text("Bars = XP, labels = completions.")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textQuaternary)
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(Color.lifeboard.textQuaternary)
             }
         }
     }
@@ -227,12 +227,12 @@ struct InsightsWeekView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Weekday pattern")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text(state.patternSummary)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 HStack(spacing: spacing.s8) {
                     ForEach(state.weeklyBars) { bar in
@@ -242,20 +242,20 @@ struct InsightsWeekView: View {
                                 .frame(height: 60)
                                 .overlay(
                                     Text("\(Int((bar.intensity * 100).rounded()))")
-                                        .font(.tasker(.caption2))
-                                        .foregroundColor(bar.intensity > 0.5 ? Color.tasker.textInverse : Color.tasker.textSecondary)
+                                        .font(.lifeboard(.caption2))
+                                        .foregroundColor(bar.intensity > 0.5 ? Color.lifeboard.textInverse : Color.lifeboard.textSecondary)
                                 )
                             Text(bar.label)
-                                .font(.tasker(.caption2))
-                                .foregroundColor(Color.tasker.textSecondary)
+                                .font(.lifeboard(.caption2))
+                                .foregroundColor(Color.lifeboard.textSecondary)
                         }
                         .frame(maxWidth: .infinity)
                     }
                 }
 
                 Text(state.deltaSummary)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.textSecondary)
             }
         }
     }
@@ -264,42 +264,42 @@ struct InsightsWeekView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Project leaderboard")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 if state.projectLeaderboard.isEmpty {
                     Text("Project signal appears after a few completions.")
-                        .font(.tasker(.callout))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.callout))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                 } else {
                     ForEach(Array(state.projectLeaderboard.enumerated()), id: \.element.id) { index, row in
                         HStack(alignment: .top, spacing: spacing.s12) {
                             Text("\(index + 1)")
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textQuaternary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundColor(Color.lifeboard.textQuaternary)
                                 .frame(width: 18, alignment: .leading)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(row.title)
-                                    .font(.tasker(.headline))
-                                    .foregroundColor(Color.tasker.textPrimary)
+                                    .font(.lifeboard(.headline))
+                                    .foregroundColor(Color.lifeboard.textPrimary)
                                 Text(row.subtitle)
-                                    .font(.tasker(.caption1))
-                                    .foregroundColor(Color.tasker.textSecondary)
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundColor(Color.lifeboard.textSecondary)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text(row.value)
-                                    .font(.tasker(.headline))
+                                    .font(.lifeboard(.headline))
                                     .foregroundColor(toneColor(row.tone))
                                 Text(row.detail)
-                                    .font(.tasker(.caption2))
-                                    .foregroundColor(Color.tasker.textTertiary)
+                                    .font(.lifeboard(.caption2))
+                                    .foregroundColor(Color.lifeboard.textTertiary)
                             }
                         }
                         if index < state.projectLeaderboard.count - 1 {
                             Divider()
-                                .overlay(Color.tasker.strokeHairline)
+                                .overlay(Color.lifeboard.strokeHairline)
                         }
                     }
                 }
@@ -315,32 +315,32 @@ struct InsightsWeekView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text(eyebrow)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text(title)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 if items.isEmpty {
                     Text("This fills in as completions land.")
-                        .font(.tasker(.callout))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.callout))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                 } else {
                     ForEach(items) { item in
                         HStack(spacing: spacing.s8) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.label)
-                                    .font(.tasker(.callout))
-                                    .foregroundColor(Color.tasker.textPrimary)
+                                    .font(.lifeboard(.callout))
+                                    .foregroundColor(Color.lifeboard.textPrimary)
                                 Text(item.valueText)
-                                    .font(.tasker(.caption2))
-                                    .foregroundColor(Color.tasker.textTertiary)
+                                    .font(.lifeboard(.caption2))
+                                    .foregroundColor(Color.lifeboard.textTertiary)
                             }
                             Spacer()
                             ZStack(alignment: .leading) {
                                 Capsule()
-                                    .fill(Color.tasker.surfaceTertiary)
+                                    .fill(Color.lifeboard.surfaceTertiary)
                                     .frame(width: 110, height: 10)
                                 Capsule()
                                     .fill(toneColor(item.tone))
@@ -375,21 +375,21 @@ struct InsightsWeekView: View {
     private func metricCard(_ metric: InsightsMetricTile) -> some View {
         VStack(alignment: .leading, spacing: spacing.s4) {
             Text(metric.title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textTertiary)
             Text(metric.value)
-                .font(.tasker(.headline))
+                .font(.lifeboard(.headline))
                 .foregroundColor(toneColor(metric.tone))
             Text(metric.detail)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
         .padding(spacing.s12)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary)
+                .fill(Color.lifeboard.surfaceSecondary)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -400,11 +400,11 @@ struct InsightsWeekView: View {
     private func insightsSummaryRow(title: String, body: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textTertiary)
             Text(body)
-                .font(.tasker(.callout))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.callout))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -418,44 +418,44 @@ struct InsightsWeekView: View {
         content()
             .padding(spacing.s16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .taskerAnalyticsSurface(
+            .lifeboardAnalyticsSurface(
                 cornerRadius: 24,
-                fillColor: Color.tasker.surfacePrimary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.82),
-                accentColor: Color.tasker.accentSecondary,
+                fillColor: Color.lifeboard.surfacePrimary,
+                strokeColor: Color.lifeboard.strokeHairline.opacity(0.82),
+                accentColor: Color.lifeboard.accentSecondary,
                 level: .e1
             )
     }
 
     private func patternColor(for bar: WeeklyBarData) -> Color {
         if bar.isFuture {
-            return Color.tasker.surfaceTertiary
+            return Color.lifeboard.surfaceTertiary
         }
         if bar.isToday {
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         }
         if bar.intensity >= 0.75 {
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         }
         if bar.intensity >= 0.45 {
-            return Color.tasker.accentSecondary
+            return Color.lifeboard.accentSecondary
         }
         if bar.intensity > 0 {
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         }
-        return Color.tasker.surfaceTertiary
+        return Color.lifeboard.surfaceTertiary
     }
 
     private func toneColor(_ tone: InsightsMetricTone) -> Color {
         switch tone {
         case .accent:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .success:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .neutral:
-            return Color.tasker.textPrimary
+            return Color.lifeboard.textPrimary
         }
     }
 }

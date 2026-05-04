@@ -17,7 +17,7 @@ public struct MilestoneCelebrationView: View {
     public var body: some View {
         if isPresented {
             ZStack {
-                Color.tasker.bgCanvas
+                Color.lifeboard.bgCanvas
                     .opacity(overlayOpacity * 0.85)
                     .ignoresSafeArea()
                     .onTapGesture { dismiss() }
@@ -25,34 +25,34 @@ public struct MilestoneCelebrationView: View {
                 VStack(spacing: 20) {
                     ZStack {
                         Circle()
-                            .fill(Color.tasker.statusWarning.opacity(glowOpacity * 0.2))
+                            .fill(Color.lifeboard.statusWarning.opacity(glowOpacity * 0.2))
                             .frame(width: 120, height: 120)
 
                         Image(systemName: milestone.sfSymbol)
                             .font(.system(size: 48))
-                            .foregroundColor(Color.tasker.statusWarning)
+                            .foregroundColor(Color.lifeboard.statusWarning)
                             .scaleEffect(iconScale)
                     }
 
                     Text(milestone.name)
                         .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                         .opacity(textOpacity)
 
                     Text("Milestone Reached")
-                        .font(.tasker(.body))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.body))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .opacity(textOpacity)
 
                     Text("\(milestone.xpThreshold) XP")
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .foregroundColor(Color.lifeboard.textTertiary)
                         .opacity(textOpacity)
 
                     if awardedXP > 0 {
                         Text("+\(awardedXP) XP")
-                            .font(.tasker(.headline))
-                            .foregroundColor(Color.tasker.accentSecondary)
+                            .font(.lifeboard(.headline))
+                            .foregroundColor(Color.lifeboard.accentSecondary)
                             .opacity(textOpacity)
                     }
                 }

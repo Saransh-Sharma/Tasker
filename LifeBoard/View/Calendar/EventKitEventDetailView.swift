@@ -145,10 +145,10 @@ struct EventKitEventDetailView: View {
     var body: some View {
         VStack(spacing: 16) {
             Text(String(localized: "Event unavailable on this platform."))
-                .font(.tasker(.body))
+                .font(.lifeboard(.body))
             Text(eventID)
-                .font(.tasker(.caption2))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(Color.lifeboard.textSecondary)
             Button(String(localized: "Close"), action: onDismiss)
             if let onHideFromTimeline {
                 Button(action: onHideFromTimeline) {

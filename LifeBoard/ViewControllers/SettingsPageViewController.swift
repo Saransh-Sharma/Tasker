@@ -1,6 +1,6 @@
 //
 //  SettingsPageViewController.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Saransh Sharma on 26/04/20.
 //  Copyright © 2020 saransh1337. All rights reserved.
@@ -22,7 +22,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     private var settingsViewModel: SettingsViewModel?
     private var themeCancellable: AnyCancellable?
     private var settingsHostingController: UIHostingController<AnyView>?
-    private var currentLayoutClass: TaskerLayoutClass = .phone
+    private var currentLayoutClass: LifeBoardLayoutClass = .phone
 
     // MARK: - Backdrop compatibility properties (needed for SettingsBackdrop.swift)
     var backdropContainer = UIView()
@@ -44,7 +44,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
 
         setupSwiftUIHost()
 
-        themeCancellable = TaskerThemeManager.shared.publisher
+        themeCancellable = LifeBoardThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.applyTheme()
@@ -92,7 +92,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         }
         viewModel.onRestartOnboarding = { [weak self] in
             self?.dismiss(animated: true) {
-                NotificationCenter.default.post(name: .taskerStartOnboardingRequested, object: nil)
+                NotificationCenter.default.post(name: .lifeboardStartOnboardingRequested, object: nil)
             }
         }
         viewModel.onOpenCalendarChooser = { [weak self] in
@@ -104,10 +104,10 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
 
         self.settingsViewModel = viewModel
 
-        currentLayoutClass = TaskerLayoutResolver.classify(view: view)
+        currentLayoutClass = LifeBoardLayoutResolver.classify(view: view)
         let rootView = AnyView(
             SettingsRootView(viewModel: viewModel)
-                .taskerLayoutClass(currentLayoutClass)
+                .lifeboardLayoutClass(currentLayoutClass)
         )
         let hostingController = UIHostingController(rootView: rootView)
         hostingController.view.backgroundColor = .clear
@@ -126,13 +126,13 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     }
 
     private func refreshLayoutClassIfNeeded() {
-        let nextLayoutClass = TaskerLayoutResolver.classify(view: view)
+        let nextLayoutClass = LifeBoardLayoutResolver.classify(view: view)
         guard nextLayoutClass != currentLayoutClass else { return }
         currentLayoutClass = nextLayoutClass
         guard let settingsViewModel else { return }
         settingsHostingController?.rootView = AnyView(
             SettingsRootView(viewModel: settingsViewModel)
-                .taskerLayoutClass(nextLayoutClass)
+                .lifeboardLayoutClass(nextLayoutClass)
         )
     }
 
@@ -148,7 +148,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         let view = ChatsSettingsView(currentThread: .constant(nil))
             .environmentObject(appManager)
             .environment(llmEvaluator)
-            .taskerLayoutClass(currentLayoutClass)
+            .lifeboardLayoutClass(currentLayoutClass)
         let vc = UIHostingController(rootView: view)
         vc.title = "Chat Behavior"
         self.navigationController?.pushViewController(vc, animated: true)
@@ -158,7 +158,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         let view = ModelsSettingsView()
             .environmentObject(appManager)
             .environment(llmEvaluator)
-            .taskerLayoutClass(currentLayoutClass)
+            .lifeboardLayoutClass(currentLayoutClass)
         let vc = UIHostingController(rootView: view)
         vc.title = "Models"
         self.navigationController?.pushViewController(vc, animated: true)
@@ -168,7 +168,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         let view = LLMSettingsView(currentThread: .constant(nil))
             .environmentObject(appManager)
             .environment(llmEvaluator)
-            .taskerLayoutClass(currentLayoutClass)
+            .lifeboardLayoutClass(currentLayoutClass)
         let vc = UIHostingController(rootView: view)
         vc.title = "AI Assistant"
         navigationController?.pushViewController(vc, animated: true)
@@ -181,7 +181,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         }
         let viewModel = presentationDependencyContainer.makeProjectManagementViewModel()
         let view = ProjectManagementView(viewModel: viewModel)
-            .taskerLayoutClass(currentLayoutClass)
+            .lifeboardLayoutClass(currentLayoutClass)
         let controller = UIHostingController(rootView: view)
         controller.title = "Projects"
         navigationController?.pushViewController(controller, animated: true)
@@ -194,7 +194,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         }
         let viewModel = presentationDependencyContainer.makeLifeManagementViewModel()
         let view = LifeManagementView(viewModel: viewModel)
-            .taskerLayoutClass(currentLayoutClass)
+            .lifeboardLayoutClass(currentLayoutClass)
         let controller = UIHostingController(rootView: view)
         controller.title = "Life Management"
         navigationController?.pushViewController(controller, animated: true)
@@ -209,9 +209,9 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
                 service.updateSelectedCalendarIDs(selectedIDs)
             }
         )
-        let host = UIHostingController(rootView: AnyView(chooser.taskerLayoutClass(currentLayoutClass)))
+        let host = UIHostingController(rootView: AnyView(chooser.lifeboardLayoutClass(currentLayoutClass)))
         host.modalPresentationStyle = .pageSheet
-        host.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        host.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
         if let sheet = host.sheetPresentationController {
             sheet.detents = [.medium(), .large()]
             sheet.prefersGrabberVisible = true
@@ -224,7 +224,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     // MARK: - Theme
 
     private func applyTheme() {
-        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let colors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         view.tintColor = colors.accentPrimary
         view.backgroundColor = colors.bgCanvas
     }

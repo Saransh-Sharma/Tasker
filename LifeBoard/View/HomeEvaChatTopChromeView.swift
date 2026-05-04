@@ -21,7 +21,7 @@ struct HomeEvaChatTopChromeView: View {
         self.onNewChat = onNewChat
     }
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         HStack(alignment: .center, spacing: spacing.s12) {
@@ -34,13 +34,13 @@ struct HomeEvaChatTopChromeView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(chromeState.title)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .lineLimit(1)
 
                 Text(chromeState.subtitle)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -89,7 +89,7 @@ struct HomeEvaChatTopChromeView: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }

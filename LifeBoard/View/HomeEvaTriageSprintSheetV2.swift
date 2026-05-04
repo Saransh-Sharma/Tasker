@@ -37,12 +37,12 @@ struct EvaTriageSprintSheetV2: View {
     let isLoadingScope: Bool
     let queueErrorMessage: String?
     let lastBatchRunID: UUID?
-    let onScopeChange: (EvaTriageScope, @escaping (Result<Void, Error>) -> Void) -> Void
-    let onApplyDecision: (EvaTriageQueueItem, EvaTriageDecision, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    let onApplyAll: (@escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
-    let onUndoBulkApply: ((@escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void)?
+    let onScopeChange: @Sendable (EvaTriageScope, @escaping @Sendable (Result<Void, Error>) -> Void) -> Void
+    let onApplyDecision: @Sendable (EvaTriageQueueItem, EvaTriageDecision, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    let onApplyAll: @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    let onUndoBulkApply: (@Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void)?
     let onSkip: (UUID) -> Void
-    let onDelete: (UUID, @escaping (Result<Void, Error>) -> Void) -> Void
+    let onDelete: @Sendable (UUID, @escaping @Sendable (Result<Void, Error>) -> Void) -> Void
     let onTrack: (String, [String: Any]) -> Void
 
     @State private var currentIndex: Int = 0
@@ -81,8 +81,8 @@ struct EvaTriageSprintSheetV2: View {
         isApplying || isChangingScope || isLoadingScope || isUndoingBulk
     }
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         triageBody
@@ -94,14 +94,14 @@ struct EvaTriageSprintSheetV2: View {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     HStack(spacing: spacing.s8) {
                         Text("Triage Sprint")
-                            .font(.tasker(.title3))
-                            .foregroundColor(Color.tasker.textPrimary)
+                            .font(.lifeboard(.title3))
+                            .foregroundColor(Color.lifeboard.textPrimary)
                         Text("\(queue.count)")
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                             .padding(.horizontal, spacing.s8)
                             .padding(.vertical, spacing.s4)
-                            .background(Color.tasker.surfaceSecondary)
+                            .background(Color.lifeboard.surfaceSecondary)
                             .clipShape(Capsule())
                         Spacer()
                     }
@@ -110,8 +110,8 @@ struct EvaTriageSprintSheetV2: View {
 
                     if let queueErrorMessage {
                         Text(queueErrorMessage)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.statusDanger)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(Color.lifeboard.statusDanger)
                     }
                 }
                 .padding(.horizontal, spacing.s16)
@@ -128,15 +128,15 @@ struct EvaTriageSprintSheetV2: View {
                         } else if let currentItem, let draft = currentDraft {
                             VStack(alignment: .leading, spacing: spacing.s8) {
                                 Text("Card \(min(currentIndex + 1, queue.count)) of \(queue.count)")
-                                    .font(.tasker(.caption1))
-                                    .foregroundColor(Color.tasker.textSecondary)
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundColor(Color.lifeboard.textSecondary)
                                     .contentTransition(.numericText())
-                                    .animation(TaskerAnimation.snappy, value: currentIndex)
+                                    .animation(LifeBoardAnimation.snappy, value: currentIndex)
 
-                                TaskerProgressBar(
+                                LifeBoardProgressBar(
                                     progress: Double(min(currentIndex + 1, queue.count)) / Double(max(queue.count, 1)),
-                                    colors: [Color.tasker.accentPrimary, Color.tasker.accentPrimary],
-                                    trackColor: Color.tasker.surfaceSecondary,
+                                    colors: [Color.lifeboard.accentPrimary, Color.lifeboard.accentPrimary],
+                                    trackColor: Color.lifeboard.surfaceSecondary,
                                     height: 4
                                 )
                             }
@@ -150,20 +150,20 @@ struct EvaTriageSprintSheetV2: View {
 
                                 VStack(alignment: .leading, spacing: spacing.s8) {
                                     Text(currentItem.task.title)
-                                        .font(.tasker(.title3))
-                                        .foregroundColor(Color.tasker.textPrimary)
+                                        .font(.lifeboard(.title3))
+                                        .foregroundColor(Color.lifeboard.textPrimary)
                                         .lineLimit(3)
                                     Text(contextLine(for: currentItem.task))
-                                        .font(.tasker(.caption1))
-                                        .foregroundColor(Color.tasker.textSecondary)
+                                        .font(.lifeboard(.caption1))
+                                        .foregroundColor(Color.lifeboard.textSecondary)
                                 }
                                 .padding(spacing.s16)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .taskerDenseSurface(
+                            .lifeboardDenseSurface(
                                 cornerRadius: corner.r2,
-                                fillColor: Color.tasker.surfacePrimary,
-                                strokeColor: Color.tasker.strokeHairline
+                                fillColor: Color.lifeboard.surfacePrimary,
+                                strokeColor: Color.lifeboard.strokeHairline
                             )
                             .id(currentItem.task.id)
                             .transition(.asymmetric(
@@ -199,17 +199,17 @@ struct EvaTriageSprintSheetV2: View {
                                 )
                             }
                             .padding(spacing.s16)
-                            .taskerDenseSurface(
+                            .lifeboardDenseSurface(
                                 cornerRadius: corner.r2,
-                                fillColor: Color.tasker.surfaceSecondary,
-                                strokeColor: Color.tasker.strokeHairline
+                                fillColor: Color.lifeboard.surfaceSecondary,
+                                strokeColor: Color.lifeboard.strokeHairline
                             )
                             .enhancedStaggeredAppearance(index: 1)
 
                             VStack(alignment: .leading, spacing: spacing.s8) {
                                 Text("Quick defer")
-                                    .font(.tasker(.caption1))
-                                    .foregroundColor(Color.tasker.textSecondary)
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundColor(Color.lifeboard.textSecondary)
                                 HStack(spacing: spacing.s8) {
                                     deferChip(title: "Tomorrow", preset: .tomorrow, draft: draft, item: currentItem)
                                     deferChip(title: "72h", preset: .hours72, draft: draft, item: currentItem)
@@ -224,8 +224,8 @@ struct EvaTriageSprintSheetV2: View {
 
                             if let errorMessage {
                                 Text(errorMessage)
-                                    .font(.tasker(.caption1))
-                                    .foregroundColor(Color.tasker.statusDanger)
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundColor(Color.lifeboard.statusDanger)
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                             }
 
@@ -237,14 +237,14 @@ struct EvaTriageSprintSheetV2: View {
                                     ])
                                 } label: {
                                     Text("Apply all high confidence (\(highConfidencePreviewCount))")
-                                        .font(.tasker(.caption1))
-                                        .foregroundColor(Color.tasker.accentPrimary)
+                                        .font(.lifeboard(.caption1))
+                                        .foregroundColor(Color.lifeboard.accentPrimary)
                                         .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
                                 }
                                 .buttonStyle(.plain)
                                 .background(
                                     RoundedRectangle(cornerRadius: corner.r2)
-                                        .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                                        .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
                                 )
                                 .disabled(isBusy)
                             }
@@ -262,7 +262,7 @@ struct EvaTriageSprintSheetV2: View {
                     triageStickyActionBar
                 }
             }
-            .background(Color.tasker.bgCanvas)
+            .background(Color.lifeboard.bgCanvas)
             .navigationTitle("Start triage")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -298,7 +298,7 @@ struct EvaTriageSprintSheetV2: View {
                 Text("This applies high-confidence triage suggestions in one review-confirmed batch.")
             }
         }
-        .taskerSnackbar($snackbar)
+        .lifeboardSnackbar($snackbar)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
@@ -307,27 +307,27 @@ struct EvaTriageSprintSheetV2: View {
         VStack(spacing: spacing.s24) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
-                .foregroundColor(Color.tasker.statusSuccess)
+                .foregroundColor(Color.lifeboard.statusSuccess)
                 .scaleEffect(completionAppeared ? 1.0 : 0.3)
                 .opacity(completionAppeared ? 1.0 : 0)
-                .animation(TaskerAnimation.expressive, value: completionAppeared)
+                .animation(LifeBoardAnimation.expressive, value: completionAppeared)
 
             Text("Triage complete")
-                .font(.tasker(.title3))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.title3))
+                .foregroundColor(Color.lifeboard.textPrimary)
 
             HStack(spacing: spacing.s8) {
-                triageStatPill(label: "Accepted", count: acceptedCount, color: Color.tasker.statusSuccess, index: 0)
-                triageStatPill(label: "Deferred", count: deferredCount, color: Color.tasker.accentPrimary, index: 1)
-                triageStatPill(label: "Skipped", count: skippedCount, color: Color.tasker.textTertiary, index: 2)
-                triageStatPill(label: "Deleted", count: deletedCount, color: Color.tasker.statusDanger, index: 3)
+                triageStatPill(label: "Accepted", count: acceptedCount, color: Color.lifeboard.statusSuccess, index: 0)
+                triageStatPill(label: "Deferred", count: deferredCount, color: Color.lifeboard.accentPrimary, index: 1)
+                triageStatPill(label: "Skipped", count: skippedCount, color: Color.lifeboard.textTertiary, index: 2)
+                triageStatPill(label: "Deleted", count: deletedCount, color: Color.lifeboard.statusDanger, index: 3)
             }
 
             if let onUndoBulkApply, lastBatchRunID != nil {
                 Button {
                     isUndoingBulk = true
                     onUndoBulkApply { result in
-                        DispatchQueue.main.async {
+                        Task { @MainActor in
                             isUndoingBulk = false
                             switch result {
                             case .success:
@@ -339,12 +339,12 @@ struct EvaTriageSprintSheetV2: View {
                     }
                 } label: {
                     Text("Undo last bulk apply")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.buttonSmall))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
                         .background(
                             RoundedRectangle(cornerRadius: corner.r2)
-                                .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                                .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -355,10 +355,10 @@ struct EvaTriageSprintSheetV2: View {
                 dismiss()
             } label: {
                 Text("Done")
-                    .font(.tasker(.button))
-                    .foregroundColor(Color.tasker.accentOnPrimary)
+                    .font(.lifeboard(.button))
+                    .foregroundColor(Color.lifeboard.accentOnPrimary)
                     .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
-                    .background(Color.tasker.accentPrimary)
+                    .background(Color.lifeboard.accentPrimary)
                     .clipShape(RoundedRectangle(cornerRadius: corner.r2))
             }
             .buttonStyle(.plain)
@@ -367,22 +367,22 @@ struct EvaTriageSprintSheetV2: View {
         .padding(.top, spacing.s32)
         .onAppear {
             completionAppeared = true
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
         }
     }
 
     private func triageStatPill(label: String, count: Int, color: Color, index: Int) -> some View {
         VStack(spacing: spacing.s4) {
             Text("\(count)")
-                .font(.tasker(.callout))
+                .font(.lifeboard(.callout))
                 .foregroundColor(color)
             Text(label)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textTertiary)
         }
         .padding(.horizontal, spacing.s8)
         .padding(.vertical, spacing.s8)
-        .background(Color.tasker.surfaceSecondary)
+        .background(Color.lifeboard.surfaceSecondary)
         .clipShape(RoundedRectangle(cornerRadius: corner.r2))
         .enhancedStaggeredAppearance(index: index)
     }
@@ -391,8 +391,8 @@ struct EvaTriageSprintSheetV2: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             if let currentItem, let draft = currentDraft, !hasActionableChange(for: currentItem, draft: draft) {
                 Text("Pick at least one change or a defer option to continue.")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(Color.lifeboard.textSecondary)
             }
 
             HStack(spacing: spacing.s8) {
@@ -400,10 +400,10 @@ struct EvaTriageSprintSheetV2: View {
                     applyCurrentItem()
                 } label: {
                     Text("Apply & Next")
-                        .font(.tasker(.button))
-                        .foregroundColor(Color.tasker.accentOnPrimary)
+                        .font(.lifeboard(.button))
+                        .foregroundColor(Color.lifeboard.accentOnPrimary)
                         .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
-                        .background(canApplyCurrentItem ? Color.tasker.accentPrimary : Color.tasker.accentMuted)
+                        .background(canApplyCurrentItem ? Color.lifeboard.accentPrimary : Color.lifeboard.accentMuted)
                         .clipShape(RoundedRectangle(cornerRadius: corner.r2))
                 }
                 .buttonStyle(.plain)
@@ -412,15 +412,15 @@ struct EvaTriageSprintSheetV2: View {
 
                 Button {
                     skipCurrentItem()
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                 } label: {
                     Text("Skip")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.buttonSmall))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .frame(minWidth: 56, minHeight: spacing.buttonHeight)
                         .background(
                             RoundedRectangle(cornerRadius: corner.r2)
-                                .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                                .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -428,16 +428,16 @@ struct EvaTriageSprintSheetV2: View {
                 .disabled(isBusy)
 
                 Button {
-                    TaskerFeedback.warning()
+                    LifeBoardFeedback.warning()
                     showDeleteConfirm = true
                 } label: {
                     Text("Delete")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundColor(Color.tasker.statusDanger)
+                        .font(.lifeboard(.buttonSmall))
+                        .foregroundColor(Color.lifeboard.statusDanger)
                         .frame(minWidth: 64, minHeight: spacing.buttonHeight)
                         .background(
                             RoundedRectangle(cornerRadius: corner.r2)
-                                .stroke(Color.tasker.statusDanger.opacity(0.4), lineWidth: 1)
+                                .stroke(Color.lifeboard.statusDanger.opacity(0.4), lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -447,15 +447,15 @@ struct EvaTriageSprintSheetV2: View {
 
             Button {
                 showEditFields.toggle()
-                TaskerFeedback.selection()
+                LifeBoardFeedback.selection()
             } label: {
                 Text(showEditFields ? "Done editing" : "Edit fields")
-                    .font(.tasker(.buttonSmall))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.buttonSmall))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
                     .background(
                         RoundedRectangle(cornerRadius: corner.r2)
-                            .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                            .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
                     )
             }
             .buttonStyle(.plain)
@@ -464,7 +464,7 @@ struct EvaTriageSprintSheetV2: View {
         .padding(.horizontal, spacing.s16)
         .padding(.top, spacing.s12)
         .padding(.bottom, spacing.s12)
-        .background(Color.tasker.surfacePrimary)
+        .background(Color.lifeboard.surfacePrimary)
     }
 
     private var triageScopeToggle: some View {
@@ -473,21 +473,21 @@ struct EvaTriageSprintSheetV2: View {
                 let isSelected = selectedScope == scope
                 Button {
                     changeScope(to: scope)
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                 } label: {
                     Text(scope == .allInbox ? "Backlog" : "Visible")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 36)
-                        .background(Capsule().fill(isSelected ? Color.tasker.accentPrimary : Color.clear))
-                        .animation(TaskerAnimation.snappy, value: selectedScope)
+                        .background(Capsule().fill(isSelected ? Color.lifeboard.accentPrimary : Color.clear))
+                        .animation(LifeBoardAnimation.snappy, value: selectedScope)
                 }
                 .buttonStyle(.plain)
                 .disabled(isBusy)
             }
         }
         .padding(spacing.s4)
-        .background(Color.tasker.surfaceSecondary)
+        .background(Color.lifeboard.surfaceSecondary)
         .clipShape(Capsule())
         .accessibilityLabel("Scope")
         .accessibilityHint("Toggle between visible inbox tasks and all inbox tasks")
@@ -529,8 +529,8 @@ struct EvaTriageSprintSheetV2: View {
     private func editPanel(item: EvaTriageQueueItem, draft: EvaTriageCardDraftState) -> some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             Text("Edit fields")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
 
             if !projectsByID.isEmpty {
                 Menu {
@@ -551,15 +551,15 @@ struct EvaTriageSprintSheetV2: View {
                 } label: {
                     HStack {
                         Text("Project")
-                            .font(.tasker(.caption1))
+                            .font(.lifeboard(.caption1))
                         Spacer()
                         Text(projectText(for: item, draft: draft))
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                     }
                     .padding(.horizontal, spacing.s12)
                     .frame(minHeight: 44)
-                    .background(Color.tasker.surfaceSecondary)
+                    .background(Color.lifeboard.surfaceSecondary)
                     .clipShape(RoundedRectangle(cornerRadius: corner.r2))
                 }
                 .buttonStyle(.plain)
@@ -632,7 +632,7 @@ struct EvaTriageSprintSheetV2: View {
                     displayedComponents: .date
                 )
                 .datePickerStyle(.compact)
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .frame(minHeight: 44)
             }
 
@@ -687,25 +687,25 @@ struct EvaTriageSprintSheetV2: View {
                 } label: {
                     HStack {
                         Text("State")
-                            .font(.tasker(.caption1))
+                            .font(.lifeboard(.caption1))
                         Spacer()
                         Text(stateText(for: item, draft: draft))
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                     }
                     .padding(.horizontal, spacing.s12)
                     .frame(minHeight: 44)
-                    .background(Color.tasker.surfaceSecondary)
+                    .background(Color.lifeboard.surfaceSecondary)
                     .clipShape(RoundedRectangle(cornerRadius: corner.r2))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(spacing.s12)
-        .taskerDenseSurface(
+        .lifeboardDenseSurface(
             cornerRadius: corner.r2,
-            fillColor: Color.tasker.surfaceSecondary,
-            strokeColor: Color.tasker.strokeHairline
+            fillColor: Color.lifeboard.surfaceSecondary,
+            strokeColor: Color.lifeboard.strokeHairline
         )
     }
 
@@ -718,7 +718,7 @@ struct EvaTriageSprintSheetV2: View {
             "scope": nextScope.rawValue
         ])
         onScopeChange(nextScope) { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 isChangingScope = false
                 switch result {
                 case .success:
@@ -757,7 +757,7 @@ struct EvaTriageSprintSheetV2: View {
             "defer": draft.deferPreset?.rawValue ?? "none"
         ])
         onApplyDecision(currentItem, decision) { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 isApplying = false
                 switch result {
                 case .success:
@@ -767,7 +767,7 @@ struct EvaTriageSprintSheetV2: View {
                     } else {
                         acceptedCount += 1
                     }
-                    TaskerFeedback.success()
+                    LifeBoardFeedback.success()
                 case .failure(let error):
                     errorMessage = error.localizedDescription
                 }
@@ -780,21 +780,21 @@ struct EvaTriageSprintSheetV2: View {
         onSkip(currentItem.task.id)
         skippedCount += 1
         onTrack("triage_skip", ["task_id": currentItem.task.id.uuidString])
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
     }
 
     private func deleteCurrentItem() {
         guard let currentItem else { return }
         isApplying = true
         onDelete(currentItem.task.id) { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 isApplying = false
                 switch result {
                 case .success:
                     deletedCount += 1
                     errorMessage = nil
                     onTrack("triage_delete_confirmed", ["task_id": currentItem.task.id.uuidString])
-                    TaskerFeedback.medium()
+                    LifeBoardFeedback.medium()
                 case .failure(let error):
                     errorMessage = error.localizedDescription
                 }
@@ -805,7 +805,7 @@ struct EvaTriageSprintSheetV2: View {
     private func applyAllHighConfidence() {
         isApplying = true
         onApplyAll { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 isApplying = false
                 switch result {
                 case .success:
@@ -814,7 +814,7 @@ struct EvaTriageSprintSheetV2: View {
                     onTrack("triage_bulk_apply_confirmed", [
                         "preview_count": highConfidencePreviewCount
                     ])
-                    TaskerFeedback.success()
+                    LifeBoardFeedback.success()
                 case .failure(let error):
                     errorMessage = error.localizedDescription
                     onTrack("triage_error", [
@@ -904,15 +904,15 @@ struct EvaTriageSprintSheetV2: View {
         HStack(spacing: spacing.s8) {
             Image(systemName: icon)
                 .font(.system(size: 13))
-                .foregroundColor(Color.tasker.textTertiary)
+                .foregroundColor(Color.lifeboard.textTertiary)
                 .frame(width: 20)
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
             Spacer()
             if let confidence {
                 Text(confidenceLabel(confidence) ?? "")
-                    .font(.tasker(.caption2))
+                    .font(.lifeboard(.caption2))
                     .foregroundColor(confidenceBadgeTextColor(confidence))
                     .padding(.horizontal, spacing.s8)
                     .padding(.vertical, spacing.s4)
@@ -921,41 +921,41 @@ struct EvaTriageSprintSheetV2: View {
                     .accessibilityLabel("\(title) confidence \(confidenceLabel(confidence) ?? "")")
             }
             Text(value)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textPrimary)
         }
         .frame(minHeight: 28)
     }
 
     private func confidenceBadgeColor(_ value: Double) -> Color {
         switch value {
-        case 0.75...: return Color.tasker.statusSuccess.opacity(0.15)
-        case 0.45..<0.75: return Color.tasker.statusWarning.opacity(0.15)
-        default: return Color.tasker.textTertiary.opacity(0.12)
+        case 0.75...: return Color.lifeboard.statusSuccess.opacity(0.15)
+        case 0.45..<0.75: return Color.lifeboard.statusWarning.opacity(0.15)
+        default: return Color.lifeboard.textTertiary.opacity(0.12)
         }
     }
 
     private func confidenceBadgeTextColor(_ value: Double) -> Color {
         switch value {
-        case 0.75...: return Color.tasker.statusSuccess
-        case 0.45..<0.75: return Color.tasker.statusWarning
-        default: return Color.tasker.textTertiary
+        case 0.75...: return Color.lifeboard.statusSuccess
+        case 0.45..<0.75: return Color.lifeboard.statusWarning
+        default: return Color.lifeboard.textTertiary
         }
     }
 
     private func priorityColor(for priority: TaskPriority) -> Color {
         switch priority {
-        case .max: return Color.tasker.priorityMax
-        case .high: return Color.tasker.priorityHigh
-        case .low: return Color.tasker.priorityLow
-        case .none: return Color.tasker.priorityNone
+        case .max: return Color.lifeboard.priorityMax
+        case .high: return Color.lifeboard.priorityHigh
+        case .low: return Color.lifeboard.priorityLow
+        case .none: return Color.lifeboard.priorityNone
         }
     }
 
     private func deferChip(title: String, preset: EvaTriageDeferPreset, draft: EvaTriageCardDraftState, item: EvaTriageQueueItem) -> some View {
         let isSelected = draft.deferPreset == preset
         return Button {
-            withAnimation(TaskerAnimation.quick) {
+            withAnimation(LifeBoardAnimation.quick) {
                 updateDraft(for: item) { draft in
                     draft.deferPreset = (draft.deferPreset == preset) ? nil : preset
                 }
@@ -964,14 +964,14 @@ struct EvaTriageSprintSheetV2: View {
                 "preset": preset.rawValue,
                 "task_id": item.task.id.uuidString
             ])
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         } label: {
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                 .padding(.horizontal, spacing.s12)
                 .frame(minHeight: spacing.buttonHeight)
-                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                .background(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -982,15 +982,15 @@ struct EvaTriageSprintSheetV2: View {
 
     private func dueChip(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button {
-            withAnimation(TaskerAnimation.quick) { action() }
-            TaskerFeedback.selection()
+            withAnimation(LifeBoardAnimation.quick) { action() }
+            LifeBoardFeedback.selection()
         } label: {
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                 .padding(.horizontal, spacing.s12)
                 .frame(minHeight: 36)
-                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                .background(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -999,15 +999,15 @@ struct EvaTriageSprintSheetV2: View {
 
     private func durationChip(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button {
-            withAnimation(TaskerAnimation.quick) { action() }
-            TaskerFeedback.selection()
+            withAnimation(LifeBoardAnimation.quick) { action() }
+            LifeBoardFeedback.selection()
         } label: {
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                 .padding(.horizontal, spacing.s12)
                 .frame(minHeight: 36)
-                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                .background(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)

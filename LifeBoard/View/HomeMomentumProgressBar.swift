@@ -3,7 +3,7 @@ import SwiftUI
 struct HomeMomentumProgressBar: View {
     let progress: Double
     let colors: [Color]
-    var trackColor: Color = Color.tasker.surfaceSecondary
+    var trackColor: Color = Color.lifeboard.surfaceSecondary
     var height: CGFloat = 6
     var animate: Bool = true
 

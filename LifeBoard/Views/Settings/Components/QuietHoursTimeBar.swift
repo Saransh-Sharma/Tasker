@@ -21,16 +21,16 @@ struct QuietHoursTimeBar: View {
     }
 
     var body: some View {
-        VStack(spacing: TaskerSwiftUITokens.spacing.s4) {
+        VStack(spacing: LifeBoardSwiftUITokens.spacing.s4) {
             // Time labels
             HStack {
                 Text(timeString(hour: startHour, minute: startMinute))
-                    .font(.tasker(.caption2))
-                    .foregroundColor(.tasker(.textSecondary))
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(.lifeboard(.textSecondary))
                 Spacer()
                 Text(timeString(hour: endHour, minute: endMinute))
-                    .font(.tasker(.caption2))
-                    .foregroundColor(.tasker(.textSecondary))
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(.lifeboard(.textSecondary))
             }
 
             // Visual bar
@@ -40,7 +40,7 @@ struct QuietHoursTimeBar: View {
                 ZStack(alignment: .leading) {
                     // Background track
                     Capsule()
-                        .fill(Color.tasker.surfaceTertiary)
+                        .fill(Color.lifeboard.surfaceTertiary)
                         .frame(height: barHeight)
 
                     // Active range
@@ -48,18 +48,18 @@ struct QuietHoursTimeBar: View {
                         // Two segments for midnight wrap
                         // Segment 1: start → end of day
                         Capsule()
-                            .fill(Color.tasker.accentMuted)
+                            .fill(Color.lifeboard.accentMuted)
                             .frame(width: max(0, width * (1.0 - startFraction)), height: barHeight)
                             .offset(x: width * startFraction)
 
                         // Segment 2: start of day → end
                         Capsule()
-                            .fill(Color.tasker.accentMuted)
+                            .fill(Color.lifeboard.accentMuted)
                             .frame(width: max(0, width * endFraction), height: barHeight)
                     } else {
                         // Single continuous segment
                         Capsule()
-                            .fill(Color.tasker.accentMuted)
+                            .fill(Color.lifeboard.accentMuted)
                             .frame(width: max(0, width * (endFraction - startFraction)), height: barHeight)
                             .offset(x: width * startFraction)
                     }
@@ -71,15 +71,15 @@ struct QuietHoursTimeBar: View {
             HStack {
                 Text("12 AM")
                     .font(.system(size: 9))
-                    .foregroundColor(.tasker(.textQuaternary))
+                    .foregroundColor(.lifeboard(.textQuaternary))
                 Spacer()
                 Text("12 PM")
                     .font(.system(size: 9))
-                    .foregroundColor(.tasker(.textQuaternary))
+                    .foregroundColor(.lifeboard(.textQuaternary))
                 Spacer()
                 Text("12 AM")
                     .font(.system(size: 9))
-                    .foregroundColor(.tasker(.textQuaternary))
+                    .foregroundColor(.lifeboard(.textQuaternary))
             }
         }
     }

@@ -1,6 +1,6 @@
 //
 //  TaskSectionView.swift
-//  Tasker
+//  LifeBoard
 //
 //  Collapsible project section with refined header, accent threading,
 //  and spring-physics collapse animation. Obsidian & Gems design system.
@@ -13,7 +13,7 @@ import SwiftUI
 struct HomeTaskRowDivider: View {
     var body: some View {
         Rectangle()
-            .fill(Color.tasker.strokeHairline.opacity(0.55))
+            .fill(Color.lifeboard.strokeHairline.opacity(0.55))
             .frame(height: 1)
     }
 }
@@ -30,9 +30,9 @@ struct TaskSectionHeaderRow: View {
     var headerActionAccessibilityID: String? = nil
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.md) {
+        HStack(spacing: LifeBoardTheme.Spacing.md) {
             Button(action: onToggle) {
-                HStack(spacing: TaskerTheme.Spacing.md) {
+                HStack(spacing: LifeBoardTheme.Spacing.md) {
                     Circle()
                         .fill(accentColor)
                         .frame(width: 4, height: 4)
@@ -43,27 +43,27 @@ struct TaskSectionHeaderRow: View {
                         .frame(width: 20, alignment: .center)
 
                     Text(title)
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundColor(Color.lifeboard.textPrimary)
 
                     Text("\(taskCount)")
-                        .font(.tasker(.caption2))
+                        .font(.lifeboard(.caption2))
                         .fontWeight(.medium)
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .foregroundColor(Color.lifeboard.textTertiary)
                         .contentTransition(.numericText())
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.tasker.surfaceSecondary)
+                        .background(Color.lifeboard.surfaceSecondary)
                         .clipShape(Capsule())
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color.tasker.textQuaternary)
+                        .foregroundColor(Color.lifeboard.textQuaternary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .scaleEffect(isExpanded ? 1.0 : 0.9)
-                        .animation(TaskerAnimation.snappy, value: isExpanded)
+                        .animation(LifeBoardAnimation.snappy, value: isExpanded)
                 }
                 .contentShape(Rectangle())
             }
@@ -73,8 +73,8 @@ struct TaskSectionHeaderRow: View {
             if let headerActionTitle, let onHeaderAction {
                 Button(action: onHeaderAction) {
                     Text(headerActionTitle)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                         .padding(.horizontal, 8)
                         .frame(minHeight: 44)
                 }
@@ -84,7 +84,7 @@ struct TaskSectionHeaderRow: View {
                 .accessibilityIdentifier(headerActionAccessibilityID ?? "home.section.headerAction")
             }
         }
-        .padding(.vertical, TaskerTheme.Spacing.sm)
+        .padding(.vertical, LifeBoardTheme.Spacing.sm)
         .contentShape(Rectangle())
     }
 }
@@ -153,10 +153,10 @@ struct TaskSectionView: View {
     var headerActionAccessibilityID: String?
 
     @State private var isExpanded: Bool = true
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var themeColors: TaskerColorTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).color
+    private var themeColors: LifeBoardColorTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).color
     }
 
     /// Initializes a new instance.
@@ -211,14 +211,14 @@ struct TaskSectionView: View {
 
             if isExpanded {
                 taskList
-                    .padding(.top, layoutStyle == .inset ? TaskerTheme.Spacing.xs : 0)
+                    .padding(.top, layoutStyle == .inset ? LifeBoardTheme.Spacing.xs : 0)
                     .transition(.asymmetric(
                         insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98, anchor: .top)),
                         removal: .opacity
                     ))
             }
         }
-        .animation(TaskerAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.snappy, value: isExpanded)
     }
 
     // MARK: - Section Header
@@ -231,10 +231,10 @@ struct TaskSectionView: View {
             taskCount: tasks.count,
             isExpanded: isExpanded,
             onToggle: {
-                withAnimation(TaskerAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.snappy) {
                     isExpanded.toggle()
                 }
-                TaskerFeedback.selection()
+                LifeBoardFeedback.selection()
             },
             headerActionTitle: headerActionTitle,
             onHeaderAction: onHeaderAction,
@@ -326,28 +326,28 @@ struct TaskSectionView: View {
         Button {
             let nextCollapsed = !isCompletedCollapsed
             onCompletedCollapsedChange?(nextCollapsed, derivedState.completedCount)
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         } label: {
-            HStack(spacing: TaskerTheme.Spacing.sm) {
+            HStack(spacing: LifeBoardTheme.Spacing.sm) {
                 Text("Completed")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text("\(derivedState.completedCount)")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textQuaternary)
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(Color.lifeboard.textQuaternary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.tasker.surfaceSecondary)
+                    .background(Color.lifeboard.surfaceSecondary)
                     .clipShape(Capsule())
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color.tasker.textQuaternary)
+                    .foregroundColor(Color.lifeboard.textQuaternary)
                     .rotationEffect(.degrees(isCompletedCollapsed ? 0 : 90))
-                    .animation(TaskerAnimation.snappy, value: isCompletedCollapsed)
+                    .animation(LifeBoardAnimation.snappy, value: isCompletedCollapsed)
             }
             .padding(.horizontal, 2)
             .padding(.vertical, 4)
@@ -362,7 +362,7 @@ struct TaskSectionView: View {
         if isOverdueSection {
             return Color(uiColor: themeColors.taskOverdue)
         }
-        return Color.tasker.accentPrimary
+        return Color.lifeboard.accentPrimary
     }
 
     private var sectionIcon: String {
@@ -615,10 +615,10 @@ struct HomeListSectionView: View {
                     taskCount: section.rows.count,
                     isExpanded: isExpanded,
                     onToggle: {
-                        withAnimation(TaskerAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.snappy) {
                             isExpanded.toggle()
                         }
-                        TaskerFeedback.selection()
+                        LifeBoardFeedback.selection()
                     },
                     headerActionTitle: headerActionTitle,
                     onHeaderAction: onHeaderAction,
@@ -631,7 +631,7 @@ struct HomeListSectionView: View {
                 rowsContent
             }
         }
-        .animation(TaskerAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.snappy, value: isExpanded)
     }
 
     private var rowsContent: some View {
@@ -704,7 +704,7 @@ struct HomeListSectionView: View {
                 }
             }
         }
-        .padding(.top, section.showsHeader ? (layoutStyle == .inset ? TaskerTheme.Spacing.xs : 0) : 0)
+        .padding(.top, section.showsHeader ? (layoutStyle == .inset ? LifeBoardTheme.Spacing.xs : 0) : 0)
         .transition(.asymmetric(
             insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98, anchor: .top)),
             removal: .opacity
@@ -713,13 +713,13 @@ struct HomeListSectionView: View {
 
     private var accentColor: Color {
         if section.isOverdueSection {
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         }
 
         guard let accentHex = section.accentHex else {
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         }
-        return TaskerHexColor.color(accentHex, fallback: Color.tasker.accentPrimary)
+        return LifeBoardHexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)
     }
 
     private func rowAccentHex(for row: HomeTodayRow) -> String? {
@@ -742,28 +742,28 @@ struct HomeListSectionView: View {
         Button {
             let nextCollapsed = !isResolvedCollapsed
             onCompletedCollapsedChange?(nextCollapsed, resolvedCount)
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         } label: {
-            HStack(spacing: TaskerTheme.Spacing.sm) {
+            HStack(spacing: LifeBoardTheme.Spacing.sm) {
                 Text("Resolved")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text("\(resolvedCount)")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textQuaternary)
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(Color.lifeboard.textQuaternary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.tasker.surfaceSecondary)
+                    .background(Color.lifeboard.surfaceSecondary)
                     .clipShape(Capsule())
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color.tasker.textQuaternary)
+                    .foregroundColor(Color.lifeboard.textQuaternary)
                     .rotationEffect(.degrees(isResolvedCollapsed ? 0 : 90))
-                    .animation(TaskerAnimation.snappy, value: isResolvedCollapsed)
+                    .animation(LifeBoardAnimation.snappy, value: isResolvedCollapsed)
             }
             .padding(.horizontal, 2)
             .padding(.vertical, 4)
@@ -842,7 +842,7 @@ struct TaskSectionView_Previews: PreviewProvider {
             )
         }
         .padding(.horizontal, 20)
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .previewLayout(.sizeThatFits)
     }
 }

@@ -1,6 +1,6 @@
 //
 //  RadarChartCard.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Assistant on Radar Chart Implementation
 //  Copyright 2025 saransh1337. All rights reserved.
@@ -18,8 +18,8 @@ struct RadarChartCard: View {
     let referenceDate: Date?
     let onCreateProject: () -> Void
     @StateObject private var viewModel: RadarChartCardViewModel
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     /// Initializes a new instance.
     init(
@@ -37,21 +37,21 @@ struct RadarChartCard: View {
     }
 
     var body: some View {
-        TaskerCard {
+        LifeBoardCard {
             VStack(alignment: .leading, spacing: spacing.titleSubtitleGap) {
                 HStack {
                     VStack(alignment: .leading, spacing: spacing.s2) {
                         Text(title)
-                            .font(.tasker(.headline))
+                            .font(.lifeboard(.headline))
                             .fontWeight(.semibold)
-                            .foregroundColor(.tasker(.textPrimary))
+                            .foregroundColor(.lifeboard(.textPrimary))
                             .dynamicTypeSize(.large...(.accessibility5))
                             .accessibilityAddTraits(.isHeader)
 
                         if let subtitle = subtitle {
                             Text(subtitle)
-                                .font(.tasker(.caption1))
-                                .foregroundColor(.tasker(.textSecondary))
+                                .font(.lifeboard(.caption1))
+                                .foregroundColor(.lifeboard(.textSecondary))
                                 .dynamicTypeSize(.large...(.accessibility3))
                         }
                     }
@@ -61,7 +61,7 @@ struct RadarChartCard: View {
                 ZStack {
                     if viewModel.isLoading {
                         RoundedRectangle(cornerRadius: corner.input)
-                            .fill(Color.tasker.surfaceSecondary)
+                            .fill(Color.lifeboard.surfaceSecondary)
                             .frame(height: 350)
                             .overlay(
                                 ProgressView()
@@ -90,10 +90,10 @@ struct RadarChartCard: View {
                             referenceDate: referenceDate
                         )
                         .frame(height: 350)
-                        .taskerDenseSurface(
+                        .lifeboardDenseSurface(
                             cornerRadius: corner.input,
-                            fillColor: Color.tasker.surfacePrimary,
-                            strokeColor: Color.tasker.strokeHairline
+                            fillColor: Color.lifeboard.surfacePrimary,
+                            strokeColor: Color.lifeboard.strokeHairline
                         )
                     }
                 }
@@ -119,17 +119,17 @@ struct RadarChartCard: View {
     ) -> some View {
         VStack(spacing: spacing.cardPadding) {
             Image(systemName: icon)
-                .font(.tasker(.title1))
-                .foregroundColor(.tasker(.textTertiary))
+                .font(.lifeboard(.title1))
+                .foregroundColor(.lifeboard(.textTertiary))
 
             VStack(spacing: spacing.s8) {
                 Text(title)
-                    .font(.tasker(.headline))
-                    .foregroundColor(.tasker(.textPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(.lifeboard(.textPrimary))
 
                 Text(message)
-                    .font(.tasker(.callout))
-                    .foregroundColor(.tasker(.textSecondary))
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(.lifeboard(.textSecondary))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, spacing.s24)
             }
@@ -137,12 +137,12 @@ struct RadarChartCard: View {
             if let actionTitle = actionTitle, let action = action {
                 Button(action: action) {
                     Text(actionTitle)
-                        .font(.tasker(.buttonSmall))
+                        .font(.lifeboard(.buttonSmall))
                         .fontWeight(.semibold)
-                        .foregroundColor(.tasker(.accentOnPrimary))
+                        .foregroundColor(.lifeboard(.accentOnPrimary))
                         .padding(.horizontal, spacing.s24)
                         .padding(.vertical, spacing.s12)
-                        .background(Color.tasker.accentPrimary)
+                        .background(Color.lifeboard.accentPrimary)
                         .cornerRadius(corner.input)
                 }
                 .padding(.top, spacing.s8)
@@ -152,7 +152,7 @@ struct RadarChartCard: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: corner.input)
-                .fill(Color.tasker.surfacePrimary)
+                .fill(Color.lifeboard.surfacePrimary)
         )
     }
 
@@ -179,7 +179,7 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
 
     /// Executes setupChartView.
     private func setupChartView(_ chartView: RadarChartView) {
-        let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
+        let themeTokens = LifeBoardThemeManager.shared.currentTheme.tokens
         let colors = themeTokens.color
 
         // Chart configuration
@@ -205,7 +205,7 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
 
         // Y-axis (radial axis)
         let yAxis = chartView.yAxis
-        yAxis.labelFont = UIFont.tasker.font(for: .caption1)
+        yAxis.labelFont = UIFont.lifeboard.font(for: .caption1)
         yAxis.labelCount = 5
         yAxis.axisMinimum = 0
         yAxis.drawLabelsEnabled = false
@@ -215,7 +215,7 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
 
         // X-axis (angular axis - project names)
         let xAxis = chartView.xAxis
-        xAxis.labelFont = UIFont.tasker.font(for: .caption1)
+        xAxis.labelFont = UIFont.lifeboard.font(for: .caption1)
         xAxis.xOffset = 0
         xAxis.yOffset = 0
         xAxis.labelTextColor = colors.textSecondary
@@ -237,7 +237,7 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
             return
         }
 
-        let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
+        let themeTokens = LifeBoardThemeManager.shared.currentTheme.tokens
         let colors = themeTokens.color
 
         // Calculate dynamic maximum
@@ -356,19 +356,19 @@ struct RadarChartCard_Previews: PreviewProvider {
 
 private final class PreviewRadarReadModelRepository: TaskReadModelRepositoryProtocol {
     /// Executes fetchTasks.
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
     /// Executes searchTasks.
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
     /// Executes fetchProjectTaskCounts.
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
         completion(.success([:]))
     }
@@ -377,7 +377,7 @@ private final class PreviewRadarReadModelRepository: TaskReadModelRepositoryProt
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
         completion(.success([:]))
     }
@@ -385,33 +385,33 @@ private final class PreviewRadarReadModelRepository: TaskReadModelRepositoryProt
 
 private final class PreviewRadarProjectRepository: ProjectRepositoryProtocol {
     /// Executes fetchAllProjects.
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) { completion(.success([])) }
     /// Executes fetchProject.
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
     /// Executes fetchProject.
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
     /// Executes fetchInboxProject.
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
     /// Executes fetchCustomProjects.
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) { completion(.success([])) }
     /// Executes createProject.
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(project)) }
     /// Executes ensureInboxProject.
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
     /// Executes repairProjectIdentityCollisions.
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+    func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
     }
     /// Executes updateProject.
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(project)) }
     /// Executes renameProject.
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
     /// Executes deleteProject.
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
     /// Executes getTaskCount.
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
+    func getTaskCount(for projectId: UUID, completion: @escaping @Sendable (Result<Int, Error>) -> Void) { completion(.success(0)) }
     /// Executes moveTasks.
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
     /// Executes isProjectNameAvailable.
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) { completion(.success(true)) }
 }

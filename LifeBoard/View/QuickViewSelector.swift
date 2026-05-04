@@ -1,6 +1,6 @@
 //
 //  QuickViewSelector.swift
-//  Tasker
+//  LifeBoard
 //
 //  Navigation bar dropdown for quick view selection.
 //  Compact design for seamless nav bar integration.
@@ -43,7 +43,7 @@ public struct QuickViewSelector: View {
                 Button {
                     selectedQuickView = quickView
                     onSelect?(quickView)
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                 } label: {
                     HStack {
                         Text(quickView.title)
@@ -65,7 +65,7 @@ public struct QuickViewSelector: View {
                     if let onShowDatePicker {
                         Button {
                             onShowDatePicker()
-                            TaskerFeedback.selection()
+                            LifeBoardFeedback.selection()
                         } label: {
                             Label("Select date...", systemImage: "calendar")
                         }
@@ -75,7 +75,7 @@ public struct QuickViewSelector: View {
                     if let onShowAdvancedFilters {
                         Button {
                             onShowAdvancedFilters()
-                            TaskerFeedback.selection()
+                            LifeBoardFeedback.selection()
                         } label: {
                             Label("Advanced filters", systemImage: "slider.horizontal.3")
                         }
@@ -85,7 +85,7 @@ public struct QuickViewSelector: View {
                     if let onResetFilters {
                         Button(role: .destructive) {
                             onResetFilters()
-                            TaskerFeedback.selection()
+                            LifeBoardFeedback.selection()
                         } label: {
                             Label("Reset filters", systemImage: "line.3.horizontal.decrease.circle")
                         }
@@ -107,37 +107,37 @@ public struct QuickViewSelector: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Focus view")
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption2))
+                        .foregroundStyle(Color.lifeboard.textTertiary)
 
                     Text(selectedQuickView.title)
-                        .font(.tasker(.callout))
+                        .font(.lifeboard(.callout))
                         .fontWeight(.semibold)
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                 }
 
                 if let count = taskCounts?[selectedQuickView] {
                     Text("\(count)")
-                        .font(.tasker(.caption1))
+                        .font(.lifeboard(.caption1))
                         .fontWeight(.semibold)
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(Color.tasker.surfacePrimary.opacity(colorScheme == .dark ? 0.58 : 0.92))
+                                .fill(Color.lifeboard.surfacePrimary.opacity(colorScheme == .dark ? 0.58 : 0.92))
                         )
                 }
 
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .rotationEffect(.degrees(2))
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(minHeight: 44)
-            .taskerChromeSurface(
+            .lifeboardChromeSurface(
                 cornerRadius: 22,
                 accentColor: selectionTint,
                 level: .e1
@@ -154,15 +154,15 @@ public struct QuickViewSelector: View {
     private var selectionTint: Color {
         switch selectedQuickView {
         case .overdue:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .done:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .morning:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .evening:
-            return Color.tasker.accentSecondary
+            return Color.lifeboard.accentSecondary
         case .today, .upcoming:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         }
     }
 
@@ -202,7 +202,7 @@ public struct CompactNavSelector: View {
                 Button {
                     selectedQuickView = quickView
                     onSelect?(quickView)
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                 } label: {
                     Label {
                         Text(quickView.title)
@@ -218,11 +218,11 @@ public struct CompactNavSelector: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .semibold))
             }
-            .foregroundStyle(Color.tasker.textPrimary)
+            .foregroundStyle(Color.lifeboard.textPrimary)
             .frame(width: 38, height: 38)
-            .taskerChromeSurface(
+            .lifeboardChromeSurface(
                 cornerRadius: 19,
-                accentColor: Color.tasker.accentSecondary,
+                accentColor: Color.lifeboard.accentSecondary,
                 level: .e1
             )
         }
@@ -263,7 +263,7 @@ struct QuickViewSelector_Previews: PreviewProvider {
             }
         }
         .padding()
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .previewLayout(.sizeThatFits)
     }
 }

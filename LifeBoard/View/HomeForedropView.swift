@@ -1,6 +1,6 @@
 //
 //  HomeForedropView.swift
-//  Tasker
+//  LifeBoard
 //
 //  New SwiftUI Home shell with backdrop/foredrop pattern.
 //
@@ -71,10 +71,10 @@ private enum ReplanHotZone: String, CaseIterable {
     @MainActor
     var tint: Color {
         switch self {
-        case .planToday: return Color.tasker.accentPrimary
-        case .moveToInbox: return Color.tasker.stateInfo
-        case .complete: return Color.tasker.statusSuccess
-        case .delete: return Color.tasker.statusDanger
+        case .planToday: return Color.lifeboard.accentPrimary
+        case .moveToInbox: return Color.lifeboard.stateInfo
+        case .complete: return Color.lifeboard.statusSuccess
+        case .delete: return Color.lifeboard.statusDanger
         }
     }
 
@@ -83,7 +83,7 @@ private enum ReplanHotZone: String, CaseIterable {
     }
 }
 
-private struct EvaRescueSplitComposerState {
+private struct EvaRescueSplitComposerState: Sendable {
     var isOpen = false
     var childTitles: [String] = ["", ""]
     var duePreset: EvaTriageDeferPreset?
@@ -107,18 +107,18 @@ private struct NeedsReplanTrayView: View {
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
                     .frame(width: 36, height: 36)
-                    .background(Color.tasker.accentWash.opacity(0.72), in: Circle())
+                    .background(Color.lifeboard.accentWash.opacity(0.72), in: Circle())
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.tasker(.headline).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                     Text(subtitle)
-                        .font(.tasker(.support))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.support))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -126,22 +126,22 @@ private struct NeedsReplanTrayView: View {
                 Spacer(minLength: 8)
 
                 Text(callToAction)
-                    .font(.tasker(.support).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.support).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(Color.tasker.surfacePrimary.opacity(0.82), in: Capsule())
+                    .background(Color.lifeboard.surfacePrimary.opacity(0.82), in: Capsule())
                     .lineLimit(1)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.tasker.accentWash.opacity(isProminent ? 0.34 : 0.18))
+                    .fill(Color.lifeboard.accentWash.opacity(isProminent ? 0.34 : 0.18))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.tasker.accentPrimary.opacity(isProminent ? 0.12 : 0.08), lineWidth: 1)
+                    .stroke(Color.lifeboard.accentPrimary.opacity(isProminent ? 0.12 : 0.08), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -156,8 +156,8 @@ private struct NeedsReplanLauncherSheet: View {
     let onStart: () -> Void
     let onLater: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s20) {
@@ -167,7 +167,7 @@ private struct NeedsReplanLauncherSheet: View {
                 .accessibilityIdentifier("home.needsReplan.launcher")
 
             Capsule()
-                .fill(Color.tasker.strokeHairline.opacity(0.7))
+                .fill(Color.lifeboard.strokeHairline.opacity(0.7))
                 .frame(width: 44, height: 5)
                 .frame(maxWidth: .infinity)
                 .accessibilityHidden(true)
@@ -176,19 +176,19 @@ private struct NeedsReplanLauncherSheet: View {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     Image(systemName: summary.count == 0 ? "checkmark.seal.fill" : "sunrise.fill")
                         .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(summary.count == 0 ? Color.tasker.statusSuccess : Color.tasker.statusWarning)
+                        .foregroundStyle(summary.count == 0 ? Color.lifeboard.statusSuccess : Color.lifeboard.statusWarning)
                         .frame(width: 46, height: 46)
-                        .background(Color.tasker.accentWash.opacity(0.9), in: Circle())
+                        .background(Color.lifeboard.accentWash.opacity(0.9), in: Circle())
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: spacing.s4) {
                         Text(summary.launcherTitle)
-                            .font(.tasker(.screenTitle))
-                            .foregroundStyle(Color.tasker.textPrimary)
+                            .font(.lifeboard(.screenTitle))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                         Text(summary.launcherBodyText)
-                            .font(.tasker(.body))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.body))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .lineSpacing(2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -218,22 +218,22 @@ private struct NeedsReplanLauncherSheet: View {
                     }
                 }
                 .padding(spacing.s12)
-                .background(Color.tasker.surfaceSecondary.opacity(0.86), in: RoundedRectangle(cornerRadius: corner.card, style: .continuous))
+                .background(Color.lifeboard.surfaceSecondary.opacity(0.86), in: RoundedRectangle(cornerRadius: corner.card, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: corner.card, style: .continuous)
-                        .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+                        .stroke(Color.lifeboard.strokeHairline.opacity(0.72), lineWidth: 1)
                 )
             }
 
             Button(action: {
-                TaskerFeedback.selection()
+                LifeBoardFeedback.selection()
                 onStart()
             }) {
                 Label(summary.launcherPrimaryActionTitle, systemImage: summary.count == 0 ? "plus.circle.fill" : "arrow.triangle.2.circlepath")
-                    .font(.tasker(.button))
-                    .foregroundStyle(Color.tasker.accentOnPrimary)
+                    .font(.lifeboard(.button))
+                    .foregroundStyle(Color.lifeboard.accentOnPrimary)
                     .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
-                    .background(Color.tasker.actionPrimary, in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+                    .background(Color.lifeboard.actionPrimary, in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
                     .accessibilityIdentifier("home.needsReplan.start")
             }
             .accessibilityIdentifier("home.needsReplan.start")
@@ -242,16 +242,16 @@ private struct NeedsReplanLauncherSheet: View {
 
             HStack {
                 Button("Later") {
-                    TaskerFeedback.light()
+                    LifeBoardFeedback.light()
                     onLater()
                 }
-                    .font(.tasker(.body).weight(.semibold))
+                    .font(.lifeboard(.body).weight(.semibold))
                 Spacer()
             }
-            .foregroundStyle(Color.tasker.textSecondary)
+            .foregroundStyle(Color.lifeboard.textSecondary)
         }
         .padding(24)
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .presentationDetents([.large])
         .presentationDragIndicator(.hidden)
     }
@@ -260,13 +260,13 @@ private struct NeedsReplanLauncherSheet: View {
         HStack(spacing: spacing.s12) {
             Image(systemName: systemImage)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.tasker.accentPrimary)
+                .foregroundStyle(Color.lifeboard.accentPrimary)
                 .frame(width: 26, height: 26)
-                .background(Color.tasker.accentWash, in: Circle())
+                .background(Color.lifeboard.accentWash, in: Circle())
                 .accessibilityHidden(true)
             Text(title)
-                .font(.tasker(.support))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.support))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -302,10 +302,10 @@ private struct ReplanHotZoneTarget: View {
             })
             .onChange(of: isTargeted) { _, newValue in
                 guard newValue else { return }
-                TaskerFeedback.selection()
+                LifeBoardFeedback.selection()
             }
-            .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast, value: isVisible)
-            .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast, value: isTargeted)
+            .animation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast, value: isVisible)
+            .animation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast, value: isTargeted)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(zone.title), \(zone.subtitle)")
             .accessibilityIdentifier(zone.accessibilityIdentifier)
@@ -317,11 +317,11 @@ private struct ReplanHotZoneTarget: View {
                 .font(.system(size: 18, weight: .semibold))
                 .scaleEffect(isTargeted && reduceMotion == false ? 1.08 : 1)
             Text(zone.title)
-                .font(.tasker(.caption1).weight(.semibold))
+                .font(.lifeboard(.caption1).weight(.semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
             Text(zone.subtitle)
-                .font(.tasker(.caption2))
+                .font(.lifeboard(.caption2))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
@@ -377,7 +377,7 @@ private struct NeedsReplanCardOverlay: View {
 
                 cardContent(for: candidate)
                     .scaleEffect(isDraggingTask && reduceMotion == false ? 1.018 : 1)
-                    .shadow(color: Color.tasker.accentPrimary.opacity(isDraggingTask ? 0.16 : 0), radius: isDraggingTask ? 18 : 0, x: 0, y: 10)
+                    .shadow(color: Color.lifeboard.accentPrimary.opacity(isDraggingTask ? 0.16 : 0), radius: isDraggingTask ? 18 : 0, x: 0, y: 10)
                     .draggable(candidate.task.id.uuidString) {
                         dragPreview(for: candidate)
                     }
@@ -385,10 +385,10 @@ private struct NeedsReplanCardOverlay: View {
                         DragGesture(minimumDistance: 3)
                             .onChanged { _ in
                                 guard isDraggingTask == false else { return }
-                                withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.panelIn) {
+                                withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.panelIn) {
                                     isDraggingTask = true
                                 }
-                                TaskerFeedback.light()
+                                LifeBoardFeedback.light()
                             }
                             .onEnded { _ in
                                 resetDragState()
@@ -406,50 +406,50 @@ private struct NeedsReplanCardOverlay: View {
                             .disabled(state.canUndo == false || state.isApplying)
                         Spacer()
                         Text("\(max(state.candidateIndex, 1)) of \(max(state.candidateTotal, 1))")
-                            .font(.tasker(.support).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.support).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                         Button("Skip", action: onSkip)
                             .disabled(state.isApplying)
                     }
-                    .font(.tasker(.support).weight(.semibold))
+                    .font(.lifeboard(.support).weight(.semibold))
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text(candidate.task.title)
-                            .font(.tasker(.title2).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textPrimary)
+                            .font(.lifeboard(.title2).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
                             .lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 3)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Text(originalLine(for: candidate))
-                            .font(.tasker(.body))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.body))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .lineLimit(2)
 
                         if let projectName = candidate.projectName, projectName.isEmpty == false {
                             Text("Project: \(projectName)")
-                                .font(.tasker(.support))
-                                .foregroundStyle(Color.tasker.textSecondary)
+                                .font(.lifeboard(.support))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
                                 .lineLimit(2)
                         }
 
                         if candidate.task.replanCount >= 3 {
                             Text("Replanned \(candidate.task.replanCount)x")
-                                .font(.tasker(.support).weight(.semibold))
-                                .foregroundStyle(Color.tasker.statusWarning)
+                                .font(.lifeboard(.support).weight(.semibold))
+                                .foregroundStyle(Color.lifeboard.statusWarning)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
-                                .background(Color.tasker.statusWarning.opacity(0.12), in: Capsule())
+                                .background(Color.lifeboard.statusWarning.opacity(0.12), in: Capsule())
                             Text("This keeps slipping. Consider shrinking it.")
-                                .font(.tasker(.support))
-                                .foregroundStyle(Color.tasker.textSecondary)
+                                .font(.lifeboard(.support))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
                                 .lineSpacing(1)
                         }
                     }
 
                     if state.isApplying {
                         ProgressView(applyingMessage)
-                            .font(.tasker(.support).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.support).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                     }
 
                     if let errorMessage = state.errorMessage {
@@ -475,10 +475,10 @@ private struct NeedsReplanCardOverlay: View {
                 .padding(18)
             }
             .frame(maxHeight: maxCardHeight)
-            .background(Color.tasker.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .background(Color.lifeboard.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.6), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.6), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.12), radius: 24, x: 0, y: 12)
             .accessibilityIdentifier("home.needsReplan.dragSource")
@@ -532,42 +532,42 @@ private struct NeedsReplanCardOverlay: View {
         HStack(spacing: 10) {
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .foregroundStyle(Color.lifeboard.textSecondary)
             Text(candidate.task.title)
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .lineLimit(1)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Color.tasker.surfacePrimary, in: Capsule())
-        .overlay(Capsule().stroke(Color.tasker.accentPrimary.opacity(0.26), lineWidth: 1))
+        .background(Color.lifeboard.surfacePrimary, in: Capsule())
+        .overlay(Capsule().stroke(Color.lifeboard.accentPrimary.opacity(0.26), lineWidth: 1))
     }
 
     private func performDrop(_ zone: ReplanHotZone) {
         resetDragState()
         switch zone {
         case .planToday:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             onFeedback("Drag into a time or All Day.")
             onReschedule()
         case .moveToInbox:
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
             onFeedback("Moved to Inbox")
             onMoveToInbox()
         case .complete:
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
             onFeedback("Marked complete")
             onCheckOff()
         case .delete:
-            TaskerFeedback.warning()
+            LifeBoardFeedback.warning()
             onFeedback("Deleted")
             onDelete()
         }
     }
 
     private func resetDragState() {
-        withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast) {
+        withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast) {
             isDraggingTask = false
             planTargeted = false
             inboxTargeted = false
@@ -630,8 +630,8 @@ private struct NeedsReplanCardOverlay: View {
     ) -> some View {
         Button(role: role, action: action) {
             Label(title, systemImage: systemImage)
-                .font(.tasker(.buttonSmall))
-                .foregroundStyle(role == .destructive ? Color.tasker.statusDanger : Color.tasker.textPrimary)
+                .font(.lifeboard(.buttonSmall))
+                .foregroundStyle(role == .destructive ? Color.lifeboard.statusDanger : Color.lifeboard.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .frame(minHeight: 46)
                 .background(actionFill(role: role, emphasized: title == "Reschedule"), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -659,18 +659,18 @@ private struct NeedsReplanCardOverlay: View {
             if emphasized {
                 Button(role: role, action: action) {
                     Label(title, systemImage: systemImage)
-                        .font(.tasker(.caption1).weight(.semibold))
-                        .foregroundStyle(Color.tasker.accentOnPrimary)
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.accentOnPrimary)
                         .frame(maxWidth: .infinity, minHeight: 42)
-                        .background(Color.tasker.actionPrimary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(Color.lifeboard.actionPrimary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .accessibilityIdentifier(actionAccessibilityIdentifier(title))
                 }
                 .buttonStyle(.plain)
             } else {
                 Button(role: role, action: action) {
                     Label(title, systemImage: systemImage)
-                        .font(.tasker(.caption1).weight(.semibold))
-                        .foregroundStyle(role == .destructive ? Color.tasker.statusDanger : Color.tasker.textPrimary)
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(role == .destructive ? Color.lifeboard.statusDanger : Color.lifeboard.textPrimary)
                         .frame(maxWidth: .infinity, minHeight: 42)
                         .background(actionFill(role: role, emphasized: false), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(
@@ -688,15 +688,15 @@ private struct NeedsReplanCardOverlay: View {
     }
 
     private func actionFill(role: ButtonRole?, emphasized: Bool) -> Color {
-        if emphasized { return Color.tasker.actionPrimary }
-        if role == .destructive { return Color.tasker.statusDanger.opacity(0.1) }
-        return Color.tasker.surfaceSecondary
+        if emphasized { return Color.lifeboard.actionPrimary }
+        if role == .destructive { return Color.lifeboard.statusDanger.opacity(0.1) }
+        return Color.lifeboard.surfaceSecondary
     }
 
     private func actionStroke(role: ButtonRole?, emphasized: Bool) -> Color {
-        if emphasized { return Color.tasker.actionPrimary.opacity(0.24) }
-        if role == .destructive { return Color.tasker.statusDanger.opacity(0.28) }
-        return Color.tasker.strokeHairline.opacity(0.78)
+        if emphasized { return Color.lifeboard.actionPrimary.opacity(0.24) }
+        if role == .destructive { return Color.lifeboard.statusDanger.opacity(0.28) }
+        return Color.lifeboard.strokeHairline.opacity(0.78)
     }
 
     private func actionAccessibilityIdentifier(_ title: String) -> String {
@@ -712,18 +712,18 @@ private struct NeedsReplanCardOverlay: View {
     private func errorBanner(_ message: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(Color.tasker.statusWarning)
+                .foregroundStyle(Color.lifeboard.statusWarning)
                 .accessibilityHidden(true)
             Text(message)
-                .font(.tasker(.support))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.support))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             Button("Dismiss", action: onClearError)
-                .font(.tasker(.support).weight(.semibold))
+                .font(.lifeboard(.support).weight(.semibold))
         }
         .padding(12)
-        .background(Color.tasker.surfaceSecondary.opacity(0.86), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.lifeboard.surfaceSecondary.opacity(0.86), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -733,8 +733,8 @@ private struct NeedsReplanSummaryOverlay: View {
     let onViewToday: () -> Void
     let onDone: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -742,20 +742,20 @@ private struct NeedsReplanSummaryOverlay: View {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     Image(systemName: state.skippedCount > 0 ? "clock.badge.exclamationmark.fill" : "checkmark.seal.fill")
                         .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(state.skippedCount > 0 ? Color.tasker.statusWarning : Color.tasker.statusSuccess)
+                        .foregroundStyle(state.skippedCount > 0 ? Color.lifeboard.statusWarning : Color.lifeboard.statusSuccess)
                         .frame(width: 48, height: 48)
-                        .background(Color.tasker.accentWash.opacity(0.9), in: Circle())
-                        .taskerSuccessPulse(isActive: state.skippedCount == 0)
+                        .background(Color.lifeboard.accentWash.opacity(0.9), in: Circle())
+                        .lifeboardSuccessPulse(isActive: state.skippedCount == 0)
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: spacing.s4) {
                         Text(state.skippedCount > 0 ? "You skipped \(state.skippedCount) tasks" : "All caught up")
-                            .font(.tasker(.title1).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textPrimary)
+                            .font(.lifeboard(.title1).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                         Text(state.skippedCount > 0 ? "You can review them now or leave them for later." : "You've resolved your unfinished tasks.")
-                            .font(.tasker(.body))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.body))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .lineSpacing(2)
                     }
                 }
@@ -767,7 +767,7 @@ private struct NeedsReplanSummaryOverlay: View {
                     metric("deleted", state.outcomes.deleted)
                 }
                 .padding(spacing.s12)
-                .background(Color.tasker.surfaceSecondary.opacity(0.82), in: RoundedRectangle(cornerRadius: corner.card, style: .continuous))
+                .background(Color.lifeboard.surfaceSecondary.opacity(0.82), in: RoundedRectangle(cornerRadius: corner.card, style: .continuous))
 
                 if state.skippedCount > 0 {
                     summaryPrimaryButton("Review skipped", systemImage: "arrow.uturn.backward.circle.fill", action: onReviewSkipped)
@@ -780,10 +780,10 @@ private struct NeedsReplanSummaryOverlay: View {
             .padding(20)
         }
         .frame(maxHeight: min(UIScreen.main.bounds.height * 0.52, 420))
-        .background(Color.tasker.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .background(Color.lifeboard.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.6), lineWidth: 1)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.6), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.12), radius: 24, x: 0, y: 12)
         .accessibilityIdentifier("home.needsReplan.summary")
@@ -792,26 +792,26 @@ private struct NeedsReplanSummaryOverlay: View {
     private func metric(_ label: String, _ count: Int) -> some View {
         HStack {
             Text("\(count)")
-                .font(.tasker(.metric))
-                .foregroundStyle(count > 0 ? Color.tasker.accentPrimary : Color.tasker.textQuaternary)
+                .font(.lifeboard(.metric))
+                .foregroundStyle(count > 0 ? Color.lifeboard.accentPrimary : Color.lifeboard.textQuaternary)
                 .contentTransition(.numericText())
             Text(label)
-                .font(.tasker(.support).weight(.semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.support).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textSecondary)
             Spacer(minLength: 0)
         }
     }
 
     private func summaryPrimaryButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         }) {
             Label(title, systemImage: systemImage)
-                .font(.tasker(.button))
-                .foregroundStyle(Color.tasker.accentOnPrimary)
+                .font(.lifeboard(.button))
+                .foregroundStyle(Color.lifeboard.accentOnPrimary)
                 .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
-                .background(Color.tasker.actionPrimary, in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+                .background(Color.lifeboard.actionPrimary, in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
         }
         .buttonStyle(.plain)
         .scaleOnPress()
@@ -819,8 +819,8 @@ private struct NeedsReplanSummaryOverlay: View {
 
     private func summarySecondaryButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .font(.tasker(.body).weight(.semibold))
-            .foregroundStyle(Color.tasker.textSecondary)
+            .font(.lifeboard(.body).weight(.semibold))
+            .foregroundStyle(Color.lifeboard.textSecondary)
             .frame(maxWidth: .infinity, minHeight: 44)
             .buttonStyle(.plain)
     }
@@ -830,10 +830,10 @@ private struct EvaOverdueRescueSheetV2: View {
     let plan: EvaRescuePlan?
     let tasksByID: [UUID: TaskDefinition]
     let lastBatchRunID: UUID?
-    let onApply: ([EvaBatchMutationInstruction], @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
-    let onUndo: (@escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
-    let onCreateSplit: (UUID, EvaSplitDraft, @escaping (Result<[TaskDefinition], Error>) -> Void) -> Void
-    let onUndoSplit: ([UUID], @escaping (Result<Void, Error>) -> Void) -> Void
+    let onApply: @Sendable ([EvaBatchMutationInstruction], @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    let onUndo: @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    let onCreateSplit: @Sendable (UUID, EvaSplitDraft, @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) -> Void
+    let onUndoSplit: @Sendable ([UUID], @escaping @Sendable (Result<Void, Error>) -> Void) -> Void
     let onTrack: (String, [String: Any]) -> Void
 
     @State private var selectedActionByTaskID: [UUID: EvaRescueActionType] = [:]
@@ -848,8 +848,8 @@ private struct EvaOverdueRescueSheetV2: View {
     @State private var snackbar: SnackbarData?
     @State private var emptyStateAppeared = false
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     private var allRecommendations: [EvaRescueRecommendation] {
         guard let plan else { return [] }
@@ -864,34 +864,34 @@ private struct EvaOverdueRescueSheetV2: View {
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         HStack {
                             Text("Debt: \(plan.debtLevel.rawValue.capitalized)")
-                                .font(.tasker(.title3))
+                                .font(.lifeboard(.title3))
                                 .foregroundColor(debtLevelColor(plan.debtLevel))
                             Spacer()
                             Text("\(allRecommendations.count)")
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textSecondary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundColor(Color.lifeboard.textSecondary)
                                 .contentTransition(.numericText())
                                 .padding(.horizontal, spacing.s8)
                                 .padding(.vertical, spacing.s4)
-                                .background(Color.tasker.surfaceSecondary)
+                                .background(Color.lifeboard.surfaceSecondary)
                                 .clipShape(Capsule())
                             Text("overdue")
-                                .font(.tasker(.caption2))
-                                .foregroundColor(Color.tasker.textTertiary)
+                                .font(.lifeboard(.caption2))
+                                .foregroundColor(Color.lifeboard.textTertiary)
                         }
 
                         // 7B: Debt progress bar
-                        TaskerProgressBar(
+                        LifeBoardProgressBar(
                             progress: min(plan.debtScore / 100.0, 1.0),
                             colors: [debtLevelColor(plan.debtLevel), debtLevelColor(plan.debtLevel)],
-                            trackColor: Color.tasker.surfaceSecondary,
+                            trackColor: Color.lifeboard.surfaceSecondary,
                             height: 6
                         )
 
                         if let errorMessage {
                             Text(errorMessage)
-                                .font(.tasker(.caption2))
-                                .foregroundColor(Color.tasker.statusDanger)
+                                .font(.lifeboard(.caption2))
+                                .foregroundColor(Color.lifeboard.statusDanger)
                         }
                     }
                     .padding(.horizontal, spacing.s16)
@@ -902,10 +902,10 @@ private struct EvaOverdueRescueSheetV2: View {
 
                     ScrollView {
                         VStack(alignment: .leading, spacing: spacing.s16) {
-                            rescueGroup(title: "Do today", icon: "flame.fill", iconColor: Color.tasker.statusWarning, items: plan.doToday, startIndex: 0)
-                            rescueGroup(title: "Move", icon: "calendar.badge.clock", iconColor: Color.tasker.accentPrimary, items: plan.move, startIndex: plan.doToday.count)
-                            rescueGroup(title: "Split", icon: "scissors", iconColor: Color.tasker.priorityHigh, items: plan.split, startIndex: plan.doToday.count + plan.move.count)
-                            rescueGroup(title: "Drop?", icon: "trash", iconColor: Color.tasker.statusDanger, items: plan.dropCandidate, startIndex: plan.doToday.count + plan.move.count + plan.split.count)
+                            rescueGroup(title: "Do today", icon: "flame.fill", iconColor: Color.lifeboard.statusWarning, items: plan.doToday, startIndex: 0)
+                            rescueGroup(title: "Move", icon: "calendar.badge.clock", iconColor: Color.lifeboard.accentPrimary, items: plan.move, startIndex: plan.doToday.count)
+                            rescueGroup(title: "Split", icon: "scissors", iconColor: Color.lifeboard.priorityHigh, items: plan.split, startIndex: plan.doToday.count + plan.move.count)
+                            rescueGroup(title: "Drop?", icon: "trash", iconColor: Color.lifeboard.statusDanger, items: plan.dropCandidate, startIndex: plan.doToday.count + plan.move.count + plan.split.count)
                         }
                         .padding(.horizontal, spacing.s16)
                         .padding(.top, spacing.s12)
@@ -920,18 +920,18 @@ private struct EvaOverdueRescueSheetV2: View {
                         Spacer()
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 48))
-                            .foregroundColor(Color.tasker.statusSuccess)
+                            .foregroundColor(Color.lifeboard.statusSuccess)
                             .breathingPulse(min: 0.7, max: 1.0, duration: 2.0)
                             .scaleEffect(emptyStateAppeared ? 1.0 : 0.3)
-                            .animation(TaskerAnimation.expressive, value: emptyStateAppeared)
+                            .animation(LifeBoardAnimation.expressive, value: emptyStateAppeared)
                         Text("All caught up!")
-                            .font(.tasker(.title3))
-                            .foregroundColor(Color.tasker.textPrimary)
+                            .font(.lifeboard(.title3))
+                            .foregroundColor(Color.lifeboard.textPrimary)
                             .opacity(emptyStateAppeared ? 1.0 : 0)
-                            .animation(TaskerAnimation.expressive.delay(0.1), value: emptyStateAppeared)
+                            .animation(LifeBoardAnimation.expressive.delay(0.1), value: emptyStateAppeared)
                         Text("No overdue tasks to rescue.")
-                            .font(.tasker(.body))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.body))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                         Spacer()
                     }
                     .frame(maxWidth: .infinity)
@@ -939,7 +939,7 @@ private struct EvaOverdueRescueSheetV2: View {
                     .onAppear { emptyStateAppeared = true }
                 }
             }
-            .background(Color.tasker.bgCanvas)
+            .background(Color.lifeboard.bgCanvas)
             .navigationTitle("Rescue")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -957,17 +957,17 @@ private struct EvaOverdueRescueSheetV2: View {
                 Text("Tasks marked Drop? will be moved to Inbox and their due dates cleared.")
             }
         }
-        .taskerSnackbar($snackbar)
+        .lifeboardSnackbar($snackbar)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 
     private func debtLevelColor(_ level: EvaDebtLevel) -> Color {
         switch level {
-        case .none: return Color.tasker.statusSuccess
-        case .low: return Color.tasker.accentPrimary
-        case .medium: return Color.tasker.statusWarning
-        case .high: return Color.tasker.statusDanger
+        case .none: return Color.lifeboard.statusSuccess
+        case .low: return Color.lifeboard.accentPrimary
+        case .medium: return Color.lifeboard.statusWarning
+        case .high: return Color.lifeboard.statusDanger
         }
     }
 
@@ -975,8 +975,8 @@ private struct EvaOverdueRescueSheetV2: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             if buildMutations(plan: plan).isEmpty {
                 Text("Select at least one Today, Move, or Drop action to apply.")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(Color.lifeboard.textSecondary)
             }
 
             HStack(spacing: spacing.s8) {
@@ -991,13 +991,13 @@ private struct EvaOverdueRescueSheetV2: View {
                     }
                 } label: {
                     Text("Apply plan")
-                        .font(.tasker(.button))
-                        .foregroundColor(Color.tasker.accentOnPrimary)
+                        .font(.lifeboard(.button))
+                        .foregroundColor(Color.lifeboard.accentOnPrimary)
                         .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
                         .background(
                             (isApplying || buildMutations(plan: plan).isEmpty)
-                                ? Color.tasker.accentMuted
-                                : Color.tasker.accentPrimary
+                                ? Color.lifeboard.accentMuted
+                                : Color.lifeboard.accentPrimary
                         )
                         .clipShape(RoundedRectangle(cornerRadius: corner.r2))
                 }
@@ -1011,12 +1011,12 @@ private struct EvaOverdueRescueSheetV2: View {
                         isUndoing = true
                         onTrack("rescue_undo_tap", [:])
                         onUndo { result in
-                            DispatchQueue.main.async {
+                            Task { @MainActor in
                                 isUndoing = false
                                 switch result {
                                 case .success:
                                     snackbar = SnackbarData(message: "Rescue plan undone")
-                                    TaskerFeedback.success()
+                                    LifeBoardFeedback.success()
                                 case .failure(let error):
                                     errorMessage = error.localizedDescription
                                 }
@@ -1024,12 +1024,12 @@ private struct EvaOverdueRescueSheetV2: View {
                         }
                     } label: {
                         Text("Undo")
-                            .font(.tasker(.buttonSmall))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.buttonSmall))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                             .frame(minWidth: 64, minHeight: spacing.buttonHeight)
                             .background(
                                 RoundedRectangle(cornerRadius: corner.r2)
-                                    .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                                    .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -1041,7 +1041,7 @@ private struct EvaOverdueRescueSheetV2: View {
         .padding(.horizontal, spacing.s16)
         .padding(.top, spacing.s12)
         .padding(.bottom, spacing.s12)
-        .background(Color.tasker.surfacePrimary)
+        .background(Color.lifeboard.surfacePrimary)
     }
 
     @ViewBuilder
@@ -1053,14 +1053,14 @@ private struct EvaOverdueRescueSheetV2: View {
                     .font(.system(size: 14))
                     .foregroundColor(iconColor)
                 Text(title)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                 Text("\(items.count)")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                     .padding(.horizontal, spacing.s8)
                     .padding(.vertical, spacing.s2)
-                    .background(Color.tasker.surfaceSecondary)
+                    .background(Color.lifeboard.surfaceSecondary)
                     .clipShape(Capsule())
                 Spacer()
             }
@@ -1081,15 +1081,15 @@ private struct EvaOverdueRescueSheetV2: View {
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         HStack(spacing: spacing.s8) {
                             Text(task?.title ?? "Task")
-                                .font(.tasker(.body))
-                                .foregroundColor(Color.tasker.textPrimary)
+                                .font(.lifeboard(.body))
+                                .foregroundColor(Color.lifeboard.textPrimary)
                                 .lineLimit(2)
 
                             Spacer()
 
                             // 7D: Confidence badge
                             Text(confidenceText(for: item.confidence))
-                                .font(.tasker(.caption2))
+                                .font(.lifeboard(.caption2))
                                 .foregroundColor(rescueConfidenceBadgeTextColor(item.confidence))
                                 .padding(.horizontal, spacing.s8)
                                 .padding(.vertical, spacing.s4)
@@ -1102,11 +1102,11 @@ private struct EvaOverdueRescueSheetV2: View {
                             if let dueDate = task?.dueDate, dueDate < Date() {
                                 let daysOverdue = max(0, Calendar.current.dateComponents([.day], from: dueDate, to: Date()).day ?? 0)
                                 Text("\(daysOverdue)d overdue")
-                                    .font(.tasker(.caption2))
-                                    .foregroundColor(Color.tasker.statusDanger)
+                                    .font(.lifeboard(.caption2))
+                                    .foregroundColor(Color.lifeboard.statusDanger)
                                     .padding(.horizontal, spacing.s8)
                                     .padding(.vertical, spacing.s2)
-                                    .background(Color.tasker.statusDanger.opacity(0.12))
+                                    .background(Color.lifeboard.statusDanger.opacity(0.12))
                                     .clipShape(Capsule())
                             }
                         }
@@ -1116,11 +1116,11 @@ private struct EvaOverdueRescueSheetV2: View {
                             HStack(spacing: spacing.s4) {
                                 ForEach(item.reasons, id: \.self) { reason in
                                     Text(reason)
-                                        .font(.tasker(.caption2))
-                                        .foregroundColor(Color.tasker.textTertiary)
+                                        .font(.lifeboard(.caption2))
+                                        .foregroundColor(Color.lifeboard.textTertiary)
                                         .padding(.horizontal, spacing.s8)
                                         .padding(.vertical, spacing.s2)
-                                        .background(Color.tasker.surfaceSecondary)
+                                        .background(Color.lifeboard.surfaceSecondary)
                                         .clipShape(Capsule())
                                 }
                             }
@@ -1149,19 +1149,19 @@ private struct EvaOverdueRescueSheetV2: View {
                         if splitState.completed {
                             HStack(spacing: spacing.s4) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(Color.tasker.statusSuccess)
+                                    .foregroundColor(Color.lifeboard.statusSuccess)
                                 Text("Split done")
-                                    .font(.tasker(.caption2))
-                                    .foregroundColor(Color.tasker.accentPrimary)
+                                    .font(.lifeboard(.caption2))
+                                    .foregroundColor(Color.lifeboard.accentPrimary)
                             }
                         }
                     }
                     .padding(spacing.s12)
                 }
-                .taskerDenseSurface(
+                .lifeboardDenseSurface(
                     cornerRadius: corner.r2,
-                    fillColor: Color.tasker.surfacePrimary,
-                    strokeColor: Color.tasker.strokeHairline
+                    fillColor: Color.lifeboard.surfacePrimary,
+                    strokeColor: Color.lifeboard.strokeHairline
                 )
                 .enhancedStaggeredAppearance(index: startIndex + index + 1)
             }
@@ -1169,28 +1169,28 @@ private struct EvaOverdueRescueSheetV2: View {
     }
 
     private func rescuePriorityColor(for priority: TaskPriority?) -> Color {
-        guard let priority else { return Color.tasker.priorityNone }
+        guard let priority else { return Color.lifeboard.priorityNone }
         switch priority {
-        case .max: return Color.tasker.priorityMax
-        case .high: return Color.tasker.priorityHigh
-        case .low: return Color.tasker.priorityLow
-        case .none: return Color.tasker.priorityNone
+        case .max: return Color.lifeboard.priorityMax
+        case .high: return Color.lifeboard.priorityHigh
+        case .low: return Color.lifeboard.priorityLow
+        case .none: return Color.lifeboard.priorityNone
         }
     }
 
     private func rescueConfidenceBadgeColor(_ value: Double) -> Color {
         switch value {
-        case 0.75...: return Color.tasker.statusSuccess.opacity(0.15)
-        case 0.45..<0.75: return Color.tasker.statusWarning.opacity(0.15)
-        default: return Color.tasker.textTertiary.opacity(0.12)
+        case 0.75...: return Color.lifeboard.statusSuccess.opacity(0.15)
+        case 0.45..<0.75: return Color.lifeboard.statusWarning.opacity(0.15)
+        default: return Color.lifeboard.textTertiary.opacity(0.12)
         }
     }
 
     private func rescueConfidenceBadgeTextColor(_ value: Double) -> Color {
         switch value {
-        case 0.75...: return Color.tasker.statusSuccess
-        case 0.45..<0.75: return Color.tasker.statusWarning
-        default: return Color.tasker.textTertiary
+        case 0.75...: return Color.lifeboard.statusSuccess
+        case 0.45..<0.75: return Color.lifeboard.statusWarning
+        default: return Color.lifeboard.textTertiary
         }
     }
 
@@ -1200,21 +1200,21 @@ private struct EvaOverdueRescueSheetV2: View {
             HStack(spacing: spacing.s8) {
                 ForEach(EvaRescueMoveChoice.allCases, id: \.self) { choice in
                     Button {
-                        withAnimation(TaskerAnimation.quick) {
+                        withAnimation(LifeBoardAnimation.quick) {
                             moveChoiceByTaskID[item.taskID] = choice
                         }
                         onTrack("rescue_action_changed", [
                             "task_id": item.taskID.uuidString,
                             "action": "move_\(choice.rawValue)"
                         ])
-                        TaskerFeedback.selection()
+                        LifeBoardFeedback.selection()
                     } label: {
                         Text(choice.title)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(selectedChoice == choice ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(selectedChoice == choice ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                             .padding(.horizontal, spacing.s12)
                             .frame(minHeight: 36)
-                            .background(selectedChoice == choice ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                            .background(selectedChoice == choice ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -1235,9 +1235,9 @@ private struct EvaOverdueRescueSheetV2: View {
                 .datePickerStyle(.compact)
                 .frame(minHeight: 44)
                 .padding(spacing.s8)
-                .background(Color.tasker.surfaceSecondary)
+                .background(Color.lifeboard.surfaceSecondary)
                 .clipShape(RoundedRectangle(cornerRadius: corner.r2))
-                .tint(Color.tasker.accentPrimary)
+                .tint(Color.lifeboard.accentPrimary)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -1254,15 +1254,15 @@ private struct EvaOverdueRescueSheetV2: View {
                     onTrack("rescue_split_open", [
                         "task_id": item.taskID.uuidString
                     ])
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                 } label: {
                     Text("Open split helper")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.buttonSmall))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
                         .background(
                             RoundedRectangle(cornerRadius: corner.r2)
-                                .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                                .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -1283,16 +1283,16 @@ private struct EvaOverdueRescueSheetV2: View {
                             )
                         )
                         .textInputAutocapitalization(.sentences)
-                        .font(.tasker(.caption1))
+                        .font(.lifeboard(.caption1))
                         .padding(.horizontal, spacing.s12)
                         .frame(minHeight: 40)
-                        .background(Color.tasker.surfacePrimary)
+                        .background(Color.lifeboard.surfacePrimary)
                         .clipShape(RoundedRectangle(cornerRadius: corner.r1))
                     }
 
                     if state.childTitles.count < 3 {
                         Button {
-                            withAnimation(TaskerAnimation.bouncy) {
+                            withAnimation(LifeBoardAnimation.bouncy) {
                                 var next = splitStateByTaskID[item.taskID] ?? state
                                 next.childTitles.append("")
                                 splitStateByTaskID[item.taskID] = next
@@ -1300,10 +1300,10 @@ private struct EvaOverdueRescueSheetV2: View {
                         } label: {
                             HStack(spacing: spacing.s4) {
                                 Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(Color.tasker.accentPrimary)
+                                    .foregroundColor(Color.lifeboard.accentPrimary)
                                 Text("Add child")
-                                    .font(.tasker(.caption1))
-                                    .foregroundColor(Color.tasker.accentPrimary)
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundColor(Color.lifeboard.accentPrimary)
                             }
                             .frame(minHeight: 36)
                         }
@@ -1318,21 +1318,21 @@ private struct EvaOverdueRescueSheetV2: View {
 
                     if let splitError = state.errorMessage {
                         Text(splitError)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.statusDanger)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(Color.lifeboard.statusDanger)
                     }
 
                     Button {
                         runSplitCreation(for: item, state: state)
                     } label: {
                         Text("Create subtasks")
-                            .font(.tasker(.button))
-                            .foregroundColor(Color.tasker.accentOnPrimary)
+                            .font(.lifeboard(.button))
+                            .foregroundColor(Color.lifeboard.accentOnPrimary)
                             .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
                             .background(
                                 (state.isCreating || validSplitTitles(state).count < 2)
-                                    ? Color.tasker.accentMuted
-                                    : Color.tasker.accentPrimary
+                                    ? Color.lifeboard.accentMuted
+                                    : Color.lifeboard.accentPrimary
                             )
                             .clipShape(RoundedRectangle(cornerRadius: corner.r2))
                     }
@@ -1341,7 +1341,7 @@ private struct EvaOverdueRescueSheetV2: View {
                     .disabled(state.isCreating || validSplitTitles(state).count < 2)
                 }
                 .padding(spacing.s12)
-                .background(Color.tasker.surfaceSecondary)
+                .background(Color.lifeboard.surfaceSecondary)
                 .clipShape(RoundedRectangle(cornerRadius: corner.r2))
             }
         }
@@ -1355,19 +1355,19 @@ private struct EvaOverdueRescueSheetV2: View {
     ) -> some View {
         let isSelected = state.duePreset == preset
         return Button {
-            withAnimation(TaskerAnimation.quick) {
+            withAnimation(LifeBoardAnimation.quick) {
                 var next = splitStateByTaskID[item.taskID] ?? state
                 next.duePreset = preset
                 splitStateByTaskID[item.taskID] = next
             }
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         } label: {
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                 .padding(.horizontal, spacing.s12)
                 .frame(minHeight: 36)
-                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                .background(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -1382,38 +1382,38 @@ private struct EvaOverdueRescueSheetV2: View {
     ) -> some View {
         let isSelected = selectedAction == action
         return Button {
-            withAnimation(TaskerAnimation.quick) {
+            withAnimation(LifeBoardAnimation.quick) {
                 selectedActionByTaskID[item.taskID] = action
             }
             onTrack("rescue_action_changed", [
                 "task_id": item.taskID.uuidString,
                 "action": action.rawValue
             ])
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         } label: {
             HStack(spacing: spacing.s4) {
                 Image(systemName: rescueActionIcon(for: action))
                     .font(.system(size: 11))
                 Text(actionTitle(for: action))
-                    .font(.tasker(.caption2))
+                    .font(.lifeboard(.caption2))
             }
-            .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+            .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
             .padding(.horizontal, spacing.s12)
             .frame(minHeight: 36)
             .background(
                 isSelected
-                    ? Color.tasker.accentPrimary
-                    : Color.tasker.surfaceSecondary
+                    ? Color.lifeboard.accentPrimary
+                    : Color.lifeboard.surfaceSecondary
             )
             .overlay(
                 Capsule()
-                    .stroke(isSelected ? Color.clear : Color.tasker.strokeHairline, lineWidth: 1)
+                    .stroke(isSelected ? Color.clear : Color.lifeboard.strokeHairline, lineWidth: 1)
             )
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .activeGlow(isActive: isSelected, color: Color.tasker.accentPrimary)
+        .activeGlow(isActive: isSelected, color: Color.lifeboard.accentPrimary)
         .accessibilityLabel(actionTitle(for: action))
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
     }
@@ -1442,7 +1442,7 @@ private struct EvaOverdueRescueSheetV2: View {
         )
 
         onCreateSplit(item.taskID, draft) { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 var updated = splitStateByTaskID[item.taskID] ?? state
                 updated.isCreating = false
                 switch result {
@@ -1457,7 +1457,7 @@ private struct EvaOverdueRescueSheetV2: View {
                         actions: [
                             SnackbarAction(title: "Undo") {
                                 onUndoSplit(createdIDs) { undoResult in
-                                    DispatchQueue.main.async {
+                                    Task { @MainActor in
                                         switch undoResult {
                                         case .success:
                                             var reset = splitStateByTaskID[item.taskID] ?? updated
@@ -1472,7 +1472,7 @@ private struct EvaOverdueRescueSheetV2: View {
                             }
                         ]
                     )
-                    TaskerFeedback.success()
+                    LifeBoardFeedback.success()
                 case .failure(let error):
                     updated.errorMessage = error.localizedDescription
                     splitStateByTaskID[item.taskID] = updated
@@ -1495,7 +1495,7 @@ private struct EvaOverdueRescueSheetV2: View {
         errorMessage = nil
         onTrack("rescue_apply_tap", ["mutation_count": mutations.count])
         onApply(mutations) { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 isApplying = false
                 switch result {
                 case .success:
@@ -1504,7 +1504,7 @@ private struct EvaOverdueRescueSheetV2: View {
                         actions: [
                             SnackbarAction(title: "Undo") {
                                 onUndo { undoResult in
-                                    DispatchQueue.main.async {
+                                    Task { @MainActor in
                                         switch undoResult {
                                         case .success:
                                             snackbar = SnackbarData(message: "Rescue plan undone")
@@ -1516,7 +1516,7 @@ private struct EvaOverdueRescueSheetV2: View {
                             }
                         ]
                     )
-                    TaskerFeedback.success()
+                    LifeBoardFeedback.success()
                 case .failure(let error):
                     errorMessage = error.localizedDescription
                 }
@@ -1887,7 +1887,7 @@ struct HomeSearchRequestSignature: Equatable {
 }
 
 enum HomeSearchFocusPolicyResolver {
-    static func shouldAutoFocusOnSearchEntry(layoutClass: TaskerLayoutClass) -> Bool {
+    static func shouldAutoFocusOnSearchEntry(layoutClass: LifeBoardLayoutClass) -> Bool {
         guard V2FeatureFlags.iPadPerfSearchFocusStabilizationV3Enabled else {
             return false
         }
@@ -1901,7 +1901,7 @@ protocol HomeSearchEngine: AnyObject {
     var projects: [Project] { get }
 
     func search(query: String, revision: Int)
-    func loadProjects(completion: (() -> Void)?)
+    func loadProjects(completion: (@MainActor @Sendable () -> Void)?)
     func setFilters(status: HomeSearchStatusFilter, projects: [String], priorities: [Int32])
     func clearFilters()
     func toggleProjectFilter(_ project: String)
@@ -1933,7 +1933,7 @@ final class LGHomeSearchEngine: HomeSearchEngine {
         viewModel.search(query: query, revision: revision)
     }
 
-    func loadProjects(completion: (() -> Void)?) {
+    func loadProjects(completion: (@MainActor @Sendable () -> Void)?) {
         viewModel.loadProjects(completion: completion)
     }
 
@@ -2232,7 +2232,7 @@ final class HomeSearchState: ObservableObject {
         hasLoaded = true
         isLoading = false
         refreshAvailableProjects()
-        TaskerPerformanceTrace.event("HomeSearchResultsApplied")
+        LifeBoardPerformanceTrace.event("HomeSearchResultsApplied")
     }
 
     private func refreshAvailableProjects() {
@@ -2277,44 +2277,43 @@ private enum HomePerformanceSignposts {
 
     // Points-of-interest signposts emit automatically while profiling with
     // Instruments. The verbose performance log still honors the explicit
-    // Tasker performance flags.
+    // LifeBoard performance flags.
 
     static func lastCellTapAccepted() {
-        TaskerPerformanceTrace.event("home.lastCellTap.accepted")
+        LifeBoardPerformanceTrace.event("home.lastCellTap.accepted")
     }
 
-    static func beginLastCellTap() -> TaskerPerformanceInterval {
-        TaskerPerformanceTrace.event("home.lastCellTap.begin")
-        return TaskerPerformanceTrace.begin(lastCellTapIntervalName)
+    static func beginLastCellTap() -> LifeBoardPerformanceInterval {
+        LifeBoardPerformanceTrace.event("home.lastCellTap.begin")
+        return LifeBoardPerformanceTrace.begin(lastCellTapIntervalName)
     }
 
-    static func endLastCellTap(_ interval: TaskerPerformanceInterval?) {
+    static func endLastCellTap(_ interval: LifeBoardPerformanceInterval?) {
         guard let interval else { return }
-        TaskerPerformanceTrace.end(interval)
-        TaskerPerformanceTrace.event("home.lastCellTap.end")
+        LifeBoardPerformanceTrace.end(interval)
+        LifeBoardPerformanceTrace.event("home.lastCellTap.end")
     }
 
-    static func beginHabitMutation() -> TaskerPerformanceInterval {
-        TaskerPerformanceTrace.event("home.habitMutation.begin")
-        return TaskerPerformanceTrace.begin(habitMutationIntervalName)
+    static func beginHabitMutation() -> LifeBoardPerformanceInterval {
+        LifeBoardPerformanceTrace.event("home.habitMutation.begin")
+        return LifeBoardPerformanceTrace.begin(habitMutationIntervalName)
     }
 
-    static func endHabitMutation(_ interval: TaskerPerformanceInterval?) {
+    static func endHabitMutation(_ interval: LifeBoardPerformanceInterval?) {
         guard let interval else { return }
-        TaskerPerformanceTrace.end(interval)
-        TaskerPerformanceTrace.event("home.habitMutation.end")
+        LifeBoardPerformanceTrace.end(interval)
+        LifeBoardPerformanceTrace.event("home.habitMutation.end")
     }
 
     static func openDetailTap() {
-        TaskerPerformanceTrace.event("home.openDetail.tap")
+        LifeBoardPerformanceTrace.event("home.openDetail.tap")
     }
 
     static func habitsSectionRendered(rowCount: Int) {
-        TaskerPerformanceTrace.event(habitsSectionRenderEventName, value: rowCount)
+        LifeBoardPerformanceTrace.event(habitsSectionRenderEventName, value: rowCount)
     }
 }
 
-@MainActor
 private struct HomeHabitSectionCardHost: View, Equatable {
     let title: String
     let summaryLine: String
@@ -2474,10 +2473,10 @@ private struct HomePrimaryWidgetRail: View {
 
     @State private var measuredHeights: [HomePrimaryWidgetKind: CGFloat] = [:]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).corner }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
@@ -2563,24 +2562,24 @@ private struct HomePrimaryWidgetRail: View {
             .padding(.vertical, 2)
             .background(
                 RoundedRectangle(cornerRadius: corner.r3, style: .continuous)
-                    .fill(Color.tasker.surfacePrimary.opacity(isActive ? 0.18 : 0.08))
+                    .fill(Color.lifeboard.surfacePrimary.opacity(isActive ? 0.18 : 0.08))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: corner.r3, style: .continuous)
                     .stroke(
                         isActive
-                            ? Color.tasker.accentPrimary.opacity(0.22)
-                            : Color.tasker.strokeHairline.opacity(0.48),
+                            ? Color.lifeboard.accentPrimary.opacity(0.22)
+                            : Color.lifeboard.strokeHairline.opacity(0.48),
                         lineWidth: 1
                     )
             )
             .shadow(
-                color: isActive ? Color.tasker.accentPrimary.opacity(0.10) : .clear,
+                color: isActive ? Color.lifeboard.accentPrimary.opacity(0.10) : .clear,
                 radius: isActive ? 12 : 0,
                 y: isActive ? 8 : 0
             )
             .scaleEffect(reduceMotion ? 1.0 : (isActive ? 1.0 : 0.988))
-            .animation(reduceMotion ? nil : TaskerAnimation.stateChange, value: isActive)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: isActive)
             .modifier(
                 HomePrimaryWidgetPageAccessibilityModifier(
                     page: page,
@@ -2638,16 +2637,16 @@ private struct HomePrimaryWidgetRail: View {
             onSelectionChange(page.kind, true)
         } label: {
             Text(page.kind.indicatorTitle)
-                .font(.tasker(.caption1).weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1).weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color.lifeboard.textPrimary : Color.lifeboard.textSecondary)
                 .padding(.horizontal, spacing.s12)
                 .padding(.vertical, spacing.s8)
                 .background(
                     Capsule(style: .continuous)
                         .fill(
                             isSelected
-                                ? Color.tasker.accentPrimary.opacity(0.14)
-                                : Color.tasker.surfaceSecondary.opacity(0.8)
+                                ? Color.lifeboard.accentPrimary.opacity(0.14)
+                                : Color.lifeboard.surfaceSecondary.opacity(0.8)
                         )
                 )
         }
@@ -2946,9 +2945,9 @@ struct HomeBackdropForedropRootView: View {
     @ObservedObject var searchState: HomeSearchState
     let chartCardViewModel: ChartCardViewModel
     let radarChartCardViewModel: RadarChartCardViewModel
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let forcedFace: Binding<HomeForedropFace>?
-    @ObservedObject private var themeManager = TaskerThemeManager.shared
+    @ObservedObject private var themeManager = LifeBoardThemeManager.shared
     @AppStorage(V2FeatureFlags.homeBackdropNoiseAmountUserKey)
     private var homeBackdropNoiseAmountStorage = V2FeatureFlags.defaultHomeBackdropNoiseAmount
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -3028,8 +3027,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var passiveTrackingRailViewportWidth: CGFloat = 0
     @State private var pendingFocusPromotionTask: TaskDefinition?
     @State private var focusReplacementOptions: [TaskDefinition] = []
-    @State private var activeHabitMutationInterval: TaskerPerformanceInterval?
-    @State private var activeLastCellTapInterval: TaskerPerformanceInterval?
+    @State private var activeHabitMutationInterval: LifeBoardPerformanceInterval?
+    @State private var activeLastCellTapInterval: LifeBoardPerformanceInterval?
     @State private var measuredTimelineHeaderHeight: CGFloat = 0
     @State private var measuredCalendarCardHeight: CGFloat = 0
     @State private var measuredWeekBackdropHeight: CGFloat = 0
@@ -3055,8 +3054,8 @@ struct HomeBackdropForedropRootView: View {
     private static let searchCommitDebounceNanoseconds: UInt64 = 250_000_000
     private static let nextActionFocusDurationSeconds = 15 * 60
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).corner }
     private var forcedFaceValue: HomeForedropFace? { forcedFace?.wrappedValue }
     private var chromeSnapshot: HomeChromeSnapshot { chromeStore.snapshot }
     private var tasksSnapshot: HomeTasksSnapshot { tasksStore.snapshot }
@@ -3072,7 +3071,7 @@ struct HomeBackdropForedropRootView: View {
         Self.launchArguments.contains("-UI_TESTING") || Self.launchArguments.contains("-DISABLE_ANIMATIONS")
     }
     private var shouldPresentHabitBoardForUITests: Bool {
-        Self.launchArguments.contains("-TASKER_TEST_PRESENT_HABIT_BOARD")
+        Self.launchArguments.contains("-LIFEBOARD_TEST_PRESENT_HABIT_BOARD")
     }
     private var isForedropHintAnimationEnabled: Bool {
         Self.launchArguments.contains("-ENABLE_FOREDROP_HINT_ANIMATION")
@@ -3257,23 +3256,23 @@ struct HomeBackdropForedropRootView: View {
 
     private var homeBackdropGradient: some View {
         ZStack {
-            TaskerNoisyGradientBackdrop(opacity: 0.9)
-            TaskerBackdropNoiseOverlay(amount: homeBackdropNoiseAmount)
+            LifeBoardNoisyGradientBackdrop(opacity: 0.9)
+            LifeBoardBackdropNoiseOverlay(amount: homeBackdropNoiseAmount)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
 
             LinearGradient(
                 colors: [
-                    Color.tasker.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                    Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.11 : 0.18),
-                    Color.tasker.bgCanvas.opacity(0.01)
+                    Color.lifeboard.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.16 : 0.24),
+                    Color.lifeboard.accentWash.opacity(colorScheme == .dark ? 0.11 : 0.18),
+                    Color.lifeboard.bgCanvas.opacity(0.01)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
 
             Circle()
-                .fill(Color.tasker.accentSecondaryWash.opacity(colorScheme == .dark ? 0.28 : 0.34))
+                .fill(Color.lifeboard.accentSecondaryWash.opacity(colorScheme == .dark ? 0.28 : 0.34))
                 .frame(width: 240, height: 240)
                 .blur(radius: 28)
                 .offset(x: 72, y: -48)
@@ -3289,7 +3288,7 @@ struct HomeBackdropForedropRootView: View {
     private var homeScreenBody: some View {
         let baseHomeScreen = ZStack {
             ZStack(alignment: .top) {
-                Color.tasker.bgCanvas
+                Color.lifeboard.bgCanvas
                     .ignoresSafeArea()
 
                 homeBackdropGradient
@@ -3299,7 +3298,7 @@ struct HomeBackdropForedropRootView: View {
 
                 LinearGradient(
                     colors: [
-                        Color.tasker(.overlayScrim).opacity(0.12),
+                        Color.lifeboard(.overlayScrim).opacity(0.12),
                         .clear
                     ],
                     startPoint: .top,
@@ -3347,7 +3346,7 @@ struct HomeBackdropForedropRootView: View {
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .accessibilityIdentifier("home.view")
-        .taskerSnackbar($snackbar)
+        .lifeboardSnackbar($snackbar)
         .overlay(alignment: .bottom) {
             needsReplanFloatingOverlay
         }
@@ -3518,7 +3517,7 @@ struct HomeBackdropForedropRootView: View {
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
-            .presentationBackground(Color.tasker(.bgElevated))
+            .presentationBackground(Color.lifeboard(.bgElevated))
         }
         .onAppear {
             if let forcedFaceValue {
@@ -3554,7 +3553,7 @@ struct HomeBackdropForedropRootView: View {
                     showHabitBoardPresented = true
                 } label: {
                     Text("Board")
-                        .font(.tasker(.caption2).weight(.semibold))
+                        .font(.lifeboard(.caption2).weight(.semibold))
                         .frame(width: 44, height: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -3612,28 +3611,42 @@ struct HomeBackdropForedropRootView: View {
                 queueErrorMessage: overlaySnapshot.triageQueueErrorMessage,
                 lastBatchRunID: overlaySnapshot.lastBatchRunID,
                 onScopeChange: { scope, completion in
-                    viewModel.refreshTriageQueue(scope: scope, completion: completion)
+                    Task { @MainActor in
+                        viewModel.refreshTriageQueue(scope: scope, completion: completion)
+                    }
                 },
                 onApplyDecision: { item, decision, completion in
-                    viewModel.applyTriageDecision(for: item, decision: decision, completion: completion)
+                    Task { @MainActor in
+                        viewModel.applyTriageDecision(for: item, decision: decision, completion: completion)
+                    }
                 },
                 onApplyAll: { completion in
-                    viewModel.applyAllTriageSuggestions(completion: completion)
+                    Task { @MainActor in
+                        viewModel.applyAllTriageSuggestions(completion: completion)
+                    }
                 },
                 onUndoBulkApply: { completion in
-                    viewModel.undoEvaBatchPlan(completion: completion)
+                    Task { @MainActor in
+                        viewModel.undoEvaBatchPlan(completion: completion)
+                    }
                 },
                 onSkip: { taskID in
-                    viewModel.removeTriageQueueItem(taskID: taskID)
+                    Task { @MainActor in
+                        viewModel.removeTriageQueueItem(taskID: taskID)
+                    }
                 },
                 onDelete: { taskID, completion in
-                    viewModel.deleteTask(taskID: taskID, scope: .single) { result in
-                        switch result {
-                        case .success:
-                            viewModel.removeTriageQueueItem(taskID: taskID)
-                            completion(.success(()))
-                        case .failure(let error):
-                            completion(.failure(error))
+                    Task { @MainActor in
+                        viewModel.deleteTask(taskID: taskID, scope: .single) { result in
+                            Task { @MainActor in
+                                switch result {
+                                case .success:
+                                    viewModel.removeTriageQueueItem(taskID: taskID)
+                                    completion(.success(()))
+                                case .failure(let error):
+                                    completion(.failure(error))
+                                }
+                            }
                         }
                     }
                 },
@@ -3651,16 +3664,24 @@ struct HomeBackdropForedropRootView: View {
                 tasksByID: rescueTasksByID,
                 lastBatchRunID: overlaySnapshot.lastBatchRunID,
                 onApply: { mutations, completion in
-                    viewModel.applyRescuePlan(mutations: mutations, completion: completion)
+                    Task { @MainActor in
+                        viewModel.applyRescuePlan(mutations: mutations, completion: completion)
+                    }
                 },
                 onUndo: { completion in
-                    viewModel.undoRescueRun(completion: completion)
+                    Task { @MainActor in
+                        viewModel.undoRescueRun(completion: completion)
+                    }
                 },
                 onCreateSplit: { taskID, draft, completion in
-                    viewModel.createSplitChildren(parentTaskID: taskID, draft: draft, completion: completion)
+                    Task { @MainActor in
+                        viewModel.createSplitChildren(parentTaskID: taskID, draft: draft, completion: completion)
+                    }
                 },
                 onUndoSplit: { childIDs, completion in
-                    viewModel.undoCreatedSplitChildren(childTaskIDs: childIDs, completion: completion)
+                    Task { @MainActor in
+                        viewModel.undoCreatedSplitChildren(childTaskIDs: childIDs, completion: completion)
+                    }
                 },
                 onTrack: { action, metadata in
                     viewModel.trackHomeInteraction(action: action, metadata: metadata)
@@ -3705,7 +3726,11 @@ struct HomeBackdropForedropRootView: View {
                     linkedHabitID: prompt.habitID,
                     prompt: "What helped \(prompt.habitTitle) recover today?",
                     saveNoteHandler: { note, completion in
-                        viewModel.saveReflectionNote(note, completion: completion)
+                        viewModel.saveReflectionNote(note) { result in
+                            Task { @MainActor in
+                                completion(result)
+                            }
+                        }
                     }
                 )
             )
@@ -3819,13 +3844,13 @@ struct HomeBackdropForedropRootView: View {
                     }
                 )
             }
-            .onReceive(NotificationCenter.default.publisher(for: .taskerPresentHabitBoard)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .lifeboardPresentHabitBoard)) { _ in
                 presentHabitBoardFromDeepLink()
             }
-            .onReceive(NotificationCenter.default.publisher(for: .taskerPresentHabitLibrary)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .lifeboardPresentHabitLibrary)) { _ in
                 presentHabitLibraryFromDeepLink()
             }
-            .onReceive(NotificationCenter.default.publisher(for: .taskerPresentHabitDetail)) { notification in
+            .onReceive(NotificationCenter.default.publisher(for: .lifeboardPresentHabitDetail)) { notification in
                 guard let rawHabitID = notification.userInfo?["habitID"] as? String,
                       let habitID = UUID(uuidString: rawHabitID) else {
                     return
@@ -3954,7 +3979,7 @@ struct HomeBackdropForedropRootView: View {
         let committedQuery = searchState.trimmedQuery
         let nextCommittedQuery = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard committedQuery != nextCommittedQuery else { return }
-        TaskerPerformanceTrace.event("HomeSearchQueryCommitted")
+        LifeBoardPerformanceTrace.event("HomeSearchQueryCommitted")
         searchState.updateQuery(newValue)
     }
 
@@ -3985,7 +4010,7 @@ struct HomeBackdropForedropRootView: View {
                         onPlaceReplanAllDay: { candidate, date in
                             timelineViewModel.syncSelectedDate(date)
                             viewModel.selectDate(date, source: .replan)
-                            TaskerFeedback.success()
+                            LifeBoardFeedback.success()
                             viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
                             snackbar = SnackbarData(
                                 message: "Added to \(date.formatted(.dateTime.weekday(.abbreviated).month().day()))",
@@ -4180,8 +4205,8 @@ struct HomeBackdropForedropRootView: View {
                 )
             } else {
                 Text("Schedule unavailable")
-                    .font(.tasker(.body))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.body))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
 
@@ -4194,8 +4219,8 @@ struct HomeBackdropForedropRootView: View {
         VStack(spacing: spacing.s8) {
             HStack(spacing: spacing.s8) {
                 Text("Analytics")
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                 Spacer()
                 Button {
                     onReturnToTasks("back_chip")
@@ -4204,9 +4229,9 @@ struct HomeBackdropForedropRootView: View {
                         Image(systemName: "arrow.left")
                             .font(.system(size: 10, weight: .semibold))
                         Text("Back to tasks")
-                            .font(.tasker(.caption2))
+                            .font(.lifeboard(.caption2))
                     }
-                    .foregroundColor(Color.tasker.textQuaternary.opacity(0.92))
+                    .foregroundColor(Color.lifeboard.textQuaternary.opacity(0.92))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("home.foredrop.collapseHint")
@@ -4235,8 +4260,8 @@ struct HomeBackdropForedropRootView: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle())
                         Text(analyticsSurfaceState == .placeholder ? "Opening analytics…" : "Loading analytics…")
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
@@ -4355,8 +4380,8 @@ struct HomeBackdropForedropRootView: View {
         VStack(spacing: 0) {
             HStack(spacing: spacing.s8) {
                 Text("Search")
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                 Spacer()
                 Button {
                     onReturnToTasks("back_chip")
@@ -4365,9 +4390,9 @@ struct HomeBackdropForedropRootView: View {
                         Image(systemName: "arrow.left")
                             .font(.system(size: 10, weight: .semibold))
                         Text("Back to tasks")
-                            .font(.tasker(.caption2))
+                            .font(.lifeboard(.caption2))
                     }
-                    .foregroundColor(Color.tasker.textQuaternary.opacity(0.92))
+                    .foregroundColor(Color.lifeboard.textQuaternary.opacity(0.92))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("search.backChip")
@@ -4378,17 +4403,17 @@ struct HomeBackdropForedropRootView: View {
             .padding(.bottom, spacing.s8)
 
             VStack(alignment: .leading, spacing: spacing.s8) {
-                TaskerSearchFilterChipsView(chips: searchStatusChipDescriptors)
-                TaskerSearchFilterChipsView(chips: searchPriorityChipDescriptors)
+                LifeBoardSearchFilterChipsView(chips: searchStatusChipDescriptors)
+                LifeBoardSearchFilterChipsView(chips: searchPriorityChipDescriptors)
                 if !searchProjectChipDescriptors.isEmpty {
-                    TaskerSearchFilterChipsView(chips: searchProjectChipDescriptors)
+                    LifeBoardSearchFilterChipsView(chips: searchProjectChipDescriptors)
                 }
             }
             .padding(.horizontal, spacing.s12)
             .padding(.bottom, spacing.s8)
 
             Divider()
-                .overlay(Color.tasker.strokeHairline)
+                .overlay(Color.lifeboard.strokeHairline)
         }
     }
 
@@ -4402,21 +4427,21 @@ struct HomeBackdropForedropRootView: View {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle())
                 Text(searchLoadingMessage)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textSecondary)
             }
         } else if searchState.shouldShowNoResultsMessage {
             VStack(spacing: spacing.s8) {
                 Image(systemName: "sparkle.magnifyingglass")
                     .font(.system(size: 28, weight: .semibold))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .foregroundColor(Color.lifeboard.textTertiary)
                 Text(searchState.emptyStateTitle)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                     .accessibilityIdentifier("search.emptyStateLabel")
                 Text(searchState.emptyStateSubtitle)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .frame(
@@ -4564,13 +4589,13 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private var searchStatusChipDescriptors: [TaskerSearchFilterChipDescriptor] {
+    private var searchStatusChipDescriptors: [LifeBoardSearchFilterChipDescriptor] {
         HomeSearchStatusFilter.allCases.map { status in
-            TaskerSearchFilterChipDescriptor(
+            LifeBoardSearchFilterChipDescriptor(
                 id: "status-\(status.rawValue)",
                 title: status.title,
                 isSelected: searchState.selectedStatus == status,
-                tintColor: Color.tasker.accentPrimary,
+                tintColor: Color.lifeboard.accentPrimary,
                 accessibilityIdentifier: status.accessibilityIdentifier
             ) {
                 searchState.setStatus(status)
@@ -4579,10 +4604,10 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private var searchPriorityChipDescriptors: [TaskerSearchFilterChipDescriptor] {
+    private var searchPriorityChipDescriptors: [LifeBoardSearchFilterChipDescriptor] {
         TaskPriorityConfig.Priority.allCases.map { priority in
             let isSelected = searchState.selectedPriorities.contains(priority.rawValue)
-            return TaskerSearchFilterChipDescriptor(
+            return LifeBoardSearchFilterChipDescriptor(
                 id: "priority-\(priority.rawValue)",
                 title: priority.code,
                 isSelected: isSelected,
@@ -4599,14 +4624,14 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private var searchProjectChipDescriptors: [TaskerSearchFilterChipDescriptor] {
+    private var searchProjectChipDescriptors: [LifeBoardSearchFilterChipDescriptor] {
         searchState.availableProjects.map { projectName in
             let isSelected = searchState.selectedProjects.contains(projectName)
-            return TaskerSearchFilterChipDescriptor(
+            return LifeBoardSearchFilterChipDescriptor(
                 id: "project-\(projectName)",
                 title: projectName,
                 isSelected: isSelected,
-                tintColor: Color.tasker.accentSecondary,
+                tintColor: Color.lifeboard.accentSecondary,
                 accessibilityIdentifier: "search.project.\(searchIdentifierToken(projectName))"
             ) {
                 searchState.toggleProject(projectName)
@@ -4690,7 +4715,7 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var taskListHorizontalGutter: CGFloat {
-        TaskerTheme.Spacing.lg
+        LifeBoardTheme.Spacing.lg
     }
 
     private func fullBleedTaskListHeaderModule<Content: View>(
@@ -4740,12 +4765,12 @@ struct HomeBackdropForedropRootView: View {
     private func beginDaySwipeTrace() {
         guard isDaySwipeTracingActive == false else { return }
         isDaySwipeTracingActive = true
-        TaskerPerformanceTrace.event("HomeDaySwipeStarted")
+        LifeBoardPerformanceTrace.event("HomeDaySwipeStarted")
     }
 
     private func cancelDaySwipeTraceIfNeeded() {
         guard isDaySwipeTracingActive else { return }
-        TaskerPerformanceTrace.event("HomeDaySwipeCancelled")
+        LifeBoardPerformanceTrace.event("HomeDaySwipeCancelled")
         isDaySwipeTracingActive = false
     }
 
@@ -4897,7 +4922,7 @@ struct HomeBackdropForedropRootView: View {
         isDaySwipeTracingActive = false
         committedDaySwipeDirection = direction
         let dayOffset = direction == .previous ? -1 : 1
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
         withAnimation(daySwipeAnimation) {
             viewModel.shiftSelectedDay(byDays: dayOffset, source: .swipe)
         }
@@ -5003,7 +5028,7 @@ struct HomeBackdropForedropRootView: View {
                                     viewModel.showCalendarEventsInTimelineFromHome()
                                 },
                                 onPlaceReplanAtTime: { candidate, date in
-                                    TaskerFeedback.success()
+                                    LifeBoardFeedback.success()
                                     viewModel.placeReplanCandidate(taskID: candidate.taskID, at: date)
                                     snackbar = SnackbarData(
                                         message: "Scheduled for \(date.formatted(date: .omitted, time: .shortened))",
@@ -5016,7 +5041,7 @@ struct HomeBackdropForedropRootView: View {
                                     )
                                 },
                                 onPlaceReplanAllDay: { candidate, date in
-                                    TaskerFeedback.success()
+                                    LifeBoardFeedback.success()
                                     viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
                                     snackbar = SnackbarData(
                                         message: "Added to \(date.formatted(.dateTime.weekday(.abbreviated).month().day()))",
@@ -5199,7 +5224,7 @@ struct HomeBackdropForedropRootView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .contentShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous))
             .gesture(
                 TapGesture().onEnded {
                     handleOpenScheduleAction()
@@ -5225,11 +5250,11 @@ struct HomeBackdropForedropRootView: View {
         if shouldShowCalendarPermissionCTA {
             Button(action: onRequestCalendarPermission) {
                 Text(calendarPermissionButtonTitle)
-                    .font(.tasker(.bodyStrong))
-                    .foregroundStyle(Color.tasker.textInverse)
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color.lifeboard.textInverse)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(Color.tasker.accentPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+                    .background(Color.lifeboard.accentPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("home.calendar.connect")
@@ -5238,8 +5263,8 @@ struct HomeBackdropForedropRootView: View {
 
     private var calendarSummaryHeader: some View {
         Text(calendarSummaryLine)
-            .font(.tasker(.bodyStrong))
-            .foregroundStyle(Color.tasker.textPrimary)
+            .font(.lifeboard(.bodyStrong))
+            .foregroundStyle(Color.lifeboard.textPrimary)
             .lineLimit(1)
             .minimumScaleFactor(0.86)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -5247,10 +5272,10 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var calendarSummaryLine: String {
-        let dateText = TaskerCalendarPresentation.compactDateText(for: calendarSnapshot.selectedDate)
+        let dateText = LifeBoardCalendarPresentation.compactDateText(for: calendarSnapshot.selectedDate)
 
         if let nextMeeting = calendarSnapshot.nextMeeting {
-            let timeText = TaskerCalendarPresentation.timeRangeText(for: nextMeeting.event)
+            let timeText = LifeBoardCalendarPresentation.timeRangeText(for: nextMeeting.event)
             return "\(dateText) · Next up: \(nextMeeting.event.title) · \(timeText)"
         }
 
@@ -5272,31 +5297,31 @@ struct HomeBackdropForedropRootView: View {
         case .permissionRequired:
             VStack(alignment: .leading, spacing: spacing.s8) {
                 Text(calendarPermissionBodyText)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .accessibilityIdentifier(calendarPermissionStateAccessibilityID)
             }
             .accessibilityLabel(calendarPermissionBodyText)
             .accessibilityIdentifier("home.calendar.state.permission")
         case .noCalendarsSelected:
             Text(String(localized: "No calendars selected. Choose at least one calendar for schedule insights."))
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .accessibilityIdentifier("home.calendar.state.noCalendars")
         case .allDayOnly:
             Text(String(localized: "Only all-day events are scheduled. No timed blocks for this day."))
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .accessibilityIdentifier("home.calendar.state.allDayOnly")
         case .empty:
             Text(String(localized: "No events are scheduled. Use this open window for focused work."))
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .accessibilityIdentifier("home.calendar.state.empty")
         case .error(let message):
             Text(message)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.statusWarning)
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard.statusWarning)
                 .accessibilityIdentifier("home.calendar.state.error")
         case .active:
             VStack(alignment: .leading, spacing: spacing.s8) {
@@ -5310,7 +5335,7 @@ struct HomeBackdropForedropRootView: View {
     @ViewBuilder
     private var calendarTimelinePreview: some View {
         if calendarSnapshot.selectedDayTimelineEvents.isEmpty == false {
-            TaskerCalendarTimelineView(
+            LifeBoardCalendarTimelineView(
                 date: calendarSnapshot.selectedDate,
                 events: calendarSnapshot.selectedDayEvents,
                 density: .compact,
@@ -5350,11 +5375,11 @@ struct HomeBackdropForedropRootView: View {
         case .notDetermined:
             return String(localized: "Connect Calendar to surface next meetings and free windows.")
         case .denied:
-            return String(localized: "Calendar access is denied by iOS. Enable Tasker in Settings > Privacy & Security > Calendars. If Tasker is missing, restart your device, reinstall Tasker, or reset Location & Privacy.")
+            return String(localized: "Calendar access is denied by iOS. Enable LifeBoard in Settings > Privacy & Security > Calendars. If LifeBoard is missing, restart your device, reinstall LifeBoard, or reset Location & Privacy.")
         case .restricted:
             return String(localized: "Calendar access is restricted by system policy.")
         case .writeOnly:
-            return String(localized: "Tasker has write-only access. Allow full calendar access so schedule events can appear.")
+            return String(localized: "LifeBoard has write-only access. Allow full calendar access so schedule events can appear.")
         case .authorized:
             return String(localized: "Connect Calendar to surface next meetings and free windows.")
         }
@@ -5375,7 +5400,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private func handleHomeCalendarEventSelection(_ event: TaskerCalendarEventSnapshot) {
+    private func handleHomeCalendarEventSelection(_ event: LifeBoardCalendarEventSnapshot) {
         handleHomeCalendarEventSelection(eventID: event.id, allowsTimelineHide: false)
     }
 
@@ -5386,7 +5411,7 @@ struct HomeBackdropForedropRootView: View {
             selectedDate: viewModel.selectedDate,
             allowsTimelineHide: allowsTimelineHide
         )
-        DispatchQueue.main.async {
+        Task { @MainActor in
             suppressNextCalendarScheduleOpen = false
         }
     }
@@ -5542,15 +5567,15 @@ struct HomeBackdropForedropRootView: View {
     private var todayAgendaHeader: some View {
         HStack(alignment: .center, spacing: spacing.s8) {
             Label("Today Agenda", systemImage: "list.bullet.rectangle.portrait")
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
             Spacer(minLength: 0)
             Text("\(tasksSnapshot.todayAgendaSectionState.totalCount)")
-                .font(.tasker(.caption2).weight(.semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .padding(.horizontal, spacing.s8)
                 .padding(.vertical, spacing.s4)
-                .background(Color.tasker.surfaceSecondary)
+                .background(Color.lifeboard.surfaceSecondary)
                 .clipShape(Capsule())
         }
         .padding(.horizontal, spacing.s16)
@@ -5640,7 +5665,7 @@ struct HomeBackdropForedropRootView: View {
 
     private func openHabitDetail(_ habit: HomeHabitRow) {
         HomePerformanceSignposts.openDetailTap()
-        TaskerPerformanceTrace.event("HabitDetailTapReceived")
+        LifeBoardPerformanceTrace.event("HabitDetailTapReceived")
         if let row = viewModel.habitLibraryRow(for: habit.habitID) {
             selectedHomeHabitRow = row
             return
@@ -5653,7 +5678,7 @@ struct HomeBackdropForedropRootView: View {
 
     private func openHabitDetail(habitID: UUID) {
         HomePerformanceSignposts.openDetailTap()
-        TaskerPerformanceTrace.event("HabitDetailTapReceived")
+        LifeBoardPerformanceTrace.event("HabitDetailTapReceived")
 
         if let row = viewModel.habitLibraryRow(for: habitID) {
             selectedHomeHabitRow = row
@@ -5731,7 +5756,7 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func performHabitRowAction(_ habit: HomeHabitRow, source: String) {
-        TaskerPerformanceTrace.event("home.habitRowTap.accepted")
+        LifeBoardPerformanceTrace.event("home.habitRowTap.accepted")
         HomePerformanceSignposts.lastCellTapAccepted()
         beginHabitMutationSignpost(trackLastCellTap: true)
         viewModel.performHabitLastCellAction(habit, source: source)
@@ -5755,17 +5780,17 @@ struct HomeBackdropForedropRootView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                     Label("Due today", systemImage: "calendar.badge.clock")
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundColor(Color.lifeboard.textPrimary)
 
                     Spacer(minLength: 0)
 
                     Text("\(tasksSnapshot.dueTodaySection?.rows.count ?? 0)")
-                        .font(.tasker(.caption2).weight(.semibold))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption2).weight(.semibold))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .padding(.horizontal, spacing.s8)
                         .padding(.vertical, spacing.s4)
-                        .background(Color.tasker.surfaceSecondary)
+                        .background(Color.lifeboard.surfaceSecondary)
                         .clipShape(Capsule())
                 }
                 .padding(.horizontal, spacing.s16)
@@ -5933,16 +5958,16 @@ struct HomeBackdropForedropRootView: View {
 
         switch result {
         case .pinned:
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
             viewModel.trackHomeInteraction(action: "home_focus_pin", metadata: metadata)
         case .alreadyPinned:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         case .capacityReached(let limit):
-            TaskerFeedback.light()
+            LifeBoardFeedback.light()
             metadata["limit"] = limit
             viewModel.trackHomeInteraction(action: "home_focus_pin_rejected_capacity", metadata: metadata)
         case .taskIneligible:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         }
     }
 
@@ -5954,22 +5979,22 @@ struct HomeBackdropForedropRootView: View {
 
         switch result {
         case .promoted:
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
             viewModel.trackHomeInteraction(action: "home_focus_promote", metadata: metadata)
         case .alreadyPinned:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             viewModel.trackHomeInteraction(action: "home_focus_promote_already_pinned", metadata: metadata)
         case .alreadyVisible:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             viewModel.trackHomeInteraction(action: "home_focus_promote_already_visible", metadata: metadata)
         case .replacementRequired(let currentFocusTaskIDs):
             pendingFocusPromotionTask = task
             focusReplacementOptions = currentFocusTaskIDs.compactMap(viewModel.taskSnapshot(for:))
-            TaskerFeedback.light()
+            LifeBoardFeedback.light()
             metadata["replacement_count"] = focusReplacementOptions.count
             viewModel.trackHomeInteraction(action: "home_focus_promote_replace_prompt", metadata: metadata)
         case .taskIneligible:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             viewModel.trackHomeInteraction(action: "home_focus_promote_rejected_ineligible", metadata: metadata)
         }
     }
@@ -5985,18 +6010,18 @@ struct HomeBackdropForedropRootView: View {
 
         switch result {
         case .promoted:
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
             viewModel.trackHomeInteraction(action: "home_focus_replace", metadata: metadata)
         case .alreadyVisible:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             viewModel.trackHomeInteraction(action: "home_focus_replace_already_visible", metadata: metadata)
         case .alreadyPinned:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             viewModel.trackHomeInteraction(action: "home_focus_replace_already_pinned", metadata: metadata)
         case .replacementRequired:
-            TaskerFeedback.light()
+            LifeBoardFeedback.light()
         case .taskIneligible:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             viewModel.trackHomeInteraction(action: "home_focus_replace_rejected_ineligible", metadata: metadata)
         }
 
@@ -6010,7 +6035,7 @@ struct HomeBackdropForedropRootView: View {
 
     private func refreshFocusWhyShuffleCandidates() {
         _ = viewModel.refreshFocusWhyShuffleCandidates()
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
     }
 
     private func replaceFocusTaskFromWhySheet(_ candidate: TaskDefinition, replacing focusTask: TaskDefinition) {
@@ -6022,7 +6047,7 @@ struct HomeBackdropForedropRootView: View {
     private func unpinFocusTask(_ task: TaskDefinition) {
         guard viewModel.pinnedFocusTaskIDs.contains(task.id) else { return }
         viewModel.unpinTaskFromFocus(task.id)
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
 
         var metadata = focusScopeMetadata(source: "focus_strip_unpin", taskID: task.id)
         metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
@@ -6042,18 +6067,18 @@ struct HomeBackdropForedropRootView: View {
 
             switch pinResult {
             case .pinned:
-                TaskerFeedback.success()
+                LifeBoardFeedback.success()
                 viewModel.trackHomeInteraction(action: "home_focus_dropped_in", metadata: metadata)
             case .alreadyPinned:
-                TaskerFeedback.selection()
+                LifeBoardFeedback.selection()
                 metadata["result"] = "already_pinned"
                 viewModel.trackHomeInteraction(action: "home_focus_dropped_in", metadata: metadata)
             case .capacityReached(let limit):
-                TaskerFeedback.light()
+                LifeBoardFeedback.light()
                 metadata["limit"] = limit
                 viewModel.trackHomeInteraction(action: "home_focus_drop_rejected_capacity", metadata: metadata)
             case .taskIneligible:
-                TaskerFeedback.selection()
+                LifeBoardFeedback.selection()
             }
         }
     }
@@ -6068,7 +6093,7 @@ struct HomeBackdropForedropRootView: View {
             guard wasPinned else { return }
 
             viewModel.unpinTaskFromFocus(taskID)
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
 
             var metadata = focusScopeMetadata(source: "focus_strip", taskID: taskID)
             metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
@@ -6079,7 +6104,7 @@ struct HomeBackdropForedropRootView: View {
     /// Executes loadTaskIDFromDrop.
     private func loadTaskIDFromDrop(
         providers: [NSItemProvider],
-        completion: @escaping @Sendable (UUID?) -> Void
+        completion: @escaping @MainActor @Sendable (UUID?) -> Void
     ) -> Bool {
         guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
             completion(nil)
@@ -6090,7 +6115,7 @@ struct HomeBackdropForedropRootView: View {
             let rawValue = (object as? NSString)?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let taskID = rawValue.flatMap(UUID.init(uuidString:))
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 completion(taskID)
             }
         }
@@ -6158,11 +6183,11 @@ struct HomeBackdropForedropRootView: View {
         }
 
         if routedEvent.awardedXP >= 7 {
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
         } else if routedEvent.awardedXP >= 4 {
-            TaskerFeedback.medium()
+            LifeBoardFeedback.medium()
         } else {
-            TaskerFeedback.light()
+            LifeBoardFeedback.light()
         }
 
         viewModel.trackHomeInteraction(
@@ -6276,18 +6301,18 @@ struct HomeBackdropForedropRootView: View {
     private func playHabitMutationFeedbackHaptic(_ haptic: HomeHabitMutationFeedbackHaptic) {
         switch haptic {
         case .selection:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         case .success:
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
         case .warning:
-            TaskerFeedback.warning()
+            LifeBoardFeedback.warning()
         }
     }
 
     private func startNextActionFocusTimer() {
         guard isNextActionFocusRequestInFlight == false else { return }
         isNextActionFocusRequestInFlight = true
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
         viewModel.trackHomeInteraction(
             action: "home_next_action_focus_start_tapped",
             metadata: [
@@ -6296,24 +6321,26 @@ struct HomeBackdropForedropRootView: View {
             ]
         )
         viewModel.startFocusSession(taskID: nil, targetDurationSeconds: Self.nextActionFocusDurationSeconds) { result in
-            isNextActionFocusRequestInFlight = false
-            switch result {
-            case .success(let session):
-                activeNextActionFocusSession = session
-                showNextActionFocusTimer = true
-            case .failure(let error):
-                if let focusError = error as? FocusSessionError, case .alreadyActive = focusError {
-                    resumeNextActionFocusSession(source: "next_action_module_15min_focus")
-                } else {
-                    logWarning(
-                        event: "focus_session_start_failed",
-                        message: "Failed to start focus session from next action module",
-                        fields: [
-                            "source": "next_action_module_15min_focus",
-                            "error": error.localizedDescription
-                        ]
-                    )
-                    snackbar = SnackbarData(message: "Couldn't start focus timer")
+            Task { @MainActor in
+                isNextActionFocusRequestInFlight = false
+                switch result {
+                case .success(let session):
+                    activeNextActionFocusSession = session
+                    showNextActionFocusTimer = true
+                case .failure(let error):
+                    if let focusError = error as? FocusSessionError, case .alreadyActive = focusError {
+                        resumeNextActionFocusSession(source: "next_action_module_15min_focus")
+                    } else {
+                        logWarning(
+                            event: "focus_session_start_failed",
+                            message: "Failed to start focus session from next action module",
+                            fields: [
+                                "source": "next_action_module_15min_focus",
+                                "error": error.localizedDescription
+                            ]
+                        )
+                        snackbar = SnackbarData(message: "Couldn't start focus timer")
+                    }
                 }
             }
         }
@@ -6321,30 +6348,32 @@ struct HomeBackdropForedropRootView: View {
 
     private func resumeNextActionFocusSession(source: String) {
         viewModel.fetchActiveFocusSession { result in
-            switch result {
-            case .success(let session):
-                guard let session else {
-                    viewModel.setQuickView(.today)
+            Task { @MainActor in
+                switch result {
+                case .success(let session):
+                    guard let session else {
+                        viewModel.setQuickView(.today)
+                        logWarning(
+                            event: "focus_session_resume_missing",
+                            message: "Expected an active focus session to resume, but none was found",
+                            fields: ["source": source]
+                        )
+                        snackbar = SnackbarData(message: "No active focus timer was found")
+                        return
+                    }
+                    activeNextActionFocusSession = session
+                    showNextActionFocusTimer = true
+                case .failure(let error):
                     logWarning(
-                        event: "focus_session_resume_missing",
-                        message: "Expected an active focus session to resume, but none was found",
-                        fields: ["source": source]
+                        event: "focus_session_resume_failed",
+                        message: "Failed to resume active focus session",
+                        fields: [
+                            "source": source,
+                            "error": error.localizedDescription
+                        ]
                     )
-                    snackbar = SnackbarData(message: "No active focus timer was found")
-                    return
+                    snackbar = SnackbarData(message: "Couldn't resume focus timer")
                 }
-                activeNextActionFocusSession = session
-                showNextActionFocusTimer = true
-            case .failure(let error):
-                logWarning(
-                    event: "focus_session_resume_failed",
-                    message: "Failed to resume active focus session",
-                    fields: [
-                        "source": source,
-                        "error": error.localizedDescription
-                    ]
-                )
-                snackbar = SnackbarData(message: "Couldn't resume focus timer")
             }
         }
     }
@@ -6353,35 +6382,35 @@ struct HomeBackdropForedropRootView: View {
         guard isNextActionFocusEnding == false else { return }
         isNextActionFocusEnding = true
         viewModel.endFocusSession(sessionID: sessionID) { result in
-            isNextActionFocusEnding = false
-            switch result {
-            case .success(let focusResult):
-                showNextActionFocusTimer = false
-                activeNextActionFocusSession = nil
-                viewModel.trackHomeInteraction(
-                    action: "focus_session_finished",
-                    metadata: [
-                        "source": source,
-                        "duration_seconds": focusResult.session.durationSeconds,
-                        "awarded_xp": focusResult.xpResult?.awardedXP ?? 0
-                    ]
-                )
-                DispatchQueue.main.async {
+            Task { @MainActor in
+                isNextActionFocusEnding = false
+                switch result {
+                case .success(let focusResult):
+                    showNextActionFocusTimer = false
+                    activeNextActionFocusSession = nil
+                    viewModel.trackHomeInteraction(
+                        action: "focus_session_finished",
+                        metadata: [
+                            "source": source,
+                            "duration_seconds": focusResult.session.durationSeconds,
+                            "awarded_xp": focusResult.xpResult?.awardedXP ?? 0
+                        ]
+                    )
                     nextActionFocusSummaryResult = focusResult
                     showNextActionFocusSummary = true
+                case .failure(let error):
+                    logWarning(
+                        event: "focus_session_end_failed",
+                        message: "Failed to end focus session from next action module",
+                        fields: [
+                            "source": source,
+                            "error": error.localizedDescription
+                        ]
+                    )
+                    snackbar = SnackbarData(message: "Couldn't finish focus timer")
+                    showNextActionFocusTimer = false
+                    activeNextActionFocusSession = nil
                 }
-            case .failure(let error):
-                logWarning(
-                    event: "focus_session_end_failed",
-                    message: "Failed to end focus session from next action module",
-                    fields: [
-                        "source": source,
-                        "error": error.localizedDescription
-                    ]
-                )
-                snackbar = SnackbarData(message: "Couldn't finish focus timer")
-                showNextActionFocusTimer = false
-                activeNextActionFocusSession = nil
             }
         }
     }
@@ -6437,10 +6466,10 @@ struct HomeBackdropForedropRootView: View {
 }
 
 private struct CalendarCardChromeModifier: ViewModifier {
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     func body(content: Content) -> some View {
@@ -6448,12 +6477,12 @@ private struct CalendarCardChromeModifier: ViewModifier {
             .padding(.horizontal, spacing.s16)
             .padding(.vertical, spacing.s12)
             .background(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                    .fill(Color.tasker.surfacePrimary)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                    .fill(Color.lifeboard.surfacePrimary)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.72), lineWidth: 1)
             )
     }
 }
@@ -6483,7 +6512,7 @@ private struct HomeDenseSurfaceModifier: ViewModifier {
                     bottomTrailingRadius: 0,
                     topTrailingRadius: cornerRadius
                 )
-                .fill(Color.tasker.surfaceTertiary)
+                .fill(Color.lifeboard.surfaceTertiary)
                 .overlay(
                     UnevenRoundedRectangle(
                         topLeadingRadius: cornerRadius,
@@ -6491,7 +6520,7 @@ private struct HomeDenseSurfaceModifier: ViewModifier {
                         bottomTrailingRadius: 0,
                         topTrailingRadius: cornerRadius
                     )
-                    .stroke(Color.tasker.strokeHairline.opacity(0.35), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.35), lineWidth: 1)
                 )
             )
             .clipShape(
@@ -6505,10 +6534,10 @@ private struct HomeDenseSurfaceModifier: ViewModifier {
     }
 }
 
-struct TaskerProgressBar: View {
+struct LifeBoardProgressBar: View {
     let progress: Double
     let colors: [Color]
-    var trackColor: Color = Color.tasker.surfaceSecondary
+    var trackColor: Color = Color.lifeboard.surfaceSecondary
     var height: CGFloat = 6
     var animate: Bool = true
 
@@ -6714,7 +6743,7 @@ private final class HomeiPadPrimaryPaneLifecycle: ObservableObject {
 
 private struct HomeiPadPrimaryPaneHost: View {
     @Binding var activeFace: HomeForedropFace
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let destination: HomeiPadDestination
     let shellEpoch: Int
     let homeSurface: (Binding<HomeForedropFace>) -> AnyView
@@ -6742,7 +6771,7 @@ struct HomeiPadSplitShellView: View {
         case dismiss
     }
 
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     @ObservedObject var shellState: HomeiPadShellState
     let shellEpoch: Int
     let homeSurface: (Binding<HomeForedropFace>) -> AnyView
@@ -6762,8 +6791,8 @@ struct HomeiPadSplitShellView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @StateObject private var primarySurfaceMonitor = HomeiPadPrimarySurfaceMonitor()
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var isPrimaryHomeDestination: Bool {
@@ -6862,7 +6891,7 @@ struct HomeiPadSplitShellView: View {
         } detail: {
             inspectorPanel
                 .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 420)
-                .background(Color.tasker.bgElevated)
+                .background(Color.lifeboard.bgElevated)
         }
         .navigationSplitViewStyle(.balanced)
     }
@@ -7001,8 +7030,8 @@ struct HomeiPadSplitShellView: View {
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
-        .background(Color.tasker.bgCanvas)
-        .navigationTitle("Tasker")
+        .background(Color.lifeboard.bgCanvas)
+        .navigationTitle("LifeBoard")
         .safeAreaInset(edge: .bottom) {
             sidebarFooter
         }
@@ -7012,9 +7041,9 @@ struct HomeiPadSplitShellView: View {
     private var sidebarFooter: some View {
         VStack(spacing: spacing.s4) {
             Divider()
-            Text("Tasker v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textQuaternary)
+            Text("LifeBoard v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textQuaternary)
                 .padding(.vertical, spacing.s8)
         }
         .padding(.horizontal, spacing.s16)
@@ -7109,8 +7138,8 @@ struct HomeiPadSplitShellView: View {
                     .toolbar {
                         ToolbarItem(placement: .principal) {
                             Text(task.title)
-                                .font(.tasker(.headline))
-                                .foregroundColor(Color.tasker.textPrimary)
+                                .font(.lifeboard(.headline))
+                                .foregroundColor(Color.lifeboard.textPrimary)
                                 .lineLimit(1)
                         }
                         ToolbarItem(placement: .topBarTrailing) {
@@ -7132,18 +7161,18 @@ struct HomeiPadSplitShellView: View {
             VStack(spacing: spacing.s16) {
                 Image(systemName: "rectangle.righthalf.inset.filled")
                     .font(.system(size: 48, weight: .thin))
-                    .foregroundStyle(Color.tasker.accentMuted)
+                    .foregroundStyle(Color.lifeboard.accentMuted)
                 Text("No task selected")
-                    .font(.tasker(.title3))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.title3))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                 Text("Tap a task in the list to see its details here.")
-                    .font(.tasker(.body))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.body))
+                    .foregroundColor(Color.lifeboard.textTertiary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 260)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.tasker.bgCanvas)
+            .background(Color.lifeboard.bgCanvas)
             .accessibilityIdentifier("home.ipad.inspector.empty")
         }
     }
@@ -7198,10 +7227,10 @@ private struct QuietTrackingRailStreakWidget: View {
     let slotWidth: CGFloat
     let visibleDayCount: Int
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     private var isExpandedType: Bool {
         dynamicTypeSize >= .accessibility1
@@ -7229,12 +7258,12 @@ private struct QuietTrackingRailStreakWidget: View {
                 Image(systemName: card.iconSymbolName)
                     .font(.system(size: 10, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(Color.tasker.textSecondary.opacity(0.82))
+                    .foregroundStyle(Color.lifeboard.textSecondary.opacity(0.82))
                     .accessibilityHidden(true)
 
                 Text(card.title)
-                    .font(.tasker(.caption2).weight(.medium))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption2).weight(.medium))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(isExpandedType ? 2 : 1)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)

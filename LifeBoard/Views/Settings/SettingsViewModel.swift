@@ -7,16 +7,16 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     // MARK: - Notifications
 
-    @Published var preferences: TaskerNotificationPreferences
-    @Published var workspacePreferences: TaskerWorkspacePreferences
-    @Published var permissionStatus: TaskerNotificationAuthorizationStatus = .notDetermined
+    @Published var preferences: LifeBoardNotificationPreferences
+    @Published var workspacePreferences: LifeBoardWorkspacePreferences
+    @Published var permissionStatus: LifeBoardNotificationAuthorizationStatus = .notDetermined
 
     // MARK: - LLM
 
     @Published var currentModelDisplayName: String
     @Published var decorativeButtonEffectsEnabled: Bool
     @Published var homeBackdropNoiseAmount: Int
-    @Published var calendarAuthorizationStatus: TaskerCalendarAuthorizationStatus = .notDetermined
+    @Published var calendarAuthorizationStatus: LifeBoardCalendarAuthorizationStatus = .notDetermined
     @Published var selectedCalendarIDs: [String] = []
     @Published var availableCalendarCount: Int = 0
     @Published var includeDeclinedCalendarEvents: Bool = false
@@ -37,8 +37,8 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     // MARK: - Dependencies
 
-    private let notificationPreferencesStore: TaskerNotificationPreferencesStore
-    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let notificationPreferencesStore: LifeBoardNotificationPreferencesStore
+    private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
     private let calendarIntegrationService: CalendarIntegrationService
     private let appManager: AppManager
     private var cancellables: Set<AnyCancellable> = []
@@ -159,7 +159,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
         "Control reminders, summaries, and quiet hours."
     }
 
-    var notificationTone: TaskerSettingsTone {
+    var notificationTone: LifeBoardSettingsTone {
         switch permissionStatus {
         case .authorized, .provisional, .ephemeral:
             return .success
@@ -309,19 +309,19 @@ final class SettingsViewModel: ObservableObject, Sendable {
     var calendarAccessSubtitle: String {
         switch calendarAuthorizationStatus {
         case .authorized:
-            return String(localized: "Tasker can read your selected calendars.")
+            return String(localized: "LifeBoard can read your selected calendars.")
         case .notDetermined:
             return String(localized: "Allow full calendar access to show schedule context in Home.")
         case .denied:
-            return String(localized: "Calendar access is denied by iOS. Enable Tasker in Settings > Privacy & Security > Calendars. If Tasker is missing, restart iPhone, reinstall Tasker, or reset Location & Privacy.")
+            return String(localized: "Calendar access is denied by iOS. Enable LifeBoard in Settings > Privacy & Security > Calendars. If LifeBoard is missing, restart iPhone, reinstall LifeBoard, or reset Location & Privacy.")
         case .restricted:
             return String(localized: "Calendar access is restricted by system policy.")
         case .writeOnly:
-            return String(localized: "Tasker has write-only access. Tap to request full calendar access.")
+            return String(localized: "LifeBoard has write-only access. Tap to request full calendar access.")
         }
     }
 
-    var calendarAccessTone: TaskerSettingsTone {
+    var calendarAccessTone: LifeBoardSettingsTone {
         let accessAction = calendarIntegrationService.accessAction(for: calendarAuthorizationStatus)
         switch calendarAuthorizationStatus {
         case .authorized:
@@ -339,8 +339,8 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     init(
         appManager: AppManager = AppManager(),
-        notificationPreferencesStore: TaskerNotificationPreferencesStore = .shared,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
+        notificationPreferencesStore: LifeBoardNotificationPreferencesStore = .shared,
+        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
         calendarIntegrationService: CalendarIntegrationService
     ) {
         self.appManager = appManager
@@ -359,29 +359,29 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     // MARK: - Notification Toggles
 
-    func togglePreference(_ keyPath: WritableKeyPath<TaskerNotificationPreferences, Bool>, value: Bool) {
+    func togglePreference(_ keyPath: WritableKeyPath<LifeBoardNotificationPreferences, Bool>, value: Bool) {
         preferences[keyPath: keyPath] = value
         saveAndReconcile()
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
     }
 
     func updateDueSoonLeadMinutes(_ minutes: Int) {
         preferences.dueSoonLeadMinutes = minutes
         saveAndReconcile()
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
     }
 
     func updateWeekStartsOn(_ weekday: Weekday) {
         guard workspacePreferences.weekStartsOn != weekday else { return }
         workspacePreferences.weekStartsOn = weekday
         saveWorkspacePreferences()
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
     }
 
     func setDecorativeButtonEffectsEnabled(_ isEnabled: Bool) {
         decorativeButtonEffectsEnabled = isEnabled
         V2FeatureFlags.userDecorativeCTAEffectsEnabled = isEnabled
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
     }
 
     func setHomeBackdropNoiseAmount(_ amount: Int) {
@@ -405,7 +405,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
             return
         }
         service.fetchAuthorizationStatus { [weak self] status in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.permissionStatus = status
             }
         }
@@ -413,7 +413,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     func requestNotificationPermission() {
         guard let service = EnhancedDependencyContainer.shared.notificationService else { return }
-        TaskerFeedback.medium()
+        LifeBoardFeedback.medium()
         switch permissionStatus {
         case .denied:
             guard let url = URL(string: UIApplication.openSettingsURLString),
@@ -421,7 +421,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
             UIApplication.shared.open(url)
         case .notDetermined:
             service.requestPermission { [weak self] granted in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self?.refreshPermissionStatus()
                     if granted {
                         self?.reconcileNotifications(reason: "settings_permission_granted")
@@ -446,7 +446,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     func restartOnboarding() {
-        TaskerFeedback.medium()
+        LifeBoardFeedback.medium()
         onRestartOnboarding?()
     }
 
@@ -456,14 +456,14 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     func requestCalendarPermission() {
-        TaskerFeedback.medium()
+        LifeBoardFeedback.medium()
         _ = calendarIntegrationService.performAccessAction(source: "settings", openSystemSettings: openSystemSettings)
     }
 
     #if DEBUG
     func copyCalendarDiagnostics() {
         UIPasteboard.general.string = CalendarDiagnosticsStore.shared.recentEntriesText(limit: 20)
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
     }
     #endif
 
@@ -500,14 +500,14 @@ final class SettingsViewModel: ObservableObject, Sendable {
         showCalendarEventsInTimeline = show
         workspacePreferences.showCalendarEventsInTimeline = show
         saveWorkspacePreferences()
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
     }
 
     func selectChiefOfStaffMascot(_ id: AssistantMascotID) {
         guard workspacePreferences.chiefOfStaffMascotID != id else { return }
         workspacePreferences.chiefOfStaffMascotID = id
         saveWorkspacePreferences()
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
     }
 
     private func bindCalendarService() {

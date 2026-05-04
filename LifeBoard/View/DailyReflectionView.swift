@@ -18,7 +18,7 @@ public struct DailyReflectionView: View {
     let claimState: DailyReflectionClaimState
     let onComplete: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var motivationalQuote: String {
         let quotes = [
@@ -38,20 +38,20 @@ public struct DailyReflectionView: View {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.tasker.accentWash)
+                            .fill(Color.lifeboard.accentWash)
                             .frame(width: 58, height: 58)
 
                         Image(systemName: "sparkles.rectangle.stack.fill")
                             .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(Color.tasker.accentPrimary)
+                            .foregroundStyle(Color.lifeboard.accentPrimary)
                     }
 
                     VStack(alignment: .leading, spacing: spacing.s4) {
                         HStack(spacing: spacing.s8) {
                             Text("Daily Reflection")
-                                .font(.tasker(.title3))
-                                .foregroundStyle(Color.tasker.textPrimary)
-                            TaskerStatusPill(
+                                .font(.lifeboard(.title3))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
+                            LifeBoardStatusPill(
                                 text: statusBadgeText,
                                 systemImage: statusBadgeSymbol,
                                 tone: statusBadgeTone
@@ -59,26 +59,26 @@ public struct DailyReflectionView: View {
                         }
 
                         Text(reflectionGuidance)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
                 HStack(spacing: spacing.s8) {
-                    TaskerHeroMetricTile(
+                    LifeBoardHeroMetricTile(
                         title: "Completed",
                         value: "\(tasksCompleted)",
                         detail: tasksCompleted == 0 ? "A tiny restart still counts" : "Visible wins from today",
                         tone: tasksCompleted > 0 ? .success : .neutral
                     )
-                    TaskerHeroMetricTile(
+                    LifeBoardHeroMetricTile(
                         title: "XP",
                         value: "\(xpEarned)",
                         detail: "Momentum earned today",
                         tone: xpEarned > 0 ? .accent : .neutral
                     )
-                    TaskerHeroMetricTile(
+                    LifeBoardHeroMetricTile(
                         title: "Streak",
                         value: "\(streakDays)d",
                         detail: streakDays > 0 ? "Continuity stays visible" : "Ready to restart",
@@ -87,23 +87,23 @@ public struct DailyReflectionView: View {
                 }
             }
             .padding(spacing.s16)
-            .taskerPremiumSurface(
-                cornerRadius: TaskerTheme.CornerRadius.card,
-                fillColor: Color.tasker.surfacePrimary,
-                accentColor: Color.tasker.accentSecondary,
+            .lifeboardPremiumSurface(
+                cornerRadius: LifeBoardTheme.CornerRadius.card,
+                fillColor: Color.lifeboard.surfacePrimary,
+                accentColor: Color.lifeboard.accentSecondary,
                 level: .e2
             )
-            .taskerSuccessPulse(isActive: isCelebrating)
+            .lifeboardSuccessPulse(isActive: isCelebrating)
 
             VStack(alignment: .leading, spacing: spacing.s8) {
                 Text("Today's signal")
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textTertiary)
 
                 Text("\"\(motivationalQuote)\"")
-                    .font(.tasker(.bodyEmphasis))
+                    .font(.lifeboard(.bodyEmphasis))
                     .italic()
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .multilineTextAlignment(.leading)
 
                 if let statusMessage {
@@ -111,17 +111,17 @@ public struct DailyReflectionView: View {
                         Image(systemName: statusBadgeSymbol)
                             .font(.system(size: 12, weight: .semibold))
                         Text(statusMessage.text)
-                            .font(.tasker(.caption1))
+                            .font(.lifeboard(.caption1))
                     }
                     .foregroundStyle(statusMessage.color)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(spacing.s12)
-            .taskerDenseSurface(
-                cornerRadius: TaskerTheme.CornerRadius.card,
-                fillColor: Color.tasker.surfacePrimary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+            .lifeboardDenseSurface(
+                cornerRadius: LifeBoardTheme.CornerRadius.card,
+                fillColor: Color.lifeboard.surfacePrimary,
+                strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
             )
 
             Button(action: {
@@ -130,11 +130,11 @@ public struct DailyReflectionView: View {
             }) {
                 VStack(spacing: 2) {
                     Text(primaryCTA)
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(Color.tasker.textInverse)
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundColor(Color.lifeboard.textInverse)
                     Text(secondaryCTA)
-                        .font(.tasker(.caption2))
-                        .foregroundColor(Color.tasker.textInverse.opacity(0.82))
+                        .font(.lifeboard(.caption2))
+                        .foregroundColor(Color.lifeboard.textInverse.opacity(0.82))
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
@@ -152,7 +152,7 @@ public struct DailyReflectionView: View {
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.vertical, spacing.s16)
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .accessibilityElement(children: .contain)
     }
 
@@ -162,8 +162,8 @@ public struct DailyReflectionView: View {
                 .font(.system(size: 14))
                 .foregroundColor(color)
             Text(text)
-                .font(.tasker(.callout))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.callout))
+                .foregroundColor(Color.lifeboard.textSecondary)
         }
     }
 
@@ -212,13 +212,13 @@ public struct DailyReflectionView: View {
         case .ready:
             return nil
         case .submitting:
-            return ("Claiming reflection reward...", Color.tasker.textSecondary)
+            return ("Claiming reflection reward...", Color.lifeboard.textSecondary)
         case .claimed(let xp):
-            return ("Reflection claimed. +\(xp) XP awarded.", Color.tasker.statusSuccess)
+            return ("Reflection claimed. +\(xp) XP awarded.", Color.lifeboard.statusSuccess)
         case .alreadyClaimed:
-            return ("Reflection already completed today.", Color.tasker.textSecondary)
+            return ("Reflection already completed today.", Color.lifeboard.textSecondary)
         case .unavailable(let message):
-            return (message, Color.tasker.statusDanger)
+            return (message, Color.lifeboard.statusDanger)
         }
     }
 
@@ -237,7 +237,7 @@ public struct DailyReflectionView: View {
         }
     }
 
-    private var statusBadgeTone: TaskerStatusPillTone {
+    private var statusBadgeTone: LifeBoardStatusPillTone {
         switch claimState {
         case .ready:
             return .accent
@@ -280,24 +280,24 @@ public struct DailyReflectionView: View {
     private var buttonFillColor: Color {
         switch claimState {
         case .ready:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .submitting:
-            return Color.tasker.accentPrimary.opacity(0.84)
+            return Color.lifeboard.accentPrimary.opacity(0.84)
         case .claimed, .alreadyClaimed:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .unavailable:
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         }
     }
 
     private var buttonStrokeColor: Color {
         switch claimState {
         case .ready, .submitting:
-            return Color.tasker.accentPrimary.opacity(0.12)
+            return Color.lifeboard.accentPrimary.opacity(0.12)
         case .claimed, .alreadyClaimed:
-            return Color.tasker.statusSuccess.opacity(0.2)
+            return Color.lifeboard.statusSuccess.opacity(0.2)
         case .unavailable:
-            return Color.tasker.statusDanger.opacity(0.2)
+            return Color.lifeboard.statusDanger.opacity(0.2)
         }
     }
 }
@@ -317,8 +317,8 @@ struct HomeDailyReflectionEntryCard: View {
     let mode: DailyReflectionEntryCardMode
     let onOpen: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         Button {
@@ -354,8 +354,8 @@ struct HomeDailyReflectionEntryCard: View {
                 }
 
                 Text(state.narrativeSummary.homeCardLine)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .lineLimit(1)
                     .multilineTextAlignment(.leading)
             }
@@ -363,23 +363,23 @@ struct HomeDailyReflectionEntryCard: View {
 
             HStack(spacing: spacing.s4) {
                 Text("Reflect & plan")
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
                     .lineLimit(1)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
             }
             .accessibilityHidden(true)
         }
         .padding(.horizontal, spacing.s16)
         .padding(.vertical, spacing.s12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .taskerPremiumSurface(
+        .lifeboardPremiumSurface(
             cornerRadius: corner.card,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.82),
-            accentColor: Color.tasker.accentSecondary,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.82),
+            accentColor: Color.lifeboard.accentSecondary,
             level: .e1
         )
     }
@@ -389,11 +389,11 @@ struct HomeDailyReflectionEntryCard: View {
             HStack(alignment: .top, spacing: spacing.s8) {
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(state.title)
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                     Text(state.subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .multilineTextAlignment(.leading)
                 }
 
@@ -409,11 +409,11 @@ struct HomeDailyReflectionEntryCard: View {
                     ForEach(state.closedTasks.prefix(3)) { task in
                         HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                             Circle()
-                                .fill(Color.tasker.accentSecondary.opacity(0.5))
+                                .fill(Color.lifeboard.accentSecondary.opacity(0.5))
                                 .frame(width: 5, height: 5)
                             Text(task.title)
-                                .font(.tasker(.callout))
-                                .foregroundStyle(Color.tasker.textPrimary)
+                                .font(.lifeboard(.callout))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
                                 .lineLimit(1)
                             Spacer(minLength: spacing.s4)
                         }
@@ -430,36 +430,36 @@ struct HomeDailyReflectionEntryCard: View {
 
             HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                 Text(state.narrativeSummary.homeCardLine)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: spacing.s8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.tasker.textTertiary)
+                    .foregroundStyle(Color.lifeboard.textTertiary)
             }
         }
         .padding(spacing.s16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .taskerPremiumSurface(
+        .lifeboardPremiumSurface(
             cornerRadius: corner.card,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.82),
-            accentColor: Color.tasker.accentSecondary,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.82),
+            accentColor: Color.lifeboard.accentSecondary,
             level: .e1
         )
     }
 
     private func badge(text: String) -> some View {
         Text(text)
-            .font(.tasker(.caption1).weight(.semibold))
+            .font(.lifeboard(.caption1).weight(.semibold))
             .fontWeight(.semibold)
-            .foregroundStyle(Color.tasker.statusWarning)
+            .foregroundStyle(Color.lifeboard.statusWarning)
             .padding(.horizontal, spacing.s8)
             .padding(.vertical, spacing.s4)
             .background(
                 Capsule(style: .continuous)
-                    .fill(Color.tasker.statusWarning.opacity(0.14))
+                    .fill(Color.lifeboard.statusWarning.opacity(0.14))
             )
     }
 
@@ -486,22 +486,22 @@ struct ReflectPlanScreen: View {
     let onClose: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isContextExpanded = false
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-                .overlay(Color.tasker.strokeHairline)
+                .overlay(Color.lifeboard.strokeHairline)
             content
             stickyFooter
         }
-        .background(Color.tasker.bgCanvas.ignoresSafeArea())
+        .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
         .sheet(isPresented: Binding(
             get: { viewModel.activeSwapSlot != nil },
             set: { if !$0 { viewModel.activeSwapSlot = nil } }
@@ -522,27 +522,27 @@ struct ReflectPlanScreen: View {
         HStack(alignment: .top, spacing: spacing.s12) {
             VStack(alignment: .leading, spacing: spacing.s4) {
                 Text(viewModel.screenTitle)
-                    .font(.tasker(.title3).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.title3).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 if let target = viewModel.target {
                     Text("Reflect on \(viewModel.reflectionDateLabel). Plan for \(viewModel.planningDateLabel).")
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .accessibilityLabel(
                             "Reflect on \(viewModel.reflectionDateLabel). Plan for \(viewModel.planningDateLabel)."
                         )
 
                     if target.mode == .catchUpYesterday {
                         Text("Catch-up")
-                            .font(.tasker(.caption1).weight(.semibold))
+                            .font(.lifeboard(.caption1).weight(.semibold))
                             .fontWeight(.semibold)
-                            .foregroundStyle(Color.tasker.statusWarning)
+                            .foregroundStyle(Color.lifeboard.statusWarning)
                             .padding(.horizontal, spacing.s8)
                             .padding(.vertical, spacing.s4)
                             .background(
                                 Capsule(style: .continuous)
-                                    .fill(Color.tasker.statusWarning.opacity(0.14))
+                                    .fill(Color.lifeboard.statusWarning.opacity(0.14))
                             )
                     }
                 }
@@ -555,11 +555,11 @@ struct ReflectPlanScreen: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .frame(width: 44, height: 44)
                     .background(
                         Circle()
-                            .fill(Color.tasker.surfaceSecondary)
+                            .fill(Color.lifeboard.surfaceSecondary)
                     )
             }
             .buttonStyle(.plain)
@@ -575,11 +575,11 @@ struct ReflectPlanScreen: View {
         if viewModel.loadState == .loadingCore {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Preparing your reflection context")
-                    .font(.tasker(.callout).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                 Text("Tasks and habits load first. Calendar details are added in the background.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -588,13 +588,13 @@ struct ReflectPlanScreen: View {
             VStack(spacing: spacing.s12) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(Color.tasker.accentSecondary)
+                    .foregroundStyle(Color.lifeboard.accentSecondary)
                 Text("You're already closed out.")
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                 Text("There isn't an open reflection day right now.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -614,16 +614,16 @@ struct ReflectPlanScreen: View {
 
                     if let successMessage = viewModel.successMessage {
                         Text(successMessage)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .padding(.horizontal, spacing.s4)
                             .accessibilityLabel(successMessage)
                     }
 
                     if let errorMessage = viewModel.errorMessage {
                         Text(errorMessage)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.statusWarning)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.statusWarning)
                             .padding(.horizontal, spacing.s4)
                             .accessibilityLabel(errorMessage)
                     }
@@ -636,17 +636,17 @@ struct ReflectPlanScreen: View {
             VStack(spacing: spacing.s12) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(Color.tasker.statusWarning)
+                    .foregroundStyle(Color.lifeboard.statusWarning)
                 Text(viewModel.errorMessage ?? "The reflection flow couldn't load.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .multilineTextAlignment(.center)
                 Button("Retry") {
                     viewModel.load()
                 }
-                .font(.tasker(.button))
+                .font(.lifeboard(.button))
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.tasker.accentPrimary)
+                .foregroundStyle(Color.lifeboard.accentPrimary)
                 .frame(minWidth: 44, minHeight: 44)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -657,19 +657,19 @@ struct ReflectPlanScreen: View {
     private var stickyFooter: some View {
         VStack(spacing: spacing.s8) {
             Divider()
-                .overlay(Color.tasker.strokeHairline)
+                .overlay(Color.lifeboard.strokeHairline)
             Button {
                 viewModel.save()
             } label: {
                 HStack(spacing: spacing.s8) {
                     Text(viewModel.isSaving ? "Saving..." : "Save reflection & plan")
-                        .font(.tasker(.button))
+                        .font(.lifeboard(.button))
                 }
-                .foregroundStyle(Color.tasker.accentOnPrimary)
+                .foregroundStyle(Color.lifeboard.accentOnPrimary)
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.tasker.accentPrimary)
+                        .fill(Color.lifeboard.accentPrimary)
                 )
             }
             .buttonStyle(.plain)
@@ -678,18 +678,18 @@ struct ReflectPlanScreen: View {
 
             if let planningStatusMessage = viewModel.planningStatusMessage {
                 Text(planningStatusMessage)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .multilineTextAlignment(.center)
             } else if viewModel.isPlanningPlaceholderVisible {
                 Text("Building the smaller plan now.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .multilineTextAlignment(.center)
             } else if dynamicTypeSize.isAccessibilitySize {
                 Text("No typing is required.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
             }
         }
         .padding(.horizontal, spacing.s16)
@@ -703,31 +703,31 @@ struct ReflectPlanScreen: View {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 if let pulseNote = snapshot.pulseNote, pulseNote.isEmpty == false {
                     Text(pulseNote)
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if snapshot.closedTasks.isEmpty == false {
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         Text("Closed tasks")
-                            .font(.tasker(.caption1).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                         VStack(alignment: .leading, spacing: spacing.s8) {
                             ForEach(snapshot.closedTasks.prefix(3)) { task in
                                 HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                                     Circle()
-                                        .fill(Color.tasker.accentSecondary.opacity(0.55))
+                                        .fill(Color.lifeboard.accentSecondary.opacity(0.55))
                                         .frame(width: 5, height: 5)
                                     VStack(alignment: .leading, spacing: spacing.s2) {
                                         Text(task.title)
-                                            .font(.tasker(.callout))
-                                            .foregroundStyle(Color.tasker.textPrimary)
+                                            .font(.lifeboard(.callout))
+                                            .foregroundStyle(Color.lifeboard.textPrimary)
                                             .lineLimit(1)
                                         if let projectName = task.projectName, projectName.isEmpty == false {
                                             Text(projectName)
-                                                .font(.tasker(.caption1))
-                                                .foregroundStyle(Color.tasker.textSecondary)
+                                                .font(.lifeboard(.caption1))
+                                                .foregroundStyle(Color.lifeboard.textSecondary)
                                                 .lineLimit(1)
                                         }
                                     }
@@ -740,16 +740,16 @@ struct ReflectPlanScreen: View {
                 if snapshot.habitGrid.isEmpty == false {
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         Text("Habit streaks")
-                            .font(.tasker(.caption1).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                         ReflectionHabitMiniGridView(items: snapshot.habitGrid, spacing: spacing)
                     }
                 }
 
                 if snapshot.closedTasks.isEmpty && snapshot.habitGrid.isEmpty {
                     Text("No recap items were captured for this day yet.")
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
             }
         }
@@ -759,12 +759,12 @@ struct ReflectPlanScreen: View {
         sectionCard(title: viewModel.target?.mode == .catchUpYesterday ? "Today" : "Tomorrow") {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Building plan suggestions...")
-                    .font(.tasker(.callout).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 Text(viewModel.planningStatusMessage ?? "Tasks and habits are ready. Calendar context is still loading.")
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -778,20 +778,20 @@ struct ReflectPlanScreen: View {
                         let task = plan.topTasks[index]
                         HStack(alignment: .top, spacing: spacing.s8) {
                             Text("\(index + 1)")
-                                .font(.tasker(.caption1).weight(.semibold))
+                                .font(.lifeboard(.caption1).weight(.semibold))
                                 .fontWeight(.semibold)
-                                .foregroundStyle(Color.tasker.textTertiary)
+                                .foregroundStyle(Color.lifeboard.textTertiary)
                                 .frame(width: 20, alignment: .leading)
 
                             VStack(alignment: .leading, spacing: spacing.s2) {
                                 Text(task.title)
-                                    .font(.tasker(.callout).weight(.semibold))
-                                    .foregroundStyle(Color.tasker.textPrimary)
+                                    .font(.lifeboard(.callout).weight(.semibold))
+                                    .foregroundStyle(Color.lifeboard.textPrimary)
                                     .fixedSize(horizontal: false, vertical: true)
                                 if let projectName = task.projectName, projectName.isEmpty == false {
                                     Text(projectName)
-                                        .font(.tasker(.caption1))
-                                        .foregroundStyle(Color.tasker.textSecondary)
+                                        .font(.lifeboard(.caption1))
+                                        .foregroundStyle(Color.lifeboard.textSecondary)
                                 }
                             }
 
@@ -800,9 +800,9 @@ struct ReflectPlanScreen: View {
                             Button("Swap") {
                                 viewModel.activeSwapSlot = index
                             }
-                            .font(.tasker(.caption1).weight(.semibold))
+                            .font(.lifeboard(.caption1).weight(.semibold))
                             .buttonStyle(.plain)
-                            .foregroundStyle(Color.tasker.accentPrimary)
+                            .foregroundStyle(Color.lifeboard.accentPrimary)
                             .frame(minWidth: 44, minHeight: 44)
                             .accessibilityLabel("Swap task \(index + 1)")
                         }
@@ -810,8 +810,8 @@ struct ReflectPlanScreen: View {
                 }
 
                 Text(narrativeLine)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 VStack(alignment: .leading, spacing: spacing.s8) {
@@ -831,8 +831,8 @@ struct ReflectPlanScreen: View {
 
                 if let planningStatusMessage = viewModel.planningStatusMessage {
                     Text(planningStatusMessage)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -845,24 +845,24 @@ struct ReflectPlanScreen: View {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         Text("One-line note")
-                            .font(.tasker(.caption1).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                         TextField("What mattered most?", text: $viewModel.noteText, axis: .vertical)
-                            .font(.tasker(.callout))
+                            .font(.lifeboard(.callout))
                             .lineLimit(1...2)
                             .textFieldStyle(.plain)
                             .padding(spacing.s12)
                             .background(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(Color.tasker.surfaceSecondary)
+                                    .fill(Color.lifeboard.surfaceSecondary)
                             )
                             .accessibilityLabel("Optional note")
                     }
 
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         Text("Mood")
-                            .font(.tasker(.caption1).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                         chipRow(ReflectionMood.allCases, selection: viewModel.selectedMood) { mood in
                             viewModel.toggleMood(mood)
                         }
@@ -870,8 +870,8 @@ struct ReflectPlanScreen: View {
 
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         Text("Energy")
-                            .font(.tasker(.caption1).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                         chipRow(ReflectionEnergy.allCases, selection: viewModel.selectedEnergy) { energy in
                             viewModel.toggleEnergy(energy)
                         }
@@ -879,8 +879,8 @@ struct ReflectPlanScreen: View {
 
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         Text("Friction")
-                            .font(.tasker(.caption1).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                         frictionChipGrid
                     }
                 }
@@ -888,15 +888,15 @@ struct ReflectPlanScreen: View {
             } label: {
                 HStack(spacing: spacing.s8) {
                     Text("Mood, energy, friction, and note")
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                     Spacer(minLength: spacing.s8)
                     Text(isContextExpanded ? "Hide" : "Optional")
-                        .font(.tasker(.caption1).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textTertiary)
                 }
             }
-            .tint(Color.tasker.textPrimary)
+            .tint(Color.lifeboard.textPrimary)
         }
     }
 
@@ -910,15 +910,15 @@ struct ReflectPlanScreen: View {
                 onTap(value)
             } label: {
                 Text(String(describing: value).capitalized)
-                    .font(.tasker(.caption1).weight(.semibold))
+                    .font(.lifeboard(.caption1).weight(.semibold))
                     .fontWeight(.semibold)
-                    .foregroundStyle(selection == value ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
+                    .foregroundStyle(selection == value ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                     .padding(.horizontal, spacing.s12)
                     .padding(.vertical, spacing.s8)
                     .frame(minHeight: 44)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(selection == value ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                            .fill(selection == value ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                     )
             }
             .buttonStyle(.plain)
@@ -932,15 +932,15 @@ struct ReflectPlanScreen: View {
                 viewModel.toggleFriction(tag)
             } label: {
                 Text(tag.title)
-                    .font(.tasker(.caption1).weight(.semibold))
+                    .font(.lifeboard(.caption1).weight(.semibold))
                     .fontWeight(.semibold)
-                    .foregroundStyle(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
+                    .foregroundStyle(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                     .padding(.horizontal, spacing.s12)
                     .padding(.vertical, spacing.s8)
                     .frame(minHeight: 44)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                            .fill(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                     )
             }
             .buttonStyle(.plain)
@@ -951,11 +951,11 @@ struct ReflectPlanScreen: View {
     private func planDetailRow(title: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
             Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textTertiary)
             Text(value)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -963,16 +963,16 @@ struct ReflectPlanScreen: View {
     private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text(title)
-                .font(.tasker(.title3).weight(.semibold))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.title3).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textPrimary)
             content()
         }
         .padding(spacing.s16)
-        .taskerPremiumSurface(
+        .lifeboardPremiumSurface(
             cornerRadius: corner.card,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72),
-            accentColor: Color.tasker.accentSecondary,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72),
+            accentColor: Color.lifeboard.accentSecondary,
             level: .e1
         )
     }
@@ -993,12 +993,12 @@ struct ReflectPlanScreen: View {
                     } label: {
                         VStack(alignment: .leading, spacing: spacing.s2) {
                             Text(option.title)
-                                .font(.tasker(.bodyEmphasis))
-                                .foregroundStyle(Color.tasker.textPrimary)
+                                .font(.lifeboard(.bodyEmphasis))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
                             if let projectName = option.projectName, projectName.isEmpty == false {
                                 Text(projectName)
-                                    .font(.tasker(.caption1))
-                                    .foregroundStyle(Color.tasker.textSecondary)
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundStyle(Color.lifeboard.textSecondary)
                             }
                         }
                     }
@@ -1026,7 +1026,7 @@ struct ReflectPlanScreen: View {
 @MainActor
 private struct ReflectionHabitMiniGridView: View {
     let items: [ReflectionHabitMiniRow]
-    let spacing: TaskerSpacingTokens
+    let spacing: LifeBoardSpacingTokens
 
     var body: some View {
         LazyVGrid(
@@ -1047,7 +1047,7 @@ private struct ReflectionHabitMiniGridView: View {
 @MainActor
 private struct ReflectionHabitMiniTileView: View {
     let habit: ReflectionHabitMiniRow
-    let spacing: TaskerSpacingTokens
+    let spacing: LifeBoardSpacingTokens
 
     private var cells: [HabitBoardCell] {
         let referenceDate = habit.last7Days.last?.date ?? Date()
@@ -1063,14 +1063,14 @@ private struct ReflectionHabitMiniTileView: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                 Text(habit.title)
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: spacing.s4)
                 if habit.currentStreak > 0 {
                     Text("\(habit.currentStreak)d")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textTertiary)
                 }
             }
 
@@ -1087,7 +1087,7 @@ private struct ReflectionHabitMiniTileView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary.opacity(0.72))
+                .fill(Color.lifeboard.surfaceSecondary.opacity(0.72))
         )
     }
 }

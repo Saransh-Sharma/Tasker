@@ -15,7 +15,7 @@ struct HomeCompactHeaderView: View {
     let onOpenReflection: () -> Void
     let onOpenSettings: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var containerWidth: CGFloat = 0
@@ -77,9 +77,9 @@ struct HomeCompactHeaderView: View {
             HomeMomentumProgressBar(
                 progress: dayProgress.progressFraction,
                 colors: dayProgress.isComplete
-                    ? [Color.tasker.statusSuccess.opacity(0.78), Color.tasker.statusSuccess]
-                    : [Color.tasker.accentPrimary.opacity(0.78), Color.tasker.accentPrimary],
-                trackColor: Color.tasker.surfaceSecondary.opacity(0.72),
+                    ? [Color.lifeboard.statusSuccess.opacity(0.78), Color.lifeboard.statusSuccess]
+                    : [Color.lifeboard.accentPrimary.opacity(0.78), Color.lifeboard.accentPrimary],
+                trackColor: Color.lifeboard.surfaceSecondary.opacity(0.72),
                 height: 3,
                 animate: !reduceMotion
             )
@@ -90,7 +90,7 @@ struct HomeCompactHeaderView: View {
             .accessibilityIdentifier("home.topChrome.dayProgress")
         } else {
             Rectangle()
-                .fill(Color.tasker.divider.opacity(0.88))
+                .fill(Color.lifeboard.divider.opacity(0.88))
                 .frame(height: 1)
                 .accessibilityHidden(true)
         }
@@ -166,24 +166,24 @@ struct HomeCompactHeaderView: View {
         if let todayStatus = presentation.todayStatus {
             HStack(spacing: spacing.s4) {
                 Text(todayStatus.completionText)
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
 
                 Text("·")
-                    .foregroundStyle(Color.tasker.textTertiary)
+                    .foregroundStyle(Color.lifeboard.textTertiary)
 
                 HStack(spacing: spacing.s4) {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.tasker.statusWarning)
+                        .foregroundStyle(Color.lifeboard.statusWarning)
                         .accessibilityHidden(true)
 
                     Text(todayStatus.streakText)
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(todayStatus.streakAccessibilityLabel)
             }
-            .font(.tasker(.caption1))
+            .font(.lifeboard(.caption1))
             .lineLimit(1)
             .minimumScaleFactor(0.85)
             .accessibilityElement(children: .combine)
@@ -191,8 +191,8 @@ struct HomeCompactHeaderView: View {
             .accessibilityIdentifier("home.topChrome.status")
         } else if let statusText = presentation.statusText {
             Text(statusText)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 .accessibilityIdentifier("home.topChrome.status")
@@ -239,8 +239,8 @@ struct HomeCompactHeaderView: View {
     private var compactDateLabel: some View {
         if let dateText = presentation.compactDateText {
             Text(dateText)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 .fixedSize(horizontal: false, vertical: true)
@@ -252,9 +252,9 @@ struct HomeCompactHeaderView: View {
     private var watermarkDateColor: Color {
         switch colorScheme {
         case .dark:
-            return Color.tasker.statusWarning.opacity(0.40)
+            return Color.lifeboard.statusWarning.opacity(0.40)
         default:
-            return Color.tasker.statusWarning.opacity(0.30)
+            return Color.lifeboard.statusWarning.opacity(0.30)
         }
     }
 
@@ -263,7 +263,7 @@ struct HomeCompactHeaderView: View {
         case .dark:
             return Color.white.opacity(0.955)
         default:
-            return Color.tasker.textPrimary.opacity(0.87)
+            return Color.lifeboard.textPrimary.opacity(0.87)
         }
     }
 
@@ -323,12 +323,12 @@ struct HomeCompactHeaderView: View {
 
     private var reflectionButton: some View {
         Button {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             onOpenReflection()
         } label: {
             Text(presentation.reflectionCTATitle)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.statusWarning)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.statusWarning)
                 .lineLimit(1)
         }
         .buttonStyle(.plain)
@@ -344,7 +344,7 @@ struct HomeCompactHeaderView: View {
                 ForEach(HomeQuickView.allCases, id: \.rawValue) { quickView in
                     Button {
                         onSelectQuickView(quickView)
-                        TaskerFeedback.selection()
+                        LifeBoardFeedback.selection()
                     } label: {
                         HStack {
                             Label(quickView.title, systemImage: iconName(for: quickView))
@@ -394,7 +394,7 @@ struct HomeCompactHeaderView: View {
         Button("Settings", systemImage: "gearshape", action: onOpenSettings)
             .labelStyle(.iconOnly)
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(Color.tasker.statusWarning)
+            .foregroundStyle(Color.lifeboard.statusWarning)
             .frame(width: 36, height: 36)
             .buttonStyle(.plain)
             .scaleOnPress()
@@ -413,15 +413,15 @@ struct HomeCompactHeaderView: View {
     private var selectionTint: Color {
         switch selectedQuickView {
         case .overdue:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .done:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .morning:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .evening:
-            return Color.tasker.accentSecondary
+            return Color.lifeboard.accentSecondary
         case .today, .upcoming:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         }
     }
 

@@ -1,6 +1,6 @@
 //
 //  CelebrationEffects.swift
-//  Tasker
+//  LifeBoard
 //
 //  Micro-interactions and celebration effects for task completion.
 //
@@ -60,12 +60,12 @@ public struct XPCelebrationView: View {
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [Color.tasker.accentPrimary, Color.tasker.accentSecondary],
+                                colors: [Color.lifeboard.accentPrimary, Color.lifeboard.accentSecondary],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
-                        .shadow(color: Color.tasker.accentPrimary.opacity(0.4), radius: 8, x: 0, y: 4)
+                        .shadow(color: Color.lifeboard.accentPrimary.opacity(0.4), radius: 8, x: 0, y: 4)
                 )
                 .scaleEffect(scale)
                 .opacity(opacity)
@@ -106,7 +106,7 @@ public struct XPCelebrationView: View {
                 x: CGFloat.random(in: -40...40),
                 y: CGFloat.random(in: -20...20),
                 size: CGFloat.random(in: 4...8),
-                color: [Color.tasker.accentPrimary, Color.tasker.accentSecondary, .yellow].randomElement()!,
+                color: [Color.lifeboard.accentPrimary, Color.lifeboard.accentSecondary, .yellow].randomElement()!,
                 opacity: 1
             )
         }
@@ -178,7 +178,7 @@ public struct StreakCelebrationView: View {
             ZStack {
                 // Expanding ring
                 Circle()
-                    .stroke(Color.tasker.accentSecondary.opacity(0.3), lineWidth: 3)
+                    .stroke(Color.lifeboard.accentSecondary.opacity(0.3), lineWidth: 3)
                     .frame(width: 80, height: 80)
                     .scaleEffect(ringScale)
                     .opacity(1 - ringScale)
@@ -192,9 +192,9 @@ public struct StreakCelebrationView: View {
                         .symbolEffect(.bounce, options: .repeating.speed(0.5), isActive: !reduceMotion)
 
                     Text("\(streakDays) day streak!")
-                        .font(.tasker(.caption1))
+                        .font(.lifeboard(.caption1))
                         .fontWeight(.semibold)
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .opacity(flameOpacity)
                 }
             }
@@ -310,7 +310,7 @@ struct CelebrationEffects_Previews: PreviewProvider {
             StreakCelebrationView(streakDays: 7, isPresented: .constant(true))
         }
         .padding(40)
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .previewLayout(.sizeThatFits)
     }
 }

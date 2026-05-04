@@ -8,7 +8,7 @@ public struct BadgeGalleryView: View {
     let progressByKey: [String: AchievementProgressState]
     var onBadgeTap: ((String) -> Void)?
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     public init(
         achievements: [AchievementDefinition] = AchievementCatalog.all,
@@ -26,12 +26,12 @@ public struct BadgeGalleryView: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             HStack {
                 Text("Achievements")
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                 Spacer()
                 Text("\(unlockedKeys.count) / \(AchievementCatalog.all.count)")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -66,37 +66,37 @@ struct BadgeCardView: View {
         VStack(spacing: 4) {
             ZStack {
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(isUnlocked ? Color.tasker.surfacePrimary : Color.tasker.surfaceTertiary)
+                    .fill(isUnlocked ? Color.lifeboard.surfacePrimary : Color.lifeboard.surfaceTertiary)
                     .frame(width: cardSize, height: cardSize)
                     .shadow(
-                        color: isUnlocked ? Color.tasker.accentPrimary.opacity(0.15) : .clear,
+                        color: isUnlocked ? Color.lifeboard.accentPrimary.opacity(0.15) : .clear,
                         radius: 4
                     )
 
                 if isUnlocked {
                     Image(systemName: achievement.sfSymbol)
                         .font(.system(size: 28))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                 } else {
                     ZStack {
                         Image(systemName: achievement.sfSymbol)
                             .font(.system(size: 28))
-                            .foregroundColor(Color.tasker.textQuaternary)
+                            .foregroundColor(Color.lifeboard.textQuaternary)
                         RoundedRectangle(cornerRadius: 20)
-                            .fill(Color.tasker.surfaceTertiary.opacity(GamificationTokens.lockedOverlayOpacity))
+                            .fill(Color.lifeboard.surfaceTertiary.opacity(GamificationTokens.lockedOverlayOpacity))
                     }
                 }
             }
 
             Text(achievement.name)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(isUnlocked ? Color.tasker.textPrimary : Color.tasker.textQuaternary)
+                .foregroundColor(isUnlocked ? Color.lifeboard.textPrimary : Color.lifeboard.textQuaternary)
                 .lineLimit(1)
                 .frame(width: cardSize)
 
             Text(progress?.progressLabel ?? (isUnlocked ? "Unlocked" : "Locked"))
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textTertiary)
                 .lineLimit(1)
                 .frame(width: cardSize)
         }

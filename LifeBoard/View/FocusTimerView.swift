@@ -14,7 +14,7 @@ public struct FocusTimerView: View {
     @State private var timer: Timer?
     @State private var completionSent: Bool = false
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var remainingSeconds: Int {
         max(0, targetDurationSeconds - elapsedSeconds)
@@ -42,7 +42,7 @@ public struct FocusTimerView: View {
                 Button(action: onCancel) {
                     Image(systemName: "xmark")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .foregroundColor(Color.lifeboard.textTertiary)
                         .frame(width: 44, height: 44)
                 }
                 .accessibilityLabel("Close")
@@ -54,13 +54,13 @@ public struct FocusTimerView: View {
             // Timer Ring
             ZStack {
                 Circle()
-                    .stroke(Color.tasker.accentSecondaryMuted, lineWidth: GamificationTokens.focusTimerRingWidth)
+                    .stroke(Color.lifeboard.accentSecondaryMuted, lineWidth: GamificationTokens.focusTimerRingWidth)
 
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
                         AngularGradient(
-                            gradient: Gradient(colors: [Color.tasker.accentPrimary, Color.tasker.accentSecondary]),
+                            gradient: Gradient(colors: [Color.lifeboard.accentPrimary, Color.lifeboard.accentSecondary]),
                             center: .center,
                             startAngle: .degrees(-90),
                             endAngle: .degrees(270)
@@ -72,7 +72,7 @@ public struct FocusTimerView: View {
 
                 Text(timeString)
                     .font(.system(size: GamificationTokens.focusTimerFontSize, weight: .light, design: .rounded))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .foregroundColor(Color.lifeboard.textPrimary)
                     .monospacedDigit()
             }
             .frame(width: GamificationTokens.focusTimerSize, height: GamificationTokens.focusTimerSize)
@@ -81,15 +81,15 @@ public struct FocusTimerView: View {
             if let title = taskTitle {
                 VStack(spacing: spacing.s4) {
                     Text(title)
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundColor(Color.lifeboard.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
 
                     if let priority = taskPriority {
                         Text(priority)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textTertiary)
                     }
                 }
             }
@@ -106,13 +106,13 @@ public struct FocusTimerView: View {
                     }
                 }) {
                     Text(isRunning ? "Pause" : "Resume")
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.tasker.accentPrimary, lineWidth: 1.5)
+                                .stroke(Color.lifeboard.accentPrimary, lineWidth: 1.5)
                         )
                 }
 
@@ -120,25 +120,25 @@ public struct FocusTimerView: View {
                     completeIfNeeded()
                 }) {
                     Text("Complete Session")
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(Color.tasker.textInverse)
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundColor(Color.lifeboard.textInverse)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.tasker.accentPrimary)
+                                .fill(Color.lifeboard.accentPrimary)
                         )
                 }
 
                 // XP earned so far
                 Text("+\(currentXP) XP earned so far")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
             }
             .padding(.horizontal, spacing.screenHorizontal)
             .padding(.bottom, spacing.s16)
         }
-        .background(Color.tasker.bgCanvas.ignoresSafeArea())
+        .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
         .onAppear { startTimer() }
         .onDisappear { stopTimer() }
         .accessibilityElement(children: .contain)

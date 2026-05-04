@@ -48,12 +48,12 @@ struct AddHabitForedropView: View {
     @FocusState private var titleFieldFocused: Bool
     @State private var errorShakeTrigger = false
     @State private var showAdvancedSettings = false
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).corner }
 
     private var reminderLabel: String {
         switch viewModel.selectedTrackingMode {
@@ -217,12 +217,12 @@ struct AddHabitForedropView: View {
             .padding(.horizontal, spacing.s16)
             .padding(.bottom, spacing.s16)
         }
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .accessibilityIdentifier("addHabit.view")
         .overlay(
-            Color.tasker.statusSuccess
+            Color.lifeboard.statusSuccess
                 .opacity(successFlash ? 0.045 : 0)
-                .animation(reduceMotion ? nil : TaskerAnimation.ctaConfirmation, value: successFlash)
+                .animation(reduceMotion ? nil : LifeBoardAnimation.ctaConfirmation, value: successFlash)
                 .allowsHitTesting(false)
         )
         .task {
@@ -332,7 +332,7 @@ struct AddHabitForedropView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s8)
-            .taskerDenseSurface(cornerRadius: corner.r2, fillColor: Color.tasker.surfacePrimary)
+            .lifeboardDenseSurface(cornerRadius: corner.r2, fillColor: Color.lifeboard.surfacePrimary)
         }
     }
 
@@ -349,11 +349,11 @@ struct AddHabitForedropView: View {
                viewModel.lifeAreas.isEmpty {
                 VStack(alignment: .leading, spacing: spacing.s8) {
                     Text("Couldn't load ownership options.")
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.statusWarning)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.statusWarning)
                     Text(dependencyError)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Button("Retry loading options") {
                         viewModel.reloadDependencies()
@@ -363,11 +363,11 @@ struct AddHabitForedropView: View {
                 }
             }
 
-            TaskerComposerOptionGrid(
+            LifeBoardComposerOptionGrid(
                 title: "Life Area",
                 helperText: "Every habit needs a home.",
                 options: viewModel.lifeAreas.map {
-                    TaskerComposerOption(
+                    LifeBoardComposerOption(
                         id: $0.id,
                         title: $0.name,
                         icon: $0.icon,
@@ -379,37 +379,37 @@ struct AddHabitForedropView: View {
                 emptyStateText: viewModel.lifeAreas.isEmpty ? "No life areas yet." : nil,
                 accessibilityIdentifier: "addHabit.lifeAreaSelector"
             ) { selectedID in
-                withAnimation(TaskerAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.snappy) {
                     viewModel.selectedLifeAreaID = selectedID
                 }
             }
 
-            TaskerComposerOptionGrid(
+            LifeBoardComposerOptionGrid(
                 title: "Project",
                 helperText: "Optional. Filtered to the selected area.",
                 options: viewModel.filteredProjectsForSelectedLifeArea.map {
-                    TaskerComposerOption(id: $0.project.id, title: $0.project.name, icon: nil, accentHex: nil)
+                    LifeBoardComposerOption(id: $0.project.id, title: $0.project.name, icon: nil, accentHex: nil)
                 },
                 selectedID: viewModel.selectedProjectID,
                 noneOptionTitle: "No project",
                 emptyStateText: viewModel.filteredProjectsForSelectedLifeArea.isEmpty ? "No projects in this area." : nil,
                 accessibilityIdentifier: "addHabit.projectSelector"
             ) { selectedID in
-                withAnimation(TaskerAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.snappy) {
                     viewModel.selectedProjectID = selectedID
                 }
             }
 
             if viewModel.selectedLifeAreaID == nil {
                 Text("Pick an area before saving.")
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.statusWarning)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.statusWarning)
             }
         }
     }
 
     private var advancedDisclosure: some View {
-        TaskerComposerDisclosureRow(
+        LifeBoardComposerDisclosureRow(
             title: "Add details",
             summary: advancedSummary,
             isExpanded: showAdvancedSettings,
@@ -418,7 +418,7 @@ struct AddHabitForedropView: View {
             if reduceMotion {
                 showAdvancedSettings.toggle()
             } else {
-                withAnimation(TaskerAnimation.panelIn) {
+                withAnimation(LifeBoardAnimation.panelIn) {
                     showAdvancedSettings.toggle()
                 }
             }
@@ -465,12 +465,12 @@ struct AddHabitForedropView: View {
 
                     if let reminderError = viewModel.reminderWindowValidationError {
                         Text(reminderError)
-                            .font(.tasker(.meta))
-                            .foregroundStyle(Color.tasker.statusWarning)
+                            .font(.lifeboard(.meta))
+                            .foregroundStyle(Color.lifeboard.statusWarning)
                     } else {
                         Text(viewModel.selectedTrackingMode == .lapseOnly ? "Use a recovery window when slips usually show up." : "Use this if you want the habit to nudge inside a deliberate part of the day.")
-                            .font(.tasker(.meta))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.meta))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                     }
                 }
             }
@@ -494,7 +494,7 @@ struct AddHabitForedropView: View {
                         }
 
                         TextField("Search SF Symbols", text: $viewModel.iconSearchQuery)
-                            .textFieldStyle(TaskerTextFieldStyle())
+                            .textFieldStyle(LifeBoardTextFieldStyle())
                     }
 
                     HabitAccentPaletteField(
@@ -523,11 +523,11 @@ struct AddHabitForedropView: View {
                 iconSystemName: "note.text"
             ) {
                 TextEditor(text: $viewModel.habitNotes)
-                    .font(.tasker(.body))
+                    .font(.lifeboard(.body))
                     .frame(minHeight: layoutClass.isPad ? 120 : 110)
                     .padding(.horizontal, spacing.s12)
                     .padding(.vertical, spacing.s8)
-                    .taskerDenseSurface(cornerRadius: corner.r2, fillColor: Color.tasker.surfacePrimary)
+                    .lifeboardDenseSurface(cornerRadius: corner.r2, fillColor: Color.lifeboard.surfacePrimary)
             }
             .enhancedStaggeredAppearance(index: 6)
         }
@@ -546,7 +546,7 @@ struct AddHabitForedropView: View {
         if reduceMotion {
             showAdvancedSettings = true
         } else {
-            withAnimation(TaskerAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.snappy) {
                 showAdvancedSettings = true
             }
         }
@@ -654,31 +654,31 @@ struct AddHabitForedropView: View {
     private func iconButton(_ option: HabitIconOption) -> some View {
         let isSelected = viewModel.selectedIconSymbolName == option.symbolName
         Button {
-            withAnimation(TaskerAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.snappy) {
                 viewModel.selectedIconSymbolName = option.symbolName
             }
         } label: {
             VStack(spacing: spacing.s8) {
                 Image(systemName: option.symbolName)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textPrimary)
+                    .foregroundColor(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textPrimary)
                     .frame(width: 38, height: 38)
-                    .background(isSelected ? Color.tasker.accentWash : Color.tasker.surfacePrimary)
+                    .background(isSelected ? Color.lifeboard.accentWash : Color.lifeboard.surfacePrimary)
                     .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
 
                 Text(option.displayName)
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, spacing.s4)
             .padding(.vertical, spacing.s8)
-            .taskerDenseSurface(
+            .lifeboardDenseSurface(
                 cornerRadius: corner.r2,
-                fillColor: isSelected ? Color.tasker.accentWash.opacity(0.7) : Color.tasker.surfaceSecondary,
-                strokeColor: isSelected ? Color.tasker.accentPrimary : Color.tasker.strokeHairline
+                fillColor: isSelected ? Color.lifeboard.accentWash.opacity(0.7) : Color.lifeboard.surfaceSecondary,
+                strokeColor: isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.strokeHairline
             )
         }
         .buttonStyle(.plain)
@@ -695,14 +695,14 @@ struct AddHabitForedropView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text(title)
-                .font(.tasker(.meta))
-                .foregroundStyle(Color.tasker.textTertiary)
+                .font(.lifeboard(.meta))
+                .foregroundStyle(Color.lifeboard.textTertiary)
 
             TextField(placeholder, text: text)
-                .font(.tasker(.body))
+                .font(.lifeboard(.body))
                 .padding(.horizontal, spacing.s12)
                 .frame(height: spacing.buttonHeight)
-                .taskerDenseSurface(cornerRadius: corner.r2, fillColor: Color.tasker.surfacePrimary)
+                .lifeboardDenseSurface(cornerRadius: corner.r2, fillColor: Color.lifeboard.surfacePrimary)
                 .keyboardType(.numbersAndPunctuation)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -733,21 +733,21 @@ struct AddHabitForedropView: View {
         HStack(spacing: spacing.s8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color.tasker.statusWarning)
+                .foregroundColor(Color.lifeboard.statusWarning)
 
             Text(message)
-                .font(.tasker(.callout))
-                .foregroundColor(Color.tasker.statusWarning)
+                .font(.lifeboard(.callout))
+                .foregroundColor(Color.lifeboard.statusWarning)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, spacing.s12)
         .padding(.vertical, spacing.s8)
-        .taskerDenseSurface(
+        .lifeboardDenseSurface(
             cornerRadius: corner.r2,
-            fillColor: Color.tasker.statusWarning.opacity(0.12),
-            strokeColor: Color.tasker.statusWarning.opacity(0.24)
+            fillColor: Color.lifeboard.statusWarning.opacity(0.12),
+            strokeColor: Color.lifeboard.statusWarning.opacity(0.24)
         )
-        .animation(TaskerAnimation.bouncy, value: viewModel.errorMessage != nil)
+        .animation(LifeBoardAnimation.bouncy, value: viewModel.errorMessage != nil)
     }
 }
 
@@ -761,10 +761,10 @@ struct HabitLibraryView: View {
     @State private var habitComposerSuccessFlash = false
     @StateObject private var habitComposerViewModel = PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).corner }
 
     private var filteredRows: [HabitLibraryRow] {
         let baseRows: [HabitLibraryRow]
@@ -821,7 +821,7 @@ struct HabitLibraryView: View {
                 .padding(.top, spacing.s12)
                 .padding(.bottom, spacing.s24)
             }
-            .background(Color.tasker.bgCanvas)
+            .background(Color.lifeboard.bgCanvas)
             .navigationTitle("Manage Habits")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -875,7 +875,7 @@ struct HabitLibraryView: View {
                     },
                     onExpandToLarge: {}
                 )
-                .background(Color.tasker(.bgCanvas))
+                .background(Color.lifeboard(.bgCanvas))
             }
             .alert(
                 "Habit Error",
@@ -920,7 +920,7 @@ struct HabitLibraryView: View {
             LazyVGrid(columns: columns, spacing: spacing.s12) {
                 ForEach(filteredRows) { row in
                     Button {
-                        TaskerPerformanceTrace.event("HabitDetailTapReceived")
+                        LifeBoardPerformanceTrace.event("HabitDetailTapReceived")
                         selectedRow = row
                     } label: {
                         HabitLibraryCard(row: row)
@@ -967,23 +967,25 @@ struct HabitLibraryView: View {
         guard habitComposerViewModel.canSubmit, habitComposerViewModel.isSaving == false else { return }
         habitComposerViewModel.createHabit { result in
             guard case .success = result else { return }
-            habitComposerPresented = false
-            viewModel.refresh()
+            Task { @MainActor in
+                habitComposerPresented = false
+                viewModel.refresh()
+            }
         }
     }
 }
 
 struct HabitDetailSheetView: View {
     @StateObject private var viewModel: HabitDetailViewModel
-    private let onMutation: () -> Void
+    private let onMutation: @MainActor @Sendable () -> Void
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var isDetailsExpanded = false
     @State private var snackbar: SnackbarData?
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
-    init(viewModel: HabitDetailViewModel, onMutation: @escaping () -> Void) {
+    init(viewModel: HabitDetailViewModel, onMutation: @escaping @MainActor @Sendable () -> Void) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.onMutation = onMutation
     }
@@ -1002,12 +1004,12 @@ struct HabitDetailSheetView: View {
                 .padding(.top, spacing.s8)
                 .padding(.bottom, spacing.s24)
             }
-            .background(Color.tasker.bgCanvas)
+            .background(Color.lifeboard.bgCanvas)
             .accessibilityIdentifier(HabitDetailAccessibilityID.view)
             .navigationTitle(viewModel.isEditing ? "Edit Habit" : viewModel.row.title)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                TaskerPerformanceTrace.event("HabitDetailSheetPresented")
+                LifeBoardPerformanceTrace.event("HabitDetailSheetPresented")
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1020,12 +1022,13 @@ struct HabitDetailSheetView: View {
                     }
                 }
 
-                ToolbarItem(placement: .confirmationAction) {
-                    if viewModel.isEditing {
-                        Button("Save") {
-                            viewModel.saveChanges {
-                                onMutation()
-                            }
+	                ToolbarItem(placement: .confirmationAction) {
+	                    if viewModel.isEditing {
+	                        Button("Save") {
+	                            let onMutation = onMutation
+	                            viewModel.saveChanges {
+	                                Task { @MainActor in onMutation() }
+	                            }
                         }
                         .accessibilityIdentifier(HabitDetailAccessibilityID.saveButton)
                         .disabled(!viewModel.canSave || viewModel.isSaving)
@@ -1065,7 +1068,7 @@ struct HabitDetailSheetView: View {
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
-            .taskerSnackbar($snackbar)
+            .lifeboardSnackbar($snackbar)
         }
     }
 
@@ -1084,10 +1087,11 @@ struct HabitDetailSheetView: View {
                 isMounted: viewModel.isCalendarMounted,
                 isLoading: viewModel.isCalendarLoading,
                 isSaving: viewModel.isSaving
-            ) { cell in
-                viewModel.mutateDay(cell) {
-                    onMutation()
-                }
+	            ) { cell in
+	                let onMutation = onMutation
+	                viewModel.mutateDay(cell) {
+	                    Task { @MainActor in onMutation() }
+	                }
             }
 
             HStack(spacing: spacing.s8) {
@@ -1104,7 +1108,7 @@ struct HabitDetailSheetView: View {
             }
 
             DisclosureGroup(
-                isExpanded: $isDetailsExpanded.animation(TaskerAnimation.snappy)
+                isExpanded: $isDetailsExpanded.animation(LifeBoardAnimation.snappy)
             ) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     HabitDefinitionLine(label: "Ownership", value: ownershipSummary)
@@ -1126,21 +1130,21 @@ struct HabitDetailSheetView: View {
             } label: {
                 HStack(spacing: spacing.s8) {
                     Text("Details & lifecycle")
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
 
                     Spacer(minLength: 0)
 
                     Text(isDetailsExpanded ? "Collapse" : "Expand")
-                        .font(.tasker(.caption1).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
             }
             .padding(spacing.s16)
-            .taskerDenseSurface(
-                cornerRadius: TaskerTheme.CornerRadius.card,
-                fillColor: Color.tasker.surfacePrimary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+            .lifeboardDenseSurface(
+                cornerRadius: LifeBoardTheme.CornerRadius.card,
+                fillColor: Color.lifeboard.surfacePrimary,
+                strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
             )
             .accessibilityIdentifier(HabitDetailAccessibilityID.detailsDisclosure)
 
@@ -1163,7 +1167,7 @@ struct HabitDetailSheetView: View {
             ) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     TextField("Title", text: $viewModel.draft.title)
-                        .textFieldStyle(TaskerTextFieldStyle())
+                        .textFieldStyle(LifeBoardTextFieldStyle())
 
                     Picker("Type", selection: $viewModel.draft.kind) {
                         ForEach(AddHabitKind.allCases) { kind in
@@ -1224,8 +1228,8 @@ struct HabitDetailSheetView: View {
 
                     if let reminderError = viewModel.editorReminderWindowValidationError {
                         Text(reminderError)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.statusWarning)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(Color.lifeboard.statusWarning)
                     }
                 }
             }
@@ -1271,11 +1275,11 @@ struct HabitDetailSheetView: View {
             ) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     TextEditor(text: $viewModel.draft.notes)
-                        .font(.tasker(.body))
+                        .font(.lifeboard(.body))
                         .frame(minHeight: 110)
                         .padding(.horizontal, spacing.s12)
                         .padding(.vertical, spacing.s8)
-                        .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.md, fillColor: Color.tasker.surfacePrimary)
+                        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.md, fillColor: Color.lifeboard.surfacePrimary)
 
                     HabitAccentPaletteField(
                         selectedHex: $viewModel.draft.colorHex,
@@ -1283,9 +1287,9 @@ struct HabitDetailSheetView: View {
                             for: viewModel.draft.colorHex,
                             fallback: viewModel.draft.kind == .positive ? .green : .coral
                         )?.title ?? "Custom",
-                        previewColor: TaskerHexColor.color(
+                        previewColor: LifeBoardHexColor.color(
                             viewModel.draft.colorHex.nilIfBlank,
-                            fallback: viewModel.draft.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning
+                            fallback: viewModel.draft.kind == .positive ? Color.lifeboard.statusSuccess : Color.lifeboard.statusWarning
                         ),
                         previewFamily: HabitColorFamily.family(
                             for: viewModel.draft.colorHex,
@@ -1294,7 +1298,7 @@ struct HabitDetailSheetView: View {
                     )
 
                     TextField("Search icons", text: $viewModel.draft.iconSearchQuery)
-                        .textFieldStyle(TaskerTextFieldStyle())
+                        .textFieldStyle(LifeBoardTextFieldStyle())
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: spacing.s8) {
@@ -1304,9 +1308,9 @@ struct HabitDetailSheetView: View {
                                 } label: {
                                     Image(systemName: option.symbolName)
                                         .font(.system(size: 16, weight: .semibold))
-                                        .foregroundStyle(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
+                                        .foregroundStyle(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                                         .frame(width: 40, height: 40)
-                                        .background(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                                        .background(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
@@ -1329,35 +1333,38 @@ struct HabitDetailSheetView: View {
 
     private var lifecycleContent: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
-            Button(viewModel.row.isPaused ? "Resume habit" : "Pause habit") {
-                viewModel.togglePause {
-                    onMutation()
-                }
+	            Button(viewModel.row.isPaused ? "Resume habit" : "Pause habit") {
+	                let onMutation = onMutation
+	                viewModel.togglePause {
+	                    Task { @MainActor in onMutation() }
+	                }
             }
             .buttonStyle(HabitActionButtonStyle(tone: .secondary))
             .disabled(viewModel.isSaving)
 
-            if viewModel.row.trackingMode == .lapseOnly && !viewModel.row.isArchived {
-                Button("Log lapse") {
-                    viewModel.logLapse {
-                        onMutation()
-                    }
+	            if viewModel.row.trackingMode == .lapseOnly && !viewModel.row.isArchived {
+	                Button("Log lapse") {
+	                    let onMutation = onMutation
+	                    viewModel.logLapse {
+	                        Task { @MainActor in onMutation() }
+	                    }
                 }
                 .buttonStyle(HabitActionButtonStyle(tone: .warning))
                 .disabled(viewModel.isSaving)
             }
 
-            Button(String(localized: "Archive", defaultValue: "Archive") + " habit") {
-                viewModel.archive {
-                    onMutation()
-                }
+	            Button(String(localized: "Archive", defaultValue: "Archive") + " habit") {
+	                let onMutation = onMutation
+	                viewModel.archive {
+	                    Task { @MainActor in onMutation() }
+	                }
             }
             .buttonStyle(HabitActionButtonStyle(tone: .destructive))
             .disabled(viewModel.isSaving || viewModel.row.isArchived)
 
             Text("Pause keeps history intact. Archive removes the habit from active views.")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -1505,11 +1512,11 @@ struct HabitDetailSheetView: View {
     private func detailTimeWindowField(title: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             TextField(title, text: text)
-                .textFieldStyle(TaskerTextFieldStyle())
+                .textFieldStyle(LifeBoardTextFieldStyle())
                 .keyboardType(.numbersAndPunctuation)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -1543,11 +1550,11 @@ struct HabitDetailSheetView: View {
     private func playMutationHaptic(_ haptic: HabitDetailMutationFeedbackHaptic) {
         switch haptic {
         case .selection:
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         case .success:
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
         case .warning:
-            TaskerFeedback.warning()
+            LifeBoardFeedback.warning()
         }
     }
 }
@@ -1576,9 +1583,9 @@ private struct HabitAccentPaletteField: View {
     let previewColor: Color
     let previewFamily: HabitColorFamily
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -1588,12 +1595,12 @@ private struct HabitAccentPaletteField: View {
                     .frame(width: 14, height: 14)
 
                 Text("Streak family")
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 Text(selectedTitle)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
 
                 Spacer(minLength: 0)
 
@@ -1601,8 +1608,8 @@ private struct HabitAccentPaletteField: View {
                     Button("Clear") {
                         selectedHex = ""
                     }
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .buttonStyle(.plain)
                 }
             }
@@ -1618,7 +1625,7 @@ private struct HabitAccentPaletteField: View {
                     ForEach(habitAccentPresets) { preset in
                         HabitAccentSwatchButton(
                             preset: preset,
-                            isSelected: TaskerHexColor.normalized(selectedHex.nilIfBlank) == TaskerHexColor.normalized(preset.hex)
+                            isSelected: LifeBoardHexColor.normalized(selectedHex.nilIfBlank) == LifeBoardHexColor.normalized(preset.hex)
                         ) {
                             selectedHex = preset.hex
                         }
@@ -1629,13 +1636,13 @@ private struct HabitAccentPaletteField: View {
 
             DisclosureGroup("Advanced custom hex") {
                 TextField("Accent color (hex, optional)", text: $selectedHex)
-                    .textFieldStyle(TaskerTextFieldStyle())
+                    .textFieldStyle(LifeBoardTextFieldStyle())
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(.top, 8)
             }
-            .font(.tasker(.caption1))
-            .foregroundStyle(Color.tasker.textSecondary)
+            .font(.lifeboard(.caption1))
+            .foregroundStyle(Color.lifeboard.textSecondary)
         }
     }
 
@@ -1661,7 +1668,7 @@ private struct HabitAccentSwatchButton: View {
     var body: some View {
         Button(action: action) {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(uiColor: UIColor(taskerHex: preset.hex)))
+                .fill(Color(uiColor: UIColor(lifeboardHex: preset.hex)))
                 .frame(width: 42, height: 42)
                 .overlay {
                     if isSelected {
@@ -1673,7 +1680,7 @@ private struct HabitAccentSwatchButton: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(
-                            isSelected ? Color.tasker.textPrimary.opacity(0.4) : Color.tasker.strokeHairline.opacity(0.45),
+                            isSelected ? Color.lifeboard.textPrimary.opacity(0.4) : Color.lifeboard.strokeHairline.opacity(0.45),
                             lineWidth: 1
                         )
                 }
@@ -1696,9 +1703,9 @@ private struct HabitComposerSummaryCard: View {
     let successFlash: Bool
     let reminderSummary: String
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -1723,9 +1730,9 @@ private struct HabitComposerSummaryCard: View {
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     HStack(spacing: spacing.s8) {
                         Text(successFlash ? "Habit captured" : "Behavior loop")
-                            .font(.tasker(.caption1).weight(.semibold))
+                            .font(.lifeboard(.caption1).weight(.semibold))
                             .foregroundStyle(accentColor)
-                        TaskerStatusPill(
+                        LifeBoardStatusPill(
                             text: isExpanded ? "Refined" : "Essentials",
                             systemImage: isExpanded ? "slider.horizontal.3" : "sparkles",
                             tone: isExpanded ? .accent : .quiet
@@ -1733,18 +1740,18 @@ private struct HabitComposerSummaryCard: View {
                     }
 
                     Text(title)
-                        .font(.tasker(.title3))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.title3))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(2)
 
                     Text(modeSummary)
-                        .font(.tasker(.caption1).weight(.semibold))
+                        .font(.lifeboard(.caption1).weight(.semibold))
                         .foregroundStyle(accentColor)
                 }
 
                 Spacer(minLength: 0)
 
-                TaskerStatusPill(
+                LifeBoardStatusPill(
                     text: successFlash ? "Saved" : (isExpanded ? "Expanded" : "Calm"),
                     systemImage: successFlash ? "checkmark.circle.fill" : "leaf.fill",
                     tone: successFlash ? .success : .quiet
@@ -1752,13 +1759,13 @@ private struct HabitComposerSummaryCard: View {
             }
 
             HStack(spacing: spacing.s8) {
-                TaskerHeroMetricTile(
+                LifeBoardHeroMetricTile(
                     title: "Cadence",
                     value: cadenceSummary,
                     detail: ownershipSummary,
                     tone: .accent
                 )
-                TaskerHeroMetricTile(
+                LifeBoardHeroMetricTile(
                     title: "Window",
                     value: reminderSummary,
                     detail: isExpanded ? "Advanced settings visible" : "Advanced stays optional",
@@ -1767,13 +1774,13 @@ private struct HabitComposerSummaryCard: View {
             }
         }
         .padding(spacing.s16)
-        .taskerPremiumSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary,
+        .lifeboardPremiumSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: Color.lifeboard.surfacePrimary,
             accentColor: accentColor,
             level: .e2
         )
-        .taskerSuccessPulse(isActive: successFlash)
+        .lifeboardSuccessPulse(isActive: successFlash)
     }
 }
 
@@ -1827,14 +1834,14 @@ private struct HabitDetailContextStrip: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(metaLine)
-                    .font(.tasker(.support).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.support).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .lineLimit(2)
                     .accessibilityIdentifier(HabitDetailAccessibilityID.contextPrimary)
 
                 Text(cadenceLine)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(2)
                     .accessibilityIdentifier(HabitDetailAccessibilityID.contextSecondary)
             }
@@ -1843,20 +1850,20 @@ private struct HabitDetailContextStrip: View {
 
             if row.isArchived || row.isPaused {
                 Text(row.isArchived ? String(localized: "Archived", defaultValue: "Archived") : "Paused")
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.tasker.surfaceSecondary)
+                    .background(Color.lifeboard.surfaceSecondary)
                     .clipShape(Capsule())
             }
         }
     }
 
     private var accentColor: Color {
-        TaskerHexColor.color(
+        LifeBoardHexColor.color(
             row.colorHex,
-            fallback: row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning
+            fallback: row.kind == .positive ? Color.lifeboard.statusSuccess : Color.lifeboard.statusWarning
         )
     }
 }
@@ -1869,26 +1876,26 @@ private struct HabitDetailMetricCapsule: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(value)
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
             Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textSecondary)
             Text(detail)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textTertiary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.md,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.md,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
         )
     }
 }
@@ -1925,18 +1932,18 @@ private struct HabitDetailCalendarPlaceholder: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Calendar")
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 Text(helperText)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier(HabitDetailAccessibilityID.helperText)
             }
 
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary.opacity(0.65))
+                .fill(Color.lifeboard.surfaceSecondary.opacity(0.65))
                 .frame(height: 184)
                 .overlay {
                     ProgressView()
@@ -1944,10 +1951,10 @@ private struct HabitDetailCalendarPlaceholder: View {
                 }
         }
         .padding(12)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
         )
     }
 }
@@ -1960,19 +1967,19 @@ private struct HabitDetailCalendarSection: View {
     let isSaving: Bool
     let onTapDay: (HabitDetailDayCell) -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Calendar")
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 Text(helperText)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier(HabitDetailAccessibilityID.helperText)
             }
@@ -1991,8 +1998,8 @@ private struct HabitDetailCalendarSection: View {
                                 VStack(alignment: .leading, spacing: spacing.s4) {
                                     if let monthLabel = week.monthLabel {
                                         Text(monthLabel)
-                                            .font(.tasker(.caption1).weight(.semibold))
-                                            .foregroundStyle(Color.tasker.textSecondary)
+                                            .font(.lifeboard(.caption1).weight(.semibold))
+                                            .foregroundStyle(Color.lifeboard.textSecondary)
                                     }
 
                                     HStack(spacing: HabitDetailCalendarLayoutMetrics.cellSpacing) {
@@ -2022,16 +2029,16 @@ private struct HabitDetailCalendarSection: View {
                     ProgressView()
                         .controlSize(.small)
                     Text("Refreshing streaks")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
             }
         }
         .padding(12)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
         )
     }
 
@@ -2053,8 +2060,8 @@ private struct HabitDetailCalendarSection: View {
         return HStack(spacing: HabitDetailCalendarLayoutMetrics.cellSpacing) {
             ForEach(Array(symbols.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol)
-                    .font(.tasker(.caption2).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption2).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(width: cellSide, alignment: .center)
             }
         }
@@ -2085,7 +2092,7 @@ private struct HabitDetailCalendarDayCellView: View {
                 }
 
                 Text(cell.dayNumber)
-                    .font(.tasker(.callout).weight(textWeight))
+                    .font(.lifeboard(.callout).weight(textWeight))
                     .foregroundStyle(textColor)
                     .minimumScaleFactor(0.8)
             }
@@ -2139,7 +2146,7 @@ private struct HabitDetailCalendarDayCellView: View {
         case .skipped:
             return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.9)
         case .lapsed:
-            return Color.tasker.statusDanger.opacity(0.44)
+            return Color.lifeboard.statusDanger.opacity(0.44)
         case .notScheduled:
             return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.78)
         case .future:
@@ -2159,15 +2166,15 @@ private struct HabitDetailCalendarDayCellView: View {
     private var textColor: Color {
         switch cell.cell.state {
         case .empty:
-            return Color.tasker.textPrimary
+            return Color.lifeboard.textPrimary
         case .success:
             return successTextColor
         case .skipped:
-            return Color.tasker.textSecondary
+            return Color.lifeboard.textSecondary
         case .lapsed:
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         case .notScheduled, .future:
-            return Color.tasker.textTertiary
+            return Color.lifeboard.textTertiary
         }
     }
 
@@ -2185,7 +2192,7 @@ private struct HabitDetailCalendarDayCellView: View {
         if depth >= 4 {
             return Color.white.opacity(colorScheme == .dark ? 0.95 : 0.98)
         }
-        return Color.tasker.textPrimary
+        return Color.lifeboard.textPrimary
     }
 }
 
@@ -2195,8 +2202,8 @@ private struct HabitSurfaceCard<Content: View>: View {
     let iconSystemName: String
     let content: Content
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     init(
         title: String,
@@ -2215,16 +2222,16 @@ private struct HabitSurfaceCard<Content: View>: View {
             HStack(alignment: .top, spacing: spacing.s8) {
                 Image(systemName: iconSystemName)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color.tasker.accentPrimary)
+                    .foregroundColor(Color.lifeboard.accentPrimary)
                     .frame(width: 24, height: 24)
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(title)
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundColor(Color.lifeboard.textPrimary)
                     Text(subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -2232,7 +2239,7 @@ private struct HabitSurfaceCard<Content: View>: View {
             content
         }
         .padding(spacing.s16)
-        .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.card, fillColor: Color.tasker.surfacePrimary)
+        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.card, fillColor: Color.lifeboard.surfacePrimary)
     }
 }
 
@@ -2243,11 +2250,11 @@ private struct HabitSectionLabel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.tasker(.callout).weight(.semibold))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.callout).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textPrimary)
             Text(detail)
-                .font(.tasker(.meta))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.meta))
+                .foregroundStyle(Color.lifeboard.textSecondary)
         }
     }
 }
@@ -2255,10 +2262,10 @@ private struct HabitSectionLabel: View {
 private struct HabitWeekdayPickerRow: View {
     @Binding var selectedDays: [Int]
 
-    @ObservedObject private var themeManager = TaskerThemeManager.shared
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @ObservedObject private var themeManager = LifeBoardThemeManager.shared
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { themeManager.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { themeManager.tokens(for: layoutClass).spacing }
 
     private var weekdays: [(day: Int, label: String)] {
         let labels = Calendar.current.veryShortWeekdaySymbols
@@ -2274,20 +2281,20 @@ private struct HabitWeekdayPickerRow: View {
                 let isSelected = selectedDays.contains(item.day)
 
                 Button {
-                    TaskerFeedback.selection()
-                    withAnimation(TaskerAnimation.snappy) {
+                    LifeBoardFeedback.selection()
+                    withAnimation(LifeBoardAnimation.snappy) {
                         toggle(item.day)
                     }
                 } label: {
                     Text(item.label)
-                        .font(.tasker(.callout))
+                        .font(.lifeboard(.callout))
                         .fontWeight(isSelected ? .bold : .regular)
-                        .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                        .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 38)
                         .background(
                             Circle()
-                                .fill(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceTertiary)
+                                .fill(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceTertiary)
                         )
                 }
                 .buttonStyle(.plain)
@@ -2310,24 +2317,24 @@ private struct HabitInlineMessage: View {
     let title: String
     let message: String
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s4) {
             Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(Color.tasker.accentPrimary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundColor(Color.lifeboard.accentPrimary)
             Text(message)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(spacing.s8)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.md,
-            fillColor: Color.tasker.accentWash,
-            strokeColor: Color.tasker.accentPrimary.opacity(0.18)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.md,
+            fillColor: Color.lifeboard.accentWash,
+            strokeColor: Color.lifeboard.accentPrimary.opacity(0.18)
         )
     }
 }
@@ -2337,18 +2344,18 @@ private struct HabitLibrarySummaryHeader: View {
     let pausedCount: Int
     let archivedCount: Int
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             Text("Habit system")
-                .font(.tasker(.screenTitle))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.screenTitle))
+                .foregroundColor(Color.lifeboard.textPrimary)
 
             Text("Keep recurring behavior legible without turning it into more task noise.")
-                .font(.tasker(.body))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.body))
+                .foregroundColor(Color.lifeboard.textSecondary)
 
             HStack(spacing: spacing.s8) {
                 HabitCountPill(title: "Active", value: activeCount, tone: .accent)
@@ -2357,10 +2364,10 @@ private struct HabitLibrarySummaryHeader: View {
             }
         }
         .padding(spacing.s16)
-        .taskerPremiumSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary,
-            accentColor: Color.tasker.accentSecondary
+        .lifeboardPremiumSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: Color.lifeboard.surfacePrimary,
+            accentColor: Color.lifeboard.accentSecondary
         )
     }
 }
@@ -2373,17 +2380,17 @@ private struct HabitCountPill: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(value)")
-                .font(.tasker(.title3))
+                .font(.lifeboard(.title3))
                 .foregroundColor(tone.textColor)
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.md,
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.md,
             fillColor: tone.fillColor,
             strokeColor: tone.strokeColor
         )
@@ -2394,24 +2401,24 @@ private struct HabitLibraryControlRail: View {
     @Binding var selectedFilter: HabitLibraryFilter
     @Binding var searchText: String
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             HStack(spacing: spacing.s8) {
                 ForEach(HabitLibraryFilter.allCases) { filter in
                     Button {
-                        withAnimation(TaskerAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.snappy) {
                             selectedFilter = filter
                         }
                     } label: {
                         Text(filter.title)
-                            .font(.tasker(.callout).weight(.semibold))
-                            .foregroundColor(selectedFilter == filter ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                            .font(.lifeboard(.callout).weight(.semibold))
+                            .foregroundColor(selectedFilter == filter ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                             .frame(maxWidth: .infinity)
             .padding(.vertical, spacing.s8)
-                            .background(selectedFilter == filter ? Color.tasker.accentPrimary : Color.clear)
+                            .background(selectedFilter == filter ? Color.lifeboard.accentPrimary : Color.clear)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -2419,22 +2426,22 @@ private struct HabitLibraryControlRail: View {
                 }
             }
             .padding(spacing.s4)
-            .taskerChromeSurface(
-                cornerRadius: TaskerTheme.CornerRadius.pill,
-                accentColor: Color.tasker.accentSecondary,
+            .lifeboardChromeSurface(
+                cornerRadius: LifeBoardTheme.CornerRadius.pill,
+                accentColor: Color.lifeboard.accentSecondary,
                 level: .e1
             )
 
             HStack(spacing: spacing.s8) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .foregroundColor(Color.lifeboard.textSecondary)
                 TextField("Search habits, life areas, or projects", text: $searchText)
                     .textFieldStyle(.plain)
-                    .font(.tasker(.body))
+                    .font(.lifeboard(.body))
             }
             .padding(.horizontal, spacing.s12)
             .frame(height: spacing.buttonHeight)
-            .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.md, fillColor: Color.tasker.surfacePrimary)
+            .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.md, fillColor: Color.lifeboard.surfacePrimary)
         }
     }
 }
@@ -2442,8 +2449,8 @@ private struct HabitLibraryControlRail: View {
 private struct HabitLibraryCard: View {
     let row: HabitLibraryRow
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -2460,8 +2467,8 @@ private struct HabitLibraryCard: View {
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(row.title)
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundColor(Color.lifeboard.textPrimary)
                         .lineLimit(2)
 
                     HStack(spacing: spacing.s4) {
@@ -2474,8 +2481,8 @@ private struct HabitLibraryCard: View {
             }
 
             Text(metaLine)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .lineLimit(2)
 
             HabitHistoryStripView(
@@ -2495,15 +2502,15 @@ private struct HabitLibraryCard: View {
         }
         .padding(spacing.s16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.card, fillColor: Color.tasker.surfacePrimary)
+        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.card, fillColor: Color.lifeboard.surfacePrimary)
     }
 
     private var kindColor: Color {
-        row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning
+        row.kind == .positive ? Color.lifeboard.statusSuccess : Color.lifeboard.statusWarning
     }
 
     private var accentColor: Color {
-        TaskerHexColor.color(row.colorHex, fallback: kindColor)
+        LifeBoardHexColor.color(row.colorHex, fallback: kindColor)
     }
 
     private var metaLine: String {
@@ -2537,19 +2544,19 @@ private struct HabitMiniMetric: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.tasker(.callout).weight(.semibold))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.callout).weight(.semibold))
+                .foregroundColor(Color.lifeboard.textPrimary)
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.md,
-            fillColor: Color.tasker.surfaceSecondary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.md,
+            fillColor: Color.lifeboard.surfaceSecondary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
         )
     }
 }
@@ -2578,8 +2585,8 @@ private struct HabitEmptyStateCard: View {
         self.action = action
     }
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(spacing: spacing.s12) {
@@ -2589,16 +2596,16 @@ private struct HabitEmptyStateCard: View {
             } else {
                 Image(systemName: systemImage)
                     .font(.system(size: 28, weight: .semibold))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .foregroundColor(Color.lifeboard.textSecondary)
             }
 
             Text(title)
-                .font(.tasker(.headline))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundColor(Color.lifeboard.textPrimary)
 
             Text(message)
-                .font(.tasker(.body))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.body))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -2609,7 +2616,7 @@ private struct HabitEmptyStateCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(spacing.s20)
-        .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.card, fillColor: Color.tasker.surfacePrimary)
+        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.card, fillColor: Color.lifeboard.surfacePrimary)
     }
 }
 
@@ -2618,8 +2625,8 @@ private struct HabitDetailHeroCard: View {
     let historyMarks: [HabitDayMark]
     let isEditing: Bool
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -2637,8 +2644,8 @@ private struct HabitDetailHeroCard: View {
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(row.title)
-                        .font(.tasker(.title2))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.title2))
+                        .foregroundColor(Color.lifeboard.textPrimary)
                         .lineLimit(3)
 
                     HStack(spacing: spacing.s4) {
@@ -2653,13 +2660,13 @@ private struct HabitDetailHeroCard: View {
 
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: spacing.s8) {
-                    TaskerHeroMetricTile(
+                    LifeBoardHeroMetricTile(
                         title: "Current streak",
                         value: "\(row.currentStreak)d",
                         detail: row.bestStreak > 0 ? "Best \(row.bestStreak)d" : "Fresh cycle",
                         tone: row.currentStreak > 0 ? .success : .neutral
                     )
-                    TaskerHeroMetricTile(
+                    LifeBoardHeroMetricTile(
                         title: "Next due",
                         value: nextDueText,
                         detail: ownershipText,
@@ -2668,13 +2675,13 @@ private struct HabitDetailHeroCard: View {
                 }
 
                 VStack(spacing: spacing.s8) {
-                    TaskerHeroMetricTile(
+                    LifeBoardHeroMetricTile(
                         title: "Current streak",
                         value: "\(row.currentStreak)d",
                         detail: row.bestStreak > 0 ? "Best \(row.bestStreak)d" : "Fresh cycle",
                         tone: row.currentStreak > 0 ? .success : .neutral
                     )
-                    TaskerHeroMetricTile(
+                    LifeBoardHeroMetricTile(
                         title: "Next due",
                         value: nextDueText,
                         detail: ownershipText,
@@ -2693,15 +2700,15 @@ private struct HabitDetailHeroCard: View {
             )
         }
         .padding(spacing.s20)
-        .taskerPremiumSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary,
+        .lifeboardPremiumSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: Color.lifeboard.surfacePrimary,
             accentColor: toneColor
         )
     }
 
     private var toneColor: Color {
-        TaskerHexColor.color(row.colorHex, fallback: row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning)
+        LifeBoardHexColor.color(row.colorHex, fallback: row.kind == .positive ? Color.lifeboard.statusSuccess : Color.lifeboard.statusWarning)
     }
 
     private var nextDueText: String {
@@ -2723,7 +2730,7 @@ private struct HabitDetailHeroCard: View {
 
 private struct HabitMetricGrid: View {
     let metrics: [HabitMetricDisplay]
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     private var columns: [GridItem] {
         if layoutClass == .padRegular || layoutClass == .padExpanded {
@@ -2737,25 +2744,25 @@ private struct HabitMetricGrid: View {
             ForEach(metrics) { metric in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(metric.value)
-                        .font(.tasker(.bodyStrong))
+                        .font(.lifeboard(.bodyStrong))
                         .foregroundColor(metric.tone.textColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                     Text(metric.title)
-                        .font(.tasker(.caption2))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption2))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                     if let detail = metric.detail {
                         Text(detail)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundColor(Color.lifeboard.textTertiary)
                             .lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .taskerDenseSurface(
-                    cornerRadius: TaskerTheme.CornerRadius.md,
+                .lifeboardDenseSurface(
+                    cornerRadius: LifeBoardTheme.CornerRadius.md,
                     fillColor: metric.tone.fillColor,
                     strokeColor: metric.tone.strokeColor
                 )
@@ -2782,39 +2789,39 @@ private enum HabitMetricTone {
     var fillColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentWash
+            return Color.lifeboard.accentWash
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.12)
+            return Color.lifeboard.statusWarning.opacity(0.12)
         case .success:
-            return Color.tasker.statusSuccess.opacity(0.12)
+            return Color.lifeboard.statusSuccess.opacity(0.12)
         case .neutral:
-            return Color.tasker.surfaceSecondary
+            return Color.lifeboard.surfaceSecondary
         }
     }
 
     var strokeColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentPrimary.opacity(0.22)
+            return Color.lifeboard.accentPrimary.opacity(0.22)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.22)
+            return Color.lifeboard.statusWarning.opacity(0.22)
         case .success:
-            return Color.tasker.statusSuccess.opacity(0.22)
+            return Color.lifeboard.statusSuccess.opacity(0.22)
         case .neutral:
-            return Color.tasker.strokeHairline.opacity(0.74)
+            return Color.lifeboard.strokeHairline.opacity(0.74)
         }
     }
 
     var textColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .success:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .neutral:
-            return Color.tasker.textPrimary
+            return Color.lifeboard.textPrimary
         }
     }
 }
@@ -2822,13 +2829,13 @@ private enum HabitMetricTone {
 private struct HabitHistoryLegend: View {
     var body: some View {
         HStack(spacing: 12) {
-            legendDot(color: Color.tasker.statusSuccess, label: "Success")
-            legendDot(color: Color.tasker.statusDanger, label: "Lapse")
-            legendDot(color: Color.tasker.textTertiary, label: "Skip")
-            legendDot(color: Color.tasker.strokeHairline, label: "Quiet")
+            legendDot(color: Color.lifeboard.statusSuccess, label: "Success")
+            legendDot(color: Color.lifeboard.statusDanger, label: "Lapse")
+            legendDot(color: Color.lifeboard.textTertiary, label: "Skip")
+            legendDot(color: Color.lifeboard.strokeHairline, label: "Quiet")
         }
-        .font(.tasker(.caption2))
-        .foregroundColor(Color.tasker.textSecondary)
+        .font(.lifeboard(.caption2))
+        .foregroundColor(Color.lifeboard.textSecondary)
     }
 
     private func legendDot(color: Color, label: String) -> some View {
@@ -2848,13 +2855,13 @@ private struct HabitDefinitionLine: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text(label)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .frame(width: 88, alignment: .leading)
 
             Text(value)
-                .font(.tasker(.body))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.body))
+                .foregroundColor(Color.lifeboard.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -2874,33 +2881,33 @@ private struct HabitActionMessageCard: View {
     var fillColor: Color {
         switch tone {
         case .neutral:
-            return Color.tasker.surfaceSecondary
+            return Color.lifeboard.surfaceSecondary
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.12)
+            return Color.lifeboard.statusWarning.opacity(0.12)
         }
     }
 
     var strokeColor: Color {
         switch tone {
         case .neutral:
-            return Color.tasker.strokeHairline.opacity(0.72)
+            return Color.lifeboard.strokeHairline.opacity(0.72)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.24)
+            return Color.lifeboard.statusWarning.opacity(0.24)
         }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundColor(Color.lifeboard.textPrimary)
             Text(message)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
-        .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.md, fillColor: fillColor, strokeColor: strokeColor)
+        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.md, fillColor: fillColor, strokeColor: strokeColor)
     }
 }
 
@@ -2910,7 +2917,7 @@ private struct HabitPill: View {
 
     var body: some View {
         Text(text)
-            .font(.tasker(.caption2).weight(.semibold))
+            .font(.lifeboard(.caption2).weight(.semibold))
             .foregroundColor(tone.textColor)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
@@ -2933,39 +2940,39 @@ private enum HabitPillTone {
     var textColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .neutral:
-            return Color.tasker.textSecondary
+            return Color.lifeboard.textSecondary
         case .success:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         }
     }
 
     var fillColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentWash
+            return Color.lifeboard.accentWash
         case .neutral:
-            return Color.tasker.surfaceSecondary
+            return Color.lifeboard.surfaceSecondary
         case .success:
-            return Color.tasker.statusSuccess.opacity(0.12)
+            return Color.lifeboard.statusSuccess.opacity(0.12)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.12)
+            return Color.lifeboard.statusWarning.opacity(0.12)
         }
     }
 
     var strokeColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentPrimary.opacity(0.18)
+            return Color.lifeboard.accentPrimary.opacity(0.18)
         case .neutral:
-            return Color.tasker.strokeHairline.opacity(0.72)
+            return Color.lifeboard.strokeHairline.opacity(0.72)
         case .success:
-            return Color.tasker.statusSuccess.opacity(0.22)
+            return Color.lifeboard.statusSuccess.opacity(0.22)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.22)
+            return Color.lifeboard.statusWarning.opacity(0.22)
         }
     }
 }
@@ -2982,55 +2989,55 @@ private struct HabitActionButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.tasker(.callout).weight(.semibold))
+            .font(.lifeboard(.callout).weight(.semibold))
             .foregroundColor(textColor)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 46)
             .background(backgroundColor.opacity(configuration.isPressed ? 0.86 : 1))
             .overlay(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
                     .stroke(borderColor, lineWidth: 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous))
             .shadow(
                 color: configuration.isPressed ? borderColor.opacity(0.12) : .clear,
                 radius: configuration.isPressed ? 10 : 0,
                 y: configuration.isPressed ? 6 : 0
             )
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .animation(TaskerAnimation.quick, value: configuration.isPressed)
+            .animation(LifeBoardAnimation.quick, value: configuration.isPressed)
     }
 
     private var backgroundColor: Color {
         switch tone {
         case .secondary:
-            return Color.tasker.surfaceSecondary
+            return Color.lifeboard.surfaceSecondary
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.12)
+            return Color.lifeboard.statusWarning.opacity(0.12)
         case .destructive:
-            return Color.tasker.statusDanger.opacity(0.12)
+            return Color.lifeboard.statusDanger.opacity(0.12)
         }
     }
 
     private var borderColor: Color {
         switch tone {
         case .secondary:
-            return Color.tasker.strokeHairline.opacity(0.8)
+            return Color.lifeboard.strokeHairline.opacity(0.8)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.22)
+            return Color.lifeboard.statusWarning.opacity(0.22)
         case .destructive:
-            return Color.tasker.statusDanger.opacity(0.22)
+            return Color.lifeboard.statusDanger.opacity(0.22)
         }
     }
 
     private var textColor: Color {
         switch tone {
         case .secondary:
-            return Color.tasker.textPrimary
+            return Color.lifeboard.textPrimary
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .destructive:
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         }
     }
 }

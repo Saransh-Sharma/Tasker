@@ -22,7 +22,7 @@ public struct LevelUpCelebrationView: View {
     public var body: some View {
         if isPresented {
             ZStack {
-                Color.tasker.bgCanvas
+                Color.lifeboard.bgCanvas
                     .opacity(overlayOpacity * 0.85)
                     .ignoresSafeArea()
                     .onTapGesture { dismiss() }
@@ -30,23 +30,23 @@ public struct LevelUpCelebrationView: View {
                 VStack(spacing: 16) {
                     Text("\(level)")
                         .font(.system(size: 64, weight: .bold, design: .rounded))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                         .scaleEffect(badgeScale)
 
                     Text("Level \(level)")
                         .font(.system(size: 28, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                         .opacity(textOpacity)
 
                     Text("Keep building momentum")
-                        .font(.tasker(.body))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.body))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .opacity(textOpacity)
 
                     if awardedXP > 0 {
                         Text("+\(awardedXP) XP")
-                            .font(.tasker(.headline))
-                            .foregroundColor(Color.tasker.accentSecondary)
+                            .font(.lifeboard(.headline))
+                            .foregroundColor(Color.lifeboard.accentSecondary)
                             .opacity(textOpacity)
                     }
                 }

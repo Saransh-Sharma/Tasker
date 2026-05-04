@@ -1,6 +1,6 @@
 //
 //  AddTaskSecondaryDetailsSection.swift
-//  Tasker
+//  LifeBoard
 //
 //  Collapsible "More details" section: Description, Life Area, Section, Tags.
 //
@@ -25,7 +25,7 @@ struct AddTaskSecondaryDetailsSection: View {
                 onExpand()
             }
         } content: {
-            VStack(spacing: TaskerTheme.Spacing.sm) {
+            VStack(spacing: LifeBoardTheme.Spacing.sm) {
                 AddTaskDescriptionField(
                     text: $viewModel.taskDetails,
                     isFocused: $descriptionFocused
@@ -65,7 +65,9 @@ struct AddTaskSecondaryDetailsSection: View {
                     tags: viewModel.tags,
                     selectedTagIDs: $viewModel.selectedTagIDs,
                     onCreateTag: { name, completion in
-                        viewModel.createTag(name: name, completion: completion)
+                        viewModel.createTag(name: name) { didCreate in
+                            completion(didCreate)
+                        }
                     }
                 )
             }

@@ -1,6 +1,6 @@
 //
 //  AddTaskInlineCreator.swift
-//  Tasker
+//  LifeBoard
 //
 //  Inline project creator that appears when "Add Project" is tapped.
 //
@@ -16,39 +16,39 @@ struct AddTaskInlineCreator: View {
 
     @FocusState private var isFocused: Bool
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         HStack(spacing: spacing.s8) {
             // Text field
             TextField("Project name", text: $projectName)
-                .font(.tasker(.callout))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.callout))
+                .foregroundColor(Color.lifeboard.textPrimary)
                 .focused($isFocused)
                 .padding(.horizontal, spacing.s12)
                 .frame(height: 36)
-                .background(Color.tasker.surfaceSecondary)
+                .background(Color.lifeboard.surfaceSecondary)
                 .overlay(
                     RoundedRectangle(cornerRadius: corner.r1)
-                        .stroke(isFocused ? Color.tasker.accentRing : Color.tasker.strokeHairline, lineWidth: 1)
+                        .stroke(isFocused ? Color.lifeboard.accentRing : Color.lifeboard.strokeHairline, lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: corner.r1))
 
             // Create button
             Button {
                 guard !projectName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                TaskerFeedback.success()
+                LifeBoardFeedback.success()
                 onCreate()
             } label: {
                 Text("Create")
-                    .font(.tasker(.callout).weight(.semibold))
-                    .foregroundColor(Color.tasker.accentOnPrimary)
+                    .font(.lifeboard(.callout).weight(.semibold))
+                    .foregroundColor(Color.lifeboard.accentOnPrimary)
                     .padding(.horizontal, spacing.s12)
                     .padding(.vertical, 8)
                     .background(
                         Capsule()
-                            .fill(Color.tasker.accentPrimary)
+                            .fill(Color.lifeboard.accentPrimary)
                     )
             }
             .buttonStyle(.plain)
@@ -56,12 +56,12 @@ struct AddTaskInlineCreator: View {
 
             // Cancel button
             Button {
-                TaskerFeedback.light()
+                LifeBoardFeedback.light()
                 onCancel()
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .foregroundColor(Color.lifeboard.textTertiary)
             }
             .buttonStyle(.plain)
         }
@@ -92,7 +92,7 @@ struct AddTaskInlineCreator_Previews: PreviewProvider {
             )
         }
         .padding()
-        .background(Color.tasker.surfacePrimary)
+        .background(Color.lifeboard.surfacePrimary)
         .previewLayout(.sizeThatFits)
     }
 }

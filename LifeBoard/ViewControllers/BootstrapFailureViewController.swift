@@ -9,7 +9,7 @@ final class BootstrapFailureViewController: UIViewController {
     private lazy var titleLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.text = "Tasker Could Not Start"
+        label.text = "LifeBoard Could Not Start"
         label.font = .systemFont(ofSize: 28, weight: .bold)
         label.textColor = .label
         label.numberOfLines = 0

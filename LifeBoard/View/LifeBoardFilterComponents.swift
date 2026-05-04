@@ -1,6 +1,6 @@
 import SwiftUI
 
-private struct TaskerOptionalAccessibilityIdentifier: ViewModifier {
+private struct LifeBoardOptionalAccessibilityIdentifier: ViewModifier {
     let identifier: String?
 
     @ViewBuilder
@@ -15,7 +15,7 @@ private struct TaskerOptionalAccessibilityIdentifier: ViewModifier {
 
 extension View {
     @ViewBuilder
-    func taskerPressFeedback(reduceMotion: Bool) -> some View {
+    func lifeboardPressFeedback(reduceMotion: Bool) -> some View {
         if reduceMotion {
             self
         } else {
@@ -23,12 +23,12 @@ extension View {
         }
     }
 
-    func taskerAccessibilityIdentifier(_ identifier: String?) -> some View {
-        modifier(TaskerOptionalAccessibilityIdentifier(identifier: identifier))
+    func lifeboardAccessibilityIdentifier(_ identifier: String?) -> some View {
+        modifier(LifeBoardOptionalAccessibilityIdentifier(identifier: identifier))
     }
 }
 
-struct TaskerFilterChip: View {
+struct LifeBoardFilterChip: View {
     let title: String
     var systemImage: String? = nil
     var count: Int? = nil
@@ -40,22 +40,22 @@ struct TaskerFilterChip: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         Button(action: handleTap) {
             chipLabel
         }
         .buttonStyle(.plain)
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(isSelected ? "Selected" : "Double tap to apply")
         .accessibilityValue(isSelected ? "selected" : "unselected")
-        .taskerAccessibilityIdentifier(accessibilityIdentifier)
+        .lifeboardAccessibilityIdentifier(accessibilityIdentifier)
     }
 
     private func handleTap() {
-        TaskerFeedback.light()
+        LifeBoardFeedback.light()
         action()
     }
 
@@ -67,19 +67,19 @@ struct TaskerFilterChip: View {
             }
 
             Text(title)
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .fontWeight(.semibold)
                 .lineLimit(1)
 
             if let count {
                 Text("\(count)")
-                    .font(.tasker(.caption2))
+                    .font(.lifeboard(.caption2))
                     .fontWeight(.bold)
                     .padding(.horizontal, 6)
                     .padding(.vertical, spacing.s2)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(Color.tasker.surfacePrimary.opacity(0.92))
+                            .fill(Color.lifeboard.surfacePrimary.opacity(0.92))
                     )
             }
         }
@@ -87,7 +87,7 @@ struct TaskerFilterChip: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(minHeight: 36)
-        .taskerChromeSurface(
+        .lifeboardChromeSurface(
             cornerRadius: 18,
             accentColor: resolvedAccentColor,
             level: .e1
@@ -107,14 +107,14 @@ struct TaskerFilterChip: View {
         if let accentColor {
             return accentColor
         }
-        return isDestructive ? Color.tasker.statusDanger : Color.tasker.accentPrimary
+        return isDestructive ? Color.lifeboard.statusDanger : Color.lifeboard.accentPrimary
     }
 
     private var foregroundColor: Color {
         if isDestructive {
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         }
-        return isSelected ? Color.tasker.textPrimary : Color.tasker.textSecondary
+        return isSelected ? Color.lifeboard.textPrimary : Color.lifeboard.textSecondary
     }
 
     private var chipFillColor: Color {
@@ -128,7 +128,7 @@ struct TaskerFilterChip: View {
         if isSelected {
             return resolvedAccentColor.opacity(isDestructive ? 0.24 : 0.34)
         }
-        return Color.tasker.strokeHairline.opacity(0.24)
+        return Color.lifeboard.strokeHairline.opacity(0.24)
     }
 
     private var accessibilityLabel: String {
@@ -143,7 +143,7 @@ struct TaskerFilterChip: View {
     }
 }
 
-struct TaskerFilterRow: View {
+struct LifeBoardFilterRow: View {
     let title: String
     var subtitle: String? = nil
     let isSelected: Bool
@@ -155,42 +155,42 @@ struct TaskerFilterRow: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         Button(action: action) {
             rowLabel
         }
         .buttonStyle(.plain)
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(isSelected ? "Selected" : "Double tap to apply")
-        .taskerAccessibilityIdentifier(accessibilityIdentifier)
+        .lifeboardAccessibilityIdentifier(accessibilityIdentifier)
     }
 
     private var rowLabel: some View {
         HStack(spacing: spacing.s12) {
             Image(systemName: selectionIcon)
                 .font(.system(size: 18))
-                .foregroundStyle(isSelected ? rowAccent : Color.tasker.textTertiary)
-                .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isSelected)
+                .foregroundStyle(isSelected ? rowAccent : Color.lifeboard.textTertiary)
+                .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isSelected)
 
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(.system(size: 16))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .lineLimit(1)
 
                 if let subtitle {
                     Text(subtitle)
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption2))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -199,20 +199,20 @@ struct TaskerFilterRow: View {
 
             if let count {
                 Text("\(count)")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .padding(.horizontal, spacing.s8)
                     .padding(.vertical, spacing.s2)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(Color.tasker.surfaceSecondary)
+                            .fill(Color.lifeboard.surfaceSecondary)
                     )
             }
 
             if systemImage != nil {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.tasker.textTertiary)
+                    .foregroundStyle(Color.lifeboard.textTertiary)
             }
         }
         .padding(.horizontal, spacing.s20)
@@ -249,24 +249,24 @@ struct TaskerFilterRow: View {
 
     private var rowAccent: Color {
         if systemImage == "calendar" {
-            return Color.tasker.accentSecondary
+            return Color.lifeboard.accentSecondary
         }
-        return isSelected ? Color.tasker.accentPrimary : Color.tasker.accentSecondary
+        return isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.accentSecondary
     }
 }
 
-struct TaskerFilterSectionHeader: View {
+struct LifeBoardFilterSectionHeader: View {
     let title: String
     var index: Int = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         let header = Text(title)
-            .font(.tasker(.caption1))
-            .foregroundStyle(Color.tasker.textSecondary)
+            .font(.lifeboard(.caption1))
+            .foregroundStyle(Color.lifeboard.textSecondary)
             .padding(.horizontal, spacing.s20)
             .padding(.top, spacing.s12)
             .padding(.bottom, spacing.s8)
@@ -279,12 +279,12 @@ struct TaskerFilterSectionHeader: View {
     }
 }
 
-struct TaskerFilterSheetContainer<Content: View>: View {
+struct LifeBoardFilterSheetContainer<Content: View>: View {
     let horizontalPadding: CGFloat
     let bottomPadding: CGFloat
     @ViewBuilder let content: () -> Content
 
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     init(
         horizontalPadding: CGFloat,
@@ -298,11 +298,11 @@ struct TaskerFilterSheetContainer<Content: View>: View {
 
     var body: some View {
         content()
-            .taskerPremiumSurface(
+            .lifeboardPremiumSurface(
                 cornerRadius: corner.modal,
-                fillColor: Color.tasker.surfacePrimary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.85),
-                accentColor: Color.tasker.accentSecondary,
+                fillColor: Color.lifeboard.surfacePrimary,
+                strokeColor: Color.lifeboard.strokeHairline.opacity(0.85),
+                accentColor: Color.lifeboard.accentSecondary,
                 level: .e3
             )
             .padding(.horizontal, horizontalPadding)

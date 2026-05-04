@@ -1,6 +1,6 @@
 //
 //  AddTaskRepeatEditor.swift
-//  Tasker
+//  LifeBoard
 //
 //  Repeat schedule editor: None / Daily / Weekdays / Weekly / Monthly / Custom.
 //  Maps to TaskRepeatPattern enum.
@@ -15,7 +15,7 @@ struct AddTaskRepeatEditor: View {
 
     @State private var showWeekdayPicker = false
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var activePreset: RepeatPreset {
         guard let pattern = repeatPattern else { return .none }
@@ -31,8 +31,8 @@ struct AddTaskRepeatEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text("Repeat")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing.chipSpacing) {
@@ -42,7 +42,7 @@ struct AddTaskRepeatEditor: View {
                             text: preset.label,
                             isActive: activePreset == preset
                         ) {
-                            withAnimation(TaskerAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.snappy) {
                                 applyPreset(preset)
                             }
                         }
@@ -68,7 +68,7 @@ struct AddTaskRepeatEditor: View {
                 )
             }
         }
-        .animation(TaskerAnimation.snappy, value: activePreset)
+        .animation(LifeBoardAnimation.snappy, value: activePreset)
     }
 
     // MARK: - Helpers
@@ -140,7 +140,7 @@ private struct WeekdayItem: Identifiable {
 struct WeekdayPickerRow: View {
     @Binding var selectedDays: TaskRepeatPattern.DaysOfWeek
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private let weekdays: [WeekdayItem] = [
         WeekdayItem(id: 0, label: "S", day: .sunday),
@@ -156,8 +156,8 @@ struct WeekdayPickerRow: View {
         HStack(spacing: spacing.s4) {
             ForEach(weekdays) { item in
                 Button {
-                    TaskerFeedback.selection()
-                    withAnimation(TaskerAnimation.snappy) {
+                    LifeBoardFeedback.selection()
+                    withAnimation(LifeBoardAnimation.snappy) {
                         if selectedDays.contains(item.day) {
                             selectedDays.remove(item.day)
                         } else {
@@ -166,19 +166,19 @@ struct WeekdayPickerRow: View {
                     }
                 } label: {
                     Text(item.label)
-                        .font(.tasker(.callout))
+                        .font(.lifeboard(.callout))
                         .fontWeight(selectedDays.contains(item.day) ? .bold : .regular)
                         .foregroundColor(
                             selectedDays.contains(item.day)
-                            ? Color.tasker.accentOnPrimary
-                            : Color.tasker.textSecondary
+                            ? Color.lifeboard.accentOnPrimary
+                            : Color.lifeboard.textSecondary
                         )
                         .frame(width: 36, height: 36)
                         .background(
                             Circle()
                                 .fill(selectedDays.contains(item.day)
-                                      ? Color.tasker.accentPrimary
-                                      : Color.tasker.surfaceTertiary)
+                                      ? Color.lifeboard.accentPrimary
+                                      : Color.lifeboard.surfaceTertiary)
                         )
                 }
                 .buttonStyle(.plain)

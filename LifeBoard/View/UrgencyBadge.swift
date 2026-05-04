@@ -1,6 +1,6 @@
 //
 //  UrgencyBadge.swift
-//  Tasker
+//  LifeBoard
 //
 //  Pill-shaped urgency indicator for task rows.
 //  Red for Overdue, Amber for Due Soon, Green for Today.
@@ -34,7 +34,7 @@ public struct UrgencyBadge: View {
     let level: UrgencyLevel
     var isCompact: Bool = false
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     public var body: some View {
         switch level {
@@ -42,22 +42,22 @@ public struct UrgencyBadge: View {
             badgeContent(
                 icon: "exclamationmark.circle.fill",
                 text: "Overdue",
-                backgroundColor: Color.tasker.statusDanger.opacity(0.15),
-                foregroundColor: Color.tasker.statusDanger
+                backgroundColor: Color.lifeboard.statusDanger.opacity(0.15),
+                foregroundColor: Color.lifeboard.statusDanger
             )
         case .dueSoon:
             badgeContent(
                 icon: "clock.fill",
                 text: "Due soon",
-                backgroundColor: Color.tasker.statusWarning.opacity(0.15),
-                foregroundColor: Color.tasker.statusWarning
+                backgroundColor: Color.lifeboard.statusWarning.opacity(0.15),
+                foregroundColor: Color.lifeboard.statusWarning
             )
         case .today:
             badgeContent(
                 icon: "checkmark.circle.fill",
                 text: "Today",
-                backgroundColor: Color.tasker.statusSuccess.opacity(0.12),
-                foregroundColor: Color.tasker.statusSuccess
+                backgroundColor: Color.lifeboard.statusSuccess.opacity(0.12),
+                foregroundColor: Color.lifeboard.statusSuccess
             )
         case .none:
             EmptyView()
@@ -73,7 +73,7 @@ public struct UrgencyBadge: View {
                     .font(.system(size: 9, weight: .medium))
             }
             Text(text)
-                .font(.tasker(.caption2))
+                .font(.lifeboard(.caption2))
                 .fontWeight(.medium)
         }
         .foregroundColor(foregroundColor)
@@ -108,7 +108,7 @@ struct UrgencyBadge_Previews: PreviewProvider {
             }
         }
         .padding()
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .previewLayout(.sizeThatFits)
     }
 }

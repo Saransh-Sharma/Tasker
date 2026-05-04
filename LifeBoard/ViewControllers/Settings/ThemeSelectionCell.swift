@@ -2,7 +2,7 @@ import UIKit
 
 @discardableResult
 @MainActor
-func addBrandPalettePreview(to contentView: UIView, theme: TaskerTheme) -> BrandPalettePreviewView {
+func addBrandPalettePreview(to contentView: UIView, theme: LifeBoardTheme) -> BrandPalettePreviewView {
     let preview = BrandPalettePreviewView(theme: theme)
     contentView.addSubview(preview)
 
@@ -32,6 +32,6 @@ final class ThemeSelectionCell: UITableViewCell {
     }
 
     private func configure() {
-        addBrandPalettePreview(to: contentView, theme: TaskerThemeManager.shared.currentTheme)
+        addBrandPalettePreview(to: contentView, theme: LifeBoardThemeManager.shared.currentTheme)
     }
 }

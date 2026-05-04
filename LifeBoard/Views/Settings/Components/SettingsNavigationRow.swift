@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum TaskerSettingsMetrics {
+enum LifeBoardSettingsMetrics {
     static let screenHorizontal: CGFloat = 20
     static let sectionSpacing: CGFloat = 28
     static let sectionHeaderToCardGap: CGFloat = 12
@@ -11,7 +11,7 @@ enum TaskerSettingsMetrics {
     static let chipMinHeight: CGFloat = 44
 }
 
-enum TaskerSettingsTone {
+enum LifeBoardSettingsTone {
     case accent
     case neutral
     case success
@@ -19,59 +19,59 @@ enum TaskerSettingsTone {
     case danger
 }
 
-enum TaskerSettingsRowType {
+enum LifeBoardSettingsRowType {
     case navigation
     case toggle
     case toggleSummary
 }
 
-struct TaskerSettingsStatusDescriptor: Identifiable {
+struct LifeBoardSettingsStatusDescriptor: Identifiable {
     let id: String
     let title: String
     let value: String
     let systemImage: String
-    var tone: TaskerSettingsTone = .neutral
+    var tone: LifeBoardSettingsTone = .neutral
 }
 
-struct TaskerSettingsInlineBadge {
+struct LifeBoardSettingsInlineBadge {
     let title: String
-    var tone: TaskerSettingsTone = .neutral
+    var tone: LifeBoardSettingsTone = .neutral
 }
 
-struct TaskerSettingsDestinationDescriptor {
+struct LifeBoardSettingsDestinationDescriptor {
     let iconName: String
     let title: String
     let subtitle: String
-    var rowType: TaskerSettingsRowType = .navigation
+    var rowType: LifeBoardSettingsRowType = .navigation
     var trailingStatus: String? = nil
     var summaryText: String? = nil
-    var inlineBadge: TaskerSettingsInlineBadge? = nil
-    var tone: TaskerSettingsTone = .accent
+    var inlineBadge: LifeBoardSettingsInlineBadge? = nil
+    var tone: LifeBoardSettingsTone = .accent
     var accessibilityIdentifier: String? = nil
 }
 
-struct TaskerSettingsCard<Content: View>: View {
+struct LifeBoardSettingsCard<Content: View>: View {
     var active: Bool = false
     @ViewBuilder let content: Content
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     private var cardPadding: CGFloat {
-        TaskerSettingsMetrics.cardInnerPadding
+        LifeBoardSettingsMetrics.cardInnerPadding
     }
 
     private var cornerRadius: CGFloat {
-        TaskerSettingsMetrics.cardCornerRadius
+        LifeBoardSettingsMetrics.cardCornerRadius
     }
 
     private var surfaceColor: Color {
-        Color(uiColor: TaskerThemeManager.shared.tokens(for: layoutClass).color.surfacePrimary)
+        Color(uiColor: LifeBoardThemeManager.shared.tokens(for: layoutClass).color.surfacePrimary)
     }
 
     private var borderColor: Color {
         let color = active
-            ? TaskerThemeManager.shared.tokens(for: layoutClass).color.borderStrong
-            : TaskerThemeManager.shared.tokens(for: layoutClass).color.borderDefault
+            ? LifeBoardThemeManager.shared.tokens(for: layoutClass).color.borderStrong
+            : LifeBoardThemeManager.shared.tokens(for: layoutClass).color.borderDefault
         return Color(uiColor: color).opacity(0.95)
     }
 
@@ -84,21 +84,21 @@ struct TaskerSettingsCard<Content: View>: View {
                     .stroke(borderColor, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .taskerElevation(.e1, cornerRadius: cornerRadius, includesBorder: false)
+            .lifeboardElevation(.e1, cornerRadius: cornerRadius, includesBorder: false)
     }
 }
 
 struct SettingsSectionView<Content: View>: View {
     let title: String
     let subtitle: String
-    var topPadding: CGFloat = TaskerSettingsMetrics.sectionSpacing
+    var topPadding: CGFloat = LifeBoardSettingsMetrics.sectionSpacing
     var includeHorizontalPadding: Bool = true
     @ViewBuilder let content: Content
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     var body: some View {
@@ -112,26 +112,26 @@ struct SettingsSectionView<Content: View>: View {
 
             content
                 .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
-                .padding(.top, TaskerSettingsMetrics.sectionHeaderToCardGap)
+                .padding(.top, LifeBoardSettingsMetrics.sectionHeaderToCardGap)
         }
     }
 }
 
-struct TaskerSettingsHeroCard: View {
+struct LifeBoardSettingsHeroCard: View {
     let eyebrow: String
     let title: String
     let subtitle: String
-    let statusItems: [TaskerSettingsStatusDescriptor]
+    let statusItems: [LifeBoardSettingsStatusDescriptor]
     var accessibilityIdentifier: String? = nil
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     private var cornerRadius: CGFloat {
-        TaskerSettingsMetrics.cardCornerRadius
+        LifeBoardSettingsMetrics.cardCornerRadius
     }
 
     private var maxHeroHeight: CGFloat {
@@ -142,16 +142,16 @@ struct TaskerSettingsHeroCard: View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 Text(eyebrow)
-                    .font(.tasker(.eyebrow))
+                    .font(.lifeboard(.eyebrow))
                     .foregroundStyle(Color.white.opacity(0.78))
 
                 Text(title)
-                    .font(.tasker(.screenTitle))
+                    .font(.lifeboard(.screenTitle))
                     .foregroundStyle(Color.white)
                     .lineLimit(2)
 
                 Text(subtitle)
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
                     .foregroundStyle(Color.white.opacity(0.84))
                     .lineLimit(layoutClass.isPad ? 2 : 3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -160,7 +160,7 @@ struct TaskerSettingsHeroCard: View {
             if statusItems.isEmpty == false {
                 HStack(spacing: 10) {
                     ForEach(Array(statusItems.prefix(3))) { item in
-                        TaskerSettingsStatusChip(descriptor: item)
+                        LifeBoardSettingsStatusChip(descriptor: item)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .layoutPriority(1)
                     }
@@ -168,7 +168,7 @@ struct TaskerSettingsHeroCard: View {
             }
         }
         .padding(.top, 24)
-        .padding(.horizontal, TaskerSettingsMetrics.screenHorizontal)
+        .padding(.horizontal, LifeBoardSettingsMetrics.screenHorizontal)
         .padding(.bottom, 20)
         .frame(maxWidth: .infinity, minHeight: 208, maxHeight: maxHeroHeight, alignment: .topLeading)
         .background(heroBackground)
@@ -177,7 +177,7 @@ struct TaskerSettingsHeroCard: View {
                 .stroke(Color.white.opacity(0.14), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .taskerElevation(.e2, cornerRadius: cornerRadius, includesBorder: false)
+        .lifeboardElevation(.e2, cornerRadius: cornerRadius, includesBorder: false)
         .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
     }
 
@@ -207,25 +207,25 @@ struct TaskerSettingsHeroCard: View {
     }
 }
 
-struct TaskerSettingsStatusChip: View {
-    let descriptor: TaskerSettingsStatusDescriptor
+struct LifeBoardSettingsStatusChip: View {
+    let descriptor: LifeBoardSettingsStatusDescriptor
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Image(systemName: descriptor.systemImage)
-                .font(.tasker(.caption2))
+                .font(.lifeboard(.caption2))
                 .foregroundStyle(iconColor)
                 .frame(width: 14, height: 14)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(descriptor.title)
-                    .font(.tasker(.caption2))
+                    .font(.lifeboard(.caption2))
                     .foregroundStyle(Color.white.opacity(0.72))
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
 
                 Text(descriptor.value)
-                    .font(.tasker(.bodyStrong))
+                    .font(.lifeboard(.bodyStrong))
                     .foregroundStyle(Color.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -233,7 +233,7 @@ struct TaskerSettingsStatusChip: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
-        .frame(minHeight: TaskerSettingsMetrics.chipMinHeight, alignment: .leading)
+        .frame(minHeight: LifeBoardSettingsMetrics.chipMinHeight, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.white.opacity(0.12))
@@ -251,26 +251,26 @@ struct TaskerSettingsStatusChip: View {
         case .neutral:
             return Color.white.opacity(0.88)
         case .success:
-            return Color.tasker(.statusSuccess)
+            return Color.lifeboard(.statusSuccess)
         case .warning:
-            return Color.tasker(.statusWarning)
+            return Color.lifeboard(.statusWarning)
         case .danger:
-            return Color.tasker(.statusDanger)
+            return Color.lifeboard(.statusDanger)
         }
     }
 }
 
-struct TaskerSettingsFieldCard<Content: View>: View {
+struct LifeBoardSettingsFieldCard<Content: View>: View {
     let title: String
     let subtitle: String
     var footer: String? = nil
     var accessibilityIdentifier: String? = nil
     @ViewBuilder let content: Content
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     init(
@@ -288,16 +288,16 @@ struct TaskerSettingsFieldCard<Content: View>: View {
     }
 
     var body: some View {
-        TaskerSettingsCard(active: true) {
-            VStack(alignment: .leading, spacing: TaskerSettingsMetrics.cardInnerPadding) {
+        LifeBoardSettingsCard(active: true) {
+            VStack(alignment: .leading, spacing: LifeBoardSettingsMetrics.cardInnerPadding) {
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(title)
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
 
                     Text(subtitle)
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -305,8 +305,8 @@ struct TaskerSettingsFieldCard<Content: View>: View {
 
                 if let footer, footer.isEmpty == false {
                     Text(footer)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -316,61 +316,61 @@ struct TaskerSettingsFieldCard<Content: View>: View {
     }
 }
 
-struct TaskerSettingsToggleRow: View {
+struct LifeBoardSettingsToggleRow: View {
     let iconName: String
     let title: String
     let subtitle: String?
     @Binding var isOn: Bool
-    var tone: TaskerSettingsTone = .accent
+    var tone: LifeBoardSettingsTone = .accent
     var summaryText: String? = nil
     var accessibilityIdentifier: String? = nil
 
     var body: some View {
-        HStack(alignment: .center, spacing: TaskerSwiftUITokens.spacing.s12) {
+        HStack(alignment: .center, spacing: LifeBoardSwiftUITokens.spacing.s12) {
             SettingsRowIcon(iconName: iconName, tone: tone)
 
-            VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s4) {
+            VStack(alignment: .leading, spacing: LifeBoardSwiftUITokens.spacing.s4) {
                 Text(title)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
 
                 if let subtitle, subtitle.isEmpty == false {
                     Text(subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            Spacer(minLength: TaskerSwiftUITokens.spacing.s12)
+            Spacer(minLength: LifeBoardSwiftUITokens.spacing.s12)
 
             if let summaryText, summaryText.isEmpty == false {
                 Text(summaryText)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .multilineTextAlignment(.trailing)
                     .lineLimit(1)
             }
 
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .tint(Color.tasker(.accentPrimary))
+                .tint(Color.lifeboard(.accentPrimary))
                 .accessibilityLabel(Text(title))
         }
-        .frame(maxWidth: .infinity, minHeight: TaskerSettingsMetrics.toggleRowMinHeight, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: LifeBoardSettingsMetrics.toggleRowMinHeight, alignment: .leading)
         .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
     }
 }
 
-struct TaskerSettingsToggleSummaryRow<ExpandedContent: View>: View {
-    let descriptor: TaskerSettingsDestinationDescriptor
+struct LifeBoardSettingsToggleSummaryRow<ExpandedContent: View>: View {
+    let descriptor: LifeBoardSettingsDestinationDescriptor
     @Binding var isOn: Bool
     @Binding var isExpanded: Bool
     var accessibilityIdentifier: String? = nil
     @ViewBuilder let expandedContent: ExpandedContent
 
     init(
-        descriptor: TaskerSettingsDestinationDescriptor,
+        descriptor: LifeBoardSettingsDestinationDescriptor,
         isOn: Binding<Bool>,
         isExpanded: Binding<Bool>,
         accessibilityIdentifier: String? = nil,
@@ -385,40 +385,40 @@ struct TaskerSettingsToggleSummaryRow<ExpandedContent: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: TaskerSwiftUITokens.spacing.s12) {
+            HStack(alignment: .center, spacing: LifeBoardSwiftUITokens.spacing.s12) {
                 Button {
-                    withAnimation(TaskerAnimation.gentle) {
+                    withAnimation(LifeBoardAnimation.gentle) {
                         isExpanded.toggle()
                     }
                 } label: {
-                    HStack(alignment: .center, spacing: TaskerSwiftUITokens.spacing.s12) {
+                    HStack(alignment: .center, spacing: LifeBoardSwiftUITokens.spacing.s12) {
                         SettingsRowIcon(iconName: descriptor.iconName, tone: descriptor.tone)
 
-                        VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s4) {
+                        VStack(alignment: .leading, spacing: LifeBoardSwiftUITokens.spacing.s4) {
                             Text(descriptor.title)
-                                .font(.tasker(.bodyEmphasis))
-                                .foregroundStyle(Color.tasker(.textPrimary))
+                                .font(.lifeboard(.bodyEmphasis))
+                                .foregroundStyle(Color.lifeboard(.textPrimary))
 
                             Text(descriptor.subtitle)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
-                        Spacer(minLength: TaskerSwiftUITokens.spacing.s12)
+                        Spacer(minLength: LifeBoardSwiftUITokens.spacing.s12)
 
-                        HStack(spacing: TaskerSwiftUITokens.spacing.s8) {
+                        HStack(spacing: LifeBoardSwiftUITokens.spacing.s8) {
                             if let summaryText = descriptor.summaryText, summaryText.isEmpty == false {
                                 Text(summaryText)
-                                    .font(.tasker(.caption1))
-                                    .foregroundStyle(Color.tasker(.textSecondary))
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundStyle(Color.lifeboard(.textSecondary))
                                     .multilineTextAlignment(.trailing)
                                     .lineLimit(1)
                             }
 
                             Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                                .font(.tasker(.caption2))
-                                .foregroundStyle(Color.tasker(.textQuaternary))
+                                .font(.lifeboard(.caption2))
+                                .foregroundStyle(Color.lifeboard(.textQuaternary))
                         }
                     }
                     .contentShape(Rectangle())
@@ -427,20 +427,20 @@ struct TaskerSettingsToggleSummaryRow<ExpandedContent: View>: View {
 
                 Toggle("", isOn: $isOn)
                     .labelsHidden()
-                    .tint(Color.tasker(.accentPrimary))
+                    .tint(Color.lifeboard(.accentPrimary))
                     .accessibilityLabel(Text(descriptor.title))
             }
-            .frame(maxWidth: .infinity, minHeight: TaskerSettingsMetrics.toggleRowMinHeight, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: LifeBoardSettingsMetrics.toggleRowMinHeight, alignment: .leading)
 
             if isExpanded {
                 Divider()
-                    .padding(.vertical, TaskerSwiftUITokens.spacing.s12)
+                    .padding(.vertical, LifeBoardSwiftUITokens.spacing.s12)
 
                 expandedContent
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(TaskerAnimation.gentle, value: isExpanded)
+        .animation(LifeBoardAnimation.gentle, value: isExpanded)
         .applyOptionalAccessibilityIdentifier(accessibilityIdentifier ?? descriptor.accessibilityIdentifier)
     }
 }
@@ -453,20 +453,20 @@ struct SettingsChipSelector<Option: Hashable>: View {
     var accessibilityIdentifier: String? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s12) {
+        VStack(alignment: .leading, spacing: LifeBoardSwiftUITokens.spacing.s12) {
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundStyle(Color.tasker(.textTertiary))
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(Color.lifeboard(.textTertiary))
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: TaskerSwiftUITokens.spacing.s8) {
+                HStack(spacing: LifeBoardSwiftUITokens.spacing.s8) {
                     ForEach(options, id: \.value) { option in
-                        TaskerChip(
+                        LifeBoardChip(
                             title: option.label,
                             isSelected: option.value == selectedValue,
                             selectedStyle: .filled,
                             action: {
-                                TaskerFeedback.selection()
+                                LifeBoardFeedback.selection()
                                 onSelect(option.value)
                             }
                         )
@@ -479,7 +479,7 @@ struct SettingsChipSelector<Option: Hashable>: View {
     }
 }
 
-struct TaskerSettingsInfoRow: View {
+struct LifeBoardSettingsInfoRow: View {
     let iconName: String
     let title: String
     let subtitle: String
@@ -487,25 +487,25 @@ struct TaskerSettingsInfoRow: View {
     var accessibilityIdentifier: String? = nil
 
     var body: some View {
-        HStack(alignment: .top, spacing: TaskerSwiftUITokens.spacing.s12) {
+        HStack(alignment: .top, spacing: LifeBoardSwiftUITokens.spacing.s12) {
             SettingsRowIcon(iconName: iconName, tone: .neutral)
 
-            VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s4) {
+            VStack(alignment: .leading, spacing: LifeBoardSwiftUITokens.spacing.s4) {
                 Text(title)
-                    .font(.tasker(.bodyStrong))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                 Text(subtitle)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer(minLength: TaskerSwiftUITokens.spacing.s12)
+            Spacer(minLength: LifeBoardSwiftUITokens.spacing.s12)
 
             if let value, value.isEmpty == false {
                 Text(value)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
                     .multilineTextAlignment(.trailing)
             }
         }
@@ -514,7 +514,7 @@ struct TaskerSettingsInfoRow: View {
     }
 }
 
-struct TaskerSettingsDangerZoneCard: View {
+struct LifeBoardSettingsDangerZoneCard: View {
     let title: String
     let subtitle: String
     let buttonTitle: String
@@ -523,27 +523,27 @@ struct TaskerSettingsDangerZoneCard: View {
     let action: () -> Void
 
     var body: some View {
-        TaskerSettingsCard {
-            VStack(alignment: .leading, spacing: TaskerSettingsMetrics.cardInnerPadding) {
-                HStack(alignment: .top, spacing: TaskerSwiftUITokens.spacing.s12) {
+        LifeBoardSettingsCard {
+            VStack(alignment: .leading, spacing: LifeBoardSettingsMetrics.cardInnerPadding) {
+                HStack(alignment: .top, spacing: LifeBoardSwiftUITokens.spacing.s12) {
                     SettingsRowIcon(iconName: "exclamationmark.triangle.fill", tone: .danger)
 
-                    VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s4) {
+                    VStack(alignment: .leading, spacing: LifeBoardSwiftUITokens.spacing.s4) {
                         Text(title)
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.headline))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
 
                         Text(subtitle)
-                            .font(.tasker(.callout))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.callout))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
                 Button(buttonTitle, role: buttonRole, action: action)
-                    .font(.tasker(.buttonSmall))
+                    .font(.lifeboard(.buttonSmall))
                     .buttonStyle(.bordered)
-                    .tint(Color.tasker(.statusDanger))
+                    .tint(Color.lifeboard(.statusDanger))
                     .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
             }
         }
@@ -552,7 +552,7 @@ struct TaskerSettingsDangerZoneCard: View {
 
 struct SettingsRowIcon: View {
     let iconName: String
-    let tone: TaskerSettingsTone
+    let tone: LifeBoardSettingsTone
 
     var body: some View {
         ZStack {
@@ -561,7 +561,7 @@ struct SettingsRowIcon: View {
                 .frame(width: 40, height: 40)
 
             Image(systemName: iconName)
-                .font(.tasker(.support))
+                .font(.lifeboard(.support))
                 .foregroundStyle(foregroundColor)
         }
     }
@@ -569,43 +569,43 @@ struct SettingsRowIcon: View {
     private var foregroundColor: Color {
         switch tone {
         case .accent:
-            return Color.tasker(.accentPrimary)
+            return Color.lifeboard(.accentPrimary)
         case .neutral:
-            return Color.tasker(.textSecondary)
+            return Color.lifeboard(.textSecondary)
         case .success:
-            return Color.tasker(.statusSuccess)
+            return Color.lifeboard(.statusSuccess)
         case .warning:
-            return Color.tasker(.statusWarning)
+            return Color.lifeboard(.statusWarning)
         case .danger:
-            return Color.tasker(.statusDanger)
+            return Color.lifeboard(.statusDanger)
         }
     }
 
     private var backgroundColor: Color {
         switch tone {
         case .accent:
-            return Color.tasker(.accentWash)
+            return Color.lifeboard(.accentWash)
         case .neutral:
-            return Color.tasker(.surfaceSecondary)
+            return Color.lifeboard(.surfaceSecondary)
         case .success:
-            return Color.tasker(.statusSuccess).opacity(0.14)
+            return Color.lifeboard(.statusSuccess).opacity(0.14)
         case .warning:
-            return Color.tasker(.statusWarning).opacity(0.14)
+            return Color.lifeboard(.statusWarning).opacity(0.14)
         case .danger:
-            return Color.tasker(.statusDanger).opacity(0.14)
+            return Color.lifeboard(.statusDanger).opacity(0.14)
         }
     }
 }
 
 struct SettingsNavigationRow: View {
-    let descriptor: TaskerSettingsDestinationDescriptor
+    let descriptor: LifeBoardSettingsDestinationDescriptor
     var action: (() -> Void)? = nil
 
     var body: some View {
         Group {
             if let action {
                 Button {
-                    TaskerFeedback.light()
+                    LifeBoardFeedback.light()
                     action()
                 } label: {
                     rowContent
@@ -619,77 +619,77 @@ struct SettingsNavigationRow: View {
     }
 
     private var rowContent: some View {
-        HStack(alignment: .center, spacing: TaskerSwiftUITokens.spacing.s12) {
+        HStack(alignment: .center, spacing: LifeBoardSwiftUITokens.spacing.s12) {
             SettingsRowIcon(iconName: descriptor.iconName, tone: descriptor.tone)
 
-            VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s4) {
+            VStack(alignment: .leading, spacing: LifeBoardSwiftUITokens.spacing.s4) {
                 Text(descriptor.title)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(.tasker(.textPrimary))
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundColor(.lifeboard(.textPrimary))
 
                 Text(descriptor.subtitle)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let inlineBadge = descriptor.inlineBadge {
                     Text(inlineBadge.title)
-                        .font(.tasker(.caption2))
+                        .font(.lifeboard(.caption2))
                         .foregroundStyle(badgeForeground(for: inlineBadge.tone))
-                        .padding(.horizontal, TaskerSwiftUITokens.spacing.s8)
-                        .padding(.vertical, TaskerSwiftUITokens.spacing.s4)
+                        .padding(.horizontal, LifeBoardSwiftUITokens.spacing.s8)
+                        .padding(.vertical, LifeBoardSwiftUITokens.spacing.s4)
                         .background(badgeBackground(for: inlineBadge.tone))
                         .clipShape(Capsule())
                 }
             }
 
-            Spacer(minLength: TaskerSwiftUITokens.spacing.s12)
+            Spacer(minLength: LifeBoardSwiftUITokens.spacing.s12)
 
-            HStack(spacing: TaskerSwiftUITokens.spacing.s8) {
+            HStack(spacing: LifeBoardSwiftUITokens.spacing.s8) {
                 if let trailingStatus = descriptor.trailingStatus, trailingStatus.isEmpty == false {
                     Text(trailingStatus)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(.lifeboard(.textSecondary))
                         .multilineTextAlignment(.trailing)
                         .lineLimit(1)
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.tasker(.meta))
-                    .foregroundColor(.tasker(.textQuaternary))
+                    .font(.lifeboard(.meta))
+                    .foregroundColor(.lifeboard(.textQuaternary))
             }
         }
-        .frame(maxWidth: .infinity, minHeight: TaskerSettingsMetrics.navigationRowMinHeight, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: LifeBoardSettingsMetrics.navigationRowMinHeight, alignment: .leading)
         .contentShape(Rectangle())
     }
 
-    private func badgeForeground(for tone: TaskerSettingsTone) -> Color {
+    private func badgeForeground(for tone: LifeBoardSettingsTone) -> Color {
         switch tone {
         case .accent:
-            return Color.tasker(.accentPrimary)
+            return Color.lifeboard(.accentPrimary)
         case .neutral:
-            return Color.tasker(.textSecondary)
+            return Color.lifeboard(.textSecondary)
         case .success:
-            return Color.tasker(.statusSuccess)
+            return Color.lifeboard(.statusSuccess)
         case .warning:
-            return Color.tasker(.statusWarning)
+            return Color.lifeboard(.statusWarning)
         case .danger:
-            return Color.tasker(.statusDanger)
+            return Color.lifeboard(.statusDanger)
         }
     }
 
-    private func badgeBackground(for tone: TaskerSettingsTone) -> Color {
+    private func badgeBackground(for tone: LifeBoardSettingsTone) -> Color {
         switch tone {
         case .accent:
-            return Color.tasker(.accentWash)
+            return Color.lifeboard(.accentWash)
         case .neutral:
-            return Color.tasker(.surfaceSecondary)
+            return Color.lifeboard(.surfaceSecondary)
         case .success:
-            return Color.tasker(.statusSuccess).opacity(0.14)
+            return Color.lifeboard(.statusSuccess).opacity(0.14)
         case .warning:
-            return Color.tasker(.statusWarning).opacity(0.14)
+            return Color.lifeboard(.statusWarning).opacity(0.14)
         case .danger:
-            return Color.tasker(.statusDanger).opacity(0.14)
+            return Color.lifeboard(.statusDanger).opacity(0.14)
         }
     }
 }

@@ -1,6 +1,6 @@
 //
 //  ChartCard.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Assistant on Chart Card Implementation
 //  Copyright 2025 saransh1337. All rights reserved.
@@ -16,8 +16,8 @@ struct ChartCard: View {
     let subtitle: String?
     let referenceDate: Date?
     @StateObject private var viewModel: ChartCardViewModel
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
     
     /// Initializes a new instance.
     init(
@@ -33,20 +33,20 @@ struct ChartCard: View {
     }
     
     public var body: some View {
-        TaskerCard {
+        LifeBoardCard {
             VStack(alignment: .leading, spacing: spacing.cardPadding) {
                 VStack(alignment: .leading, spacing: spacing.titleSubtitleGap) {
                     Text(title)
-                        .font(.tasker(.headline))
+                        .font(.lifeboard(.headline))
                         .fontWeight(.semibold)
-                        .foregroundColor(.tasker(.textPrimary))
+                        .foregroundColor(.lifeboard(.textPrimary))
                         .dynamicTypeSize(.large...(.accessibility5))
                         .accessibilityAddTraits(.isHeader)
 
                     if let subtitle = subtitle {
                         Text(subtitle)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(.tasker(.textSecondary))
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(.lifeboard(.textSecondary))
                             .dynamicTypeSize(.large...(.accessibility3))
                     }
                 }
@@ -55,7 +55,7 @@ struct ChartCard: View {
                 ZStack {
                     if viewModel.isLoading {
                         RoundedRectangle(cornerRadius: corner.input)
-                            .fill(Color.tasker.surfaceSecondary)
+                            .fill(Color.lifeboard.surfaceSecondary)
                             .frame(height: 200)
                             .overlay(
                                 ProgressView()
@@ -64,10 +64,10 @@ struct ChartCard: View {
                     } else {
                         LineChartViewRepresentable(data: viewModel.chartData, referenceDate: referenceDate)
                             .frame(height: 200)
-                            .taskerDenseSurface(
+                            .lifeboardDenseSurface(
                                 cornerRadius: corner.input,
-                                fillColor: Color.tasker.surfacePrimary,
-                                strokeColor: Color.tasker.strokeHairline
+                                fillColor: Color.lifeboard.surfacePrimary,
+                                strokeColor: Color.lifeboard.strokeHairline
                             )
                     }
                 }
@@ -105,7 +105,7 @@ struct LineChartViewRepresentable: UIViewRepresentable {
     
     /// Executes setupChartView.
     private func setupChartView(_ chartView: LineChartView) {
-        let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
+        let themeTokens = LifeBoardThemeManager.shared.currentTheme.tokens
         let colors = themeTokens.color
         
         // Enhanced chart configuration for feature parity (Phase 4)
@@ -133,7 +133,7 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         xAxis.drawAxisLineEnabled = true
         xAxis.axisLineColor = colors.divider.withAlphaComponent(0.5)
         xAxis.labelTextColor = colors.textSecondary
-        xAxis.labelFont = UIFont.tasker.font(for: .caption2)
+        xAxis.labelFont = UIFont.lifeboard.font(for: .caption2)
         xAxis.granularity = 1
         xAxis.labelCount = 7
         xAxis.valueFormatter = WeekDayAxisValueFormatter()
@@ -146,7 +146,7 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         leftAxis.gridLineWidth = 0.5
         leftAxis.drawAxisLineEnabled = false
         leftAxis.labelTextColor = colors.textTertiary
-        leftAxis.labelFont = UIFont.tasker.font(for: .caption2)
+        leftAxis.labelFont = UIFont.lifeboard.font(for: .caption2)
         leftAxis.granularity = 5
         leftAxis.axisMinimum = 0
         
@@ -155,7 +155,7 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         
         // Enhanced marker configuration
         let marker = BalloonMarker(color: colors.accentPrimary.withAlphaComponent(0.9),
-                                 font: UIFont.tasker.font(for: .caption1),
+                                 font: UIFont.lifeboard.font(for: .caption1),
                                  textColor: colors.textInverse,
                                  insets: UIEdgeInsets(top: 8, left: 8, bottom: 20, right: 8))
         marker.chartView = chartView
@@ -179,7 +179,7 @@ struct LineChartViewRepresentable: UIViewRepresentable {
             return
         }
         
-        let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
+        let themeTokens = LifeBoardThemeManager.shared.currentTheme.tokens
         let colors = themeTokens.color
 
         // Calculate dynamic maximum for better scaling
@@ -279,19 +279,19 @@ struct ChartCard_Previews: PreviewProvider {
 
 private final class PreviewTaskReadModelRepository: TaskReadModelRepositoryProtocol {
     /// Executes fetchTasks.
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
     /// Executes searchTasks.
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
     /// Executes fetchProjectTaskCounts.
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
         completion(.success([:]))
     }
@@ -300,7 +300,7 @@ private final class PreviewTaskReadModelRepository: TaskReadModelRepositoryProto
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
-        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+        completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
         completion(.success([:]))
     }

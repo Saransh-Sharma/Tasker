@@ -1,6 +1,6 @@
 //
 //  LGBaseView.swift
-//  Tasker
+//  LifeBoard
 //
 //  iOS 16+ Liquid Glass UI Base Component
 //  Provides glass morphism effects with backdrop blur and gradients
@@ -44,7 +44,7 @@ class LGBaseView: UIView {
         didSet { updateBorder() }
     }
 
-    var elevationLevel: TaskerElevationLevel = .e1 {
+    var elevationLevel: LifeBoardElevationLevel = .e1 {
         didSet { applyTokenElevation() }
     }
     
@@ -75,7 +75,7 @@ class LGBaseView: UIView {
         insertSubview(blurEffectView, at: 0)
         
         // Gradient overlay — subtler for premium feel
-        let glassTint = TaskerThemeManager.shared.currentTheme.tokens.color.overlayGlassTint
+        let glassTint = LifeBoardThemeManager.shared.currentTheme.tokens.color.overlayGlassTint
         gradientLayer.colors = [
             glassTint.withAlphaComponent(0.28).cgColor,
             glassTint.withAlphaComponent(0.08).cgColor
@@ -127,8 +127,8 @@ class LGBaseView: UIView {
 
     /// Executes applyTokenElevation.
     private func applyTokenElevation() {
-        let style = TaskerThemeManager.shared.currentTheme.tokens.elevation.style(for: elevationLevel)
-        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let style = LifeBoardThemeManager.shared.currentTheme.tokens.elevation.style(for: elevationLevel)
+        let colors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         layer.shadowColor = style.shadowColor.cgColor
         layer.shadowOpacity = style.shadowOpacity
         layer.shadowOffset = CGSize(width: 0, height: style.shadowOffsetY)
@@ -142,7 +142,7 @@ class LGBaseView: UIView {
             colors.overlayGlassTint.withAlphaComponent(0.12).cgColor
         ]
 
-        let corner = TaskerThemeManager.shared.currentTheme.tokens.corner
+        let corner = LifeBoardThemeManager.shared.currentTheme.tokens.corner
         cornerRadius = corner.card
     }
     
@@ -153,7 +153,7 @@ class LGBaseView: UIView {
         alpha = 0
         transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
 
-        UIView.taskerSpringAnimate(TaskerAnimation.uiGentle) {
+        UIView.lifeboardSpringAnimate(LifeBoardAnimation.uiGentle) {
             self.alpha = self.glassOpacity
             self.transform = .identity
         }

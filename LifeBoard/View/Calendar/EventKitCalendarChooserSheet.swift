@@ -6,7 +6,7 @@ struct EventKitCalendarChooserSheet: View {
     let onCancel: () -> Void
     let onCommit: ([String]) -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     @State private var selectedCalendarIDs: Set<String>
 
@@ -23,10 +23,10 @@ struct EventKitCalendarChooserSheet: View {
         _selectedCalendarIDs = State(initialValue: Set(initialSelectedCalendarIDs))
     }
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
-    private var sections: [TaskerCalendarChooserSection] {
-        TaskerCalendarPresentation.chooserSections(from: service.snapshot.availableCalendars)
+    private var sections: [LifeBoardCalendarChooserSection] {
+        LifeBoardCalendarPresentation.chooserSections(from: service.snapshot.availableCalendars)
     }
 
     private var isInitialLoadingStateVisible: Bool {
@@ -59,8 +59,8 @@ struct EventKitCalendarChooserSheet: View {
                         ForEach(sections) { section in
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 Text(section.title)
-                                    .font(.tasker(.caption1))
-                                    .foregroundStyle(Color.tasker.textSecondary)
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundStyle(Color.lifeboard.textSecondary)
                                     .textCase(.uppercase)
                                     .accessibilityIdentifier("schedule.chooser.section.\(section.id)")
 
@@ -71,12 +71,12 @@ struct EventKitCalendarChooserSheet: View {
                         }
                     }
                 }
-                .taskerReadableContent(maxWidth: layoutClass.isPad ? 900 : .infinity, alignment: .center)
+                .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 900 : .infinity, alignment: .center)
                 .padding(.horizontal, spacing.screenHorizontal)
                 .padding(.top, spacing.s16)
                 .padding(.bottom, spacing.sectionGap)
             }
-            .background(Color.tasker.bgCanvas.ignoresSafeArea())
+            .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
             .navigationTitle(String(localized: "Calendars"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -103,25 +103,25 @@ struct EventKitCalendarChooserSheet: View {
     private func chooserStateCard(title: String, message: String) -> some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text(title)
-                .font(.tasker(.sectionTitle))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.sectionTitle))
+                .foregroundStyle(Color.lifeboard.textPrimary)
 
             Text(message)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard.textSecondary)
         }
         .padding(spacing.s12)
         .background(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .fill(Color.tasker.surfacePrimary)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                .fill(Color.lifeboard.surfacePrimary)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.7), lineWidth: 1)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.7), lineWidth: 1)
         )
     }
 
-    private func chooserRow(_ calendar: TaskerCalendarSourceSnapshot) -> some View {
+    private func chooserRow(_ calendar: LifeBoardCalendarSourceSnapshot) -> some View {
         let isSelected = selectedCalendarIDs.contains(calendar.id)
 
         return Button {
@@ -133,37 +133,37 @@ struct EventKitCalendarChooserSheet: View {
         } label: {
             HStack(alignment: .center, spacing: spacing.s12) {
                 Circle()
-                    .fill(TaskerHexColor.color(calendar.colorHex, fallback: Color.tasker.accentPrimary))
+                    .fill(LifeBoardHexColor.color(calendar.colorHex, fallback: Color.lifeboard.accentPrimary))
                     .frame(width: 12, height: 12)
 
                 Text(calendar.title)
-                    .font(.tasker(.bodyStrong))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 Spacer(minLength: 0)
 
                 Text(isSelected ? String(localized: "On") : String(localized: "Off"))
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(isSelected ? Color.tasker.actionPrimary : Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(isSelected ? Color.lifeboard.actionPrimary : Color.lifeboard.textSecondary)
                     .padding(.horizontal, spacing.s12)
                     .padding(.vertical, spacing.s4)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
+                            .fill(isSelected ? Color.lifeboard.accentWash : Color.lifeboard.surfaceSecondary)
                     )
             }
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s12)
             .background(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                    .fill(Color.tasker.surfacePrimary)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                    .fill(Color.lifeboard.surfacePrimary)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
                     .stroke(
                         isSelected
-                            ? Color.tasker.actionPrimary.opacity(0.36)
-                            : Color.tasker.strokeHairline.opacity(0.7),
+                            ? Color.lifeboard.actionPrimary.opacity(0.36)
+                            : Color.lifeboard.strokeHairline.opacity(0.7),
                         lineWidth: 1
                     )
             )

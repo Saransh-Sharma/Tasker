@@ -276,9 +276,9 @@ struct HabitHomeSectionCard: View {
     let onLastCellAction: (HomeHabitRow) -> Void
     let onOpenHabit: ((HomeHabitRow) -> Void)?
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     init(
         title: String,
@@ -306,13 +306,13 @@ struct HabitHomeSectionCard: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             HStack(alignment: .center, spacing: spacing.s8) {
                 Text(title)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .lineLimit(1)
 
                 Text(summaryLine)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
 
@@ -331,7 +331,7 @@ struct HabitHomeSectionCard: View {
                             .labelStyle(.iconOnly)
                             .font(.system(size: 14, weight: .semibold))
                     }
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .frame(width: 44, height: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -339,7 +339,7 @@ struct HabitHomeSectionCard: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+                                .stroke(Color.lifeboard.strokeHairline.opacity(0.55), lineWidth: 1)
                         )
                         .buttonStyle(.plain)
                         .accessibilityIdentifier(HabitBoardAccessibilityID.homeOpenBoard)
@@ -414,11 +414,11 @@ struct HabitBoardScreen: View {
     @State private var selectedHabitRow: HabitLibraryRow?
     @State private var measuredBoardWidth: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
     private var layoutMetrics: HabitBoardLayoutMetrics {
         HabitBoardLayoutMetrics.forContainerWidth(resolvedBoardWidth, dynamicTypeSize: dynamicTypeSize)
     }
@@ -436,7 +436,7 @@ struct HabitBoardScreen: View {
                 .padding(.top, spacing.s12)
                 .padding(.bottom, spacing.s24)
             }
-            .background(Color.tasker.bgCanvas)
+            .background(Color.lifeboard.bgCanvas)
             .accessibilityIdentifier(HabitBoardAccessibilityID.view)
             .navigationTitle("Habit Board")
             .navigationBarTitleDisplayMode(.inline)
@@ -463,7 +463,7 @@ struct HabitBoardScreen: View {
             boardHeader
 
             Rectangle()
-                .fill(Color.tasker.strokeHairline.opacity(0.16))
+                .fill(Color.lifeboard.strokeHairline.opacity(0.16))
                 .frame(height: 1)
 
             if viewModel.isLoading && viewModel.boardRows.isEmpty {
@@ -488,11 +488,11 @@ struct HabitBoardScreen: View {
         VStack(spacing: spacing.s12) {
             ProgressView()
             Text("Loading habit board")
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
             Text("Pulling your latest streak history.")
-                .font(.tasker(.body))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -504,16 +504,16 @@ struct HabitBoardScreen: View {
     private func boardErrorState(message: String) -> some View {
         VStack(spacing: spacing.s12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.tasker(.title3))
-                .foregroundStyle(Color.tasker.statusWarning)
+                .font(.lifeboard(.title3))
+                .foregroundStyle(Color.lifeboard.statusWarning)
 
             Text("Couldn't load the habit board")
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
 
             Text(message)
-                .font(.tasker(.body))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .multilineTextAlignment(.center)
 
             HStack(spacing: spacing.s8) {
@@ -541,12 +541,12 @@ struct HabitBoardScreen: View {
             EvaMascotView(placement: .habitEmpty, size: .card)
 
             Text("No habits yet")
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
 
             Text("Create your first habit to start building streak momentum.")
-                .font(.tasker(.body))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .multilineTextAlignment(.center)
 
             Button("Manage Habits") {
@@ -564,7 +564,7 @@ struct HabitBoardScreen: View {
     private func openManageHabitsFromBoard() {
         dismiss()
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .taskerOpenHabitLibraryDeepLink, object: nil)
+            NotificationCenter.default.post(name: .lifeboardOpenHabitLibraryDeepLink, object: nil)
         }
     }
 
@@ -575,17 +575,17 @@ struct HabitBoardScreen: View {
         action: @escaping () -> Void
     ) -> some View {
         Button {
-            withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.stateChange) {
+            withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.stateChange) {
                 action()
             }
         } label: {
             Image(systemName: systemName)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .frame(width: 44, height: 44)
-                .background(Color.tasker.surfacePrimary.opacity(0.98))
+                .background(Color.lifeboard.surfacePrimary.opacity(0.98))
                 .clipShape(Circle())
-                .overlay(Circle().stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1))
+                .overlay(Circle().stroke(Color.lifeboard.strokeHairline.opacity(0.55), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier)
@@ -604,15 +604,15 @@ struct HabitBoardScreen: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(rangeTitle)
-                    .font(.tasker(.bodyStrong))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.88)
                     .accessibilityIdentifier(HabitBoardAccessibilityID.rangeTitle)
 
                 Text("\(viewModel.viewportColumnCount)-day window")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(1)
                     .accessibilityIdentifier(HabitBoardAccessibilityID.rangeSubtitle)
             }
@@ -636,7 +636,7 @@ struct HabitBoardScreen: View {
                 HabitBoardPinnedColumnHeader(layoutMetrics: layoutMetrics)
 
                 Divider()
-                    .overlay(Color.tasker.strokeHairline.opacity(0.12))
+                    .overlay(Color.lifeboard.strokeHairline.opacity(0.12))
 
                 LazyVStack(spacing: 0) {
                     ForEach(viewModel.boardRows) { row in
@@ -645,18 +645,18 @@ struct HabitBoardScreen: View {
                             layoutMetrics: layoutMetrics,
                             onSelect: {
                                 if let libraryRow = viewModel.row(for: row.habitID) {
-                                    TaskerPerformanceTrace.event("HabitDetailTapReceived")
+                                    LifeBoardPerformanceTrace.event("HabitDetailTapReceived")
                                     selectedHabitRow = libraryRow
                                 }
                             }
                         )
 
                         Divider()
-                            .overlay(Color.tasker.strokeHairline.opacity(0.1))
+                            .overlay(Color.lifeboard.strokeHairline.opacity(0.1))
                     }
                 }
             }
-            .background(Color.tasker.surfaceSecondary.opacity(0.16))
+            .background(Color.lifeboard.surfaceSecondary.opacity(0.16))
             .frame(width: layoutMetrics.pinnedRailWidth, alignment: .leading)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -664,7 +664,7 @@ struct HabitBoardScreen: View {
                     HabitBoardDayHeaderRow(days: viewModel.aggregateDays, layoutMetrics: layoutMetrics)
 
                     Divider()
-                        .overlay(Color.tasker.strokeHairline.opacity(0.12))
+                        .overlay(Color.lifeboard.strokeHairline.opacity(0.12))
 
                     LazyVStack(spacing: 0) {
                         ForEach(viewModel.boardRows) { row in
@@ -674,7 +674,7 @@ struct HabitBoardScreen: View {
                             )
 
                             Divider()
-                                .overlay(Color.tasker.strokeHairline.opacity(0.1))
+                                .overlay(Color.lifeboard.strokeHairline.opacity(0.1))
                         }
                     }
                 }
@@ -712,8 +712,8 @@ private struct HabitBoardPinnedRowView: View {
                     .frame(width: layoutMetrics.iconSlotWidth, height: layoutMetrics.rowHeight, alignment: .center)
 
                 Text(row.title)
-                    .font(.tasker(.caption1).weight(.medium))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.caption1).weight(.medium))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .lineLimit(2, reservesSpace: true)
                     .truncationMode(.tail)
                     .multilineTextAlignment(.leading)
@@ -726,7 +726,7 @@ private struct HabitBoardPinnedRowView: View {
             .padding(.trailing, layoutMetrics.railTrailingPadding)
             .overlay(alignment: .trailing) {
                 Rectangle()
-                    .fill(Color.tasker.strokeHairline.opacity(0.16))
+                    .fill(Color.lifeboard.strokeHairline.opacity(0.16))
                     .frame(width: 1)
             }
             .contentShape(Rectangle())
@@ -827,15 +827,15 @@ private struct HabitBoardPinnedColumnHeader: View {
     var body: some View {
         ZStack {
             Text("Habits")
-                .font(.tasker(.support).weight(.semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.support).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .center)
         }
         .frame(width: layoutMetrics.leadingRailWidth, height: layoutMetrics.headerHeight, alignment: .center)
         .padding(.trailing, layoutMetrics.railTrailingPadding)
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(Color.tasker.strokeHairline.opacity(0.16))
+                .fill(Color.lifeboard.strokeHairline.opacity(0.16))
                 .frame(width: 1)
         }
         .accessibilityIdentifier(HabitBoardAccessibilityID.pinnedHeader)
@@ -880,15 +880,15 @@ private struct HabitBoardHeaderDayCell: View {
                 .frame(maxWidth: .infinity, alignment: .center)
 
             Text(day.date.formatted(.dateTime.day()))
-                .font(.tasker(.title3).weight(.semibold))
+                .font(.lifeboard(.title3).weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(day.isToday ? HabitEverydayPalette.todayStroke(colorScheme: colorScheme) : Color.tasker.textPrimary)
+                .foregroundStyle(day.isToday ? HabitEverydayPalette.todayStroke(colorScheme: colorScheme) : Color.lifeboard.textPrimary)
                 .frame(maxWidth: .infinity, minHeight: 28)
                 .background(todayBackground)
 
             Text(weekdayLabel)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(day.isToday ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(day.isToday ? Color.lifeboard.textPrimary : Color.lifeboard.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
@@ -905,7 +905,7 @@ private struct HabitBoardHeaderDayCell: View {
     private var todayBackground: some View {
         if day.isToday {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.tasker.surfacePrimary)
+                .fill(Color.lifeboard.surfacePrimary)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.4)
@@ -918,15 +918,15 @@ private struct HabitBoardHeaderDayCell: View {
 
     private var headerBackground: some View {
         RoundedRectangle(cornerRadius: layoutMetrics.cellCornerRadius, style: .continuous)
-            .fill(day.isToday ? Color.tasker.surfaceSecondary.opacity(0.42) : (Calendar.current.isDateInWeekend(day.date) ? Color.tasker.surfaceSecondary.opacity(0.3) : Color.clear))
+            .fill(day.isToday ? Color.lifeboard.surfaceSecondary.opacity(0.42) : (Calendar.current.isDateInWeekend(day.date) ? Color.lifeboard.surfaceSecondary.opacity(0.3) : Color.clear))
     }
 
     @ViewBuilder
     private var monthMarker: some View {
         if showsMonthMarker {
             Text(day.date.formatted(.dateTime.month(.abbreviated)).uppercased())
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.9)
         } else {
@@ -945,10 +945,10 @@ struct HabitStatBadgeView: View {
         Group {
             if highlighted {
                 Text(value)
-                    .font(.tasker(.caption1).weight(.semibold))
+                    .font(.lifeboard(.caption1).weight(.semibold))
                     .foregroundStyle(HabitEverydayPalette.familyPreview(family))
                     .frame(width: 28, height: 28)
-                    .background(Color.tasker.surfacePrimary.opacity(0.94))
+                    .background(Color.lifeboard.surfacePrimary.opacity(0.94))
                     .overlay(
                         Circle()
                             .stroke(HabitEverydayPalette.familyPreview(family), lineWidth: 2)
@@ -956,8 +956,8 @@ struct HabitStatBadgeView: View {
                     .clipShape(Circle())
             } else {
                 Text(value)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(minWidth: 28, alignment: .leading)
             }
         }
@@ -969,10 +969,10 @@ private struct HabitBoardFlatSurfaceBackground: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.tasker.surfacePrimary)
+            .fill(Color.lifeboard.surfacePrimary)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.2), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.2), lineWidth: 1)
             )
     }
 }
@@ -982,10 +982,10 @@ private struct HabitBoardSurfaceBackground: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.tasker.surfacePrimary.opacity(0.96))
+            .fill(Color.lifeboard.surfacePrimary.opacity(0.96))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.58), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.58), lineWidth: 1)
             )
     }
 }
@@ -1076,11 +1076,11 @@ private struct HabitBoardCellView: View {
         switch cell.state {
         case .missed:
             Rectangle()
-                .fill(Color.tasker.textSecondary.opacity(0.22))
+                .fill(Color.lifeboard.textSecondary.opacity(0.22))
                 .frame(width: resolvedCellWidth * 0.45, height: 1)
         case .bridge:
             Circle()
-                .fill(Color.tasker.textSecondary)
+                .fill(Color.lifeboard.textSecondary)
                 .frame(width: mode.isMatrixLike ? 5 : 4, height: mode.isMatrixLike ? 5 : 4)
         case .done, .todayPending, .future:
             EmptyView()
@@ -1237,17 +1237,17 @@ enum HabitEverydayPalette {
     static func depthColor(for family: HabitColorFamily, depth: Int, colorScheme: ColorScheme) -> Color {
         let index = max(0, min(depth - 1, 7))
         let hex = (colorScheme == .dark ? darkRamps : lightRamps)[family]?[index] ?? family.canonicalHex
-        return Color(uiColor: UIColor(taskerHex: hex))
+        return Color(uiColor: UIColor(lifeboardHex: hex))
     }
 
     static func familyPreview(_ family: HabitColorFamily) -> Color {
-        Color(uiColor: UIColor(taskerHex: lightRamps[family]?[4] ?? family.canonicalHex))
+        Color(uiColor: UIColor(lifeboardHex: lightRamps[family]?[4] ?? family.canonicalHex))
     }
 
     static func bridgeTint(for family: HabitColorFamily, depth: Int?, colorScheme: ColorScheme) -> Color {
         guard let depth else {
             let ramp = colorScheme == .dark ? darkRamps : lightRamps
-            return Color(uiColor: UIColor(taskerHex: ramp[family]?[2] ?? family.canonicalHex))
+            return Color(uiColor: UIColor(lifeboardHex: ramp[family]?[2] ?? family.canonicalHex))
         }
 
         let bridgeDepth = max(1, min(depth - 1, 7))
@@ -1262,26 +1262,26 @@ enum HabitEverydayPalette {
 
     static func paperFill(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color(uiColor: UIColor(taskerHex: "#14181E"))
-            : Color(uiColor: UIColor(taskerHex: "#F8FAFC"))
+            ? Color(uiColor: UIColor(lifeboardHex: "#14181E"))
+            : Color(uiColor: UIColor(lifeboardHex: "#F8FAFC"))
     }
 
     static func missedFill(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color(uiColor: UIColor(taskerHex: "#1B2027"))
-            : Color(uiColor: UIColor(taskerHex: "#EEF2F6"))
+            ? Color(uiColor: UIColor(lifeboardHex: "#1B2027"))
+            : Color(uiColor: UIColor(lifeboardHex: "#EEF2F6"))
     }
 
     static func futureFill(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color(uiColor: UIColor(taskerHex: "#101419"))
-            : Color(uiColor: UIColor(taskerHex: "#F3F6F9"))
+            ? Color(uiColor: UIColor(lifeboardHex: "#101419"))
+            : Color(uiColor: UIColor(lifeboardHex: "#F3F6F9"))
     }
 
     static func todayStroke(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color(uiColor: UIColor(taskerHex: "#7ABD52"))
-            : Color(uiColor: UIColor(taskerHex: "#6FA242"))
+            ? Color(uiColor: UIColor(lifeboardHex: "#7ABD52"))
+            : Color(uiColor: UIColor(lifeboardHex: "#6FA242"))
     }
 
     private static let lightRamps: [HabitColorFamily: [String]] = [

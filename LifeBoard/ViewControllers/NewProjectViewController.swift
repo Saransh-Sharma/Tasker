@@ -1,6 +1,6 @@
 //
 //  NewProjectViewController.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Saransh Sharma on 24/06/20.
 //  Copyright 2020 saransh1337. All rights reserved.
@@ -20,8 +20,8 @@ extension String {
 class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCoordinatorInjectable, PresentationDependencyContainerAware {
     
     //    var peoplePickers: [PeoplePicker] = []
-    private var todoColors: TaskerColorTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.color
+    private var todoColors: LifeBoardColorTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.color
     }
     
     //    var description = UILabel()
@@ -150,8 +150,8 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
             logDebug("   Description: '\(currentDescriptionInTexField.isEmpty ? "none" : currentDescriptionInTexField)'")
 
             useCaseCoordinator.manageProjects.createProject(request: projectRequest) { [weak self] result in
-                DispatchQueue.main.async {
-                    guard let self = self else { return }
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
 
                     switch result {
                     case .success(let project):
@@ -202,7 +202,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
     @discardableResult
     func addLabel(text: String, alignment: NSTextAlignment = .natural) -> UILabel {
         let label = UILabel()
-        label.font = UIFont.tasker.body
+        label.font = UIFont.lifeboard.body
         label.textColor = todoColors.textPrimary
         label.textAlignment = alignment
         label.text = text
@@ -257,7 +257,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         projectNameTextField.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
         projectNameTextField.label.text = "project name"
         projectNameTextField.leadingAssistiveLabel.text = "Fill in the new project name"
-        projectNameTextField.font = UIFont.tasker.body
+        projectNameTextField.font = UIFont.lifeboard.body
         projectNameTextField.delegate = self
         projectNameTextField.clearButtonMode = .whileEditing
         let placeholderTextArray = ["New York Trip",
@@ -287,7 +287,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         projecDescriptionTextField.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
         projecDescriptionTextField.label.text = "add description"
         projecDescriptionTextField.leadingAssistiveLabel.text = "Add project description"
-        projecDescriptionTextField.font = UIFont.tasker.body
+        projecDescriptionTextField.font = UIFont.lifeboard.body
         projecDescriptionTextField.delegate = self
         projecDescriptionTextField.clearButtonMode = .whileEditing
         

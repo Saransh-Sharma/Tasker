@@ -1,6 +1,6 @@
 //
 //  NextActionModule.swift
-//  Tasker
+//  LifeBoard
 //
 //  Ultra-compact contextual guidance row.
 //
@@ -12,7 +12,7 @@ struct NextActionModule: View {
     let focusPinnedCount: Int
     let onStartFifteenMinuteFocus: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     @ViewBuilder
     var body: some View {
@@ -42,18 +42,18 @@ struct NextActionModule: View {
         HStack(spacing: spacing.s8) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .medium))
-                .foregroundColor(Color.tasker.accentPrimary)
+                .foregroundColor(Color.lifeboard.accentPrimary)
 
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
 
             Spacer(minLength: 0)
 
             if showChevron {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(Color.tasker.textQuaternary)
+                    .foregroundColor(Color.lifeboard.textQuaternary)
             }
         }
         .padding(.horizontal, spacing.s4)

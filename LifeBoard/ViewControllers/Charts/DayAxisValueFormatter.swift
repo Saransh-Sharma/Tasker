@@ -1,6 +1,6 @@
 //
 //  DayAxisValueFormatter.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Saransh Sharma on 31/05/20.
 //  Copyright © 2020 saransh1337. All rights reserved.

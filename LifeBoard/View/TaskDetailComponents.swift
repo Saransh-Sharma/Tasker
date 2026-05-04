@@ -1,6 +1,6 @@
 //
 //  TaskDetailComponents.swift
-//  Tasker
+//  LifeBoard
 //
 //  Reusable subcomponents for the Task Detail Sheet.
 //  Uses the Obsidian & Gems design system tokens throughout.
@@ -15,22 +15,22 @@ struct PriorityPillSelector: View {
     @Binding var selectedPriority: Int32
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.sm) {
-            PriorityPill(label: "None", color: Color.tasker.priorityNone, isSelected: selectedPriority == 1) {
-                withAnimation(TaskerAnimation.snappy) { selectedPriority = 1 }
-                TaskerFeedback.selection()
+        HStack(spacing: LifeBoardTheme.Spacing.sm) {
+            PriorityPill(label: "None", color: Color.lifeboard.priorityNone, isSelected: selectedPriority == 1) {
+                withAnimation(LifeBoardAnimation.snappy) { selectedPriority = 1 }
+                LifeBoardFeedback.selection()
             }
-            PriorityPill(label: "Low", color: Color.tasker.priorityLow, isSelected: selectedPriority == 2) {
-                withAnimation(TaskerAnimation.snappy) { selectedPriority = 2 }
-                TaskerFeedback.selection()
+            PriorityPill(label: "Low", color: Color.lifeboard.priorityLow, isSelected: selectedPriority == 2) {
+                withAnimation(LifeBoardAnimation.snappy) { selectedPriority = 2 }
+                LifeBoardFeedback.selection()
             }
-            PriorityPill(label: "High", color: Color.tasker.priorityHigh, isSelected: selectedPriority == 3) {
-                withAnimation(TaskerAnimation.snappy) { selectedPriority = 3 }
-                TaskerFeedback.selection()
+            PriorityPill(label: "High", color: Color.lifeboard.priorityHigh, isSelected: selectedPriority == 3) {
+                withAnimation(LifeBoardAnimation.snappy) { selectedPriority = 3 }
+                LifeBoardFeedback.selection()
             }
-            PriorityPill(label: "Max", color: Color.tasker.priorityMax, isSelected: selectedPriority == 4) {
-                withAnimation(TaskerAnimation.snappy) { selectedPriority = 4 }
-                TaskerFeedback.selection()
+            PriorityPill(label: "Max", color: Color.lifeboard.priorityMax, isSelected: selectedPriority == 4) {
+                withAnimation(LifeBoardAnimation.snappy) { selectedPriority = 4 }
+                LifeBoardFeedback.selection()
             }
         }
     }
@@ -46,11 +46,11 @@ private struct PriorityPill: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.tasker(.callout))
+                .font(.lifeboard(.callout))
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundColor(isSelected ? .white : color)
-                .padding(.horizontal, TaskerTheme.Spacing.md)
-                .padding(.vertical, TaskerTheme.Spacing.sm)
+                .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                .padding(.vertical, LifeBoardTheme.Spacing.sm)
                 .frame(minHeight: 36)
                 .background(isSelected ? color : color.opacity(0.12))
                 .overlay(
@@ -77,13 +77,13 @@ struct ScoreBadge: View {
             Image(systemName: "star.fill")
                 .font(.system(size: 10, weight: .bold))
             Text(label)
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .fontWeight(.bold)
         }
-        .foregroundColor(Color.tasker.accentPrimary)
-        .padding(.horizontal, TaskerTheme.Spacing.sm)
+        .foregroundColor(Color.lifeboard.accentPrimary)
+        .padding(.horizontal, LifeBoardTheme.Spacing.sm)
         .padding(.vertical, 4)
-        .background(Color.tasker.accentMuted)
+        .background(Color.lifeboard.accentMuted)
         .clipShape(Capsule())
         .accessibilityLabel(preview.map { "Reward \($0.shortLabel)" } ?? "Reward pending")
         .accessibilityHint("Reward factors: \(reasonHint)")
@@ -102,11 +102,11 @@ struct PriorityBadge: View {
                 .fill(priorityColor)
                 .frame(width: 6, height: 6)
             Text(priorityLabel)
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .fontWeight(.medium)
         }
         .foregroundColor(priorityColor)
-        .padding(.horizontal, TaskerTheme.Spacing.sm)
+        .padding(.horizontal, LifeBoardTheme.Spacing.sm)
         .padding(.vertical, 4)
         .background(priorityColor.opacity(0.12))
         .clipShape(Capsule())
@@ -124,11 +124,11 @@ struct PriorityBadge: View {
 
     private var priorityColor: Color {
         switch priority {
-        case 1: return Color.tasker.priorityNone
-        case 2: return Color.tasker.priorityLow
-        case 3: return Color.tasker.priorityHigh
-        case 4: return Color.tasker.priorityMax
-        default: return Color.tasker.priorityLow
+        case 1: return Color.lifeboard.priorityNone
+        case 2: return Color.lifeboard.priorityLow
+        case 3: return Color.lifeboard.priorityHigh
+        case 4: return Color.lifeboard.priorityMax
+        default: return Color.lifeboard.priorityLow
         }
     }
 }
@@ -136,7 +136,7 @@ struct PriorityBadge: View {
 // MARK: - Shared Status And Metric Components
 
 @MainActor
-enum TaskerStatusPillTone {
+enum LifeBoardStatusPillTone {
     case accent
     case neutral
     case success
@@ -147,59 +147,59 @@ enum TaskerStatusPillTone {
     var textColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .neutral:
-            return Color.tasker.textPrimary
+            return Color.lifeboard.textPrimary
         case .success:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .danger:
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         case .quiet:
-            return Color.tasker.textSecondary
+            return Color.lifeboard.textSecondary
         }
     }
 
     var fillColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentWash
+            return Color.lifeboard.accentWash
         case .neutral:
-            return Color.tasker.surfacePrimary
+            return Color.lifeboard.surfacePrimary
         case .success:
-            return Color.tasker.statusSuccess.opacity(0.12)
+            return Color.lifeboard.statusSuccess.opacity(0.12)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.12)
+            return Color.lifeboard.statusWarning.opacity(0.12)
         case .danger:
-            return Color.tasker.statusDanger.opacity(0.12)
+            return Color.lifeboard.statusDanger.opacity(0.12)
         case .quiet:
-            return Color.tasker.surfaceSecondary
+            return Color.lifeboard.surfaceSecondary
         }
     }
 
     var strokeColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentPrimary.opacity(0.2)
+            return Color.lifeboard.accentPrimary.opacity(0.2)
         case .neutral:
-            return Color.tasker.strokeHairline.opacity(0.9)
+            return Color.lifeboard.strokeHairline.opacity(0.9)
         case .success:
-            return Color.tasker.statusSuccess.opacity(0.22)
+            return Color.lifeboard.statusSuccess.opacity(0.22)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.22)
+            return Color.lifeboard.statusWarning.opacity(0.22)
         case .danger:
-            return Color.tasker.statusDanger.opacity(0.22)
+            return Color.lifeboard.statusDanger.opacity(0.22)
         case .quiet:
-            return Color.tasker.strokeHairline.opacity(0.72)
+            return Color.lifeboard.strokeHairline.opacity(0.72)
         }
     }
 }
 
-struct TaskerStatusPill: View {
+struct LifeBoardStatusPill: View {
     let text: String
     var systemImage: String? = nil
-    var tone: TaskerStatusPillTone = .quiet
+    var tone: LifeBoardStatusPillTone = .quiet
 
     var body: some View {
         HStack(spacing: 5) {
@@ -210,7 +210,7 @@ struct TaskerStatusPill: View {
             Text(text)
                 .lineLimit(1)
         }
-        .font(.tasker(.caption1).weight(.semibold))
+        .font(.lifeboard(.caption1).weight(.semibold))
         .foregroundStyle(tone.textColor)
         .padding(.horizontal, 9)
         .padding(.vertical, 6)
@@ -224,7 +224,7 @@ struct TaskerStatusPill: View {
 }
 
 @MainActor
-enum TaskerHeroMetricTone {
+enum LifeBoardHeroMetricTone {
     case accent
     case success
     case warning
@@ -233,57 +233,57 @@ enum TaskerHeroMetricTone {
     var valueColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .success:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .neutral:
-            return Color.tasker.textPrimary
+            return Color.lifeboard.textPrimary
         }
     }
 
     var fillColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentWash.opacity(0.92)
+            return Color.lifeboard.accentWash.opacity(0.92)
         case .success:
-            return Color.tasker.statusSuccess.opacity(0.12)
+            return Color.lifeboard.statusSuccess.opacity(0.12)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.12)
+            return Color.lifeboard.statusWarning.opacity(0.12)
         case .neutral:
-            return Color.tasker.surfacePrimary.opacity(0.8)
+            return Color.lifeboard.surfacePrimary.opacity(0.8)
         }
     }
 
     var strokeColor: Color {
         switch self {
         case .accent:
-            return Color.tasker.accentPrimary.opacity(0.18)
+            return Color.lifeboard.accentPrimary.opacity(0.18)
         case .success:
-            return Color.tasker.statusSuccess.opacity(0.18)
+            return Color.lifeboard.statusSuccess.opacity(0.18)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.18)
+            return Color.lifeboard.statusWarning.opacity(0.18)
         case .neutral:
-            return Color.tasker.strokeHairline.opacity(0.72)
+            return Color.lifeboard.strokeHairline.opacity(0.72)
         }
     }
 }
 
-struct TaskerHeroMetricTile: View {
+struct LifeBoardHeroMetricTile: View {
     let title: String
     let value: String
     var detail: String? = nil
-    var tone: TaskerHeroMetricTone = .neutral
+    var tone: LifeBoardHeroMetricTone = .neutral
     var accessibilityIdentifier: String? = nil
 
     var body: some View {
         let tile = VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.tasker(.meta))
-                .foregroundStyle(Color.tasker.textTertiary)
+                .font(.lifeboard(.meta))
+                .foregroundStyle(Color.lifeboard.textTertiary)
             Text(value)
-                .font(.tasker(.headline))
+                .font(.lifeboard(.headline))
                 .foregroundStyle(tone.valueColor)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -291,21 +291,21 @@ struct TaskerHeroMetricTile: View {
                 .contentTransition(.numericText())
             if let detail, detail.isEmpty == false {
                 Text(detail)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
-        .padding(.horizontal, TaskerTheme.Spacing.md)
-        .padding(.vertical, TaskerTheme.Spacing.sm)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.md,
+        .padding(.horizontal, LifeBoardTheme.Spacing.md)
+        .padding(.vertical, LifeBoardTheme.Spacing.sm)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.md,
             fillColor: tone.fillColor,
             strokeColor: tone.strokeColor
         )
-        .animation(TaskerAnimation.numericUpdate, value: value)
+        .animation(LifeBoardAnimation.numericUpdate, value: value)
 
         if let accessibilityIdentifier, accessibilityIdentifier.isEmpty == false {
             tile.accessibilityIdentifier(accessibilityIdentifier)
@@ -341,17 +341,17 @@ struct DetailRow<Trailing: View>: View {
     }
 
     var body: some View {
-        let resolvedIconColor = iconColor ?? Color.tasker.textSecondary
+        let resolvedIconColor = iconColor ?? Color.lifeboard.textSecondary
         Button(action: { action?() }) {
-            HStack(spacing: TaskerTheme.Spacing.md) {
+            HStack(spacing: LifeBoardTheme.Spacing.md) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(resolvedIconColor)
                     .frame(width: 24, alignment: .center)
 
                 Text(label)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.textSecondary)
 
                 Spacer()
 
@@ -360,10 +360,10 @@ struct DetailRow<Trailing: View>: View {
                 if action != nil {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .foregroundColor(Color.lifeboard.textTertiary)
                 }
             }
-            .padding(.vertical, TaskerTheme.Spacing.md)
+            .padding(.vertical, LifeBoardTheme.Spacing.md)
         }
         .buttonStyle(.plain)
         .disabled(action == nil)
@@ -389,31 +389,31 @@ extension DetailRow where Trailing == Text {
     }
 
     var resolvedBody: some View {
-        let resolvedIconColor = iconColor ?? Color.tasker.textSecondary
+        let resolvedIconColor = iconColor ?? Color.lifeboard.textSecondary
         return Button(action: { action?() }) {
-            HStack(spacing: TaskerTheme.Spacing.md) {
+            HStack(spacing: LifeBoardTheme.Spacing.md) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(resolvedIconColor)
                     .frame(width: 24, alignment: .center)
 
                 Text(label)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.textSecondary)
 
                 Spacer()
 
                 trailing
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 if action != nil {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .foregroundColor(Color.lifeboard.textTertiary)
                 }
             }
-            .padding(.vertical, TaskerTheme.Spacing.md)
+            .padding(.vertical, LifeBoardTheme.Spacing.md)
         }
         .buttonStyle(.plain)
         .disabled(action == nil)
@@ -427,18 +427,18 @@ struct TypeChipSelector: View {
     @Binding var selectedType: Int32
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.sm) {
-            TaskerChip(title: "Morning", isSelected: selectedType == 1, selectedStyle: .tinted) {
-                withAnimation(TaskerAnimation.snappy) { selectedType = 1 }
-                TaskerFeedback.selection()
+        HStack(spacing: LifeBoardTheme.Spacing.sm) {
+            LifeBoardChip(title: "Morning", isSelected: selectedType == 1, selectedStyle: .tinted) {
+                withAnimation(LifeBoardAnimation.snappy) { selectedType = 1 }
+                LifeBoardFeedback.selection()
             }
-            TaskerChip(title: "Evening", isSelected: selectedType == 2, selectedStyle: .tinted) {
-                withAnimation(TaskerAnimation.snappy) { selectedType = 2 }
-                TaskerFeedback.selection()
+            LifeBoardChip(title: "Evening", isSelected: selectedType == 2, selectedStyle: .tinted) {
+                withAnimation(LifeBoardAnimation.snappy) { selectedType = 2 }
+                LifeBoardFeedback.selection()
             }
-            TaskerChip(title: "Upcoming", isSelected: selectedType == 3, selectedStyle: .tinted) {
-                withAnimation(TaskerAnimation.snappy) { selectedType = 3 }
-                TaskerFeedback.selection()
+            LifeBoardChip(title: "Upcoming", isSelected: selectedType == 3, selectedStyle: .tinted) {
+                withAnimation(LifeBoardAnimation.snappy) { selectedType = 3 }
+                LifeBoardFeedback.selection()
             }
         }
     }
@@ -457,10 +457,10 @@ struct InfoPill: View {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .medium))
             Text(text)
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
         }
         .foregroundColor(color)
-        .padding(.horizontal, TaskerTheme.Spacing.sm)
+        .padding(.horizontal, LifeBoardTheme.Spacing.sm)
         .padding(.vertical, 5)
         .background(color.opacity(0.1))
         .clipShape(Capsule())
@@ -479,18 +479,18 @@ struct TaskDetailSectionDivider: View {
     }
 
     var body: some View {
-        HStack(spacing: TaskerTheme.Spacing.sm) {
+        HStack(spacing: LifeBoardTheme.Spacing.sm) {
             if let title {
                 Text(title)
-                    .font(.tasker(.caption1))
+                    .font(.lifeboard(.caption1))
                     .fontWeight(.semibold)
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .foregroundColor(Color.lifeboard.textTertiary)
             }
             Rectangle()
-                .fill(Color.tasker.strokeHairline)
+                .fill(Color.lifeboard.strokeHairline)
                 .frame(height: 1)
         }
-        .padding(.vertical, TaskerTheme.Spacing.xs)
+        .padding(.vertical, LifeBoardTheme.Spacing.xs)
     }
 }
 
@@ -506,11 +506,11 @@ struct CompletionCheckbox: View {
 
     var body: some View {
         Button(action: {
-            withAnimation(TaskerAnimation.bouncy) {
+            withAnimation(LifeBoardAnimation.bouncy) {
                 bounceScale = 1.3
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(TaskerAnimation.bouncy) {
+                withAnimation(LifeBoardAnimation.bouncy) {
                     bounceScale = 1.0
                 }
             }
@@ -519,14 +519,14 @@ struct CompletionCheckbox: View {
             ZStack {
                 Circle()
                     .stroke(
-                        isComplete ? Color.tasker.textTertiary.opacity(0.55) : Color.tasker.textQuaternary.opacity(0.6),
+                        isComplete ? Color.lifeboard.textTertiary.opacity(0.55) : Color.lifeboard.textQuaternary.opacity(0.6),
                         lineWidth: compact ? 1.8 : 2.2
                     )
 
                 if isComplete {
                     Image(systemName: "checkmark")
                         .font(.system(size: compact ? 11 : 14, weight: .semibold))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .transition(.opacity.combined(with: .scale))
                 }
             }

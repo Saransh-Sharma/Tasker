@@ -11,7 +11,7 @@ struct AgendaRowBadgeView: View {
             }
 
             Text(badge.text)
-                .font(.tasker(.caption2).weight(.semibold))
+                .font(.lifeboard(.caption2).weight(.semibold))
         }
         .foregroundStyle(textColor)
         .padding(.horizontal, 8)
@@ -27,45 +27,45 @@ struct AgendaRowBadgeView: View {
     private var textColor: Color {
         switch badge.tone {
         case .neutral, .quiet:
-            return Color.tasker.textSecondary
+            return Color.lifeboard.textSecondary
         case .accent:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .success:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .danger:
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         }
     }
 
     private var fillColor: Color {
         switch badge.tone {
         case .neutral, .quiet:
-            return Color.tasker.surfacePrimary
+            return Color.lifeboard.surfacePrimary
         case .accent:
-            return Color.tasker.accentWash
+            return Color.lifeboard.accentWash
         case .success:
-            return Color.tasker.statusSuccess.opacity(0.14)
+            return Color.lifeboard.statusSuccess.opacity(0.14)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.14)
+            return Color.lifeboard.statusWarning.opacity(0.14)
         case .danger:
-            return Color.tasker.statusDanger.opacity(0.14)
+            return Color.lifeboard.statusDanger.opacity(0.14)
         }
     }
 
     private var strokeColor: Color {
         switch badge.tone {
         case .neutral, .quiet:
-            return Color.tasker.strokeHairline.opacity(0.85)
+            return Color.lifeboard.strokeHairline.opacity(0.85)
         case .accent:
-            return Color.tasker.accentPrimary.opacity(0.24)
+            return Color.lifeboard.accentPrimary.opacity(0.24)
         case .success:
-            return Color.tasker.statusSuccess.opacity(0.24)
+            return Color.lifeboard.statusSuccess.opacity(0.24)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.26)
+            return Color.lifeboard.statusWarning.opacity(0.26)
         case .danger:
-            return Color.tasker.statusDanger.opacity(0.28)
+            return Color.lifeboard.statusDanger.opacity(0.28)
         }
     }
 }
@@ -84,11 +84,11 @@ struct AgendaRowScaffold: View {
     var footer: AnyView? = nil
     var actions: AnyView? = nil
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).corner }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -97,15 +97,15 @@ struct AgendaRowScaffold: View {
 
                 VStack(alignment: .leading, spacing: spacing.titleSubtitleGap) {
                     Text(presentationModel.title)
-                        .font(.tasker(.body))
-                        .foregroundStyle(Color.tasker.textPrimary.opacity(isResolved ? 0.88 : 1.0))
+                        .font(.lifeboard(.body))
+                        .foregroundStyle(Color.lifeboard.textPrimary.opacity(isResolved ? 0.88 : 1.0))
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
 
                     if let metadataLine = presentationModel.metadataLine {
                         Text(metadataLine)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .lineLimit(1)
                     }
 
@@ -118,8 +118,8 @@ struct AgendaRowScaffold: View {
 
                     if let secondaryLine = presentationModel.secondaryLine {
                         Text(secondaryLine)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .lineLimit(2)
                     }
@@ -157,7 +157,7 @@ struct AgendaRowScaffold: View {
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
         .accessibilityHint(accessibilityHint)
-        .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.stateChange, value: presentationModel)
+        .animation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.stateChange, value: presentationModel)
     }
 }
 

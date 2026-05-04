@@ -13,7 +13,7 @@ final class ColoredPillBackgroundView: UIView {
     /// Initializes a new instance.
     init(style: ColoredPillBackgroundStyle) {
         super.init(frame: .zero)
-        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let colors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         switch style {
         case .neutralNavBar:
             backgroundColor = colors.surfaceSecondary

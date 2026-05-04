@@ -1,6 +1,6 @@
 //
 //  AddTaskEnumPicker.swift
-//  Tasker
+//  LifeBoard
 //
 //  Reusable pickers for entity selection (Life Area, Section by UUID)
 //  and enum selection (Energy, Category, Context by value).
@@ -22,13 +22,13 @@ struct AddTaskEntityPicker: View {
     let items: [AddTaskEntityPickerItem]
     @Binding var selectedID: UUID?
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text(label)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing.chipSpacing) {
@@ -37,7 +37,7 @@ struct AddTaskEntityPicker: View {
                         text: "None",
                         isActive: selectedID == nil
                     ) {
-                        withAnimation(TaskerAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.snappy) {
                             selectedID = nil
                         }
                     }
@@ -49,7 +49,7 @@ struct AddTaskEntityPicker: View {
                             isActive: selectedID == item.id,
                             tintHex: item.accentHex
                         ) {
-                            withAnimation(TaskerAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.snappy) {
                                 selectedID = item.id
                             }
                         }
@@ -68,7 +68,7 @@ struct AddTaskEnumChipRow<T: Hashable & CaseIterable>: View where T.AllCases: Ra
     let icon: ((T) -> String)?
     @Binding var selected: T
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     /// Initializes a new instance.
     init(label: String, displayName: @escaping (T) -> String, icon: ((T) -> String)? = nil, selected: Binding<T>) {
@@ -81,8 +81,8 @@ struct AddTaskEnumChipRow<T: Hashable & CaseIterable>: View where T.AllCases: Ra
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text(label)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing.chipSpacing) {
@@ -92,7 +92,7 @@ struct AddTaskEnumChipRow<T: Hashable & CaseIterable>: View where T.AllCases: Ra
                             text: displayName(value),
                             isActive: selected == value
                         ) {
-                            withAnimation(TaskerAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.snappy) {
                                 selected = value
                             }
                         }

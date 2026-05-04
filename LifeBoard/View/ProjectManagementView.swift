@@ -3,7 +3,7 @@ import SwiftUI
 struct ProjectManagementView: View {
     /// Initializes a new instance.
     @StateObject private var viewModel: ProjectManagementViewModel
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var showingCreateDialog = false
     @State private var showingReflectionComposer = false
     @State private var newProjectName = ""
@@ -127,7 +127,7 @@ struct ProjectManagementView: View {
                             || entry.project.motivationCostOfNeglect?.isEmpty == false {
                             Image(systemName: "sparkles")
                                 .font(.caption)
-                                .foregroundStyle(Color.tasker.accentPrimary)
+                                .foregroundStyle(Color.lifeboard.accentPrimary)
                         }
                     }
                     if let description = entry.project.projectDescription, description.isEmpty == false {
@@ -142,10 +142,10 @@ struct ProjectManagementView: View {
                         if entry.project.isArchived {
                             Text("Archived")
                                 .font(.caption2.weight(.semibold))
-                                .foregroundStyle(Color.tasker.textTertiary)
+                                .foregroundStyle(Color.lifeboard.textTertiary)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color.tasker.surfaceSecondary, in: Capsule())
+                                .background(Color.lifeboard.surfaceSecondary, in: Capsule())
                         }
                     }
                 }
@@ -175,10 +175,10 @@ struct ProjectManagementView: View {
                     if let saveMessage = viewModel.saveMessage {
                         Text(saveMessage)
                             .font(.footnote.weight(.medium))
-                            .foregroundStyle(Color.tasker.accentPrimary)
+                            .foregroundStyle(Color.lifeboard.accentPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Color.tasker.surfaceSecondary, in: Capsule())
+                            .background(Color.lifeboard.surfaceSecondary, in: Capsule())
                     }
 
                     HStack(spacing: 12) {
@@ -211,11 +211,11 @@ struct ProjectManagementView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .taskerReadableContent(maxWidth: 860, alignment: .center)
+                .lifeboardReadableContent(maxWidth: 860, alignment: .center)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(24)
             }
-            .background(Color.tasker(.bgCanvas))
+            .background(Color.lifeboard(.bgCanvas))
             .navigationTitle(selected.project.name)
         } else {
             ContentUnavailableView(
@@ -243,11 +243,11 @@ struct ProjectManagementView: View {
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.headline)
-                .foregroundColor(.tasker(.textPrimary))
+                .foregroundColor(.lifeboard(.textPrimary))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.tasker(.surfaceSecondary), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.lifeboard(.surfaceSecondary), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func autoSelectFirstProjectIfNeeded() {
@@ -276,7 +276,7 @@ struct ProjectManagementView: View {
                 quickActionButton(
                     title: viewModel.hasSelectedTasks ? "Add selected to this week" : "Add open tasks to this week",
                     systemImage: "calendar.badge.plus",
-                    tint: Color.tasker.accentPrimary
+                    tint: Color.lifeboard.accentPrimary
                 ) {
                     viewModel.applyQuickAction(bucket: .thisWeek)
                 }
@@ -284,7 +284,7 @@ struct ProjectManagementView: View {
                 quickActionButton(
                     title: viewModel.hasSelectedTasks ? "Move selected to next week" : "Move open tasks to next week",
                     systemImage: "arrow.right.circle",
-                    tint: Color.tasker.statusWarning
+                    tint: Color.lifeboard.statusWarning
                 ) {
                     viewModel.applyQuickAction(bucket: .nextWeek)
                 }
@@ -353,26 +353,26 @@ struct ProjectManagementView: View {
                         } label: {
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: viewModel.selectedTaskIDs.contains(task.id) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(viewModel.selectedTaskIDs.contains(task.id) ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                                    .foregroundStyle(viewModel.selectedTaskIDs.contains(task.id) ? Color.lifeboard.accentPrimary : Color.lifeboard.textTertiary)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(task.title)
                                         .font(.callout)
-                                        .foregroundStyle(Color.tasker.textPrimary)
-                                        .strikethrough(task.isComplete, color: Color.tasker.textTertiary)
+                                        .foregroundStyle(Color.lifeboard.textPrimary)
+                                        .strikethrough(task.isComplete, color: Color.lifeboard.textTertiary)
                                     HStack(spacing: 8) {
                                         planningBucketChip(task.planningBucket)
                                         if task.weeklyOutcomeID != nil {
-                                            statusChip(WeeklyCopy.weeklyOutcomeLabel, tint: Color.tasker.statusSuccess)
+                                            statusChip(WeeklyCopy.weeklyOutcomeLabel, tint: Color.lifeboard.statusSuccess)
                                         }
                                         if task.isComplete {
-                                            statusChip("Done", tint: Color.tasker.textSecondary)
+                                            statusChip("Done", tint: Color.lifeboard.textSecondary)
                                         }
                                     }
                                 }
                                 Spacer()
                             }
                             .padding(12)
-                            .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -407,14 +407,14 @@ struct ProjectManagementView: View {
                         }
                         Text(note.noteText)
                             .font(.callout)
-                            .foregroundStyle(Color.tasker.textPrimary)
+                            .foregroundStyle(Color.lifeboard.textPrimary)
                         Text(DateUtils.formatDateTime(note.createdAt))
                             .font(.caption2)
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             }
         }
@@ -424,7 +424,7 @@ struct ProjectManagementView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .foregroundStyle(Color.lifeboard.textSecondary)
             TextField(prompt, text: text, axis: .vertical)
                 .lineLimit(2...5)
                 .textFieldStyle(.roundedBorder)
@@ -464,13 +464,13 @@ struct ProjectManagementView: View {
     private func bucketColor(_ bucket: TaskPlanningBucket) -> Color {
         switch bucket {
         case .today:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .thisWeek:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .nextWeek:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .later, .someday:
-            return Color.tasker.textSecondary
+            return Color.lifeboard.textSecondary
         }
     }
 

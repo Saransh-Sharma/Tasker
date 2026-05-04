@@ -6,20 +6,20 @@ struct SettingsSectionHeader: View {
     var includeHorizontalPadding: Bool = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s4) {
+        VStack(alignment: .leading, spacing: LifeBoardSwiftUITokens.spacing.s4) {
             Text(title)
-                .font(.tasker(.title3))
+                .font(.lifeboard(.title3))
                 .fontWeight(.bold)
-                .foregroundColor(.tasker(.textPrimary))
+                .foregroundColor(.lifeboard(.textPrimary))
 
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
-                    .font(.tasker(.callout))
-                    .foregroundColor(.tasker(.textSecondary))
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, includeHorizontalPadding ? TaskerSwiftUITokens.spacing.screenHorizontal : 0)
+        .padding(.horizontal, includeHorizontalPadding ? LifeBoardSwiftUITokens.spacing.screenHorizontal : 0)
     }
 }

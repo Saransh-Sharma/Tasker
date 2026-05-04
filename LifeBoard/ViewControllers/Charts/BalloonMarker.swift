@@ -59,6 +59,11 @@ open class BalloonMarker: MarkerImage
         let width = size.width
         let height = size.height
         let padding: CGFloat = 8.0
+        let chartBounds = chartView.map { chart in
+            MainActor.assumeIsolated {
+                chart.bounds
+            }
+        }
 
         var origin = point
         origin.x -= width / 2
@@ -68,20 +73,20 @@ open class BalloonMarker: MarkerImage
         {
             offset.x = -origin.x + padding
         }
-        else if let chart = chartView,
-            origin.x + width + offset.x > chart.bounds.size.width
+        else if let chartBounds,
+            origin.x + width + offset.x > chartBounds.size.width
         {
-            offset.x = chart.bounds.size.width - origin.x - width - padding
+            offset.x = chartBounds.size.width - origin.x - width - padding
         }
 
         if origin.y + offset.y < 0
         {
             offset.y = height + padding;
         }
-        else if let chart = chartView,
-            origin.y + height + offset.y > chart.bounds.size.height
+        else if let chartBounds,
+            origin.y + height + offset.y > chartBounds.size.height
         {
-            offset.y = chart.bounds.size.height - origin.y - height - padding
+            offset.y = chartBounds.size.height - origin.y - height - padding
         }
 
         return offset

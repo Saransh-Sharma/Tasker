@@ -7,7 +7,7 @@ class TaskDetailView: UIView {
     private let titleField: UITextField = {
         let tf = UITextField()
         tf.placeholder = "Enter title"
-        tf.font = .tasker.bodyEmphasis
+        tf.font = .lifeboard.bodyEmphasis
         return tf
     }()
     private let descriptionField: UITextView = {
@@ -46,9 +46,9 @@ class TaskDetailView: UIView {
     private func setupView() {
         // Card styling
         card.translatesAutoresizingMaskIntoConstraints = false
-        card.backgroundColor = .tasker.surfacePrimary
-        card.layer.cornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.r2
-        card.applyTaskerElevation(.e1)
+        card.backgroundColor = .lifeboard.surfacePrimary
+        card.layer.cornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.r2
+        card.applyLifeBoardElevation(.e1)
         addSubview(card)
         NSLayoutConstraint.activate([
             card.topAnchor.constraint(equalTo: topAnchor),

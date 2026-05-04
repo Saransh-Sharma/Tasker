@@ -1,6 +1,6 @@
 //
 //  LGSearchBar.swift
-//  Tasker
+//  LifeBoard
 //
 //  iOS 16+ Liquid Glass Search Bar with glass morphism effects
 //
@@ -28,8 +28,8 @@ class LGSearchBar: LGBaseView {
     weak var delegate: LGSearchBarDelegate?
 
     // Theme support
-    private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var todoColors: LifeBoardColorTokens { LifeBoardThemeManager.shared.currentTheme.tokens.color }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
     
     private let searchIconImageView: UIImageView = {
         let imageView = UIImageView()
@@ -42,7 +42,7 @@ class LGSearchBar: LGBaseView {
     
     let searchTextField: UITextField = {
         let textField = UITextField()
-        textField.font = UIFont.tasker.callout
+        textField.font = UIFont.lifeboard.callout
         textField.textColor = .label // Will be updated in applyTheme
         textField.tintColor = .label // Will be updated in applyTheme
         textField.attributedPlaceholder = NSAttributedString(
@@ -68,7 +68,7 @@ class LGSearchBar: LGBaseView {
         let button = UIButton(type: .system)
         button.setTitle("Cancel", for: .normal)
         button.setTitleColor(.label, for: .normal) // Will be updated in applyTheme
-        button.titleLabel?.font = UIFont.tasker.buttonSmall
+        button.titleLabel?.font = UIFont.lifeboard.buttonSmall
         button.translatesAutoresizingMaskIntoConstraints = false
         button.alpha = 0
         return button
@@ -99,7 +99,7 @@ class LGSearchBar: LGBaseView {
     
     /// Executes setupUI.
     private func setupUI() {
-        cornerRadius = TaskerSearchChromeStyle.headerCornerRadius
+        cornerRadius = LifeBoardSearchChromeStyle.headerCornerRadius
         
         addSubview(searchIconImageView)
         addSubview(searchTextField)
@@ -137,7 +137,7 @@ class LGSearchBar: LGBaseView {
             cancelButtonWidthConstraint!,
             
             // Height
-            heightAnchor.constraint(equalToConstant: TaskerSearchChromeStyle.searchFieldHeight)
+            heightAnchor.constraint(equalToConstant: LifeBoardSearchChromeStyle.searchFieldHeight)
         ])
     }
     
@@ -198,7 +198,7 @@ class LGSearchBar: LGBaseView {
 
     /// Executes applyTheme.
     func applyTheme() {
-        cornerRadius = TaskerSearchChromeStyle.headerCornerRadius
+        cornerRadius = LifeBoardSearchChromeStyle.headerCornerRadius
 
         // Update search icon color
         searchIconImageView.tintColor = todoColors.textPrimary.withAlphaComponent(0.6)

@@ -1,6 +1,6 @@
 //
 //  AddTaskPriorityPicker.swift
-//  Tasker
+//  LifeBoard
 //
 //  Priority picker row with P0/P1/P2/P3 jewel pills and XP indicators.
 //
@@ -12,7 +12,7 @@ import SwiftUI
 struct AddTaskPriorityPicker: View {
     @Binding var selectedPriority: TaskPriority
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private let priorities: [TaskPriority] = TaskPriority.uiOrder  // [.none, .low, .high, .max]
 
@@ -20,8 +20,8 @@ struct AddTaskPriorityPicker: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             // Label
             Text("Priority")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             // Priority pills
             ScrollView(.horizontal, showsIndicators: false) {
@@ -31,7 +31,7 @@ struct AddTaskPriorityPicker: View {
                             priority: priority,
                             isSelected: selectedPriority == priority
                         ) {
-                            withAnimation(TaskerAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.snappy) {
                                 selectedPriority = priority
                             }
                         }
@@ -53,11 +53,11 @@ struct AddTaskPriorityPicker_Previews: PreviewProvider {
             AddTaskPriorityPicker(selectedPriority: $selectedPriority)
 
             Text("Selected: \(selectedPriority.displayNameWithXP)")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
         }
         .padding()
-        .background(Color.tasker.surfacePrimary)
+        .background(Color.lifeboard.surfacePrimary)
         .previewLayout(.sizeThatFits)
     }
 }

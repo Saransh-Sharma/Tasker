@@ -1,6 +1,6 @@
 //
 //  LGSearchViewController.swift
-//  Tasker
+//  LifeBoard
 //
 //  iOS 16+ Liquid Glass Search Screen with Backdrop/Foredrop Architecture
 //
@@ -23,13 +23,13 @@ class LGFilterButton: LGBaseView {
         didSet { updateAppearance() }
     }
 
-    var selectedStyle: TaskerChipSelectionStyle = .tinted {
+    var selectedStyle: LifeBoardChipSelectionStyle = .tinted {
         didSet { updateAppearance() }
     }
 
     let titleLabel: UILabel = {
         let label = UILabel()
-        label.font = .tasker.font(for: .bodyEmphasis)
+        label.font = .lifeboard.font(for: .bodyEmphasis)
         label.textColor = .label // Will be updated in applyTheme
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -54,7 +54,7 @@ class LGFilterButton: LGBaseView {
 
     /// Executes setupUI.
     private func setupUI() {
-        cornerRadius = TaskerSearchChromeStyle.chipCornerRadius
+        cornerRadius = LifeBoardSearchChromeStyle.chipCornerRadius
         borderWidth = 0
 
         addSubview(titleLabel)
@@ -87,13 +87,13 @@ class LGFilterButton: LGBaseView {
 
     /// Executes updateAppearance.
     func updateAppearance() {
-        let todoColors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let todoColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         if isSelected {
             switch selectedStyle {
             case .tinted:
-                backgroundColor = TaskerSearchChromeStyle.tintedSelectedBackground(tokens: todoColors)
+                backgroundColor = LifeBoardSearchChromeStyle.tintedSelectedBackground(tokens: todoColors)
                 titleLabel.textColor = todoColors.textPrimary
-                borderColor = TaskerSearchChromeStyle.tintedSelectedBorder(tokens: todoColors)
+                borderColor = LifeBoardSearchChromeStyle.tintedSelectedBorder(tokens: todoColors)
                 borderWidth = 1.0
             case .filled:
                 backgroundColor = tintColor ?? todoColors.chipSelectedBackground
@@ -102,8 +102,8 @@ class LGFilterButton: LGBaseView {
                 borderWidth = 0
             }
             transform = CGAffineTransform(
-                scaleX: TaskerSearchChromeStyle.selectedChipScale,
-                y: TaskerSearchChromeStyle.selectedChipScale
+                scaleX: LifeBoardSearchChromeStyle.selectedChipScale,
+                y: LifeBoardSearchChromeStyle.selectedChipScale
             )
             elevationLevel = .e2
         } else {
@@ -134,8 +134,8 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     private var tasks: [TaskDefinition] = []
 
     // Theme
-    private var todoColors: TaskerColorTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.color
+    private var todoColors: LifeBoardColorTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.color
     }
 
     // Backdrop/Foredrop Architecture (like HomeViewController)
@@ -149,7 +149,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         button.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         button.setTitle("Back", for: .normal)
         button.tintColor = .label
-        button.titleLabel?.font = .tasker.font(for: .bodyEmphasis)
+        button.titleLabel?.font = .lifeboard.font(for: .bodyEmphasis)
         button.contentHorizontalAlignment = .leading
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
@@ -158,7 +158,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     private let navigationTitleLabel: UILabel = {
         let label = UILabel()
         label.text = "Search Tasks"
-        label.font = .tasker.font(for: .title2)
+        label.font = .lifeboard.font(for: .title2)
         label.textColor = .label
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -224,7 +224,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     private let emptyStateLabel: UILabel = {
         let label = UILabel()
         label.text = "No tasks found"
-        label.font = .tasker.font(for: .title2)
+        label.font = .lifeboard.font(for: .title2)
         label.textColor = .label // Will be updated in applyTheme
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -234,7 +234,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     private let emptyStateSubtitleLabel: UILabel = {
         let label = UILabel()
         label.text = "Try different search terms or filters"
-        label.font = .tasker.font(for: .body)
+        label.font = .lifeboard.font(for: .body)
         label.textColor = .label.withAlphaComponent(0.7) // Will be updated in applyTheme
         label.textAlignment = .center
         label.numberOfLines = 0
@@ -321,7 +321,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         foredropContainer.backgroundColor = todoColors.bgCanvas
         foredropContainer.layer.cornerRadius = 24
         foredropContainer.layer.cornerCurve = .continuous
-        foredropContainer.applyTaskerElevation(.e1)
+        foredropContainer.applyLifeBoardElevation(.e1)
     }
 
     /// Executes setupNavigationBar.
@@ -370,7 +370,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
             searchBar.topAnchor.constraint(equalTo: navigationBarView.bottomAnchor, constant: 12),
             searchBar.leadingAnchor.constraint(equalTo: backdropContainer.leadingAnchor, constant: 16),
             searchBar.trailingAnchor.constraint(equalTo: backdropContainer.trailingAnchor, constant: -16),
-            searchBar.heightAnchor.constraint(equalToConstant: TaskerSearchChromeStyle.searchFieldHeight)
+            searchBar.heightAnchor.constraint(equalToConstant: LifeBoardSearchChromeStyle.searchFieldHeight)
         ])
 
         // Animate appearance
@@ -395,7 +395,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
             filterStackView.leadingAnchor.constraint(equalTo: filterScrollView.leadingAnchor, constant: 16),
             filterStackView.trailingAnchor.constraint(equalTo: filterScrollView.trailingAnchor, constant: -16),
             filterStackView.bottomAnchor.constraint(equalTo: filterScrollView.bottomAnchor),
-            filterStackView.heightAnchor.constraint(equalToConstant: TaskerSearchChromeStyle.searchFieldHeight)
+            filterStackView.heightAnchor.constraint(equalToConstant: LifeBoardSearchChromeStyle.searchFieldHeight)
         ])
 
         setupFilterButtons()
@@ -510,7 +510,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
 
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.heightAnchor.constraint(equalToConstant: TaskerSearchChromeStyle.searchFieldHeight).isActive = true
+        button.heightAnchor.constraint(equalToConstant: LifeBoardSearchChromeStyle.searchFieldHeight).isActive = true
 
         return button
     }
@@ -571,7 +571,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         navigationBarView.backgroundColor = todoColors.bgElevated
         backButton.tintColor = todoColors.accentPrimary
         navigationTitleLabel.textColor = todoColors.textPrimary
-        searchBar.backgroundColor = TaskerSearchChromeStyle.projectHeaderBackground(tokens: todoColors)
+        searchBar.backgroundColor = LifeBoardSearchChromeStyle.projectHeaderBackground(tokens: todoColors)
         searchBar.layer.borderColor = todoColors.strokeHairline.cgColor
 
         // Apply theme to search bar internal elements
@@ -616,7 +616,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         // Animate selection
         UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
             button.transform = button.isSelected
-                ? CGAffineTransform(scaleX: TaskerSearchChromeStyle.selectedChipScale, y: TaskerSearchChromeStyle.selectedChipScale)
+                ? CGAffineTransform(scaleX: LifeBoardSearchChromeStyle.selectedChipScale, y: LifeBoardSearchChromeStyle.selectedChipScale)
                 : .identity
         }
 
@@ -632,7 +632,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         // Animate selection
         UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
             button.transform = button.isSelected
-                ? CGAffineTransform(scaleX: TaskerSearchChromeStyle.selectedChipScale, y: TaskerSearchChromeStyle.selectedChipScale)
+                ? CGAffineTransform(scaleX: LifeBoardSearchChromeStyle.selectedChipScale, y: LifeBoardSearchChromeStyle.selectedChipScale)
                 : .identity
         }
 
@@ -648,7 +648,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         // Animate selection
         UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
             button.transform = button.isSelected
-                ? CGAffineTransform(scaleX: TaskerSearchChromeStyle.selectedChipScale, y: TaskerSearchChromeStyle.selectedChipScale)
+                ? CGAffineTransform(scaleX: LifeBoardSearchChromeStyle.selectedChipScale, y: LifeBoardSearchChromeStyle.selectedChipScale)
                 : .identity
         }
 
@@ -820,13 +820,13 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     /// Executes createProjectHeader.
     private func createProjectHeader(project: String, count: Int) -> UIView {
         let headerContainer = LGBaseView()
-        headerContainer.cornerRadius = TaskerSearchChromeStyle.projectHeaderCornerRadius
+        headerContainer.cornerRadius = LifeBoardSearchChromeStyle.projectHeaderCornerRadius
         headerContainer.elevationLevel = .e2
-        headerContainer.backgroundColor = TaskerSearchChromeStyle.projectHeaderBackground(tokens: todoColors)
+        headerContainer.backgroundColor = LifeBoardSearchChromeStyle.projectHeaderBackground(tokens: todoColors)
 
         let headerLabel = UILabel()
         headerLabel.text = "\(project) (\(count))"
-        headerLabel.font = .tasker.font(for: .bodyEmphasis)
+        headerLabel.font = .lifeboard.font(for: .bodyEmphasis)
         headerLabel.textColor = todoColors.textPrimary
         headerLabel.translatesAutoresizingMaskIntoConstraints = false
 
@@ -837,7 +837,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
             headerLabel.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -16),
             headerLabel.topAnchor.constraint(equalTo: headerContainer.topAnchor, constant: 12),
             headerLabel.bottomAnchor.constraint(equalTo: headerContainer.bottomAnchor, constant: -12),
-            headerContainer.heightAnchor.constraint(equalToConstant: TaskerSearchChromeStyle.projectHeaderHeight)
+            headerContainer.heightAnchor.constraint(equalToConstant: LifeBoardSearchChromeStyle.projectHeaderHeight)
         ])
 
         return headerContainer
@@ -1043,11 +1043,11 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
             )
 
             let hostingController = UIHostingController(rootView: detailView)
-            hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+            hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
             hostingController.modalPresentationStyle = .pageSheet
             if let sheet = hostingController.sheetPresentationController {
                 sheet.detents = [.medium(), .large()]
-                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
                 sheet.prefersScrollingExpandsWhenScrolledToEdge = true
             }
 

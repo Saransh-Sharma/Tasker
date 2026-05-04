@@ -1,6 +1,6 @@
 //
 //  WeeklyViewController.swift
-//  To Do List
+//  LifeBoard
 //
 //  Created by Saransh Sharma on 23/04/20.
 //  Copyright © 2020 saransh1337. All rights reserved.

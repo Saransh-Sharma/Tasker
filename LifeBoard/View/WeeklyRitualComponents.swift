@@ -168,9 +168,9 @@ struct WeeklyWizardScaffold<Content: View, Footer: View>: View {
     let content: Content
     let footer: Footer
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     init(
         weekRange: String,
@@ -206,16 +206,16 @@ struct WeeklyWizardScaffold<Content: View, Footer: View>: View {
             .padding(.horizontal, spacing.screenHorizontal)
             .padding(.top, spacing.s12)
             .padding(.bottom, spacing.s40)
-            .taskerReadableContent()
+            .lifeboardReadableContent()
         }
         .scrollIndicators(.hidden)
-        .background(Color.tasker.bgCanvas.ignoresSafeArea())
+        .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             footer
                 .padding(.horizontal, spacing.screenHorizontal)
                 .padding(.top, spacing.s8)
                 .padding(.bottom, spacing.s8)
-                .background(Color.tasker.bgCanvas.opacity(0.96))
+                .background(Color.lifeboard.bgCanvas.opacity(0.96))
         }
     }
 }
@@ -227,9 +227,9 @@ private struct WeeklyWizardHeader: View {
     let showsBack: Bool
     let onBack: (() -> Void)?
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -237,14 +237,14 @@ private struct WeeklyWizardHeader: View {
                 if showsBack, let onBack {
                     Button(action: onBack) {
                         Label(WeeklyCopy.back, systemImage: "chevron.left")
-                            .font(.tasker(.buttonSmall))
+                            .font(.lifeboard(.buttonSmall))
                     }
                     .buttonStyle(.bordered)
                 }
 
                 Spacer()
 
-                TaskerStatusPill(
+                LifeBoardStatusPill(
                     text: weekRange,
                     systemImage: "calendar",
                     tone: .quiet
@@ -253,24 +253,24 @@ private struct WeeklyWizardHeader: View {
 
             VStack(alignment: .leading, spacing: spacing.s8) {
                 Text(currentStep.stepLabel.uppercased())
-                    .font(.tasker(.eyebrow))
+                    .font(.lifeboard(.eyebrow))
                     .tracking(0.8)
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
 
                 Text(currentStep.title)
-                    .font(.tasker(.title1))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.title1))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 Text(currentPrompt)
-                    .font(.tasker(.body))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.body))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack(spacing: spacing.s8) {
                 ForEach(WeeklyPlannerStep.allCases) { step in
                     Capsule(style: .continuous)
-                        .fill(step.rawValue <= currentStep.rawValue ? Color.tasker.accentPrimary : Color.tasker.surfaceTertiary)
+                        .fill(step.rawValue <= currentStep.rawValue ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceTertiary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 6)
                 }
@@ -292,13 +292,13 @@ struct WeeklyRitualScaffold<Content: View, Footer: View>: View {
     let weekRange: String
     let steps: [WeeklyRitualStep]
     let message: String?
-    let messageTone: TaskerStatusPillTone
+    let messageTone: LifeBoardStatusPillTone
     let content: Content
     let footer: Footer
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     init(
         eyebrow: String,
@@ -307,7 +307,7 @@ struct WeeklyRitualScaffold<Content: View, Footer: View>: View {
         weekRange: String,
         steps: [WeeklyRitualStep],
         message: String?,
-        messageTone: TaskerStatusPillTone,
+        messageTone: LifeBoardStatusPillTone,
         @ViewBuilder content: () -> Content,
         @ViewBuilder footer: () -> Footer
     ) {
@@ -342,16 +342,16 @@ struct WeeklyRitualScaffold<Content: View, Footer: View>: View {
             .padding(.horizontal, spacing.screenHorizontal)
             .padding(.top, spacing.s20)
             .padding(.bottom, spacing.s40)
-            .taskerReadableContent()
+            .lifeboardReadableContent()
         }
         .scrollIndicators(.hidden)
-        .background(Color.tasker.bgCanvas.ignoresSafeArea())
+        .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             footer
                 .padding(.horizontal, spacing.screenHorizontal)
                 .padding(.top, spacing.s12)
                 .padding(.bottom, spacing.s12)
-                .background(Color.tasker.bgCanvas.opacity(0.96))
+                .background(Color.lifeboard.bgCanvas.opacity(0.96))
         }
     }
 }
@@ -363,29 +363,29 @@ private struct WeeklyRitualHero: View {
     let weekRange: String
     let steps: [WeeklyRitualStep]
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 Text(eyebrow.uppercased())
-                    .font(.tasker(.eyebrow))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.eyebrow))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .tracking(0.8)
 
                 Text(title)
-                    .font(.tasker(.screenTitle))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.screenTitle))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(subtitle)
-                    .font(.tasker(.body))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.body))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                TaskerStatusPill(
+                LifeBoardStatusPill(
                     text: weekRange,
                     systemImage: "calendar",
                     tone: .quiet
@@ -395,11 +395,11 @@ private struct WeeklyRitualHero: View {
             WeeklyProgressRow(steps: steps)
         }
         .padding(spacing.cardPadding)
-        .taskerPremiumSurface(
+        .lifeboardPremiumSurface(
             cornerRadius: 28,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.82),
-            accentColor: Color.tasker.accentSecondary,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.82),
+            accentColor: Color.lifeboard.accentSecondary,
             level: .e2
         )
     }
@@ -413,7 +413,7 @@ private struct WeeklyProgressRow: View {
             HStack(spacing: 8) {
                 ForEach(steps) { step in
                     Circle()
-                        .fill(step.isComplete ? Color.tasker.accentPrimary : Color.tasker.surfaceTertiary)
+                        .fill(step.isComplete ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceTertiary)
                         .frame(width: 8, height: 8)
                 }
             }
@@ -422,10 +422,10 @@ private struct WeeklyProgressRow: View {
                 ForEach(steps) { step in
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: step.isComplete ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(step.isComplete ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                            .foregroundStyle(step.isComplete ? Color.lifeboard.accentPrimary : Color.lifeboard.textTertiary)
                         Text(step.title)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(step.isComplete ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(step.isComplete ? Color.lifeboard.textPrimary : Color.lifeboard.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -440,9 +440,9 @@ struct WeeklySectionCard<Content: View>: View {
     let accent: Color
     let content: Content
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     init(
         title: String,
@@ -452,7 +452,7 @@ struct WeeklySectionCard<Content: View>: View {
     ) {
         self.title = title
         self.detail = detail
-        self.accent = accent ?? Color.tasker.accentSecondary
+        self.accent = accent ?? Color.lifeboard.accentSecondary
         self.content = content()
     }
 
@@ -460,12 +460,12 @@ struct WeeklySectionCard<Content: View>: View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             VStack(alignment: .leading, spacing: spacing.s4) {
                 Text(title)
-                    .font(.tasker(.title2))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.title2))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                 if let detail, detail.isEmpty == false {
                     Text(detail)
-                        .font(.tasker(.support))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.support))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -473,10 +473,10 @@ struct WeeklySectionCard<Content: View>: View {
             content
         }
         .padding(spacing.cardPadding)
-        .taskerPremiumSurface(
+        .lifeboardPremiumSurface(
             cornerRadius: 24,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.78),
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.78),
             accentColor: accent,
             level: .e2
         )
@@ -485,7 +485,7 @@ struct WeeklySectionCard<Content: View>: View {
 
 struct WeeklyInlineMessage: View {
     let text: String
-    let tone: TaskerStatusPillTone
+    let tone: LifeBoardStatusPillTone
 
     var body: some View {
         let symbolName: String = {
@@ -501,8 +501,8 @@ struct WeeklyInlineMessage: View {
             Image(systemName: symbolName)
                 .foregroundStyle(tone.textColor)
             Text(text)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
@@ -520,9 +520,9 @@ struct WeeklyStickyActionBar<Leading: View, Trailing: View>: View {
     let leading: Leading
     let trailing: Trailing
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     init(
         @ViewBuilder leading: () -> Leading,
@@ -540,11 +540,11 @@ struct WeeklyStickyActionBar<Leading: View, Trailing: View>: View {
         }
         .padding(.horizontal, spacing.s16)
         .padding(.vertical, spacing.s8)
-        .taskerPremiumSurface(
+        .lifeboardPremiumSurface(
             cornerRadius: 22,
-            fillColor: Color.tasker.surfacePrimary.opacity(0.98),
-            strokeColor: Color.tasker.strokeHairline.opacity(0.82),
-            accentColor: Color.tasker.accentSecondary,
+            fillColor: Color.lifeboard.surfacePrimary.opacity(0.98),
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.82),
+            accentColor: Color.lifeboard.accentSecondary,
             level: .e2
         )
     }
@@ -560,19 +560,19 @@ struct WeeklyCapacityCard: View {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Planned pace")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("\(targetCapacity)")
-                            .font(.tasker(.title1))
-                            .foregroundStyle(Color.tasker.textPrimary)
+                            .font(.lifeboard(.title1))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
                         Text("tasks")
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                     }
                     Text("Keep only work you would still choose midweek.")
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption2))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
 
                 Spacer()
@@ -585,7 +585,7 @@ struct WeeklyCapacityCard: View {
                             .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
-                    .taskerDenseSurface(cornerRadius: 12, fillColor: Color.tasker.surfaceSecondary)
+                    .lifeboardDenseSurface(cornerRadius: 12, fillColor: Color.lifeboard.surfaceSecondary)
                     .accessibilityLabel("Decrease planned pace")
                     .accessibilityHint("Reduces planned weekly tasks by one.")
 
@@ -596,21 +596,21 @@ struct WeeklyCapacityCard: View {
                             .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
-                    .taskerDenseSurface(cornerRadius: 12, fillColor: Color.tasker.surfaceSecondary)
+                    .lifeboardDenseSurface(cornerRadius: 12, fillColor: Color.lifeboard.surfaceSecondary)
                     .accessibilityLabel("Increase planned pace")
                     .accessibilityHint("Increases planned weekly tasks by one.")
                 }
             }
 
             Text(WeeklyCopy.capacityHelper(target: targetCapacity, estimate: estimatedCapacity))
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
-                TaskerStatusPill(text: "Suggested \(estimatedCapacity)", systemImage: "figure.walk", tone: .quiet)
+                LifeBoardStatusPill(text: "Suggested \(estimatedCapacity)", systemImage: "figure.walk", tone: .quiet)
                 if overloadCount > 0 {
-                    TaskerStatusPill(text: "\(overloadCount) over pace", systemImage: "exclamationmark.triangle.fill", tone: .warning)
+                    LifeBoardStatusPill(text: "\(overloadCount) over pace", systemImage: "exclamationmark.triangle.fill", tone: .warning)
                 }
             }
         }
@@ -655,13 +655,13 @@ private extension TaskPlanningBucket {
     var tintColor: Color {
         switch self {
         case .today:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .thisWeek:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .nextWeek:
-            return Color.tasker.accentSecondary
+            return Color.lifeboard.accentSecondary
         case .later, .someday:
-            return Color.tasker.textSecondary
+            return Color.lifeboard.textSecondary
         }
     }
 }
@@ -679,18 +679,18 @@ struct WeeklyTaskLaneView: View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                 Text(detail)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             if tasks.isEmpty {
                 Text(emptyText)
-                    .font(.tasker(.support))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.support))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
             } else {
                 VStack(spacing: 10) {
                     ForEach(tasks, id: \.id) { task in
@@ -718,13 +718,13 @@ private struct WeeklyTaskPlannerRow: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(task.title)
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 8) {
                         if let dueDate = task.dueDate {
-                            TaskerStatusPill(
+                            LifeBoardStatusPill(
                                 text: dueDate.formatted(date: .abbreviated, time: .omitted),
                                 systemImage: "calendar",
                                 tone: .quiet
@@ -732,7 +732,7 @@ private struct WeeklyTaskPlannerRow: View {
                         }
 
                         if let outcomeTitle, outcomeTitle.isEmpty == false {
-                            TaskerStatusPill(
+                            LifeBoardStatusPill(
                                 text: outcomeTitle,
                                 systemImage: "scope",
                                 tone: .accent
@@ -752,13 +752,13 @@ private struct WeeklyTaskPlannerRow: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
                 .accessibilityLabel("Move \(task.title)")
             }
         }
         .padding(14)
-        .taskerDenseSurface(cornerRadius: 18, fillColor: Color.tasker.surfaceSecondary.opacity(0.84))
+        .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             ForEach(trailingMoves, id: \.self) { move in
                 Button(move.copyLabel) {
@@ -821,7 +821,7 @@ struct WeeklyPlanningPlacementSection: View {
     @Binding var selectedPlanningBucket: TaskPlanningBucket
     @Binding var selectedWeeklyOutcomeID: UUID?
     let availableWeeklyOutcomes: [WeeklyOutcome]
-    var labelStyle: Font = .tasker(.caption1)
+    var labelStyle: Font = .lifeboard(.caption1)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -835,7 +835,7 @@ struct WeeklyPlanningPlacementSection: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(WeeklyCopy.weeklyOutcomeLabel)
                     .font(labelStyle)
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
 
                 Menu {
                     Button("None") {
@@ -849,15 +849,15 @@ struct WeeklyPlanningPlacementSection: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "scope")
-                            .foregroundStyle(Color.tasker.accentPrimary)
+                            .foregroundStyle(Color.lifeboard.accentPrimary)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(selectedOutcomeTitle)
-                                .font(.tasker(.callout))
-                                .foregroundStyle(Color.tasker.textPrimary)
+                                .font(.lifeboard(.callout))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
                             Text("Choose the outcome this work supports. Outcome links stay active only in This Week.")
-                                .font(.tasker(.caption2))
-                                .foregroundStyle(Color.tasker.textSecondary)
+                                .font(.lifeboard(.caption2))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
@@ -865,10 +865,10 @@ struct WeeklyPlanningPlacementSection: View {
 
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                     }
                     .padding(12)
-                    .taskerDenseSurface(cornerRadius: 16, fillColor: Color.tasker.surfaceSecondary)
+                    .lifeboardDenseSurface(cornerRadius: 16, fillColor: Color.lifeboard.surfaceSecondary)
                 }
                 .buttonStyle(.plain)
                 .disabled(availableWeeklyOutcomes.isEmpty)
@@ -892,8 +892,8 @@ struct WeeklyDecisionRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(task.title)
-                .font(.tasker(.bodyEmphasis))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.bodyEmphasis))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
@@ -903,22 +903,22 @@ struct WeeklyDecisionRow: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(disposition.displayTitle)
-                                .font(.tasker(.caption1).weight(.semibold))
+                                .font(.lifeboard(.caption1).weight(.semibold))
                             Text(WeeklyCopy.cleanupHelper(for: disposition))
-                                .font(.tasker(.caption2))
+                                .font(.lifeboard(.caption2))
                                 .multilineTextAlignment(.leading)
                                 .lineLimit(3)
                         }
-                        .foregroundStyle(selectedDisposition == disposition ? disposition.tintColor : Color.tasker.textSecondary)
+                        .foregroundStyle(selectedDisposition == disposition ? disposition.tintColor : Color.lifeboard.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(selectedDisposition == disposition ? disposition.tintColor.opacity(0.12) : Color.tasker.surfaceSecondary)
+                                .fill(selectedDisposition == disposition ? disposition.tintColor.opacity(0.12) : Color.lifeboard.surfaceSecondary)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(selectedDisposition == disposition ? disposition.tintColor.opacity(0.22) : Color.tasker.strokeHairline.opacity(0.82), lineWidth: 1)
+                                .stroke(selectedDisposition == disposition ? disposition.tintColor.opacity(0.22) : Color.lifeboard.strokeHairline.opacity(0.82), lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -926,7 +926,7 @@ struct WeeklyDecisionRow: View {
             }
         }
         .padding(14)
-        .taskerDenseSurface(cornerRadius: 18, fillColor: Color.tasker.surfacePrimary)
+        .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfacePrimary)
     }
 }
 
@@ -946,11 +946,11 @@ extension WeeklyReviewTaskDisposition {
     var tintColor: Color {
         switch self {
         case .carry:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .later:
-            return Color.tasker.accentSecondary
+            return Color.lifeboard.accentSecondary
         case .drop:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         }
     }
 }
@@ -973,13 +973,13 @@ extension WeeklyOutcomeStatus {
     var tintColor: Color {
         switch self {
         case .planned:
-            return Color.tasker.textSecondary
+            return Color.lifeboard.textSecondary
         case .inProgress:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .completed:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .dropped:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         }
     }
 }

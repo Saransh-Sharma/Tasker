@@ -38,7 +38,7 @@ final class DarkModeToggleCell: UITableViewCell {
         selectionStyle = .none
         accessibilityIdentifier = "settings.appearance.info"
 
-        let colors = TaskerUIKitTokens.color
+        let colors = LifeBoardUIKitTokens.color
 
         // Icon
         iconView.translatesAutoresizingMaskIntoConstraints = false
@@ -48,20 +48,20 @@ final class DarkModeToggleCell: UITableViewCell {
 
         // Title
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = TaskerUIKitTokens.typography.bodyStrong
+        titleLabel.font = LifeBoardUIKitTokens.typography.bodyStrong
         titleLabel.textColor = colors.textPrimary
         contentView.addSubview(titleLabel)
 
         subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        subtitleLabel.font = TaskerUIKitTokens.typography.meta
+        subtitleLabel.font = LifeBoardUIKitTokens.typography.meta
         subtitleLabel.textColor = colors.textSecondary
         subtitleLabel.numberOfLines = 0
         subtitleLabel.lineBreakMode = .byWordWrapping
-        subtitleLabel.text = "To Do List follows your device's light or dark appearance automatically."
+        subtitleLabel.text = "LifeBoard follows your device's light or dark appearance automatically."
         contentView.addSubview(subtitleLabel)
 
         modeBadge.translatesAutoresizingMaskIntoConstraints = false
-        modeBadge.font = TaskerUIKitTokens.typography.monoMeta
+        modeBadge.font = LifeBoardUIKitTokens.typography.monoMeta
         modeBadge.textColor = colors.textInverse
         modeBadge.backgroundColor = colors.accentPrimary
         modeBadge.layer.cornerRadius = 12

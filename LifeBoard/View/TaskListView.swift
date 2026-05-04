@@ -1,6 +1,6 @@
 //
 //  TaskListView.swift
-//  Tasker
+//  LifeBoard
 //
 //  Top-level task list with project-grouped collapsible sections.
 //  Groups tasks by projectID, sorts Overdue > Inbox > alphabetical.
@@ -19,20 +19,20 @@ enum TaskListLayoutStyle: Equatable {
     var taskContentHorizontalInset: CGFloat {
         switch self {
         case .inset:
-            return TaskerTheme.Spacing.lg
+            return LifeBoardTheme.Spacing.lg
         case .edgeToEdgeHome:
             return 0
         }
     }
 
     var supportingContentHorizontalInset: CGFloat {
-        TaskerTheme.Spacing.lg
+        LifeBoardTheme.Spacing.lg
     }
 
     var rowSpacing: CGFloat {
         switch self {
         case .inset:
-            return TaskerTheme.Spacing.xs
+            return LifeBoardTheme.Spacing.xs
         case .edgeToEdgeHome:
             return 0
         }
@@ -47,7 +47,7 @@ enum TaskListLayoutStyle: Equatable {
         case .inset:
             return 0
         case .edgeToEdgeHome:
-            return TaskerTheme.Spacing.md
+            return LifeBoardTheme.Spacing.md
         }
     }
 
@@ -241,7 +241,7 @@ struct TaskListView: View {
     @State private var draggingCustomProjectID: UUID?
     @State private var isCompletedCollapsedBySection: [UUID: Bool] = [:]
     @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
-    @State private var scrollTraceInterval: TaskerPerformanceInterval?
+    @State private var scrollTraceInterval: LifeBoardPerformanceInterval?
     @State private var pendingScrollTraceIdleTask: Task<Void, Never>?
     @State private var hasTriggeredPullToSearch = false
 
@@ -345,7 +345,7 @@ struct TaskListView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                LazyVStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.lg) {
                     Color.clear
                         .frame(height: 0)
                         .id(Self.topAnchorID)
@@ -368,7 +368,7 @@ struct TaskListView: View {
                         }
 
                         if !agendaTailItems.isEmpty {
-                            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.lg) {
                                 ForEach(agendaTailItems) { item in
                                     agendaTailItemView(item)
                                 }
@@ -444,7 +444,7 @@ struct TaskListView: View {
 
     private func recordScrollActivity() {
         if scrollTraceInterval == nil {
-            scrollTraceInterval = TaskerPerformanceTrace.begin("HomeTaskListScrollSession")
+            scrollTraceInterval = LifeBoardPerformanceTrace.begin("HomeTaskListScrollSession")
         }
 
         pendingScrollTraceIdleTask?.cancel()
@@ -463,7 +463,7 @@ struct TaskListView: View {
         pendingScrollTraceIdleTask = nil
 
         if let scrollTraceInterval {
-            TaskerPerformanceTrace.end(scrollTraceInterval)
+            LifeBoardPerformanceTrace.end(scrollTraceInterval)
             self.scrollTraceInterval = nil
         }
 
@@ -475,7 +475,7 @@ struct TaskListView: View {
     private func scrollToHighlightedTaskIfNeeded(proxy: ScrollViewProxy) {
         guard let highlightedTaskID else { return }
         DispatchQueue.main.async {
-            withAnimation(TaskerAnimation.gentle) {
+            withAnimation(LifeBoardAnimation.gentle) {
                 proxy.scrollTo(highlightedTaskID, anchor: .center)
             }
         }
@@ -483,7 +483,7 @@ struct TaskListView: View {
 
     private func scrollToTop(proxy: ScrollViewProxy) {
         DispatchQueue.main.async {
-            withAnimation(TaskerAnimation.gentle) {
+            withAnimation(LifeBoardAnimation.gentle) {
                 proxy.scrollTo(Self.topAnchorID, anchor: .top)
             }
         }
@@ -932,21 +932,21 @@ struct TaskListView: View {
     private func rescueTailItemView(_ state: RescueTailState, itemID: String) -> some View {
         let isExpanded = state.mode == .expanded || expandedAgendaTailItemIDs.contains(itemID)
 
-        return VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        return VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             if state.mode == .compact {
-                HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+                HStack(alignment: .center, spacing: LifeBoardTheme.Spacing.sm) {
                     Button {
                         onOpenRescue?()
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Rescue")
-                                .font(.tasker(.headline))
-                                .foregroundStyle(Color.tasker.textPrimary)
+                                .font(.lifeboard(.headline))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
                                 .accessibilityIdentifier("home.rescue.header")
 
                             Text(state.subtitle)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker.textSecondary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
                                 .multilineTextAlignment(.leading)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -956,13 +956,13 @@ struct TaskListView: View {
                     .accessibilityIdentifier("home.rescue.open")
 
                     Button {
-                        withAnimation(TaskerAnimation.gentle) {
+                        withAnimation(LifeBoardAnimation.gentle) {
                             onToggleAgendaTailItemExpansion?(itemID)
                         }
                     } label: {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .frame(width: 32, height: 32)
                             .contentShape(Rectangle())
                     }
@@ -971,34 +971,34 @@ struct TaskListView: View {
                     .accessibilityIdentifier("home.rescue.expand")
                 }
             } else {
-                HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+                HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.sm) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Rescue")
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker.textPrimary)
+                            .font(.lifeboard(.headline))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
                             .accessibilityIdentifier("home.rescue.header")
 
                         Text(state.subtitle)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .multilineTextAlignment(.leading)
                     }
 
                     Spacer(minLength: 0)
 
                     Text("\(state.totalCount)")
-                        .font(.tasker(.caption2).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                        .padding(.horizontal, TaskerTheme.Spacing.sm)
-                        .padding(.vertical, TaskerTheme.Spacing.xs)
-                        .background(Color.tasker.surfaceSecondary)
+                        .font(.lifeboard(.caption2).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                        .padding(.vertical, LifeBoardTheme.Spacing.xs)
+                        .background(Color.lifeboard.surfaceSecondary)
                         .clipShape(Capsule())
 
                     Button("Start rescue") {
                         onOpenRescue?()
                     }
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("home.rescue.start")
                 }
@@ -1037,17 +1037,17 @@ struct TaskListView: View {
                 }
             }
         }
-        .padding(.vertical, TaskerTheme.Spacing.sm)
+        .padding(.vertical, LifeBoardTheme.Spacing.sm)
         .padding(.horizontal, layoutStyle.headerHorizontalPadding)
         .background {
             if layoutStyle == .inset {
-                Color.tasker.surfaceSecondary.opacity(state.mode == .compact ? 0.22 : 0.34)
+                Color.lifeboard.surfaceSecondary.opacity(state.mode == .compact ? 0.22 : 0.34)
             }
         }
         .overlay {
             if layoutStyle == .inset {
                 RoundedRectangle(cornerRadius: 18)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.55), lineWidth: 1)
             }
         }
         .clipShape(layoutStyle == .inset ? AnyShape(RoundedRectangle(cornerRadius: 18)) : AnyShape(Rectangle()))
@@ -1079,29 +1079,29 @@ struct TaskListView: View {
     // MARK: - Empty State
 
     private var emptyStateView: some View {
-        VStack(spacing: TaskerTheme.Spacing.md) {
+        VStack(spacing: LifeBoardTheme.Spacing.md) {
             EvaMascotView(placement: emptyStateMascotPlacement, size: .card)
                 .breathingPulse(min: 0.4, max: 0.6, duration: 3.0)
 
             Text("All clear")
-                .font(.tasker(.title3))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.title3))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             Text(resolvedEmptyStateMessage)
-                .font(.tasker(.callout))
-                .foregroundColor(Color.tasker.textQuaternary)
+                .font(.lifeboard(.callout))
+                .foregroundColor(Color.lifeboard.textQuaternary)
 
             if let title = emptyStateActionTitle {
                 Button(title) {
                     onEmptyStateAction?()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Color.tasker.accentPrimary)
-                .padding(.top, TaskerTheme.Spacing.xs)
+                .tint(Color.lifeboard.accentPrimary)
+                .padding(.top, LifeBoardTheme.Spacing.xs)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, TaskerTheme.Spacing.xxxl)
+        .padding(.vertical, LifeBoardTheme.Spacing.xxxl)
     }
 
     private var emptyStateMascotPlacement: EvaMascotPlacement {
@@ -1159,30 +1159,30 @@ private struct OverdueGroupedSectionView: View {
     @State private var isExpanded: Bool = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
             TaskSectionHeaderRow(
-                accentColor: Color.tasker(.taskOverdue),
+                accentColor: Color.lifeboard(.taskOverdue),
                 iconSystemName: "exclamationmark.triangle.fill",
                 title: "Overdue",
                 taskCount: totalTaskCount,
                 isExpanded: isExpanded,
                 onToggle: {
-                    withAnimation(TaskerAnimation.snappy) {
+                    withAnimation(LifeBoardAnimation.snappy) {
                         isExpanded.toggle()
                     }
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                 }
             )
             .padding(.horizontal, layoutStyle.headerHorizontalPadding)
 
             if isExpanded {
                 ForEach(Array(groups.enumerated()), id: \.element.project.id) { index, group in
-                    VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                    VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
                         Text(group.project.name)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                             .padding(.horizontal, layoutStyle.headerHorizontalPadding)
-                            .padding(.top, index == 0 ? 0 : TaskerTheme.Spacing.sm)
+                            .padding(.top, index == 0 ? 0 : LifeBoardTheme.Spacing.sm)
 
                         VStack(spacing: layoutStyle.rowSpacing) {
                             ForEach(Array(group.tasks.enumerated()), id: \.element.id) { taskIndex, task in
@@ -1218,7 +1218,7 @@ private struct OverdueGroupedSectionView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(TaskerAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.snappy, value: isExpanded)
     }
 
     private var totalTaskCount: Int {
@@ -1317,7 +1317,7 @@ struct TaskListView_Previews: PreviewProvider {
             ],
             projects: [inboxProject, workProject, sideProject]
         )
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
     }
 }
 #endif

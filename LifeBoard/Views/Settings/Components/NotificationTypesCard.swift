@@ -7,7 +7,7 @@ struct NotificationTypesCard: View {
         let id: String
         let icon: String
         let title: String
-        let keyPath: WritableKeyPath<TaskerNotificationPreferences, Bool>
+        let keyPath: WritableKeyPath<LifeBoardNotificationPreferences, Bool>
     }
 
     private var rows: [NotificationToggleRow] {
@@ -23,14 +23,14 @@ struct NotificationTypesCard: View {
     private var disabled: Bool { viewModel.isPermissionDenied }
 
     var body: some View {
-        TaskerCard {
+        LifeBoardCard {
             VStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                     toggleRow(row)
 
                     if index < rows.count - 1 {
                         Divider()
-                            .background(Color.tasker.strokeHairline)
+                            .background(Color.lifeboard.strokeHairline)
                     }
                 }
             }
@@ -40,15 +40,15 @@ struct NotificationTypesCard: View {
 
     @ViewBuilder
     private func toggleRow(_ row: NotificationToggleRow) -> some View {
-        HStack(spacing: TaskerSwiftUITokens.spacing.s12) {
+        HStack(spacing: LifeBoardSwiftUITokens.spacing.s12) {
             Image(systemName: row.icon)
-                .font(.tasker(.support))
-                .foregroundColor(.tasker(.accentPrimary))
+                .font(.lifeboard(.support))
+                .foregroundColor(.lifeboard(.accentPrimary))
                 .frame(width: 24)
 
             Text(row.title)
-                .font(.tasker(.bodyStrong))
-                .foregroundColor(.tasker(.textPrimary))
+                .font(.lifeboard(.bodyStrong))
+                .foregroundColor(.lifeboard(.textPrimary))
 
             Spacer()
 
@@ -57,9 +57,9 @@ struct NotificationTypesCard: View {
                 set: { viewModel.togglePreference(row.keyPath, value: $0) }
             ))
             .labelsHidden()
-            .tint(Color.tasker(.accentPrimary))
+            .tint(Color.lifeboard(.accentPrimary))
             .disabled(disabled)
         }
-        .padding(.vertical, TaskerSwiftUITokens.spacing.s12)
+        .padding(.vertical, LifeBoardSwiftUITokens.spacing.s12)
     }
 }

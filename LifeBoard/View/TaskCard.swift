@@ -1,6 +1,6 @@
 //
 //  TaskCard.swift
-//  To Do List
+//  LifeBoard
 //
 //  Task card variants for non-list contexts (dashboard, detail views).
 //  Migrated from Core Data entity rows to domain Task model.
@@ -15,7 +15,7 @@ struct TaskCard: View {
     let onToggleComplete: (() -> Void)?
 
     @State private var isPressed = false
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     /// Initializes a new instance.
     init(
@@ -52,7 +52,7 @@ struct TaskCard: View {
             VStack(alignment: .leading, spacing: spacing.titleSubtitleGap) {
                 // Task title
                 Text(task.title)
-                    .font(.tasker(.bodyEmphasis))
+                    .font(.lifeboard(.bodyEmphasis))
                     .foregroundColor(task.isComplete ? .secondary : .primary)
                     .strikethrough(task.isComplete)
                     .lineLimit(2)
@@ -61,8 +61,8 @@ struct TaskCard: View {
                 // Task details
                 if let details = task.details, !details.isEmpty {
                     Text(details)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                 }
 
@@ -71,10 +71,10 @@ struct TaskCard: View {
                     if let dueDate = task.dueDate {
                         Label {
                             Text(DateUtils.formatDate(dueDate))
-                                .font(.tasker(.caption2))
+                                .font(.lifeboard(.caption2))
                         } icon: {
                             Image(systemName: "calendar")
-                                .font(.tasker(.caption2))
+                                .font(.lifeboard(.caption2))
                         }
                         .foregroundColor(dueDateColor)
                     }
@@ -82,10 +82,10 @@ struct TaskCard: View {
                     if task.priority != .none {
                         Label {
                             Text(task.priority.displayName)
-                                .font(.tasker(.caption2))
+                                .font(.lifeboard(.caption2))
                         } icon: {
                             Image(systemName: "exclamationmark")
-                                .font(.tasker(.caption2))
+                                .font(.lifeboard(.caption2))
                         }
                         .foregroundColor(priorityColor)
                     }
@@ -100,7 +100,7 @@ struct TaskCard: View {
             if onTap != nil {
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .foregroundColor(Color.lifeboard.textSecondary)
             }
         }
     }
@@ -157,8 +157,8 @@ struct TaskCard: View {
         }
     }
 
-    private var themeColors: TaskerColorTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.color
+    private var themeColors: LifeBoardColorTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.color
     }
 
     private var accessibilityLabel: String {
@@ -215,14 +215,14 @@ struct CompactTaskCard: View {
 
             VStack(alignment: .leading, spacing: spacing.s2) {
                 Text(task.title)
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
                     .foregroundColor(task.isComplete ? .secondary : .primary)
                     .strikethrough(task.isComplete)
                     .lineLimit(1)
 
                 if let dueDate = task.dueDate {
                     Text(DateUtils.formatDate(dueDate))
-                        .font(.tasker(.caption2))
+                        .font(.lifeboard(.caption2))
                         .foregroundColor(.secondary)
                 }
             }
@@ -251,12 +251,12 @@ struct CompactTaskCard: View {
         }
     }
 
-    private var themeColors: TaskerColorTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.color
+    private var themeColors: LifeBoardColorTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.color
     }
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.spacing
     }
 }
 
@@ -352,8 +352,8 @@ struct FeaturedTaskCard: View {
         }
     }
 
-    private var themeColors: TaskerColorTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.color
+    private var themeColors: LifeBoardColorTokens {
+        LifeBoardThemeManager.shared.currentTheme.tokens.color
     }
 }
 

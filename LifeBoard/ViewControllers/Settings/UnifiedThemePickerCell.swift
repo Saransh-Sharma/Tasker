@@ -16,6 +16,6 @@ final class UnifiedThemePickerCell: UITableViewCell {
     }
 
     private func configure() {
-        addBrandPalettePreview(to: contentView, theme: TaskerThemeManager.shared.currentTheme)
+        addBrandPalettePreview(to: contentView, theme: LifeBoardThemeManager.shared.currentTheme)
     }
 }

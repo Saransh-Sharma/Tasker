@@ -3,11 +3,11 @@ import SwiftUI
 struct HomeBackToTodayButtonView: View {
     let action: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         Button {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         } label: {
             HStack(spacing: spacing.s4) {
@@ -15,20 +15,20 @@ struct HomeBackToTodayButtonView: View {
                     .font(.system(size: 12, weight: .semibold))
 
                 Text("Today")
-                    .font(.tasker(.caption1).weight(.medium))
+                    .font(.lifeboard(.caption1).weight(.medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.9)
             }
-            .foregroundStyle(Color.tasker.textSecondary)
+            .foregroundStyle(Color.lifeboard.textSecondary)
             .padding(.horizontal, spacing.s12)
             .frame(minHeight: 44)
             .background(
                 Capsule(style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary.opacity(0.92))
+                    .fill(Color.lifeboard.surfaceSecondary.opacity(0.92))
             )
             .overlay(
                 Capsule(style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.8), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

@@ -614,7 +614,7 @@ enum TimelineForedropRendererMode: Equatable {
 
 enum TimelineForedropRendererPolicy {
     static func mode(
-        layoutClass: TaskerLayoutClass,
+        layoutClass: LifeBoardLayoutClass,
         dayLayoutMode _: TimelineDayLayoutMode,
         isAccessibilitySize: Bool
     ) -> TimelineForedropRendererMode {
@@ -944,7 +944,7 @@ struct TimelineCanvasLayoutPlan: Equatable {
     let spineExtent: SpineExtent
     let endMarker: EndMarker
 
-    static func maxVisualColumns(for layoutClass: TaskerLayoutClass) -> Int {
+    static func maxVisualColumns(for layoutClass: LifeBoardLayoutClass) -> Int {
         switch layoutClass {
         case .phone:
             return 3
@@ -1661,7 +1661,7 @@ struct TimelineCompactLayoutPlan: Equatable {
 
     init(
         projection: TimelineDayProjection,
-        layoutClass: TaskerLayoutClass = .phone,
+        layoutClass: LifeBoardLayoutClass = .phone,
         anchorHeight: CGFloat? = nil,
         itemHeight: CGFloat? = nil,
         gapHeight: CGFloat? = nil,
@@ -1762,20 +1762,20 @@ private enum TimelineFormatting {
 private enum TimelineItemVisuals {
     @MainActor
     static func metaColor(for item: TimelinePlanItem) -> Color {
-        item.isComplete ? Color.tasker.textTertiary.opacity(0.68) : Color.tasker.textSecondary
+        item.isComplete ? Color.lifeboard.textTertiary.opacity(0.68) : Color.lifeboard.textSecondary
     }
 
     @MainActor
     static func titleColor(for item: TimelinePlanItem) -> Color {
-        item.isComplete ? Color.tasker.textSecondary.opacity(0.72) : Color.tasker.textPrimary
+        item.isComplete ? Color.lifeboard.textSecondary.opacity(0.72) : Color.lifeboard.textPrimary
     }
 
     @MainActor
     static func accessoryColor(for item: TimelinePlanItem, isActive: Bool) -> Color {
         if item.isComplete {
-            return Color.tasker.textSecondary.opacity(0.62)
+            return Color.lifeboard.textSecondary.opacity(0.62)
         }
-        return isActive ? Color.tasker.accentPrimary : Color.tasker.textSecondary
+        return isActive ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary
     }
 }
 
@@ -1790,8 +1790,8 @@ private struct TimelineDayStablePresentation {
     let calendar: Calendar
 
     init(projection: TimelineDayProjection, calendar: Calendar = .current) {
-        let interval = TaskerPerformanceTrace.begin("HomeTimelineStablePresentationBuild")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("HomeTimelineStablePresentationBuild")
+        defer { LifeBoardPerformanceTrace.end(interval) }
         self.projection = projection
         self.calendar = calendar
     }
@@ -1805,8 +1805,8 @@ private struct TimelineDayCurrentState {
     let activeGapID: String?
 
     init(stable: TimelineDayStablePresentation, now: Date) {
-        let interval = TaskerPerformanceTrace.begin("HomeTimelineCurrentStateBuild")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("HomeTimelineCurrentStateBuild")
+        defer { LifeBoardPerformanceTrace.end(interval) }
         let projection = stable.projection
         let calendar = stable.calendar
         self.now = now
@@ -2062,25 +2062,25 @@ private struct TimelineDayPresentation {
 
 private enum TimelineVisualTokens {
     @MainActor
-    static var neutralStem: Color { Color.tasker.strokeHairline.opacity(0.42) }
+    static var neutralStem: Color { Color.lifeboard.strokeHairline.opacity(0.42) }
 
     @MainActor
-    static var gapPastStem: Color { Color.tasker.accentPrimary.opacity(0.18) }
+    static var gapPastStem: Color { Color.lifeboard.accentPrimary.opacity(0.18) }
 
     @MainActor
-    static var futureCapsule: Color { Color.tasker.surfacePrimary.opacity(0.9) }
+    static var futureCapsule: Color { Color.lifeboard.surfacePrimary.opacity(0.9) }
 
     @MainActor
-    static var futureCapsuleStroke: Color { Color.tasker.strokeHairline.opacity(0.58) }
+    static var futureCapsuleStroke: Color { Color.lifeboard.strokeHairline.opacity(0.58) }
 
     @MainActor
-    static var anchorCapsuleFill: Color { Color.tasker.surfacePrimary.opacity(0.94) }
+    static var anchorCapsuleFill: Color { Color.lifeboard.surfacePrimary.opacity(0.94) }
 
     @MainActor
-    static var metaText: Color { Color.tasker.textSecondary }
+    static var metaText: Color { Color.lifeboard.textSecondary }
 
     @MainActor
-    static var utilityText: Color { Color.tasker.textTertiary }
+    static var utilityText: Color { Color.lifeboard.textTertiary }
 }
 
 struct TimelineSurfaceMetrics {
@@ -2119,7 +2119,7 @@ struct TimelineSurfaceMetrics {
         hasNextHomeWidget ? 0 : timelineBottomPadding
     }
 
-    static func make(for layoutClass: TaskerLayoutClass) -> TimelineSurfaceMetrics {
+    static func make(for layoutClass: LifeBoardLayoutClass) -> TimelineSurfaceMetrics {
         let bottomProtection = TimelineBottomProtectionBudget.make(for: layoutClass).timelineInset
         switch layoutClass {
         case .phone:
@@ -2231,7 +2231,7 @@ struct TimelineRailMetrics: Equatable {
         spineX + (iconSize / 2) + routineTextGapFromIcon
     }
 
-    static func make(for layoutClass: TaskerLayoutClass, surfaceMetrics: TimelineSurfaceMetrics) -> TimelineRailMetrics {
+    static func make(for layoutClass: LifeBoardLayoutClass, surfaceMetrics: TimelineSurfaceMetrics) -> TimelineRailMetrics {
         switch layoutClass {
         case .phone:
             let labelLeadingX: CGFloat = 4
@@ -2339,7 +2339,7 @@ private struct TimelineBottomProtectionBudget: Equatable {
         bottomNavHeight + floatingActionButtonHeight + reflectionBannerHeight + extraClearance
     }
 
-    static func make(for layoutClass: TaskerLayoutClass) -> TimelineBottomProtectionBudget {
+    static func make(for layoutClass: LifeBoardLayoutClass) -> TimelineBottomProtectionBudget {
         switch layoutClass {
         case .phone:
             return TimelineBottomProtectionBudget(
@@ -2385,11 +2385,11 @@ private func timelineMetaText(for row: TimelineRenderableRow, item: TimelinePlan
 private func timelineMetaColor(for row: TimelineRenderableRow) -> Color {
     switch row.temporalState {
     case .pastCompleted:
-        return Color.tasker.textTertiary.opacity(0.72)
+        return Color.lifeboard.textTertiary.opacity(0.72)
     case .pastIncomplete:
-        return Color.tasker.statusWarning.opacity(0.92)
+        return Color.lifeboard.statusWarning.opacity(0.92)
     case .currentTask:
-        return Color.tasker.textPrimary.opacity(0.92)
+        return Color.lifeboard.textPrimary.opacity(0.92)
     default:
         return TimelineVisualTokens.metaText
     }
@@ -2399,16 +2399,16 @@ private func timelineMetaColor(for row: TimelineRenderableRow) -> Color {
 private func timelineTitleColor(for row: TimelineRenderableRow, item: TimelinePlanItem? = nil) -> Color {
     switch row.temporalState {
     case .pastCompleted:
-        return Color.tasker.textSecondary.opacity(0.72)
+        return Color.lifeboard.textSecondary.opacity(0.72)
     case .pastIncomplete:
-        return Color.tasker.textPrimary.opacity(0.92)
+        return Color.lifeboard.textPrimary.opacity(0.92)
     case .currentTask:
-        return Color.tasker.textPrimary
+        return Color.lifeboard.textPrimary
     default:
         if let item {
             return TimelineItemVisuals.titleColor(for: item)
         }
-        return Color.tasker.textPrimary
+        return Color.lifeboard.textPrimary
     }
 }
 
@@ -2466,28 +2466,33 @@ private func timelineStemColor(for state: TimelineStemSegmentState, fallbackPale
 }
 
 @MainActor
-private func timelineGapPromptText(for gap: TimelineGap, row: TimelineRenderableRow) -> AttributedString {
+private func timelineGapPromptText(for gap: TimelineGap, row: TimelineRenderableRow) -> Text {
     let duration = gap.compactDurationText
     let promptSource = gap.supportingText.localizedCaseInsensitiveContains(duration)
         ? gap.supportingText
         : "\(gap.supportingText) \(duration)"
-    var prompt = AttributedString(promptSource)
-    if let range = prompt.range(of: duration) {
-        prompt[range].foregroundColor = row.temporalState == .activeGap ? Color.tasker.textPrimary : gapPromptTint(for: gap)
-        prompt[range].font = .tasker(.callout).weight(.semibold)
+    guard let range = promptSource.range(of: duration) else {
+        return Text(promptSource)
     }
-    return prompt
+
+    let prefix = String(promptSource[..<range.lowerBound])
+    let suffix = String(promptSource[range.upperBound...])
+    return Text(prefix)
+        + Text(duration)
+            .foregroundStyle(row.temporalState == .activeGap ? Color.lifeboard.textPrimary : gapPromptTint(for: gap))
+            .font(.lifeboard(.callout).weight(.semibold))
+        + Text(suffix)
 }
 
 @MainActor
 private func gapPromptTint(for gap: TimelineGap) -> Color {
     switch gap.emphasis {
     case .openTime:
-        return Color.tasker.accentPrimary
+        return Color.lifeboard.accentPrimary
     case .prepWindow:
-        return Color.tasker.statusWarning
+        return Color.lifeboard.statusWarning
     case .quietWindow:
-        return Color.tasker.statusSuccess
+        return Color.lifeboard.statusSuccess
     }
 }
 
@@ -2542,7 +2547,7 @@ struct TimelineRailPresentationSpec: Equatable {
 
 struct TimelineForedropView: View {
     let snapshot: HomeTimelineSnapshot
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let showsRevealHandle: Bool
     let hasNextHomeWidget: Bool
     let onSelectDate: (Date) -> Void
@@ -2563,7 +2568,7 @@ struct TimelineForedropView: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     private var rendererMode: TimelineForedropRendererMode {
@@ -2576,7 +2581,7 @@ struct TimelineForedropView: View {
 
     init(
         snapshot: HomeTimelineSnapshot,
-        layoutClass: TaskerLayoutClass,
+        layoutClass: LifeBoardLayoutClass,
         showsRevealHandle: Bool = true,
         hasNextHomeWidget: Bool = false,
         onSelectDate: @escaping (Date) -> Void,
@@ -2726,62 +2731,62 @@ private struct TimelinePlacementPrompt: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "hand.draw.fill")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
                     .frame(width: 34, height: 34)
-                    .background(Color.tasker.accentWash, in: Circle())
+                    .background(Color.lifeboard.accentWash, in: Circle())
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Place this in your day")
-                        .font(.tasker(.headline).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                     Text("Drop on a time or move it to All Day.")
-                        .font(.tasker(.support))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.support))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer(minLength: 0)
 
                 Button("Back", action: onBack)
-                    .font(.tasker(.support).weight(.semibold))
+                    .font(.lifeboard(.support).weight(.semibold))
                     .disabled(candidate.isApplying)
             }
 
             if candidate.isApplying {
                 ProgressView("Scheduling...")
-                    .font(.tasker(.support).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.support).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
             }
 
             if let errorMessage = candidate.errorMessage {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(errorMessage)
-                        .font(.tasker(.support))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.support))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                     Spacer(minLength: 0)
                     Button("Dismiss", action: onClearError)
-                        .font(.tasker(.support).weight(.semibold))
+                        .font(.lifeboard(.support).weight(.semibold))
                 }
                 .padding(10)
-                .background(Color.tasker.surfacePrimary.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(Color.lifeboard.surfacePrimary.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
 
             placementActions
         }
         .padding(14)
-        .background(Color.tasker.accentWash.opacity(0.82), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Color.lifeboard.accentWash.opacity(0.82), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color.tasker.accentPrimary.opacity(0.16), lineWidth: 1)
+                .stroke(Color.lifeboard.accentPrimary.opacity(0.16), lineWidth: 1)
         )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Place \(candidate.title) in \(selectedDate.formatted(.dateTime.weekday(.wide).month().day()))")
@@ -2818,21 +2823,21 @@ private struct TimelinePlacementPrompt: View {
 
     private func placementButton(_ title: String, systemImage: String, emphasized: Bool, action: @escaping () -> Void) -> some View {
         Button(action: {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         }) {
             Label(title, systemImage: systemImage)
-                .font(.tasker(.support).weight(.semibold))
-                .foregroundStyle(emphasized ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
+                .font(.lifeboard(.support).weight(.semibold))
+                .foregroundStyle(emphasized ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
                 .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
                 .frame(minHeight: 42)
                 .padding(.horizontal, spacing.s12)
-                .background(emphasized ? Color.tasker.actionPrimary : Color.tasker.surfacePrimary.opacity(0.82), in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+                .background(emphasized ? Color.lifeboard.actionPrimary : Color.lifeboard.surfacePrimary.opacity(0.82), in: RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-                        .stroke(emphasized ? Color.tasker.actionPrimary.opacity(0.2) : Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+                        .stroke(emphasized ? Color.lifeboard.actionPrimary.opacity(0.2) : Color.lifeboard.strokeHairline.opacity(0.72), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -2850,38 +2855,38 @@ private struct TimelinePlacementDock: View {
         HStack(spacing: 10) {
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .accessibilityHidden(true)
             Text(candidate.title)
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .lineLimit(1)
             Spacer(minLength: 0)
             Text("Drag to place")
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textSecondary)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(isDragging ? Color.tasker.accentWash.opacity(0.9) : Color.tasker.surfaceSecondary, in: Capsule())
+        .background(isDragging ? Color.lifeboard.accentWash.opacity(0.9) : Color.lifeboard.surfaceSecondary, in: Capsule())
         .overlay(
             Capsule()
-                .stroke(isDragging ? Color.tasker.accentPrimary.opacity(0.42) : Color.tasker.strokeHairline.opacity(0.7), lineWidth: 1)
+                .stroke(isDragging ? Color.lifeboard.accentPrimary.opacity(0.42) : Color.lifeboard.strokeHairline.opacity(0.7), lineWidth: 1)
         )
         .scaleEffect(isDragging && reduceMotion == false ? 1.018 : 1)
-        .shadow(color: Color.tasker.accentPrimary.opacity(isDragging ? 0.16 : 0), radius: isDragging ? 14 : 0, x: 0, y: 8)
+        .shadow(color: Color.lifeboard.accentPrimary.opacity(isDragging ? 0.16 : 0), radius: isDragging ? 14 : 0, x: 0, y: 8)
         .draggable(candidate.taskID.uuidString)
         .simultaneousGesture(
             DragGesture(minimumDistance: 3)
                 .onChanged { _ in
                     guard isDragging == false else { return }
-                    withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast) {
+                    withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast) {
                         isDragging = true
                     }
-                    TaskerFeedback.light()
+                    LifeBoardFeedback.light()
                 }
                 .onEnded { _ in
-                    withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast) {
+                    withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast) {
                         isDragging = false
                     }
                 }
@@ -2904,9 +2909,9 @@ private struct TimelinePalette {
     static func resolve(from tintHex: String?) -> TimelinePalette {
         let base: Color
         if let tintHex {
-            base = Color(uiColor: UIColor(taskerHex: tintHex))
+            base = Color(uiColor: UIColor(lifeboardHex: tintHex))
         } else {
-            base = Color.tasker.accentPrimary
+            base = Color.lifeboard.accentPrimary
         }
         return TimelinePalette(
             base: base,
@@ -2926,7 +2931,7 @@ struct TimelineForedropBar: View {
 
     var body: some View {
         Capsule()
-            .fill(Color.tasker.textTertiary.opacity(0.24))
+            .fill(Color.lifeboard.textTertiary.opacity(0.24))
             .frame(width: 42, height: 5)
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
@@ -2967,23 +2972,23 @@ private struct TimelinePlanningShelf: View {
         VStack(alignment: .leading, spacing: 14) {
             if let placementCandidate {
                 Button {
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                     onPlaceReplanAllDay(placementCandidate, selectedDate)
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: isAllDayTargeted ? "calendar.badge.checkmark" : "calendar.badge.plus")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color.tasker.accentPrimary)
+                            .foregroundStyle(Color.lifeboard.accentPrimary)
                             .frame(width: 34, height: 34)
-                            .background(Color.tasker.accentWash, in: Circle())
+                            .background(Color.lifeboard.accentWash, in: Circle())
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(isAllDayTargeted ? "Drop for All Day" : "Make All Day")
-                                .font(.tasker(.support).weight(.semibold))
-                                .foregroundStyle(Color.tasker.textPrimary)
+                                .font(.lifeboard(.support).weight(.semibold))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
                             Text(placementCandidate.title)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker.textSecondary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
                                 .lineLimit(1)
                         }
                         Spacer(minLength: 0)
@@ -2991,10 +2996,10 @@ private struct TimelinePlanningShelf: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .background(isAllDayTargeted ? Color.tasker.accentWash.opacity(0.82) : Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .background(isAllDayTargeted ? Color.lifeboard.accentWash.opacity(0.82) : Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(isAllDayTargeted ? Color.tasker.accentPrimary.opacity(0.46) : Color.tasker.strokeHairline.opacity(0.62), lineWidth: 1)
+                            .stroke(isAllDayTargeted ? Color.lifeboard.accentPrimary.opacity(0.46) : Color.lifeboard.strokeHairline.opacity(0.62), lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -3002,7 +3007,7 @@ private struct TimelinePlanningShelf: View {
                 .scaleEffect(isAllDayTargeted && reduceMotion == false ? 1.012 : 1)
                 .dropDestination(for: String.self, action: { items, _ in
                     guard items.contains(placementCandidate.taskID.uuidString) else { return false }
-                    TaskerFeedback.success()
+                    LifeBoardFeedback.success()
                     onPlaceReplanAllDay(placementCandidate, selectedDate)
                     return true
                 }, isTargeted: { newValue in
@@ -3010,7 +3015,7 @@ private struct TimelinePlanningShelf: View {
                 })
                 .onChange(of: isAllDayTargeted) { _, newValue in
                     guard newValue else { return }
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                 }
                 .accessibilityHint("Places the replanned task in the all-day row for this date.")
                 .accessibilityIdentifier("home.needsReplan.hotZone.allDay")
@@ -3019,8 +3024,8 @@ private struct TimelinePlanningShelf: View {
             if allDayItems.isEmpty == false {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("All-day commitments")
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
@@ -3069,11 +3074,11 @@ private struct TimelineShelfItemCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("All day")
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                     Text(item.title)
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(2)
                 }
             }
@@ -3082,7 +3087,7 @@ private struct TimelineShelfItemCard: View {
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary)
+                    .fill(Color.lifeboard.surfaceSecondary)
             )
         }
         .buttonStyle(.plain)
@@ -3103,14 +3108,14 @@ private struct TimelineInboxPlanningCard: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(inboxItems.count == 1 ? "1 inbox task ready" : "\(inboxItems.count) inbox tasks ready")
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                     Text("Fill open time first")
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                     Text("Pull something unplaced into the timeline before inspecting the rest of the day.")
-                        .font(.tasker(.support))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.support))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -3118,11 +3123,11 @@ private struct TimelineInboxPlanningCard: View {
                     onScheduleInbox()
                 }
                 .buttonStyle(.plain)
-                .font(.tasker(.buttonSmall))
-                .foregroundStyle(Color.tasker.accentOnPrimary)
+                .font(.lifeboard(.buttonSmall))
+                .foregroundStyle(Color.lifeboard.accentOnPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color.tasker.accentPrimary, in: Capsule())
+                .background(Color.lifeboard.accentPrimary, in: Capsule())
                 .accessibilityHint("Starts placing inbox tasks into open time.")
             }
 
@@ -3133,22 +3138,22 @@ private struct TimelineInboxPlanningCard: View {
                             onTaskTap(item)
                         } label: {
                             Text(item.title)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker.textPrimary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 9)
-                                .background(Color.tasker.surfacePrimary, in: Capsule())
+                                .background(Color.lifeboard.surfacePrimary, in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
 
                     if inboxItems.count > 4 {
                         Text("+\(inboxItems.count - 4) more")
-                            .font(.tasker(.caption1).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 9)
-                            .background(Color.tasker.surfacePrimary, in: Capsule())
+                            .background(Color.lifeboard.surfacePrimary, in: Capsule())
                             .accessibilityLabel("\(inboxItems.count - 4) more inbox tasks")
                     }
                 }
@@ -3160,7 +3165,7 @@ private struct TimelineInboxPlanningCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary)
+                .fill(Color.lifeboard.surfaceSecondary)
         )
     }
 }
@@ -3171,7 +3176,7 @@ private struct TimelineCurrentTimeRule: View {
 
     var body: some View {
         Rectangle()
-            .fill(Color.tasker.statusDanger.opacity(0.16))
+            .fill(Color.lifeboard.statusDanger.opacity(0.16))
             .frame(width: min(max(width - startX, 0), 92), height: 1)
             .offset(x: startX, y: -0.5)
             .frame(width: width, height: 1, alignment: .leading)
@@ -3189,13 +3194,13 @@ private struct TimelineCurrentTimeMarker: View {
                 text: TimelineRailTimeFormatter.railText(for: time, kind: .current),
                 kind: .current,
                 isEmphasized: true,
-                color: Color.tasker.statusDanger,
+                color: Color.lifeboard.statusDanger,
                 metrics: railMetrics
             )
                 .offset(y: -8)
 
             Circle()
-                .fill(Color.tasker.statusDanger)
+                .fill(Color.lifeboard.statusDanger)
                 .frame(width: 8, height: 8)
                 .offset(x: startX - 4, y: -4)
         }
@@ -3303,10 +3308,10 @@ private struct TimelineEmptyStateCard: View {
             actionButtons
         }
         .padding(14)
-        .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.62), lineWidth: 1)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.62), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(model.showsCalendarAction ? "home.timeline.calendarHidden" : "home.timeline.emptyDay")
@@ -3323,14 +3328,14 @@ private struct TimelineEmptyStateCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(model.title)
-                    .font(.tasker(.headline).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.86)
 
                 Text(model.subtitle)
-                    .font(.tasker(.support))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.support))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -3391,7 +3396,7 @@ private struct TimelineEmptyStateCard: View {
     ) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.tasker(.buttonSmall))
+                .font(.lifeboard(.buttonSmall))
                 .lineLimit(1)
                 .minimumScaleFactor(0.86)
                 .foregroundStyle(tone.foreground)
@@ -3417,27 +3422,27 @@ private enum TimelineEmptyStateActionTone {
     var foreground: Color {
         switch self {
         case .primary:
-            return Color.tasker.accentOnPrimary
+            return Color.lifeboard.accentOnPrimary
         case .secondary:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         }
     }
 
     var background: Color {
         switch self {
         case .primary:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .secondary:
-            return Color.tasker.accentWash.opacity(0.76)
+            return Color.lifeboard.accentWash.opacity(0.76)
         }
     }
 
     var border: Color {
         switch self {
         case .primary:
-            return Color.tasker.accentPrimary.opacity(0.18)
+            return Color.lifeboard.accentPrimary.opacity(0.18)
         case .secondary:
-            return Color.tasker.accentMuted.opacity(0.34)
+            return Color.lifeboard.accentMuted.opacity(0.34)
         }
     }
 }
@@ -3523,14 +3528,14 @@ private struct TimelineNormalItemCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.tasker(.headline).weight(.semibold))
+                        .font(.lifeboard(.headline).weight(.semibold))
                         .foregroundStyle(timelineTitleColor(for: row, item: item))
                         .strikethrough(item.isComplete, color: timelineTitleColor(for: row, item: item))
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
 
                     Text(timeText)
-                        .font(.tasker(.caption1).weight(.medium))
+                        .font(.lifeboard(.caption1).weight(.medium))
                         .foregroundStyle(timelineMetaColor(for: row))
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
@@ -3554,7 +3559,7 @@ private struct TimelineNormalItemCard: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-            .background(Color.tasker.surfacePrimary.opacity(0.95), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color.lifeboard.surfacePrimary.opacity(0.95), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(palette.progress.opacity(0.78))
@@ -3563,7 +3568,7 @@ private struct TimelineNormalItemCard: View {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.58), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.58), lineWidth: 1)
             }
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
@@ -3625,7 +3630,7 @@ private struct TimelineTaskMarkerRow: View {
                                     .accessibilityHidden(true)
                             }
                             Text(item.title)
-                                .font(.tasker(.headline).weight(isEmphasized ? .bold : .semibold))
+                                .font(.lifeboard(.headline).weight(isEmphasized ? .bold : .semibold))
                                 .foregroundStyle(timelineTitleColor(for: row, item: item))
                                 .strikethrough(item.isComplete, color: timelineTitleColor(for: row, item: item))
                                 .lineLimit(1)
@@ -3633,7 +3638,7 @@ private struct TimelineTaskMarkerRow: View {
                         }
 
                         Text(timeText)
-                            .font(.tasker(.caption1).weight(.medium))
+                            .font(.lifeboard(.caption1).weight(.medium))
                             .foregroundStyle(timelineMetaColor(for: row))
                             .lineLimit(1)
                             .minimumScaleFactor(0.82)
@@ -3700,7 +3705,7 @@ private struct TimelineTaskMarkerRow: View {
         if isEmphasized {
             return palette.fill.opacity(0.98)
         }
-        return Color.tasker.surfacePrimary.opacity(0.96)
+        return Color.lifeboard.surfacePrimary.opacity(0.96)
     }
 
     private var markerIconColor: Color {
@@ -3730,7 +3735,7 @@ private struct TimelineFlockBlock: View {
         if let item = model.rows.first(where: { $0.item != nil })?.item {
             return TimelinePalette.resolve(from: item.tintHex).progress
         }
-        return Color.tasker.accentPrimary
+        return Color.lifeboard.accentPrimary
     }
 
     var body: some View {
@@ -3761,7 +3766,7 @@ private struct TimelineFlockBlock: View {
         .padding(.trailing, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(alignment: .leading) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(accent.opacity(0.82))
@@ -3770,7 +3775,7 @@ private struct TimelineFlockBlock: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.54), lineWidth: 1)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.54), lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .compositingGroup()
@@ -3783,16 +3788,16 @@ private struct TimelineFlockBlock: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 8) {
             Text(TimelineFormatting.timeRangeText(start: model.startDate, end: model.endDate))
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
 
             Spacer(minLength: 6)
 
             Text(model.countLabel)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(accent.opacity(0.16), in: Capsule())
@@ -3837,7 +3842,7 @@ private struct TimelineFlockRowView: View {
             if row.isSummary {
                 Image(systemName: "ellipsis.circle")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(width: 24, height: 24)
                     .accessibilityHidden(true)
             } else {
@@ -3850,7 +3855,7 @@ private struct TimelineFlockRowView: View {
             }
 
             Text(row.title)
-                .font(.tasker(.caption1).weight(.semibold))
+                .font(.lifeboard(.caption1).weight(.semibold))
                 .foregroundStyle(titleColor)
                 .strikethrough(row.isCompleted, color: titleColor)
                 .lineLimit(1)
@@ -3860,16 +3865,16 @@ private struct TimelineFlockRowView: View {
             if row.isActiveNow {
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(Color.tasker.statusDanger)
+                        .fill(Color.lifeboard.statusDanger)
                         .frame(width: 5, height: 5)
                     Text("Now")
-                        .font(.tasker(.meta).weight(.semibold))
-                        .foregroundStyle(Color.tasker.statusDanger)
+                        .font(.lifeboard(.meta).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.statusDanger)
                 }
                 .lineLimit(1)
             } else if row.timeText.isEmpty == false {
                 Text(row.timeText)
-                    .font(.tasker(.meta).weight(.medium))
+                    .font(.lifeboard(.meta).weight(.medium))
                     .foregroundStyle(metaColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
@@ -3882,14 +3887,14 @@ private struct TimelineFlockRowView: View {
 
     private var rowBackground: Color {
         if row.isActiveNow {
-            return Color.tasker.statusDanger.opacity(0.10)
+            return Color.lifeboard.statusDanger.opacity(0.10)
         }
-        return Color.tasker.surfacePrimary.opacity(row.isSummary ? 0.42 : 0.72)
+        return Color.lifeboard.surfacePrimary.opacity(row.isSummary ? 0.42 : 0.72)
     }
 
     private var titleColor: Color {
         guard let renderRow else {
-            return row.isSummary ? Color.tasker.textSecondary : Color.tasker.textPrimary
+            return row.isSummary ? Color.lifeboard.textSecondary : Color.lifeboard.textPrimary
         }
         return timelineTitleColor(for: renderRow, item: item)
     }
@@ -3932,10 +3937,10 @@ private struct TimelineOverlapClusterCard: View {
 
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary.opacity(0.94))
+                    .fill(Color.lifeboard.surfaceSecondary.opacity(0.94))
 
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.72), lineWidth: 1)
 
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(clusterAccent.opacity(0.82))
@@ -3976,15 +3981,15 @@ private struct TimelineOverlapClusterCard: View {
         HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(TimelineFormatting.timeRangeText(start: block.startDate, end: block.endDate))
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
 
                 if block.compressed {
                     Label("Compressed", systemImage: "rectangle.compress.vertical")
-                        .font(.tasker(.meta).weight(.medium))
-                        .foregroundStyle(Color.tasker.textTertiary)
+                        .font(.lifeboard(.meta).weight(.medium))
+                        .foregroundStyle(Color.lifeboard.textTertiary)
                         .lineLimit(1)
                 }
             }
@@ -3992,8 +3997,8 @@ private struct TimelineOverlapClusterCard: View {
             Spacer(minLength: 6)
 
             Text(block.countLabel.lowercased())
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(clusterAccent.opacity(0.18), in: Capsule())
@@ -4002,12 +4007,12 @@ private struct TimelineOverlapClusterCard: View {
 
     private var clusterAccent: Color {
         if block.containsTask && block.containsCalendarEvent {
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         }
         if let tintHex = block.items.first?.tintHex {
-            return Color(uiColor: UIColor(taskerHex: tintHex))
+            return Color(uiColor: UIColor(lifeboardHex: tintHex))
         }
-        return Color.tasker.accentPrimary
+        return Color.lifeboard.accentPrimary
     }
 }
 
@@ -4053,7 +4058,7 @@ private struct TimelineOverlapItemCard: View {
                         .minimumScaleFactor(0.78)
 
                     Text(timeText)
-                        .font(.tasker(.meta).weight(.medium))
+                        .font(.lifeboard(.meta).weight(.medium))
                         .foregroundStyle(timelineMetaColor(for: row))
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
@@ -4063,7 +4068,7 @@ private struct TimelineOverlapItemCard: View {
             .padding(.horizontal, densityMode == .dualLane ? 8 : 6)
             .padding(.vertical, densityMode == .dualLane ? 7 : 5)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(Color.tasker.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Color.lifeboard.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(palette.progress.opacity(0.72))
@@ -4072,7 +4077,7 @@ private struct TimelineOverlapItemCard: View {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.6), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.6), lineWidth: 1)
             }
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
@@ -4100,13 +4105,13 @@ private struct TimelineOverlapItemCard: View {
     private var titleFont: Font {
         switch densityMode {
         case .dualLane:
-            return .tasker(.caption1).weight(.semibold)
+            return .lifeboard(.caption1).weight(.semibold)
         case .compactLane:
-            return .tasker(.caption1).weight(.semibold)
+            return .lifeboard(.caption1).weight(.semibold)
         case .microLane, .densePacked:
-            return .tasker(.meta).weight(.semibold)
+            return .lifeboard(.meta).weight(.semibold)
         case .normal:
-            return .tasker(.caption1).weight(.semibold)
+            return .lifeboard(.caption1).weight(.semibold)
         }
     }
 
@@ -4129,19 +4134,19 @@ private struct TimelineTimeBlockCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 10) {
                 Text("Time Block Conflict: \(TimelineFormatting.timeRangeText(start: block.startDate, end: block.endDate))")
-                    .font(.tasker(.support).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.support).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
 
                 Spacer(minLength: 8)
 
                 Text(block.countLabel)
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.accentOnPrimary)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.accentOnPrimary)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
-                    .background(Color.tasker.accentPrimary.opacity(0.82), in: Capsule())
+                    .background(Color.lifeboard.accentPrimary.opacity(0.82), in: Capsule())
             }
 
             VStack(spacing: 10) {
@@ -4169,17 +4174,17 @@ private struct TimelineTimeBlockCard: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary.opacity(0.92))
+                .fill(Color.lifeboard.surfaceSecondary.opacity(0.92))
         )
         .overlay(alignment: .leading) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(Color.tasker.accentPrimary.opacity(0.82))
+                .fill(Color.lifeboard.accentPrimary.opacity(0.82))
                 .frame(width: 4)
                 .padding(.vertical, 2)
         }
         .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.76), lineWidth: 1)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.76), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Time block conflict, \(TimelineFormatting.timeRangeText(start: block.startDate, end: block.endDate)), \(block.countLabel)")
@@ -4206,18 +4211,18 @@ private struct TimelineTaskBlockRow: View {
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("TASK")
-                        .font(.tasker(.caption1).weight(.semibold))
+                        .font(.lifeboard(.caption1).weight(.semibold))
                         .foregroundStyle(TimelineItemVisuals.accessoryColor(for: item, isActive: row.temporalState == .currentTask))
                         .lineLimit(1)
 
                     Text(item.title)
-                        .font(.tasker(.headline).weight(.semibold))
+                        .font(.lifeboard(.headline).weight(.semibold))
                         .foregroundStyle(timelineTitleColor(for: row, item: item))
                         .strikethrough(item.isComplete, color: timelineTitleColor(for: row, item: item))
                         .lineLimit(2)
 
                     Text(timelineMetaText(for: row, item: item))
-                        .font(.tasker(.support))
+                        .font(.lifeboard(.support))
                         .foregroundStyle(timelineMetaColor(for: row))
                         .lineLimit(1)
                 }
@@ -4241,10 +4246,10 @@ private struct TimelineTaskBlockRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color.tasker.surfacePrimary.opacity(0.94), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color.lifeboard.surfacePrimary.opacity(0.94), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.62), lineWidth: 1)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.62), lineWidth: 1)
         }
     }
 }
@@ -4274,19 +4279,19 @@ private struct TimelineMeetingBlockRow: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(labelText)
-                        .font(.tasker(.caption1).weight(.semibold))
+                        .font(.lifeboard(.caption1).weight(.semibold))
                         .foregroundStyle(palette.icon)
                         .lineLimit(1)
 
                     Text(item.title)
-                        .font(.tasker(isNested ? .headline : .title3).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(isNested ? .headline : .title3).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
                     Text(meetingMetadata)
-                        .font(.tasker(.support))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.support))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                 }
 
@@ -4294,7 +4299,7 @@ private struct TimelineMeetingBlockRow: View {
             }
             .padding(.horizontal, isNested ? 12 : 14)
             .padding(.vertical, isNested ? 10 : 12)
-            .background(Color.tasker.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: isNested ? 14 : 18, style: .continuous))
+            .background(Color.lifeboard.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: isNested ? 14 : 18, style: .continuous))
             .overlay(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(palette.progress.opacity(0.78))
@@ -4303,7 +4308,7 @@ private struct TimelineMeetingBlockRow: View {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: isNested ? 14 : 18, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.68), lineWidth: 1)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.68), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -4331,7 +4336,7 @@ private struct TimelineMeetingBlockRow: View {
 
 struct DailyTimelineCanvas: View {
     let projection: TimelineDayProjection
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let placementCandidate: TimelinePlacementCandidate?
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
@@ -4349,7 +4354,7 @@ struct DailyTimelineCanvas: View {
 
     init(
         projection: TimelineDayProjection,
-        layoutClass: TaskerLayoutClass,
+        layoutClass: LifeBoardLayoutClass,
         bottomInset: CGFloat? = nil,
         placementCandidate: TimelinePlacementCandidate?,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
@@ -4372,13 +4377,13 @@ struct DailyTimelineCanvas: View {
         self.onPlaceReplanAtTime = onPlaceReplanAtTime
         self.stablePresentation = TimelineDayStablePresentation(projection: projection)
         let resolvedMetrics = TimelineSurfaceMetrics.make(for: layoutClass)
-        let interval = TaskerPerformanceTrace.begin("HomeTimelineCanvasPlanBuild")
+        let interval = LifeBoardPerformanceTrace.begin("HomeTimelineCanvasPlanBuild")
         self.plan = TimelineCanvasLayoutPlan(
             projection: projection,
             bottomInset: bottomInset ?? resolvedMetrics.timelineBottomPadding,
             maxVisualColumns: TimelineCanvasLayoutPlan.maxVisualColumns(for: layoutClass)
         )
-        TaskerPerformanceTrace.end(interval)
+        LifeBoardPerformanceTrace.end(interval)
     }
 
     var body: some View {
@@ -4473,13 +4478,13 @@ struct DailyTimelineCanvas: View {
                     Image(systemName: isCanvasDropTargeted ? "clock.badge.checkmark.fill" : "clock.badge")
                         .font(.system(size: 13, weight: .semibold))
                     Text(isCanvasDropTargeted ? "Release to schedule" : "Drop on a time")
-                        .font(.tasker(.caption1).weight(.semibold))
+                        .font(.lifeboard(.caption1).weight(.semibold))
                 }
-                .foregroundStyle(Color.tasker.accentPrimary)
+                .foregroundStyle(Color.lifeboard.accentPrimary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(Color.tasker.accentWash.opacity(isCanvasDropTargeted ? 0.92 : 0.72), in: Capsule())
-                .overlay(Capsule().stroke(Color.tasker.accentPrimary.opacity(isCanvasDropTargeted ? 0.42 : 0.18), lineWidth: 1))
+                .background(Color.lifeboard.accentWash.opacity(isCanvasDropTargeted ? 0.92 : 0.72), in: Capsule())
+                .overlay(Capsule().stroke(Color.lifeboard.accentPrimary.opacity(isCanvasDropTargeted ? 0.42 : 0.18), lineWidth: 1))
                 .scaleEffect(isCanvasDropTargeted && reduceMotion == false ? 1.035 : 1)
                 .padding(.top, 8)
                 .accessibilityIdentifier("home.needsReplan.hotZone.timeline")
@@ -4490,7 +4495,7 @@ struct DailyTimelineCanvas: View {
                   items.contains(placementCandidate.taskID.uuidString) else {
                 return false
             }
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
             onPlaceReplanAtTime(placementCandidate, plan.date(atY: location.y))
             return true
         }, isTargeted: { newValue in
@@ -4498,7 +4503,7 @@ struct DailyTimelineCanvas: View {
         })
         .onChange(of: isCanvasDropTargeted) { _, newValue in
             guard newValue else { return }
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         }
     }
 
@@ -4546,7 +4551,7 @@ struct DailyTimelineCanvas: View {
                 text: timeLabel(for: model.item),
                 kind: railLabelKind(for: model.item),
                 isEmphasized: row.isCurrentRailEmphasis,
-                color: row.isCurrentRailEmphasis ? Color.tasker.textPrimary : TimelineVisualTokens.metaText,
+                color: row.isCurrentRailEmphasis ? Color.lifeboard.textPrimary : TimelineVisualTokens.metaText,
                 metrics: railMetrics
             )
             .offset(y: max(positioned.y - 2, 0))
@@ -4558,7 +4563,7 @@ struct DailyTimelineCanvas: View {
                 text: TimelineRailTimeFormatter.railText(forItemStart: model.block.startDate),
                 kind: railLabelKind(for: model.block.startDate),
                 isEmphasized: row?.isCurrentRailEmphasis == true,
-                color: row?.isCurrentRailEmphasis == true ? Color.tasker.textPrimary : TimelineVisualTokens.metaText,
+                color: row?.isCurrentRailEmphasis == true ? Color.lifeboard.textPrimary : TimelineVisualTokens.metaText,
                 metrics: railMetrics
             )
             .offset(y: max(positioned.y - 2, 0))
@@ -4713,7 +4718,7 @@ struct DailyTimelineCanvas: View {
             .overlay {
                 Image(systemName: anchor.anchor.systemImageName)
                     .font(.system(size: metrics.expandedAnchorIconSize, weight: .semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .accessibilityHidden(true)
             }
             .offset(x: spineCenterX - (iconSize / 2), y: iconTop)
@@ -4721,12 +4726,12 @@ struct DailyTimelineCanvas: View {
 
         VStack(alignment: .leading, spacing: 5) {
             Text(anchor.anchor.title)
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.86)
             Text(TimelineRoutineTextFormatter.subtitle(for: anchor.anchor, subtitle: row.subtitle))
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .foregroundStyle(TimelineVisualTokens.utilityText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.86)
@@ -4777,7 +4782,7 @@ struct DailyTimelineCanvas: View {
         Text(text)
             .font(.system(size: 13, weight: row.isCurrentRailEmphasis ? .semibold : .medium, design: .rounded))
             .monospacedDigit()
-            .foregroundStyle(row.isCurrentRailEmphasis ? Color.tasker.textPrimary : TimelineVisualTokens.metaText)
+            .foregroundStyle(row.isCurrentRailEmphasis ? Color.lifeboard.textPrimary : TimelineVisualTokens.metaText)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
             .frame(width: timeGutterWidth - 8, alignment: .trailing)
@@ -4811,9 +4816,9 @@ struct DailyTimelineCanvas: View {
             .accessibilityHidden(true)
 
             Text(timeLabel(for: item))
-                .font(row.isCurrentRailEmphasis ? .tasker(.meta).weight(.semibold) : .tasker(.meta))
+                .font(row.isCurrentRailEmphasis ? .lifeboard(.meta).weight(.semibold) : .lifeboard(.meta))
                 .monospacedDigit()
-                .foregroundStyle(row.isCurrentRailEmphasis ? Color.tasker.textPrimary : TimelineVisualTokens.metaText)
+                .foregroundStyle(row.isCurrentRailEmphasis ? Color.lifeboard.textPrimary : TimelineVisualTokens.metaText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 .frame(width: timeGutterWidth - 8, alignment: .trailing)
@@ -4845,7 +4850,7 @@ struct DailyTimelineCanvas: View {
             .accessibilityHidden(true)
 
             Text(positioned.block.startDate.formatted(date: .omitted, time: .shortened))
-                .font(.tasker(.meta).weight(.semibold))
+                .font(.lifeboard(.meta).weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(TimelineVisualTokens.metaText)
                 .lineLimit(1)
@@ -4891,8 +4896,8 @@ struct DailyTimelineCanvas: View {
         let textWidth = min(availableTextWidth, textMaxWidth)
 
         Text(timeLabel(for: item))
-            .font(row.isCurrentRailEmphasis ? .tasker(.meta).weight(.semibold) : .tasker(.meta))
-            .foregroundStyle(row.isCurrentRailEmphasis ? Color.tasker.textPrimary : TimelineVisualTokens.metaText)
+            .font(row.isCurrentRailEmphasis ? .lifeboard(.meta).weight(.semibold) : .lifeboard(.meta))
+            .foregroundStyle(row.isCurrentRailEmphasis ? Color.lifeboard.textPrimary : TimelineVisualTokens.metaText)
             .frame(width: timeGutterWidth - 8, alignment: .trailing)
             .offset(x: 0, y: max(positioned.y - 2, 0))
             .opacity(shouldHideTimeLabel(at: positioned.y, currentY: currentY) ? 0 : 1)
@@ -4939,13 +4944,13 @@ struct DailyTimelineCanvas: View {
     private func timelineItemTextContent(row: TimelineRenderableRow, item: TimelinePlanItem, isExpanded: Bool) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(metaText(for: row, item: item))
-                .font(.tasker(row.temporalState == .currentTask && isExpanded ? .callout : .meta).weight(row.temporalState == .currentTask ? .semibold : .medium))
+                .font(.lifeboard(row.temporalState == .currentTask && isExpanded ? .callout : .meta).weight(row.temporalState == .currentTask ? .semibold : .medium))
                 .foregroundStyle(metaColor(for: row, item: item))
                 .multilineTextAlignment(.leading)
                 .lineLimit(1)
 
             Text(item.title)
-                .font(.tasker(isExpanded && row.temporalState == .currentTask ? .title3 : .headline))
+                .font(.lifeboard(isExpanded && row.temporalState == .currentTask ? .title3 : .headline))
                 .foregroundStyle(titleColor(for: row, item: item))
                 .strikethrough(item.isComplete, color: titleColor(for: row, item: item))
                 .multilineTextAlignment(.leading)
@@ -4992,11 +4997,11 @@ struct DailyTimelineCanvas: View {
     private func metaColor(for row: TimelineRenderableRow, item: TimelinePlanItem) -> Color {
         switch row.temporalState {
         case .pastCompleted:
-            return Color.tasker.textTertiary.opacity(0.72)
+            return Color.lifeboard.textTertiary.opacity(0.72)
         case .pastIncomplete:
-            return Color.tasker.statusWarning.opacity(0.92)
+            return Color.lifeboard.statusWarning.opacity(0.92)
         case .currentTask:
-            return Color.tasker.textPrimary.opacity(0.92)
+            return Color.lifeboard.textPrimary.opacity(0.92)
         default:
             return TimelineVisualTokens.metaText
         }
@@ -5005,11 +5010,11 @@ struct DailyTimelineCanvas: View {
     private func titleColor(for row: TimelineRenderableRow, item: TimelinePlanItem) -> Color {
         switch row.temporalState {
         case .pastCompleted:
-            return Color.tasker.textSecondary.opacity(0.72)
+            return Color.lifeboard.textSecondary.opacity(0.72)
         case .pastIncomplete:
-            return Color.tasker.textPrimary.opacity(0.92)
+            return Color.lifeboard.textPrimary.opacity(0.92)
         case .currentTask:
-            return Color.tasker.textPrimary
+            return Color.lifeboard.textPrimary
         default:
             return TimelineItemVisuals.titleColor(for: item)
         }
@@ -5040,7 +5045,7 @@ struct DailyTimelineCanvas: View {
 
 private struct DailyTimelineCompactView: View {
     let projection: TimelineDayProjection
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
     let onAnchorTap: (TimelineAnchorItem) -> Void
@@ -5053,7 +5058,7 @@ private struct DailyTimelineCompactView: View {
 
     init(
         projection: TimelineDayProjection,
-        layoutClass: TaskerLayoutClass,
+        layoutClass: LifeBoardLayoutClass,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
         onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
@@ -5068,9 +5073,9 @@ private struct DailyTimelineCompactView: View {
         self.onAddTask = onAddTask
         self.onScheduleInbox = onScheduleInbox
         self.stablePresentation = TimelineDayStablePresentation(projection: projection)
-        let interval = TaskerPerformanceTrace.begin("HomeTimelineCompactPlanBuild")
+        let interval = LifeBoardPerformanceTrace.begin("HomeTimelineCompactPlanBuild")
         self.plan = TimelineCompactLayoutPlan(projection: projection, layoutClass: layoutClass)
-        TaskerPerformanceTrace.end(interval)
+        LifeBoardPerformanceTrace.end(interval)
     }
 
     var body: some View {
@@ -5169,7 +5174,7 @@ private struct DailyTimelineCompactView: View {
 private struct TimelineCompactAnchorRow: View {
     let anchor: TimelineAnchorItem
     let row: TimelineRenderableRow
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let onTap: () -> Void
 
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
@@ -5178,8 +5183,8 @@ private struct TimelineCompactAnchorRow: View {
         Button(action: onTap) {
             HStack(alignment: .center, spacing: 0) {
                 Text(anchor.time.formatted(date: .omitted, time: .shortened))
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(width: metrics.compactTimeGutter, alignment: .trailing)
 
                 Color.clear
@@ -5191,7 +5196,7 @@ private struct TimelineCompactAnchorRow: View {
                     .overlay {
                         Image(systemName: anchor.systemImageName)
                             .font(.system(size: metrics.compactAnchorIconSize, weight: .semibold))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .accessibilityHidden(true)
                     }
                     .frame(width: metrics.compactLaneWidth)
@@ -5199,11 +5204,11 @@ private struct TimelineCompactAnchorRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(anchor.title)
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                     if let subtitle = row.subtitle, subtitle.isEmpty == false {
                         Text(subtitle)
-                            .font(.tasker(.caption1))
+                            .font(.lifeboard(.caption1))
                             .foregroundStyle(TimelineVisualTokens.utilityText)
                             .lineLimit(1)
                     }
@@ -5213,7 +5218,7 @@ private struct TimelineCompactAnchorRow: View {
 
                 if anchor.isActionable {
                     TimelineCompletionRing(
-                        color: Color.tasker.accentPrimary,
+                        color: Color.lifeboard.accentPrimary,
                         isCompleted: false,
                         isInteractive: false,
                         label: anchor.title,
@@ -5239,7 +5244,7 @@ private struct TimelineCompactItemRow: View {
     let item: TimelinePlanItem
     let row: TimelineRenderableRow
     let capsuleHeight: CGFloat
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
 
@@ -5249,8 +5254,8 @@ private struct TimelineCompactItemRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
             Text(timelineRailText(for: item))
-                .font(row.isCurrentRailEmphasis ? .tasker(.meta).weight(.semibold) : .tasker(.meta))
-                .foregroundStyle(row.isCurrentRailEmphasis ? Color.tasker.textPrimary : TimelineVisualTokens.metaText)
+                .font(row.isCurrentRailEmphasis ? .lifeboard(.meta).weight(.semibold) : .lifeboard(.meta))
+                .foregroundStyle(row.isCurrentRailEmphasis ? Color.lifeboard.textPrimary : TimelineVisualTokens.metaText)
                 .frame(width: metrics.compactTimeGutter, alignment: .trailing)
 
             Color.clear
@@ -5266,11 +5271,11 @@ private struct TimelineCompactItemRow: View {
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(timelineMetaText(for: row, item: item))
-                        .font(.tasker(.meta).weight(row.temporalState == .currentTask ? .semibold : .medium))
+                        .font(.lifeboard(.meta).weight(row.temporalState == .currentTask ? .semibold : .medium))
                         .foregroundStyle(timelineMetaColor(for: row))
                         .lineLimit(1)
                     Text(item.title)
-                        .font(.tasker(.headline).weight(.semibold))
+                        .font(.lifeboard(.headline).weight(.semibold))
                         .foregroundStyle(timelineTitleColor(for: row, item: item))
                         .strikethrough(item.isComplete, color: timelineTitleColor(for: row, item: item))
                         .multilineTextAlignment(.leading)
@@ -5307,7 +5312,7 @@ private struct TimelineCompactItemRow: View {
 private struct TimelineCompactGapRow: View {
     let gap: TimelineGap
     let row: TimelineRenderableRow
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let onAddTask: () -> Void
     let onScheduleInbox: () -> Void
 
@@ -5321,8 +5326,8 @@ private struct TimelineCompactGapRow: View {
         } label: {
             HStack(alignment: .center, spacing: 0) {
                 Text(gap.startDate.formatted(date: .omitted, time: .shortened))
-                    .font(row.isCurrentRailEmphasis ? .tasker(.meta).weight(.semibold) : .tasker(.meta))
-                    .foregroundStyle(row.isCurrentRailEmphasis ? Color.tasker.textPrimary : TimelineVisualTokens.metaText.opacity(0.92))
+                    .font(row.isCurrentRailEmphasis ? .lifeboard(.meta).weight(.semibold) : .lifeboard(.meta))
+                    .foregroundStyle(row.isCurrentRailEmphasis ? Color.lifeboard.textPrimary : TimelineVisualTokens.metaText.opacity(0.92))
                     .frame(width: metrics.compactTimeGutter, alignment: .trailing)
 
                 Color.clear
@@ -5334,9 +5339,9 @@ private struct TimelineCompactGapRow: View {
                     .frame(width: metrics.compactLaneWidth)
                     .accessibilityHidden(true)
 
-                Text(timelineGapPromptText(for: gap, row: row))
-                    .font(.tasker(.support))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                timelineGapPromptText(for: gap, row: row)
+                    .font(.lifeboard(.support))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
                     .padding(.vertical, 6)
@@ -5366,7 +5371,7 @@ private struct TimelineCompactConnector: View {
                 path.addLine(to: CGPoint(x: x, y: height))
             }
             .stroke(
-                Color.tasker.strokeHairline.opacity(spec.opacity),
+                Color.lifeboard.strokeHairline.opacity(spec.opacity),
                 style: StrokeStyle(lineWidth: spec.lineWidth)
             )
 
@@ -5385,7 +5390,7 @@ private struct TimelineCompactConnector: View {
 
 private struct DailyTimelineAgendaView: View {
     let projection: TimelineDayProjection
-    let layoutClass: TaskerLayoutClass
+    let layoutClass: LifeBoardLayoutClass
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
     let onAnchorTap: (TimelineAnchorItem) -> Void
@@ -5447,7 +5452,7 @@ private struct DailyTimelineAgendaView: View {
 
     init(
         projection: TimelineDayProjection,
-        layoutClass: TaskerLayoutClass,
+        layoutClass: LifeBoardLayoutClass,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
         onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
@@ -5478,13 +5483,13 @@ private struct DailyTimelineAgendaView: View {
                             row: presentation.row(for: anchor),
                             onTap: { onAnchorTap(anchor) }
                         )
-                            .environment(\.taskerLayoutClass, layoutClass)
+                            .environment(\.lifeboardLayoutClass, layoutClass)
                     case .gap(let gap):
                         TimelineGapPrompt(gap: gap, row: presentation.row(for: gap), onAddTask: onAddTask, onPlanBlock: onScheduleInbox)
-                            .environment(\.taskerLayoutClass, layoutClass)
+                            .environment(\.lifeboardLayoutClass, layoutClass)
                     case .block(let block):
                         agendaBlockView(block, presentation: presentation)
-                            .environment(\.taskerLayoutClass, layoutClass)
+                            .environment(\.lifeboardLayoutClass, layoutClass)
                     }
                 }
             }
@@ -5537,7 +5542,7 @@ private struct TimelineAgendaAnchorRow: View {
     let anchor: TimelineAnchorItem
     let row: TimelineRenderableRow
     let onTap: () -> Void
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
@@ -5550,19 +5555,19 @@ private struct TimelineAgendaAnchorRow: View {
                     .overlay {
                         Image(systemName: anchor.systemImageName)
                             .font(.system(size: metrics.agendaAnchorIconSize, weight: .semibold))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .accessibilityHidden(true)
                     }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(anchor.time.formatted(date: .omitted, time: .shortened))
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                     Text(anchor.title)
-                        .font(.tasker(.title3))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.title3))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                     if let subtitle = row.subtitle, subtitle.isEmpty == false {
                         Text(subtitle)
-                            .font(.tasker(.caption1))
+                            .font(.lifeboard(.caption1))
                             .foregroundStyle(TimelineVisualTokens.utilityText)
                     }
                 }
@@ -5581,7 +5586,7 @@ private struct TimelineAgendaItemRow: View {
     let row: TimelineRenderableRow
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     private var palette: TimelinePalette { .resolve(from: item.tintHex) }
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
@@ -5603,14 +5608,14 @@ private struct TimelineAgendaItemRow: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(timelineMetaText(for: row, item: item))
-                        .font(.tasker(.meta))
+                        .font(.lifeboard(.meta))
                         .foregroundStyle(timelineMetaColor(for: row))
                     Button {
                         onTaskTap(item)
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(item.title)
-                                .font(.tasker(row.temporalState == .currentTask ? .title3 : .headline))
+                                .font(.lifeboard(row.temporalState == .currentTask ? .title3 : .headline))
                                 .foregroundStyle(timelineTitleColor(for: row, item: item))
                                 .strikethrough(item.isComplete, color: timelineTitleColor(for: row, item: item))
                                 .multilineTextAlignment(.leading)
@@ -5680,11 +5685,11 @@ private struct TimelineUtilityRow: View {
         switch item {
         case .checklist(let summary):
             Label("\(summary.completedCount)/\(summary.totalCount)", systemImage: "checklist")
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .foregroundStyle(TimelineVisualTokens.utilityText)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
-                .background(Color.tasker.surfaceSecondary, in: Capsule())
+                .background(Color.lifeboard.surfaceSecondary, in: Capsule())
         case .note:
             utilityGlyph("note.text")
         case .recurring:
@@ -5695,7 +5700,7 @@ private struct TimelineUtilityRow: View {
             utilityGlyph("video")
         case .project(let name):
             Label(name, systemImage: "line.3.horizontal.decrease.circle")
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .foregroundStyle(TimelineVisualTokens.utilityText)
                 .lineLimit(1)
         }
@@ -5714,7 +5719,7 @@ private struct TimelineCapsule: View {
     let item: TimelinePlanItem
     let row: TimelineRenderableRow
     let palette: TimelinePalette
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     var body: some View {
         GeometryReader { proxy in
@@ -5845,7 +5850,7 @@ private struct TimelineGapPrompt: View {
     let row: TimelineRenderableRow
     let onAddTask: () -> Void
     let onPlanBlock: () -> Void
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     var body: some View {
         Menu {
@@ -5858,9 +5863,9 @@ private struct TimelineGapPrompt: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(TimelineVisualTokens.utilityText)
                     .accessibilityHidden(true)
-                Text(timelineGapPromptText(for: gap, row: row))
-                    .font(.tasker(.support))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                timelineGapPromptText(for: gap, row: row)
+                    .font(.lifeboard(.support))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -5925,11 +5930,11 @@ private struct TimelineWeekDayCell: View {
     private var paletteColor: Color {
         switch day.loadLevel {
         case .light:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .balanced:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .busy:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         }
     }
 
@@ -5948,13 +5953,13 @@ private struct TimelineWeekDayCell: View {
             if canStartReplan {
                 Button(action: onStartReplan) {
                     Label(replanActionTitle, systemImage: "arrow.triangle.2.circlepath")
-                        .font(.tasker(.support).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.support).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                         .padding(.horizontal, 10)
                         .frame(minHeight: 44)
-                        .background(Color.tasker.accentWash.opacity(0.72), in: Capsule())
+                        .background(Color.lifeboard.accentWash.opacity(0.72), in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(replanAccessibilityLabel)
@@ -5966,20 +5971,20 @@ private struct TimelineWeekDayCell: View {
         .padding(.horizontal, 4)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(isDropTargeted ? Color.tasker.accentWash.opacity(0.86) : (isSelected ? Color.tasker.surfacePrimary : Color.tasker.surfacePrimary.opacity(0.85)))
+                .fill(isDropTargeted ? Color.lifeboard.accentWash.opacity(0.86) : (isSelected ? Color.lifeboard.surfacePrimary : Color.lifeboard.surfacePrimary.opacity(0.85)))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(isDropTargeted ? Color.tasker.accentPrimary.opacity(0.48) : (isSelected ? Color.tasker.accentPrimary.opacity(0.25) : Color.tasker.strokeHairline.opacity(0.45)), lineWidth: isDropTargeted ? 1.5 : 1)
+                .stroke(isDropTargeted ? Color.lifeboard.accentPrimary.opacity(0.48) : (isSelected ? Color.lifeboard.accentPrimary.opacity(0.25) : Color.lifeboard.strokeHairline.opacity(0.45)), lineWidth: isDropTargeted ? 1.5 : 1)
         )
         .overlay(alignment: .bottom) {
             if placementCandidate != nil {
                 Label(isDropTargeted ? "Release" : "Drop", systemImage: isDropTargeted ? "calendar.badge.checkmark" : "calendar.badge.plus")
-                    .font(.tasker(.caption2).weight(.semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .font(.lifeboard(.caption2).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(Color.tasker.surfacePrimary.opacity(0.88), in: Capsule())
+                    .background(Color.lifeboard.surfacePrimary.opacity(0.88), in: Capsule())
                     .opacity(isDropTargeted ? 1 : 0.72)
                     .padding(.bottom, 6)
                     .accessibilityIdentifier("home.needsReplan.hotZone.day.\(day.id)")
@@ -6003,7 +6008,7 @@ private struct TimelineWeekDayCell: View {
                   items.contains(placementCandidate.taskID.uuidString) else {
                 return false
             }
-            TaskerFeedback.success()
+            LifeBoardFeedback.success()
             onDropPlacement(placementCandidate)
             return true
         }, isTargeted: { newValue in
@@ -6011,28 +6016,28 @@ private struct TimelineWeekDayCell: View {
         })
         .onChange(of: isDropTargeted) { _, newValue in
             guard newValue else { return }
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         }
     }
 
     private var dayContent: some View {
         VStack(spacing: isAccessibilityLayout ? 8 : 6) {
                 Text(day.date.formatted(.dateTime.weekday(.narrow)))
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
 
                 ZStack {
                     Circle()
-                        .fill(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                        .fill(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                         .frame(width: 44, height: 44)
                     Text(day.date.formatted(.dateTime.day()))
-                        .font(.tasker(.headline))
-                        .foregroundStyle(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                 }
 
                 Text(day.summaryText)
-                    .font(.tasker(isAccessibilityLayout ? .caption1 : .meta).weight(.semibold))
-                    .foregroundStyle(isSelected ? Color.tasker.textPrimary : paletteColor)
+                    .font(.lifeboard(isAccessibilityLayout ? .caption1 : .meta).weight(.semibold))
+                    .foregroundStyle(isSelected ? Color.lifeboard.textPrimary : paletteColor)
                     .lineLimit(isAccessibilityLayout ? 2 : 1)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
@@ -6040,17 +6045,17 @@ private struct TimelineWeekDayCell: View {
                 HStack(spacing: 4) {
                     ForEach(Array(day.tintHexes.prefix(3).enumerated()), id: \.offset) { entry in
                         Circle()
-                            .fill(Color(uiColor: UIColor(taskerHex: entry.element)).opacity(0.88))
+                            .fill(Color(uiColor: UIColor(lifeboardHex: entry.element)).opacity(0.88))
                             .frame(width: 7, height: 7)
                             .accessibilityHidden(true)
                     }
                     if day.allDayCount > 0 {
                         Text("\(day.allDayCount)")
-                            .font(.tasker(.caption2).weight(.semibold))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption2).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.tasker.surfaceSecondary, in: Capsule())
+                            .background(Color.lifeboard.surfaceSecondary, in: Capsule())
                     }
                 }
                 .frame(minHeight: 12)

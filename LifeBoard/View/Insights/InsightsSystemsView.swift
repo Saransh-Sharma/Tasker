@@ -7,7 +7,7 @@ struct InsightsSystemsView: View {
     @State private var selectedCategory: AchievementDefinition.AchievementCategory?
     @State private var selectedBadgeKey: String?
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsSystemsState { viewModel.systemsState }
     private var progressByKey: [String: AchievementProgressState] {
         Dictionary(uniqueKeysWithValues: state.achievementProgress.map { ($0.key, $0) })
@@ -103,42 +103,42 @@ struct InsightsSystemsView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Systems")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text(state.heroCard.title)
-                    .font(.tasker(.title2))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.title2))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 Text(state.heroCard.metric)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 Text(state.heroCard.hint)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textSecondary)
 
                 HStack(alignment: .center, spacing: spacing.s16) {
                     VStack(alignment: .leading, spacing: spacing.s4) {
                         Text("Level \(state.level)")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundColor(Color.tasker.accentPrimary)
+                            .foregroundColor(Color.lifeboard.accentPrimary)
                         Text("\(state.totalXP) XP total")
-                            .font(.tasker(.callout))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.callout))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                         Text(state.nextMilestone.map { "Next milestone: \($0.name)" } ?? "Top milestone reached")
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textTertiary)
                     }
                     Spacer()
                     ZStack {
                         Circle()
-                            .stroke(Color.tasker.surfaceTertiary, lineWidth: 10)
+                            .stroke(Color.lifeboard.surfaceTertiary, lineWidth: 10)
                         Circle()
                             .trim(from: 0, to: levelProgress)
                             .stroke(
                                 LinearGradient(
-                                    colors: [Color.tasker.accentPrimary, Color.tasker.accentSecondary],
+                                    colors: [Color.lifeboard.accentPrimary, Color.lifeboard.accentSecondary],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
@@ -146,18 +146,18 @@ struct InsightsSystemsView: View {
                             )
                             .rotationEffect(.degrees(-90))
                         Text("\(Int((levelProgress * 100).rounded()))%")
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textPrimary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textPrimary)
                     }
                     .frame(width: 96, height: 96)
                 }
 
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.tasker.surfaceTertiary)
+                    Capsule().fill(Color.lifeboard.surfaceTertiary)
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [Color.tasker.accentPrimary, Color.tasker.accentSecondary],
+                                colors: [Color.lifeboard.accentPrimary, Color.lifeboard.accentSecondary],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -169,12 +169,12 @@ struct InsightsSystemsView: View {
                 if let detail = state.heroCard.detail, detail.isEmpty == false {
                     DisclosureGroup("Details") {
                         Text(detail)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                             .padding(.top, spacing.s4)
                     }
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
                 }
             }
         }
@@ -184,35 +184,35 @@ struct InsightsSystemsView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Reminder response")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text(state.reminderResponse.headline)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 Text(state.reminderResponse.detail)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.textSecondary)
 
                 if state.reminderResponse.statusItems.isEmpty {
                     Text("Enable and act on reminders to make this visible.")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textTertiary)
                 } else {
                     ForEach(state.reminderResponse.statusItems) { item in
                         HStack(spacing: spacing.s8) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.label)
-                                    .font(.tasker(.callout))
-                                    .foregroundColor(Color.tasker.textPrimary)
+                                    .font(.lifeboard(.callout))
+                                    .foregroundColor(Color.lifeboard.textPrimary)
                                 Text(item.valueText)
-                                    .font(.tasker(.caption2))
-                                    .foregroundColor(Color.tasker.textTertiary)
+                                    .font(.lifeboard(.caption2))
+                                    .foregroundColor(Color.lifeboard.textTertiary)
                             }
                             Spacer()
                             ZStack(alignment: .leading) {
-                                Capsule().fill(Color.tasker.surfaceTertiary)
+                                Capsule().fill(Color.lifeboard.surfaceTertiary)
                                     .frame(width: 116, height: 10)
                                 Capsule().fill(toneColor(item.tone))
                                     .frame(width: max(10, 116 * CGFloat(item.share)), height: 10)
@@ -228,8 +228,8 @@ struct InsightsSystemsView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text("Achievement board")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: spacing.s4) {
@@ -269,16 +269,16 @@ struct InsightsSystemsView: View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text(eyebrow)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 Text(title)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundColor(Color.lifeboard.textPrimary)
 
                 Text(subtitle)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.textSecondary)
 
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 12),
@@ -295,22 +295,22 @@ struct InsightsSystemsView: View {
     private func metricCard(_ metric: InsightsMetricTile) -> some View {
         VStack(alignment: .leading, spacing: spacing.s4) {
             Text(metric.title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption2))
+                .foregroundColor(Color.lifeboard.textTertiary)
             Text(metric.value)
-                .font(.tasker(.headline))
+                .font(.lifeboard(.headline))
                 .foregroundColor(toneColor(metric.tone))
                 .fixedSize(horizontal: false, vertical: true)
             Text(metric.detail)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
         .padding(spacing.s12)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary)
+                .fill(Color.lifeboard.surfaceSecondary)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -325,13 +325,13 @@ struct InsightsSystemsView: View {
     ) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundColor(isSelected ? Color.tasker.textInverse : Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(isSelected ? Color.lifeboard.textInverse : Color.lifeboard.textSecondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(
                     Capsule()
-                        .fill(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceTertiary)
+                        .fill(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceTertiary)
                 )
         }
         .buttonStyle(.plain)
@@ -353,11 +353,11 @@ struct InsightsSystemsView: View {
         content()
             .padding(spacing.s16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .taskerAnalyticsSurface(
+            .lifeboardAnalyticsSurface(
                 cornerRadius: 24,
-                fillColor: Color.tasker.surfacePrimary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.82),
-                accentColor: Color.tasker.accentSecondary,
+                fillColor: Color.lifeboard.surfacePrimary,
+                strokeColor: Color.lifeboard.strokeHairline.opacity(0.82),
+                accentColor: Color.lifeboard.accentSecondary,
                 level: .e1
             )
     }
@@ -365,13 +365,13 @@ struct InsightsSystemsView: View {
     private func toneColor(_ tone: InsightsMetricTone) -> Color {
         switch tone {
         case .accent:
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         case .success:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .neutral:
-            return Color.tasker.textPrimary
+            return Color.lifeboard.textPrimary
         }
     }
 }

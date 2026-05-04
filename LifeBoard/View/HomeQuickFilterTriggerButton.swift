@@ -1,6 +1,6 @@
 //
 //  HomeQuickFilterTriggerButton.swift
-//  Tasker
+//  LifeBoard
 //
 //  Header trigger button for the quick filter dropdown.
 //
@@ -21,8 +21,8 @@ public struct HomeQuickFilterTriggerButton: View {
     let onTap: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     /// Initializes a new instance.
     public init(
@@ -37,37 +37,37 @@ public struct HomeQuickFilterTriggerButton: View {
 
     public var body: some View {
         Button(action: {
-            TaskerFeedback.light()
+            LifeBoardFeedback.light()
             onTap()
         }) {
             HStack(spacing: spacing.s8) {
                 // Active filter indicator (dot)
                 if summary.hasActiveFilters {
                     Circle()
-                        .fill(Color.tasker.accentPrimary)
+                        .fill(Color.lifeboard.accentPrimary)
                         .frame(width: 8, height: 8)
                         .transition(.scale.combined(with: .opacity))
-                        .animation(reduceMotion ? nil : TaskerAnimation.bouncy, value: summary.hasActiveFilters)
+                        .animation(reduceMotion ? nil : LifeBoardAnimation.bouncy, value: summary.hasActiveFilters)
                 }
 
                 // Primary text
                 Text(summary.primaryText)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                     .lineLimit(1)
 
                 // Secondary text (if any)
                 if let secondary = summary.secondaryText {
                     Text(secondary)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                 }
 
                 // Filter indicator
                 Image(systemName: "line.3.horizontal.decrease")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .foregroundColor(Color.lifeboard.textSecondary)
             }
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s8)
@@ -80,9 +80,9 @@ public struct HomeQuickFilterTriggerButton: View {
                 Capsule()
                     .stroke(borderColor, lineWidth: 1)
             )
-            .animation(reduceMotion ? nil : TaskerAnimation.quick, value: summary.hasActiveFilters)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: summary.hasActiveFilters)
         }
-        .taskerPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(isOpen ? "Double tap to close filters" : "Double tap to open filters")
     }
@@ -91,16 +91,16 @@ public struct HomeQuickFilterTriggerButton: View {
 
     private var backgroundColor: Color {
         if summary.hasActiveFilters {
-            return Color.tasker.accentMuted
+            return Color.lifeboard.accentMuted
         }
-        return Color.tasker.surfaceSecondary
+        return Color.lifeboard.surfaceSecondary
     }
 
     private var borderColor: Color {
         if summary.hasActiveFilters {
-            return Color.tasker.accentRing
+            return Color.lifeboard.accentRing
         }
-        return Color.tasker.divider
+        return Color.lifeboard.divider
     }
 
     private var accessibilityLabel: String {
@@ -144,7 +144,7 @@ struct HomeQuickFilterTriggerButton_Previews: PreviewProvider {
             )
         }
         .padding()
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
     }
 }
 #endif

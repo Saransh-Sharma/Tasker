@@ -1,6 +1,6 @@
 import SwiftUI
 
-final class TaskerLaunchSplashState: ObservableObject {
+final class LifeBoardLaunchSplashState: ObservableObject {
     @Published private(set) var isCompletingReveal = false
 
     func completeReveal() {
@@ -9,7 +9,7 @@ final class TaskerLaunchSplashState: ObservableObject {
     }
 }
 
-enum TaskerLaunchSplashMetrics {
+enum LifeBoardLaunchSplashMetrics {
     static let iconSide: CGFloat = 112
     static let coverOverscan: CGFloat = 1.18
     static let revealDuration: TimeInterval = 0.58
@@ -28,11 +28,11 @@ enum TaskerLaunchSplashMetrics {
     }
 }
 
-struct TaskerLaunchSplashView: View {
+struct LifeBoardLaunchSplashView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObservedObject private var state: TaskerLaunchSplashState
+    @ObservedObject private var state: LifeBoardLaunchSplashState
 
-    init(state: TaskerLaunchSplashState = TaskerLaunchSplashState()) {
+    init(state: LifeBoardLaunchSplashState = LifeBoardLaunchSplashState()) {
         self.state = state
     }
 
@@ -42,17 +42,17 @@ struct TaskerLaunchSplashView: View {
                 Color("LaunchCanvas")
                     .ignoresSafeArea()
 
-                Image(decorative: "TaskerSplashIcon")
+                Image(decorative: "LifeBoardSplashIcon")
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
                     .frame(
-                        width: TaskerLaunchSplashMetrics.iconSide,
-                        height: TaskerLaunchSplashMetrics.iconSide
+                        width: LifeBoardLaunchSplashMetrics.iconSide,
+                        height: LifeBoardLaunchSplashMetrics.iconSide
                     )
                     .scaleEffect(iconScale(for: geometry.size), anchor: .center)
                     .animation(
-                        reduceMotion ? nil : TaskerLaunchSplashMetrics.revealAnimation,
+                        reduceMotion ? nil : LifeBoardLaunchSplashMetrics.revealAnimation,
                         value: state.isCompletingReveal
                     )
             }
@@ -61,10 +61,10 @@ struct TaskerLaunchSplashView: View {
 
     private func iconScale(for size: CGSize) -> CGFloat {
         guard reduceMotion == false, state.isCompletingReveal else { return 1 }
-        return TaskerLaunchSplashMetrics.coverScale(for: size)
+        return LifeBoardLaunchSplashMetrics.coverScale(for: size)
     }
 }
 
 #Preview {
-    TaskerLaunchSplashView()
+    LifeBoardLaunchSplashView()
 }

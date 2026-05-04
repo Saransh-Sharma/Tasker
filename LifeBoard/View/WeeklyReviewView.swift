@@ -5,7 +5,7 @@ struct WeeklyReviewView: View {
     let onClose: () -> Void
     let onCompleted: (String) -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var showingReflectionComposer = false
 
     init(
@@ -91,11 +91,11 @@ struct WeeklyReviewView: View {
                 WeeklyStickyActionBar {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Review status")
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                         Text(viewModel.footerSnapshot.completionSummaryText)
-                            .font(.tasker(.caption2))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } trailing: {
@@ -184,9 +184,9 @@ private struct WeeklyReviewRealityStep: View {
     let selectedHabits: [HabitLibraryRow]
     let selectedHabitIDs: [UUID]
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         WeeklySectionCard(
@@ -202,39 +202,39 @@ private struct WeeklyReviewRealityStep: View {
 
                 VStack(alignment: .leading, spacing: spacing.s8) {
                     Text("Check habits")
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
 
                     if selectedHabitIDs.isEmpty {
                         Text("No habits were intentionally carried into this week.")
-                            .font(.tasker(.support))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.support))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                     } else if selectedHabits.isEmpty {
                         Text("Habit details will appear here after the review reloads current streaks.")
-                            .font(.tasker(.support))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.support))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                     } else {
                         ForEach(selectedHabits, id: \.habitID) { habit in
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(habit.title)
-                                        .font(.tasker(.bodyEmphasis))
-                                        .foregroundStyle(Color.tasker.textPrimary)
+                                        .font(.lifeboard(.bodyEmphasis))
+                                        .foregroundStyle(Color.lifeboard.textPrimary)
                                     Text(habit.lifeAreaName)
-                                        .font(.tasker(.caption2))
-                                        .foregroundStyle(Color.tasker.textSecondary)
+                                        .font(.lifeboard(.caption2))
+                                        .foregroundStyle(Color.lifeboard.textSecondary)
                                 }
 
                                 Spacer()
 
-                                TaskerStatusPill(
+                                LifeBoardStatusPill(
                                     text: "\(habit.currentStreak)d streak",
                                     systemImage: "flame.fill",
                                     tone: .accent
                                 )
                             }
                             .padding(14)
-                            .taskerDenseSurface(cornerRadius: 18, fillColor: Color.tasker.surfaceSecondary.opacity(0.84))
+                            .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
                         }
                     }
                 }
@@ -245,16 +245,16 @@ private struct WeeklyReviewRealityStep: View {
     private func metricPill(value: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.tasker(.bodyEmphasis))
-                .foregroundStyle(Color.tasker.accentPrimary)
+                .font(.lifeboard(.bodyEmphasis))
+                .foregroundStyle(Color.lifeboard.accentPrimary)
             Text(label)
-                .font(.tasker(.caption2))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(Color.lifeboard.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, spacing.s12)
         .padding(.vertical, spacing.s8)
-        .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -269,8 +269,8 @@ private struct WeeklyReviewOutcomesStep: View {
         ) {
             if outcomeSnapshots.isEmpty {
                 Text(WeeklyCopy.noOutcomes)
-                    .font(.tasker(.support))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.support))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(Array(outcomeSnapshots.enumerated()), id: \.element.id) { index, snapshot in
@@ -306,8 +306,8 @@ private struct WeeklyReviewCleanupStep: View {
 
                 if unfinishedTasks.isEmpty {
                     Text(WeeklyCopy.noUnfinishedWork)
-                        .font(.tasker(.support))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.support))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 } else {
                     ForEach(unfinishedTasks, id: \.id) { task in
                         WeeklyDecisionRow(
@@ -337,9 +337,9 @@ private struct WeeklyReviewReflectionStep: View {
     @Binding var nextWeekPrepNotes: String
     @Binding var perceivedWeekRating: Int
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         WeeklySectionCard(
@@ -370,8 +370,8 @@ private struct WeeklyReviewReflectionStep: View {
 
                 VStack(alignment: .leading, spacing: spacing.s8) {
                     Text("How did the week feel?")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
 
                     HStack(spacing: spacing.s8) {
                         ForEach(1...5, id: \.self) { rating in
@@ -379,13 +379,13 @@ private struct WeeklyReviewReflectionStep: View {
                                 perceivedWeekRating = rating
                             } label: {
                                 Text("\(rating)")
-                                    .font(.tasker(.bodyEmphasis))
-                                    .foregroundStyle(perceivedWeekRating == rating ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
+                                    .font(.lifeboard(.bodyEmphasis))
+                                    .foregroundStyle(perceivedWeekRating == rating ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
                                     .background(
                                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .fill(perceivedWeekRating == rating ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                                            .fill(perceivedWeekRating == rating ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                                     )
                             }
                             .buttonStyle(.plain)
@@ -399,17 +399,17 @@ private struct WeeklyReviewReflectionStep: View {
     private func reflectionField(title: String, helper: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
 
             TextField(title, text: text, axis: .vertical)
                 .lineLimit(2...4)
                 .padding(12)
-                .taskerDenseSurface(cornerRadius: 16, fillColor: Color.tasker.surfaceSecondary)
+                .lifeboardDenseSurface(cornerRadius: 16, fillColor: Color.lifeboard.surfaceSecondary)
 
             Text(helper)
-                .font(.tasker(.caption2))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -432,25 +432,25 @@ private struct WeeklyReviewNotesStep: View {
 
                 if reflectionNotes.isEmpty {
                     Text(WeeklyCopy.noWeeklyNotes)
-                        .font(.tasker(.support))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.support))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 } else {
                     ForEach(reflectionNotes, id: \.id) { note in
                         VStack(alignment: .leading, spacing: 6) {
                             if let prompt = note.prompt, prompt.isEmpty == false {
                                 Text(prompt)
-                                    .font(.tasker(.caption1))
-                                    .foregroundStyle(Color.tasker.textSecondary)
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundStyle(Color.lifeboard.textSecondary)
                             }
                             Text(note.noteText)
-                                .font(.tasker(.support))
-                                .foregroundStyle(Color.tasker.textPrimary)
+                                .font(.lifeboard(.support))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
                             Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
-                                .font(.tasker(.caption2))
-                                .foregroundStyle(Color.tasker.textSecondary)
+                                .font(.lifeboard(.caption2))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
                         }
                         .padding(14)
-                        .taskerDenseSurface(cornerRadius: 18, fillColor: Color.tasker.surfaceSecondary.opacity(0.84))
+                        .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
                     }
                 }
             }
@@ -467,23 +467,23 @@ private struct WeeklyOutcomeReviewRow: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 Text("\(displayIndex).")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(outcomeSnapshot.outcome.title)
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
 
                     if let successDefinition = outcomeSnapshot.outcome.successDefinition, successDefinition.isEmpty == false {
                         Text(successDefinition)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                     }
 
                     if outcomeSnapshot.linkedTaskCount > 0 {
                         Text("\(outcomeSnapshot.linkedTaskCount) linked task\(outcomeSnapshot.linkedTaskCount == 1 ? "" : "s")")
-                            .font(.tasker(.caption2))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                     }
                 }
             }
@@ -495,7 +495,7 @@ private struct WeeklyOutcomeReviewRow: View {
             }
         }
         .padding(14)
-        .taskerDenseSurface(cornerRadius: 18, fillColor: Color.tasker.surfaceSecondary.opacity(0.84))
+        .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
     }
 
     private func statusButton(_ status: WeeklyOutcomeStatus) -> some View {
@@ -506,17 +506,17 @@ private struct WeeklyOutcomeReviewRow: View {
             onSelect(status)
         } label: {
             Text(status.displayTitle)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(isSelected ? tint : Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(isSelected ? tint : Color.lifeboard.textSecondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(isSelected ? tint.opacity(0.12) : Color.tasker.surfaceSecondary)
+                        .fill(isSelected ? tint.opacity(0.12) : Color.lifeboard.surfaceSecondary)
                 )
                 .overlay(
                     Capsule()
-                        .stroke(isSelected ? tint.opacity(0.2) : Color.tasker.strokeHairline.opacity(0.78), lineWidth: 1)
+                        .stroke(isSelected ? tint.opacity(0.2) : Color.lifeboard.strokeHairline.opacity(0.78), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)

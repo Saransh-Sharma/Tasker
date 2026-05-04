@@ -2,12 +2,12 @@ import SwiftUI
 
 struct ReflectionNoteComposerView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     @ObservedObject var viewModel: ReflectionNoteComposerViewModel
     let onSaved: ((ReflectionNote) -> Void)?
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     init(
         viewModel: ReflectionNoteComposerViewModel,
@@ -103,17 +103,17 @@ struct ReflectionNoteComposerView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
 
             TextField(title, text: text, axis: .vertical)
                 .lineLimit(lineLimit)
                 .padding(12)
-                .taskerDenseSurface(cornerRadius: 16, fillColor: Color.tasker.surfaceSecondary)
+                .lifeboardDenseSurface(cornerRadius: 16, fillColor: Color.lifeboard.surfaceSecondary)
 
             Text(helper)
-                .font(.tasker(.caption2))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -121,8 +121,8 @@ struct ReflectionNoteComposerView: View {
     private func signalSelector(title: String, value: Binding<Int>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
 
             HStack(spacing: 8) {
                 ForEach(1...5, id: \.self) { option in
@@ -130,13 +130,13 @@ struct ReflectionNoteComposerView: View {
                         value.wrappedValue = option
                     } label: {
                         Text("\(option)")
-                            .font(.tasker(.bodyEmphasis))
-                            .foregroundStyle(value.wrappedValue == option ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
+                            .font(.lifeboard(.bodyEmphasis))
+                            .foregroundStyle(value.wrappedValue == option ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(value.wrappedValue == option ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                                    .fill(value.wrappedValue == option ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                             )
                     }
                     .buttonStyle(.plain)

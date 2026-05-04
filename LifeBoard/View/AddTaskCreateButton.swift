@@ -1,6 +1,6 @@
 //
 //  AddTaskCreateButton.swift
-//  Tasker
+//  LifeBoard
 //
 //  Primary CTA with loading state, success flash, and "Add Another" secondary action.
 //
@@ -18,21 +18,21 @@ struct AddTaskCreateButton: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         VStack(spacing: spacing.s8) {
             Button {
                 if isEnabled && !isLoading {
-                    TaskerFeedback.light()
+                    LifeBoardFeedback.light()
                     onCreateAction()
                 }
             } label: {
                 HStack(spacing: spacing.s8) {
                     if isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Color.tasker.accentOnPrimary))
+                            .progressViewStyle(CircularProgressViewStyle(tint: Color.lifeboard.accentOnPrimary))
                             .scaleEffect(0.8)
                     } else if successFlash {
                         Image(systemName: "checkmark.circle.fill")
@@ -44,25 +44,25 @@ struct AddTaskCreateButton: View {
                     }
 
                     Text(isLoading ? "Creating..." : successFlash ? "Added!" : buttonTitle)
-                        .font(.tasker(.button))
+                        .font(.lifeboard(.button))
                         .contentTransition(.opacity)
                 }
-                .foregroundColor(isEnabled ? Color.tasker.accentOnPrimary : Color.tasker.textQuaternary)
+                .foregroundColor(isEnabled ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textQuaternary)
                 .frame(maxWidth: .infinity)
                 .frame(height: spacing.buttonHeight)
                 .background(
                     RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
                         .fill(successFlash
-                              ? Color.tasker.statusSuccess
+                              ? Color.lifeboard.statusSuccess
                               : isEnabled
-                                ? Color.tasker.accentPrimary
-                                : Color.tasker.surfaceSecondary
+                                ? Color.lifeboard.accentPrimary
+                                : Color.lifeboard.surfaceSecondary
                         )
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
                         .stroke(
-                            successFlash ? Color.tasker.statusSuccess.opacity(0.28) : Color.tasker.strokeHairline.opacity(isEnabled ? 0 : 0.8),
+                            successFlash ? Color.lifeboard.statusSuccess.opacity(0.28) : Color.lifeboard.strokeHairline.opacity(isEnabled ? 0 : 0.8),
                             lineWidth: 1
                         )
                 )
@@ -72,23 +72,23 @@ struct AddTaskCreateButton: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("addTask.createButton")
             .disabled(!isEnabled || isLoading)
-            .animation(TaskerAnimation.quick, value: isEnabled)
-            .animation(reduceMotion ? nil : TaskerAnimation.ctaConfirmation, value: successFlash)
-            .animation(TaskerAnimation.quick, value: isLoading)
+            .animation(LifeBoardAnimation.quick, value: isEnabled)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.ctaConfirmation, value: successFlash)
+            .animation(LifeBoardAnimation.quick, value: isLoading)
 
             if showAddAnother {
                 Button {
-                    TaskerFeedback.selection()
+                    LifeBoardFeedback.selection()
                     onAddAnotherAction()
                 } label: {
                     Text("Add Another")
-                        .font(.tasker(.callout))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .font(.lifeboard(.callout))
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                 }
                 .buttonStyle(.plain)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(TaskerAnimation.snappy, value: showAddAnother)
+        .animation(LifeBoardAnimation.snappy, value: showAddAnother)
     }
 }

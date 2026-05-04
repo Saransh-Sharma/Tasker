@@ -1,7 +1,7 @@
 import Foundation
 
 enum HomeNavigationIntent: Equatable {
-    case notificationRoute(TaskerNotificationRoute)
+    case notificationRoute(LifeBoardNotificationRoute)
     case focusDeepLink
     case chatDeepLink(prompt: String?)
     case homeDeepLink(notice: String?)

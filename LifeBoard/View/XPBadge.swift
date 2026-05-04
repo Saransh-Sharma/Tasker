@@ -1,6 +1,6 @@
 //
 //  XPBadge.swift
-//  Tasker
+//  LifeBoard
 //
 //  XP value badge for task rows showing points earned.
 //  Accent color for high-value tasks (P0/P1), subtle for others.
@@ -16,8 +16,8 @@ public struct XPBadge: View {
     var isCompact: Bool = false
     var showLabel: Bool = true
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var themeColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var themeColors: LifeBoardColorTokens { LifeBoardThemeManager.shared.currentTheme.tokens.color }
 
     private var isHighValue: Bool {
         priority == .max || priority == .high
@@ -30,12 +30,12 @@ public struct XPBadge: View {
     public var body: some View {
         HStack(spacing: 3) {
             Text("+\(xpValue)")
-                .font(.tasker(isCompact ? .caption2 : .caption1))
+                .font(.lifeboard(isCompact ? .caption2 : .caption1))
                 .fontWeight(isHighValue ? .bold : .medium)
 
             if showLabel && !isCompact {
                 Text("XP")
-                    .font(.tasker(.caption2))
+                    .font(.lifeboard(.caption2))
                     .fontWeight(.medium)
             }
         }
@@ -51,7 +51,7 @@ public struct XPBadge: View {
                 .stroke(borderColor, lineWidth: isHighValue ? 1 : 0)
         )
         .shadow(
-            color: isMaxPriority ? Color.tasker.accentPrimary.opacity(0.3) : .clear,
+            color: isMaxPriority ? Color.lifeboard.accentPrimary.opacity(0.3) : .clear,
             radius: isMaxPriority ? 4 : 0,
             x: 0,
             y: 1
@@ -61,21 +61,21 @@ public struct XPBadge: View {
 
     private var foregroundColor: Color {
         if isHighValue {
-            return Color.tasker.accentOnPrimary
+            return Color.lifeboard.accentOnPrimary
         }
-        return Color.tasker.textSecondary
+        return Color.lifeboard.textSecondary
     }
 
     private var backgroundColor: Color {
         if isHighValue {
-            return Color.tasker.accentPrimary
+            return Color.lifeboard.accentPrimary
         }
-        return Color.tasker.surfaceSecondary
+        return Color.lifeboard.surfaceSecondary
     }
 
     private var borderColor: Color {
         if isHighValue {
-            return Color.tasker.accentPrimary.opacity(0.3)
+            return Color.lifeboard.accentPrimary.opacity(0.3)
         }
         return .clear
     }
@@ -113,7 +113,7 @@ struct XPBadge_Previews: PreviewProvider {
             }
         }
         .padding()
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .previewLayout(.sizeThatFits)
     }
 }

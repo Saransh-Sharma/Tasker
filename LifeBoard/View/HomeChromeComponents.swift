@@ -8,7 +8,7 @@ struct HomeSearchChromeView: View {
     let onClear: () -> Void
 
     var body: some View {
-        TaskerSearchHeaderView(
+        LifeBoardSearchHeaderView(
             query: $query,
             isFocused: _isFocused,
             onQueryChanged: onQueryChanged,

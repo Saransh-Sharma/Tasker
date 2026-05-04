@@ -1,6 +1,6 @@
 //
 //  AddTaskTaskPicker.swift
-//  Tasker
+//  LifeBoard
 //
 //  Reusable task search/select for parent task (single) and dependencies (multi).
 //
@@ -16,8 +16,8 @@ struct AddTaskTaskPicker: View {
 
     @State private var searchText = ""
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     private var filteredTasks: [TaskDefinition] {
         if searchText.isEmpty { return Array(tasks.prefix(10)) }
@@ -28,25 +28,25 @@ struct AddTaskTaskPicker: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             if let label {
                 Text(label)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
             }
 
             // Search field
             HStack(spacing: spacing.s8) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 12))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .foregroundColor(Color.lifeboard.textTertiary)
 
                 TextField("Search tasks...", text: $searchText)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.textPrimary)
             }
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s8)
             .background(
                 RoundedRectangle(cornerRadius: corner.r2)
-                    .fill(Color.tasker.surfaceTertiary)
+                    .fill(Color.lifeboard.surfaceTertiary)
             )
 
             // Selected indicator
@@ -54,20 +54,20 @@ struct AddTaskTaskPicker: View {
                 HStack(spacing: spacing.s8) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                     Text(task.title)
-                        .font(.tasker(.callout))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .font(.lifeboard(.callout))
+                        .foregroundColor(Color.lifeboard.textPrimary)
                         .lineLimit(1)
                     Spacer()
                     Button {
-                        TaskerFeedback.light()
-                        withAnimation(TaskerAnimation.quick) {
+                        LifeBoardFeedback.light()
+                        withAnimation(LifeBoardAnimation.quick) {
                             self.selectedTaskID = nil
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(Color.tasker.textTertiary)
+                            .foregroundColor(Color.lifeboard.textTertiary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -75,7 +75,7 @@ struct AddTaskTaskPicker: View {
                 .padding(.vertical, spacing.s8)
                 .background(
                     RoundedRectangle(cornerRadius: corner.r2)
-                        .fill(Color.tasker.accentWash)
+                        .fill(Color.lifeboard.accentWash)
                 )
             }
 
@@ -84,22 +84,22 @@ struct AddTaskTaskPicker: View {
                 VStack(spacing: 0) {
                     ForEach(filteredTasks.prefix(5), id: \.id) { task in
                         Button {
-                            TaskerFeedback.selection()
-                            withAnimation(TaskerAnimation.snappy) {
+                            LifeBoardFeedback.selection()
+                            withAnimation(LifeBoardAnimation.snappy) {
                                 selectedTaskID = task.id
                                 searchText = ""
                             }
                         } label: {
                             HStack {
                                 Text(task.title)
-                                    .font(.tasker(.callout))
-                                    .foregroundColor(Color.tasker.textPrimary)
+                                    .font(.lifeboard(.callout))
+                                    .foregroundColor(Color.lifeboard.textPrimary)
                                     .lineLimit(1)
                                 Spacer()
                                 if selectedTaskID == task.id {
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(Color.tasker.accentPrimary)
+                                        .foregroundColor(Color.lifeboard.accentPrimary)
                                 }
                             }
                             .padding(.horizontal, spacing.s12)
@@ -110,7 +110,7 @@ struct AddTaskTaskPicker: View {
                 }
                 .background(
                     RoundedRectangle(cornerRadius: corner.r2)
-                        .fill(Color.tasker.surfaceTertiary)
+                        .fill(Color.lifeboard.surfaceTertiary)
                 )
             }
         }

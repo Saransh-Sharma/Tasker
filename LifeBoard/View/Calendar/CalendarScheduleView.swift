@@ -75,10 +75,10 @@ struct CalendarSchedulePresentation: Equatable {
     let weekDefaultSelectedDate: Date
     let currentWeekStart: Date
     let weekRangeLabel: String
-    let todayEvents: [TaskerCalendarEventSnapshot]
-    let weekAgenda: [TaskerCalendarDayAgenda]
+    let todayEvents: [LifeBoardCalendarEventSnapshot]
+    let weekAgenda: [LifeBoardCalendarDayAgenda]
     let weekDates: [Date]
-    let selectedWeekEvents: [TaskerCalendarEventSnapshot]
+    let selectedWeekEvents: [LifeBoardCalendarEventSnapshot]
 
     var weekEventCount: Int {
         weekAgenda.reduce(into: 0) { result, day in
@@ -93,12 +93,12 @@ private struct CalendarScheduleEventSignature: Equatable {
     let startDate: Date
     let endDate: Date
     let isAllDay: Bool
-    let availability: TaskerCalendarEventAvailability
-    let eventStatus: TaskerCalendarEventStatus
-    let participationStatus: TaskerCalendarEventParticipationStatus
+    let availability: LifeBoardCalendarEventAvailability
+    let eventStatus: LifeBoardCalendarEventStatus
+    let participationStatus: LifeBoardCalendarEventParticipationStatus
     let lastModifiedAt: Date?
 
-    init(_ event: TaskerCalendarEventSnapshot) {
+    init(_ event: LifeBoardCalendarEventSnapshot) {
         id = event.id
         calendarID = event.calendarID
         startDate = event.startDate
@@ -117,7 +117,7 @@ private struct CalendarSchedulePresentationCacheKey: Equatable {
     let weekStartsOn: Weekday
     let calendarIdentifier: Calendar.Identifier
     let calendarTimeZone: TimeZone
-    let authorizationStatus: TaskerCalendarAuthorizationStatus
+    let authorizationStatus: LifeBoardCalendarAuthorizationStatus
     let selectedCalendarIDs: [String]
     let includeDeclined: Bool
     let includeCanceled: Bool
@@ -125,7 +125,7 @@ private struct CalendarSchedulePresentationCacheKey: Equatable {
     let events: [CalendarScheduleEventSignature]
 
     init(
-        snapshot: TaskerCalendarSnapshot,
+        snapshot: LifeBoardCalendarSnapshot,
         selectedDate: Date,
         selectedWeekDate: Date,
         weekStartsOn: Weekday,
@@ -152,7 +152,7 @@ struct CalendarSchedulePresentationCache {
     private(set) var cacheHitCount = 0
 
     mutating func presentation(
-        snapshot: TaskerCalendarSnapshot,
+        snapshot: LifeBoardCalendarSnapshot,
         selectedDate: Date,
         selectedWeekDate: Date,
         weekStartsOn: Weekday,
@@ -191,7 +191,7 @@ enum CalendarSchedulePresentationBuilder {
         calendar: Calendar = .current
     ) -> CalendarSchedulePresentation {
         build(
-            snapshot: TaskerCalendarSnapshot.empty,
+            snapshot: LifeBoardCalendarSnapshot.empty,
             selectedDate: selectedDate,
             selectedWeekDate: selectedWeekDate,
             weekStartsOn: weekStartsOn,
@@ -200,14 +200,14 @@ enum CalendarSchedulePresentationBuilder {
     }
 
     static func build(
-        snapshot: TaskerCalendarSnapshot,
+        snapshot: LifeBoardCalendarSnapshot,
         selectedDate: Date,
         selectedWeekDate: Date,
         weekStartsOn: Weekday,
         calendar: Calendar = .current
     ) -> CalendarSchedulePresentation {
-        let interval = TaskerPerformanceTrace.begin("CalendarScheduleProjectionBuild")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("CalendarScheduleProjectionBuild")
+        defer { LifeBoardPerformanceTrace.end(interval) }
 
         let weekStart = XPCalculationEngine.startOfWeek(for: selectedDate, startingOn: weekStartsOn)
         let weekDates = (0..<7).compactMap { offset in
@@ -221,7 +221,7 @@ enum CalendarSchedulePresentationBuilder {
         let weekRangeLabel = rangeLabel(weekStart: weekStart, calendar: calendar)
         let weekAgenda = weekDates.map { day in
             let dayStart = calendar.startOfDay(for: day)
-            return TaskerCalendarDayAgenda(
+            return LifeBoardCalendarDayAgenda(
                 date: dayStart,
                 events: eventsForDay(dayStart, in: snapshot.eventsInRange, calendar: calendar)
             )
@@ -243,9 +243,9 @@ enum CalendarSchedulePresentationBuilder {
 
     private static func eventsForDay(
         _ day: Date,
-        in events: [TaskerCalendarEventSnapshot],
+        in events: [LifeBoardCalendarEventSnapshot],
         calendar: Calendar
-    ) -> [TaskerCalendarEventSnapshot] {
+    ) -> [LifeBoardCalendarEventSnapshot] {
         let startOfDay = calendar.startOfDay(for: day)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay
         return events
@@ -283,9 +283,9 @@ enum CalendarSchedulePresentationBuilder {
 
     private static func rangeLabel(weekStart: Date, calendar: Calendar) -> String {
         guard let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) else {
-            return TaskerCalendarPresentation.scheduleDateText(for: weekStart)
+            return LifeBoardCalendarPresentation.scheduleDateText(for: weekStart)
         }
-        return "\(TaskerCalendarPresentation.compactDateText(for: weekStart))-\(TaskerCalendarPresentation.compactDateText(for: weekEnd))"
+        return "\(LifeBoardCalendarPresentation.compactDateText(for: weekStart))-\(LifeBoardCalendarPresentation.compactDateText(for: weekEnd))"
     }
 }
 
@@ -297,7 +297,7 @@ struct CalendarScheduleView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     @State private var selectedTab: CalendarScheduleTab = .today
     @State private var presentationState = CalendarSchedulePresentationState()
@@ -326,7 +326,7 @@ struct CalendarScheduleView: View {
         )
     }
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     private func makePresentation(selectedWeekDate: Date) -> CalendarSchedulePresentation {
         var cache = presentationCache
@@ -392,7 +392,7 @@ struct CalendarScheduleView: View {
                 )
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
-                .presentationBackground(Color.tasker(.bgElevated))
+                .presentationBackground(Color.lifeboard(.bgElevated))
             case .chooser:
                 EventKitCalendarChooserSheet(
                     service: service,
@@ -407,7 +407,7 @@ struct CalendarScheduleView: View {
                 )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
-                .presentationBackground(Color.tasker(.bgElevated))
+                .presentationBackground(Color.lifeboard(.bgElevated))
             }
         }
     }
@@ -422,7 +422,7 @@ struct CalendarScheduleView: View {
                     contextLabel: selectedTab == .today
                         ? String(
                             format: String(localized: "Today \u{00B7} %@"),
-                            TaskerCalendarPresentation.scheduleDateText(for: selectedDate)
+                            LifeBoardCalendarPresentation.scheduleDateText(for: selectedDate)
                         )
                         : String(
                             format: String(localized: "Week \u{00B7} %@"),
@@ -441,7 +441,7 @@ struct CalendarScheduleView: View {
                 content(presentation: currentPresentation)
                     .enhancedStaggeredAppearance(index: 1)
             }
-            .taskerReadableContent(maxWidth: layoutClass.isPad ? 960 : .infinity, alignment: .center)
+            .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 960 : .infinity, alignment: .center)
             .padding(.horizontal, spacing.screenHorizontal)
             .padding(.top, spacing.s16)
             .padding(.bottom, spacing.sectionGap)
@@ -450,7 +450,7 @@ struct CalendarScheduleView: View {
             service.refreshContext(referenceDate: selectedDate, reason: "schedule_pull_to_refresh")
         }
         .accessibilityIdentifier("schedule.list")
-        .background(Color.tasker.bgCanvas.ignoresSafeArea())
+        .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
     }
 
     @ViewBuilder
@@ -482,7 +482,7 @@ struct CalendarScheduleView: View {
             mascotPlacement: .calendarRescheduleThinking,
             title: String(localized: "Loading schedule"),
             message: String(localized: "Fetching calendars and events for this workspace."),
-            accentColor: Color.tasker.stateInfo,
+            accentColor: Color.lifeboard.stateInfo,
             buttonTitle: nil,
             buttonAccessibilityIdentifier: nil,
             bodyAccessibilityIdentifier: "schedule.loading.initial",
@@ -517,7 +517,7 @@ struct CalendarScheduleView: View {
             mascotPlacement: .onboardingCalendarPermission,
             title: permissionTitle,
             message: permissionSubtitle,
-            accentColor: Color.tasker.statusWarning,
+            accentColor: Color.lifeboard.statusWarning,
             buttonTitle: permissionButtonTitle,
             buttonAccessibilityIdentifier: "schedule.permission.connect",
             bodyAccessibilityIdentifier: permissionStateAccessibilityID,
@@ -531,7 +531,7 @@ struct CalendarScheduleView: View {
             mascotPlacement: .calendarPlanning,
             title: String(localized: "No calendars selected"),
             message: String(localized: "Choose the calendars that should shape the schedule view and Home day lane."),
-            accentColor: Color.tasker.accentSecondary,
+            accentColor: Color.lifeboard.accentSecondary,
             buttonTitle: String(localized: "Choose Calendars"),
             buttonAccessibilityIdentifier: "schedule.noCalendars.choose",
             bodyAccessibilityIdentifier: "schedule.noCalendars.body",
@@ -547,7 +547,7 @@ struct CalendarScheduleView: View {
             mascotPlacement: .taskDeadlineRisk,
             title: String(localized: "Unable to load calendar"),
             message: message,
-            accentColor: Color.tasker.statusDanger,
+            accentColor: Color.lifeboard.statusDanger,
             buttonTitle: String(localized: "Retry"),
             buttonAccessibilityIdentifier: "schedule.error.retry",
             bodyAccessibilityIdentifier: "schedule.error.message",
@@ -584,13 +584,13 @@ struct CalendarScheduleView: View {
     private var permissionSubtitle: String {
         switch service.snapshot.authorizationStatus {
         case .notDetermined:
-            return String(localized: "Grant calendar access to bring Today and Week schedule context into Tasker.")
+            return String(localized: "Grant calendar access to bring Today and Week schedule context into LifeBoard.")
         case .denied:
-            return String(localized: "Calendar access is denied by iOS. Enable Tasker in Settings > Privacy & Security > Calendars. If Tasker is missing, restart your device, reinstall Tasker, or reset Location & Privacy.")
+            return String(localized: "Calendar access is denied by iOS. Enable LifeBoard in Settings > Privacy & Security > Calendars. If LifeBoard is missing, restart your device, reinstall LifeBoard, or reset Location & Privacy.")
         case .restricted:
             return String(localized: "Calendar access is restricted by system policy and cannot be changed here.")
         case .writeOnly:
-            return String(localized: "Tasker has write-only access. Allow full calendar access so schedule events can appear.")
+            return String(localized: "LifeBoard has write-only access. Allow full calendar access so schedule events can appear.")
         case .authorized:
             return String(localized: "Calendar access is required.")
         }
@@ -635,49 +635,49 @@ struct CalendarScheduleView: View {
     }
 }
 
-typealias HomeDayTimelineLayoutPlan = TaskerCalendarTimelineLayoutPlan
-typealias HomeDayTimelineLayoutPlanner = TaskerCalendarTimelinePlanner
+typealias HomeDayTimelineLayoutPlan = LifeBoardCalendarTimelineLayoutPlan
+typealias HomeDayTimelineLayoutPlanner = LifeBoardCalendarTimelinePlanner
 
 private struct CalendarScheduleHeaderView: View {
-    let snapshot: TaskerCalendarSnapshot
+    let snapshot: LifeBoardCalendarSnapshot
     let selectedTab: CalendarScheduleTab
     let contextLabel: String
     let onSelectTab: (CalendarScheduleTab) -> Void
     let onOpenFilters: () -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             HStack(alignment: .top, spacing: spacing.s12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(contextLabel)
-                        .font(layoutClass.isPad ? .tasker(.title2) : .tasker(.title3))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(layoutClass.isPad ? .lifeboard(.title2) : .lifeboard(.title3))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .accessibilityIdentifier("schedule.header.context")
 
                     Text(selectionLabel)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
 
                 Spacer(minLength: 0)
 
                 Button(action: onOpenFilters) {
                     Text(String(localized: "Filters"))
-                        .font(.tasker(.bodyStrong))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.bodyStrong))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                         .padding(.horizontal, spacing.s12)
                         .padding(.vertical, spacing.s8)
                         .background(
-                            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                                .fill(Color.tasker.surfacePrimary)
+                            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                                .fill(Color.lifeboard.surfacePrimary)
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                                .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                                .stroke(Color.lifeboard.strokeHairline.opacity(0.8), lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -692,23 +692,23 @@ private struct CalendarScheduleHeaderView: View {
             }
             .padding(spacing.s4)
             .background(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.xl, style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary.opacity(0.8))
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.xl, style: .continuous)
+                    .fill(Color.lifeboard.surfaceSecondary.opacity(0.8))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.xl, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.75), lineWidth: 1)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.xl, style: .continuous)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.75), lineWidth: 1)
             )
             .accessibilityIdentifier("schedule.segmented")
         }
         .padding(layoutClass.isPad ? spacing.s20 : spacing.s16)
         .background(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .fill(Color.tasker.bgElevated)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                .fill(Color.lifeboard.bgElevated)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.78), lineWidth: 1)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.78), lineWidth: 1)
         )
     }
 
@@ -717,14 +717,14 @@ private struct CalendarScheduleHeaderView: View {
             onSelectTab(tab)
         } label: {
             Text(tab.title)
-                .font(.tasker(.bodyStrong))
-                .foregroundStyle(selectedTab == tab ? Color.tasker.textInverse : Color.tasker.textPrimary)
+                .font(.lifeboard(.bodyStrong))
+                .foregroundStyle(selectedTab == tab ? Color.lifeboard.textInverse : Color.lifeboard.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, spacing.s12)
                 .padding(.vertical, spacing.s12)
                 .background(
-                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                        .fill(selectedTab == tab ? Color.tasker.actionPrimary : Color.clear)
+                    RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                        .fill(selectedTab == tab ? Color.lifeboard.actionPrimary : Color.clear)
                 )
         }
         .buttonStyle(.plain)
@@ -750,13 +750,13 @@ private struct CalendarScheduleHeaderView: View {
 }
 
 private struct CalendarScheduleTodayContent: View {
-    let snapshot: TaskerCalendarSnapshot
+    let snapshot: LifeBoardCalendarSnapshot
     let date: Date
-    let events: [TaskerCalendarEventSnapshot]
-    let onSelectEvent: (TaskerCalendarEventSnapshot) -> Void
+    let events: [LifeBoardCalendarEventSnapshot]
+    let onSelectEvent: (LifeBoardCalendarEventSnapshot) -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
@@ -772,8 +772,8 @@ private struct CalendarScheduleTodayContent: View {
 
             if events.isEmpty {
                 Text(String(localized: "No events today"))
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .accessibilityIdentifier("schedule.today.empty")
             }
         }
@@ -783,12 +783,12 @@ private struct CalendarScheduleTodayContent: View {
 private struct CalendarScheduleWeekContent: View {
     let weekDates: [Date]
     @Binding var selectedDate: Date
-    let eventsForSelectedDay: [TaskerCalendarEventSnapshot]
+    let eventsForSelectedDay: [LifeBoardCalendarEventSnapshot]
     let weekEventCount: Int
-    let onSelectEvent: (TaskerCalendarEventSnapshot) -> Void
+    let onSelectEvent: (LifeBoardCalendarEventSnapshot) -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
@@ -798,7 +798,7 @@ private struct CalendarScheduleWeekContent: View {
                     mascotPlacement: .timelineFreeSlot,
                     title: String(localized: "No events this week"),
                     message: String(localized: "The week horizon is clear with the currently selected calendars."),
-                    accentColor: Color.tasker.stateInfo,
+                    accentColor: Color.lifeboard.stateInfo,
                     buttonTitle: nil,
                     buttonAccessibilityIdentifier: nil,
                     bodyAccessibilityIdentifier: "schedule.week.empty",
@@ -808,13 +808,13 @@ private struct CalendarScheduleWeekContent: View {
                 weekStrip
 
                 Text(selectedDaySummary)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .padding(.horizontal, spacing.s12)
                     .padding(.vertical, spacing.s8)
                     .background(
-                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                            .fill(Color.tasker.surfaceSecondary)
+                        RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                            .fill(Color.lifeboard.surfaceSecondary)
                     )
                     .accessibilityIdentifier("schedule.week.selectedDay")
 
@@ -838,21 +838,21 @@ private struct CalendarScheduleWeekContent: View {
                 } label: {
                     VStack(spacing: 2) {
                         Text(date.formatted(.dateTime.weekday(.narrow)))
-                            .font(.tasker(.caption2))
-                            .foregroundStyle(isSelected ? Color.tasker.textInverse : Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption2))
+                            .foregroundStyle(isSelected ? Color.lifeboard.textInverse : Color.lifeboard.textSecondary)
                         Text(date.formatted(.dateTime.day()))
-                            .font(.tasker(.bodyStrong))
-                            .foregroundStyle(isSelected ? Color.tasker.textInverse : Color.tasker.textPrimary)
+                            .font(.lifeboard(.bodyStrong))
+                            .foregroundStyle(isSelected ? Color.lifeboard.textInverse : Color.lifeboard.textPrimary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, spacing.s8)
                     .background(
-                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                            .fill(isSelected ? Color.tasker.actionPrimary : Color.tasker.surfacePrimary)
+                        RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                            .fill(isSelected ? Color.lifeboard.actionPrimary : Color.lifeboard.surfacePrimary)
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                            .stroke(Color.tasker.strokeHairline.opacity(0.7), lineWidth: isSelected ? 0 : 1)
+                        RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
+                            .stroke(Color.lifeboard.strokeHairline.opacity(0.7), lineWidth: isSelected ? 0 : 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -862,7 +862,7 @@ private struct CalendarScheduleWeekContent: View {
     }
 
     private var selectedDaySummary: String {
-        let dayText = TaskerCalendarPresentation.scheduleDateText(for: selectedDate)
+        let dayText = LifeBoardCalendarPresentation.scheduleDateText(for: selectedDate)
         let count = eventsForSelectedDay.count
         let suffix = count == 1 ? "event" : "events"
         return "Selected day: \(dayText) \u{00B7} \(count) \(suffix)"
@@ -879,30 +879,30 @@ private struct CalendarScheduleWeekContent: View {
 }
 
 private struct CalendarScheduleNextUpCard: View {
-    let snapshot: TaskerCalendarSnapshot
+    let snapshot: LifeBoardCalendarSnapshot
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s4) {
             Text(primaryLine)
-                .font(.tasker(.bodyStrong))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.bodyStrong))
+                .foregroundStyle(Color.lifeboard.textPrimary)
             Text(secondaryLine)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
         }
         .padding(.horizontal, spacing.s12)
         .padding(.vertical, spacing.s12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .fill(Color.tasker.surfacePrimary)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                .fill(Color.lifeboard.surfacePrimary)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.7), lineWidth: 1)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.7), lineWidth: 1)
         )
         .accessibilityIdentifier("schedule.today.nextUp")
     }
@@ -916,7 +916,7 @@ private struct CalendarScheduleNextUpCard: View {
 
     private var secondaryLine: String {
         if let nextMeeting = snapshot.nextMeeting {
-            return TaskerCalendarPresentation.timeRangeText(for: nextMeeting.event)
+            return LifeBoardCalendarPresentation.timeRangeText(for: nextMeeting.event)
         }
         if let freeUntil = snapshot.freeUntil {
             return String(localized: "Free until \(freeUntil.formatted(date: .omitted, time: .shortened))")
@@ -927,45 +927,45 @@ private struct CalendarScheduleNextUpCard: View {
 
 private struct CalendarScheduleTimelineSection: View {
     let date: Date
-    let events: [TaskerCalendarEventSnapshot]
+    let events: [LifeBoardCalendarEventSnapshot]
     let emptyText: String
     let accessibilityIdentifier: String
-    let onSelectEvent: (TaskerCalendarEventSnapshot) -> Void
+    let onSelectEvent: (LifeBoardCalendarEventSnapshot) -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
-    private var timedEvents: [TaskerCalendarEventSnapshot] {
+    private var timedEvents: [LifeBoardCalendarEventSnapshot] {
         events.filter { !$0.isAllDay && $0.isBusy }
     }
 
     private var targetHour: Int {
-        TaskerCalendarTimelinePlanner.initialExpandedHour(for: events, on: date)
+        LifeBoardCalendarTimelinePlanner.initialExpandedHour(for: events, on: date)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                 Text(String(localized: "Timeline"))
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
 
                 Spacer(minLength: 0)
 
-                Text(TaskerCalendarPresentation.scheduleDateText(for: date))
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                Text(LifeBoardCalendarPresentation.scheduleDateText(for: date))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
             }
 
             if timedEvents.isEmpty {
                 Text(emptyText)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, spacing.s12)
                     .accessibilityIdentifier("schedule.timeline.empty")
             } else {
-                TaskerCalendarTimelineView(
+                LifeBoardCalendarTimelineView(
                     date: date,
                     events: events,
                     density: .expanded,
@@ -992,98 +992,98 @@ private struct CalendarScheduleStatePanel: View {
     let bodyAccessibilityIdentifier: String
     let action: (() -> Void)?
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             EvaMascotView(placement: mascotPlacement, size: .card)
 
             Text(title)
-                .font(.tasker(.sectionTitle))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.sectionTitle))
+                .foregroundStyle(Color.lifeboard.textPrimary)
 
             Text(message)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .accessibilityIdentifier(bodyAccessibilityIdentifier)
 
             if let buttonTitle, let action {
                 Button(action: action) {
                     Text(buttonTitle)
-                        .font(.tasker(.bodyStrong))
-                        .foregroundStyle(Color.tasker.textInverse)
+                        .font(.lifeboard(.bodyStrong))
+                        .foregroundStyle(Color.lifeboard.textInverse)
                         .frame(maxWidth: .infinity, minHeight: 48)
                         .background(accentColor)
-                        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(buttonAccessibilityIdentifier ?? "")
             }
         }
         .padding(spacing.s16)
-        .background(Color.tasker.bgElevated)
+        .background(Color.lifeboard.bgElevated)
         .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.75), lineWidth: 1)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.75), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous))
     }
 }
 
 private struct CalendarScheduleEventRow: View {
-    let event: TaskerCalendarEventSnapshot
+    let event: LifeBoardCalendarEventSnapshot
     let action: () -> Void
 
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
-    private var badges: [TaskerCalendarEventBadge] {
-        TaskerCalendarPresentation.badges(for: event)
+    private var badges: [LifeBoardCalendarEventBadge] {
+        LifeBoardCalendarPresentation.badges(for: event)
     }
 
     private var accentColor: Color {
-        TaskerHexColor.color(event.calendarColorHex, fallback: Color.tasker.accentPrimary)
+        LifeBoardHexColor.color(event.calendarColorHex, fallback: Color.lifeboard.accentPrimary)
     }
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
+            HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.md) {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(accentColor)
                     .frame(width: differentiateWithoutColor ? 8 : 4, height: 44)
                     .overlay(
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .stroke(Color.tasker.textInverse.opacity(differentiateWithoutColor ? 0.4 : 0), lineWidth: 1)
+                            .stroke(Color.lifeboard.textInverse.opacity(differentiateWithoutColor ? 0.4 : 0), lineWidth: 1)
                     )
                     .padding(.top, 2)
 
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-                    HStack(alignment: .top, spacing: TaskerTheme.Spacing.xs) {
+                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
+                    HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.xs) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(event.title)
-                                .font(.tasker(.headline))
-                                .foregroundStyle(Color.tasker.textPrimary)
-                                .strikethrough(event.isCanceled, color: Color.tasker.textSecondary)
+                                .font(.lifeboard(.headline))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
+                                .strikethrough(event.isCanceled, color: Color.lifeboard.textSecondary)
                                 .lineLimit(3)
 
-                            Text(TaskerCalendarPresentation.timeRangeText(for: event))
-                                .font(.tasker(.callout))
-                                .foregroundStyle(Color.tasker.textSecondary)
+                            Text(LifeBoardCalendarPresentation.timeRangeText(for: event))
+                                .font(.lifeboard(.callout))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
                         }
 
                         Spacer(minLength: 0)
 
                         Image(systemName: "chevron.right")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                             .padding(.top, 4)
                     }
 
                     if let metadataLine {
                         Text(metadataLine)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                             .lineLimit(1)
                     }
 
@@ -1097,7 +1097,7 @@ private struct CalendarScheduleEventRow: View {
                     }
                 }
             }
-            .padding(TaskerTheme.Spacing.md)
+            .padding(LifeBoardTheme.Spacing.md)
             .opacity(event.isCanceled ? 0.72 : 1)
         }
         .buttonStyle(.plain)
@@ -1114,20 +1114,20 @@ private struct CalendarScheduleEventRow: View {
     }
 
     private var accessibilityLabel: String {
-        var components = [event.title, TaskerCalendarPresentation.timeRangeText(for: event), event.calendarTitle]
+        var components = [event.title, LifeBoardCalendarPresentation.timeRangeText(for: event), event.calendarTitle]
         components.append(contentsOf: badges.map(\.title))
         return components.joined(separator: ", ")
     }
 }
 
 private struct CalendarScheduleBadgePill: View {
-    let badge: TaskerCalendarEventBadge
+    let badge: LifeBoardCalendarEventBadge
 
     var body: some View {
         Label(badge.title, systemImage: badge.systemImage)
-            .font(.tasker(.caption2))
+            .font(.lifeboard(.caption2))
             .foregroundStyle(textColor)
-            .padding(.horizontal, TaskerTheme.Spacing.xs)
+            .padding(.horizontal, LifeBoardTheme.Spacing.xs)
             .padding(.vertical, 4)
             .background(backgroundColor)
             .overlay(
@@ -1140,51 +1140,51 @@ private struct CalendarScheduleBadgePill: View {
     private var backgroundColor: Color {
         switch badge.tone {
         case .accent:
-            return Color.tasker.accentWash
+            return Color.lifeboard.accentWash
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.12)
+            return Color.lifeboard.statusWarning.opacity(0.12)
         case .danger:
-            return Color.tasker.statusDanger.opacity(0.1)
+            return Color.lifeboard.statusDanger.opacity(0.1)
         case .neutral:
-            return Color.tasker.surfaceSecondary
+            return Color.lifeboard.surfaceSecondary
         }
     }
 
     private var borderColor: Color {
         switch badge.tone {
         case .accent:
-            return Color.tasker.actionFocus.opacity(0.52)
+            return Color.lifeboard.actionFocus.opacity(0.52)
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.34)
+            return Color.lifeboard.statusWarning.opacity(0.34)
         case .danger:
-            return Color.tasker.statusDanger.opacity(0.34)
+            return Color.lifeboard.statusDanger.opacity(0.34)
         case .neutral:
-            return Color.tasker.strokeHairline
+            return Color.lifeboard.strokeHairline
         }
     }
 
     private var textColor: Color {
         switch badge.tone {
         case .accent:
-            return Color.tasker.actionPrimary
+            return Color.lifeboard.actionPrimary
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .danger:
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         case .neutral:
-            return Color.tasker.textSecondary
+            return Color.lifeboard.textSecondary
         }
     }
 }
 
-enum TaskerCalendarTimelineDensity {
+enum LifeBoardCalendarTimelineDensity {
     case compact
     case expanded
 }
 
-struct TaskerCalendarTimelineLayoutPlan: Equatable {
+struct LifeBoardCalendarTimelineLayoutPlan: Equatable {
     struct PositionedEvent: Equatable, Identifiable {
-        let event: TaskerCalendarEventSnapshot
+        let event: LifeBoardCalendarEventSnapshot
         let lane: Int
         let laneCount: Int
         let columnSpan: Int
@@ -1212,23 +1212,23 @@ struct TaskerCalendarTimelineLayoutPlan: Equatable {
     }
 }
 
-enum TaskerCalendarTimelinePlanner {
+enum LifeBoardCalendarTimelinePlanner {
     static let defaultWorkdayStartHour = 8
     static let defaultWorkdayEndHour = 18
     private static let compactWindowDurationMinutes = 135
 
     private struct ClippedEvent {
-        let event: TaskerCalendarEventSnapshot
+        let event: LifeBoardCalendarEventSnapshot
         let startMinute: Int
         let endMinute: Int
     }
 
     static func makePlan(
-        for events: [TaskerCalendarEventSnapshot],
+        for events: [LifeBoardCalendarEventSnapshot],
         on date: Date,
         anchorDate: Date = Date(),
         calendar: Calendar = .current
-    ) -> TaskerCalendarTimelineLayoutPlan? {
+    ) -> LifeBoardCalendarTimelineLayoutPlan? {
         makePlan(
             for: events,
             on: date,
@@ -1239,12 +1239,12 @@ enum TaskerCalendarTimelinePlanner {
     }
 
     static func makePlan(
-        for events: [TaskerCalendarEventSnapshot],
+        for events: [LifeBoardCalendarEventSnapshot],
         on date: Date,
-        density: TaskerCalendarTimelineDensity,
+        density: LifeBoardCalendarTimelineDensity,
         anchorDate: Date = Date(),
         calendar: Calendar = .current
-    ) -> TaskerCalendarTimelineLayoutPlan? {
+    ) -> LifeBoardCalendarTimelineLayoutPlan? {
         let selectedDayEvents = events
             .filter { !$0.isAllDay && $0.isBusy }
             .compactMap { clip($0, to: date, calendar: calendar) }
@@ -1269,15 +1269,15 @@ enum TaskerCalendarTimelinePlanner {
         }
 
         let clusters = overlapClusters(for: visibleEvents)
-        let positionedEvents = clusters.flatMap { cluster -> [TaskerCalendarTimelineLayoutPlan.PositionedEvent] in
+        let positionedEvents = clusters.flatMap { cluster -> [LifeBoardCalendarTimelineLayoutPlan.PositionedEvent] in
             var laneEndMinutes: [Int] = []
-            var positionedCluster: [TaskerCalendarTimelineLayoutPlan.PositionedEvent] = []
+            var positionedCluster: [LifeBoardCalendarTimelineLayoutPlan.PositionedEvent] = []
 
             for event in cluster {
                 if let reusableLane = laneEndMinutes.firstIndex(where: { $0 <= event.startMinute }) {
                     laneEndMinutes[reusableLane] = event.endMinute
                     positionedCluster.append(
-                        TaskerCalendarTimelineLayoutPlan.PositionedEvent(
+                        LifeBoardCalendarTimelineLayoutPlan.PositionedEvent(
                             event: event.event,
                             lane: reusableLane,
                             laneCount: 0,
@@ -1289,7 +1289,7 @@ enum TaskerCalendarTimelinePlanner {
                 } else {
                     laneEndMinutes.append(event.endMinute)
                     positionedCluster.append(
-                        TaskerCalendarTimelineLayoutPlan.PositionedEvent(
+                        LifeBoardCalendarTimelineLayoutPlan.PositionedEvent(
                             event: event.event,
                             lane: laneEndMinutes.count - 1,
                             laneCount: 0,
@@ -1308,7 +1308,7 @@ enum TaskerCalendarTimelinePlanner {
                     in: positionedCluster,
                     laneCount: laneCount
                 )
-                return TaskerCalendarTimelineLayoutPlan.PositionedEvent(
+                return LifeBoardCalendarTimelineLayoutPlan.PositionedEvent(
                     event: positioned.event,
                     lane: positioned.lane,
                     laneCount: laneCount,
@@ -1319,7 +1319,7 @@ enum TaskerCalendarTimelinePlanner {
             }
         }
 
-        return TaskerCalendarTimelineLayoutPlan(
+        return LifeBoardCalendarTimelineLayoutPlan(
             startMinute: visibleRange.startMinute,
             endMinute: visibleRange.endMinute,
             positionedEvents: positionedEvents
@@ -1327,7 +1327,7 @@ enum TaskerCalendarTimelinePlanner {
     }
 
     static func initialExpandedHour(
-        for events: [TaskerCalendarEventSnapshot],
+        for events: [LifeBoardCalendarEventSnapshot],
         on date: Date,
         anchorDate: Date = Date(),
         workdayStartHour: Int = defaultWorkdayStartHour,
@@ -1376,7 +1376,7 @@ enum TaskerCalendarTimelinePlanner {
 
     private static func visibleRange(
         for events: [ClippedEvent],
-        density: TaskerCalendarTimelineDensity,
+        density: LifeBoardCalendarTimelineDensity,
         anchorDate: Date,
         calendar: Calendar
     ) -> (startMinute: Int, endMinute: Int) {
@@ -1446,8 +1446,8 @@ enum TaskerCalendarTimelinePlanner {
     }
 
     private static func maxColumnSpan(
-        for event: TaskerCalendarTimelineLayoutPlan.PositionedEvent,
-        in cluster: [TaskerCalendarTimelineLayoutPlan.PositionedEvent],
+        for event: LifeBoardCalendarTimelineLayoutPlan.PositionedEvent,
+        in cluster: [LifeBoardCalendarTimelineLayoutPlan.PositionedEvent],
         laneCount: Int
     ) -> Int {
         guard laneCount > 1 else { return 1 }
@@ -1486,7 +1486,7 @@ enum TaskerCalendarTimelinePlanner {
     }
 
     private static func clip(
-        _ event: TaskerCalendarEventSnapshot,
+        _ event: LifeBoardCalendarEventSnapshot,
         to date: Date,
         calendar: Calendar
     ) -> ClippedEvent? {
@@ -1518,7 +1518,7 @@ enum TaskerCalendarTimelinePlanner {
     }
 }
 
-enum TaskerCalendarTimelineVisibleWindowPolicy: Equatable {
+enum LifeBoardCalendarTimelineVisibleWindowPolicy: Equatable {
     case fixed(anchorDate: Date)
 
     var anchorDate: Date {
@@ -1528,24 +1528,24 @@ enum TaskerCalendarTimelineVisibleWindowPolicy: Equatable {
         }
     }
 
-    static func fixedToCurrentMinute(_ date: Date = Date()) -> TaskerCalendarTimelineVisibleWindowPolicy {
+    static func fixedToCurrentMinute(_ date: Date = Date()) -> LifeBoardCalendarTimelineVisibleWindowPolicy {
         let minuteStamp = floor(date.timeIntervalSinceReferenceDate / 60.0) * 60.0
         return .fixed(anchorDate: Date(timeIntervalSinceReferenceDate: minuteStamp))
     }
 }
 
-struct TaskerCalendarTimelinePlanEventSignature: Equatable {
+struct LifeBoardCalendarTimelinePlanEventSignature: Equatable {
     let id: String
     let calendarID: String
     let startDate: Date
     let endDate: Date
     let isAllDay: Bool
-    let availability: TaskerCalendarEventAvailability
-    let eventStatus: TaskerCalendarEventStatus
-    let participationStatus: TaskerCalendarEventParticipationStatus
+    let availability: LifeBoardCalendarEventAvailability
+    let eventStatus: LifeBoardCalendarEventStatus
+    let participationStatus: LifeBoardCalendarEventParticipationStatus
     let lastModifiedAt: Date?
 
-    init(_ event: TaskerCalendarEventSnapshot) {
+    init(_ event: LifeBoardCalendarEventSnapshot) {
         id = event.id
         calendarID = event.calendarID
         startDate = event.startDate
@@ -1558,19 +1558,19 @@ struct TaskerCalendarTimelinePlanEventSignature: Equatable {
     }
 }
 
-struct TaskerCalendarTimelinePlanCacheKey: Equatable {
+struct LifeBoardCalendarTimelinePlanCacheKey: Equatable {
     let date: Date
-    let density: TaskerCalendarTimelineDensity
-    let visibleWindowPolicy: TaskerCalendarTimelineVisibleWindowPolicy
+    let density: LifeBoardCalendarTimelineDensity
+    let visibleWindowPolicy: LifeBoardCalendarTimelineVisibleWindowPolicy
     let calendarIdentifier: Calendar.Identifier
     let calendarTimeZone: TimeZone
-    let events: [TaskerCalendarTimelinePlanEventSignature]
+    let events: [LifeBoardCalendarTimelinePlanEventSignature]
 
     init(
-        events: [TaskerCalendarEventSnapshot],
+        events: [LifeBoardCalendarEventSnapshot],
         date: Date,
-        density: TaskerCalendarTimelineDensity,
-        visibleWindowPolicy: TaskerCalendarTimelineVisibleWindowPolicy,
+        density: LifeBoardCalendarTimelineDensity,
+        visibleWindowPolicy: LifeBoardCalendarTimelineVisibleWindowPolicy,
         calendar: Calendar = .current
     ) {
         self.date = calendar.startOfDay(for: date)
@@ -1578,24 +1578,24 @@ struct TaskerCalendarTimelinePlanCacheKey: Equatable {
         self.visibleWindowPolicy = visibleWindowPolicy
         self.calendarIdentifier = calendar.identifier
         self.calendarTimeZone = calendar.timeZone
-        self.events = events.map(TaskerCalendarTimelinePlanEventSignature.init)
+        self.events = events.map(LifeBoardCalendarTimelinePlanEventSignature.init)
     }
 }
 
-struct TaskerCalendarTimelinePlanCache {
-    private var cachedKey: TaskerCalendarTimelinePlanCacheKey?
-    private var cachedPlan: TaskerCalendarTimelineLayoutPlan?
+struct LifeBoardCalendarTimelinePlanCache {
+    private var cachedKey: LifeBoardCalendarTimelinePlanCacheKey?
+    private var cachedPlan: LifeBoardCalendarTimelineLayoutPlan?
     private(set) var buildCount = 0
     private(set) var cacheHitCount = 0
 
     mutating func plan(
-        for events: [TaskerCalendarEventSnapshot],
+        for events: [LifeBoardCalendarEventSnapshot],
         on date: Date,
-        density: TaskerCalendarTimelineDensity,
-        visibleWindowPolicy: TaskerCalendarTimelineVisibleWindowPolicy,
+        density: LifeBoardCalendarTimelineDensity,
+        visibleWindowPolicy: LifeBoardCalendarTimelineVisibleWindowPolicy,
         calendar: Calendar = .current
-    ) -> TaskerCalendarTimelineLayoutPlan? {
-        let key = TaskerCalendarTimelinePlanCacheKey(
+    ) -> LifeBoardCalendarTimelineLayoutPlan? {
+        let key = LifeBoardCalendarTimelinePlanCacheKey(
             events: events,
             date: date,
             density: density,
@@ -1607,15 +1607,15 @@ struct TaskerCalendarTimelinePlanCache {
             return cachedPlan
         }
 
-        let interval = TaskerPerformanceTrace.begin("CalendarTimelinePlanBuild")
-        let plan = TaskerCalendarTimelinePlanner.makePlan(
+        let interval = LifeBoardPerformanceTrace.begin("CalendarTimelinePlanBuild")
+        let plan = LifeBoardCalendarTimelinePlanner.makePlan(
             for: events,
             on: date,
             density: density,
             anchorDate: visibleWindowPolicy.anchorDate,
             calendar: calendar
         )
-        TaskerPerformanceTrace.end(interval)
+        LifeBoardPerformanceTrace.end(interval)
         cachedKey = key
         cachedPlan = plan
         buildCount += 1
@@ -1623,35 +1623,35 @@ struct TaskerCalendarTimelinePlanCache {
     }
 }
 
-struct TaskerCalendarTimelineView: View {
+struct LifeBoardCalendarTimelineView: View {
     let date: Date
-    let events: [TaskerCalendarEventSnapshot]
-    let density: TaskerCalendarTimelineDensity
+    let events: [LifeBoardCalendarEventSnapshot]
+    let density: LifeBoardCalendarTimelineDensity
     let showsDateLabel: Bool
     let emptyText: String
     let accessibilityIdentifier: String?
     let accessibilityLabelText: String?
     let initialVisibleHour: Int?
     let eventAccessibilityIdentifierPrefix: String
-    let onSelectEvent: ((TaskerCalendarEventSnapshot) -> Void)?
+    let onSelectEvent: ((LifeBoardCalendarEventSnapshot) -> Void)?
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var layoutPlan: TaskerCalendarTimelineLayoutPlan?
-    @State private var layoutPlanCache = TaskerCalendarTimelinePlanCache()
+    @State private var layoutPlan: LifeBoardCalendarTimelineLayoutPlan?
+    @State private var layoutPlanCache = LifeBoardCalendarTimelinePlanCache()
 
     init(
         date: Date,
-        events: [TaskerCalendarEventSnapshot],
-        density: TaskerCalendarTimelineDensity = .compact,
+        events: [LifeBoardCalendarEventSnapshot],
+        density: LifeBoardCalendarTimelineDensity = .compact,
         showsDateLabel: Bool = true,
         emptyText: String = "Nothing in this window",
         accessibilityIdentifier: String? = nil,
         accessibilityLabelText: String? = nil,
         initialVisibleHour: Int? = nil,
         eventAccessibilityIdentifierPrefix: String = "schedule.event",
-        onSelectEvent: ((TaskerCalendarEventSnapshot) -> Void)? = nil
+        onSelectEvent: ((LifeBoardCalendarEventSnapshot) -> Void)? = nil
     ) {
         self.date = date
         self.events = events
@@ -1665,7 +1665,7 @@ struct TaskerCalendarTimelineView: View {
         self.onSelectEvent = onSelectEvent
     }
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     private var metrics: TimelineMetrics {
         TimelineMetrics(density: density, layoutClass: layoutClass)
@@ -1673,8 +1673,8 @@ struct TaskerCalendarTimelineView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
-            let visibleWindowPolicy = TaskerCalendarTimelineVisibleWindowPolicy.fixedToCurrentMinute(timeline.date)
-            let layoutPlanCacheKey = TaskerCalendarTimelinePlanCacheKey(
+            let visibleWindowPolicy = LifeBoardCalendarTimelineVisibleWindowPolicy.fixedToCurrentMinute(timeline.date)
+            let layoutPlanCacheKey = LifeBoardCalendarTimelinePlanCacheKey(
                 events: events,
                 date: date,
                 density: density,
@@ -1686,14 +1686,14 @@ struct TaskerCalendarTimelineView: View {
                 }
         }
         .modifier(
-            TaskerCalendarTimelineAccessibilityModifier(
+            LifeBoardCalendarTimelineAccessibilityModifier(
                 identifier: accessibilityIdentifier,
                 label: accessibilityLabelText
             )
         )
     }
 
-    private func refreshLayoutPlan(visibleWindowPolicy: TaskerCalendarTimelineVisibleWindowPolicy) {
+    private func refreshLayoutPlan(visibleWindowPolicy: LifeBoardCalendarTimelineVisibleWindowPolicy) {
         var cache = layoutPlanCache
         layoutPlan = cache.plan(
             for: events,
@@ -1709,9 +1709,9 @@ struct TaskerCalendarTimelineView: View {
         if let layoutPlan {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 if showsDateLabel {
-                    Text(TaskerCalendarPresentation.compactDateText(for: date))
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                    Text(LifeBoardCalendarPresentation.compactDateText(for: date))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
 
                 switch density {
@@ -1725,20 +1725,20 @@ struct TaskerCalendarTimelineView: View {
         } else {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 if showsDateLabel {
-                    Text(TaskerCalendarPresentation.compactDateText(for: date))
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                    Text(LifeBoardCalendarPresentation.compactDateText(for: date))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
                 Text(emptyText)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
             }
             .padding(.top, spacing.s4)
         }
     }
 
     private func compactTimelineBody(
-        layoutPlan: TaskerCalendarTimelineLayoutPlan,
+        layoutPlan: LifeBoardCalendarTimelineLayoutPlan,
         anchorDate: Date
     ) -> some View {
         GeometryReader { proxy in
@@ -1748,7 +1748,7 @@ struct TaskerCalendarTimelineView: View {
     }
 
     private func expandedTimelineBody(
-        layoutPlan: TaskerCalendarTimelineLayoutPlan,
+        layoutPlan: LifeBoardCalendarTimelineLayoutPlan,
         anchorDate: Date
     ) -> some View {
         GeometryReader { proxy in
@@ -1779,7 +1779,7 @@ struct TaskerCalendarTimelineView: View {
 
     private func scrollExpandedTimeline(
         scrollProxy: ScrollViewProxy,
-        layoutPlan: TaskerCalendarTimelineLayoutPlan,
+        layoutPlan: LifeBoardCalendarTimelineLayoutPlan,
         targetHour: Int?
     ) {
         let clampedHour = min(
@@ -1798,7 +1798,7 @@ struct TaskerCalendarTimelineView: View {
     }
 
     private func timelineCanvas(
-        layoutPlan: TaskerCalendarTimelineLayoutPlan,
+        layoutPlan: LifeBoardCalendarTimelineLayoutPlan,
         anchorDate: Date,
         totalWidth: CGFloat
     ) -> some View {
@@ -1814,7 +1814,7 @@ struct TaskerCalendarTimelineView: View {
     }
 
     private func timelineGrid(
-        _ plan: TaskerCalendarTimelineLayoutPlan,
+        _ plan: LifeBoardCalendarTimelineLayoutPlan,
         width: CGFloat,
         anchorDate: Date
     ) -> some View {
@@ -1826,7 +1826,7 @@ struct TaskerCalendarTimelineView: View {
                 .frame(width: metrics.labelColumnWidth + width, height: totalHeight)
 
             Rectangle()
-                .fill(Color.tasker.strokeHairline.opacity(0.55))
+                .fill(Color.lifeboard.strokeHairline.opacity(0.55))
                 .frame(width: 1, height: totalHeight)
                 .offset(x: metrics.labelColumnWidth)
 
@@ -1835,12 +1835,12 @@ struct TaskerCalendarTimelineView: View {
 
                 HStack(spacing: spacing.s8) {
                     Text(hourLabel(hour))
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textTertiary)
                         .frame(width: metrics.labelColumnWidth - spacing.s4, alignment: .trailing)
 
                     Rectangle()
-                        .fill(Color.tasker.strokeHairline.opacity(hour == 12 ? 0.8 : 0.48))
+                        .fill(Color.lifeboard.strokeHairline.opacity(hour == 12 ? 0.8 : 0.48))
                         .frame(height: 1)
                 }
                 .offset(y: y)
@@ -1854,7 +1854,7 @@ struct TaskerCalendarTimelineView: View {
         }
     }
 
-    private func timelineEvents(_ plan: TaskerCalendarTimelineLayoutPlan, width: CGFloat) -> some View {
+    private func timelineEvents(_ plan: LifeBoardCalendarTimelineLayoutPlan, width: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
             ForEach(plan.positionedEvents) { positioned in
                 let frame = eventFrame(for: positioned, in: plan, width: width)
@@ -1863,7 +1863,7 @@ struct TaskerCalendarTimelineView: View {
                         Button {
                             onSelectEvent(positioned.event)
                         } label: {
-                            TaskerCalendarTimelineEventCard(
+                            LifeBoardCalendarTimelineEventCard(
                                 event: positioned.event,
                                 density: density,
                                 height: frame.height,
@@ -1875,7 +1875,7 @@ struct TaskerCalendarTimelineView: View {
                         .accessibilityLabel(timelineEventAccessibilityLabel(for: positioned.event))
                         .accessibilityHint(String(localized: "Open event details"))
                     } else {
-                        TaskerCalendarTimelineEventCard(
+                        LifeBoardCalendarTimelineEventCard(
                             event: positioned.event,
                             density: density,
                             height: frame.height,
@@ -1889,27 +1889,27 @@ struct TaskerCalendarTimelineView: View {
         }
     }
 
-    private func timelineEventAccessibilityLabel(for event: TaskerCalendarEventSnapshot) -> String {
+    private func timelineEventAccessibilityLabel(for event: LifeBoardCalendarEventSnapshot) -> String {
         [
             event.title,
-            TaskerCalendarPresentation.timeRangeText(for: event),
+            LifeBoardCalendarPresentation.timeRangeText(for: event),
             event.calendarTitle
         ]
         .filter { !$0.isEmpty }
         .joined(separator: ", ")
     }
 
-    private func timelineEmptyState(width: CGFloat, plan: TaskerCalendarTimelineLayoutPlan) -> some View {
+    private func timelineEmptyState(width: CGFloat, plan: LifeBoardCalendarTimelineLayoutPlan) -> some View {
         Text(emptyText)
-            .font(.tasker(.callout))
-            .foregroundStyle(Color.tasker.textSecondary)
+            .font(.lifeboard(.callout))
+            .foregroundStyle(Color.lifeboard.textSecondary)
             .frame(width: width, height: timelineHeight(for: plan))
             .offset(x: metrics.labelColumnWidth + metrics.laneInset, y: 0)
     }
 
     private func eventFrame(
-        for event: TaskerCalendarTimelineLayoutPlan.PositionedEvent,
-        in plan: TaskerCalendarTimelineLayoutPlan,
+        for event: LifeBoardCalendarTimelineLayoutPlan.PositionedEvent,
+        in plan: LifeBoardCalendarTimelineLayoutPlan,
         width: CGFloat
     ) -> CGRect {
         let columnWidth = width / CGFloat(max(1, event.laneCount))
@@ -1938,7 +1938,7 @@ struct TaskerCalendarTimelineView: View {
     }
 
     private func currentTimeOffset(
-        in plan: TaskerCalendarTimelineLayoutPlan,
+        in plan: LifeBoardCalendarTimelineLayoutPlan,
         anchorDate: Date
     ) -> CGFloat? {
         let calendar = Calendar.current
@@ -1953,7 +1953,7 @@ struct TaskerCalendarTimelineView: View {
         return CGFloat(nowMinute - startMinute) / 60.0 * metrics.hourHeight
     }
 
-    private func timelineHeight(for plan: TaskerCalendarTimelineLayoutPlan) -> CGFloat {
+    private func timelineHeight(for plan: LifeBoardCalendarTimelineLayoutPlan) -> CGFloat {
         CGFloat(max(1, plan.endMinute - plan.startMinute)) / 60.0 * metrics.hourHeight
     }
 
@@ -1966,11 +1966,11 @@ struct TaskerCalendarTimelineView: View {
                 .frame(height: metrics.currentTimeIndicatorHeight)
                 .background(
                     Capsule(style: .continuous)
-                        .fill(Color.tasker.statusDanger)
+                        .fill(Color.lifeboard.statusDanger)
                 )
 
             Rectangle()
-                .fill(Color.tasker.statusDanger)
+                .fill(Color.lifeboard.statusDanger)
                 .frame(width: width, height: metrics.currentTimeRuleHeight)
         }
     }
@@ -1988,7 +1988,7 @@ struct TaskerCalendarTimelineView: View {
     }
 }
 
-private struct TaskerCalendarTimelineAccessibilityModifier: ViewModifier {
+private struct LifeBoardCalendarTimelineAccessibilityModifier: ViewModifier {
     let identifier: String?
     let label: String?
 
@@ -2005,18 +2005,18 @@ private struct TaskerCalendarTimelineAccessibilityModifier: ViewModifier {
     }
 }
 
-private struct TaskerCalendarTimelineEventCard: View {
-    let event: TaskerCalendarEventSnapshot
-    let density: TaskerCalendarTimelineDensity
+private struct LifeBoardCalendarTimelineEventCard: View {
+    let event: LifeBoardCalendarEventSnapshot
+    let density: LifeBoardCalendarTimelineDensity
     let height: CGFloat
     let differentiateWithoutColor: Bool
 
     private var accentColor: Color {
-        TaskerHexColor.color(event.calendarColorHex, fallback: Color.tasker.accentPrimary)
+        LifeBoardHexColor.color(event.calendarColorHex, fallback: Color.lifeboard.accentPrimary)
     }
 
-    private var badges: [TaskerCalendarEventBadge] {
-        TaskerCalendarPresentation.badges(for: event)
+    private var badges: [LifeBoardCalendarEventBadge] {
+        LifeBoardCalendarPresentation.badges(for: event)
     }
 
     var body: some View {
@@ -2029,7 +2029,7 @@ private struct TaskerCalendarTimelineEventCard: View {
                 )
 
             if event.isCanceled {
-                TaskerCalendarTimelineStripeOverlay(
+                LifeBoardCalendarTimelineStripeOverlay(
                     color: accentColor,
                     cornerRadius: cornerRadius
                 )
@@ -2052,7 +2052,7 @@ private struct TaskerCalendarTimelineEventCard: View {
                     Text(event.title)
                         .font(titleFont)
                         .foregroundStyle(titleColor)
-                        .strikethrough(event.isCanceled, color: Color.tasker.textSecondary)
+                        .strikethrough(event.isCanceled, color: Color.lifeboard.textSecondary)
                         .lineLimit(titleLineLimit)
                         .minimumScaleFactor(0.9)
 
@@ -2065,17 +2065,17 @@ private struct TaskerCalendarTimelineEventCard: View {
                 }
 
                 if showsTimeLine {
-                    Text(TaskerCalendarPresentation.timeRangeText(for: event))
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                    Text(LifeBoardCalendarPresentation.timeRangeText(for: event))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.9)
                 }
 
                 if showsSupportingLine, let supportingLine {
                     Text(supportingLine)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.88)
                 }
@@ -2096,17 +2096,17 @@ private struct TaskerCalendarTimelineEventCard: View {
 
     private var cardFillColor: Color {
         if event.isCanceled {
-            return Color.tasker.surfaceSecondary.opacity(0.6)
+            return Color.lifeboard.surfaceSecondary.opacity(0.6)
         }
         return accentColor.opacity(density == .compact ? 0.14 : 0.16)
     }
 
     private var cardStrokeColor: Color {
-        event.isCanceled ? Color.tasker.strokeHairline.opacity(0.6) : accentColor.opacity(0.26)
+        event.isCanceled ? Color.lifeboard.strokeHairline.opacity(0.6) : accentColor.opacity(0.26)
     }
 
     private var titleColor: Color {
-        event.isCanceled ? Color.tasker.textSecondary : Color.tasker.textPrimary
+        event.isCanceled ? Color.lifeboard.textSecondary : Color.lifeboard.textPrimary
     }
 
     private var cornerRadius: CGFloat {
@@ -2138,7 +2138,7 @@ private struct TaskerCalendarTimelineEventCard: View {
     }
 
     private var titleFont: Font {
-        density == .compact ? .tasker(.caption1) : .tasker(.bodyStrong)
+        density == .compact ? .lifeboard(.caption1) : .lifeboard(.bodyStrong)
     }
 
     private var titleLineLimit: Int {
@@ -2161,7 +2161,7 @@ private struct TaskerCalendarTimelineEventCard: View {
     }
 }
 
-private struct TaskerCalendarTimelineStripeOverlay: View {
+private struct LifeBoardCalendarTimelineStripeOverlay: View {
     let color: Color
     let cornerRadius: CGFloat
 
@@ -2186,14 +2186,14 @@ private struct TaskerCalendarTimelineStripeOverlay: View {
     }
 }
 
-private struct TaskerCalendarBadgeView: View {
-    let badge: TaskerCalendarEventBadge
+private struct LifeBoardCalendarBadgeView: View {
+    let badge: LifeBoardCalendarEventBadge
 
     var body: some View {
         Label(badge.title, systemImage: badge.systemImage)
-            .font(.tasker(.caption2))
+            .font(.lifeboard(.caption2))
             .foregroundStyle(textColor)
-            .padding(.horizontal, TaskerTheme.Spacing.sm)
+            .padding(.horizontal, LifeBoardTheme.Spacing.sm)
             .padding(.vertical, 4)
             .background(backgroundColor)
             .overlay(
@@ -2206,39 +2206,39 @@ private struct TaskerCalendarBadgeView: View {
     private var backgroundColor: Color {
         switch badge.tone {
         case .accent:
-            return Color.tasker.accentWash
+            return Color.lifeboard.accentWash
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.14)
+            return Color.lifeboard.statusWarning.opacity(0.14)
         case .danger:
-            return Color.tasker.statusDanger.opacity(0.12)
+            return Color.lifeboard.statusDanger.opacity(0.12)
         case .neutral:
-            return Color.tasker.surfaceSecondary
+            return Color.lifeboard.surfaceSecondary
         }
     }
 
     private var borderColor: Color {
         switch badge.tone {
         case .accent:
-            return Color.tasker.actionFocus
+            return Color.lifeboard.actionFocus
         case .warning:
-            return Color.tasker.statusWarning.opacity(0.4)
+            return Color.lifeboard.statusWarning.opacity(0.4)
         case .danger:
-            return Color.tasker.statusDanger.opacity(0.4)
+            return Color.lifeboard.statusDanger.opacity(0.4)
         case .neutral:
-            return Color.tasker.strokeHairline
+            return Color.lifeboard.strokeHairline
         }
     }
 
     private var textColor: Color {
         switch badge.tone {
         case .accent:
-            return Color.tasker.actionPrimary
+            return Color.lifeboard.actionPrimary
         case .warning:
-            return Color.tasker.statusWarning
+            return Color.lifeboard.statusWarning
         case .danger:
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         case .neutral:
-            return Color.tasker.textSecondary
+            return Color.lifeboard.textSecondary
         }
     }
 }
@@ -2253,7 +2253,7 @@ private struct TimelineMetrics {
     let currentTimeRuleHeight: CGFloat
     let currentTimeLabelSize: CGFloat
 
-    init(density: TaskerCalendarTimelineDensity, layoutClass: TaskerLayoutClass) {
+    init(density: LifeBoardCalendarTimelineDensity, layoutClass: LifeBoardLayoutClass) {
         switch density {
         case .compact:
             labelColumnWidth = 52

@@ -26,7 +26,7 @@ public struct FocusSessionSummaryView: View {
         self.onContinueMomentum = onContinueMomentum
     }
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var minutesFocused: Int { durationSeconds / 60 }
 
@@ -43,37 +43,37 @@ public struct FocusSessionSummaryView: View {
 
             Text("Session Complete")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundColor(Color.tasker.textPrimary)
+                .foregroundColor(Color.lifeboard.textPrimary)
 
             // XP + Duration Card
             VStack(spacing: spacing.s8) {
                 Text("+\(xpAwarded) XP")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(Color.tasker.accentPrimary)
+                    .foregroundColor(Color.lifeboard.accentPrimary)
 
                 Text("\(minutesFocused) min focused")
-                    .font(.tasker(.body))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.body))
+                    .foregroundColor(Color.lifeboard.textSecondary)
             }
             .padding(spacing.s16)
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.tasker.surfacePrimary)
+                    .fill(Color.lifeboard.surfacePrimary)
             )
 
             // Daily Progress
             VStack(spacing: spacing.s4) {
                 Text("Today: \(dailyXPSoFar)/\(dailyXPCap) XP")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textSecondary)
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(Color.tasker.surfaceTertiary)
+                            .fill(Color.lifeboard.surfaceTertiary)
                         Capsule()
-                            .fill(dailyXPSoFar >= dailyXPCap ? Color.tasker.statusSuccess : Color.tasker.accentPrimary)
+                            .fill(dailyXPSoFar >= dailyXPCap ? Color.lifeboard.statusSuccess : Color.lifeboard.accentPrimary)
                             .frame(width: geo.size.width * dailyProgress)
                             .animation(.easeInOut(duration: 0.3), value: dailyProgress)
                     }
@@ -81,8 +81,8 @@ public struct FocusSessionSummaryView: View {
                 .frame(height: GamificationTokens.progressBarHeight)
 
                 Text("Next: complete another task to keep momentum.")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption2))
+                    .foregroundColor(Color.lifeboard.textTertiary)
             }
 
             Spacer()
@@ -90,26 +90,26 @@ public struct FocusSessionSummaryView: View {
             if let onContinueMomentum {
                 Button(action: onContinueMomentum) {
                     Text("Complete Another Task")
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.tasker.accentPrimary, lineWidth: 1.5)
+                                .stroke(Color.lifeboard.accentPrimary, lineWidth: 1.5)
                         )
                 }
             }
 
             Button(action: onDismiss) {
                 Text("Done")
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(Color.tasker.textInverse)
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundColor(Color.lifeboard.textInverse)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.tasker.accentPrimary)
+                            .fill(Color.lifeboard.accentPrimary)
                     )
             }
         }

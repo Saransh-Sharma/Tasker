@@ -8,13 +8,13 @@ final class ThemeSelectionViewController: UIViewController {
         super.viewDidLoad()
 
         title = "Brand Palette"
-        view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
         configureStack()
     }
 
     private func configureStack() {
-        let spacing = TaskerThemeManager.shared.currentTheme.tokens.spacing
-        let colors = TaskerThemeManager.shared.currentTheme
+        let spacing = LifeBoardThemeManager.shared.currentTheme.tokens.spacing
+        let colors = LifeBoardThemeManager.shared.currentTheme
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scrollView)
@@ -24,15 +24,15 @@ final class ThemeSelectionViewController: UIViewController {
         stackView.translatesAutoresizingMaskIntoConstraints = false
 
         let header = UILabel()
-        header.font = UIFont.tasker.screenTitle
-        header.textColor = TaskerUIKitTokens.color.textPrimary
-        header.text = "Tasker now uses one rooted Sarvam-inspired brand across every screen."
+        header.font = UIFont.lifeboard.screenTitle
+        header.textColor = LifeBoardUIKitTokens.color.textPrimary
+        header.text = "LifeBoard now uses one rooted Sarvam-inspired brand across every screen."
         header.numberOfLines = 0
 
         let preview = BrandPalettePreviewView(theme: colors)
         let footnote = UILabel()
-        footnote.font = UIFont.tasker.meta
-        footnote.textColor = TaskerUIKitTokens.color.textSecondary
+        footnote.font = UIFont.lifeboard.meta
+        footnote.textColor = LifeBoardUIKitTokens.color.textSecondary
         footnote.text = "Light and dark appearance follow your system settings automatically."
         footnote.numberOfLines = 0
 
@@ -61,9 +61,9 @@ final class ThemeDebugSwatchesViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Brand QA"
-        view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
 
-        let preview = BrandPalettePreviewView(theme: TaskerThemeManager.shared.currentTheme)
+        let preview = BrandPalettePreviewView(theme: LifeBoardThemeManager.shared.currentTheme)
         preview.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(preview)
 
@@ -77,17 +77,17 @@ final class ThemeDebugSwatchesViewController: UIViewController {
 #endif
 
 final class BrandPalettePreviewView: UIView {
-    init(theme: TaskerTheme) {
+    init(theme: LifeBoardTheme) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = TaskerUIKitTokens.color.surfacePrimary
-        layer.cornerRadius = TaskerUIKitTokens.corner.card
+        backgroundColor = LifeBoardUIKitTokens.color.surfacePrimary
+        layer.cornerRadius = LifeBoardUIKitTokens.corner.card
         layer.cornerCurve = .continuous
-        applyTaskerElevation(.e1)
+        applyLifeBoardElevation(.e1)
 
         let titleLabel = UILabel()
-        titleLabel.font = UIFont.tasker.eyebrow
-        titleLabel.textColor = TaskerUIKitTokens.color.textTertiary
+        titleLabel.font = UIFont.lifeboard.eyebrow
+        titleLabel.textColor = LifeBoardUIKitTokens.color.textTertiary
         titleLabel.text = "SARVAM-INSPIRED PALETTE"
 
         let swatchStack = UIStackView()
@@ -137,8 +137,8 @@ final class BrandPalettePreviewView: UIView {
         swatch.translatesAutoresizingMaskIntoConstraints = false
 
         let label = UILabel()
-        label.font = UIFont.tasker.caption2
-        label.textColor = TaskerUIKitTokens.color.textSecondary
+        label.font = UIFont.lifeboard.caption2
+        label.textColor = LifeBoardUIKitTokens.color.textSecondary
         label.textAlignment = .center
         label.text = name
         label.adjustsFontSizeToFitWidth = true

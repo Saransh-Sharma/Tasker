@@ -1,6 +1,6 @@
 //
 //  AddTaskNavigationBar.swift
-//  Tasker
+//  LifeBoard
 //
 //  Navigation bar: Cancel | Title | Done (Done disabled until valid).
 //
@@ -14,7 +14,7 @@ struct AddTaskNavigationBar: View {
     let onCancel: () -> Void
     let onSave: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         HStack {
@@ -22,8 +22,8 @@ struct AddTaskNavigationBar: View {
                 onCancel()
             } label: {
                 Text(containerMode == .inspector ? "Close" : "Cancel")
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("addTask.cancelButton")
@@ -31,20 +31,20 @@ struct AddTaskNavigationBar: View {
             Spacer()
 
             Text(title)
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
 
             Spacer()
 
             Button {
                 if canSave {
-                    TaskerFeedback.success()
+                    LifeBoardFeedback.success()
                     onSave()
                 }
             } label: {
                 Text("Done")
-                    .font(.tasker(.callout).weight(.semibold))
-                    .foregroundStyle(canSave ? Color.tasker.accentPrimary : Color.tasker.textQuaternary)
+                    .font(.lifeboard(.callout).weight(.semibold))
+                    .foregroundStyle(canSave ? Color.lifeboard.accentPrimary : Color.lifeboard.textQuaternary)
             }
             .buttonStyle(.plain)
             .disabled(!canSave)

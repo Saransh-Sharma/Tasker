@@ -1,6 +1,6 @@
 //
 //  HomeTaskSectionBuilder.swift
-//  Tasker
+//  LifeBoard
 //
 //  Pure layout builder for Home Today grouping modes.
 //

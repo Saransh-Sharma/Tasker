@@ -27,11 +27,11 @@ struct LifeManagementView: View {
     @State private var selectedHabitRow: HabitLibraryRow?
     @State private var habitComposerSuccessFlash = false
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     init(viewModel: LifeManagementViewModel) {
@@ -119,7 +119,7 @@ struct LifeManagementView: View {
                 compactBrowser
             }
         }
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
         .navigationTitle("Life Management")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("settings.lifeManagement.view")
@@ -128,11 +128,11 @@ struct LifeManagementView: View {
         .overlay {
             if viewModel.isLoading && hasTreeContent == false {
                 ProgressView("Loading life management...")
-                    .font(.tasker(.body))
+                    .font(.lifeboard(.body))
                     .padding(.horizontal, spacing.s16)
                     .padding(.vertical, spacing.s12)
                     .background(
-                        Color.tasker.surfacePrimary,
+                        Color.lifeboard.surfacePrimary,
                         in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                     )
             }
@@ -142,7 +142,7 @@ struct LifeManagementView: View {
                 mutationPill
             }
         }
-        .taskerSnackbar($viewModel.snackbar)
+        .lifeboardSnackbar($viewModel.snackbar)
         .task {
             viewModel.loadIfNeeded()
         }
@@ -157,7 +157,7 @@ struct LifeManagementView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(28)
-                .presentationBackground(Color.tasker(.bgElevated))
+                .presentationBackground(Color.lifeboard(.bgElevated))
                 .interactiveDismissDisabled(viewModel.isMutating)
         }
         .sheet(item: $viewModel.moveProjectDraft) { draft in
@@ -235,7 +235,7 @@ struct LifeManagementView: View {
     private var compactBrowser: some View {
         ScrollView {
             browserContent(interactionMode: .push)
-                .taskerReadableContent(maxWidth: 980, alignment: .center)
+                .lifeboardReadableContent(maxWidth: 980, alignment: .center)
                 .padding(.horizontal, spacing.screenHorizontal)
                 .padding(.vertical, spacing.s16)
         }
@@ -291,23 +291,23 @@ struct LifeManagementView: View {
     }
 
     private var lifeManagementPrimaryActionCard: some View {
-        TaskerSettingsCard(active: true) {
+        LifeBoardSettingsCard(active: true) {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 HStack(alignment: .top, spacing: spacing.s8) {
                     Image(systemName: "square.grid.2x2.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.tasker(.accentPrimary))
+                        .foregroundStyle(Color.lifeboard(.accentPrimary))
                         .frame(width: 22, height: 22)
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: spacing.s4) {
                         Text("Life Areas")
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.headline))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
 
                         Text("Create a new area to organize related projects and habits.")
-                            .font(.tasker(.callout))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.callout))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -327,26 +327,26 @@ struct LifeManagementView: View {
     }
 
     private func treeSection(_ section: LifeManagementTreeSection, interactionMode: LifeManagementTreeInteractionMode) -> some View {
-        TaskerSettingsCard(active: section.kind == .archived && viewModel.isSectionExpanded(section.kind)) {
+        LifeBoardSettingsCard(active: section.kind == .archived && viewModel.isSectionExpanded(section.kind)) {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Button {
                     guard section.kind == .archived else { return }
-                    withAnimation(accessibilityReduceMotion ? nil : TaskerAnimation.quick) {
+                    withAnimation(accessibilityReduceMotion ? nil : LifeBoardAnimation.quick) {
                         viewModel.toggleSectionExpansion(section.kind)
                     }
                 } label: {
                     HStack(spacing: spacing.s8) {
                         Text(section.title)
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.headline))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
                         Text("\(section.nodes.count)")
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                         Spacer()
                         if section.kind == .archived {
                             Image(systemName: viewModel.isSectionExpanded(section.kind) ? "chevron.down" : "chevron.right")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color.tasker(.textTertiary))
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -376,13 +376,13 @@ struct LifeManagementView: View {
                 HStack(alignment: .top, spacing: spacing.s8) {
                     if node.isExpandable {
                         Button {
-                            withAnimation(accessibilityReduceMotion ? nil : TaskerAnimation.quick) {
+                            withAnimation(accessibilityReduceMotion ? nil : LifeBoardAnimation.quick) {
                                 viewModel.toggleNodeExpansion(node.selection)
                             }
                         } label: {
                             Image(systemName: viewModel.isNodeExpanded(node.selection) ? "chevron.down" : "chevron.right")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Color.tasker(.textTertiary))
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
                                 .frame(width: 24, height: 24)
                         }
                         .buttonStyle(.plain)
@@ -458,16 +458,16 @@ struct LifeManagementView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(node.title)
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                     if let badgeTitle = nodeBadgeTitle(node) {
                         InlineToneBadge(title: badgeTitle)
                     }
                 }
 
                 Text(node.subtitle)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -478,11 +478,11 @@ struct LifeManagementView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(isSelected ? Color.tasker(.accentWash) : Color.tasker(.surfaceSecondary))
+                .fill(isSelected ? Color.lifeboard(.accentWash) : Color.lifeboard(.surfaceSecondary))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.strokeHairline), lineWidth: isSelected ? 1.5 : 1)
+                .stroke(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.strokeHairline), lineWidth: isSelected ? 1.5 : 1)
         )
         .contentShape(Rectangle())
         .accessibilityIdentifier(node.accessibilityIdentifier)
@@ -770,15 +770,15 @@ struct LifeManagementView: View {
     }
 
     private func errorCard(message: String) -> some View {
-        TaskerSettingsCard(active: true) {
+        LifeBoardSettingsCard(active: true) {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Label("Couldn’t complete the last action", systemImage: "exclamationmark.triangle.fill")
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
 
                 Text(message)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: spacing.s8) {
@@ -807,9 +807,11 @@ struct LifeManagementView: View {
     private func createHabitAndDismiss() {
         guard habitComposerViewModel.canSubmit, habitComposerViewModel.isSaving == false else { return }
         habitComposerViewModel.createHabit { result in
-            guard case .success = result else { return }
-            habitComposerPresented = false
-            viewModel.reload()
+            Task { @MainActor in
+                guard case .success = result else { return }
+                habitComposerPresented = false
+                viewModel.reload()
+            }
         }
     }
 
@@ -830,7 +832,7 @@ struct LifeManagementView: View {
             },
             onExpandToLarge: {}
         )
-        .background(Color.tasker(.bgCanvas))
+        .background(Color.lifeboard(.bgCanvas))
     }
 
     private var mutationPill: some View {
@@ -838,12 +840,12 @@ struct LifeManagementView: View {
             ProgressView()
                 .controlSize(.small)
             Text("Updating life management...")
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
         }
         .padding(.horizontal, spacing.s12)
         .padding(.vertical, spacing.s8)
-        .background(Color.tasker(.surfacePrimary), in: Capsule())
+        .background(Color.lifeboard(.surfacePrimary), in: Capsule())
         .padding(.bottom, spacing.s8)
     }
 
@@ -853,15 +855,15 @@ struct LifeManagementView: View {
         actionTitle: String?,
         action: (() -> Void)?
     ) -> some View {
-        TaskerSettingsCard {
+        LifeBoardSettingsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Text(title)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
 
                 Text(body)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let actionTitle, let action {
@@ -882,7 +884,7 @@ private struct LifeManagementMenuLabel: View {
         Label(title, systemImage: systemImage)
             .labelStyle(.iconOnly)
             .font(.system(size: 18, weight: .semibold))
-            .foregroundStyle(Color.tasker(.textSecondary))
+            .foregroundStyle(Color.lifeboard(.textSecondary))
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
             .accessibilityLabel(Text(title))
@@ -897,16 +899,16 @@ private struct LifeManagementAppearanceLine: View {
     var body: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(Color(uiColor: UIColor(taskerHex: accentHex)))
+                .fill(Color(uiColor: UIColor(lifeboardHex: accentHex)))
                 .frame(width: 12, height: 12)
                 .accessibilityHidden(true)
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
             Spacer()
             Text(value)
-                .font(.tasker(.bodyEmphasis))
-                .foregroundStyle(Color.tasker(.textPrimary))
+                .font(.lifeboard(.bodyEmphasis))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
         }
     }
 }
@@ -945,23 +947,23 @@ private struct AreaListRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(row.lifeArea.name)
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                     if row.isGeneral {
                         InlineToneBadge(title: "Pinned")
                     }
                 }
 
                 Text("\(row.projectCount) projects · \(row.habitCount) habits")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
 
             Spacer(minLength: 0)
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.tasker(.textTertiary))
+                .foregroundStyle(Color.lifeboard(.textTertiary))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -979,11 +981,11 @@ private struct AreaSummaryRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(row.lifeArea.name)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                 Text("\(row.projectCount) projects · \(row.habitCount) habits")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
 
             Spacer(minLength: 0)
@@ -1012,11 +1014,11 @@ private struct ProjectListRow: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(row.project.name)
-                            .font(.tasker(.bodyEmphasis))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.bodyEmphasis))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
                         Text(projectSubtitle)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
 
                     Spacer(minLength: 0)
@@ -1074,11 +1076,11 @@ private struct ProjectSummaryRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(row.project.name)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                 Text(summarySubtitle)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
 
             Spacer(minLength: 0)
@@ -1113,11 +1115,11 @@ private struct HabitListRow: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(row.row.title)
-                            .font(.tasker(.bodyEmphasis))
-                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .font(.lifeboard(.bodyEmphasis))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
                         Text(habitSubtitle)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
 
                     Spacer(minLength: 0)
@@ -1162,11 +1164,11 @@ private struct HabitSummaryRow: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(row.row.title)
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .font(.lifeboard(.bodyEmphasis))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
                     Text(lifeManagementHabitStatusText(row.row))
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
                 Spacer(minLength: 0)
             }
@@ -1205,7 +1207,7 @@ private struct AccentIconBadge: View {
     let accentHex: String
 
     var body: some View {
-        let color = Color(uiColor: UIColor(taskerHex: accentHex))
+        let color = Color(uiColor: UIColor(lifeboardHex: accentHex))
         ZStack {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(color.opacity(0.14))
@@ -1223,13 +1225,13 @@ private struct InlineToneBadge: View {
 
     var body: some View {
         Text(title)
-            .font(.tasker(.caption1).weight(.semibold))
-            .foregroundStyle(Color.tasker(.accentPrimary))
+            .font(.lifeboard(.caption1).weight(.semibold))
+            .foregroundStyle(Color.lifeboard(.accentPrimary))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
                 Capsule()
-                    .fill(Color.tasker(.accentWash))
+                    .fill(Color.lifeboard(.accentWash))
             )
     }
 }
@@ -1244,10 +1246,10 @@ private struct LifeManagementAreaDetailView: View {
     let onDeleteArea: (UUID) -> Void
     let onBeginCreateProject: (UUID) -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     var body: some View {
@@ -1256,7 +1258,7 @@ private struct LifeManagementAreaDetailView: View {
                 let row = snapshot.row
                 ScrollView {
                     VStack(spacing: spacing.s16) {
-                        TaskerSettingsCard {
+                        LifeBoardSettingsCard {
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 AreaSummaryRow(row: row)
                                 LifeManagementAppearanceLine(
@@ -1273,7 +1275,7 @@ private struct LifeManagementAreaDetailView: View {
                             }
                         }
 
-                        TaskerSettingsCard {
+                        LifeBoardSettingsCard {
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 ViewThatFits(in: .horizontal) {
                                     HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
@@ -1299,8 +1301,8 @@ private struct LifeManagementAreaDetailView: View {
 
                                 if snapshot.projectRows.isEmpty {
                                     Text("No projects in this area yet.")
-                                        .font(.tasker(.callout))
-                                        .foregroundStyle(Color.tasker(.textSecondary))
+                                        .font(.lifeboard(.callout))
+                                        .foregroundStyle(Color.lifeboard(.textSecondary))
                                 } else {
                                     VStack(spacing: spacing.chipSpacing) {
                                         ForEach(snapshot.projectRows) { projectRow in
@@ -1314,7 +1316,7 @@ private struct LifeManagementAreaDetailView: View {
                             }
                         }
 
-                        TaskerSettingsCard {
+                        LifeBoardSettingsCard {
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 ViewThatFits(in: .horizontal) {
                                     HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
@@ -1350,8 +1352,8 @@ private struct LifeManagementAreaDetailView: View {
 
                                 if snapshot.habitRows.isEmpty {
                                     Text("No habits in this area yet.")
-                                        .font(.tasker(.callout))
-                                        .foregroundStyle(Color.tasker(.textSecondary))
+                                        .font(.lifeboard(.callout))
+                                        .foregroundStyle(Color.lifeboard(.textSecondary))
                                 } else {
                                     VStack(spacing: spacing.chipSpacing) {
                                         ForEach(snapshot.habitRows) { habitRow in
@@ -1364,7 +1366,7 @@ private struct LifeManagementAreaDetailView: View {
                             }
                         }
 
-                        TaskerSettingsCard(active: true) {
+                        LifeBoardSettingsCard(active: true) {
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 sectionTitle("Actions")
 
@@ -1383,17 +1385,17 @@ private struct LifeManagementAreaDetailView: View {
                     }
                     .padding(.horizontal, spacing.screenHorizontal)
                     .padding(.vertical, spacing.s16)
-                    .taskerReadableContent(maxWidth: 920, alignment: .center)
+                    .lifeboardReadableContent(maxWidth: 920, alignment: .center)
                 }
-                .background(Color.tasker(.bgCanvas))
+                .background(Color.lifeboard(.bgCanvas))
                 .navigationTitle(row.lifeArea.name)
                 .navigationBarTitleDisplayMode(.inline)
             } else {
-                Color.tasker(.bgCanvas)
+                Color.lifeboard(.bgCanvas)
                     .overlay {
                         Text("This area is no longer available.")
-                            .font(.tasker(.body))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.body))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
             }
         }
@@ -1401,8 +1403,8 @@ private struct LifeManagementAreaDetailView: View {
 
     private func sectionTitle(_ title: String) -> some View {
         Text(title)
-            .font(.tasker(.headline))
-            .foregroundStyle(Color.tasker(.textPrimary))
+            .font(.lifeboard(.headline))
+            .foregroundStyle(Color.lifeboard(.textPrimary))
     }
 
     @ViewBuilder
@@ -1438,10 +1440,10 @@ private struct LifeManagementProjectDetailView: View {
     let onRestoreProject: (UUID) -> Void
     let onDeleteProject: (UUID) -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    private var spacing: LifeBoardSpacingTokens {
+        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
     var body: some View {
@@ -1451,15 +1453,15 @@ private struct LifeManagementProjectDetailView: View {
                 let canAddLinkedHabits = row.project.isArchived == false && row.lifeArea?.isArchived != true
                 ScrollView {
                     VStack(spacing: spacing.s16) {
-                        TaskerSettingsCard {
+                        LifeBoardSettingsCard {
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 ProjectSummaryRow(row: row)
                                 Text("\(row.project.color.displayName) · \(row.project.icon.displayName)")
-                                    .font(.tasker(.caption1))
-                                    .foregroundStyle(Color.tasker(.textSecondary))
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundStyle(Color.lifeboard(.textSecondary))
                                 Text(row.project.projectDescription?.nilIfBlank ?? "No project description yet.")
-                                    .font(.tasker(.callout))
-                                    .foregroundStyle(Color.tasker(.textSecondary))
+                                    .font(.lifeboard(.callout))
+                                    .foregroundStyle(Color.lifeboard(.textSecondary))
                                 if row.project.isArchived == false {
                                     Button("Edit Project") {
                                         onEditProject(row.id)
@@ -1469,11 +1471,11 @@ private struct LifeManagementProjectDetailView: View {
                             }
                         }
 
-                        TaskerSettingsCard {
+                        LifeBoardSettingsCard {
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 Text("Structure")
-                                    .font(.tasker(.headline))
-                                    .foregroundStyle(Color.tasker(.textPrimary))
+                                    .font(.lifeboard(.headline))
+                                    .foregroundStyle(Color.lifeboard(.textPrimary))
 
                                 detailLine(title: "Area", value: row.lifeArea?.name ?? "No Area")
                                 detailLine(title: "Open tasks", value: "\(row.taskCount)")
@@ -1481,13 +1483,13 @@ private struct LifeManagementProjectDetailView: View {
                             }
                         }
 
-                        TaskerSettingsCard {
+                        LifeBoardSettingsCard {
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 ViewThatFits(in: .horizontal) {
                                     HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                                         Text("Linked habits")
-                                            .font(.tasker(.headline))
-                                            .foregroundStyle(Color.tasker(.textPrimary))
+                                            .font(.lifeboard(.headline))
+                                            .foregroundStyle(Color.lifeboard(.textPrimary))
                                         Spacer()
                                         Button("Add Habit") {
                                             onCreateHabit(
@@ -1504,8 +1506,8 @@ private struct LifeManagementProjectDetailView: View {
 
                                     VStack(alignment: .leading, spacing: spacing.s8) {
                                         Text("Linked habits")
-                                            .font(.tasker(.headline))
-                                            .foregroundStyle(Color.tasker(.textPrimary))
+                                            .font(.lifeboard(.headline))
+                                            .foregroundStyle(Color.lifeboard(.textPrimary))
                                         Button("Add Habit") {
                                             onCreateHabit(
                                                 AddHabitPrefillTemplate(
@@ -1523,8 +1525,8 @@ private struct LifeManagementProjectDetailView: View {
 
                                 if snapshot.linkedHabits.isEmpty {
                                     Text("No habits are linked to this project.")
-                                        .font(.tasker(.callout))
-                                        .foregroundStyle(Color.tasker(.textSecondary))
+                                        .font(.lifeboard(.callout))
+                                        .foregroundStyle(Color.lifeboard(.textSecondary))
                                 } else {
                                     VStack(spacing: spacing.chipSpacing) {
                                         ForEach(snapshot.linkedHabits) { habitRow in
@@ -1537,11 +1539,11 @@ private struct LifeManagementProjectDetailView: View {
                             }
                         }
 
-                        TaskerSettingsCard(active: true) {
+                        LifeBoardSettingsCard(active: true) {
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 Text("Actions")
-                                    .font(.tasker(.headline))
-                                    .foregroundStyle(Color.tasker(.textPrimary))
+                                    .font(.lifeboard(.headline))
+                                    .foregroundStyle(Color.lifeboard(.textPrimary))
 
                                 ViewThatFits(in: .horizontal) {
                                     HStack(spacing: spacing.s8) {
@@ -1558,17 +1560,17 @@ private struct LifeManagementProjectDetailView: View {
                     }
                     .padding(.horizontal, spacing.screenHorizontal)
                     .padding(.vertical, spacing.s16)
-                    .taskerReadableContent(maxWidth: 920, alignment: .center)
+                    .lifeboardReadableContent(maxWidth: 920, alignment: .center)
                 }
-                .background(Color.tasker(.bgCanvas))
+                .background(Color.lifeboard(.bgCanvas))
                 .navigationTitle(row.project.name)
                 .navigationBarTitleDisplayMode(.inline)
             } else {
-                Color.tasker(.bgCanvas)
+                Color.lifeboard(.bgCanvas)
                     .overlay {
                         Text("This project is no longer available.")
-                            .font(.tasker(.body))
-                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .font(.lifeboard(.body))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
             }
         }
@@ -1577,12 +1579,12 @@ private struct LifeManagementProjectDetailView: View {
     private func detailLine(title: String, value: String) -> some View {
         HStack {
             Text(title)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
             Spacer()
             Text(value)
-                .font(.tasker(.bodyEmphasis))
-                .foregroundStyle(Color.tasker(.textPrimary))
+                .font(.lifeboard(.bodyEmphasis))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
         }
     }
 
@@ -1628,9 +1630,9 @@ private struct LifeManagementAreaComposerView: View {
     let onSave: (LifeManagementLifeAreaDraft) -> Void
     let onCancel: () -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
     private var readableWidth: CGFloat {
         switch containerMode {
         case .inspector:
@@ -1692,7 +1694,7 @@ private struct LifeManagementAreaComposerView: View {
                         title: draft.name.nilIfBlank ?? "New area",
                         subtitle: "Define the bucket that holds related projects and habits.",
                         iconName: draft.iconSymbolName,
-                        accentColor: lifeManagementResolvedColor(hex: draft.colorHex, fallback: Color.tasker.accentPrimary),
+                        accentColor: lifeManagementResolvedColor(hex: draft.colorHex, fallback: Color.lifeboard.accentPrimary),
                         metrics: [
                             LifeManagementComposerPreviewMetric(title: "Accent", value: selectedColorTitle),
                             LifeManagementComposerPreviewMetric(title: "Icon", value: selectedIconTitle)
@@ -1763,8 +1765,8 @@ private struct LifeManagementAreaComposerView: View {
             .padding(.horizontal, spacing.s16)
             .padding(.bottom, spacing.s16)
         }
-        .background(Color.tasker.bgCanvas)
-        .taskerReadableContent(maxWidth: readableWidth, alignment: .center)
+        .background(Color.lifeboard.bgCanvas)
+        .lifeboardReadableContent(maxWidth: readableWidth, alignment: .center)
         .accessibilityIdentifier("settings.lifeManagement.areaComposer")
         .onAppear {
             guard containerMode == .sheet else { return }
@@ -1798,9 +1800,9 @@ private struct LifeManagementProjectComposerView: View {
     let onSave: (LifeManagementProjectDraft) -> Void
     let onCancel: () -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
     private var readableWidth: CGFloat {
         switch containerMode {
         case .inspector:
@@ -1863,7 +1865,7 @@ private struct LifeManagementProjectComposerView: View {
                         title: draft.name.nilIfBlank ?? "New project",
                         subtitle: draft.description.nilIfBlank ?? "Projects group related tasks inside an area.",
                         iconName: draft.icon.systemImageName,
-                        accentColor: lifeManagementResolvedColor(hex: draft.color.hexString, fallback: Color.tasker.accentPrimary),
+                        accentColor: lifeManagementResolvedColor(hex: draft.color.hexString, fallback: Color.lifeboard.accentPrimary),
                         metrics: [
                             LifeManagementComposerPreviewMetric(title: "Area", value: selectedAreaName),
                             LifeManagementComposerPreviewMetric(title: "Accent", value: draft.color.displayName)
@@ -1893,7 +1895,7 @@ private struct LifeManagementProjectComposerView: View {
                                 )
 
                                 TextField("What is this project for?", text: $draft.description, axis: .vertical)
-                                    .textFieldStyle(TaskerTextFieldStyle())
+                                    .textFieldStyle(LifeBoardTextFieldStyle())
                                     .lineLimit(3, reservesSpace: true)
                             }
 
@@ -1962,8 +1964,8 @@ private struct LifeManagementProjectComposerView: View {
             .padding(.horizontal, spacing.s16)
             .padding(.bottom, spacing.s16)
         }
-        .background(Color.tasker.bgCanvas)
-        .taskerReadableContent(maxWidth: readableWidth, alignment: .center)
+        .background(Color.lifeboard.bgCanvas)
+        .lifeboardReadableContent(maxWidth: readableWidth, alignment: .center)
         .accessibilityIdentifier("settings.lifeManagement.projectComposer")
         .onAppear {
             guard containerMode == .sheet else { return }
@@ -2005,10 +2007,10 @@ private struct LifeManagementComposerPreviewCard: View {
     let accentColor: Color
     let metrics: [LifeManagementComposerPreviewMetric]
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     private var previewSignature: String {
         "\(title)-\(subtitle)-\(iconName)-\(metrics.map(\.value).joined(separator: "|"))"
@@ -2037,17 +2039,17 @@ private struct LifeManagementComposerPreviewCard: View {
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(eyebrow)
-                        .font(.tasker(.eyebrow))
+                        .font(.lifeboard(.eyebrow))
                         .foregroundStyle(Color.white.opacity(0.78))
 
                     Text(title)
-                        .font(.tasker(.title2).weight(.semibold))
+                        .font(.lifeboard(.title2).weight(.semibold))
                         .foregroundStyle(Color.white)
                         .contentTransition(.opacity)
                         .lineLimit(2)
 
                     Text(subtitle)
-                        .font(.tasker(.callout))
+                        .font(.lifeboard(.callout))
                         .foregroundStyle(Color.white.opacity(0.84))
                         .contentTransition(.opacity)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2076,7 +2078,7 @@ private struct LifeManagementComposerPreviewCard: View {
                 colors: [
                     accentColor.opacity(0.92),
                     accentColor.opacity(0.58),
-                    Color.tasker.surfacePrimary
+                    Color.lifeboard.surfacePrimary
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -2093,14 +2095,14 @@ private struct LifeManagementComposerPreviewCard: View {
                 endPoint: .bottomTrailing
             )
         )
-        .taskerPremiumSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
+        .lifeboardPremiumSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
             fillColor: .clear,
             strokeColor: Color.white.opacity(0.16),
             accentColor: accentColor,
             level: .e2
         )
-        .animation(reduceMotion ? nil : TaskerAnimation.heroEmphasis, value: previewSignature)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.heroEmphasis, value: previewSignature)
     }
 }
 
@@ -2110,11 +2112,11 @@ private struct LifeManagementComposerMetricTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(metric.title)
-                .font(.tasker(.caption1))
+                .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.white.opacity(0.72))
 
             Text(metric.value)
-                .font(.tasker(.callout).weight(.semibold))
+                .font(.lifeboard(.callout).weight(.semibold))
                 .foregroundStyle(Color.white)
                 .lineLimit(1)
         }
@@ -2122,7 +2124,7 @@ private struct LifeManagementComposerMetricTile: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
                 .fill(Color.white.opacity(0.12))
         )
     }
@@ -2134,9 +2136,9 @@ private struct LifeManagementComposerSectionCard<Content: View>: View {
     let iconSystemName: String
     let content: Content
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     init(
         title: String,
@@ -2155,17 +2157,17 @@ private struct LifeManagementComposerSectionCard<Content: View>: View {
             HStack(alignment: .top, spacing: spacing.s8) {
                 Image(systemName: iconSystemName)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
                     .frame(width: 24, height: 24)
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(title)
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
 
                     Text(subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -2173,7 +2175,7 @@ private struct LifeManagementComposerSectionCard<Content: View>: View {
             content
         }
         .padding(spacing.s16)
-        .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.card, fillColor: Color.tasker.surfacePrimary)
+        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.card, fillColor: Color.lifeboard.surfacePrimary)
     }
 }
 
@@ -2181,18 +2183,18 @@ private struct LifeManagementComposerFieldLabel: View {
     let title: String
     let detail: String
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s4) {
             Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textPrimary)
 
             Text(detail)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
         }
     }
 }
@@ -2201,25 +2203,25 @@ private struct LifeManagementComposerInlineMessage: View {
     let title: String
     let message: String
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s4) {
             Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.statusDanger)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.statusDanger)
 
             Text(message)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(spacing.s12)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.md,
-            fillColor: Color.tasker.statusDanger.opacity(0.08),
-            strokeColor: Color.tasker.statusDanger.opacity(0.18)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.md,
+            fillColor: Color.lifeboard.statusDanger.opacity(0.08),
+            strokeColor: Color.lifeboard.statusDanger.opacity(0.18)
         )
     }
 }
@@ -2227,9 +2229,9 @@ private struct LifeManagementComposerInlineMessage: View {
 private struct LifeManagementAreaSwatchPicker: View {
     @Binding var selectedHex: String
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -2237,11 +2239,11 @@ private struct LifeManagementAreaSwatchPicker: View {
                 ForEach(lifeManagementAreaPaletteOptions()) { option in
                     LifeManagementColorSwatchButton(
                         title: option.title,
-                        color: lifeManagementResolvedColor(hex: option.hex, fallback: Color.tasker.surfaceSecondary),
+                        color: lifeManagementResolvedColor(hex: option.hex, fallback: Color.lifeboard.surfaceSecondary),
                         systemImage: nil,
                         isSelected: lifeManagementNormalizedHex(selectedHex) == lifeManagementNormalizedHex(option.hex)
                     ) {
-                        withAnimation(TaskerAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.snappy) {
                             selectedHex = option.hex
                         }
                     }
@@ -2255,9 +2257,9 @@ private struct LifeManagementAreaSwatchPicker: View {
 private struct LifeManagementProjectColorPicker: View {
     @Binding var selectedColor: ProjectColor
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -2265,11 +2267,11 @@ private struct LifeManagementProjectColorPicker: View {
                 ForEach(ProjectColor.allCases, id: \.rawValue) { color in
                     LifeManagementColorSwatchButton(
                         title: color.displayName,
-                        color: lifeManagementResolvedColor(hex: color.hexString, fallback: Color.tasker.accentPrimary),
+                        color: lifeManagementResolvedColor(hex: color.hexString, fallback: Color.lifeboard.accentPrimary),
                         systemImage: nil,
                         isSelected: selectedColor == color
                     ) {
-                        withAnimation(TaskerAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.snappy) {
                             selectedColor = color
                         }
                     }
@@ -2288,52 +2290,52 @@ private struct LifeManagementColorSwatchButton: View {
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         Button {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         } label: {
             VStack(spacing: spacing.s8) {
                 ZStack {
                     Circle()
-                        .fill(color ?? Color.tasker.surfaceSecondary)
+                        .fill(color ?? Color.lifeboard.surfaceSecondary)
                         .frame(width: 26, height: 26)
 
                     if let systemImage {
                         Image(systemName: systemImage)
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(color == nil ? Color.tasker.textSecondary : Color.white)
+                            .foregroundStyle(color == nil ? Color.lifeboard.textSecondary : Color.white)
                     }
                 }
                 .overlay(
                     Circle()
-                        .stroke(isSelected ? Color.tasker.accentPrimary : Color.tasker.strokeHairline, lineWidth: isSelected ? 2 : 1)
+                        .stroke(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.strokeHairline, lineWidth: isSelected ? 2 : 1)
                 )
 
                 Text(title)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(isSelected ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(isSelected ? Color.lifeboard.textPrimary : Color.lifeboard.textSecondary)
                     .lineLimit(1)
             }
             .frame(width: 74)
             .frame(minHeight: 76)
             .padding(.vertical, spacing.s8)
             .background(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
-                    .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
+                    .fill(isSelected ? Color.lifeboard.accentWash : Color.lifeboard.surfaceSecondary)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
-                    .stroke(isSelected ? Color.tasker.accentMuted : Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
+                    .stroke(isSelected ? Color.lifeboard.accentMuted : Color.lifeboard.strokeHairline.opacity(0.72), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isSelected)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isSelected)
         .accessibilityLabel(title)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
@@ -2343,9 +2345,9 @@ private struct LifeManagementAreaIconPicker: View {
     let iconOptions: [LifeAreaIconOption]
     @Binding var selectedSymbolName: String
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         LazyVGrid(
@@ -2358,7 +2360,7 @@ private struct LifeManagementAreaIconPicker: View {
                     title: option.keywords.first?.capitalized ?? option.symbolName,
                     isSelected: selectedSymbolName == option.symbolName
                 ) {
-                    withAnimation(TaskerAnimation.snappy) {
+                    withAnimation(LifeBoardAnimation.snappy) {
                         selectedSymbolName = option.symbolName
                     }
                 }
@@ -2370,9 +2372,9 @@ private struct LifeManagementAreaIconPicker: View {
 private struct LifeManagementProjectIconPicker: View {
     @Binding var selectedIcon: ProjectIcon
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         LazyVGrid(
@@ -2385,7 +2387,7 @@ private struct LifeManagementProjectIconPicker: View {
                     title: icon.displayName,
                     isSelected: selectedIcon == icon
                 ) {
-                    withAnimation(TaskerAnimation.snappy) {
+                    withAnimation(LifeBoardAnimation.snappy) {
                         selectedIcon = icon
                     }
                 }
@@ -2400,27 +2402,27 @@ private struct LifeManagementIconTile: View {
     let isSelected: Bool
     let action: () -> Void
 
-    @Environment(\.taskerLayoutClass) private var layoutClass
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         Button {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         } label: {
             VStack(spacing: spacing.s8) {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
+                    .fill(isSelected ? Color.lifeboard.accentWash : Color.lifeboard.surfaceSecondary)
                     .frame(height: 46)
                     .overlay {
                         Image(systemName: systemImage)
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(isSelected ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
+                            .foregroundStyle(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)
                     }
 
                 Text(title)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(isSelected ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(isSelected ? Color.lifeboard.textPrimary : Color.lifeboard.textSecondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
@@ -2428,12 +2430,12 @@ private struct LifeManagementIconTile: View {
             .padding(spacing.s8)
             .frame(minHeight: 96)
             .background(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
-                    .fill(Color.tasker.surfacePrimary)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
+                    .fill(Color.lifeboard.surfacePrimary)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
-                    .stroke(isSelected ? Color.tasker.accentPrimary.opacity(0.34) : Color.tasker.strokeHairline.opacity(0.72), lineWidth: isSelected ? 1.5 : 1)
+                RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
+                    .stroke(isSelected ? Color.lifeboard.accentPrimary.opacity(0.34) : Color.lifeboard.strokeHairline.opacity(0.72), lineWidth: isSelected ? 1.5 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -2464,7 +2466,7 @@ private func lifeManagementAreaPaletteMatch(for hex: String) -> LifeManagementAr
 
 private func lifeManagementResolvedColor(hex: String?, fallback: Color) -> Color {
     guard let normalizedHex = lifeManagementResolvedHex(hex) else { return fallback }
-    return Color(uiColor: UIColor(taskerHex: normalizedHex))
+    return Color(uiColor: UIColor(lifeboardHex: normalizedHex))
 }
 
 private func lifeManagementResolvedHex(_ hex: String?) -> String? {

@@ -1,6 +1,6 @@
 //
 //  FilterPill.swift
-//  Tasker
+//  LifeBoard
 //
 //  Compact filter pill for quick filter display in navigation.
 //
@@ -29,7 +29,7 @@ public struct FilterPill: View {
         self.onRemove = onRemove
     }
     public var body: some View {
-        TaskerFilterChip(
+        LifeBoardFilterChip(
             title: title,
             systemImage: systemImage,
             isSelected: true,
@@ -51,7 +51,7 @@ struct FilterPill_Previews: PreviewProvider {
             FilterPill(title: "Clear all", systemImage: "xmark.circle.fill", isDestructive: true) {}
         }
         .padding()
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .previewLayout(.sizeThatFits)
     }
 }

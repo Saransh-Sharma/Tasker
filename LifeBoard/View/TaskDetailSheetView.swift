@@ -1,6 +1,6 @@
 //
 //  TaskDetailSheetView.swift
-//  Tasker
+//  LifeBoard
 //
 //  Action-first task details with Add Task field parity.
 //
@@ -13,22 +13,22 @@ enum TaskDetailContainerMode: Equatable {
 }
 
 struct TaskDetailSheetView: View {
-    typealias UpdateHandler = (UUID, UpdateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    typealias CompletionHandler = (UUID, Bool, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    typealias DeleteHandler = (UUID, TaskDeleteScope, @escaping (Result<Void, Error>) -> Void) -> Void
-    typealias RescheduleHandler = (UUID, Date?, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    typealias MetadataHandler = (UUID, @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void) -> Void
-    typealias RelationshipMetadataHandler = (UUID, @escaping (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void) -> Void
-    typealias ChildrenHandler = (UUID, @escaping (Result<[TaskDefinition], Error>) -> Void) -> Void
-    typealias CreateTaskHandler = (CreateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    typealias CreateTagHandler = (String, @escaping (Result<TagDefinition, Error>) -> Void) -> Void
-    typealias CreateProjectHandler = (String, @escaping (Result<Project, Error>) -> Void) -> Void
-    typealias SaveReflectionNoteHandler = (ReflectionNote, @escaping (Result<ReflectionNote, Error>) -> Void) -> Void
-    typealias TaskFitHintHandler = (TaskDefinition, @escaping (TaskerTaskFitHintResult) -> Void) -> Void
+    typealias UpdateHandler = (UUID, UpdateTaskDefinitionRequest, @escaping @MainActor @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias CompletionHandler = (UUID, Bool, @escaping @MainActor @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias DeleteHandler = (UUID, TaskDeleteScope, @escaping @MainActor @Sendable (Result<Void, Error>) -> Void) -> Void
+    typealias RescheduleHandler = (UUID, Date?, @escaping @MainActor @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias MetadataHandler = (UUID, @escaping @MainActor @Sendable (Result<TaskDetailMetadataPayload, Error>) -> Void) -> Void
+    typealias RelationshipMetadataHandler = (UUID, @escaping @MainActor @Sendable (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void) -> Void
+    typealias ChildrenHandler = (UUID, @escaping @MainActor @Sendable (Result<[TaskDefinition], Error>) -> Void) -> Void
+    typealias CreateTaskHandler = (CreateTaskDefinitionRequest, @escaping @MainActor @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias CreateTagHandler = (String, @escaping @MainActor @Sendable (Result<TagDefinition, Error>) -> Void) -> Void
+    typealias CreateProjectHandler = (String, @escaping @MainActor @Sendable (Result<Project, Error>) -> Void) -> Void
+    typealias SaveReflectionNoteHandler = (ReflectionNote, @escaping @MainActor @Sendable (Result<ReflectionNote, Error>) -> Void) -> Void
+    typealias TaskFitHintHandler = (TaskDefinition, @escaping @MainActor @Sendable (LifeBoardTaskFitHintResult) -> Void) -> Void
 
     /// Initializes a new instance.
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @StateObject private var viewModel: TaskDetailViewModel
     @State private var liveTodayXPSoFar: Int?
 
@@ -225,7 +225,7 @@ struct TaskDetailSheetView: View {
 
     private var baseContentView: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.lg) {
                 topBar
                 headerSection
                     .enhancedStaggeredAppearance(index: 0)
@@ -250,10 +250,10 @@ struct TaskDetailSheetView: View {
                 destructiveSection
                 metadataFooter
             }
-            .taskerReadableContent(maxWidth: readableContentWidth, alignment: .center)
-            .padding(.bottom, TaskerTheme.Spacing.xxxl)
+            .lifeboardReadableContent(maxWidth: readableContentWidth, alignment: .center)
+            .padding(.bottom, LifeBoardTheme.Spacing.xxxl)
         }
-        .background(Color.tasker.bgCanvas)
+        .background(Color.lifeboard.bgCanvas)
         .presentationDragIndicator(.visible)
         .accessibilityIdentifier("taskDetail.view")
         .onAppear {
@@ -270,34 +270,34 @@ struct TaskDetailSheetView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 if let routeBanner = viewModel.aiBreakdownRouteBanner, routeBanner.isEmpty == false {
-                    HStack(alignment: .top, spacing: TaskerTheme.Spacing.xs) {
+                    HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.xs) {
                         EvaMascotView(placement: .taskCapture, size: .chip)
                         Text(routeBanner)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                         Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
-                    .padding(.vertical, TaskerTheme.Spacing.sm)
-                    .background(Color.tasker.surfaceSecondary)
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                    .padding(.vertical, LifeBoardTheme.Spacing.sm)
+                    .background(Color.lifeboard.surfaceSecondary)
                 }
 
                 if viewModel.isGeneratingAIBreakdown {
-                    HStack(spacing: TaskerTheme.Spacing.xs) {
+                    HStack(spacing: LifeBoardTheme.Spacing.xs) {
                         EvaMascotView(placement: .chatThinking, size: .chip)
                         Text("Refining step suggestions...")
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard.textSecondary)
                         Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
-                    .padding(.vertical, TaskerTheme.Spacing.xs)
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                    .padding(.vertical, LifeBoardTheme.Spacing.xs)
                 }
 
                 List {
                     if viewModel.aiBreakdownSteps.isEmpty {
                         Text("No step suggestions available.")
-                            .foregroundColor(Color.tasker.textTertiary)
+                            .foregroundColor(Color.lifeboard.textTertiary)
                     } else {
                         ForEach(viewModel.aiBreakdownSteps, id: \.self) { step in
                             Button {
@@ -309,9 +309,9 @@ struct TaskDetailSheetView: View {
                             } label: {
                                 HStack {
                                     Image(systemName: selectedBreakdownSteps.contains(step) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundColor(selectedBreakdownSteps.contains(step) ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                                        .foregroundColor(selectedBreakdownSteps.contains(step) ? Color.lifeboard.accentPrimary : Color.lifeboard.textTertiary)
                                     Text(step)
-                                        .foregroundColor(Color.tasker.textPrimary)
+                                        .foregroundColor(Color.lifeboard.textPrimary)
                                 }
                             }
                             .buttonStyle(.plain)
@@ -344,9 +344,9 @@ struct TaskDetailSheetView: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .frame(width: 30, height: 30)
-                        .background(Color.tasker.surfaceSecondary)
+                        .background(Color.lifeboard.surfaceSecondary)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -356,13 +356,13 @@ struct TaskDetailSheetView: View {
 
             Spacer()
         }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .padding(.top, TaskerTheme.Spacing.sm)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
+        .padding(.top, LifeBoardTheme.Spacing.sm)
     }
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-            HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
+            HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.md) {
                 CompletionCheckbox(isComplete: viewModel.isComplete) {
                     viewModel.toggleRootCompletion()
                 }
@@ -371,27 +371,27 @@ struct TaskDetailSheetView: View {
                 .padding(.top, 6)
 
                 TextField("Task title", text: $viewModel.taskName, axis: .vertical)
-                    .font(.tasker(.title1))
+                    .font(.lifeboard(.title1))
                     .fontWeight(.semibold)
                     .multilineTextAlignment(.leading)
                     .lineLimit(3...5)
                     .fixedSize(horizontal: false, vertical: true)
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .foregroundColor(Color.lifeboard.textPrimary)
                     .focused($titleFocused)
                     .textFieldStyle(.plain)
                     .accessibilityIdentifier("taskDetail.titleField")
             }
 
             Text(headerSummaryText)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("taskDetail.projectLabel")
 
             if viewModel.scheduleExtrasSummary.isEmpty == false {
                 Text(viewModel.scheduleExtrasSummary)
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.textTertiary)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -399,14 +399,14 @@ struct TaskDetailSheetView: View {
                 autosaveBanner
             }
         }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .padding(.vertical, TaskerTheme.Spacing.md)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
+        .padding(.vertical, LifeBoardTheme.Spacing.md)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
         )
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
     }
 
     private var detailXPPreview: XPCompletionPreview? {
@@ -432,14 +432,14 @@ struct TaskDetailSheetView: View {
     @ViewBuilder
     private var autosaveBanner: some View {
         if viewModel.autosaveState != .idle {
-            HStack(spacing: TaskerTheme.Spacing.xs) {
+            HStack(spacing: LifeBoardTheme.Spacing.xs) {
                 Image(systemName: autosaveSymbol)
                     .font(.system(size: 12, weight: .semibold))
                 Text(viewModel.autosaveState.label)
-                    .font(.tasker(.meta).weight(.semibold))
+                    .font(.lifeboard(.meta).weight(.semibold))
             }
             .foregroundStyle(autosaveColor)
-            .padding(.horizontal, TaskerTheme.Spacing.sm)
+            .padding(.horizontal, LifeBoardTheme.Spacing.sm)
             .padding(.vertical, 6)
             .background(autosaveFillColor)
             .overlay(
@@ -473,11 +473,11 @@ struct TaskDetailSheetView: View {
     }
 
     private var notesSection: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             HStack {
                 Text("Notes")
-                    .font(.tasker(.headline).leading(.tight))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .font(.lifeboard(.headline).leading(.tight))
+                    .foregroundColor(Color.lifeboard.textPrimary)
                 Spacer()
                 Button(showDescriptionEditor ? "Done" : "Edit") {
                     showDescriptionEditor.toggle()
@@ -485,8 +485,8 @@ struct TaskDetailSheetView: View {
                         descriptionFocused = true
                     }
                 }
-                .font(.tasker(.caption1).weight(.medium))
-                .foregroundColor(Color.tasker.accentPrimary)
+                .font(.lifeboard(.caption1).weight(.medium))
+                .foregroundColor(Color.lifeboard.accentPrimary)
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("taskDetail.editButton")
             }
@@ -502,35 +502,35 @@ struct TaskDetailSheetView: View {
                     Group {
                         if descriptionIsEmpty {
                             Text(descriptionPreview)
-                                .font(.tasker(.body))
-                                .foregroundStyle(Color.tasker.textQuaternary)
+                                .font(.lifeboard(.body))
+                                .foregroundStyle(Color.lifeboard.textQuaternary)
                                 .italic()
                         } else {
                             Text(descriptionPreview)
-                                .font(.tasker(.body))
-                                .foregroundStyle(Color.tasker.textSecondary)
+                                .font(.lifeboard(.body))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
                         }
                     }
                     .lineLimit(5)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(TaskerTheme.Spacing.md)
+                    .padding(LifeBoardTheme.Spacing.md)
                     .background(
-                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
-                            .fill(Color.tasker.surfaceSecondary.opacity(0.68))
+                        RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
+                            .fill(Color.lifeboard.surfaceSecondary.opacity(0.68))
                     )
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("taskDetail.descriptionField")
             }
         }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .padding(.vertical, TaskerTheme.Spacing.md)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
+        .padding(.vertical, LifeBoardTheme.Spacing.md)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
         )
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
     }
 
     private var stepsSection: some View {
@@ -541,18 +541,18 @@ struct TaskDetailSheetView: View {
             section: .steps,
             accessibilityIdentifier: "taskDetail.disclosure.steps"
         ) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
                 Text(viewModel.stepCreationHint)
-                    .font(.tasker(.meta))
-                    .foregroundStyle(Color.tasker.textSecondary)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
 
-                HStack(spacing: TaskerTheme.Spacing.md) {
+                HStack(spacing: LifeBoardTheme.Spacing.md) {
                     Button("Make smaller") {
                         stepFocused = true
                     }
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
 
                     if V2FeatureFlags.assistantBreakdownEnabled && viewModel.childSteps.isEmpty {
                         Button(viewModel.isGeneratingAIBreakdown ? "Thinking..." : "Break down") {
@@ -561,24 +561,24 @@ struct TaskDetailSheetView: View {
                                 showBreakdownSheet = true
                             }
                         }
-                        .font(.tasker(.callout))
+                        .font(.lifeboard(.callout))
                         .buttonStyle(.plain)
-                        .foregroundStyle(Color.tasker.accentPrimary)
+                        .foregroundStyle(Color.lifeboard.accentPrimary)
                         .disabled(viewModel.isGeneratingAIBreakdown)
                     }
                 }
 
                 ForEach(viewModel.childSteps, id: \.id) { step in
-                    HStack(spacing: TaskerTheme.Spacing.sm) {
+                    HStack(spacing: LifeBoardTheme.Spacing.sm) {
                         CompletionCheckbox(isComplete: step.isComplete, compact: true) {
                             viewModel.toggleStepCompletion(step)
                         }
                         .accessibilityHint("Toggle step completion")
 
                         Text(step.title)
-                            .font(.tasker(.callout))
-                            .foregroundColor(step.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
-                            .strikethrough(step.isComplete, color: Color.tasker.textTertiary)
+                            .font(.lifeboard(.callout))
+                            .foregroundColor(step.isComplete ? Color.lifeboard.textTertiary : Color.lifeboard.textPrimary)
+                            .strikethrough(step.isComplete, color: Color.lifeboard.textTertiary)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         Menu {
@@ -594,25 +594,25 @@ struct TaskDetailSheetView: View {
                         } label: {
                             Image(systemName: "ellipsis")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(Color.tasker.textSecondary)
+                                .foregroundColor(Color.lifeboard.textSecondary)
                                 .frame(width: 28, height: 28)
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, TaskerTheme.Spacing.md)
-                    .padding(.vertical, TaskerTheme.Spacing.sm)
-                    .taskerDenseSurface(
-                        cornerRadius: TaskerTheme.CornerRadius.md,
-                        fillColor: Color.tasker.surfaceSecondary.opacity(0.7),
-                        strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                    .padding(.vertical, LifeBoardTheme.Spacing.sm)
+                    .lifeboardDenseSurface(
+                        cornerRadius: LifeBoardTheme.CornerRadius.md,
+                        fillColor: Color.lifeboard.surfaceSecondary.opacity(0.7),
+                        strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
                     )
                     .taskCompletionTransition(isComplete: step.isComplete)
                     .accessibilityIdentifier("taskDetail.step.\(step.id.uuidString)")
                 }
 
-                HStack(spacing: TaskerTheme.Spacing.sm) {
+                HStack(spacing: LifeBoardTheme.Spacing.sm) {
                     TextField("Add a step...", text: $newStepTitle)
-                        .font(.tasker(.callout))
+                        .font(.lifeboard(.callout))
                         .focused($stepFocused)
                         .textFieldStyle(.plain)
                         .onSubmit {
@@ -625,30 +625,30 @@ struct TaskDetailSheetView: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(Color.tasker.accentPrimary)
+                            .foregroundColor(Color.lifeboard.accentPrimary)
                     }
                     .buttonStyle(.plain)
                     .disabled(newStepTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .accessibilityLabel("Add step")
                 }
-                .padding(.horizontal, TaskerTheme.Spacing.md)
-                .padding(.vertical, TaskerTheme.Spacing.sm)
-                .taskerDenseSurface(
-                    cornerRadius: TaskerTheme.CornerRadius.md,
-                    fillColor: Color.tasker.surfaceSecondary.opacity(0.7),
-                    strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+                .padding(.horizontal, LifeBoardTheme.Spacing.md)
+                .padding(.vertical, LifeBoardTheme.Spacing.sm)
+                .lifeboardDenseSurface(
+                    cornerRadius: LifeBoardTheme.CornerRadius.md,
+                    fillColor: Color.lifeboard.surfaceSecondary.opacity(0.7),
+                    strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
                 )
             }
         }
     }
 
     private var scheduleSection: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             Text("Schedule")
-                .font(.tasker(.headline).leading(.tight))
-                .foregroundStyle(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline).leading(.tight))
+                .foregroundStyle(Color.lifeboard.textPrimary)
 
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
                 AddTaskDatePresetRow(
                     dueDate: dueDateBinding,
                     customChipAccessibilityIdentifier: "taskDetail.chip.due"
@@ -663,8 +663,8 @@ struct TaskDetailSheetView: View {
                     Button("Clear due date") {
                         viewModel.setDueDate(nil)
                     }
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.statusWarning)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.statusWarning)
                     .buttonStyle(.plain)
                 }
 
@@ -672,20 +672,20 @@ struct TaskDetailSheetView: View {
                     Button("Clear reminder") {
                         viewModel.reminderTime = nil
                     }
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.statusWarning)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.statusWarning)
                     .buttonStyle(.plain)
                 }
             }
         }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .padding(.vertical, TaskerTheme.Spacing.md)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
+        .padding(.vertical, LifeBoardTheme.Spacing.md)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
         )
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
     }
 
     private var scheduleEditingSection: some View {
@@ -695,7 +695,7 @@ struct TaskDetailSheetView: View {
             defaultStartDate: viewModel.defaultScheduledStartForEditor()
         )
         .accessibilityIdentifier("taskDetail.scheduleEditor")
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
     }
 
     private var moreDetailsSection: some View {
@@ -706,7 +706,7 @@ struct TaskDetailSheetView: View {
             section: .details,
             accessibilityIdentifier: "taskDetail.disclosure.details"
         ) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
                 AddTaskProjectBar(
                     selectedProject: selectedProjectNameBinding,
                     projects: viewModel.projects,
@@ -818,7 +818,7 @@ struct TaskDetailSheetView: View {
     private var taskFitHintRow: some View {
         let hint = viewModel.taskFitHint
         let style = taskFitStyle(for: hint.classification)
-        return HStack(alignment: .top, spacing: TaskerTheme.Spacing.xs) {
+        return HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.xs) {
             Image(systemName: style.symbol)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(style.tint)
@@ -828,50 +828,50 @@ struct TaskDetailSheetView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text("Task fit")
-                        .font(.tasker(.meta).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(.lifeboard(.meta).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
                     if viewModel.isLoadingTaskFitHint {
                         ProgressView()
                             .controlSize(.mini)
                     }
                 }
                 Text(hint.message)
-                    .font(.tasker(.caption1))
+                    .font(.lifeboard(.caption1))
                     .foregroundStyle(style.tint)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let window = taskFitWindowSummary(hint) {
                     Text(window)
-                        .font(.tasker(.meta))
-                        .foregroundStyle(Color.tasker.textSecondary)
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, TaskerTheme.Spacing.sm)
-        .padding(.vertical, TaskerTheme.Spacing.xs)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.sm,
+        .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+        .padding(.vertical, LifeBoardTheme.Spacing.xs)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.sm,
             fillColor: style.tint.opacity(0.12),
             strokeColor: style.tint.opacity(0.24)
         )
         .accessibilityIdentifier("taskDetail.taskFitHint")
     }
 
-    private func taskFitStyle(for classification: TaskerTaskFitClassification) -> (symbol: String, tint: Color) {
+    private func taskFitStyle(for classification: LifeBoardTaskFitClassification) -> (symbol: String, tint: Color) {
         switch classification {
         case .fit:
-            return ("checkmark.circle.fill", Color.tasker.statusSuccess)
+            return ("checkmark.circle.fill", Color.lifeboard.statusSuccess)
         case .tight:
-            return ("exclamationmark.triangle.fill", Color.tasker.statusWarning)
+            return ("exclamationmark.triangle.fill", Color.lifeboard.statusWarning)
         case .conflict:
-            return ("xmark.octagon.fill", Color.tasker.statusDanger)
+            return ("xmark.octagon.fill", Color.lifeboard.statusDanger)
         case .unknown:
-            return ("questionmark.circle.fill", Color.tasker.textSecondary)
+            return ("questionmark.circle.fill", Color.lifeboard.textSecondary)
         }
     }
 
-    private func taskFitWindowSummary(_ hint: TaskerTaskFitHintResult) -> String? {
+    private func taskFitWindowSummary(_ hint: LifeBoardTaskFitHintResult) -> String? {
         guard let start = hint.freeWindowStart, let end = hint.freeWindowEnd else { return nil }
         let startText = start.formatted(date: .omitted, time: .shortened)
         let endText = end.formatted(date: .omitted, time: .shortened)
@@ -886,7 +886,7 @@ struct TaskDetailSheetView: View {
             section: .relationships,
             accessibilityIdentifier: "taskDetail.disclosure.relationships"
         ) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
                 if !viewModel.availableParentTasks.isEmpty {
                     AddTaskTaskPicker(
                         label: "Parent Task",
@@ -916,21 +916,21 @@ struct TaskDetailSheetView: View {
             section: .context,
             accessibilityIdentifier: "taskDetail.disclosure.context"
         ) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
                 if let preview = detailXPPreview {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Reward")
-                            .font(.tasker(.meta))
-                            .foregroundStyle(Color.tasker.textTertiary)
+                            .font(.lifeboard(.meta))
+                            .foregroundStyle(Color.lifeboard.textTertiary)
                         Text("Complete now for \(preview.shortLabel).")
-                            .font(.tasker(.callout))
-                            .foregroundStyle(Color.tasker.textPrimary)
+                            .font(.lifeboard(.callout))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
                     }
-                    .padding(TaskerTheme.Spacing.md)
-                    .taskerDenseSurface(
-                        cornerRadius: TaskerTheme.CornerRadius.md,
-                        fillColor: Color.tasker.accentWash.opacity(0.72),
-                        strokeColor: Color.tasker.accentPrimary.opacity(0.14)
+                    .padding(LifeBoardTheme.Spacing.md)
+                    .lifeboardDenseSurface(
+                        cornerRadius: LifeBoardTheme.CornerRadius.md,
+                        fillColor: Color.lifeboard.accentWash.opacity(0.72),
+                        strokeColor: Color.lifeboard.accentPrimary.opacity(0.14)
                     )
                 }
 
@@ -946,30 +946,30 @@ struct TaskDetailSheetView: View {
     }
 
     private var destructiveSection: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             Text("Danger zone")
-                .font(.tasker(.meta).weight(.semibold))
-                .foregroundStyle(Color.tasker.textTertiary)
+                .font(.lifeboard(.meta).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textTertiary)
 
             Button(role: .destructive) {
                 promptDeleteTask()
             } label: {
                 Text("Delete Task")
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.statusDanger)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.statusDanger)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, TaskerTheme.Spacing.sm)
+                    .padding(.vertical, LifeBoardTheme.Spacing.sm)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("taskDetail.deleteButton")
         }
-        .padding(TaskerTheme.Spacing.md)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.md,
-            fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        .padding(LifeBoardTheme.Spacing.md)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.md,
+            fillColor: Color.lifeboard.surfacePrimary,
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
         )
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
     }
 
     @ViewBuilder
@@ -988,27 +988,27 @@ struct TaskDetailSheetView: View {
             isExpanded: viewModel.isSectionExpanded(section),
             accessibilityIdentifier: accessibilityIdentifier
         ) {
-            TaskerFeedback.light()
+            LifeBoardFeedback.light()
             viewModel.toggleSection(section)
         } content: {
             content()
         }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
     }
 
     private var metadataFooter: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
             Text("Added \(DateUtils.formatDateTime(viewModel.persistedTask.dateAdded))")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             if viewModel.isComplete, let completedAt = viewModel.persistedTask.dateCompleted {
                 Text("Completed \(DateUtils.formatDateTime(completedAt))")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textTertiary)
             }
         }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
     }
 
     private var hasReminderBinding: Binding<Bool> {
@@ -1084,11 +1084,11 @@ struct TaskDetailSheetView: View {
         case .idle:
             return Color.clear
         case .saving:
-            return Color.tasker.textTertiary
+            return Color.lifeboard.textTertiary
         case .saved:
-            return Color.tasker.statusSuccess
+            return Color.lifeboard.statusSuccess
         case .failed:
-            return Color.tasker.statusDanger
+            return Color.lifeboard.statusDanger
         }
     }
 
@@ -1110,7 +1110,7 @@ struct TaskDetailSheetView: View {
     }
 
     private var planningSection: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             WeeklyPlanningPlacementSection(
                 selectedPlanningBucket: $viewModel.selectedPlanningBucket,
                 selectedWeeklyOutcomeID: $viewModel.selectedWeeklyOutcomeID,
@@ -1121,45 +1121,45 @@ struct TaskDetailSheetView: View {
     }
 
     private var recentReflectionsCard: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             HStack {
                 Text("Recent reflection")
-                    .font(.tasker(.meta))
-                    .foregroundColor(Color.tasker.textTertiary)
+                    .font(.lifeboard(.meta))
+                    .foregroundColor(Color.lifeboard.textTertiary)
                 Spacer()
                 Button(viewModel.isComplete ? "Capture completion note" : "Capture note") {
                     showingReflectionComposer = true
                 }
-                .font(.tasker(.callout))
+                .font(.lifeboard(.callout))
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.tasker.accentPrimary)
+                .foregroundStyle(Color.lifeboard.accentPrimary)
             }
 
             if viewModel.recentReflectionNotes.isEmpty {
                 Text("Recent task and project reflections appear here once you capture them.")
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(Color.lifeboard.textSecondary)
             } else {
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                     ForEach(viewModel.recentReflectionNotes.prefix(3), id: \.id) { note in
                         VStack(alignment: .leading, spacing: 4) {
                             if let prompt = note.prompt, prompt.isEmpty == false {
                                 Text(prompt)
-                                    .font(.tasker(.meta))
-                                    .foregroundColor(Color.tasker.textTertiary)
+                                    .font(.lifeboard(.meta))
+                                    .foregroundColor(Color.lifeboard.textTertiary)
                             }
                             Text(note.noteText)
-                                .font(.tasker(.callout))
-                                .foregroundColor(Color.tasker.textPrimary)
+                                .font(.lifeboard(.callout))
+                                .foregroundColor(Color.lifeboard.textPrimary)
                             Text(DateUtils.formatDateTime(note.createdAt))
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textQuaternary)
+                                .font(.lifeboard(.caption1))
+                                .foregroundColor(Color.lifeboard.textQuaternary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(TaskerTheme.Spacing.sm)
+                        .padding(LifeBoardTheme.Spacing.sm)
                         .background(
-                            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
-                                .fill(Color.tasker.surfaceSecondary)
+                            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
+                                .fill(Color.lifeboard.surfaceSecondary)
                         )
                     }
                 }
@@ -1168,10 +1168,10 @@ struct TaskDetailSheetView: View {
     }
 
     private func projectMotivationCard(_ motivation: ProjectWeeklyMotivation) -> some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
             Text("Project motivation")
-                .font(.tasker(.meta))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.meta))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             if let why = motivation.why, why.isEmpty == false {
                 motivationRow(title: "Why now", value: why)
@@ -1183,22 +1183,22 @@ struct TaskDetailSheetView: View {
                 motivationRow(title: "If ignored", value: costOfNeglect)
             }
         }
-        .padding(TaskerTheme.Spacing.sm)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.md,
-            fillColor: Color.tasker.accentPrimary.opacity(0.08),
-            strokeColor: Color.tasker.accentPrimary.opacity(0.12)
+        .padding(LifeBoardTheme.Spacing.sm)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.md,
+            fillColor: Color.lifeboard.accentPrimary.opacity(0.08),
+            strokeColor: Color.lifeboard.accentPrimary.opacity(0.12)
         )
     }
 
     private func motivationRow(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.tasker(.meta))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.meta))
+                .foregroundColor(Color.lifeboard.textTertiary)
             Text(value)
-                .font(.tasker(.callout))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.callout))
+                .foregroundColor(Color.lifeboard.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -1208,11 +1208,11 @@ struct TaskDetailSheetView: View {
         case .idle:
             return .clear
         case .saving:
-            return Color.tasker.surfaceSecondary
+            return Color.lifeboard.surfaceSecondary
         case .saved:
-            return Color.tasker.statusSuccess.opacity(0.12)
+            return Color.lifeboard.statusSuccess.opacity(0.12)
         case .failed:
-            return Color.tasker.statusDanger.opacity(0.12)
+            return Color.lifeboard.statusDanger.opacity(0.12)
         }
     }
 
@@ -1271,7 +1271,7 @@ struct TaskDetailSheetView: View {
 
     /// Executes promptDeleteTask.
     private func promptDeleteTask() {
-        TaskerFeedback.warning()
+        LifeBoardFeedback.warning()
         if viewModel.persistedTask.recurrenceSeriesID != nil {
             showDeleteScopeDialog = true
             return
@@ -1282,12 +1282,14 @@ struct TaskDetailSheetView: View {
     /// Executes deleteTask.
     private func deleteTask(scope: TaskDeleteScope) {
         viewModel.deleteTask(scope: scope) { result in
-            switch result {
-            case .success:
-                TaskerFeedback.success()
-                dismiss()
-            case .failure(let error):
-                viewModel.autosaveState = .failed(error.localizedDescription)
+            Task { @MainActor in
+                switch result {
+                case .success:
+                    LifeBoardFeedback.success()
+                    dismiss()
+                case .failure(let error):
+                    viewModel.autosaveState = .failed(error.localizedDescription)
+                }
             }
         }
     }

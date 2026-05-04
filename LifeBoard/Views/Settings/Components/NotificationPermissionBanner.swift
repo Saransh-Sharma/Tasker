@@ -1,23 +1,23 @@
 import SwiftUI
 
 struct NotificationPermissionBanner: View {
-    let status: TaskerNotificationAuthorizationStatus
+    let status: LifeBoardNotificationAuthorizationStatus
     var onAction: () -> Void
 
     var body: some View {
-        HStack(spacing: TaskerSwiftUITokens.spacing.s12) {
+        HStack(spacing: LifeBoardSwiftUITokens.spacing.s12) {
             Image(systemName: iconName)
-                .font(.tasker(.sectionTitle))
+                .font(.lifeboard(.sectionTitle))
                 .foregroundColor(iconColor)
 
-            VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s2) {
+            VStack(alignment: .leading, spacing: LifeBoardSwiftUITokens.spacing.s2) {
                 Text(titleText)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(.tasker(.textPrimary))
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundColor(.lifeboard(.textPrimary))
 
                 Text(subtitleText)
-                    .font(.tasker(.callout))
-                    .foregroundColor(.tasker(.textSecondary))
+                    .font(.lifeboard(.callout))
+                    .foregroundColor(.lifeboard(.textSecondary))
             }
 
             Spacer()
@@ -26,19 +26,19 @@ struct NotificationPermissionBanner: View {
                 onAction()
             } label: {
                 Text(buttonText)
-                    .font(.tasker(.buttonSmall))
-                    .foregroundColor(.tasker(.accentOnPrimary))
-                    .padding(.horizontal, TaskerSwiftUITokens.spacing.s16)
-                    .padding(.vertical, TaskerSwiftUITokens.spacing.s8)
+                    .font(.lifeboard(.buttonSmall))
+                    .foregroundColor(.lifeboard(.accentOnPrimary))
+                    .padding(.horizontal, LifeBoardSwiftUITokens.spacing.s16)
+                    .padding(.vertical, LifeBoardSwiftUITokens.spacing.s8)
                     .background(buttonBackground)
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
         }
-        .padding(TaskerSwiftUITokens.spacing.cardPadding)
+        .padding(LifeBoardSwiftUITokens.spacing.cardPadding)
         .background(bannerBackground)
-        .clipShape(RoundedRectangle(cornerRadius: TaskerSwiftUITokens.corner.r3, style: .continuous))
-        .taskerElevation(.e1, cornerRadius: TaskerSwiftUITokens.corner.r3, includesBorder: false)
+        .clipShape(RoundedRectangle(cornerRadius: LifeBoardSwiftUITokens.corner.r3, style: .continuous))
+        .lifeboardElevation(.e1, cornerRadius: LifeBoardSwiftUITokens.corner.r3, includesBorder: false)
     }
 
     private var iconName: String {
@@ -46,7 +46,7 @@ struct NotificationPermissionBanner: View {
     }
 
     private var iconColor: Color {
-        status == .denied ? .tasker(.statusWarning) : .tasker(.stateInfo)
+        status == .denied ? .lifeboard(.statusWarning) : .lifeboard(.stateInfo)
     }
 
     private var titleText: String {
@@ -62,12 +62,12 @@ struct NotificationPermissionBanner: View {
     }
 
     private var buttonBackground: Color {
-        status == .denied ? .tasker(.statusWarning) : .tasker(.actionPrimary)
+        status == .denied ? .lifeboard(.statusWarning) : .lifeboard(.actionPrimary)
     }
 
     private var bannerBackground: Color {
         status == .denied
-            ? .tasker(.statusWarning).opacity(0.12)
-            : .tasker(.accentWash)
+            ? .lifeboard(.statusWarning).opacity(0.12)
+            : .lifeboard(.accentWash)
     }
 }

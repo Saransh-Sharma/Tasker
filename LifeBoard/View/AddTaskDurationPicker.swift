@@ -1,6 +1,6 @@
 //
 //  AddTaskDurationPicker.swift
-//  Tasker
+//  LifeBoard
 //
 //  Estimated duration picker with preset pills and custom option.
 //
@@ -15,8 +15,8 @@ struct AddTaskDurationPicker: View {
     @State private var showCustom = false
     @State private var customMinutes: String = ""
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     private let presets: [(label: String, seconds: TimeInterval)] = [
         ("15m", 15 * 60),
@@ -29,8 +29,8 @@ struct AddTaskDurationPicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text("Estimated Duration")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.lifeboard(.caption1))
+                .foregroundColor(Color.lifeboard.textTertiary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing.chipSpacing) {
@@ -40,7 +40,7 @@ struct AddTaskDurationPicker: View {
                         text: "None",
                         isActive: duration == nil && !showCustom
                     ) {
-                        withAnimation(TaskerAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.snappy) {
                             duration = nil
                             showCustom = false
                         }
@@ -53,7 +53,7 @@ struct AddTaskDurationPicker: View {
                             text: preset.label,
                             isActive: duration == preset.seconds
                         ) {
-                            withAnimation(TaskerAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.snappy) {
                                 duration = preset.seconds
                                 showCustom = false
                             }
@@ -66,7 +66,7 @@ struct AddTaskDurationPicker: View {
                         text: showCustom ? "\(customMinutes)m" : "Custom",
                         isActive: showCustom
                     ) {
-                        withAnimation(TaskerAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.snappy) {
                             showCustom.toggle()
                         }
                     }
@@ -77,20 +77,20 @@ struct AddTaskDurationPicker: View {
             if showCustom {
                 HStack(spacing: spacing.s8) {
                     TextField("Minutes", text: $customMinutes)
-                        .font(.tasker(.callout))
+                        .font(.lifeboard(.callout))
                         .keyboardType(.numberPad)
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .foregroundColor(Color.lifeboard.textPrimary)
                         .padding(.horizontal, spacing.s12)
                         .padding(.vertical, spacing.s8)
                         .background(
                             RoundedRectangle(cornerRadius: corner.r2)
-                                .fill(Color.tasker.surfaceTertiary)
+                                .fill(Color.lifeboard.surfaceTertiary)
                         )
                         .frame(width: 100)
 
                     Text("minutes")
-                        .font(.tasker(.callout))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .font(.lifeboard(.callout))
+                        .foregroundColor(Color.lifeboard.textTertiary)
 
                     Spacer()
 
@@ -100,8 +100,8 @@ struct AddTaskDurationPicker: View {
                         }
                         showCustom = false
                     }
-                    .font(.tasker(.callout).weight(.medium))
-                    .foregroundColor(Color.tasker.accentPrimary)
+                    .font(.lifeboard(.callout).weight(.medium))
+                    .foregroundColor(Color.lifeboard.accentPrimary)
                 }
                 .transition(.asymmetric(
                     insertion: .opacity.combined(with: .move(edge: .top)),
@@ -109,6 +109,6 @@ struct AddTaskDurationPicker: View {
                 ))
             }
         }
-        .animation(TaskerAnimation.snappy, value: showCustom)
+        .animation(LifeBoardAnimation.snappy, value: showCustom)
     }
 }

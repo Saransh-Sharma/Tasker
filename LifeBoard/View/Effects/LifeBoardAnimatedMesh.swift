@@ -1,8 +1,8 @@
 import SwiftUI
 
-struct TaskerAnimatedMesh: View {
-    let role: TaskerMeshRole
-    var intensity: TaskerMeshIntensity = TaskerMeshTuning.defaultIntensity
+struct LifeBoardAnimatedMesh: View {
+    let role: LifeBoardMeshRole
+    var intensity: LifeBoardMeshIntensity = LifeBoardMeshTuning.defaultIntensity
     var isAnimating: Bool = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -12,7 +12,7 @@ struct TaskerAnimatedMesh: View {
     @State private var hueShifted = false
 
     var body: some View {
-        let spec = TaskerMeshSpec.make(role: role, intensity: intensity)
+        let spec = LifeBoardMeshSpec.make(role: role, intensity: intensity)
         let shouldAnimate = isAnimating && !reduceMotion
 
         mesh(spec: spec, phase: shouldAnimate ? animatedPhase : false)
@@ -23,7 +23,7 @@ struct TaskerAnimatedMesh: View {
             .blendMode(spec.blendMode)
             .overlay {
                 if reduceTransparency {
-                    Color.tasker(.bgCanvas).opacity(spec.reduceTransparencyOpacity * 0.72)
+                    Color.lifeboard(.bgCanvas).opacity(spec.reduceTransparencyOpacity * 0.72)
                 }
             }
             .onAppear {
@@ -53,7 +53,7 @@ struct TaskerAnimatedMesh: View {
     }
 
     @ViewBuilder
-    private func mesh(spec: TaskerMeshSpec, phase: Bool) -> some View {
+    private func mesh(spec: LifeBoardMeshSpec, phase: Bool) -> some View {
         if #available(iOS 18.0, *) {
             MeshGradient(
                 width: spec.width,
@@ -63,7 +63,7 @@ struct TaskerAnimatedMesh: View {
             )
         } else {
             LinearGradient(
-                colors: [Color.tasker(.accentPrimary), Color.tasker(.accentSecondary)],
+                colors: [Color.lifeboard(.accentPrimary), Color.lifeboard(.accentSecondary)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

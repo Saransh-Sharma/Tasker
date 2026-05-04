@@ -25,7 +25,7 @@ protocol HomeNavigationCoordinatorDelegate: AnyObject {
     func homeNavigationConsumeUITestInjectedRoute()
     func homeNavigationConsumeUITestOpenSettings()
     func homeNavigationProcessPendingIPadModalRequest()
-    func homeNavigationPresentDailySummary(kind: TaskerDailySummaryKind, dateStamp: String?)
+    func homeNavigationPresentDailySummary(kind: LifeBoardDailySummaryKind, dateStamp: String?)
     func homeNavigationPresentReflectPlan(preferredReflectionDate: Date?)
     func homeNavigationDate(from stamp: String?) -> Date?
 }
@@ -85,7 +85,7 @@ final class HomeNavigationCoordinator {
         }
     }
 
-    func handleNotificationRoute(_ route: TaskerNotificationRoute) {
+    func handleNotificationRoute(_ route: LifeBoardNotificationRoute) {
         guard let delegate else { return }
 
         switch route {

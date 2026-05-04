@@ -9,7 +9,7 @@ public struct HomeXPHeroView: View {
     let level: Int
     let streakDays: Int
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var progress: CGFloat {
         guard dailyCap > 0 else { return 0 }
@@ -25,15 +25,15 @@ public struct HomeXPHeroView: View {
             xpRing
             VStack(alignment: .leading, spacing: spacing.s4) {
                 Text("Today")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(Color.lifeboard.textSecondary)
                 HStack(spacing: spacing.s4) {
                     Text("\(dailyXP)")
                         .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(Color.tasker.accentPrimary)
+                        .foregroundColor(Color.lifeboard.accentPrimary)
                     Text("/ \(dailyCap) XP")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textTertiary)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textTertiary)
                 }
                 progressBar
             }
@@ -55,12 +55,12 @@ public struct HomeXPHeroView: View {
         let size = GamificationTokens.XPRingSize.homeHero
         return ZStack {
             Circle()
-                .stroke(Color.tasker.accentSecondaryMuted, lineWidth: size.ringWidth)
+                .stroke(Color.lifeboard.accentSecondaryMuted, lineWidth: size.ringWidth)
             Circle()
                 .trim(from: 0, to: progress)
                 .stroke(
                     AngularGradient(
-                        gradient: Gradient(colors: [Color.tasker.accentPrimary, Color.tasker.accentSecondary]),
+                        gradient: Gradient(colors: [Color.lifeboard.accentPrimary, Color.lifeboard.accentSecondary]),
                         center: .center,
                         startAngle: .degrees(-90),
                         endAngle: .degrees(270)
@@ -73,7 +73,7 @@ public struct HomeXPHeroView: View {
                            value: progress)
             Text("\(dailyXP)")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundColor(Color.tasker.accentPrimary)
+                .foregroundColor(Color.lifeboard.accentPrimary)
         }
         .frame(width: size.diameter, height: size.diameter)
     }
@@ -82,9 +82,9 @@ public struct HomeXPHeroView: View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.tasker.surfaceTertiary)
+                    .fill(Color.lifeboard.surfaceTertiary)
                 Capsule()
-                    .fill(capReached ? Color.tasker.statusSuccess : Color.tasker.accentPrimary)
+                    .fill(capReached ? Color.lifeboard.statusSuccess : Color.lifeboard.accentPrimary)
                     .frame(width: geo.size.width * progress)
                     .animation(.easeInOut(duration: 0.3), value: progress)
             }
@@ -95,9 +95,9 @@ public struct HomeXPHeroView: View {
     private var levelBadge: some View {
         Text("\(level)")
             .font(.system(size: GamificationTokens.levelBadgeFontSize, weight: .bold, design: .rounded))
-            .foregroundColor(Color.tasker.textInverse)
+            .foregroundColor(Color.lifeboard.textInverse)
             .frame(width: GamificationTokens.levelBadgeSize, height: GamificationTokens.levelBadgeSize)
-            .background(Color.tasker.accentPrimary)
+            .background(Color.lifeboard.accentPrimary)
             .clipShape(Capsule())
             .accessibilityLabel("Level \(level)")
     }
@@ -106,16 +106,16 @@ public struct HomeXPHeroView: View {
         VStack(spacing: 2) {
             Image(systemName: "flame.fill")
                 .font(.system(size: GamificationTokens.streakFlameSize))
-                .foregroundColor(streakDays > 0 ? Color.tasker.statusWarning : Color.tasker.textQuaternary)
+                .foregroundColor(streakDays > 0 ? Color.lifeboard.statusWarning : Color.lifeboard.textQuaternary)
                 .shadow(
                     color: streakDays > 0
-                        ? Color.tasker.statusWarning.opacity(GamificationTokens.streakGlowOpacity)
+                        ? Color.lifeboard.statusWarning.opacity(GamificationTokens.streakGlowOpacity)
                         : .clear,
                     radius: 4
                 )
             Text("\(streakDays)")
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundColor(Color.tasker.textSecondary)
+                .foregroundColor(Color.lifeboard.textSecondary)
         }
         .accessibilityLabel("\(streakDays) day streak")
     }

@@ -6,14 +6,14 @@ final class HomeLaunchHarnessService {
     private static var hasConsumedUITestRoute = false
     private static var hasConsumedUITestOpenSettings = false
 
-    func consumeUITestInjectedRouteIfNeeded(routeHandler: (TaskerNotificationRoute) -> Void) {
+    func consumeUITestInjectedRouteIfNeeded(routeHandler: (LifeBoardNotificationRoute) -> Void) {
         guard Self.hasConsumedUITestRoute == false else { return }
-        let prefix = "-TASKER_TEST_ROUTE:"
+        let prefix = "-LIFEBOARD_TEST_ROUTE:"
         guard let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }) else { return }
         let payload = String(argument.dropFirst(prefix.count))
         guard payload.isEmpty == false else { return }
         Self.hasConsumedUITestRoute = true
-        let route = TaskerNotificationRoute.from(payload: payload, fallbackTaskID: nil)
+        let route = LifeBoardNotificationRoute.from(payload: payload, fallbackTaskID: nil)
         routeHandler(route)
     }
 
@@ -22,7 +22,7 @@ final class HomeLaunchHarnessService {
         openSettings: @escaping () -> Void
     ) {
         guard Self.hasConsumedUITestOpenSettings == false else { return }
-        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_OPEN_SETTINGS") else { return }
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_OPEN_SETTINGS") else { return }
         guard canOpenSettings() else { return }
 
         Self.hasConsumedUITestOpenSettings = true

@@ -1,6 +1,6 @@
 //
 //  WeeklyCalendarStripView.swift
-//  Tasker
+//  LifeBoard
 //
 //  Swipeable weekly calendar strip with expandable month grid.
 //  Sits on the backdrop, revealed when foredrop is pulled down.
@@ -11,19 +11,19 @@
 // MARK: - Calendar Helpers
 
 extension Calendar {
-    /// Executes taskerStartOfWeek.
-    func taskerStartOfWeek(for date: Date) -> Date {
+    /// Executes lifeboardStartOfWeek.
+    func lifeboardStartOfWeek(for date: Date) -> Date {
         let components = dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
         return self.date(from: components) ?? date
     }
 
-    /// Executes taskerDaysOfWeek.
-    func taskerDaysOfWeek(startingFrom weekStart: Date) -> [Date] {
+    /// Executes lifeboardDaysOfWeek.
+    func lifeboardDaysOfWeek(startingFrom weekStart: Date) -> [Date] {
         (0..<7).compactMap { self.date(byAdding: .day, value: $0, to: weekStart) }
     }
 
-    /// Executes taskerDaysOfMonth.
-    func taskerDaysOfMonth(for date: Date) -> [Date?] {
+    /// Executes lifeboardDaysOfMonth.
+    func lifeboardDaysOfMonth(for date: Date) -> [Date?] {
         guard let range = self.range(of: .day, in: .month, for: date),
               let firstOfMonth = self.date(from: dateComponents([.year, .month], from: date))
         else { return [] }
@@ -68,17 +68,17 @@ private struct WeeklyCalendarDayCell: View, Equatable {
         VStack(spacing: 4) {
             Text(dayLabel)
                 .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
-                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary.opacity(0.7))
+                .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary.opacity(0.7))
                 .textCase(.uppercase)
 
             ZStack {
                 if isSelected {
                     Circle()
-                        .fill(Color.tasker.accentPrimary)
+                        .fill(Color.lifeboard.accentPrimary)
                         .frame(width: 34, height: 34)
                 } else if isToday {
                     Circle()
-                        .stroke(Color.tasker.accentOnPrimary.opacity(0.6), lineWidth: 1.5)
+                        .stroke(Color.lifeboard.accentOnPrimary.opacity(0.6), lineWidth: 1.5)
                         .frame(width: 34, height: 34)
                 }
 
@@ -86,10 +86,10 @@ private struct WeeklyCalendarDayCell: View, Equatable {
                     .font(.system(size: 15, weight: isSelected ? .bold : .medium, design: .rounded))
                     .foregroundColor(
                         isSelected
-                            ? Color.tasker.accentOnPrimary
+                            ? Color.lifeboard.accentOnPrimary
                             : isToday
-                                ? Color.tasker.accentOnPrimary
-                                : Color.tasker.textPrimary
+                                ? Color.lifeboard.accentOnPrimary
+                                : Color.lifeboard.textPrimary
                     )
             }
             .frame(width: 34, height: 34)
@@ -104,10 +104,10 @@ struct WeeklyCalendarStripView: View {
     @State private var displayedWeekStart: Date
     @State private var isExpanded: Bool = false
     @GestureState private var dragOffset: CGFloat = 0
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     private let calendar = Calendar.current
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
     private static let weekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar.current
@@ -127,7 +127,7 @@ struct WeeklyCalendarStripView: View {
     init(selectedDate: Binding<Date>, todayDate: Date = Date()) {
         self._selectedDate = selectedDate
         self.todayDate = todayDate
-        self._displayedWeekStart = State(initialValue: Calendar.current.taskerStartOfWeek(for: selectedDate.wrappedValue))
+        self._displayedWeekStart = State(initialValue: Calendar.current.lifeboardStartOfWeek(for: selectedDate.wrappedValue))
     }
 
     var body: some View {
@@ -142,11 +142,11 @@ struct WeeklyCalendarStripView: View {
 
             expandChevron
         }
-        .animation(TaskerAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.snappy, value: isExpanded)
         .onChange(of: selectedDate) { _, newDate in
-            let newWeekStart = calendar.taskerStartOfWeek(for: newDate)
+            let newWeekStart = calendar.lifeboardStartOfWeek(for: newDate)
             if !calendar.isDate(newWeekStart, inSameDayAs: displayedWeekStart) {
-                withAnimation(TaskerAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.snappy) {
                     displayedWeekStart = newWeekStart
                 }
             }
@@ -157,7 +157,7 @@ struct WeeklyCalendarStripView: View {
     // MARK: - Week Strip
 
     private var daysOfWeek: [Date] {
-        calendar.taskerDaysOfWeek(startingFrom: displayedWeekStart)
+        calendar.lifeboardDaysOfWeek(startingFrom: displayedWeekStart)
     }
 
     private var weekStripRow: some View {
@@ -169,10 +169,10 @@ struct WeeklyCalendarStripView: View {
             HStack(spacing: 0) {
                 ForEach(daysOfWeek, id: \.timeIntervalSince1970) { date in
                     Button {
-                        withAnimation(TaskerAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.snappy) {
                             selectedDate = date
                         }
-                        TaskerFeedback.selection()
+                        LifeBoardFeedback.selection()
                     } label: {
                         dayCell(date: date)
                             .frame(maxWidth: .infinity)
@@ -194,9 +194,9 @@ struct WeeklyCalendarStripView: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .frame(width: 30, height: 30)
-                .background(Color.tasker.surfaceSecondary, in: Circle())
+                .background(Color.lifeboard.surfaceSecondary, in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -226,14 +226,14 @@ struct WeeklyCalendarStripView: View {
 
     private var monthGridView: some View {
         let monthDate = displayedWeekStart
-        let days = calendar.taskerDaysOfMonth(for: monthDate)
+        let days = calendar.lifeboardDaysOfMonth(for: monthDate)
         let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
 
         return VStack(spacing: spacing.s4) {
             // Month/Year header
             Text(monthYearText(for: monthDate))
-                .font(.tasker(.headline))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.lifeboard(.headline))
+                .foregroundColor(Color.lifeboard.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, spacing.s4)
 
@@ -259,19 +259,19 @@ struct WeeklyCalendarStripView: View {
         let isCurrentMonth = calendar.isDate(date, equalTo: displayedWeekStart, toGranularity: .month)
 
         return Button {
-            withAnimation(TaskerAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.snappy) {
                 selectedDate = date
             }
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         } label: {
             ZStack {
                 if isSelected {
                     Circle()
-                        .fill(Color.tasker.accentPrimary)
+                        .fill(Color.lifeboard.accentPrimary)
                         .frame(width: 30, height: 30)
                 } else if isToday {
                     Circle()
-                        .stroke(Color.tasker.accentPrimary, lineWidth: 1.5)
+                        .stroke(Color.lifeboard.accentPrimary, lineWidth: 1.5)
                         .frame(width: 30, height: 30)
                 }
 
@@ -279,12 +279,12 @@ struct WeeklyCalendarStripView: View {
                     .font(.system(size: 13, weight: isSelected ? .bold : .regular, design: .rounded))
                     .foregroundColor(
                         isSelected
-                            ? Color.tasker.accentOnPrimary
+                            ? Color.lifeboard.accentOnPrimary
                             : !isCurrentMonth
-                                ? Color.tasker.textQuaternary
+                                ? Color.lifeboard.textQuaternary
                                 : isToday
-                                    ? Color.tasker.accentPrimary
-                                    : Color.tasker.textPrimary
+                                    ? Color.lifeboard.accentPrimary
+                                    : Color.lifeboard.textPrimary
                     )
             }
             .frame(height: 34)
@@ -297,14 +297,14 @@ struct WeeklyCalendarStripView: View {
 
     private var expandChevron: some View {
         Button {
-            withAnimation(TaskerAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.snappy) {
                 isExpanded.toggle()
             }
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
         } label: {
             Image(systemName: "chevron.down")
                 .font(.system(size: 10, weight: .bold))
-                .foregroundColor(Color.tasker.textTertiary)
+                .foregroundColor(Color.lifeboard.textTertiary)
                 .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 .frame(width: 32, height: 16)
                 .contentShape(Rectangle())
@@ -331,10 +331,10 @@ struct WeeklyCalendarStripView: View {
     /// Executes advanceWeek.
     private func advanceWeek(by offset: Int) {
         guard let newStart = calendar.date(byAdding: .weekOfYear, value: offset, to: displayedWeekStart) else { return }
-        withAnimation(TaskerAnimation.snappy) {
+        withAnimation(LifeBoardAnimation.snappy) {
             displayedWeekStart = newStart
         }
-        TaskerFeedback.selection()
+        LifeBoardFeedback.selection()
     }
 
     // MARK: - Formatters

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This directory contains the iOS 16+ Liquid Glass UI component library for the Tasker app. These components provide beautiful glass morphism effects with backdrop blur, gradients, and smooth animations.
+This directory contains the iOS 16+ Liquid Glass UI component library for the LifeBoard app. These components provide beautiful glass morphism effects with backdrop blur, gradients, and smooth animations.
 
 ## Components
 

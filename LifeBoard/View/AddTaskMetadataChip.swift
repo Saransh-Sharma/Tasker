@@ -1,6 +1,6 @@
 //
 //  AddTaskMetadataChip.swift
-//  Tasker
+//  LifeBoard
 //
 //  Interactive chip component for metadata selection (date, reminder, time of day).
 //
@@ -16,9 +16,9 @@ struct AddTaskMetadataChip: View {
     let tintHex: String?
     let action: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var hasTint: Bool { TaskerHexColor.normalized(tintHex) != nil }
-    private var tintColor: Color { TaskerHexColor.color(tintHex, fallback: Color.tasker.accentPrimary) }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    private var hasTint: Bool { LifeBoardHexColor.normalized(tintHex) != nil }
+    private var tintColor: Color { LifeBoardHexColor.color(tintHex, fallback: Color.lifeboard.accentPrimary) }
 
     init(
         icon: String,
@@ -36,7 +36,7 @@ struct AddTaskMetadataChip: View {
 
     var body: some View {
         Button {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         } label: {
             HStack(spacing: 6) {
@@ -44,14 +44,14 @@ struct AddTaskMetadataChip: View {
                     .font(.system(size: 14, weight: .medium))
 
                 Text(text)
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
                     .lineLimit(1)
             }
             .fixedSize(horizontal: true, vertical: false)
             .foregroundColor(
                 isActive
-                    ? (hasTint ? tintColor : Color.tasker.accentPrimary)
-                    : Color.tasker.textTertiary
+                    ? (hasTint ? tintColor : Color.lifeboard.accentPrimary)
+                    : Color.lifeboard.textTertiary
             )
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -59,23 +59,23 @@ struct AddTaskMetadataChip: View {
                 Capsule()
                     .fill(
                         isActive
-                            ? (hasTint ? tintColor.opacity(0.18) : Color.tasker.accentWash)
-                            : (hasTint ? tintColor.opacity(0.08) : Color.tasker.surfaceSecondary)
+                            ? (hasTint ? tintColor.opacity(0.18) : Color.lifeboard.accentWash)
+                            : (hasTint ? tintColor.opacity(0.08) : Color.lifeboard.surfaceSecondary)
                     )
             )
             .overlay(
                 Capsule()
                     .stroke(
                         isActive
-                            ? (hasTint ? tintColor.opacity(0.52) : Color.tasker.accentRing)
-                            : (hasTint ? tintColor.opacity(0.24) : Color.tasker.strokeHairline),
+                            ? (hasTint ? tintColor.opacity(0.52) : Color.lifeboard.accentRing)
+                            : (hasTint ? tintColor.opacity(0.24) : Color.lifeboard.strokeHairline),
                         lineWidth: 1
                     )
             )
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(TaskerAnimation.quick, value: isActive)
+        .animation(LifeBoardAnimation.quick, value: isActive)
     }
 }
 
@@ -110,7 +110,7 @@ struct AddTaskMetadataChip_Previews: PreviewProvider {
             )
         }
         .padding()
-        .background(Color.tasker.surfacePrimary)
+        .background(Color.lifeboard.surfacePrimary)
         .previewLayout(.sizeThatFits)
     }
 }

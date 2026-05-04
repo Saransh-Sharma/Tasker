@@ -1,6 +1,6 @@
 //
 //  AddTaskPriorityPill.swift
-//  Tasker
+//  LifeBoard
 //
 //  Individual priority pill with jewel-tone color indicator.
 //
@@ -14,14 +14,14 @@ struct AddTaskPriorityPill: View {
     let isSelected: Bool
     let action: () -> Void
 
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     private var priorityColor: Color {
         switch priority {
-        case .max: return Color.tasker.priorityMax
-        case .high: return Color.tasker.priorityHigh
-        case .low: return Color.tasker.priorityLow
-        case .none: return Color.tasker.priorityNone
+        case .max: return Color.lifeboard.priorityMax
+        case .high: return Color.lifeboard.priorityHigh
+        case .low: return Color.lifeboard.priorityLow
+        case .none: return Color.lifeboard.priorityNone
         }
     }
 
@@ -36,7 +36,7 @@ struct AddTaskPriorityPill: View {
 
     var body: some View {
         Button {
-            TaskerFeedback.selection()
+            LifeBoardFeedback.selection()
             action()
         } label: {
             HStack(spacing: 6) {
@@ -50,28 +50,28 @@ struct AddTaskPriorityPill: View {
                     )
 
                 Text(priorityName)
-                    .font(.tasker(.callout))
+                    .font(.lifeboard(.callout))
                     .fontWeight(isSelected ? .semibold : .regular)
             }
             .fixedSize(horizontal: true, vertical: false)
-            .foregroundColor(isSelected ? priorityColor : Color.tasker.textSecondary)
+            .foregroundColor(isSelected ? priorityColor : Color.lifeboard.textSecondary)
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-                    .fill(isSelected ? priorityColor.opacity(0.12) : Color.tasker.surfaceTertiary)
+                    .fill(isSelected ? priorityColor.opacity(0.12) : Color.lifeboard.surfaceTertiary)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
                     .stroke(
-                        isSelected ? priorityColor : Color.tasker.strokeHairline,
+                        isSelected ? priorityColor : Color.lifeboard.strokeHairline,
                         lineWidth: isSelected ? 1.5 : 1
                     )
             )
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(TaskerAnimation.quick, value: isSelected)
+        .animation(LifeBoardAnimation.quick, value: isSelected)
     }
 }
 
@@ -87,7 +87,7 @@ struct AddTaskPriorityPill_Previews: PreviewProvider {
             AddTaskPriorityPill(priority: .none, isSelected: false, action: {})
         }
         .padding()
-        .background(Color.tasker.surfacePrimary)
+        .background(Color.lifeboard.surfacePrimary)
         .previewLayout(.sizeThatFits)
     }
 }

@@ -72,15 +72,15 @@ struct HomeDayLiquidSwipeOverlay: View {
                     .labelStyle(.iconOnly)
                     .font(.system(size: 14 * HomeDayLiquidSwipeData.buttonVisualScale, weight: .bold))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(Color.tasker.accentOnPrimary)
+                    .foregroundStyle(Color.lifeboard.accentOnPrimary)
                     .frame(
                         width: HomeDayLiquidSwipeData.buttonVisualRadius * 2,
                         height: HomeDayLiquidSwipeData.buttonVisualRadius * 2
                     )
                     .background {
                         Circle()
-                            .stroke(Color.tasker.accentOnPrimary.opacity(0.28), lineWidth: 1)
-                            .background(Color.tasker.accentPrimary.opacity(0.38), in: Circle())
+                            .stroke(Color.lifeboard.accentOnPrimary.opacity(0.28), lineWidth: 1)
+                            .background(Color.lifeboard.accentPrimary.opacity(0.38), in: Circle())
                     }
                     .frame(
                         width: HomeDayLiquidSwipeData.buttonRadius * 2,
@@ -168,8 +168,8 @@ struct HomeDayLiquidSwipeOverlay: View {
 
     private func commit(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
         guard isEnabled, isChromeVisible else { return }
-        let interval = TaskerPerformanceTrace.begin("HomeDayLiquidSwipeCommit")
-        defer { TaskerPerformanceTrace.end(interval) }
+        let interval = LifeBoardPerformanceTrace.begin("HomeDayLiquidSwipeCommit")
+        defer { LifeBoardPerformanceTrace.end(interval) }
         topSide = side
         onInteractionStarted()
         if reduceMotion {

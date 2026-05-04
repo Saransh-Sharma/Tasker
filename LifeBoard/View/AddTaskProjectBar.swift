@@ -1,6 +1,6 @@
 //
 //  AddTaskProjectBar.swift
-//  Tasker
+//  LifeBoard
 //
 //  Horizontal scrollable bar for project selection with inline project creation.
 //
@@ -17,7 +17,7 @@ struct AddTaskProjectBar: View {
     @State private var showInlineCreator = false
     @State private var newProjectName = ""
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         VStack(spacing: spacing.s8) {
@@ -25,8 +25,8 @@ struct AddTaskProjectBar: View {
                 HStack(spacing: spacing.chipSpacing) {
                     // Add project button
                     Button {
-                        TaskerFeedback.selection()
-                        withAnimation(TaskerAnimation.snappy) {
+                        LifeBoardFeedback.selection()
+                        withAnimation(LifeBoardAnimation.snappy) {
                             showInlineCreator = true
                         }
                     } label: {
@@ -34,17 +34,17 @@ struct AddTaskProjectBar: View {
                             Image(systemName: "plus")
                                 .font(.system(size: 12, weight: .medium))
                             Text("Add Project")
-                                .font(.tasker(.caption1))
+                                .font(.lifeboard(.caption1))
                         }
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .foregroundColor(Color.lifeboard.textSecondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
                             Capsule()
-                                .fill(Color.tasker.surfaceSecondary)
+                                .fill(Color.lifeboard.surfaceSecondary)
                                 .overlay(
                                     Capsule()
-                                        .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                                        .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
                                 )
                         )
                     }
@@ -83,7 +83,7 @@ struct AddTaskProjectBar: View {
                 ))
             }
         }
-        .animation(TaskerAnimation.snappy, value: showInlineCreator)
+        .animation(LifeBoardAnimation.snappy, value: showInlineCreator)
     }
 }
 
@@ -108,7 +108,7 @@ struct AddTaskProjectBar_Previews: PreviewProvider {
             )
         }
         .padding()
-        .background(Color.tasker.surfacePrimary)
+        .background(Color.lifeboard.surfacePrimary)
         .previewLayout(.sizeThatFits)
     }
 }

@@ -1,6 +1,6 @@
 //
 //  HomeAdvancedFilterSheetView.swift
-//  Tasker
+//  LifeBoard
 //
 //  Advanced composable filter sheet for Home Focus Engine.
 //
@@ -20,7 +20,7 @@ struct HomeAdvancedFilterSheetView: View {
 
     /// Initializes a new instance.
     @Environment(\.dismiss) private var dismiss
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     @State private var selectedPriorities: Set<TaskPriority>
     @State private var selectedCategories: Set<TaskCategory>
@@ -79,20 +79,20 @@ struct HomeAdvancedFilterSheetView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Precision filters")
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker.textPrimary)
+                            .font(.lifeboard(.headline))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
                         Text("Save named slices for the moments when the default board is still too broad.")
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
                     }
                     .padding(.vertical, 4)
                     .padding(.horizontal, spacing.s4)
                     .padding(.vertical, spacing.s8)
-                    .taskerPremiumSurface(
+                    .lifeboardPremiumSurface(
                         cornerRadius: 20,
-                        fillColor: Color.tasker.surfacePrimary,
-                        strokeColor: Color.tasker.strokeHairline,
-                        accentColor: Color.tasker.accentSecondary,
+                        fillColor: Color.lifeboard.surfacePrimary,
+                        strokeColor: Color.lifeboard.strokeHairline,
+                        accentColor: Color.lifeboard.accentSecondary,
                         level: .e1
                     )
                 }
@@ -171,11 +171,11 @@ struct HomeAdvancedFilterSheetView: View {
                 Section {
                     if savedViews.isEmpty {
                         Text("No saved views yet")
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .foregroundColor(Color.lifeboard.textSecondary)
                     } else {
                         ForEach(savedViews) { saved in
                             HStack(spacing: spacing.s12) {
-                                TaskerFilterRow(
+                                LifeBoardFilterRow(
                                     title: saved.name,
                                     subtitle: activeSavedViewID == saved.id ? "Active" : "Saved view",
                                     isSelected: activeSavedViewID == saved.id
@@ -189,11 +189,11 @@ struct HomeAdvancedFilterSheetView: View {
                                 } label: {
                                     Image(systemName: "trash")
                                         .font(.system(size: 15, weight: .semibold))
-                                        .foregroundStyle(Color.tasker.statusDanger)
+                                        .foregroundStyle(Color.lifeboard.statusDanger)
                                         .frame(width: 36, height: 36)
-                                        .taskerChromeSurface(
+                                        .lifeboardChromeSurface(
                                             cornerRadius: 18,
-                                            accentColor: Color.tasker.statusDanger,
+                                            accentColor: Color.lifeboard.statusDanger,
                                             level: .e1
                                         )
                                 }
@@ -214,8 +214,8 @@ struct HomeAdvancedFilterSheetView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Color.tasker.bgCanvas)
-            .listRowBackground(Color.tasker.surfacePrimary)
+            .background(Color.lifeboard.bgCanvas)
+            .listRowBackground(Color.lifeboard.surfacePrimary)
             .navigationTitle("Advanced Filters")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -273,7 +273,7 @@ struct HomeAdvancedFilterSheetView: View {
     }
 
     private func sectionHeader(_ title: String, index: Int) -> some View {
-        TaskerFilterSectionHeader(title: title, index: index)
+        LifeBoardFilterSectionHeader(title: title, index: index)
             .textCase(nil)
     }
 }
