@@ -829,6 +829,983 @@ enum VisualTimelineElement: Equatable, Identifiable {
     }
 }
 
+enum TimelineStreamInfluenceKind: Equatable {
+    case range
+    case sweep
+    case routine
+    case meeting
+    case task
+    case gap
+    case flock
+
+    var priority: Int {
+        switch self {
+        case .flock:
+            return 6
+        case .meeting:
+            return 5
+        case .task:
+            return 4
+        case .routine:
+            return 3
+        case .gap:
+            return 2
+        case .range:
+            return 0
+        case .sweep:
+            return 1
+        }
+    }
+
+    var baseStrength: CGFloat {
+        switch self {
+        case .range:
+            return 0
+        case .sweep:
+            return 0
+        case .routine:
+            return 8
+        case .task:
+            return 5
+        case .gap:
+            return 0
+        case .meeting:
+            return 9
+        case .flock:
+            return 18
+        }
+    }
+
+    var baseMass: CGFloat {
+        switch self {
+        case .routine:
+            return 0.65
+        case .meeting:
+            return 0.75
+        case .task:
+            return 0.45
+        case .flock:
+            return 1.40
+        case .range, .sweep, .gap:
+            return 0
+        }
+    }
+
+    var contributesCurvatureMass: Bool {
+        switch self {
+        case .routine, .meeting, .task, .flock:
+            return true
+        case .range, .sweep, .gap:
+            return false
+        }
+    }
+
+    var thicknessBonus: CGFloat {
+        switch self {
+        case .flock:
+            return 1
+        case .meeting:
+            return 0.5
+        case .gap:
+            return 0.35
+        case .task:
+            return 0.25
+        case .range, .sweep, .routine:
+            return 0
+        }
+    }
+
+    var overshoot: CGFloat {
+        switch self {
+        case .flock:
+            return 0
+        case .meeting:
+            return 0
+        case .sweep:
+            return 0
+        case .task:
+            return 0
+        case .range, .routine, .gap:
+            return 0
+        }
+    }
+}
+
+struct TimelineStreamInfluence: Equatable, Identifiable {
+    let id: String
+    let kind: TimelineStreamInfluenceKind
+    let centerY: CGFloat
+    let height: CGFloat
+    let tintHex: String?
+    let stackCount: Int
+
+    init(
+        id: String,
+        kind: TimelineStreamInfluenceKind,
+        centerY: CGFloat,
+        height: CGFloat,
+        tintHex: String? = nil,
+        stackCount: Int = 1
+    ) {
+        self.id = id
+        self.kind = kind
+        self.centerY = centerY
+        self.height = height
+        self.tintHex = tintHex
+        self.stackCount = stackCount
+    }
+}
+
+private extension TimelineStreamInfluence {
+    var startY: CGFloat { centerY - (max(height, 40) / 2) }
+    var endY: CGFloat { centerY + (max(height, 40) / 2) }
+}
+
+enum TimelineStreamDirection: CGFloat, Equatable {
+    case leading = -1
+    case center = 0
+    case trailing = 1
+
+    var inverted: TimelineStreamDirection {
+        switch self {
+        case .leading:
+            return .trailing
+        case .trailing:
+            return .leading
+        case .center:
+            return .trailing
+        }
+    }
+}
+
+struct TimelineStreamAnchor: Equatable, Identifiable {
+    let id: String
+    let kind: TimelineStreamInfluenceKind
+    let y: CGFloat
+    let strength: CGFloat
+    let thickness: CGFloat
+    let tintHex: String?
+    let direction: TimelineStreamDirection
+
+    var xDirection: CGFloat { direction.rawValue }
+}
+
+struct TimelineStreamSegment: Equatable, Identifiable {
+    let index: Int
+    let start: TimelineStreamAnchor
+    let end: TimelineStreamAnchor
+    let control1: CGPoint
+    let control2: CGPoint
+
+    var id: Int { index }
+}
+
+struct TimelineStreamSample: Equatable, Identifiable {
+    let index: Int
+    let y: CGFloat
+    let x: CGFloat
+    let lineWidth: CGFloat
+    let tintHex: String?
+    let progress: CGFloat
+
+    var id: Int { index }
+}
+
+struct TimelineStreamGeometry: Equatable {
+    struct LaneMetrics: Equatable {
+        let width: CGFloat
+        let leadingX: CGFloat
+        let centerX: CGFloat
+        let contentX: CGFloat
+
+        var halfWidth: CGFloat { width / 2 }
+    }
+
+    private struct DensityPreset: Equatable {
+        let multiplier: CGFloat
+        let maxOffset: CGFloat
+    }
+
+    private struct CurvatureBody: Equatable {
+        let id: String
+        let kind: TimelineStreamInfluenceKind
+        let centerY: CGFloat
+        let height: CGFloat
+        let tintHex: String?
+        let stackCount: Int
+        let isOverlapping: Bool
+
+        var startY: CGFloat { centerY - (height / 2) }
+        var endY: CGFloat { centerY + (height / 2) }
+    }
+
+    static let baseLineWidth: CGFloat = 4
+    static let coreLineWidth: CGFloat = 1.5
+    static let glowLineWidth: CGFloat = 8
+    static let sampleStride: CGFloat = 14
+    static let minimumClusterDistance: CGFloat = 120
+    static let clusterGapThreshold: CGFloat = 44
+    static let densityWindow: CGFloat = 160
+    static let maxSlopeDelta: CGFloat = 3.5
+    static let contentGapAfterLane: CGFloat = 10
+    static let minimumPhoneContentWidth: CGFloat = 230
+
+    let baseX: CGFloat
+    let laneHalfWidth: CGFloat
+    let startY: CGFloat
+    let endY: CGFloat
+    let influences: [TimelineStreamInfluence]
+    private let curvatureBodies: [CurvatureBody]
+    private let samplePoints: [TimelineStreamSample]
+    let anchors: [TimelineStreamAnchor]
+    let segments: [TimelineStreamSegment]
+
+    init(
+        baseX: CGFloat,
+        laneHalfWidth: CGFloat,
+        startY: CGFloat,
+        endY: CGFloat,
+        influences: [TimelineStreamInfluence]
+    ) {
+        self.baseX = baseX
+        self.laneHalfWidth = max(laneHalfWidth, 1)
+        self.startY = min(startY, endY)
+        self.endY = max(startY, endY)
+        self.influences = influences
+        let bodies = Self.curvatureBodies(from: influences)
+        self.curvatureBodies = bodies
+        self.samplePoints = Self.buildSamples(
+            bodies: bodies,
+            baseX: baseX,
+            laneHalfWidth: self.laneHalfWidth,
+            startY: self.startY,
+            endY: self.endY,
+            stride: Self.sampleStride
+        )
+        self.anchors = Self.directedAnchors(
+            from: Self.rawAnchors(
+                influences: influences,
+                startY: self.startY,
+                endY: self.endY,
+                laneHalfWidth: self.laneHalfWidth
+            ),
+            laneHalfWidth: self.laneHalfWidth
+        )
+        self.segments = Self.segments(from: self.anchors, baseX: baseX, laneHalfWidth: self.laneHalfWidth)
+    }
+
+    static func make(
+        plan: TimelineCanvasLayoutPlan,
+        baseX: CGFloat,
+        laneHalfWidth: CGFloat
+    ) -> TimelineStreamGeometry {
+        TimelineStreamGeometry(
+            baseX: baseX,
+            laneHalfWidth: laneHalfWidth,
+            startY: plan.spineExtent.startY,
+            endY: plan.spineExtent.fadeEndY,
+            influences: plan.visualElements.compactMap(Self.influence)
+        )
+    }
+
+    static func laneMetrics(
+        totalWidth: CGFloat,
+        labelRightX: CGFloat,
+        trailingReservedWidth: CGFloat,
+        layoutClass: LifeBoardLayoutClass
+    ) -> LaneMetrics {
+        let preferred: CGFloat
+        let minimum: CGFloat
+        let contentGap: CGFloat
+        switch layoutClass {
+        case .phone:
+            if totalWidth <= 390 {
+                minimum = 34
+                preferred = 36
+                contentGap = 8
+            } else if totalWidth <= 430 {
+                minimum = 36
+                preferred = 38
+                contentGap = 8
+            } else {
+                minimum = 40
+                preferred = 42
+                contentGap = 8
+            }
+        case .padCompact:
+            minimum = 72
+            preferred = 78
+            contentGap = contentGapAfterLane
+        case .padRegular, .padExpanded:
+            minimum = 76
+            preferred = 84
+            contentGap = contentGapAfterLane
+        }
+
+        let available = totalWidth
+            - labelRightX
+            - trailingReservedWidth
+            - contentGap
+            - minimumPhoneContentWidth
+        let laneWidth = min(preferred, max(minimum, available))
+        let leadingX = labelRightX
+        let centerX = leadingX + (laneWidth / 2)
+        let contentX = leadingX + laneWidth + contentGap
+        return LaneMetrics(width: laneWidth, leadingX: leadingX, centerX: centerX, contentX: contentX)
+    }
+
+    static func influence(
+        for positioned: TimelineCanvasLayoutPlan.PositionedVisualTimelineElement
+    ) -> TimelineStreamInfluence? {
+        switch positioned.element {
+        case .routineMarker:
+            return TimelineStreamInfluence(
+                id: positioned.id,
+                kind: .routine,
+                centerY: positioned.centerY,
+                height: positioned.height,
+                tintHex: nil
+            )
+        case .meetingCard(let model):
+            return TimelineStreamInfluence(
+                id: positioned.id,
+                kind: .meeting,
+                centerY: positioned.centerY,
+                height: positioned.height,
+                tintHex: model.item.tintHex
+            )
+        case .taskMarker(let model), .taskCard(let model):
+            return TimelineStreamInfluence(
+                id: positioned.id,
+                kind: .task,
+                centerY: positioned.centerY,
+                height: positioned.height,
+                tintHex: model.item.tintHex
+            )
+        case .flock(let model):
+            return TimelineStreamInfluence(
+                id: positioned.id,
+                kind: .flock,
+                centerY: positioned.centerY,
+                height: positioned.height,
+                tintHex: model.block.items.first(where: { $0.source == .task })?.tintHex
+                    ?? model.block.items.first?.tintHex,
+                stackCount: max(model.block.items.count, 2)
+            )
+        case .gapPrompt(let model):
+            return TimelineStreamInfluence(
+                id: positioned.id,
+                kind: .gap,
+                centerY: positioned.centerY,
+                height: max(positioned.height, CGFloat(model.gap.duration / 60) * 0.35),
+                tintHex: nil
+            )
+        case .emptyState:
+            return nil
+        }
+    }
+
+    func clampedY(_ y: CGFloat) -> CGFloat {
+        min(max(y, startY), endY)
+    }
+
+    func x(atY y: CGFloat) -> CGFloat {
+        xOffset(atY: y) + baseX
+    }
+
+    func xOffset(atY y: CGFloat) -> CGFloat {
+        guard let sample = interpolatedSample(atY: y) else { return 0 }
+        return sample.x - baseX
+    }
+
+    func effectiveLaneHalfWidth(atY y: CGFloat) -> CGFloat {
+        let clusterBreath = min(nearestAnchorWeight(atY: y, kind: .flock) * 3, 3)
+        return min(laneHalfWidth + clusterBreath, laneHalfWidth + 3)
+    }
+
+    func lineWidth(atY y: CGFloat) -> CGFloat {
+        interpolatedSample(atY: y)?.lineWidth ?? Self.baseLineWidth
+    }
+
+    func tintHex(atY y: CGFloat) -> String? {
+        interpolatedSample(atY: y)?.tintHex
+    }
+
+    func path() -> Path {
+        var path = Path()
+        let points = samplePoints
+        guard points.count > 1, let first = points.first else { return path }
+        path.move(to: CGPoint(x: first.x, y: first.y))
+
+        for (previous, current) in zip(points, points.dropFirst()) {
+            let midY = (previous.y + current.y) / 2
+            path.addCurve(
+                to: CGPoint(x: current.x, y: current.y),
+                control1: CGPoint(x: previous.x, y: midY),
+                control2: CGPoint(x: current.x, y: midY)
+            )
+        }
+        return path
+    }
+
+    func samples(stride: CGFloat = Self.sampleStride) -> [TimelineStreamSample] {
+        guard abs(stride - Self.sampleStride) > 0.001 else { return samplePoints }
+        return Self.buildSamples(
+            bodies: curvatureBodies,
+            baseX: baseX,
+            laneHalfWidth: laneHalfWidth,
+            startY: startY,
+            endY: endY,
+            stride: stride
+        )
+    }
+
+    static func rawAnchors(
+        influences: [TimelineStreamInfluence],
+        startY: CGFloat,
+        endY: CGFloat,
+        laneHalfWidth: CGFloat
+    ) -> [TimelineStreamAnchor] {
+        let maximumStrength = max(laneHalfWidth, 0)
+        let startAnchor = TimelineStreamAnchor(
+            id: "range:start",
+            kind: .range,
+            y: startY,
+            strength: 0,
+            thickness: baseLineWidth,
+            tintHex: nil,
+            direction: .center
+        )
+        let endAnchor = TimelineStreamAnchor(
+            id: "range:end",
+            kind: .range,
+            y: endY,
+            strength: 0,
+            thickness: baseLineWidth,
+            tintHex: nil,
+            direction: .center
+        )
+
+        let densityPreset = densityPreset(itemCount: influences.filter(\.kind.contributesCurvatureMass).count, clusterCount: influences.filter { $0.kind == .flock }.count)
+        let semanticAnchors = curvatureBodies(from: influences).map { body in
+            return TimelineStreamAnchor(
+                id: body.id,
+                kind: body.kind,
+                y: body.centerY,
+                strength: min(curvatureAmplitude(for: body) * densityPreset.multiplier, maximumStrength),
+                thickness: baseLineWidth + body.kind.thicknessBonus,
+                tintHex: body.tintHex,
+                direction: .center
+            )
+        }
+        return ([startAnchor] + semanticAnchors + [endAnchor]).sorted { $0.y < $1.y }
+    }
+
+    static func compositeAnchors(
+        from anchors: [TimelineStreamAnchor],
+        minimumDistance: CGFloat
+    ) -> [TimelineStreamAnchor] {
+        var composites: [TimelineStreamAnchor] = []
+        var currentGroup: [TimelineStreamAnchor] = []
+
+        func flushGroup() {
+            guard currentGroup.isEmpty == false else { return }
+            if currentGroup.count == 1, let only = currentGroup.first {
+                composites.append(only)
+            } else {
+                composites.append(compositeAnchor(from: currentGroup))
+            }
+            currentGroup.removeAll()
+        }
+
+        for anchor in anchors.sorted(by: { $0.y < $1.y }) {
+            guard anchor.kind != .range else {
+                flushGroup()
+                composites.append(anchor)
+                continue
+            }
+
+            if let last = currentGroup.last, anchor.y - last.y < minimumDistance {
+                currentGroup.append(anchor)
+            } else {
+                flushGroup()
+                currentGroup = [anchor]
+            }
+        }
+        flushGroup()
+
+        return composites.sorted { lhs, rhs in
+            if lhs.y != rhs.y { return lhs.y < rhs.y }
+            return lhs.kind.priority < rhs.kind.priority
+        }
+    }
+
+    static func directedAnchors(
+        from anchors: [TimelineStreamAnchor],
+        laneHalfWidth: CGFloat
+    ) -> [TimelineStreamAnchor] {
+        let sorted = anchors.sorted { $0.y < $1.y }
+
+        return sorted.map { anchor in
+            let direction: TimelineStreamDirection
+            switch anchor.kind {
+            case .task, .meeting, .flock, .routine:
+                direction = .trailing
+            case .range, .sweep, .gap:
+                direction = .center
+            }
+
+            let clampedStrength = min(anchor.strength, max(laneHalfWidth, 0))
+            return TimelineStreamAnchor(
+                id: anchor.id,
+                kind: anchor.kind,
+                y: anchor.y,
+                strength: clampedStrength,
+                thickness: anchor.thickness,
+                tintHex: anchor.tintHex,
+                direction: direction
+            )
+        }
+    }
+
+    static func segments(
+        from anchors: [TimelineStreamAnchor],
+        baseX: CGFloat,
+        laneHalfWidth: CGFloat
+    ) -> [TimelineStreamSegment] {
+        guard anchors.count > 1 else { return [] }
+        return zip(anchors, anchors.dropFirst()).enumerated().map { index, pair in
+            let start = pair.0
+            let end = pair.1
+            let startPoint = point(for: start, baseX: baseX)
+            let endPoint = point(for: end, baseX: baseX)
+            let height = max(end.y - start.y, 1)
+            let control1 = CGPoint(
+                x: startPoint.x,
+                y: start.y + (height * 0.5)
+            )
+            let control2 = CGPoint(
+                x: endPoint.x,
+                y: end.y - (height * 0.5)
+            )
+            return TimelineStreamSegment(
+                index: index,
+                start: start,
+                end: end,
+                control1: control1,
+                control2: control2
+            )
+        }
+    }
+
+    static func point(for anchor: TimelineStreamAnchor, baseX: CGFloat) -> CGPoint {
+        CGPoint(x: baseX + (anchor.xDirection * anchor.strength), y: anchor.y)
+    }
+
+    func point(for anchor: TimelineStreamAnchor) -> CGPoint {
+        Self.point(for: anchor, baseX: baseX)
+    }
+
+    private static func buildSamples(
+        bodies: [CurvatureBody],
+        baseX: CGFloat,
+        laneHalfWidth: CGFloat,
+        startY: CGFloat,
+        endY: CGFloat,
+        stride: CGFloat
+    ) -> [TimelineStreamSample] {
+        let clampedStartY = min(startY, endY)
+        let clampedEndY = max(startY, endY)
+        let span = max(clampedEndY - clampedStartY, 1)
+        let step = max(stride, 4)
+        let preset = densityPreset(
+            itemCount: bodies.reduce(0) { $0 + max($1.stackCount, 1) },
+            clusterCount: bodies.filter { $0.kind == .flock }.count
+        )
+        let maxOffset = min(preset.maxOffset, laneHalfWidth)
+        var raw: [TimelineStreamSample] = []
+        var index = 0
+        var y = clampedStartY
+
+        while y <= clampedEndY + 0.001 {
+            let offset = min(curvatureOffset(at: y, bodies: bodies) * preset.multiplier, maxOffset)
+            raw.append(TimelineStreamSample(
+                index: index,
+                y: min(y, clampedEndY),
+                x: baseX + offset,
+                lineWidth: lineWidth(at: y, bodies: bodies),
+                tintHex: tintHex(at: y, bodies: bodies),
+                progress: min(max((y - clampedStartY) / span, 0), 1)
+            ))
+            index += 1
+            y += step
+        }
+
+        if raw.last?.y != clampedEndY {
+            let offset = min(curvatureOffset(at: clampedEndY, bodies: bodies) * preset.multiplier, maxOffset)
+            raw.append(TimelineStreamSample(
+                index: index,
+                y: clampedEndY,
+                x: baseX + offset,
+                lineWidth: lineWidth(at: clampedEndY, bodies: bodies),
+                tintHex: tintHex(at: clampedEndY, bodies: bodies),
+                progress: 1
+            ))
+        }
+
+        return limitSlope(smoothOffsets(raw), baseX: baseX, maxOffset: maxOffset)
+    }
+
+    private static func curvatureBodies(from influences: [TimelineStreamInfluence]) -> [CurvatureBody] {
+        let massInfluences = influences.filter(\.kind.contributesCurvatureMass)
+        let clusterCandidates = massInfluences.filter { $0.kind == .task || $0.kind == .meeting }
+            .sorted { lhs, rhs in
+                if lhs.startY != rhs.startY { return lhs.startY < rhs.startY }
+                return lhs.id < rhs.id
+            }
+        let standaloneBodies = massInfluences
+            .filter { $0.kind == .routine || $0.kind == .flock }
+            .map { body(from: $0, stackCount: max($0.stackCount, $0.kind == .flock ? 2 : 1)) }
+
+        var groupedIDs = Set<String>()
+        var clusterBodies: [CurvatureBody] = []
+        var current: [TimelineStreamInfluence] = []
+
+        func flushCurrent() {
+            guard current.isEmpty == false else { return }
+            if shouldCluster(current) {
+                current.forEach { groupedIDs.insert($0.id) }
+                clusterBodies.append(clusterBody(from: current))
+            }
+            current.removeAll()
+        }
+
+        for influence in clusterCandidates {
+            guard let last = current.last else {
+                current = [influence]
+                continue
+            }
+
+            let gap = influence.startY - last.endY
+            let overlaps = influence.startY < last.endY
+            let closeEnough = gap <= clusterGapThreshold
+            let denseWindow = current.count >= 2 && (influence.centerY - current[0].centerY) <= densityWindow
+
+            if overlaps || closeEnough || denseWindow {
+                current.append(influence)
+            } else {
+                flushCurrent()
+                current = [influence]
+            }
+        }
+        flushCurrent()
+
+        let isolatedBodies = clusterCandidates
+            .filter { groupedIDs.contains($0.id) == false }
+            .map { body(from: $0, stackCount: 1) }
+
+        return (standaloneBodies + clusterBodies + isolatedBodies).sorted { lhs, rhs in
+            if lhs.centerY != rhs.centerY { return lhs.centerY < rhs.centerY }
+            return lhs.id < rhs.id
+        }
+    }
+
+    private static func shouldCluster(_ group: [TimelineStreamInfluence]) -> Bool {
+        guard group.count > 1 else { return false }
+        if group.count >= 3 { return true }
+        for (previous, current) in zip(group, group.dropFirst()) {
+            if current.startY < previous.endY || current.startY - previous.endY <= clusterGapThreshold {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func body(from influence: TimelineStreamInfluence, stackCount: Int) -> CurvatureBody {
+        CurvatureBody(
+            id: influence.id,
+            kind: influence.kind,
+            centerY: influence.centerY,
+            height: max(40, influence.height),
+            tintHex: influence.tintHex,
+            stackCount: stackCount,
+            isOverlapping: false
+        )
+    }
+
+    private static func clusterBody(from group: [TimelineStreamInfluence]) -> CurvatureBody {
+        let startY = group.map(\.startY).min() ?? 0
+        let endY = group.map(\.endY).max() ?? startY + 40
+        let overlaps = zip(group, group.dropFirst()).contains { previous, current in
+            current.startY < previous.endY
+        }
+        let tintHex = group.first(where: { $0.kind == .meeting && $0.tintHex != nil })?.tintHex
+            ?? group.first(where: { $0.tintHex != nil })?.tintHex
+
+        return CurvatureBody(
+            id: "cluster:\(group.map(\.id).joined(separator: "|"))",
+            kind: .flock,
+            centerY: (startY + endY) / 2,
+            height: max(40, endY - startY),
+            tintHex: tintHex,
+            stackCount: group.count,
+            isOverlapping: overlaps
+        )
+    }
+
+    private static func itemMass(_ body: CurvatureBody) -> CGFloat {
+        let durationFactor = min(1.35, 0.85 + max(40, body.height) / 180)
+        let stackFactor: CGFloat = body.kind == .flock
+            ? 1.0 + min(1.2, CGFloat(max(body.stackCount - 1, 0)) * 0.22)
+            : 1.0
+        let overlapFactor: CGFloat = body.isOverlapping ? 1.25 : 1.0
+        return body.kind.baseMass * durationFactor * stackFactor * overlapFactor
+    }
+
+    private static func curvatureAmplitude(for body: CurvatureBody) -> CGFloat {
+        let raw = itemMass(body) * 10
+        switch body.kind {
+        case .flock:
+            return min(34, max(14, raw))
+        case .routine:
+            return 8
+        case .meeting, .task:
+            return min(16, max(4, raw))
+        case .range, .sweep, .gap:
+            return 0
+        }
+    }
+
+    private static func influenceRadius(for body: CurvatureBody) -> CGFloat {
+        let mass = itemMass(body)
+        switch body.kind {
+        case .flock:
+            return max(120, body.height * 0.85 + mass * 28)
+        case .routine:
+            return 80
+        case .meeting, .task:
+            return max(55, body.height * 0.55 + mass * 16)
+        case .range, .sweep, .gap:
+            return 0
+        }
+    }
+
+    private static func curvatureOffset(at y: CGFloat, bodies: [CurvatureBody]) -> CGFloat {
+        bodies.reduce(CGFloat.zero) { total, body in
+            let influence = gaussianInfluence(distance: abs(y - body.centerY), radius: influenceRadius(for: body))
+            guard influence >= 0.04 else { return total }
+            return total + curvatureAmplitude(for: body) * influence
+        }
+    }
+
+    private static func lineWidth(at y: CGFloat, bodies: [CurvatureBody]) -> CGFloat {
+        let clusterInfluence = bodies
+            .filter { $0.kind == .flock }
+            .map { gaussianInfluence(distance: abs(y - $0.centerY), radius: influenceRadius(for: $0)) }
+            .max() ?? 0
+        return baseLineWidth + min(clusterInfluence * 1.2, 1.2)
+    }
+
+    private static func tintHex(at y: CGFloat, bodies: [CurvatureBody]) -> String? {
+        bodies
+            .compactMap { body -> (body: CurvatureBody, influence: CGFloat)? in
+                let influence = gaussianInfluence(distance: abs(y - body.centerY), radius: influenceRadius(for: body))
+                guard influence >= 0.18 else { return nil }
+                return (body, influence)
+            }
+            .max { lhs, rhs in lhs.influence < rhs.influence }?
+            .body
+            .tintHex
+    }
+
+    private static func gaussianInfluence(distance: CGFloat, radius: CGFloat) -> CGFloat {
+        guard radius > 0 else { return 0 }
+        let normalized = distance / radius
+        return exp(-normalized * normalized)
+    }
+
+    private static func densityPreset(itemCount: Int, clusterCount: Int) -> DensityPreset {
+        if itemCount >= 18 {
+            return DensityPreset(multiplier: 1.10, maxOffset: 38)
+        }
+        if clusterCount >= 2 || itemCount >= 12 {
+            return DensityPreset(multiplier: 1.0, maxOffset: 34)
+        }
+        if itemCount <= 7 && clusterCount == 0 {
+            return DensityPreset(multiplier: 0.65, maxOffset: 18)
+        }
+        return DensityPreset(multiplier: 0.85, maxOffset: 28)
+    }
+
+    private static func smoothOffsets(_ points: [TimelineStreamSample]) -> [TimelineStreamSample] {
+        guard points.count > 4 else { return points }
+        var result = points
+
+        for index in 2..<(points.count - 2) {
+            let smoothedX =
+                points[index - 2].x * 0.08 +
+                points[index - 1].x * 0.18 +
+                points[index].x * 0.48 +
+                points[index + 1].x * 0.18 +
+                points[index + 2].x * 0.08
+            result[index] = TimelineStreamSample(
+                index: points[index].index,
+                y: points[index].y,
+                x: smoothedX,
+                lineWidth: points[index].lineWidth,
+                tintHex: points[index].tintHex,
+                progress: points[index].progress
+            )
+        }
+
+        return result
+    }
+
+    private static func limitSlope(
+        _ points: [TimelineStreamSample],
+        baseX: CGFloat,
+        maxOffset: CGFloat,
+        maxDeltaX: CGFloat = maxSlopeDelta
+    ) -> [TimelineStreamSample] {
+        guard points.count > 1 else { return points }
+        var result = points
+
+        for index in 1..<result.count {
+            let dx = result[index].x - result[index - 1].x
+            let clampedDx = min(max(dx, -maxDeltaX), maxDeltaX)
+            let x = min(max(result[index - 1].x + clampedDx, baseX), baseX + maxOffset)
+            result[index] = TimelineStreamSample(
+                index: result[index].index,
+                y: result[index].y,
+                x: x,
+                lineWidth: result[index].lineWidth,
+                tintHex: result[index].tintHex,
+                progress: result[index].progress
+            )
+        }
+
+        return result
+    }
+
+    private static func compositeAnchor(from anchors: [TimelineStreamAnchor]) -> TimelineStreamAnchor {
+        let dominant = anchors.max { lhs, rhs in
+            if lhs.kind.priority != rhs.kind.priority {
+                return lhs.kind.priority < rhs.kind.priority
+            }
+            return lhs.strength < rhs.strength
+        } ?? anchors[0]
+        let totalWeight = anchors.reduce(CGFloat.zero) { partial, anchor in
+            partial + max(CGFloat(anchor.kind.priority), 1)
+        }
+        let weightedY = anchors.reduce(CGFloat.zero) { partial, anchor in
+            partial + (anchor.y * max(CGFloat(anchor.kind.priority), 1))
+        } / max(totalWeight, 1)
+        let maxStrength = anchors.map(\.strength).max() ?? dominant.strength
+        let maxThickness = anchors.map(\.thickness).max() ?? dominant.thickness
+        let tintHex = anchors.first(where: { $0.kind == dominant.kind && $0.tintHex != nil })?.tintHex
+            ?? anchors.first(where: { $0.tintHex != nil })?.tintHex
+
+        return TimelineStreamAnchor(
+            id: "composite:\(anchors.map(\.id).joined(separator: "|"))",
+            kind: dominant.kind,
+            y: weightedY,
+            strength: maxStrength,
+            thickness: maxThickness,
+            tintHex: tintHex,
+            direction: .center
+        )
+    }
+
+    private func interpolatedSample(atY y: CGFloat) -> TimelineStreamSample? {
+        let clamped = clampedY(y)
+        let allSamples = samplePoints
+        guard allSamples.isEmpty == false else { return nil }
+        guard let first = allSamples.first else { return nil }
+        guard let last = allSamples.last else { return nil }
+        if clamped <= first.y { return first }
+        if clamped >= last.y { return last }
+
+        guard let upperIndex = allSamples.firstIndex(where: { $0.y >= clamped }), upperIndex > 0 else {
+            return first
+        }
+        let lower = allSamples[upperIndex - 1]
+        let upper = allSamples[upperIndex]
+        let span = max(upper.y - lower.y, 0.001)
+        let ratio = (clamped - lower.y) / span
+        return TimelineStreamSample(
+            index: lower.index,
+            y: clamped,
+            x: interpolate(lower.x, upper.x, t: ratio),
+            lineWidth: interpolate(lower.lineWidth, upper.lineWidth, t: ratio),
+            tintHex: ratio < 0.5 ? lower.tintHex : upper.tintHex,
+            progress: interpolate(lower.progress, upper.progress, t: ratio)
+        )
+    }
+
+    private func nearestAnchorWeight(atY y: CGFloat, kind: TimelineStreamInfluenceKind) -> CGFloat {
+        anchors
+            .filter { $0.kind == kind }
+            .map { max(0, 1 - (abs($0.y - y) / Self.minimumClusterDistance)) }
+            .max() ?? 0
+    }
+
+    private static func cubicPoint(
+        start: CGPoint,
+        control1: CGPoint,
+        control2: CGPoint,
+        end: CGPoint,
+        t: CGFloat
+    ) -> CGPoint {
+        let u = 1 - t
+        let tt = t * t
+        let uu = u * u
+        let uuu = uu * u
+        let ttt = tt * t
+        let x = (uuu * start.x)
+            + (3 * uu * t * control1.x)
+            + (3 * u * tt * control2.x)
+            + (ttt * end.x)
+        let y = (uuu * start.y)
+            + (3 * uu * t * control1.y)
+            + (3 * u * tt * control2.y)
+            + (ttt * end.y)
+        return CGPoint(x: x, y: y)
+    }
+
+    private static func interpolate(_ start: CGFloat, _ end: CGFloat, t: CGFloat) -> CGFloat {
+        start + ((end - start) * min(max(t, 0), 1))
+    }
+
+    private func interpolate(_ start: CGFloat, _ end: CGFloat, t: CGFloat) -> CGFloat {
+        Self.interpolate(start, end, t: t)
+    }
+}
+
+struct TimelineStreamLayerSpec: Equatable {
+    let glowLineWidth: CGFloat
+    let bodyLineWidth: CGFloat
+    let coreLineWidth: CGFloat
+    let usesRoundedCapsAndJoins: Bool
+
+    static let expressive = TimelineStreamLayerSpec(
+        glowLineWidth: TimelineStreamGeometry.glowLineWidth,
+        bodyLineWidth: TimelineStreamGeometry.baseLineWidth,
+        coreLineWidth: TimelineStreamGeometry.coreLineWidth,
+        usesRoundedCapsAndJoins: true
+    )
+}
+
+struct TimelineNowBeadPresentation: Equatable {
+    static func clampedY(_ y: CGFloat, contentHeight: CGFloat, verticalInset: CGFloat = 14) -> CGFloat {
+        let upper = max(contentHeight - verticalInset, verticalInset)
+        return min(max(y, verticalInset), upper)
+    }
+
+    static func shouldPulse(reduceMotion: Bool) -> Bool {
+        reduceMotion == false
+    }
+}
+
 struct TimelineCanvasLayoutPlan: Equatable {
     private struct Candidate {
         let item: TimelinePlanItem
@@ -919,6 +1896,7 @@ struct TimelineCanvasLayoutPlan: Equatable {
     static let routineMarkerHeight: CGFloat = max(96, routineIconLayoutSize + 20)
     static let taskMarkerMinHeight: CGFloat = 48
     static let taskMarkerIdealHeight: CGFloat = 56
+    static let calendarCardVisualHeight: CGFloat = 68
     static let cardVisualHeight: CGFloat = 84
     static let flockMinHeight: CGFloat = 104
     static let gapPromptHeight: CGFloat = 56
@@ -1586,7 +2564,7 @@ struct TimelineCanvasLayoutPlan: Equatable {
     ) -> CGFloat {
         guard let item else { return max(durationHeight, minimumItemHeight, cardVisualHeight) }
         if item.source == .calendarEvent {
-            return max(cardVisualHeight, durationHeight)
+            return max(calendarCardVisualHeight, durationHeight)
         }
         if shouldRenderTaskAsCard(item) {
             return max(cardVisualHeight, durationHeight)
@@ -2140,7 +3118,7 @@ struct TimelineSurfaceMetrics {
                 expandedTimeGutter: 68,
                 expandedSpineLaneWidth: 0,
                 expandedTrailingLaneWidth: 0,
-                expandedContentInset: 8,
+                expandedContentInset: 4,
                 expandedTimeToSpineGap: 3,
                 expandedCapsuleMinWidth: 60,
                 expandedSingleColumnTextMaxWidth: 360,
@@ -2228,24 +3206,56 @@ struct TimelineRailMetrics: Equatable {
     var labelLayerWidth: CGFloat { labelLeadingX + labelWidth }
 
     func routineTextLeadingX(iconSize: CGFloat) -> CGFloat {
-        spineX + (iconSize / 2) + routineTextGapFromIcon
+        routineTextLeadingX(iconSize: iconSize, mountedSpineX: spineX)
     }
 
-    static func make(for layoutClass: LifeBoardLayoutClass, surfaceMetrics: TimelineSurfaceMetrics) -> TimelineRailMetrics {
+    func routineTextLeadingX(iconSize: CGFloat, mountedSpineX: CGFloat) -> CGFloat {
+        mountedSpineX + (iconSize / 2) + routineTextGapFromIcon
+    }
+
+    static func make(
+        for layoutClass: LifeBoardLayoutClass,
+        surfaceMetrics: TimelineSurfaceMetrics,
+        totalWidth: CGFloat = 390
+    ) -> TimelineRailMetrics {
         switch layoutClass {
         case .phone:
-            let labelLeadingX: CGFloat = 4
-            let labelWidth: CGFloat = 68
-            let timeToSpineGap: CGFloat = 3
-            let spineX = labelLeadingX + labelWidth + timeToSpineGap
-            let contentLeadingGap: CGFloat = 8
+            let labelLeadingX: CGFloat
+            let labelWidth: CGFloat
+            let timeToSpineGap: CGFloat
+            let streamLaneWidth: CGFloat
+            let contentGap: CGFloat
+
+            if totalWidth <= 390 {
+                labelLeadingX = 2
+                labelWidth = 44
+                timeToSpineGap = 4
+                streamLaneWidth = 36
+                contentGap = 8
+            } else if totalWidth <= 430 {
+                labelLeadingX = 3
+                labelWidth = 46
+                timeToSpineGap = 5
+                streamLaneWidth = 38
+                contentGap = 8
+            } else {
+                labelLeadingX = 4
+                labelWidth = 48
+                timeToSpineGap = 6
+                streamLaneWidth = 42
+                contentGap = 8
+            }
+
+            let streamLeadingX = labelLeadingX + labelWidth + timeToSpineGap
+            let spineX = streamLeadingX + (streamLaneWidth / 2)
+            let contentX = streamLeadingX + streamLaneWidth + contentGap
             return TimelineRailMetrics(
                 labelLeadingX: labelLeadingX,
                 labelWidth: labelWidth,
                 timeToSpineGap: timeToSpineGap,
                 spineX: spineX,
-                contentLeadingGap: contentLeadingGap,
-                contentX: spineX + contentLeadingGap,
+                contentLeadingGap: contentX - spineX,
+                contentX: contentX,
                 routineTextGapFromIcon: 14
             )
         case .padCompact, .padRegular, .padExpanded:
@@ -2266,6 +3276,24 @@ struct TimelineRailMetrics: Equatable {
                 routineTextGapFromIcon: 14
             )
         }
+    }
+}
+
+enum TimelineSpineMounting {
+    static func centerX(for geometry: TimelineStreamGeometry, atY y: CGFloat) -> CGFloat {
+        geometry.x(atY: y)
+    }
+
+    static func routineTextLeadingX(
+        for geometry: TimelineStreamGeometry,
+        atY y: CGFloat,
+        iconSize: CGFloat,
+        railMetrics: TimelineRailMetrics
+    ) -> CGFloat {
+        railMetrics.routineTextLeadingX(
+            iconSize: iconSize,
+            mountedSpineX: centerX(for: geometry, atY: y)
+        )
     }
 }
 
@@ -2344,9 +3372,9 @@ private struct TimelineBottomProtectionBudget: Equatable {
         case .phone:
             return TimelineBottomProtectionBudget(
                 bottomNavHeight: 72,
-                floatingActionButtonHeight: 64,
-                reflectionBannerHeight: 48,
-                extraClearance: 32
+                floatingActionButtonHeight: 0,
+                reflectionBannerHeight: 0,
+                extraClearance: 40
             )
         case .padCompact, .padRegular, .padExpanded:
             return TimelineBottomProtectionBudget(
@@ -2667,7 +3695,7 @@ struct TimelineForedropView: View {
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
                     onAnchorTap: onAnchorTap,
-                    onAddTask: { onAddTask(nil) },
+                    onAddTask: onAddTask,
                     onScheduleInbox: onScheduleInbox
                 )
             case .compact:
@@ -2677,7 +3705,7 @@ struct TimelineForedropView: View {
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
                     onAnchorTap: onAnchorTap,
-                    onAddTask: { onAddTask(nil) },
+                    onAddTask: onAddTask,
                     onScheduleInbox: onScheduleInbox
                 )
             case .expanded:
@@ -3258,6 +4286,245 @@ private struct TimelineSpineEndView: View {
     }
 }
 
+private enum TimelineStreamPalette {
+    private struct Stop {
+        let progress: CGFloat
+        let red: Double
+        let green: Double
+        let blue: Double
+    }
+
+    private static let stops: [Stop] = [
+        Stop(progress: 0.0, red: 0.22, green: 0.56, blue: 0.55),
+        Stop(progress: 0.38, red: 0.45, green: 0.57, blue: 0.36),
+        Stop(progress: 0.72, red: 0.48, green: 0.45, blue: 0.58),
+        Stop(progress: 1.0, red: 0.38, green: 0.39, blue: 0.50)
+    ]
+
+    static func color(progress: CGFloat) -> Color {
+        let clampedProgress = min(max(progress, 0), 1)
+        guard let first = stops.first else { return Color(red: 0.22, green: 0.56, blue: 0.55) }
+        guard let last = stops.last else { return Color(red: 0.22, green: 0.56, blue: 0.55) }
+        guard clampedProgress > first.progress else {
+            return Color(red: first.red, green: first.green, blue: first.blue)
+        }
+        guard clampedProgress < last.progress else {
+            return Color(red: last.red, green: last.green, blue: last.blue)
+        }
+
+        let upperIndex = stops.firstIndex { $0.progress >= clampedProgress } ?? (stops.count - 1)
+        let lower = stops[max(upperIndex - 1, 0)]
+        let upper = stops[upperIndex]
+        let span = max(upper.progress - lower.progress, 0.001)
+        let ratio = (clampedProgress - lower.progress) / span
+        return Color(
+            red: lower.red + ((upper.red - lower.red) * Double(ratio)),
+            green: lower.green + ((upper.green - lower.green) * Double(ratio)),
+            blue: lower.blue + ((upper.blue - lower.blue) * Double(ratio))
+        )
+    }
+}
+
+struct TimelineStreamGlintPresentation: Equatable {
+    static let halfLength: CGFloat = 16
+    static let blurRadius: CGFloat = 3
+    static let opacity: Double = 0.36
+    static let extraLineWidth: CGFloat = 0.75
+
+    static func visibleAnchorIDs(
+        anchors: [TimelineStreamAnchor],
+        currentY: CGFloat?,
+        currentDistanceThreshold: CGFloat = 64
+    ) -> Set<String> {
+        let candidates = anchors
+            .filter { $0.kind == .task || $0.kind == .meeting || $0.kind == .flock }
+            .sorted { lhs, rhs in
+                if lhs.y != rhs.y { return lhs.y < rhs.y }
+                return lhs.id < rhs.id
+            }
+        var visible = Set(candidates.filter { $0.kind == .flock }.map(\.id))
+
+        guard let currentY else {
+            return visible
+        }
+
+        if let current = candidates.min(by: { abs($0.y - currentY) < abs($1.y - currentY) }),
+           abs(current.y - currentY) <= currentDistanceThreshold {
+            visible.insert(current.id)
+        }
+
+        if let next = candidates.first(where: { $0.y > currentY + 8 }) {
+            visible.insert(next.id)
+        }
+
+        return visible
+    }
+}
+
+private struct CurvingDayStreamView: View {
+    let geometry: TimelineStreamGeometry
+    let currentY: CGFloat?
+
+    var body: some View {
+        Canvas { context, _ in
+            let path = geometry.path()
+            let fullOpacity = currentY == nil ? 0.88 : 0.94
+            let visibleGlintIDs = TimelineStreamGlintPresentation.visibleAnchorIDs(
+                anchors: geometry.anchors,
+                currentY: currentY
+            )
+            let gradient = Gradient(colors: [
+                TimelineStreamPalette.color(progress: 0).opacity(0.78 * fullOpacity),
+                TimelineStreamPalette.color(progress: 0.38).opacity(0.80 * fullOpacity),
+                TimelineStreamPalette.color(progress: 0.72).opacity(0.78 * fullOpacity),
+                TimelineStreamPalette.color(progress: 1).opacity(0.76 * fullOpacity)
+            ])
+            let glowGradient = Gradient(colors: [
+                TimelineStreamPalette.color(progress: 0).opacity(0.18),
+                TimelineStreamPalette.color(progress: 0.38).opacity(0.20),
+                TimelineStreamPalette.color(progress: 0.72).opacity(0.18),
+                TimelineStreamPalette.color(progress: 1).opacity(0.17)
+            ])
+            let startPoint = CGPoint(x: geometry.baseX, y: geometry.startY)
+            let endPoint = CGPoint(x: geometry.baseX, y: geometry.endY)
+
+            context.stroke(
+                path,
+                with: .linearGradient(glowGradient, startPoint: startPoint, endPoint: endPoint),
+                style: StrokeStyle(
+                    lineWidth: TimelineStreamGeometry.glowLineWidth,
+                    lineCap: .round,
+                    lineJoin: .round
+                )
+            )
+            context.stroke(
+                path,
+                with: .linearGradient(gradient, startPoint: startPoint, endPoint: endPoint),
+                style: StrokeStyle(
+                    lineWidth: TimelineStreamGeometry.baseLineWidth,
+                    lineCap: .round,
+                    lineJoin: .round
+                )
+            )
+            context.stroke(
+                path,
+                with: .color(Color.white.opacity(0.58 * fullOpacity)),
+                style: StrokeStyle(
+                    lineWidth: TimelineStreamGeometry.coreLineWidth,
+                    lineCap: .round,
+                    lineJoin: .round
+                )
+            )
+
+            for anchor in geometry.anchors where visibleGlintIDs.contains(anchor.id) {
+                guard let glintPath = glintPath(centerY: anchor.y) else {
+                    continue
+                }
+                let glintColor = TimelineStreamPalette.color(progress: progress(for: anchor.y))
+                context.drawLayer { layer in
+                    layer.addFilter(.blur(radius: TimelineStreamGlintPresentation.blurRadius))
+                    layer.stroke(
+                        glintPath,
+                        with: .color(glintColor.opacity(TimelineStreamGlintPresentation.opacity * 0.55)),
+                        style: StrokeStyle(
+                            lineWidth: TimelineStreamGeometry.baseLineWidth + TimelineStreamGlintPresentation.extraLineWidth + 1,
+                            lineCap: .round,
+                            lineJoin: .round
+                        )
+                    )
+                }
+                context.stroke(
+                    glintPath,
+                    with: .color(glintColor.opacity(TimelineStreamGlintPresentation.opacity)),
+                    style: StrokeStyle(
+                        lineWidth: TimelineStreamGeometry.baseLineWidth + TimelineStreamGlintPresentation.extraLineWidth,
+                        lineCap: .round,
+                        lineJoin: .round
+                    )
+                )
+            }
+        }
+        .drawingGroup()
+        .accessibilityHidden(true)
+    }
+
+    private func glintPath(centerY: CGFloat) -> Path? {
+        let samples = geometry.samples(stride: 5).filter { abs($0.y - centerY) <= TimelineStreamGlintPresentation.halfLength }
+        guard samples.count > 1 else { return nil }
+        var path = Path()
+        path.move(to: CGPoint(x: samples[0].x, y: samples[0].y))
+        for sample in samples.dropFirst() {
+            path.addLine(to: CGPoint(x: sample.x, y: sample.y))
+        }
+        return path
+    }
+
+    private func progress(for y: CGFloat) -> CGFloat {
+        let span = max(geometry.endY - geometry.startY, 1)
+        return min(max((y - geometry.startY) / span, 0), 1)
+    }
+}
+
+private struct TimelineNowBeadView: View {
+    let time: Date
+    let railMetrics: TimelineRailMetrics
+    let beadX: CGFloat
+    let reduceMotion: Bool
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let pulse = pulseValue(at: timeline.date)
+            ZStack(alignment: .leading) {
+                Text("Now · \(TimelineRailTimeFormatter.railText(for: time, kind: .current))")
+                    .font(TimelineRailTypography.font(for: .current, isEmphasized: true))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Color.lifeboard.surfacePrimary.opacity(0.94), in: Capsule())
+                    .overlay {
+                        Capsule()
+                            .stroke(Color.lifeboard.accentPrimary.opacity(0.36), lineWidth: 1)
+                    }
+                    .offset(x: max(railMetrics.labelLeadingX, beadX - 58), y: -14)
+
+                if TimelineNowBeadPresentation.shouldPulse(reduceMotion: reduceMotion) {
+                    Circle()
+                        .stroke(Color.lifeboard.accentPrimary.opacity(Double(0.28 * (1 - pulse))), lineWidth: 1.4)
+                        .frame(width: 25 + (pulse * 7), height: 25 + (pulse * 7))
+                        .offset(x: beadX - ((25 + (pulse * 7)) / 2), y: -((25 + (pulse * 7)) / 2))
+                }
+
+                Circle()
+                    .fill(Color.lifeboard.accentPrimary.opacity(reduceMotion ? 0.18 : 0.26))
+                    .frame(width: 24, height: 24)
+                    .offset(x: beadX - 12, y: -12)
+
+                Circle()
+                    .fill(Color.lifeboard.accentPrimary)
+                    .frame(width: 11, height: 11)
+                    .overlay {
+                        Circle()
+                            .stroke(Color.white.opacity(0.76), lineWidth: 1)
+                    }
+                    .offset(x: beadX - 5.5, y: -5.5)
+            }
+        }
+        .frame(height: 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Current time")
+        .accessibilityValue(time.formatted(date: .omitted, time: .shortened))
+    }
+
+    private func pulseValue(at date: Date) -> CGFloat {
+        guard TimelineNowBeadPresentation.shouldPulse(reduceMotion: reduceMotion) else { return 0 }
+        let phase = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.6) / 2.6
+        return CGFloat(phase)
+    }
+}
+
 private struct TimelineLongGapIndicator: View {
     let text: String
 
@@ -3533,12 +4800,14 @@ private struct TimelineNormalItemCard: View {
                         .strikethrough(item.isComplete, color: timelineTitleColor(for: row, item: item))
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
+                        .layoutPriority(2)
 
                     Text(timeText)
                         .font(.lifeboard(.caption1).weight(.medium))
                         .foregroundStyle(timelineMetaColor(for: row))
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
+                        .layoutPriority(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -3602,14 +4871,20 @@ private struct TimelineNormalItemCard: View {
     }
 }
 
+enum TimelineTaskMarkerLayout {
+    static let iconCenterYOffset: CGFloat = 26
+}
+
 private struct TimelineTaskMarkerRow: View {
     let item: TimelinePlanItem
     let row: TimelineRenderableRow
     let isEmphasized: Bool
-    let spineCenterX: CGFloat
+    let spineIconCenterX: CGFloat
     let completionX: CGFloat
     let onTap: () -> Void
     let onToggleComplete: () -> Void
+
+    static let iconCenterYOffset: CGFloat = TimelineTaskMarkerLayout.iconCenterYOffset
 
     private let iconContainer: CGFloat = 24
     private let iconSize: CGFloat = 18
@@ -3635,6 +4910,7 @@ private struct TimelineTaskMarkerRow: View {
                                 .strikethrough(item.isComplete, color: timelineTitleColor(for: row, item: item))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.82)
+                                .layoutPriority(2)
                         }
 
                         Text(timeText)
@@ -3642,6 +4918,7 @@ private struct TimelineTaskMarkerRow: View {
                             .foregroundStyle(timelineMetaColor(for: row))
                             .lineLimit(1)
                             .minimumScaleFactor(0.82)
+                            .layoutPriority(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -3649,7 +4926,7 @@ private struct TimelineTaskMarkerRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .offset(x: spineCenterX + textLeadingOffset, y: 5)
+            .offset(x: spineIconCenterX + textLeadingOffset, y: 5)
 
             Circle()
                 .fill(markerFill)
@@ -3664,7 +4941,10 @@ private struct TimelineTaskMarkerRow: View {
                     Circle()
                         .stroke(markerStroke, lineWidth: isEmphasized ? 1.5 : 1)
                 }
-                .offset(x: spineCenterX - (iconContainer / 2), y: 14)
+                .offset(
+                    x: spineIconCenterX - (iconContainer / 2),
+                    y: Self.iconCenterYOffset - (iconContainer / 2)
+                )
                 .accessibilityHidden(true)
 
             TimelineCompletionRing(
@@ -3854,35 +5134,59 @@ private struct TimelineFlockRowView: View {
                     .accessibilityHidden(true)
             }
 
-            Text(row.title)
-                .font(.lifeboard(.caption1).weight(.semibold))
-                .foregroundStyle(titleColor)
-                .strikethrough(row.isCompleted, color: titleColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(row.title)
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(titleColor)
+                        .strikethrough(row.isCompleted, color: titleColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .layoutPriority(2)
 
-            if row.isActiveNow {
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(Color.lifeboard.statusDanger)
-                        .frame(width: 5, height: 5)
-                    Text("Now")
-                        .font(.lifeboard(.meta).weight(.semibold))
-                        .foregroundStyle(Color.lifeboard.statusDanger)
+                    trailingStatus
+                        .layoutPriority(1)
                 }
-                .lineLimit(1)
-            } else if row.timeText.isEmpty == false {
-                Text(row.timeText)
-                    .font(.lifeboard(.meta).weight(.medium))
-                    .foregroundStyle(metaColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.title)
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(titleColor)
+                        .strikethrough(row.isCompleted, color: titleColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+
+                    trailingStatus
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(rowBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var trailingStatus: some View {
+        if row.isActiveNow {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(Color.lifeboard.statusDanger)
+                    .frame(width: 5, height: 5)
+                Text("Now")
+                    .font(.lifeboard(.meta).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.statusDanger)
+            }
+            .lineLimit(1)
+        } else if row.timeText.isEmpty == false {
+            Text(row.timeText)
+                .font(.lifeboard(.meta).weight(.medium))
+                .foregroundStyle(metaColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
     }
 
     private var rowBackground: Color {
@@ -4261,76 +5565,67 @@ private struct TimelineMeetingBlockRow: View {
     let action: () -> Void
 
     private var palette: TimelinePalette { .resolve(from: item.tintHex) }
-    private var labelText: String { item.isMeetingLike ? "MEETING" : "CALENDAR" }
+    private var accessibilityKind: String { item.isMeetingLike ? "Meeting" : "Calendar" }
     private var iconName: String { item.isMeetingLike ? "person.3.fill" : "calendar" }
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: isNested ? 10 : 11) {
                 Circle()
                     .fill(palette.fill.opacity(0.92))
-                    .frame(width: isNested ? 46 : 52, height: isNested ? 46 : 52)
+                    .frame(width: isNested ? 34 : 38, height: isNested ? 34 : 38)
                     .overlay {
                         Image(systemName: iconName)
-                            .font(.system(size: isNested ? 17 : 19, weight: .semibold))
+                            .font(.system(size: isNested ? 14 : 15, weight: .semibold))
                             .foregroundStyle(palette.icon)
                             .accessibilityHidden(true)
                     }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(labelText)
-                        .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(palette.icon)
-                        .lineLimit(1)
-
                     Text(item.title)
-                        .font(.lifeboard(isNested ? .headline : .title3).weight(.semibold))
+                        .font(.lifeboard(.headline).weight(.semibold))
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
+                        .layoutPriority(2)
 
                     Text(meetingMetadata)
                         .font(.lifeboard(.support))
                         .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
+                        .layoutPriority(1)
                 }
+                .layoutPriority(2)
 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, isNested ? 12 : 14)
-            .padding(.vertical, isNested ? 10 : 12)
-            .background(Color.lifeboard.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: isNested ? 14 : 18, style: .continuous))
+            .padding(.horizontal, isNested ? 10 : 11)
+            .padding(.vertical, isNested ? 8 : 9)
+            .background(Color.lifeboard.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: isNested ? 12 : 14, style: .continuous))
             .overlay(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(palette.progress.opacity(0.78))
                     .frame(width: 3)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 8)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: isNested ? 14 : 18, style: .continuous)
+                RoundedRectangle(cornerRadius: isNested ? 12 : 14, style: .continuous)
                     .stroke(Color.lifeboard.strokeHairline.opacity(0.68), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(item.title), \(meetingMetadata)")
-        .accessibilityValue(labelText.capitalized)
+        .accessibilityValue(accessibilityKind)
         .accessibilityHint("Opens the calendar item.")
         .accessibilityIdentifier(timelineAccessibilityIdentifier(for: item))
     }
 
     private var meetingMetadata: String {
-        var parts: [String] = []
         if let start = item.startDate, let end = item.endDate {
-            parts.append(TimelineFormatting.timeRangeText(start: start, end: end))
+            return TimelineFormatting.timeRangeText(start: start, end: end)
         }
-        if item.isMeetingLike {
-            parts.append("Video Call")
-        }
-        if let subtitle = item.subtitle, subtitle.isEmpty == false {
-            parts.append(subtitle)
-        }
-        return parts.joined(separator: " · ")
+        return ""
     }
 }
 
@@ -4397,14 +5692,26 @@ struct DailyTimelineCanvas: View {
         let presentation = TimelineDayPresentation(stable: stablePresentation, now: now)
         GeometryReader { proxy in
             let totalWidth = proxy.size.width
-            let railMetrics = TimelineRailMetrics.make(for: layoutClass, surfaceMetrics: metrics)
+            let railMetrics = TimelineRailMetrics.make(for: layoutClass, surfaceMetrics: metrics, totalWidth: totalWidth)
             let trailingLaneWidth = metrics.expandedTrailingLaneWidth
             let contentInset = metrics.expandedContentInset
-            let spineCenterX = railMetrics.spineX
-            let contentX = railMetrics.contentX
+            let labelRightX = railMetrics.labelLeadingX + railMetrics.labelWidth + railMetrics.timeToSpineGap
+            let streamLane = TimelineStreamGeometry.laneMetrics(
+                totalWidth: totalWidth,
+                labelRightX: labelRightX,
+                trailingReservedWidth: trailingLaneWidth + contentInset,
+                layoutClass: layoutClass
+            )
+            let spineCenterX = streamLane.centerX
+            let contentX = streamLane.contentX
             let contentWidth = max(totalWidth - contentX - trailingLaneWidth - contentInset, 140)
             let completionX = totalWidth - (trailingLaneWidth / 2)
             let currentY = currentBoundaryY(now: now)
+            let streamGeometry = TimelineStreamGeometry.make(
+                plan: plan,
+                baseX: spineCenterX,
+                laneHalfWidth: max(streamLane.halfWidth - 4, 1)
+            )
 
             ZStack(alignment: .topLeading) {
                 timeLabelLayer(
@@ -4414,26 +5721,21 @@ struct DailyTimelineCanvas: View {
                 )
                 .zIndex(4)
 
-                TimelineSpineEndView(extent: plan.spineExtent, lineWidth: 1.5)
-                    .offset(x: spineCenterX - 0.75)
+                CurvingDayStreamView(
+                    geometry: streamGeometry,
+                    currentY: currentY
+                )
+                    .frame(width: totalWidth, height: plan.contentHeight)
                     .zIndex(1)
+                    .allowsHitTesting(false)
                     .accessibilityHidden(true)
 
                 ForEach(plan.longGapIndicators) { indicator in
                     TimelineLongGapIndicator(text: indicator.text)
                         .frame(width: contentWidth, height: indicator.height)
                         .offset(x: contentX, y: indicator.y)
-                        .zIndex(3)
-                        .accessibilityHidden(true)
-                }
-
-                if let currentY {
-                    TimelineCurrentTimeRule(
-                        startX: spineCenterX,
-                        width: contentX - 4
-                    )
-                    .offset(x: 0, y: currentY)
-                    .zIndex(1)
+                    .zIndex(3)
+                    .allowsHitTesting(false)
                     .accessibilityHidden(true)
                 }
 
@@ -4444,21 +5746,21 @@ struct DailyTimelineCanvas: View {
                         totalWidth: totalWidth,
                         contentX: contentX,
                         contentWidth: contentWidth,
-                        spineCenterX: spineCenterX,
+                        streamGeometry: streamGeometry,
                         completionX: completionX,
                         currentY: currentY
                     )
                 }
 
                 if let currentY {
-                    TimelineCurrentTimeMarker(
+                    TimelineNowBeadView(
                         time: now,
                         railMetrics: railMetrics,
-                        startX: spineCenterX
+                        beadX: streamGeometry.x(atY: currentY),
+                        reduceMotion: reduceMotion
                     )
-                    .offset(x: 0, y: currentY)
+                    .offset(x: 0, y: TimelineNowBeadPresentation.clampedY(currentY, contentHeight: plan.contentHeight))
                     .zIndex(5)
-                    .accessibilityHidden(true)
                 }
 
                 TimelineEndAddMarker(
@@ -4467,7 +5769,11 @@ struct DailyTimelineCanvas: View {
                 ) {
                     onAddTask(plan.endMarker.suggestedDate)
                 }
-                .offset(x: spineCenterX - (TimelineCanvasLayoutPlan.endMarkerHitArea / 2), y: plan.endMarker.centerY - (TimelineCanvasLayoutPlan.endMarkerHitArea / 2))
+                .offset(
+                    x: TimelineSpineMounting.centerX(for: streamGeometry, atY: plan.endMarker.centerY)
+                        - (TimelineCanvasLayoutPlan.endMarkerHitArea / 2),
+                    y: plan.endMarker.centerY - (TimelineCanvasLayoutPlan.endMarkerHitArea / 2)
+                )
                 .zIndex(3)
             }
         }
@@ -4580,7 +5886,7 @@ struct DailyTimelineCanvas: View {
         totalWidth: CGFloat,
         contentX: CGFloat,
         contentWidth: CGFloat,
-        spineCenterX: CGFloat,
+        streamGeometry: TimelineStreamGeometry,
         completionX: CGFloat,
         currentY: CGFloat?
     ) -> some View {
@@ -4589,18 +5895,12 @@ struct DailyTimelineCanvas: View {
             anchorView(
                 .init(anchor: model.anchor, y: positioned.y + (positioned.height / 2)),
                 row: presentation.row(for: model.anchor),
-                spineCenterX: spineCenterX,
+                streamGeometry: streamGeometry,
                 totalWidth: totalWidth
             )
+            .zIndex(3)
         case .meetingCard(let model):
             let row = presentation.row(for: model.item)
-            timelineStem(
-                row: row,
-                item: model.item,
-                spineCenterX: spineCenterX,
-                y: positioned.y,
-                height: positioned.height
-            )
             TimelineMeetingBlockRow(
                 item: model.item,
                 row: row,
@@ -4612,18 +5912,14 @@ struct DailyTimelineCanvas: View {
             .zIndex(2)
         case .taskMarker(let model):
             let row = presentation.row(for: model.item)
-            timelineStem(
-                row: row,
-                item: model.item,
-                spineCenterX: spineCenterX,
-                y: positioned.y,
-                height: positioned.height
-            )
             TimelineTaskMarkerRow(
                 item: model.item,
                 row: row,
                 isEmphasized: model.isEmphasized,
-                spineCenterX: spineCenterX,
+                spineIconCenterX: TimelineSpineMounting.centerX(
+                    for: streamGeometry,
+                    atY: positioned.y + TimelineTaskMarkerRow.iconCenterYOffset
+                ),
                 completionX: completionX,
                 onTap: { onTaskTap(model.item) },
                 onToggleComplete: { onToggleComplete(model.item) }
@@ -4634,13 +5930,6 @@ struct DailyTimelineCanvas: View {
         case .taskCard(let model):
             let row = presentation.row(for: model.item)
             let title = TimelineDenseTitleFormatter.displayTitles(for: [model.item])[model.item.id] ?? model.item.title
-            timelineStem(
-                row: row,
-                item: model.item,
-                spineCenterX: spineCenterX,
-                y: positioned.y,
-                height: positioned.height
-            )
             TimelineNormalItemCard(
                 item: model.item,
                 row: row,
@@ -4655,16 +5944,6 @@ struct DailyTimelineCanvas: View {
             .offset(x: contentX, y: positioned.y)
             .zIndex(2)
         case .flock(let model):
-            let primaryItem = model.block.items.first
-            TimelineStemSegments(
-                leading: primaryItem.map { presentation.row(for: $0).stemLeading } ?? .futureSegment,
-                trailing: primaryItem.map { presentation.row(for: $0).stemTrailing } ?? .futureSegment,
-                fallbackPalette: TimelinePalette.resolve(from: primaryItem?.tintHex),
-                width: 2,
-                height: positioned.height
-            )
-            .offset(x: spineCenterX - 1, y: positioned.y)
-            .accessibilityHidden(true)
             TimelineFlockBlock(
                 model: TimelineFlockModel(block: model.block, now: presentation.now),
                 presentation: presentation,
@@ -4683,7 +5962,7 @@ struct DailyTimelineCanvas: View {
             )
             .frame(width: contentWidth, height: positioned.height, alignment: .leading)
             .offset(x: contentX, y: positioned.y)
-            .zIndex(0)
+            .zIndex(1.5)
         case .emptyState(let model):
             TimelineEmptyStateCard(model: model) {
                 onAddTask(model.suggestedDate)
@@ -4704,13 +5983,14 @@ struct DailyTimelineCanvas: View {
     private func anchorView(
         _ anchor: TimelineCanvasLayoutPlan.PositionedAnchor,
         row: TimelineRenderableRow,
-        spineCenterX: CGFloat,
+        streamGeometry: TimelineStreamGeometry,
         totalWidth: CGFloat
     ) -> some View {
         let iconSize = metrics.expandedAnchorCircleSize
         let anchorCenterY = anchor.y
         let iconTop = max(anchorCenterY - (iconSize / 2), 0)
-        let railMetrics = TimelineRailMetrics.make(for: layoutClass, surfaceMetrics: metrics)
+        let railMetrics = TimelineRailMetrics.make(for: layoutClass, surfaceMetrics: metrics, totalWidth: totalWidth)
+        let mountedSpineX = TimelineSpineMounting.centerX(for: streamGeometry, atY: anchorCenterY)
 
         Circle()
             .fill(TimelineVisualTokens.anchorCapsuleFill)
@@ -4721,7 +6001,7 @@ struct DailyTimelineCanvas: View {
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .accessibilityHidden(true)
             }
-            .offset(x: spineCenterX - (iconSize / 2), y: iconTop)
+            .offset(x: mountedSpineX - (iconSize / 2), y: iconTop)
             .accessibilityHidden(true)
 
         VStack(alignment: .leading, spacing: 5) {
@@ -4736,7 +6016,10 @@ struct DailyTimelineCanvas: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.86)
         }
-        .offset(x: railMetrics.routineTextLeadingX(iconSize: iconSize), y: max(anchorCenterY - 22, 0))
+        .offset(
+            x: railMetrics.routineTextLeadingX(iconSize: iconSize, mountedSpineX: mountedSpineX),
+            y: max(anchorCenterY - 22, 0)
+        )
         .accessibilityHidden(true)
 
         Button {
@@ -5049,7 +6332,7 @@ private struct DailyTimelineCompactView: View {
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
     let onAnchorTap: (TimelineAnchorItem) -> Void
-    let onAddTask: () -> Void
+    let onAddTask: (Date?) -> Void
     let onScheduleInbox: () -> Void
 
     private let plan: TimelineCompactLayoutPlan
@@ -5062,7 +6345,7 @@ private struct DailyTimelineCompactView: View {
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
         onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
-        onAddTask: @escaping () -> Void,
+        onAddTask: @escaping (Date?) -> Void,
         onScheduleInbox: @escaping () -> Void
     ) {
         self.projection = projection
@@ -5135,7 +6418,7 @@ private struct DailyTimelineCompactView: View {
                 gap: gap.gap,
                 row: presentation.row(for: gap.gap),
                 layoutClass: layoutClass,
-                onAddTask: onAddTask,
+                onAddTask: { onAddTask(gap.gap.startDate) },
                 onScheduleInbox: onScheduleInbox
             )
             .frame(minHeight: gap.rowHeight, alignment: .center)
@@ -5394,7 +6677,7 @@ private struct DailyTimelineAgendaView: View {
     let onTaskTap: (TimelinePlanItem) -> Void
     let onToggleComplete: (TimelinePlanItem) -> Void
     let onAnchorTap: (TimelineAnchorItem) -> Void
-    let onAddTask: () -> Void
+    let onAddTask: (Date?) -> Void
     let onScheduleInbox: () -> Void
     private let stablePresentation: TimelineDayStablePresentation
 
@@ -5456,7 +6739,7 @@ private struct DailyTimelineAgendaView: View {
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
         onToggleComplete: @escaping (TimelinePlanItem) -> Void,
         onAnchorTap: @escaping (TimelineAnchorItem) -> Void,
-        onAddTask: @escaping () -> Void,
+        onAddTask: @escaping (Date?) -> Void,
         onScheduleInbox: @escaping () -> Void
     ) {
         self.projection = projection
@@ -5485,7 +6768,12 @@ private struct DailyTimelineAgendaView: View {
                         )
                             .environment(\.lifeboardLayoutClass, layoutClass)
                     case .gap(let gap):
-                        TimelineGapPrompt(gap: gap, row: presentation.row(for: gap), onAddTask: onAddTask, onPlanBlock: onScheduleInbox)
+                        TimelineGapPrompt(
+                            gap: gap,
+                            row: presentation.row(for: gap),
+                            onAddTask: { onAddTask(gap.startDate) },
+                            onPlanBlock: onScheduleInbox
+                        )
                             .environment(\.lifeboardLayoutClass, layoutClass)
                     case .block(let block):
                         agendaBlockView(block, presentation: presentation)
@@ -5853,11 +7141,7 @@ private struct TimelineGapPrompt: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     var body: some View {
-        Menu {
-            Button(TimelineGapAction.addTask.title, action: onAddTask)
-            Button(TimelineGapAction.planBlock.title, action: onPlanBlock)
-            Button(TimelineGapAction.dismiss.title, role: .destructive) {}
-        } label: {
+        HStack(alignment: .center, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: gap.emphasis == .quietWindow ? "moon.zzz" : "clock")
                     .font(.system(size: 12, weight: .semibold))
@@ -5868,9 +7152,36 @@ private struct TimelineGapPrompt: View {
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(action: onAddTask) {
+                Image(systemName: "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
+                    .frame(width: 44, height: 44)
+                    .background(Color.lifeboard.accentWash.opacity(0.68), in: Circle())
+                    .contentShape(Circle())
+                    .accessibilityHidden(true)
+            }
+            .buttonStyle(.plain)
+            .frame(width: 44, height: 44)
+            .accessibilityLabel("Create task")
+            .accessibilityHint("Creates a task at the start of this open time.")
+            .accessibilityIdentifier("home.timeline.gap.createTask")
+
+            Menu {
+                Button(TimelineGapAction.planBlock.title, action: onPlanBlock)
+                Button(TimelineGapAction.dismiss.title, role: .destructive) {}
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(TimelineVisualTokens.utilityText)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Circle())
+            }
+            .accessibilityLabel("Open time options")
         }
         .padding(.vertical, layoutClass.isPad ? 6 : 8)
-        .buttonStyle(.plain)
         .accessibilityElement(children: .contain)
     }
 }
