@@ -8,6 +8,341 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(HomeDayLiquidSwipeSide.trailing.direction, .next)
     }
 
+    func testCurvedTimelineStreamLaneIsResponsiveAndPreservesContentWidth() {
+        let surface = TimelineSurfaceMetrics.make(for: .phone)
+
+        func lane(totalWidth: CGFloat) -> TimelineStreamGeometry.LaneMetrics {
+            let rail = TimelineRailMetrics.make(for: .phone, surfaceMetrics: surface, totalWidth: totalWidth)
+            return TimelineStreamGeometry.laneMetrics(
+                totalWidth: totalWidth,
+                labelRightX: rail.labelLeadingX + rail.labelWidth + rail.timeToSpineGap,
+                trailingReservedWidth: surface.expandedTrailingLaneWidth + surface.expandedContentInset,
+                layoutClass: .phone
+            )
+        }
+
+        let compact = lane(totalWidth: 340)
+        let standard = lane(totalWidth: 390)
+        let plus = lane(totalWidth: 430)
+        let large = lane(totalWidth: 460)
+
+        XCTAssertEqual(compact.width, 36, accuracy: 0.001)
+        XCTAssertEqual(standard.width, 36, accuracy: 0.001)
+        XCTAssertEqual(plus.width, 38, accuracy: 0.001)
+        XCTAssertEqual(large.width, 42, accuracy: 0.001)
+        XCTAssertEqual(compact.contentX, 94, accuracy: 0.001)
+        XCTAssertEqual(standard.contentX, 94, accuracy: 0.001)
+        XCTAssertEqual(plus.contentX, 100, accuracy: 0.001)
+        XCTAssertEqual(large.contentX, 108, accuracy: 0.001)
+
+        for (width, metrics) in [(CGFloat(340), compact), (CGFloat(390), standard), (CGFloat(430), plus), (CGFloat(460), large)] {
+            let cardWidth = width - metrics.contentX - surface.expandedContentInset
+            XCTAssertGreaterThanOrEqual(cardWidth + 0.001, 230)
+            XCTAssertGreaterThanOrEqual((cardWidth / width) + 0.001, 0.62)
+        }
+    }
+
+    func testCurvedTimelineStreamKeepsOffsetInsideLane() {
+        let geometry = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 240,
+            influences: [
+                TimelineStreamInfluence(id: "meeting", kind: .meeting, centerY: 96, height: 72),
+                TimelineStreamInfluence(id: "gap", kind: .gap, centerY: 168, height: 88)
+            ]
+        )
+
+        for sample in geometry.samples(stride: 12) {
+            XCTAssertLessThanOrEqual(
+                abs(sample.x - geometry.baseX),
+                geometry.effectiveLaneHalfWidth(atY: sample.y) + 0.001
+            )
+        }
+    }
+
+    func testCurvedTimelineStreamMeetingPullIsStrongerThanTaskPull() {
+        let laneHalfWidth: CGFloat = 20
+        let meeting = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: laneHalfWidth,
+            startY: 0,
+            endY: 200,
+            influences: [
+                TimelineStreamInfluence(id: "meeting", kind: .meeting, centerY: 100, height: 72)
+            ]
+        )
+        let task = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: laneHalfWidth,
+            startY: 0,
+            endY: 200,
+            influences: [
+                TimelineStreamInfluence(id: "task", kind: .task, centerY: 100, height: 72)
+            ]
+        )
+        let meetingOffset = abs(meeting.xOffset(atY: 100))
+        let taskOffset = abs(task.xOffset(atY: 100))
+
+        XCTAssertGreaterThan(meetingOffset, taskOffset)
+        XCTAssertGreaterThanOrEqual(taskOffset, 3)
+        XCTAssertLessThanOrEqual(taskOffset, 5)
+        XCTAssertGreaterThanOrEqual(meetingOffset, 5)
+        XCTAssertLessThanOrEqual(meetingOffset, 8)
+    }
+
+    func testCurvedTimelineCompositeAnchorsUseWeightedYAndDominantPriority() {
+        let anchors = [
+            TimelineStreamAnchor(
+                id: "task",
+                kind: .task,
+                y: 100,
+                strength: TimelineStreamInfluenceKind.task.baseStrength,
+                thickness: TimelineStreamGeometry.baseLineWidth,
+                tintHex: "#00FF00",
+                direction: .center
+            ),
+            TimelineStreamAnchor(
+                id: "meeting",
+                kind: .meeting,
+                y: 150,
+                strength: TimelineStreamInfluenceKind.meeting.baseStrength,
+                thickness: TimelineStreamGeometry.baseLineWidth + 1,
+                tintHex: "#0000FF",
+                direction: .center
+            )
+        ]
+
+        let composite = TimelineStreamGeometry.compositeAnchors(from: anchors, minimumDistance: 120)
+
+        XCTAssertEqual(composite.count, 1)
+        XCTAssertEqual(composite[0].kind, .meeting)
+        XCTAssertEqual(composite[0].y, CGFloat(100 * 4 + 150 * 5) / 9, accuracy: 0.001)
+        XCTAssertEqual(composite[0].strength, TimelineStreamInfluenceKind.meeting.baseStrength)
+    }
+
+    func testCurvedTimelineDirectorBendsDenseContentTowardCards() {
+        let anchors = [
+            TimelineStreamAnchor(id: "start", kind: .range, y: 0, strength: 8, thickness: 4, tintHex: nil, direction: .center),
+            TimelineStreamAnchor(id: "meeting", kind: .meeting, y: 140, strength: 20, thickness: 4.5, tintHex: nil, direction: .center),
+            TimelineStreamAnchor(id: "flock", kind: .flock, y: 280, strength: 24, thickness: 5, tintHex: nil, direction: .center),
+            TimelineStreamAnchor(id: "end", kind: .range, y: 420, strength: 8, thickness: 4, tintHex: nil, direction: .center)
+        ]
+
+        let directed = TimelineStreamGeometry.directedAnchors(from: anchors, laneHalfWidth: 20)
+
+        XCTAssertEqual(directed.map(\.direction), [.center, .trailing, .trailing, .center])
+        XCTAssertGreaterThan(TimelineStreamGeometry.point(for: directed[1], baseX: 100).x, 100)
+        XCTAssertGreaterThan(TimelineStreamGeometry.point(for: directed[2], baseX: 100).x, 100)
+        XCTAssertEqual(TimelineStreamGeometry.point(for: directed[3], baseX: 100).x, 100, accuracy: 0.001)
+    }
+
+    func testCurvedTimelineRecoveryAnchorsDoNotPullButRoutineAnchorsDo() {
+        let anchors = [
+            TimelineStreamAnchor(id: "start", kind: .range, y: 0, strength: 8, thickness: 4, tintHex: nil, direction: .leading),
+            TimelineStreamAnchor(id: "rise", kind: .routine, y: 80, strength: 8, thickness: 4, tintHex: nil, direction: .leading),
+            TimelineStreamAnchor(id: "gap", kind: .gap, y: 180, strength: 8, thickness: 4, tintHex: nil, direction: .leading),
+            TimelineStreamAnchor(id: "sweep", kind: .sweep, y: 280, strength: 8, thickness: 4, tintHex: nil, direction: .leading),
+            TimelineStreamAnchor(id: "end", kind: .range, y: 380, strength: 8, thickness: 4, tintHex: nil, direction: .leading)
+        ]
+
+        let directed = TimelineStreamGeometry.directedAnchors(from: anchors, laneHalfWidth: 20)
+
+        XCTAssertEqual(directed.map(\.direction), [.center, .trailing, .center, .center, .center])
+        XCTAssertGreaterThan(TimelineStreamGeometry.point(for: directed[1], baseX: 100).x, 100)
+        XCTAssertEqual(TimelineStreamGeometry.point(for: directed[2], baseX: 100).x, 100, accuracy: 0.001)
+        XCTAssertEqual(TimelineStreamGeometry.point(for: directed[3], baseX: 100).x, 100, accuracy: 0.001)
+        XCTAssertEqual(TimelineStreamGeometry.point(for: directed[4], baseX: 100).x, 100, accuracy: 0.001)
+    }
+
+    func testCurvedTimelineBackToBackMeetingTaskClusterBendsFurtherTowardCardsThanSingleMeeting() {
+        let singleMeeting = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 260,
+            influences: [
+                TimelineStreamInfluence(id: "meeting", kind: .meeting, centerY: 130, height: 72)
+            ]
+        )
+        let clustered = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 260,
+            influences: [
+                TimelineStreamInfluence(id: "task", kind: .task, centerY: 104, height: 56),
+                TimelineStreamInfluence(id: "meeting", kind: .meeting, centerY: 150, height: 72)
+            ]
+        )
+        let singleMeetingOffset = abs(singleMeeting.xOffset(atY: 130))
+        let clusteredOffset = abs(clustered.xOffset(atY: 135))
+
+        XCTAssertGreaterThan(clustered.xOffset(atY: 135), 0)
+        XCTAssertGreaterThanOrEqual(clusteredOffset, singleMeetingOffset + 4)
+        XCTAssertGreaterThanOrEqual(clusteredOffset, 20 * 0.80)
+    }
+
+    func testCurvedTimelineFlockClusterReachesStrongestCardSideDipInsideLane() {
+        let flock = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 260,
+            influences: [
+                TimelineStreamInfluence(id: "flock", kind: .flock, centerY: 130, height: 96)
+            ]
+        )
+        let flockOffset = abs(flock.xOffset(atY: 130))
+
+        XCTAssertGreaterThan(flock.xOffset(atY: 130), 0)
+        XCTAssertGreaterThanOrEqual(flockOffset, 20 * 0.90)
+        XCTAssertLessThanOrEqual(flockOffset, 20)
+    }
+
+    func testCurvedTimelineSparseOpenSectionsRecoverTowardCenter() {
+        let geometry = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 620,
+            influences: [
+                TimelineStreamInfluence(id: "task", kind: .task, centerY: 90, height: 56),
+                TimelineStreamInfluence(id: "meeting", kind: .meeting, centerY: 520, height: 72)
+            ]
+        )
+
+        XCTAssertGreaterThan(geometry.xOffset(atY: 90), 0)
+        XCTAssertLessThan(abs(geometry.xOffset(atY: 305)), geometry.laneHalfWidth * 0.25)
+        XCTAssertLessThan(abs(geometry.xOffset(atY: 305)), abs(geometry.xOffset(atY: 90)))
+    }
+
+    func testCurvedTimelineStreamGapDoesNotCreateCurvatureMass() {
+        let geometry = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 220,
+            influences: [
+                TimelineStreamInfluence(id: "gap", kind: .gap, centerY: 110, height: 100)
+            ]
+        )
+
+        XCTAssertEqual(geometry.effectiveLaneHalfWidth(atY: 110), geometry.laneHalfWidth, accuracy: 0.001)
+        XCTAssertEqual(geometry.xOffset(atY: 110), 0, accuracy: 0.001)
+    }
+
+    func testCurvedTimelineStreamFlockThickensLine() {
+        let geometry = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 220,
+            influences: [
+                TimelineStreamInfluence(id: "flock", kind: .flock, centerY: 110, height: 112)
+            ]
+        )
+
+        XCTAssertGreaterThan(geometry.lineWidth(atY: 110), TimelineStreamGeometry.baseLineWidth)
+    }
+
+    func testCurvedTimelineBezierPathCreatesVisibleHorizontalTravel() {
+        let geometry = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 520,
+            influences: [
+                TimelineStreamInfluence(id: "meeting", kind: .meeting, centerY: 130, height: 80),
+                TimelineStreamInfluence(id: "flock", kind: .flock, centerY: 300, height: 120),
+                TimelineStreamInfluence(id: "gap", kind: .gap, centerY: 430, height: 100)
+            ]
+        )
+        let xValues = geometry.samples(stride: 16).map(\.x)
+        let travel = (xValues.max() ?? 100) - (xValues.min() ?? 100)
+
+        XCTAssertGreaterThanOrEqual(travel, 18)
+        XCTAssertLessThanOrEqual(travel, 44)
+    }
+
+    func testCurvedTimelineSparseDayUsesGentleRoutineAnchorPulls() {
+        let geometry = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 720,
+            influences: [
+                TimelineStreamInfluence(id: "rise", kind: .routine, centerY: 84, height: 96),
+                TimelineStreamInfluence(id: "windDown", kind: .routine, centerY: 620, height: 96)
+            ]
+        )
+        let xValues = geometry.samples(stride: 18).map(\.x)
+        let travel = (xValues.max() ?? 100) - (xValues.min() ?? 100)
+
+        XCTAssertEqual(geometry.anchors.filter { $0.kind == .sweep }.count, 0)
+        XCTAssertGreaterThanOrEqual(travel, 3)
+        XCTAssertLessThanOrEqual(travel, 8)
+        XCTAssertGreaterThan(geometry.xOffset(atY: 84), 0)
+        XCTAssertGreaterThan(geometry.xOffset(atY: 620), 0)
+        XCTAssertLessThan(abs(geometry.xOffset(atY: 350)), 1)
+    }
+
+    func testCurvedTimelineNowLookupUsesFinalCurve() {
+        let geometry = TimelineStreamGeometry(
+            baseX: 100,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 240,
+            influences: [
+                TimelineStreamInfluence(id: "meeting", kind: .meeting, centerY: 120, height: 80)
+            ]
+        )
+
+        XCTAssertNotEqual(geometry.x(atY: 120), geometry.baseX, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(abs(geometry.xOffset(atY: 120)), geometry.effectiveLaneHalfWidth(atY: 120))
+    }
+
+    func testCurvedTimelineStreamLayerSpecUsesRoundedDepthStack() {
+        let spec = TimelineStreamLayerSpec.expressive
+
+        XCTAssertEqual(spec.glowLineWidth, 8, accuracy: 0.001)
+        XCTAssertEqual(spec.bodyLineWidth, 4, accuracy: 0.001)
+        XCTAssertEqual(spec.coreLineWidth, 1.5, accuracy: 0.001)
+        XCTAssertEqual(TimelineStreamGlintPresentation.halfLength, 16, accuracy: 0.001)
+        XCTAssertEqual(TimelineStreamGlintPresentation.opacity, 0.36, accuracy: 0.001)
+        XCTAssertEqual(TimelineStreamGlintPresentation.extraLineWidth, 0.75, accuracy: 0.001)
+        XCTAssertEqual(TimelineStreamGlintPresentation.blurRadius, 3, accuracy: 0.001)
+        XCTAssertEqual(spec.bodyLineWidth, TimelineStreamGeometry.baseLineWidth, accuracy: 0.001)
+        XCTAssertEqual(spec.coreLineWidth, TimelineStreamGeometry.coreLineWidth, accuracy: 0.001)
+        XCTAssertTrue(spec.usesRoundedCapsAndJoins)
+    }
+
+    func testCurvedTimelineGlintsOnlyHighlightCurrentNextAndFlockAnchors() {
+        let anchors = [
+            TimelineStreamAnchor(id: "ordinary-task", kind: .task, y: 80, strength: 12, thickness: 4, tintHex: "#00FF00", direction: .leading),
+            TimelineStreamAnchor(id: "ordinary-meeting", kind: .meeting, y: 180, strength: 20, thickness: 4.5, tintHex: "#FF00FF", direction: .trailing),
+            TimelineStreamAnchor(id: "major-flock", kind: .flock, y: 280, strength: 24, thickness: 5, tintHex: "#FF00FF", direction: .leading)
+        ]
+
+        XCTAssertEqual(
+            TimelineStreamGlintPresentation.visibleAnchorIDs(anchors: anchors, currentY: nil),
+            ["major-flock"]
+        )
+
+        XCTAssertEqual(
+            TimelineStreamGlintPresentation.visibleAnchorIDs(anchors: anchors, currentY: 92),
+            ["ordinary-task", "ordinary-meeting", "major-flock"]
+        )
+    }
+
+    func testNowBeadClampsAndRespectsReducedMotion() {
+        XCTAssertEqual(TimelineNowBeadPresentation.clampedY(-40, contentHeight: 200), 14, accuracy: 0.001)
+        XCTAssertEqual(TimelineNowBeadPresentation.clampedY(260, contentHeight: 200), 186, accuracy: 0.001)
+        XCTAssertFalse(TimelineNowBeadPresentation.shouldPulse(reduceMotion: true))
+        XCTAssertTrue(TimelineNowBeadPresentation.shouldPulse(reduceMotion: false))
+    }
+
     func testLiquidSwipeHandleInteractionStartsOncePerDragSequence() {
         var state = HomeDayLiquidSwipeHandleInteractionState()
 
@@ -87,14 +422,14 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         )
     }
 
-    func testLiquidSwipeRestingLedgeUsesCompactEightPointInset() {
+    func testLiquidSwipeRestingLedgeUsesCompactFourPointInset() {
         let size = CGSize(width: 390, height: 760)
         let leading = HomeDayLiquidSwipeData(side: .leading, containerSize: size)
         let trailing = HomeDayLiquidSwipeData(side: .trailing, containerSize: size)
 
-        XCTAssertEqual(HomeDayLiquidSwipeData.waveMinLedge, 8, accuracy: 0.001)
-        XCTAssertEqual(leading.waveLedgeX, 8, accuracy: 0.001)
-        XCTAssertEqual(trailing.waveLedgeX, size.width - 8, accuracy: 0.001)
+        XCTAssertEqual(HomeDayLiquidSwipeData.waveMinLedge, 4, accuracy: 0.001)
+        XCTAssertEqual(leading.waveLedgeX, 4, accuracy: 0.001)
+        XCTAssertEqual(trailing.waveLedgeX, size.width - 4, accuracy: 0.001)
     }
 
     func testLiquidSwipeVisibleHandleUsesTwentyPercentReduction() {
@@ -847,15 +1182,27 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
 
     func testPhoneTimelineMetricsMoveSpineLeftWhileKeepingReadableTimeGutter() {
         let metrics = TimelineSurfaceMetrics.make(for: .phone)
-        let rail = TimelineRailMetrics.make(for: .phone, surfaceMetrics: metrics)
+        let compact = TimelineRailMetrics.make(for: .phone, surfaceMetrics: metrics, totalWidth: 390)
+        let standard = TimelineRailMetrics.make(for: .phone, surfaceMetrics: metrics, totalWidth: 430)
+        let large = TimelineRailMetrics.make(for: .phone, surfaceMetrics: metrics, totalWidth: 460)
 
-        XCTAssertEqual(rail.labelLeadingX, 4, accuracy: 0.001)
-        XCTAssertEqual(rail.labelWidth, 68, accuracy: 0.001)
-        XCTAssertEqual(rail.timeToSpineGap, 3, accuracy: 0.001)
-        XCTAssertEqual(rail.labelLayerWidth, 72, accuracy: 0.001)
-        XCTAssertEqual(rail.spineX, 75, accuracy: 0.001)
-        XCTAssertEqual(rail.contentLeadingGap, 8, accuracy: 0.001)
-        XCTAssertEqual(rail.contentX, 83, accuracy: 0.001)
+        XCTAssertEqual(compact.labelLeadingX, 2, accuracy: 0.001)
+        XCTAssertEqual(compact.labelWidth, 44, accuracy: 0.001)
+        XCTAssertEqual(compact.timeToSpineGap, 4, accuracy: 0.001)
+        XCTAssertEqual(compact.labelLayerWidth, 46, accuracy: 0.001)
+        XCTAssertEqual(compact.spineX, 68, accuracy: 0.001)
+        XCTAssertEqual(compact.contentLeadingGap, 26, accuracy: 0.001)
+        XCTAssertEqual(compact.contentX, 94, accuracy: 0.001)
+
+        XCTAssertEqual(standard.labelLeadingX, 3, accuracy: 0.001)
+        XCTAssertEqual(standard.contentX, 100, accuracy: 0.001)
+        XCTAssertEqual(large.labelLeadingX, 4, accuracy: 0.001)
+        XCTAssertEqual(large.contentX, 108, accuracy: 0.001)
+
+        for rail in [compact, standard, large] {
+            XCTAssertGreaterThanOrEqual(rail.labelLeadingX, 0)
+            XCTAssertLessThanOrEqual(rail.labelLeadingX, 4)
+        }
     }
 
     func testTimelineRailTypographyUsesCompactMetadataSizes() {
@@ -933,11 +1280,61 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(rail.routineTextLeadingX(iconSize: metrics.expandedAnchorCircleSize), iconRightEdge + 12)
     }
 
+    func testSpineMountedRoutineTextUsesSampledCurveX() {
+        let metrics = TimelineSurfaceMetrics.make(for: .phone)
+        let rail = TimelineRailMetrics.make(for: .phone, surfaceMetrics: metrics)
+        let geometry = TimelineStreamGeometry(
+            baseX: rail.spineX,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 240,
+            influences: [
+                TimelineStreamInfluence(id: "meeting", kind: .meeting, centerY: 120, height: 72)
+            ]
+        )
+        let mountedX = TimelineSpineMounting.centerX(for: geometry, atY: 120)
+        let textX = TimelineSpineMounting.routineTextLeadingX(
+            for: geometry,
+            atY: 120,
+            iconSize: metrics.expandedAnchorCircleSize,
+            railMetrics: rail
+        )
+
+        XCTAssertEqual(mountedX, geometry.x(atY: 120), accuracy: 0.001)
+        XCTAssertNotEqual(mountedX, rail.spineX, accuracy: 0.001)
+        XCTAssertEqual(textX, mountedX + (metrics.expandedAnchorCircleSize / 2) + 14, accuracy: 0.001)
+    }
+
+    func testSpineMountedRoutineAnchorsAndTaskMarkersUseSampledCurveX() {
+        let metrics = TimelineSurfaceMetrics.make(for: .phone)
+        let rail = TimelineRailMetrics.make(for: .phone, surfaceMetrics: metrics)
+        let geometry = TimelineStreamGeometry(
+            baseX: rail.spineX,
+            laneHalfWidth: 20,
+            startY: 0,
+            endY: 360,
+            influences: [
+                TimelineStreamInfluence(id: "meeting-a", kind: .meeting, centerY: 130, height: 72),
+                TimelineStreamInfluence(id: "meeting-b", kind: .meeting, centerY: 184, height: 72)
+            ]
+        )
+        let riseY: CGFloat = 130
+        let windDownY: CGFloat = 184
+        let taskRowY: CGFloat = 104
+        let taskIconY = taskRowY + TimelineTaskMarkerLayout.iconCenterYOffset
+
+        XCTAssertEqual(TimelineSpineMounting.centerX(for: geometry, atY: riseY), geometry.x(atY: riseY), accuracy: 0.001)
+        XCTAssertEqual(TimelineSpineMounting.centerX(for: geometry, atY: windDownY), geometry.x(atY: windDownY), accuracy: 0.001)
+        XCTAssertEqual(TimelineSpineMounting.centerX(for: geometry, atY: taskIconY), geometry.x(atY: taskIconY), accuracy: 0.001)
+        XCTAssertNotEqual(TimelineSpineMounting.centerX(for: geometry, atY: taskIconY), rail.spineX, accuracy: 0.001)
+    }
+
     func testTimelineBottomProtectionIsConditionalOnNextHomeWidget() {
         let metrics = TimelineSurfaceMetrics.make(for: .phone)
 
         XCTAssertEqual(metrics.resolvedTimelineBottomPadding(hasNextHomeWidget: true), 0, accuracy: 0.001)
-        XCTAssertGreaterThan(metrics.resolvedTimelineBottomPadding(hasNextHomeWidget: false), 0)
+        XCTAssertGreaterThanOrEqual(metrics.resolvedTimelineBottomPadding(hasNextHomeWidget: false), 104)
+        XCTAssertLessThanOrEqual(metrics.resolvedTimelineBottomPadding(hasNextHomeWidget: false), 128)
     }
 
     func testPhoneRenderModelUsesNormalCardForSingleTaskAndCalendarEvent() {
@@ -1603,6 +2000,46 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertGreaterThan(currentY ?? 0, meeting?.bottomY ?? .greatestFiniteMagnitude)
     }
 
+    func testCalendarEventCardsUseReducedHeightWithoutChangingTaskCardHeight() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let meetingStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0)
+        let taskStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(
+                    id: "standup",
+                    title: "Standup",
+                    start: meetingStart,
+                    end: meetingStart.addingTimeInterval(30 * 60)
+                ),
+                Self.makeTimedItem(
+                    id: "focus",
+                    title: "Focus",
+                    start: taskStart,
+                    end: taskStart.addingTimeInterval(45 * 60),
+                    priority: .high
+                )
+            ]
+        )
+
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let meetingCard = plan.visualElements.first { positioned in
+            if case .meetingCard = positioned.element { return true }
+            return false
+        }
+        let taskCard = plan.visualElements.first { positioned in
+            if case .taskCard = positioned.element { return true }
+            return false
+        }
+
+        XCTAssertEqual(meetingCard?.height ?? 0, TimelineCanvasLayoutPlan.calendarCardVisualHeight, accuracy: 0.001)
+        XCTAssertEqual(taskCard?.height ?? 0, TimelineCanvasLayoutPlan.cardVisualHeight, accuracy: 0.001)
+    }
+
     func testCurrentTimeYInterpolatesInsideActiveScheduledBlock() {
         let calendar = Self.fixedCalendar
         let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
@@ -1831,6 +2268,32 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(metrics.compactGapRowHeight, 62, accuracy: 0.001)
         XCTAssertEqual(metrics.compactItemMinRowHeight, 78, accuracy: 0.001)
         XCTAssertEqual(metrics.compactReadableWidth ?? 0, 680, accuracy: 0.001)
+    }
+
+    func testTimelineGapPromptActionsForwardGapStartDatesOutsideExpandedCanvas() throws {
+        let source = try Self.homeTimelineSurfaceSource()
+
+        XCTAssertTrue(source.contains("onAddTask: { onAddTask(gap.gap.startDate) }"))
+        XCTAssertTrue(source.contains("onAddTask: { onAddTask(gap.startDate) }"))
+    }
+
+    func testExpandedTimelineGapPromptStaysTappableAbovePassiveStream() throws {
+        let source = try Self.homeTimelineSurfaceSource()
+
+        XCTAssertTrue(source.contains("CurvingDayStreamView(\n                    geometry: streamGeometry,\n                    currentY: currentY\n                )\n                    .frame(width: totalWidth, height: plan.contentHeight)\n                    .zIndex(1)\n                    .allowsHitTesting(false)"))
+        XCTAssertTrue(source.contains("onAddTask: { onAddTask(model.gap.startDate) }"))
+        XCTAssertTrue(source.contains(".zIndex(1.5)"))
+        XCTAssertTrue(source.contains(".accessibilityIdentifier(\"home.timeline.gap.createTask\")"))
+    }
+
+    func testTimelineMeetingCardOmitsVisibleCategoryAndSourceMetadata() throws {
+        let source = try Self.homeTimelineSurfaceSource()
+        let rowSource = try XCTUnwrap(Self.sourceSlice(named: "private struct TimelineMeetingBlockRow", in: source))
+
+        XCTAssertFalse(rowSource.contains("Text(labelText)"))
+        XCTAssertFalse(rowSource.contains("\"Video Call\""))
+        XCTAssertFalse(rowSource.contains("item.subtitle"))
+        XCTAssertFalse(source.contains("Button(\"+ Create task\""))
     }
 
     func testTimelineSurfaceMetricsUsePadExpandedReadableWidthAndExpandedValues() {
@@ -2145,6 +2608,26 @@ private extension HomeForedropLayoutMetricsTests {
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? TimeZone.current
         calendar.locale = Locale(identifier: "en_US_POSIX")
         return calendar
+    }
+
+    static func homeTimelineSurfaceSource() throws -> String {
+        let workspaceRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = workspaceRoot
+            .appendingPathComponent("LifeBoard")
+            .appendingPathComponent("View")
+            .appendingPathComponent("HomeTimelineSurface.swift")
+        return try String(contentsOf: sourceURL, encoding: .utf8)
+    }
+
+    static func sourceSlice(named marker: String, in source: String) -> String? {
+        guard let start = source.range(of: marker)?.lowerBound else { return nil }
+        let tail = source[start...]
+        guard let end = tail.range(of: "\nstruct DailyTimelineCanvas")?.lowerBound else {
+            return String(tail)
+        }
+        return String(tail[..<end])
     }
 
     static func date(calendar: Calendar, year: Int, month: Int, day: Int, hour: Int, minute: Int) -> Date {
