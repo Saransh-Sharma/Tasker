@@ -7,6 +7,36 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E50000000000000000000001 /* LBSunriseHeroArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000000 /* LBSunriseHeroArtwork.swift */; };
+		E50000000000000000000003 /* SunriseHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000002 /* SunriseHeaderView.swift */; };
+		E50000000000000000000005 /* TimeOfDayHeaderAsset.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000004 /* TimeOfDayHeaderAsset.swift */; };
+		E50000000000000000000007 /* LBAssistantPromptCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000006 /* LBAssistantPromptCard.swift */; };
+		E50000000000000000000009 /* LBBottomDock.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000008 /* LBBottomDock.swift */; };
+		E5000000000000000000000B /* LBCurrentTimeBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000000A /* LBCurrentTimeBubble.swift */; };
+		E5000000000000000000000D /* LBCurrentTimeRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000000C /* LBCurrentTimeRail.swift */; };
+		E5000000000000000000000F /* LBDateHeroHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000000E /* LBDateHeroHeader.swift */; };
+		E50000000000000000000011 /* LBEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000010 /* LBEmptyState.swift */; };
+		E50000000000000000000013 /* LBFilterChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000012 /* LBFilterChip.swift */; };
+		E50000000000000000000015 /* LBFloatingAddButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000014 /* LBFloatingAddButton.swift */; };
+		E50000000000000000000017 /* LBGlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000016 /* LBGlassCard.swift */; };
+		E50000000000000000000019 /* LBHabitCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000018 /* LBHabitCell.swift */; };
+		E5000000000000000000001B /* LBIconBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000001A /* LBIconBadge.swift */; };
+		E5000000000000000000001D /* LBLoadingSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000001C /* LBLoadingSkeleton.swift */; };
+		E5000000000000000000001F /* LBMeetingFlockCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000001E /* LBMeetingFlockCard.swift */; };
+		E50000000000000000000021 /* LBPermissionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000020 /* LBPermissionCard.swift */; };
+		E50000000000000000000023 /* LBPrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000022 /* LBPrimaryButton.swift */; };
+		E50000000000000000000025 /* LBSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000024 /* LBSectionHeader.swift */; };
+		E50000000000000000000027 /* LBTimelineCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000026 /* LBTimelineCard.swift */; };
+		E50000000000000000000029 /* LBTimelineItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000028 /* LBTimelineItem.swift */; };
+		E5000000000000000000002B /* LBTimelineSpine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000002A /* LBTimelineSpine.swift */; };
+		E5000000000000000000002D /* SunriseHomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000002C /* SunriseHomeScreen.swift */; };
+		E5000000000000000000002F /* LBColorTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000002E /* LBColorTokens.swift */; };
+		E50000000000000000000031 /* LBRadiusTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000030 /* LBRadiusTokens.swift */; };
+		E50000000000000000000033 /* LBShadowTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000032 /* LBShadowTokens.swift */; };
+		E50000000000000000000035 /* LBSpacingTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000034 /* LBSpacingTokens.swift */; };
+		E50000000000000000000037 /* LBTypographyTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000036 /* LBTypographyTokens.swift */; };
+		E5F000000000000000000002 /* SunriseImages in Resources */ = {isa = PBXBuildFile; fileRef = E5F000000000000000000001 /* SunriseImages */; };
+		E6A100000000000000000002 /* SunriseHeaderAssetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A100000000000000000001 /* SunriseHeaderAssetTests.swift */; };
 		00E943E7872FB1B20D349D99 /* CoreDataOccurrenceRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9E54F6F587FF89056E429DF /* CoreDataOccurrenceRepository.swift */; };
 		044ECC7C2F392E01E778DF95 /* ElevationTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADB62B5450F5D70EBBEC2940 /* ElevationTokens.swift */; };
 		0458C5D6A8E64302B1D4F06F /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */; };
@@ -650,6 +680,36 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		E50000000000000000000000 /* LBSunriseHeroArtwork.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBSunriseHeroArtwork.swift; sourceTree = "<group>"; };
+		E50000000000000000000002 /* SunriseHeaderView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHeaderView.swift; sourceTree = "<group>"; };
+		E50000000000000000000004 /* TimeOfDayHeaderAsset.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeOfDayHeaderAsset.swift; sourceTree = "<group>"; };
+		E50000000000000000000006 /* LBAssistantPromptCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBAssistantPromptCard.swift; sourceTree = "<group>"; };
+		E50000000000000000000008 /* LBBottomDock.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBBottomDock.swift; sourceTree = "<group>"; };
+		E5000000000000000000000A /* LBCurrentTimeBubble.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBCurrentTimeBubble.swift; sourceTree = "<group>"; };
+		E5000000000000000000000C /* LBCurrentTimeRail.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBCurrentTimeRail.swift; sourceTree = "<group>"; };
+		E5000000000000000000000E /* LBDateHeroHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBDateHeroHeader.swift; sourceTree = "<group>"; };
+		E50000000000000000000010 /* LBEmptyState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBEmptyState.swift; sourceTree = "<group>"; };
+		E50000000000000000000012 /* LBFilterChip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBFilterChip.swift; sourceTree = "<group>"; };
+		E50000000000000000000014 /* LBFloatingAddButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBFloatingAddButton.swift; sourceTree = "<group>"; };
+		E50000000000000000000016 /* LBGlassCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBGlassCard.swift; sourceTree = "<group>"; };
+		E50000000000000000000018 /* LBHabitCell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBHabitCell.swift; sourceTree = "<group>"; };
+		E5000000000000000000001A /* LBIconBadge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBIconBadge.swift; sourceTree = "<group>"; };
+		E5000000000000000000001C /* LBLoadingSkeleton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBLoadingSkeleton.swift; sourceTree = "<group>"; };
+		E5000000000000000000001E /* LBMeetingFlockCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBMeetingFlockCard.swift; sourceTree = "<group>"; };
+		E50000000000000000000020 /* LBPermissionCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBPermissionCard.swift; sourceTree = "<group>"; };
+		E50000000000000000000022 /* LBPrimaryButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBPrimaryButton.swift; sourceTree = "<group>"; };
+		E50000000000000000000024 /* LBSectionHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBSectionHeader.swift; sourceTree = "<group>"; };
+		E50000000000000000000026 /* LBTimelineCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTimelineCard.swift; sourceTree = "<group>"; };
+		E50000000000000000000028 /* LBTimelineItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTimelineItem.swift; sourceTree = "<group>"; };
+		E5000000000000000000002A /* LBTimelineSpine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTimelineSpine.swift; sourceTree = "<group>"; };
+		E5000000000000000000002C /* SunriseHomeScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHomeScreen.swift; sourceTree = "<group>"; };
+		E5000000000000000000002E /* LBColorTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBColorTokens.swift; sourceTree = "<group>"; };
+		E50000000000000000000030 /* LBRadiusTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBRadiusTokens.swift; sourceTree = "<group>"; };
+		E50000000000000000000032 /* LBShadowTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBShadowTokens.swift; sourceTree = "<group>"; };
+		E50000000000000000000034 /* LBSpacingTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBSpacingTokens.swift; sourceTree = "<group>"; };
+		E50000000000000000000036 /* LBTypographyTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTypographyTokens.swift; sourceTree = "<group>"; };
+		E5F000000000000000000001 /* SunriseImages */ = {isa = PBXFileReference; lastKnownFileType = folder; path = SunriseImages; sourceTree = SOURCE_ROOT; };
+		E6A100000000000000000001 /* SunriseHeaderAssetTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHeaderAssetTests.swift; sourceTree = "<group>"; };
 		010871EDBE39DF63B4E49E2C /* Pods-LifeBoard.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LifeBoard.debug.xcconfig"; path = "Target Support Files/Pods-LifeBoard/Pods-LifeBoard.debug.xcconfig"; sourceTree = "<group>"; };
 		017ECAA6FA89C9A7825A3E8A /* EnhancedDependencyContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EnhancedDependencyContainer.swift; path = LifeBoard/State/DI/EnhancedDependencyContainer.swift; sourceTree = SOURCE_ROOT; };
 		04AC7378336F374F0E61EA79 /* LifeBoardWatchWidgets.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = LifeBoardWatchWidgets.entitlements; sourceTree = "<group>"; };
@@ -1297,6 +1357,65 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		E5D000000000000000000001 /* LifeBoardDesign */ = {
+			isa = PBXGroup;
+			children = (
+				E5D000000000000000000002 /* Tokens */,
+				E5D000000000000000000003 /* Components */,
+				E5D000000000000000000004 /* Backgrounds */,
+				E5000000000000000000002C /* SunriseHomeScreen.swift */,
+			);
+			path = LifeBoardDesign;
+			sourceTree = "<group>";
+		};
+		E5D000000000000000000002 /* Tokens */ = {
+			isa = PBXGroup;
+			children = (
+				E5000000000000000000002E /* LBColorTokens.swift */,
+				E50000000000000000000030 /* LBRadiusTokens.swift */,
+				E50000000000000000000032 /* LBShadowTokens.swift */,
+				E50000000000000000000034 /* LBSpacingTokens.swift */,
+				E50000000000000000000036 /* LBTypographyTokens.swift */,
+			);
+			path = Tokens;
+			sourceTree = "<group>";
+		};
+		E5D000000000000000000003 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				E50000000000000000000006 /* LBAssistantPromptCard.swift */,
+				E50000000000000000000008 /* LBBottomDock.swift */,
+				E5000000000000000000000A /* LBCurrentTimeBubble.swift */,
+				E5000000000000000000000C /* LBCurrentTimeRail.swift */,
+				E5000000000000000000000E /* LBDateHeroHeader.swift */,
+				E50000000000000000000010 /* LBEmptyState.swift */,
+				E50000000000000000000012 /* LBFilterChip.swift */,
+				E50000000000000000000014 /* LBFloatingAddButton.swift */,
+				E50000000000000000000016 /* LBGlassCard.swift */,
+				E50000000000000000000018 /* LBHabitCell.swift */,
+				E5000000000000000000001A /* LBIconBadge.swift */,
+				E5000000000000000000001C /* LBLoadingSkeleton.swift */,
+				E5000000000000000000001E /* LBMeetingFlockCard.swift */,
+				E50000000000000000000020 /* LBPermissionCard.swift */,
+				E50000000000000000000022 /* LBPrimaryButton.swift */,
+				E50000000000000000000024 /* LBSectionHeader.swift */,
+				E50000000000000000000026 /* LBTimelineCard.swift */,
+				E50000000000000000000028 /* LBTimelineItem.swift */,
+				E5000000000000000000002A /* LBTimelineSpine.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		E5D000000000000000000004 /* Backgrounds */ = {
+			isa = PBXGroup;
+			children = (
+				E50000000000000000000000 /* LBSunriseHeroArtwork.swift */,
+				E50000000000000000000002 /* SunriseHeaderView.swift */,
+				E50000000000000000000004 /* TimeOfDayHeaderAsset.swift */,
+			);
+			path = Backgrounds;
+			sourceTree = "<group>";
+		};
 		017D42D408C7902DAA40A8ED /* DataSources */ = {
 			isa = PBXGroup;
 			children = (
@@ -1695,6 +1814,8 @@
 		753EFC9C2445A24500A739E3 /* LifeBoard */ = {
 			isa = PBXGroup;
 			children = (
+				E5F000000000000000000001 /* SunriseImages */,
+				E5D000000000000000000001 /* LifeBoardDesign */,
 				7551DA0724883298005CF826 /* Utils */,
 				755FE8DF2479E60200A71A75 /* View */,
 				751074EB2DEE24EA00AC7F22 /* Models */,
@@ -1750,6 +1871,7 @@
 				F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */,
 				D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */,
 				F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */,
+				E6A100000000000000000001 /* SunriseHeaderAssetTests.swift */,
 				F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */,
 				D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */,
 				D4F200000000000000000121 /* XPCalculationEngineWeeklyCategoryTests.swift */,
@@ -2822,6 +2944,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E5F000000000000000000002 /* SunriseImages in Resources */,
 				753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */,
 				7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */,
 				753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */,
@@ -3032,6 +3155,34 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E50000000000000000000001 /* LBSunriseHeroArtwork.swift in Sources */,
+				E50000000000000000000003 /* SunriseHeaderView.swift in Sources */,
+				E50000000000000000000005 /* TimeOfDayHeaderAsset.swift in Sources */,
+				E50000000000000000000007 /* LBAssistantPromptCard.swift in Sources */,
+				E50000000000000000000009 /* LBBottomDock.swift in Sources */,
+				E5000000000000000000000B /* LBCurrentTimeBubble.swift in Sources */,
+				E5000000000000000000000D /* LBCurrentTimeRail.swift in Sources */,
+				E5000000000000000000000F /* LBDateHeroHeader.swift in Sources */,
+				E50000000000000000000011 /* LBEmptyState.swift in Sources */,
+				E50000000000000000000013 /* LBFilterChip.swift in Sources */,
+				E50000000000000000000015 /* LBFloatingAddButton.swift in Sources */,
+				E50000000000000000000017 /* LBGlassCard.swift in Sources */,
+				E50000000000000000000019 /* LBHabitCell.swift in Sources */,
+				E5000000000000000000001B /* LBIconBadge.swift in Sources */,
+				E5000000000000000000001D /* LBLoadingSkeleton.swift in Sources */,
+				E5000000000000000000001F /* LBMeetingFlockCard.swift in Sources */,
+				E50000000000000000000021 /* LBPermissionCard.swift in Sources */,
+				E50000000000000000000023 /* LBPrimaryButton.swift in Sources */,
+				E50000000000000000000025 /* LBSectionHeader.swift in Sources */,
+				E50000000000000000000027 /* LBTimelineCard.swift in Sources */,
+				E50000000000000000000029 /* LBTimelineItem.swift in Sources */,
+				E5000000000000000000002B /* LBTimelineSpine.swift in Sources */,
+				E5000000000000000000002D /* SunriseHomeScreen.swift in Sources */,
+				E5000000000000000000002F /* LBColorTokens.swift in Sources */,
+				E50000000000000000000031 /* LBRadiusTokens.swift in Sources */,
+				E50000000000000000000033 /* LBShadowTokens.swift in Sources */,
+				E50000000000000000000035 /* LBSpacingTokens.swift in Sources */,
+				E50000000000000000000037 /* LBTypographyTokens.swift in Sources */,
 				75A6316A2E8BDADC006EEA59 /* LGBaseView.swift in Sources */,
 				75A6316B2E8BDADC006EEA59 /* LGSearchBar.swift in Sources */,
 				752A97642E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */,
@@ -3506,6 +3657,7 @@
 				F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */,
 				D7A500000000000000000202 /* HomeViewControllerLifecycleTests.swift in Sources */,
 				F2A1B2C3D4E5F60718293B53 /* HomeBottomBarStateTests.swift in Sources */,
+				E6A100000000000000000002 /* SunriseHeaderAssetTests.swift in Sources */,
 				F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */,
 				F3A1B2C3D4E5F60718293B55 /* HomeForedropLayoutMetricsTests.swift in Sources */,
 				F4A1B2C3D4E5F60718293B56 /* HomeForedropHintEligibilityTests.swift in Sources */,
