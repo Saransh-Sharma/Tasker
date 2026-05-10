@@ -69,6 +69,48 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(loaded.timelineWindDownMinute, 30)
     }
 
+    func testTimelineAnchorSelectionTreatsEarlyMorningWindDownAsNextDay() {
+        let preferences = LifeBoardWorkspacePreferences(
+            timelineRiseAndShineHour: 8,
+            timelineRiseAndShineMinute: 0,
+            timelineWindDownHour: 1,
+            timelineWindDownMinute: 15
+        )
+
+        let windDown = TimelineAnchorSelection.windDown.date(from: preferences)
+        let wake = TimelineAnchorSelection.wake.date(from: preferences)
+
+        XCTAssertEqual(Calendar.current.component(.hour, from: windDown), 1)
+        XCTAssertEqual(Calendar.current.component(.minute, from: windDown), 15)
+        XCTAssertGreaterThan(windDown, wake)
+        XCTAssertFalse(Calendar.current.isDate(wake, inSameDayAs: windDown))
+    }
+
+    func testTimelineWindDownSummaryMarksEarlyMorningAsNextDay() {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let notificationStore = LifeBoardNotificationPreferencesStore(defaults: defaults)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(
+            LifeBoardWorkspacePreferences(
+                timelineRiseAndShineHour: 8,
+                timelineRiseAndShineMinute: 0,
+                timelineWindDownHour: 1,
+                timelineWindDownMinute: 15
+            )
+        )
+        let calendarService = CalendarIntegrationService(
+            provider: nil,
+            workspacePreferencesStore: workspaceStore
+        )
+        let viewModel = SettingsViewModel(
+            notificationPreferencesStore: notificationStore,
+            workspacePreferencesStore: workspaceStore,
+            calendarIntegrationService: calendarService
+        )
+
+        XCTAssertTrue(viewModel.timelineWindDownSummary.contains("next day"))
+    }
+
     func testWorkspacePreferencesDefaultMascotIsEva() throws {
         let data = Data("""
         {

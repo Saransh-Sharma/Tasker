@@ -261,10 +261,12 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     var timelineWindDownSummary: String {
-        formattedTime(
+        let time = formattedTime(
             hour: workspacePreferences.timelineWindDownHour,
             minute: workspacePreferences.timelineWindDownMinute
         )
+        guard timelineWindDownOccursNextDay else { return time }
+        return "\(time) next day"
     }
 
     var weekStartsOnSummary: String {
@@ -571,5 +573,19 @@ final class SettingsViewModel: ObservableObject, Sendable {
         formatter.timeStyle = .short
         formatter.dateStyle = .none
         return formatter.string(from: date)
+    }
+
+    private var timelineWindDownOccursNextDay: Bool {
+        minutesSinceMidnight(
+            hour: workspacePreferences.timelineWindDownHour,
+            minute: workspacePreferences.timelineWindDownMinute
+        ) <= minutesSinceMidnight(
+            hour: workspacePreferences.timelineRiseAndShineHour,
+            minute: workspacePreferences.timelineRiseAndShineMinute
+        )
+    }
+
+    private func minutesSinceMidnight(hour: Int, minute: Int) -> Int {
+        max(0, min(23, hour)) * 60 + max(0, min(59, minute))
     }
 }
