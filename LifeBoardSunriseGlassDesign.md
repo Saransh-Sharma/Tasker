@@ -2,7 +2,7 @@
 version: "2.0.0"
 name: "LifeBoard Sunrise Glass"
 status: "radical-redesign-source-of-truth"
-last_updated: "2026-05-08"
+last_updated: "2026-05-10"
 platforms:
   primary:
     - "iOS 16+"
@@ -381,12 +381,18 @@ materials:
       - "date navigator"
       - "bottom dock"
       - "small contextual action clusters"
+      - "Home scenic header clear chrome"
     avoid_for:
       - "dense heatmaps"
       - "long text"
       - "error copy"
       - "forms with more than three fields"
     fallback_ios16_to_ios25: "Material plus subtle border plus soft shadow"
+  clear_liquid_glass_home_header:
+    swiftui_ios26: ".glassEffect(.clear, in: shape)"
+    use_for: "Home scenic header menu, right-side chrome action, date navigator, and matching header filter controls where present"
+    backing: "subtle per-control dimming layer plus low-opacity fill and soft stroke"
+    fallback_ios16_to_ios25: ".ultraThinMaterial plus low-opacity fill and soft stroke"
 
 motion:
   timing:
@@ -407,20 +413,20 @@ motion:
 
 components:
   hero_header:
-    height_phone: "250-330pt"
-    background: "scenic sunrise illustration with vertical fade to background.base"
-    content: "menu button, bell button, centered wordmark, greeting overline, date navigator, relative-day chip"
+    height_phone: "242pt Home reference, 292pt accessibility, 250-330pt for roomier secondary heroes"
+    background: "scenic sunrise illustration with short subtle fade to background.base"
+    content: "menu button, right-side chrome action, centered month/day date, compact time-of-day label, date navigator, filter row"
   icon_button:
-    size: "54pt"
+    size: "44pt visual minimum, 44pt hit target minimum"
     radius: "pill"
-    fill: "glass_default"
+    fill: "clear_liquid_glass_home_header on scenic Home header, glass_default elsewhere"
     icon_color: "brand.navy"
     shadow: "floating_control"
   date_navigator:
-    pill_height: "54pt"
+    pill_height: "44pt minimum"
     pill_radius: "pill"
-    fill: "glass_default"
-    side_button_size: "54pt"
+    fill: "clear_liquid_glass_home_header on scenic Home header, glass_default elsewhere"
+    side_button_size: "44pt minimum"
     icon: "calendar"
   filter_chip:
     inactive_fill: "glass_default"
@@ -486,7 +492,7 @@ The current repository already has useful product architecture. Keep the product
 ### Rewrite priority
 
 1. **New token layer**: introduce LifeBoard color, typography, spacing, radius, material, elevation, semantic role, and habit palette tokens.
-2. **New Home shell**: scenic hero, centered LifeBoard wordmark, date navigator, relative-day chip, filter row, timeline spine.
+2. **New Home shell**: scenic hero, large month/day identity, compact time-of-day label, date navigator, filter row, timeline spine.
 3. **New timeline cards**: semantic pastel cards for routine, task, meeting, personal, focus, meal, and wind-down.
 4. **New habit matrix**: selected-day column, continuous heatmap, non-punitive no-activity states, stable color families.
 5. **New bottom dock**: iOS-native glass navigation with raised central add action.
@@ -522,7 +528,7 @@ Frequent actions belong in comfortable thumb zones:
 - Add/create: bottom center floating action.
 - Complete/check off: within timeline cards, with 44pt effective hit area.
 - Filters: below date context, horizontally scrollable if needed.
-- Date navigation: large pills and 54pt side buttons.
+- Date navigation: compact 44pt-minimum controls in the Home header, with roomier variants only when the screen design needs them.
 - Secondary tools: menus, sheets, or trailing icon controls.
 
 Avoid packing critical controls in the top-right corner. Top chrome should orient; bottom chrome should act.
@@ -690,14 +696,13 @@ Primary target is iPhone portrait.
 Recommended structure:
 
 1. Status bar over scenic header.
-2. Top left menu circle and top right bell circle.
-3. Centered LifeBoard wordmark.
-4. Greeting overline with small sun/sparkle.
+2. Top left menu circle and top right contextual action circle.
+3. Large month/day date centered in the header.
+4. Time-of-day label directly under the date with small sun/sparkle.
 5. Date navigator row.
-6. Relative-day chip.
-7. Filter row.
-8. Main content: timeline or habit board.
-9. Optional bottom dock.
+6. Filter row overlapping the lower hero fade.
+7. Main content: timeline or habit board.
+8. Optional bottom dock.
 
 ### 6.2 Screen margins
 
@@ -744,7 +749,7 @@ Use glass on navigation and controls, not on dense data.
 
 Good glass targets:
 
-- Header menu and bell buttons.
+- Header menu and right-side chrome buttons, such as search or notifications.
 - Date selector and side chevrons.
 - Filter chips.
 - Bottom dock.
@@ -763,6 +768,8 @@ Avoid glass for:
 ### 7.2 iOS material strategy
 
 - iOS 26+: use system Liquid Glass APIs on small controls where available.
+- Home scenic header: prefer Clear Liquid Glass for compact chrome over artwork, with a subtle per-control dimming layer for legibility.
+- Use regular/frosted glass as the broader default for non-media surfaces and dense app chrome.
 - iOS 16-25: use `.regularMaterial`, `.thinMaterial`, or a custom white translucent fill with border and shadow.
 - Reduce Transparency: replace glass with solid white, increase border opacity, remove refractive effects.
 
@@ -819,10 +826,12 @@ Purpose: set mood and orient the date.
 
 Specs:
 
-- Height: 250-330pt on phone.
+- Home reference height: 242pt normal and 292pt accessibility.
+- Roomier secondary hero screens may use 250-330pt on phone.
 - Full-width soft illustration or painterly scene.
 - Sun/horizon should sit center-right or upper-right.
-- Fade to background over final 90-130pt.
+- Fade to background over the final 10-15% of the hero; keep it subtle, not a visible fog strip.
+- Home content may overlap upward into the fade so the header and filter/timeline area feel continuous.
 - Content must remain readable over the image.
 - No high-contrast photography behind text.
 
@@ -840,6 +849,7 @@ Scene variants:
 - Navy.
 - 46-50pt on phone.
 - Do not add gradients, glow, drop shadows, or extra logo marks.
+- Do not use the wordmark as the Home hero identity; Home uses the large month/day date instead.
 
 ### 9.3 Greeting overline
 
@@ -854,13 +864,14 @@ Specs:
 - Uppercase rounded sans.
 - 12-13pt, 700 weight, 2.6-3.4pt tracking.
 - Small semantic icon left, tiny sparkle/dot right.
-- Centered under the wordmark.
+- Centered directly under the Home date group or under the wordmark on non-Home hero screens.
 
 ### 9.4 Header buttons
 
-- Size: 54pt circle.
-- Fill: white glass.
-- Icon: 22-24pt navy.
+- Home scenic header size: around 44pt visual circle with at least 44pt hit target.
+- Fill: Clear Liquid Glass on iOS 26+ over scenic Home media, with minimal dimming/backing for contrast.
+- Fallback fill: very light material plus low-opacity backing and soft stroke.
+- Icon: 18-22pt, high contrast against the artwork/control backing.
 - Shadow: floating control.
 - Pressed: scale 0.96, lower shadow, slight lavender tint.
 - Notification badge: 10-12pt gold dot with 2pt white rim.
@@ -875,10 +886,11 @@ Composition:
 
 Specs:
 
-- Pill height: 54pt.
+- Pill height: at least 44pt in compact Home header.
 - Pill radius: full.
 - Date text: 20-21pt, rounded, medium/semibold.
-- Chevrons: 54pt circle.
+- Chevrons: at least 44pt circle.
+- Fill: same Clear Liquid Glass family as the Home header chrome over scenic media.
 - Tapping center opens native date picker in a LifeBoard sheet.
 - Horizontal day swipe should match chevron direction.
 
@@ -934,6 +946,7 @@ The timeline is LifeBoard’s core product surface. It is a readable day story, 
 - Major anchors: 12-15pt gold dot with white halo.
 - Sparse curved connectors for meaningful busy windows only.
 - Avoid drawing a heavy current-time rule through cards.
+- Current-time marker bubble must stay compact: time is one line, label is one line, two lines total.
 
 ### 11.2 Card anatomy
 

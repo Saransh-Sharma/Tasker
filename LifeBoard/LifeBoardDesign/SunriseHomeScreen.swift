@@ -11,6 +11,7 @@ struct SunriseHomeScreen: View {
     let isShellInteractive: Bool
     let onSelectQuickView: (HomeQuickView) -> Void
     let onShowDatePicker: () -> Void
+    let onShiftSelectedDay: (Int) -> Void
     let onShowAdvancedFilters: () -> Void
     let onOpenSettings: () -> Void
     let onOpenSearch: () -> Void
@@ -39,7 +40,7 @@ struct SunriseHomeScreen: View {
                 VStack(spacing: 0) {
                     header
                     content
-                        .padding(.top, 0)
+                        .padding(.top, -headerContentOverlap)
                         .padding(.bottom, bottomInset + LBSpacingTokens.bottomDockClearance)
                 }
                 .background(
@@ -79,21 +80,23 @@ struct SunriseHomeScreen: View {
                         heroTitleColor: context.foregroundStyle.titleColor,
                         heroSubtitleColor: context.foregroundStyle.controlColor,
                         chromeControlColor: context.foregroundStyle.controlColor,
-                        chromeGlassFill: context.foregroundStyle.glassFill.opacity(0.72),
-                        chromeGlassStroke: context.foregroundStyle.glassStroke,
+                        chromeGlassFill: Color.white.opacity(0.12),
+                        chromeGlassStroke: context.foregroundStyle.glassStroke.opacity(0.72),
                         navigatorColor: LBColorTokens.navy,
                         navigatorTitle: LBHeaderTimeContext.navigatorTitle(selectedDate: chrome.selectedDate, now: timeline.date),
-                        navigatorGlassFill: Color.white.opacity(0.74),
-                        navigatorGlassStroke: Color.white.opacity(0.86),
+                        navigatorGlassFill: Color.white.opacity(0.16),
+                        navigatorGlassStroke: Color.white.opacity(0.58),
                         hasNotifications: false,
                         hasActiveFilters: chrome.activeFilterState.hasActiveFilters
                     ),
+                    headerHeight: headerHeight,
+                    safeAreaTop: safeAreaTop,
                     onMenu: onOpenSettings,
-                    onNotifications: onOpenChat,
+                    onSearch: onOpenSearch,
                     onDateTap: onShowDatePicker,
-                    onFilters: onShowAdvancedFilters
+                    onPreviousDay: { onShiftSelectedDay(-1) },
+                    onNextDay: { onShiftSelectedDay(1) }
                 )
-                .padding(.top, safeAreaTop)
             }
         }
     }
@@ -102,8 +105,12 @@ struct SunriseHomeScreen: View {
         dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.compactHeaderAccessibilityHeight : LBSpacingTokens.compactHeaderHeight
     }
 
+    private var headerContentOverlap: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.sunriseHeaderAccessibilityContentOverlap : LBSpacingTokens.sunriseHeaderContentOverlap
+    }
+
     private var content: some View {
-        VStack(spacing: LBSpacingTokens.sm) {
+        VStack(spacing: LBSpacingTokens.xxs) {
             filterRow
 
             stateCards
@@ -127,6 +134,7 @@ struct SunriseHomeScreen: View {
             .padding(.horizontal, LBSpacingTokens.screenMargin)
         }
         .padding(.horizontal, -LBSpacingTokens.screenMargin)
+        .padding(.top, LBSpacingTokens.xs + 10)
     }
 
     @ViewBuilder
@@ -172,16 +180,17 @@ struct SunriseHomeScreen: View {
                         let temporalState = row.temporalState(now: context.date)
                     switch row.kind {
                     case .anchor(let anchor):
-                        LBTimelineItem(timeText: timeText(anchor.time), role: .routine, temporalState: temporalState) {
+                        let anchorRole = role(for: anchor)
+                        LBTimelineItem(timeText: timeText(anchor.time), role: anchorRole, temporalState: temporalState) {
                             LBTimelineCard(
                                 model: LBTimelineCard.Model(
                                     id: anchor.id,
-                                    title: anchor.title,
+                                    title: anchorTitle(for: anchor),
                                     subtitle: anchor.subtitle ?? routineSubtitle(for: LBHeaderTimeContext.resolve(selectedDate: chrome.selectedDate).period),
                                     timeText: timeText(anchor.time),
-                                    role: .routine,
+                                    role: anchorRole,
                                     kind: .anchor,
-                                    systemImage: anchor.systemImageName.isEmpty ? "sunrise" : anchor.systemImageName,
+                                    systemImage: anchorSystemImage(for: anchor),
                                     accessoryText: nil,
                                     temporalState: temporalState,
                                     isCompleted: false,
@@ -264,7 +273,10 @@ struct SunriseHomeScreen: View {
     }
 
     private var filterChips: [SunriseFilterChip] {
-        Self.filterChipModels(selectedFilterID: selectedFilterID).map { model in
+        Self.filterChipModels(
+            selectedFilterID: selectedFilterID,
+            hasActiveFilters: chrome.activeFilterState.hasActiveFilters
+        ).map { model in
             switch model.id {
             case "all":
                 return SunriseFilterChip(
@@ -298,6 +310,11 @@ struct SunriseHomeScreen: View {
                         onOpenHabitBoard()
                     }
                 )
+            case "filters":
+                return SunriseFilterChip(
+                    model: model,
+                    action: onShowAdvancedFilters
+                )
             default:
                 return SunriseFilterChip(
                     model: model,
@@ -307,7 +324,7 @@ struct SunriseHomeScreen: View {
         }
     }
 
-    nonisolated static func filterChipModels(selectedFilterID: String) -> [LBFilterChip.Model] {
+    nonisolated static func filterChipModels(selectedFilterID: String, hasActiveFilters: Bool = false) -> [LBFilterChip.Model] {
         [
             LBFilterChip.Model(
                 id: "all",
@@ -336,6 +353,15 @@ struct SunriseHomeScreen: View {
                 systemImage: "heart",
                 isSelected: selectedFilterID == "habits",
                 accessibilityID: "home.sunrise.filter.habits"
+            ),
+            LBFilterChip.Model(
+                id: "filters",
+                title: "Filters",
+                systemImage: "slider.horizontal.3",
+                isSelected: false,
+                showsIndicator: hasActiveFilters,
+                hidesTitle: true,
+                accessibilityID: "home.sunrise.filter.filters"
             )
         ]
     }
@@ -343,6 +369,7 @@ struct SunriseHomeScreen: View {
     func timelineRows(now: Date) -> [SunriseTimelineRow] {
         Self.buildTimelineRows(
             wakeAnchor: timeline.day.wakeAnchor,
+            sleepAnchor: timeline.day.sleepAnchor,
             plottedItems: timeline.day.plottedTimelineItems,
             gaps: timeline.day.actionableGaps,
             now: now,
@@ -353,6 +380,7 @@ struct SunriseHomeScreen: View {
 
     nonisolated static func buildTimelineRows(
         wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem,
         plottedItems: [TimelinePlanItem],
         gaps: [TimelineGap],
         now: Date,
@@ -385,6 +413,8 @@ struct SunriseHomeScreen: View {
         if let gap = gaps.first(where: { Self.assistantDisplayDate(for: $0, now: now) != nil }) {
             rows.append(.gap(gap))
         }
+
+        rows.append(.anchor(sleepAnchor))
 
         return Self.sortedRows(rows, now: now)
     }
@@ -531,6 +561,21 @@ struct SunriseHomeScreen: View {
         if title.contains("lunch") || title.contains("dinner") || title.contains("meal") { return .meal }
         if item.isPinnedFocusTask { return .focus }
         return .task
+    }
+
+    private func role(for anchor: TimelineAnchorItem) -> LBRole {
+        anchor.id == "sleep" ? .windDown : .routine
+    }
+
+    private func anchorTitle(for anchor: TimelineAnchorItem) -> String {
+        anchor.id == "sleep" ? "Wind Down" : anchor.title
+    }
+
+    private func anchorSystemImage(for anchor: TimelineAnchorItem) -> String {
+        if anchor.id == "sleep" {
+            return LBColorTokens.role(.windDown).symbolName
+        }
+        return anchor.systemImageName.isEmpty ? "sunrise" : anchor.systemImageName
     }
 
     private func routineSubtitle(for period: TimeOfDayHeaderAsset.Period) -> String {
