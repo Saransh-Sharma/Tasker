@@ -21,21 +21,16 @@ struct HomeGlassBottomBar: View {
     private var prefersReducedMotion: Bool { shellPhase != .interactive }
 
     var body: some View {
-        HomeAnimatedTabBar(
-            selectedItem: state.selectedItem,
+        LBBottomDock(
+            state: state,
             shellPhase: shellPhase,
-            items: HomeBottomTabDescriptor.homeTabs,
-            onTap: handleItemTap
+            onHome: onHome,
+            onCalendar: onCalendar,
+            onChartsToggle: onChartsToggle,
+            onSearch: onSearch,
+            onChat: onChat,
+            onCreate: onCreate
         )
-        .padding(.horizontal, spacing.s16)
-        .padding(.top, spacing.s12)
-        .padding(.bottom, 0)
-        .scaleEffect(state.isMinimized ? 0.96 : 1.0, anchor: .bottom)
-        .offset(y: state.isMinimized ? spacing.s20 : 0)
-        .animation(prefersReducedMotion ? .easeOut(duration: 0.14) : LifeBoardAnimation.snappy, value: state.isMinimized)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.bottomBar")
-        .accessibilityValue(state.isMinimized ? "minimized" : "expanded")
     }
 
     private func handleItemTap(_ item: HomeBottomBarItem) {
