@@ -33,13 +33,13 @@ struct LBSunriseHeroArtwork: View {
             LinearGradient(
                 colors: [
                     LBColorTokens.canvas.opacity(0),
-                    LBColorTokens.canvas.opacity(0.42),
+                    LBColorTokens.canvas.opacity(0.10),
                     LBColorTokens.canvas
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .frame(height: height * 0.22)
+            .frame(height: height * 0.11)
             .allowsHitTesting(false)
         }
         .frame(height: height)

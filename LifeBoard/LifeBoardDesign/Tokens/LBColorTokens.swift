@@ -2,6 +2,7 @@ import SwiftUI
 
 enum LBRole: String, CaseIterable {
     case routine
+    case windDown
     case task
     case meeting
     case personal
@@ -47,6 +48,8 @@ enum LBColorTokens {
         switch role {
         case .routine:
             return LBRoleStyle(base: sunriseGold, deep: Color(lifeboardHex: "#D88900"), softSurface: amberSoft, border: Color(lifeboardHex: "#F6DE9A"), symbolName: "sun.max")
+        case .windDown:
+            return LBRoleStyle(base: Color(lifeboardHex: "#E7A900"), deep: Color(lifeboardHex: "#8F6500"), softSurface: Color(lifeboardHex: "#FFF9EC"), border: Color(lifeboardHex: "#F4E0B8"), symbolName: "moon.stars.fill")
         case .task:
             return LBRoleStyle(base: leaf, deep: Color(lifeboardHex: "#15952B"), softSurface: Color(lifeboardHex: "#EFF9EC"), border: Color(lifeboardHex: "#D6EFD3"), symbolName: "checkmark.square")
         case .meeting:

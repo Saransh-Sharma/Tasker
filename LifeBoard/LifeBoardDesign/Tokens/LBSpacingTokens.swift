@@ -11,6 +11,8 @@ enum LBSpacingTokens {
     static let screenMargin: CGFloat = 16
     static let compactHeaderHeight: CGFloat = 242
     static let compactHeaderAccessibilityHeight: CGFloat = 292
+    static let sunriseHeaderContentOverlap: CGFloat = 34
+    static let sunriseHeaderAccessibilityContentOverlap: CGFloat = 20
     static let timelineTimeColumnWidth: CGFloat = 72
     static let timelineRailWidth: CGFloat = 16
     static let timelineCardGap: CGFloat = 8
