@@ -75,6 +75,45 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testShiftSelectedDayIntoTodayRestoresTodayScope() {
+        let suiteName = "HomeViewModelPersistenceTests.DayStepIntoToday.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+
+        viewModel.selectDate(tomorrow, source: .datePicker)
+        waitForMainQueueFlush()
+        viewModel.shiftSelectedDay(byDays: -1, source: .datePicker)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(calendar.isDateInToday(viewModel.selectedDate))
+        XCTAssertEqual(viewModel.activeScope, .today)
+
+        viewModel.selectDate(yesterday, source: .datePicker)
+        waitForMainQueueFlush()
+        viewModel.shiftSelectedDay(byDays: 1, source: .datePicker)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(calendar.isDateInToday(viewModel.selectedDate))
+        XCTAssertEqual(viewModel.activeScope, .today)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testGroupingModeAndCustomProjectOrderPersistAcrossSessions() {
         let suiteName = "HomeViewModelPersistenceTests.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {

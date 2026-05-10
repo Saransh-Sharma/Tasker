@@ -94,6 +94,19 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(LBHeaderTimeContext.navigatorTitle(selectedDate: date(hour: 0, day: 7), now: now, calendar: calendar), "Yesterday")
     }
 
+    func testSunriseDateNavigatorAccessibilityIdentifiersAreStable() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let headerSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/LifeBoardDesign/Components/LBDateHeroHeader.swift"))
+        let homeSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/View/HomeForedropView.swift"))
+
+        XCTAssertTrue(headerSource.contains("\"home.sunrise.date.previous\""))
+        XCTAssertTrue(headerSource.contains("\"home.sunrise.date.next\""))
+        XCTAssertTrue(headerSource.contains("\"home.sunrise.date.selector\""))
+        XCTAssertTrue(homeSource.contains("\"home.datePicker\""))
+    }
+
     func testAssistantCopySwitchesByTimeBucket() {
         let start = date(hour: 14)
         let end = date(hour: 15, minute: 30)
@@ -113,14 +126,26 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertFalse(models.first(where: { $0.id == "all" })?.isSelected ?? true)
     }
 
+    @MainActor
+    func testFilterChipOrderIncludesFiltersAfterHabits() {
+        let models = SunriseHomeScreen.filterChipModels(selectedFilterID: "all", hasActiveFilters: true)
+
+        XCTAssertEqual(models.map(\.title), ["All", "Meetings", "Tasks", "Habits", "Filters"])
+        XCTAssertEqual(models.map(\.id), ["all", "meetings", "tasks", "habits", "filters"])
+        XCTAssertFalse(models.first(where: { $0.id == "filters" })?.isSelected ?? true)
+        XCTAssertTrue(models.first(where: { $0.id == "filters" })?.showsIndicator ?? false)
+    }
+
     func testNowRowSortsChronologicallyBetweenTimelineItems() {
         let now = date(hour: 21, minute: 15)
         let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 11, minute: 15), systemImageName: "sunrise")
+        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
         let earlyTask = timelineItem(id: "early", startHour: 18, startMinute: 5, endHour: 18, endMinute: 20)
         let lateTask = timelineItem(id: "late", startHour: 22, startMinute: 0, endHour: 22, endMinute: 30)
 
         let rows = SunriseHomeScreen.buildTimelineRows(
             wakeAnchor: wake,
+            sleepAnchor: sleep,
             plottedItems: [earlyTask, lateTask],
             gaps: [],
             now: now,
@@ -128,15 +153,17 @@ final class SunriseHeaderAssetTests: XCTestCase {
             meetingFlockModel: stubMeetingFlock
         )
 
-        XCTAssertEqual(rows.map { $0.id }, ["anchor-wake", "item-early", "now-\(Int(now.timeIntervalSince1970 / 60))", "item-late"])
+        XCTAssertEqual(rows.map { $0.id }, ["anchor-wake", "item-early", "now-\(Int(now.timeIntervalSince1970 / 60))", "item-late", "anchor-sleep"])
     }
 
     func testNowRowIsOmittedForNonTodayTimeline() {
         let now = date(hour: 21, minute: 15)
         let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 11, minute: 15), systemImageName: "sunrise")
+        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
 
         let rows = SunriseHomeScreen.buildTimelineRows(
             wakeAnchor: wake,
+            sleepAnchor: sleep,
             plottedItems: [],
             gaps: [],
             now: now,
@@ -145,6 +172,27 @@ final class SunriseHeaderAssetTests: XCTestCase {
         )
 
         XCTAssertFalse(rows.contains { if case .now = $0 { return true }; return false })
+    }
+
+    func testWindDownAnchorStaysSeparateFromAssistantGap() {
+        let now = date(hour: 21, minute: 15)
+        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise.fill")
+        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
+        let activeGap = TimelineGap(startDate: date(hour: 21), endDate: date(hour: 22), suggestedTaskCount: 0)
+
+        let rows = SunriseHomeScreen.buildTimelineRows(
+            wakeAnchor: wake,
+            sleepAnchor: sleep,
+            plottedItems: [],
+            gaps: [activeGap],
+            now: now,
+            isToday: true,
+            meetingFlockModel: stubMeetingFlock
+        )
+
+        XCTAssertTrue(rows.contains { $0.id == "anchor-sleep" })
+        XCTAssertTrue(rows.contains { if case .gap = $0 { return true }; return false })
+        XCTAssertEqual(LBColorTokens.role(.windDown).symbolName, "moon.stars.fill")
     }
 
     func testTemporalStateMarksPastCurrentAndFutureRows() {
