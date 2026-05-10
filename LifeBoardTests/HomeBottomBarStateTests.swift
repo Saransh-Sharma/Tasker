@@ -36,7 +36,6 @@ final class HomeBottomBarStateTests: XCTestCase {
             .calendar,
             .chat,
             .charts,
-            .search,
             .create
         ])
     }
@@ -48,8 +47,8 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertEqual(state.index(for: .calendar), 1)
         XCTAssertEqual(state.index(for: .chat), 2)
         XCTAssertEqual(state.index(for: .charts), 3)
-        XCTAssertEqual(state.index(for: .search), 4)
-        XCTAssertEqual(state.index(for: .create), 5)
+        XCTAssertEqual(state.index(for: .search), 0)
+        XCTAssertEqual(state.index(for: .create), 4)
     }
 
     func testSelectIndexUpdatesSelectedItem() {
@@ -57,7 +56,7 @@ final class HomeBottomBarStateTests: XCTestCase {
 
         state.selectIndex(4)
 
-        XCTAssertEqual(state.selectedItem, .search)
+        XCTAssertEqual(state.selectedItem, .create)
         XCTAssertEqual(state.selectedIndex, 4)
     }
 
@@ -73,13 +72,14 @@ final class HomeBottomBarStateTests: XCTestCase {
 
     func testMomentaryCreateRestoresLastPersistentSelection() {
         let state = HomeBottomBarState()
+        state.select(.calendar)
         state.select(.search)
 
         state.selectMomentaryCreate()
         XCTAssertEqual(state.selectedItem, .create)
 
         state.restoreAfterMomentaryCreate()
-        XCTAssertEqual(state.selectedItem, .search)
+        XCTAssertEqual(state.selectedItem, .calendar)
     }
 
     func testMomentaryCreateDoesNotReplacePersistentSelection() {

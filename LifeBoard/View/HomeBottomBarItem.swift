@@ -23,7 +23,6 @@ extension HomeBottomBarItem {
         .calendar,
         .chat,
         .charts,
-        .search,
         .create
     ]
 

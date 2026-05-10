@@ -16,7 +16,7 @@ final class HomeBottomBarState {
     /// Executes select.
     func select(_ item: HomeBottomBarItem) {
         selectedItem = item
-        if item != .create, item != .chat {
+        if item != .create, item != .chat, item != .search {
             lastPersistentItem = item
         }
     }
