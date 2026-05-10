@@ -16,8 +16,7 @@ struct LBBottomDock: View {
             DockItem(item: .home, title: "Home", systemImage: "house", selectedSystemImage: "house.fill", accessibilityID: "home.bottomBar.home"),
             DockItem(item: .calendar, title: "Schedule", systemImage: HomeCalendarBottomBarSymbol.symbolName(for: Date()), selectedSystemImage: HomeCalendarBottomBarSymbol.symbolName(for: Date()), accessibilityID: "home.bottomBar.calendar"),
             DockItem(item: .chat, title: "Eva", systemImage: "sparkles", selectedSystemImage: "sparkles", accessibilityID: "home.chatButton"),
-            DockItem(item: .charts, title: "Insights", systemImage: "chart.bar.xaxis", selectedSystemImage: "chart.bar.xaxis", accessibilityID: "home.bottomBar.charts"),
-            DockItem(item: .search, title: "Search", systemImage: "magnifyingglass", selectedSystemImage: "magnifyingglass", accessibilityID: "home.searchButton")
+            DockItem(item: .charts, title: "Insights", systemImage: "chart.bar.xaxis", selectedSystemImage: "chart.bar.xaxis", accessibilityID: "home.bottomBar.charts")
         ]
     }
 
@@ -28,7 +27,7 @@ struct LBBottomDock: View {
                     dockButton(item)
                 }
                 Spacer(minLength: 74)
-                ForEach(items.suffix(3)) { item in
+                ForEach(items.suffix(2)) { item in
                     dockButton(item)
                 }
             }
