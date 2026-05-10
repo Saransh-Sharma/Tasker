@@ -2748,7 +2748,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             return AnyView(Text("Schedule unavailable").font(.lifeboard(.body)))
         }
         return AnyView(
-            CalendarScheduleView(
+            SunriseScheduleScreen(
                 service: service,
                 weekStartsOn: service.weekStartsOn,
                 presentationMode: .embedded,
@@ -4347,7 +4347,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             return
         }
         guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
-        let view = CalendarScheduleView(
+        let view = SunriseScheduleScreen(
             service: service,
             weekStartsOn: service.weekStartsOn,
             presentationMode: .modal,
