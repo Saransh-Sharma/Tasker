@@ -35,6 +35,8 @@ struct TaskTimeWheelPicker: View {
     let intervalMinutes: Int
     let showsDurationRange: Bool
     let accessibilityLabel: String?
+    let slotBaseDate: Date?
+    let additionalDayCount: Int
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var centeredSlotID: Int?
@@ -48,7 +50,9 @@ struct TaskTimeWheelPicker: View {
         defaultStartDate: Date,
         intervalMinutes: Int,
         showsDurationRange: Bool = true,
-        accessibilityLabel: String? = nil
+        accessibilityLabel: String? = nil,
+        slotBaseDate: Date? = nil,
+        additionalDayCount: Int = 0
     ) {
         self._startDate = startDate
         self.durationMinutes = durationMinutes
@@ -56,6 +60,8 @@ struct TaskTimeWheelPicker: View {
         self.intervalMinutes = intervalMinutes
         self.showsDurationRange = showsDurationRange
         self.accessibilityLabel = accessibilityLabel
+        self.slotBaseDate = slotBaseDate
+        self.additionalDayCount = additionalDayCount
     }
 
     var body: some View {
@@ -138,12 +144,13 @@ struct TaskTimeWheelPicker: View {
     }
 
     private var baseDay: Date {
-        Calendar.current.startOfDay(for: selectedDate)
+        Calendar.current.startOfDay(for: slotBaseDate ?? selectedDate)
     }
 
     private var slots: [TaskTimeSlot] {
         let slotsPerDay = (24 * 60) / max(1, intervalMinutes)
-        return (0..<slotsPerDay).compactMap { index in
+        let slotCount = slotsPerDay * (1 + max(0, additionalDayCount))
+        return (0..<slotCount).compactMap { index in
             guard let date = Calendar.current.date(byAdding: .minute, value: index * intervalMinutes, to: baseDay) else {
                 return nil
             }
@@ -184,8 +191,8 @@ struct TaskTimeWheelPicker: View {
     }
 
     private func slotID(for date: Date) -> Int {
-        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
-        let minutes = (components.hour ?? 0) * 60 + (components.minute ?? 0)
+        let rounded = TaskDetailViewModel.roundedToNearestScheduleSlot(date, intervalMinutes: intervalMinutes)
+        let minutes = Calendar.current.dateComponents([.minute], from: baseDay, to: rounded).minute ?? 0
         let slotCount = slots.count
         return min(max(0, minutes / max(1, intervalMinutes)), slotCount - 1)
     }
@@ -194,7 +201,7 @@ struct TaskTimeWheelPicker: View {
         guard isSelected, showsDurationRange else {
             let formatter = DateFormatter()
             formatter.timeStyle = .short
-            return formatter.string(from: date)
+            return nextDaySuffix(for: date, text: formatter.string(from: date))
         }
         return TaskDetailViewModel.scheduleRangeLabel(
             start: date,
@@ -206,12 +213,19 @@ struct TaskTimeWheelPicker: View {
         guard showsDurationRange else {
             let formatter = DateFormatter()
             formatter.timeStyle = .short
-            return formatter.string(from: date)
+            return nextDaySuffix(for: date, text: formatter.string(from: date))
         }
         return TaskDetailViewModel.scheduleRangeAccessibilityLabel(
             start: date,
             end: date.addingTimeInterval(TimeInterval(durationMinutes * 60))
         )
+    }
+
+    private func nextDaySuffix(for date: Date, text: String) -> String {
+        guard additionalDayCount > 0, !Calendar.current.isDate(date, inSameDayAs: baseDay) else {
+            return text
+        }
+        return "\(text) next day"
     }
 }
 
@@ -277,11 +291,34 @@ enum TimelineAnchorSelection: String, Equatable, Identifiable {
                 calendar: calendar
             )
         case .windDown:
-            return Self.date(
+            let wake = Self.date(
+                hour: preferences.timelineRiseAndShineHour,
+                minute: preferences.timelineRiseAndShineMinute,
+                calendar: calendar
+            )
+            var windDown = Self.date(
                 hour: preferences.timelineWindDownHour,
                 minute: preferences.timelineWindDownMinute,
                 calendar: calendar
             )
+            if windDown <= wake {
+                windDown = calendar.date(byAdding: .day, value: 1, to: windDown) ?? windDown
+            }
+            return windDown
+        }
+    }
+
+    func slotBaseDate(from preferences: LifeBoardWorkspacePreferences, calendar: Calendar = .current) -> Date {
+        switch self {
+        case .wake:
+            return calendar.startOfDay(for: date(from: preferences, calendar: calendar))
+        case .windDown:
+            let wake = Self.date(
+                hour: preferences.timelineRiseAndShineHour,
+                minute: preferences.timelineRiseAndShineMinute,
+                calendar: calendar
+            )
+            return calendar.startOfDay(for: wake)
         }
     }
 
@@ -416,7 +453,9 @@ struct TimelineAnchorDetailSheetView: View {
             accessibilityLabel: String(
                 format: String(localized: "%@ start time"),
                 selection.title
-            )
+            ),
+            slotBaseDate: selection.slotBaseDate(from: preferencesStore.load()),
+            additionalDayCount: selection == .windDown ? 1 : 0
         )
         .accessibilityIdentifier("timelineAnchorDetail.timePicker")
         .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)

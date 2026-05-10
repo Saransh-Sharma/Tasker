@@ -2932,6 +2932,131 @@ private struct HomeCalendarEventDetailSelection: Identifiable, Equatable {
     }
 }
 
+private struct SunriseHomeDatePickerPopover: View {
+    @Binding var draftDate: Date
+    let selectedDate: Date
+    let onToday: () -> Void
+    let onCancel: () -> Void
+    let onApply: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+            HStack(spacing: LBSpacingTokens.md) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .frame(width: 38, height: 38)
+                    .background(LBColorTokens.violetSoft.opacity(0.86), in: Circle())
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Choose day")
+                        .font(LBTypographyTokens.cardTitle)
+                        .foregroundStyle(LBColorTokens.navy)
+                    Text(Self.relativeDateText(for: draftDate, selectedDate: selectedDate))
+                        .font(LBTypographyTokens.meta)
+                        .foregroundStyle(LBColorTokens.navyMuted)
+                }
+
+                Spacer(minLength: LBSpacingTokens.sm)
+
+                Button(action: onCancel) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .frame(width: 32, height: 32)
+                        .background(LBColorTokens.glassStrong, in: Circle())
+                        .overlay { Circle().stroke(LBColorTokens.glassBorder, lineWidth: 1) }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close date picker")
+            }
+
+            DatePicker(
+                "Select date",
+                selection: $draftDate,
+                displayedComponents: .date
+            )
+            .datePickerStyle(.graphical)
+            .labelsHidden()
+            .tint(LBColorTokens.violetDeep)
+            .accessibilityIdentifier("home.datePicker.calendar")
+
+            HStack(spacing: LBSpacingTokens.sm) {
+                dateActionButton(
+                    title: "Today",
+                    systemImage: "sun.max",
+                    isPrimary: false,
+                    action: onToday
+                )
+                dateActionButton(
+                    title: "Cancel",
+                    systemImage: "xmark",
+                    isPrimary: false,
+                    action: onCancel
+                )
+                dateActionButton(
+                    title: "Apply",
+                    systemImage: "checkmark",
+                    isPrimary: true,
+                    action: onApply
+                )
+            }
+        }
+        .padding(LBSpacingTokens.lg)
+        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? 420 : 366)
+        .background { popoverSurface }
+        .shadow(color: LBColorTokens.navy.opacity(0.16), radius: 28, x: 0, y: 16)
+        .accessibilityIdentifier("home.datePicker")
+    }
+
+    private var popoverSurface: some View {
+        let shape = RoundedRectangle(cornerRadius: LBRadiusTokens.largeCard, style: .continuous)
+        return shape
+            .fill(.ultraThinMaterial)
+            .overlay { shape.fill(LBColorTokens.glassStrong.opacity(0.88)) }
+            .overlay { shape.stroke(LBColorTokens.glassBorder, lineWidth: 1) }
+    }
+
+    private func dateActionButton(
+        title: String,
+        systemImage: String,
+        isPrimary: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(LBTypographyTokens.meta.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.86)
+                .foregroundStyle(isPrimary ? Color.white : LBColorTokens.navy)
+                .frame(maxWidth: .infinity, minHeight: 38)
+                .padding(.horizontal, LBSpacingTokens.sm)
+                .background {
+                    Capsule()
+                        .fill(isPrimary ? LBColorTokens.violetDeep : LBColorTokens.glass)
+                        .overlay {
+                            Capsule()
+                                .stroke(isPrimary ? LBColorTokens.violet.opacity(0.35) : LBColorTokens.glassBorder, lineWidth: 1)
+                        }
+                }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private static func relativeDateText(for draftDate: Date, selectedDate: Date) -> String {
+        let calendar = Calendar.current
+        let selectedPrefix = calendar.isDate(draftDate, inSameDayAs: selectedDate) ? "Selected" : "Preview"
+        if calendar.isDateInToday(draftDate) {
+            return "\(selectedPrefix) today"
+        }
+        let formatted = draftDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+        return "\(selectedPrefix) \(formatted)"
+    }
+}
+
 struct HomeBackdropForedropRootView: View {
     let viewModel: HomeViewModel
     @ObservedObject var chromeStore: HomeChromeStore
@@ -3279,6 +3404,42 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private var sunriseDatePickerDropdown: some View {
+        ZStack(alignment: .top) {
+            Color.black.opacity(0.001)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    showDatePicker = false
+                }
+
+            SunriseHomeDatePickerPopover(
+                draftDate: $draftDate,
+                selectedDate: chromeSnapshot.selectedDate,
+                onToday: {
+                    draftDate = Date()
+                    viewModel.returnToToday(source: .datePicker)
+                    showDatePicker = false
+                },
+                onCancel: {
+                    showDatePicker = false
+                },
+                onApply: {
+                    viewModel.selectDate(draftDate, source: .datePicker)
+                    showDatePicker = false
+                }
+            )
+            .padding(.horizontal, LBSpacingTokens.screenMargin)
+            .padding(.top, sunriseDatePickerTopPadding)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .accessibilityIdentifier("home.sunrise.datePicker.backdrop")
+    }
+
+    private var sunriseDatePickerTopPadding: CGFloat {
+        let safeHeaderTop = max(layoutMetrics.safeAreaTop, 54)
+        return safeHeaderTop + (dynamicTypeSize.isAccessibilitySize ? 204 : 158)
+    }
+
     var body: some View {
         let _ = themeManager.currentTheme.index
 
@@ -3302,6 +3463,9 @@ struct HomeBackdropForedropRootView: View {
                         onShowDatePicker: {
                             draftDate = chromeSnapshot.selectedDate
                             showDatePicker = true
+                        },
+                        onShiftSelectedDay: { dayOffset in
+                            shiftSunriseSelectedDay(by: dayOffset)
                         },
                         onShowAdvancedFilters: {
                             showAdvancedFilters = true
@@ -3403,6 +3567,14 @@ struct HomeBackdropForedropRootView: View {
         .overlay(alignment: .bottom) {
             needsReplanFloatingOverlay
         }
+        .overlay(alignment: .top) {
+            if showDatePicker {
+                sunriseDatePickerDropdown
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(20)
+            }
+        }
+        .animation(.snappy(duration: reduceMotion || isUITesting ? 0.01 : 0.24), value: showDatePicker)
         .onPreferenceChange(TimelineHeaderHeightPreferenceKey.self) { measuredTimelineHeaderHeight = $0 }
         .onPreferenceChange(TimelineCalendarCardHeightPreferenceKey.self) { measuredCalendarCardHeight = $0 }
         .onPreferenceChange(TimelineBackdropWeekHeightPreferenceKey.self) { measuredWeekBackdropHeight = $0 }
@@ -3491,40 +3663,6 @@ struct HomeBackdropForedropRootView: View {
                 )
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
-            }
-        }
-        .sheet(isPresented: $showDatePicker) {
-            NavigationStack {
-                VStack(spacing: spacing.s16) {
-                    DatePicker(
-                        "Select date",
-                        selection: $draftDate,
-                        displayedComponents: .date
-                    )
-                    .datePickerStyle(.graphical)
-                    .padding(.horizontal, spacing.s16)
-
-                    HStack(spacing: spacing.s12) {
-                        Button("Today") {
-                            draftDate = Date()
-                            viewModel.returnToToday(source: .datePicker)
-                            showDatePicker = false
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button("Apply") {
-                            viewModel.selectDate(draftDate, source: .datePicker)
-                            showDatePicker = false
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                }
-                .navigationTitle("Date")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close") { showDatePicker = false }
-                    }
-                }
             }
         }
         .sheet(isPresented: $showAdvancedFilters) {
@@ -4245,7 +4383,7 @@ struct HomeBackdropForedropRootView: View {
     private func foredropScheduleFace() -> some View {
         ZStack {
             if let calendarIntegrationService {
-                CalendarScheduleView(
+                SunriseScheduleScreen(
                     service: calendarIntegrationService,
                     weekStartsOn: calendarIntegrationService.weekStartsOn,
                     presentationMode: .embedded,
@@ -4983,6 +5121,14 @@ struct HomeBackdropForedropRootView: View {
             if committedDaySwipeDirection == direction {
                 committedDaySwipeDirection = nil
             }
+        }
+    }
+
+    private func shiftSunriseSelectedDay(by dayOffset: Int) {
+        guard dayOffset != 0 else { return }
+        LifeBoardFeedback.selection()
+        withAnimation(daySwipeAnimation) {
+            viewModel.shiftSelectedDay(byDays: dayOffset, source: .datePicker)
         }
     }
 
