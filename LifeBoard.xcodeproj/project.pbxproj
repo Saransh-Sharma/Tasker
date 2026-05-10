@@ -35,6 +35,7 @@
 		E50000000000000000000033 /* LBShadowTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000032 /* LBShadowTokens.swift */; };
 		E50000000000000000000035 /* LBSpacingTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000034 /* LBSpacingTokens.swift */; };
 		E50000000000000000000037 /* LBTypographyTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000036 /* LBTypographyTokens.swift */; };
+		E50000000000000000000039 /* SunriseScheduleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000038 /* SunriseScheduleScreen.swift */; };
 		E5F000000000000000000002 /* SunriseImages in Resources */ = {isa = PBXBuildFile; fileRef = E5F000000000000000000001 /* SunriseImages */; };
 		E6A100000000000000000002 /* SunriseHeaderAssetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A100000000000000000001 /* SunriseHeaderAssetTests.swift */; };
 		00E943E7872FB1B20D349D99 /* CoreDataOccurrenceRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9E54F6F587FF89056E429DF /* CoreDataOccurrenceRepository.swift */; };
@@ -708,6 +709,7 @@
 		E50000000000000000000032 /* LBShadowTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBShadowTokens.swift; sourceTree = "<group>"; };
 		E50000000000000000000034 /* LBSpacingTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBSpacingTokens.swift; sourceTree = "<group>"; };
 		E50000000000000000000036 /* LBTypographyTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTypographyTokens.swift; sourceTree = "<group>"; };
+		E50000000000000000000038 /* SunriseScheduleScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseScheduleScreen.swift; sourceTree = "<group>"; };
 		E5F000000000000000000001 /* SunriseImages */ = {isa = PBXFileReference; lastKnownFileType = folder; path = SunriseImages; sourceTree = SOURCE_ROOT; };
 		E6A100000000000000000001 /* SunriseHeaderAssetTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHeaderAssetTests.swift; sourceTree = "<group>"; };
 		010871EDBE39DF63B4E49E2C /* Pods-LifeBoard.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LifeBoard.debug.xcconfig"; path = "Target Support Files/Pods-LifeBoard/Pods-LifeBoard.debug.xcconfig"; sourceTree = "<group>"; };
@@ -1364,6 +1366,7 @@
 				E5D000000000000000000003 /* Components */,
 				E5D000000000000000000004 /* Backgrounds */,
 				E5000000000000000000002C /* SunriseHomeScreen.swift */,
+				E50000000000000000000038 /* SunriseScheduleScreen.swift */,
 			);
 			path = LifeBoardDesign;
 			sourceTree = "<group>";
@@ -3183,6 +3186,7 @@
 				E50000000000000000000033 /* LBShadowTokens.swift in Sources */,
 				E50000000000000000000035 /* LBSpacingTokens.swift in Sources */,
 				E50000000000000000000037 /* LBTypographyTokens.swift in Sources */,
+				E50000000000000000000039 /* SunriseScheduleScreen.swift in Sources */,
 				75A6316A2E8BDADC006EEA59 /* LGBaseView.swift in Sources */,
 				75A6316B2E8BDADC006EEA59 /* LGSearchBar.swift in Sources */,
 				752A97642E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */,
