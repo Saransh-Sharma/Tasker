@@ -3288,39 +3288,92 @@ struct HomeBackdropForedropRootView: View {
     private var homeScreenBody: some View {
         let baseHomeScreen = ZStack {
             ZStack(alignment: .top) {
-                Color.lifeboard.bgCanvas
-                    .ignoresSafeArea()
+                if activeFace == .tasks {
+                    SunriseHomeScreen(
+                        chrome: chromeSnapshot,
+                        tasks: tasksSnapshot,
+                        habits: habitsSnapshot,
+                        calendar: calendarSnapshot,
+                        timeline: timelineSnapshot,
+                        bottomInset: layoutMetrics.taskListBottomInset,
+                        safeAreaTop: layoutMetrics.safeAreaTop,
+                        isShellInteractive: shellPhase == .interactive,
+                        onSelectQuickView: { viewModel.setQuickView($0) },
+                        onShowDatePicker: {
+                            draftDate = chromeSnapshot.selectedDate
+                            showDatePicker = true
+                        },
+                        onShowAdvancedFilters: {
+                            showAdvancedFilters = true
+                        },
+                        onOpenSettings: {
+                            onOpenSettings()
+                        },
+                        onOpenSearch: {
+                            openSearch(source: "sunrise_home")
+                        },
+                        onOpenChat: {
+                            onOpenChat()
+                        },
+                        onOpenHabitBoard: {
+                            showHabitBoardPresented = true
+                        },
+                        onAddTask: onAddTask,
+                        onRequestCalendarPermission: onRequestCalendarPermission,
+                        onOpenCalendarChooser: onOpenCalendarChooser,
+                        onRetryCalendar: onRetryCalendarContext,
+                        onTimelineItemTap: { item in
+                            if let eventID = item.eventID {
+                                handleHomeCalendarEventSelection(eventID: eventID, allowsTimelineHide: true)
+                                return
+                            }
+                            if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
+                                onTaskTap(task)
+                            }
+                        },
+                        onTimelineItemToggleComplete: { item in
+                            guard let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) else { return }
+                            trackTaskToggle(task, source: "sunrise_timeline")
+                            onToggleComplete(task)
+                        },
+                        onAnchorTap: onTimelineAnchorTap,
+                        onScrollStateChange: onTaskListScrollChromeStateChange
+                    )
+                } else {
+                    Color.lifeboard.bgCanvas
+                        .ignoresSafeArea()
 
-                homeBackdropGradient
+                    homeBackdropGradient
+                        .frame(height: max(layoutMetrics.backdropGradientHeight, 720))
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
+
+                    LinearGradient(
+                        colors: [
+                            Color.lifeboard(.overlayScrim).opacity(0.12),
+                            .clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
                     .frame(height: max(layoutMetrics.backdropGradientHeight, 720))
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
 
-                LinearGradient(
-                    colors: [
-                        Color.lifeboard(.overlayScrim).opacity(0.12),
-                        .clear
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: max(layoutMetrics.backdropGradientHeight, 720))
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+                    VStack(spacing: 0) {
+                        topNavigationBar()
+                            .padding(.top, layoutMetrics.safeAreaTop + spacing.s8)
+                            .accessibilityIdentifier("home.topNav.container")
 
-                VStack(spacing: 0) {
-                    topNavigationBar()
-                        .padding(.top, layoutMetrics.safeAreaTop + spacing.s8)
-                        .accessibilityIdentifier("home.topNav.container")
+                        ZStack(alignment: .top) {
+                            backdropLayer()
 
-                    ZStack(alignment: .top) {
-                        backdropLayer()
-
-                        foredropLayer(taskListBottomInset: layoutMetrics.taskListBottomInset)
-                            .offset(y: foredropHintOffset + foredropInteractiveOffset)
-                            .animation(foredropFlipAnimation, value: activeFace)
+                            foredropLayer(taskListBottomInset: layoutMetrics.taskListBottomInset)
+                                .offset(y: foredropHintOffset + foredropInteractiveOffset)
+                                .animation(foredropFlipAnimation, value: activeFace)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
             }
 
