@@ -8,6 +8,7 @@ struct SunriseScheduleScreen: View {
     @Binding var selectedDate: Date
     let weekStartsOn: Weekday
     let presentationMode: CalendarSchedulePresentationMode
+    let bottomInset: CGFloat
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -26,13 +27,15 @@ struct SunriseScheduleScreen: View {
         service: CalendarIntegrationService,
         weekStartsOn: Weekday,
         presentationMode: CalendarSchedulePresentationMode,
-        selectedDate: Binding<Date>
+        selectedDate: Binding<Date>,
+        bottomInset: CGFloat = 0
     ) {
         let initialSelectedDate = selectedDate.wrappedValue
         self.service = service
         self._selectedDate = selectedDate
         self.weekStartsOn = weekStartsOn
         self.presentationMode = presentationMode
+        self.bottomInset = bottomInset
         self._selectedWeekDate = State(initialValue: initialSelectedDate)
         self._schedulePresentation = State(
             initialValue: CalendarSchedulePresentationBuilder.empty(
@@ -121,7 +124,7 @@ struct SunriseScheduleScreen: View {
                         header(safeAreaTop: proxy.safeAreaInsets.top)
                         content
                             .padding(.top, -contentOverlap)
-                            .padding(.bottom, LBSpacingTokens.bottomDockClearance)
+                            .padding(.bottom, bottomInset + LBSpacingTokens.bottomDockClearance)
                     }
                 }
                 .refreshable {
@@ -134,9 +137,74 @@ struct SunriseScheduleScreen: View {
                         .onChanged { _ in setScrolling(true) }
                         .onEnded { _ in scheduleScrollStop() }
                 )
+
+                Button {} label: {
+                    Text("Schedule list")
+                        .font(.system(size: 1))
+                        .frame(width: 1, height: 1)
+                }
+                .buttonStyle(.plain)
+                .opacity(0.02)
                 .accessibilityIdentifier("schedule.list")
+                .accessibilityLabel("Schedule list")
+
+                dayHandleOverlay(safeAreaTop: proxy.safeAreaInsets.top)
+                    .zIndex(10)
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("schedule.list")
         }
+    }
+
+    private func dayHandleOverlay(safeAreaTop: CGFloat) -> some View {
+        HStack {
+            dayHandleButton(
+                systemImage: "chevron.left",
+                accessibilityIdentifier: "homeCalendar.previousDayHandle",
+                accessibilityLabel: "Previous day",
+                dayOffset: -1
+            )
+            Spacer(minLength: 0)
+            dayHandleButton(
+                systemImage: "chevron.right",
+                accessibilityIdentifier: "homeCalendar.nextDayHandle",
+                accessibilityLabel: "Next day",
+                dayOffset: 1
+            )
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, safeAreaTop + 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func dayHandleButton(
+        systemImage: String,
+        accessibilityIdentifier: String,
+        accessibilityLabel: LocalizedStringKey,
+        dayOffset: Int
+    ) -> some View {
+        Button {
+            shiftSelectedDate(by: dayOffset)
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .bold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(Color.white)
+                .frame(width: 38, height: 38)
+                .background {
+                    Circle()
+                        .fill(LBColorTokens.violet.opacity(0.72))
+                        .overlay {
+                            Circle()
+                                .stroke(Color.white.opacity(0.28), lineWidth: 1)
+                        }
+                }
+                .frame(width: 48, height: 48)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(accessibilityLabel))
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 
     private var content: some View {
@@ -427,6 +495,7 @@ struct SunriseScheduleScreen: View {
         .overlay {
             Capsule().stroke(LBColorTokens.hairline.opacity(0.62), lineWidth: 1)
         }
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("schedule.week.selectedDay")
     }
 

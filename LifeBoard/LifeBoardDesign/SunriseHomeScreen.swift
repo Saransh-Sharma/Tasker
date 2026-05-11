@@ -28,6 +28,7 @@ struct SunriseHomeScreen: View {
 
     @State private var isScrollActive = false
     @State private var scrollStopTask: Task<Void, Never>?
+    @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
     @State private var selectedFilterID = "all"
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -37,7 +38,7 @@ struct SunriseHomeScreen: View {
                 .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     header
                     content
                         .padding(.top, -headerContentOverlap)
@@ -58,7 +59,7 @@ struct SunriseHomeScreen: View {
                     .onEnded { _ in scheduleScrollStop() }
             )
             .onPreferenceChange(SunriseScrollOffsetPreferenceKey.self) { offset in
-                onScrollStateChange(offset < -120 ? .collapsed : .nearTop)
+                handleScrollOffsetChange(Self.chromeOffset(forScrollMinY: offset))
             }
         }
         .accessibilityIdentifier("home.view")
@@ -175,7 +176,7 @@ struct SunriseHomeScreen: View {
                     action: { onAddTask(chrome.selectedDate) }
                 )
             } else {
-                VStack(spacing: LBSpacingTokens.sm) {
+                LazyVStack(spacing: LBSpacingTokens.sm) {
                     ForEach(rows) { row in
                         let temporalState = row.temporalState(now: context.date)
                     switch row.kind {
@@ -643,8 +644,21 @@ struct SunriseHomeScreen: View {
         scrollStopTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 220_000_000)
             setScrolling(false)
-            onScrollStateChange(.idle)
+            if let idleState = scrollChromeStateTracker.emitIdleIfNeeded() {
+                onScrollStateChange(idleState)
+            }
         }
+    }
+
+    private func handleScrollOffsetChange(_ offset: CGFloat) {
+        guard isShellInteractive else { return }
+        if let nextState = scrollChromeStateTracker.consume(offset: offset) {
+            onScrollStateChange(nextState)
+        }
+    }
+
+    nonisolated static func chromeOffset(forScrollMinY minY: CGFloat) -> CGFloat {
+        max(0, -minY)
     }
 }
 
