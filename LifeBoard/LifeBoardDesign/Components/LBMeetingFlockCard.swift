@@ -20,7 +20,13 @@ struct LBMeetingFlockCard: View {
 
     var body: some View {
         let style = LBColorTokens.role(.meeting)
-        LBGlassCard(cornerRadius: LBRadiusTokens.card, borderColor: style.border, fill: style.softSurface.opacity(0.58)) {
+        LBGlassCard(
+            cornerRadius: LBRadiusTokens.card,
+            borderColor: style.border,
+            fill: style.softSurface.opacity(0.58),
+            shadow: nil,
+            usesMaterialBackground: false
+        ) {
             VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
                 HStack {
                     Text(model.timeRange)

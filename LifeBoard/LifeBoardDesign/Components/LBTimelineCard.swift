@@ -35,7 +35,13 @@ struct LBTimelineCard: View {
     var body: some View {
         let style = LBColorTokens.role(model.role)
         Button(action: onTap) {
-            LBGlassCard(cornerRadius: cornerRadius, borderColor: borderColor(style), fill: fillColor(style)) {
+            LBGlassCard(
+                cornerRadius: cornerRadius,
+                borderColor: borderColor(style),
+                fill: fillColor(style),
+                shadow: nil,
+                usesMaterialBackground: false
+            ) {
                 HStack(spacing: LBSpacingTokens.sm) {
                     leadingControl(style: style)
 
