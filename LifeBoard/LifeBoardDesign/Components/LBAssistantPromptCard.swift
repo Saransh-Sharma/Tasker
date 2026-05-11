@@ -7,7 +7,13 @@ struct LBAssistantPromptCard: View {
 
     var body: some View {
         Button(action: action) {
-            LBGlassCard(cornerRadius: 20, borderColor: LBColorTokens.violetSoft.opacity(0.88), fill: Color.white.opacity(0.76), shadow: LBShadowTokens.card) {
+            LBGlassCard(
+                cornerRadius: 20,
+                borderColor: LBColorTokens.violetSoft.opacity(0.88),
+                fill: Color.white.opacity(0.76),
+                shadow: nil,
+                usesMaterialBackground: false
+            ) {
                 HStack(spacing: LBSpacingTokens.md) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 22, weight: .semibold))
