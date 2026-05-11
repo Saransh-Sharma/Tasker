@@ -3139,7 +3139,6 @@ struct HomeBackdropForedropRootView: View {
     @State private var pendingSearchCommitTask: Task<Void, Never>?
     @State private var hasMountedSearchSurface = false
     @State private var hasMountedAnalyticsSurface = false
-    @State private var hasMountedScheduleSurface = false
     @State private var chatNavigationChromeState = EvaChatNavigationChromeState.empty
     @State private var expandedAgendaTailItemIDs = Set<String>()
     @State private var selectedHomeCalendarEventDetail: HomeCalendarEventDetailSelection?
@@ -3503,6 +3502,8 @@ struct HomeBackdropForedropRootView: View {
                         onAnchorTap: onTimelineAnchorTap,
                         onScrollStateChange: onTaskListScrollChromeStateChange
                     )
+                } else if activeFace == .schedule {
+                    sunriseScheduleSurface()
                 } else {
                     Color.lifeboard.bgCanvas
                         .ignoresSafeArea()
@@ -3720,7 +3721,6 @@ struct HomeBackdropForedropRootView: View {
             searchDraftQuery = searchState.query
             hasMountedSearchSurface = activeFace == .search
             hasMountedAnalyticsSurface = activeFace == .analytics
-            hasMountedScheduleSurface = activeFace == .schedule
             triggerForedropHintIfEligible()
             presentHabitBoardIfRequestedForUITests()
         }
@@ -3954,8 +3954,6 @@ struct HomeBackdropForedropRootView: View {
                     hasMountedSearchSurface = true
                 } else if newValue == .analytics {
                     hasMountedAnalyticsSurface = true
-                } else if newValue == .schedule {
-                    hasMountedScheduleSurface = true
                 }
                 if newValue != .chat {
                     chatNavigationChromeState = .empty
@@ -4231,12 +4229,6 @@ struct HomeBackdropForedropRootView: View {
                 foredropFrontFace(taskListBottomInset: taskListBottomInset)
             }
 
-            if hasMountedScheduleSurface || activeFace == .schedule {
-                persistentFace(.schedule) {
-                    foredropScheduleFace()
-                }
-            }
-
             if hasMountedAnalyticsSurface || activeFace == .analytics {
                 persistentFace(.analytics) {
                     foredropAnalyticsFace()
@@ -4380,7 +4372,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private func foredropScheduleFace() -> some View {
+    private func sunriseScheduleSurface() -> some View {
         ZStack {
             if let calendarIntegrationService {
                 SunriseScheduleScreen(
@@ -4392,7 +4384,8 @@ struct HomeBackdropForedropRootView: View {
                         set: { date in
                             viewModel.selectDate(date, source: .datePicker)
                         }
-                    )
+                    ),
+                    bottomInset: layoutMetrics.taskListBottomInset
                 )
             } else {
                 Text("Schedule unavailable")
@@ -4400,10 +4393,9 @@ struct HomeBackdropForedropRootView: View {
                     .foregroundColor(Color.lifeboard.textSecondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
-
-            dayLiquidSwipeOverlay
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .coordinateSpace(name: Self.dayLiquidSwipeCoordinateSpaceName)
     }
 
     private func foredropAnalyticsFace() -> some View {
@@ -7289,7 +7281,7 @@ struct HomeiPadSplitShellView: View {
     @ViewBuilder
     private var detailContent: some View {
         switch shellState.destination {
-        case .tasks, .schedule, .search, .analytics, .chat:
+        case .tasks, .search, .analytics, .chat:
             HomeiPadPrimaryPaneHost(
                 activeFace: $activeHomeFace,
                 layoutClass: layoutClass,
@@ -7298,6 +7290,9 @@ struct HomeiPadSplitShellView: View {
                 homeSurface: homeSurface,
                 monitor: primarySurfaceMonitor
             )
+        case .schedule:
+            scheduleSurface()
+                .accessibilityIdentifier("home.ipad.detail.schedule")
         case .addTask:
             if layoutClass == .padExpanded {
                 addTaskSurface()

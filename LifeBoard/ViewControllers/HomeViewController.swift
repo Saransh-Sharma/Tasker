@@ -4354,13 +4354,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             selectedDate: calendarScheduleSelectedDateBinding()
         )
         let host = UIHostingController(rootView: AnyView(view.lifeboardLayoutClass(currentLayoutClass)))
-        host.modalPresentationStyle = UIModalPresentationStyle.pageSheet
+        host.modalPresentationStyle = currentLayoutClass.isPad
+            ? UIModalPresentationStyle.pageSheet
+            : UIModalPresentationStyle.fullScreen
         host.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
-        if let sheet = host.sheetPresentationController {
-            let detents: [UISheetPresentationController.Detent] = currentLayoutClass.isPad
-                ? [.large()]
-                : [.medium(), .large()]
-            sheet.detents = detents
+        if currentLayoutClass.isPad, let sheet = host.sheetPresentationController {
+            sheet.detents = [.large()]
             sheet.prefersGrabberVisible = true
             sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
         }
