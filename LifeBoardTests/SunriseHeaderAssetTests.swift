@@ -253,6 +253,12 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertFalse(calendarModel.isToggleable)
     }
 
+    func testSunriseScrollOffsetNormalizesForChromeTracker() {
+        XCTAssertEqual(SunriseHomeScreen.chromeOffset(forScrollMinY: 16), 0)
+        XCTAssertEqual(SunriseHomeScreen.chromeOffset(forScrollMinY: 0), 0)
+        XCTAssertEqual(SunriseHomeScreen.chromeOffset(forScrollMinY: -64), 64)
+    }
+
     private func date(hour: Int, minute: Int = 0, day: Int = 8) -> Date {
         calendar.date(from: DateComponents(year: 2026, month: 5, day: day, hour: hour, minute: minute))!
     }
