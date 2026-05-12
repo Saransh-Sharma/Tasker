@@ -69,6 +69,96 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(loaded.timelineWindDownMinute, 30)
     }
 
+    func testTimelineAnchorDraftDoesNotPersistUntilCommitted() {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(LifeBoardWorkspacePreferences())
+
+        var draft = TimelineAnchorDraft(preferences: workspaceStore.load())
+        draft.setTime(time(hour: 5, minute: 45), for: .wake)
+
+        let loadedBeforeCommit = workspaceStore.load()
+        XCTAssertEqual(loadedBeforeCommit.timelineRiseAndShineHour, 8)
+        XCTAssertEqual(loadedBeforeCommit.timelineRiseAndShineMinute, 0)
+
+        draft.commitIfNeeded(for: .wake, to: workspaceStore)
+
+        let loadedAfterCommit = workspaceStore.load()
+        XCTAssertEqual(loadedAfterCommit.timelineRiseAndShineHour, 5)
+        XCTAssertEqual(loadedAfterCommit.timelineRiseAndShineMinute, 45)
+    }
+
+    func testTimelineAnchorDraftSkipsNoopCommitAndDoesNotEmitDidChange() {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(LifeBoardWorkspacePreferences())
+
+        var draft = TimelineAnchorDraft(preferences: workspaceStore.load())
+        draft.setTime(time(hour: 5, minute: 45), for: .wake)
+        draft.setTime(time(hour: 8, minute: 0), for: .wake)
+
+        var notificationCount = 0
+        let observer = NotificationCenter.default.addObserver(
+            forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            notificationCount += 1
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        draft.commitIfNeeded(for: .wake, to: workspaceStore)
+        waitForMainQueue(seconds: 0.05)
+
+        XCTAssertEqual(notificationCount, 0)
+        XCTAssertEqual(workspaceStore.load().timelineRiseAndShineHour, 8)
+        XCTAssertEqual(workspaceStore.load().timelineRiseAndShineMinute, 0)
+    }
+
+    func testCommitTimelineAnchorDraftPersistsSettingsChangesWithSingleNotification() {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let notificationStore = LifeBoardNotificationPreferencesStore(defaults: defaults)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let calendarService = CalendarIntegrationService(
+            provider: nil,
+            workspacePreferencesStore: workspaceStore
+        )
+        let viewModel = SettingsViewModel(
+            notificationPreferencesStore: notificationStore,
+            workspacePreferencesStore: workspaceStore,
+            calendarIntegrationService: calendarService
+        )
+
+        var draft = TimelineAnchorDraft(preferences: viewModel.workspacePreferences)
+        draft.setTime(time(hour: 6, minute: 20), for: .wake)
+        draft.setTime(time(hour: 23, minute: 5), for: .windDown)
+
+        XCTAssertEqual(workspaceStore.load().timelineRiseAndShineHour, 8)
+        XCTAssertEqual(workspaceStore.load().timelineWindDownHour, 22)
+
+        var notificationCount = 0
+        let observer = NotificationCenter.default.addObserver(
+            forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            notificationCount += 1
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        viewModel.commitTimelineAnchorDraft(draft)
+        waitForMainQueue(seconds: 0.05)
+
+        let loaded = workspaceStore.load()
+        XCTAssertEqual(notificationCount, 1)
+        XCTAssertEqual(loaded.timelineRiseAndShineHour, 6)
+        XCTAssertEqual(loaded.timelineRiseAndShineMinute, 20)
+        XCTAssertEqual(loaded.timelineWindDownHour, 23)
+        XCTAssertEqual(loaded.timelineWindDownMinute, 5)
+        XCTAssertEqual(viewModel.workspacePreferences.timelineRiseAndShineHour, 6)
+        XCTAssertEqual(viewModel.workspacePreferences.timelineWindDownHour, 23)
+    }
+
     func testTimelineAnchorSelectionTreatsEarlyMorningWindDownAsNextDay() {
         let preferences = LifeBoardWorkspacePreferences(
             timelineRiseAndShineHour: 8,

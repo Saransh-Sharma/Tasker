@@ -512,6 +512,12 @@ final class SettingsViewModel: ObservableObject, Sendable {
         LifeBoardFeedback.selection()
     }
 
+    func commitTimelineAnchorDraft(_ draft: TimelineAnchorDraft) {
+        guard draft.hasChanges else { return }
+        draft.apply(to: &workspacePreferences)
+        saveWorkspacePreferences()
+    }
+
     private func bindCalendarService() {
         calendarIntegrationService.$snapshot
             .receive(on: DispatchQueue.main)
