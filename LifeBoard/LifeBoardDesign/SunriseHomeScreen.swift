@@ -269,6 +269,7 @@ struct SunriseHomeScreen: View {
                 }
                 .padding(LBSpacingTokens.lg)
             }
+            .padding(.top, LBSpacingTokens.xs)
             .padding(.bottom, LBSpacingTokens.xxl)
         }
     }
