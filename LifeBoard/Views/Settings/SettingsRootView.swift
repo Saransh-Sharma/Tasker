@@ -14,6 +14,7 @@ struct SettingsRootView: View {
     @ObservedObject var viewModel: SettingsViewModel
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var expandedNotificationRow: NotificationExpansion?
+    @State private var timelineAnchorDraft = TimelineAnchorDraft(preferences: LifeBoardWorkspacePreferences())
 
     private let dueSoonLeadOptions: [(value: Int, label: String)] = [
         (15, "15m"),
@@ -86,6 +87,10 @@ struct SettingsRootView: View {
         .background(Color.lifeboard(.bgCanvas))
         .onAppear {
             viewModel.reload()
+            timelineAnchorDraft = TimelineAnchorDraft(preferences: viewModel.workspacePreferences)
+        }
+        .onDisappear {
+            viewModel.commitTimelineAnchorDraft(timelineAnchorDraft)
         }
     }
 
@@ -404,8 +409,8 @@ struct SettingsRootView: View {
                             DatePicker(
                                 "",
                                 selection: Binding(
-                                    get: { viewModel.timelineRiseAndShineTime },
-                                    set: { viewModel.timelineRiseAndShineTime = $0 }
+                                    get: { timelineAnchorDraft.time(for: .wake) },
+                                    set: { timelineAnchorDraft.setTime($0, for: .wake) }
                                 ),
                                 displayedComponents: .hourAndMinute
                             )
@@ -413,7 +418,7 @@ struct SettingsRootView: View {
                             .datePickerStyle(.compact)
                             .tint(Color.lifeboard(.accentPrimary))
                             .accessibilityIdentifier("settings.timeline.riseAndShine.picker")
-                            .accessibilityValue(viewModel.timelineRiseAndShineSummary)
+                            .accessibilityValue(timelineRiseAndShineDraftSummary)
                         }
 
                         HStack(spacing: spacing.s12) {
@@ -426,8 +431,8 @@ struct SettingsRootView: View {
                             DatePicker(
                                 "",
                                 selection: Binding(
-                                    get: { viewModel.timelineWindDownTime },
-                                    set: { viewModel.timelineWindDownTime = $0 }
+                                    get: { timelineAnchorDraft.time(for: .windDown) },
+                                    set: { timelineAnchorDraft.setTime($0, for: .windDown) }
                                 ),
                                 displayedComponents: .hourAndMinute
                             )
@@ -435,7 +440,7 @@ struct SettingsRootView: View {
                             .datePickerStyle(.compact)
                             .tint(Color.lifeboard(.accentPrimary))
                             .accessibilityIdentifier("settings.timeline.windDown.picker")
-                            .accessibilityValue(viewModel.timelineWindDownSummary)
+                            .accessibilityValue(timelineWindDownDraftSummary)
                         }
                     }
                 }
@@ -734,11 +739,31 @@ struct SettingsRootView: View {
         }
     }
 
+    private var timelineRiseAndShineDraftSummary: String {
+        formattedTimelineSummary(for: .wake)
+    }
+
+    private var timelineWindDownDraftSummary: String {
+        formattedTimelineSummary(for: .windDown)
+    }
+
     private var homeBackdropNoiseSliderBinding: Binding<Double> {
         Binding(
             get: { Double(viewModel.homeBackdropNoiseAmount) },
             set: { viewModel.setHomeBackdropNoiseAmount(Int($0.rounded())) }
         )
+    }
+
+    private func formattedTimelineSummary(for selection: TimelineAnchorSelection) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+
+        let time = formatter.string(from: timelineAnchorDraft.time(for: selection))
+        guard selection == .windDown, timelineAnchorDraft.windDownOccursNextDay else {
+            return time
+        }
+        return "\(time) next day"
     }
 
     private var quietHoursControls: some View {
