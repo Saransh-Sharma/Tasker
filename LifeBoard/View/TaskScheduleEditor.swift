@@ -346,9 +346,104 @@ enum TimelineAnchorSelection: String, Equatable, Identifiable {
     }
 }
 
+struct TimelineAnchorDraft {
+    private struct PersistedTime: Equatable {
+        let hour: Int
+        let minute: Int
+
+        var minutesSinceMidnight: Int {
+            hour * 60 + minute
+        }
+    }
+
+    private let initialRiseAndShine: PersistedTime
+    private let initialWindDown: PersistedTime
+    private let calendar: Calendar
+
+    var riseAndShine: Date
+    var windDown: Date
+
+    init(preferences: LifeBoardWorkspacePreferences, calendar: Calendar = .current) {
+        self.calendar = calendar
+        self.initialRiseAndShine = PersistedTime(
+            hour: max(0, min(23, preferences.timelineRiseAndShineHour)),
+            minute: max(0, min(59, preferences.timelineRiseAndShineMinute))
+        )
+        self.initialWindDown = PersistedTime(
+            hour: max(0, min(23, preferences.timelineWindDownHour)),
+            minute: max(0, min(59, preferences.timelineWindDownMinute))
+        )
+        self.riseAndShine = TimelineAnchorSelection.wake.date(from: preferences, calendar: calendar)
+        self.windDown = TimelineAnchorSelection.windDown.date(from: preferences, calendar: calendar)
+    }
+
+    var hasChanges: Bool {
+        hasChanges(for: .wake) || hasChanges(for: .windDown)
+    }
+
+    var windDownOccursNextDay: Bool {
+        persistedTime(for: windDown).minutesSinceMidnight <= persistedTime(for: riseAndShine).minutesSinceMidnight
+    }
+
+    func time(for selection: TimelineAnchorSelection) -> Date {
+        switch selection {
+        case .wake:
+            return riseAndShine
+        case .windDown:
+            return windDown
+        }
+    }
+
+    mutating func setTime(_ time: Date, for selection: TimelineAnchorSelection) {
+        switch selection {
+        case .wake:
+            riseAndShine = time
+        case .windDown:
+            windDown = time
+        }
+    }
+
+    func hasChanges(for selection: TimelineAnchorSelection) -> Bool {
+        persistedTime(for: time(for: selection)) != initialTime(for: selection)
+    }
+
+    func commitIfNeeded(for selection: TimelineAnchorSelection, to store: LifeBoardWorkspacePreferencesStore) {
+        guard hasChanges(for: selection) else { return }
+        selection.save(time: time(for: selection), to: store, calendar: calendar)
+    }
+
+    func apply(to preferences: inout LifeBoardWorkspacePreferences) {
+        let persistedRiseAndShine = persistedTime(for: riseAndShine)
+        preferences.timelineRiseAndShineHour = persistedRiseAndShine.hour
+        preferences.timelineRiseAndShineMinute = persistedRiseAndShine.minute
+
+        let persistedWindDown = persistedTime(for: windDown)
+        preferences.timelineWindDownHour = persistedWindDown.hour
+        preferences.timelineWindDownMinute = persistedWindDown.minute
+    }
+
+    private func initialTime(for selection: TimelineAnchorSelection) -> PersistedTime {
+        switch selection {
+        case .wake:
+            return initialRiseAndShine
+        case .windDown:
+            return initialWindDown
+        }
+    }
+
+    private func persistedTime(for date: Date) -> PersistedTime {
+        let components = calendar.dateComponents([.hour, .minute], from: date)
+        return PersistedTime(
+            hour: max(0, min(23, components.hour ?? 0)),
+            minute: max(0, min(59, components.minute ?? 0))
+        )
+    }
+}
+
 struct TimelineAnchorDetailSheetView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedTime: Date?
+    @State private var draft: TimelineAnchorDraft
+    @State private var didCommitDraft = false
 
     let selection: TimelineAnchorSelection
     let preferencesStore: LifeBoardWorkspacePreferencesStore
@@ -359,8 +454,8 @@ struct TimelineAnchorDetailSheetView: View {
     ) {
         self.selection = selection
         self.preferencesStore = preferencesStore
-        let initialTime = selection.date(from: preferencesStore.load())
-        self._selectedTime = State(initialValue: initialTime)
+        let preferences = preferencesStore.load()
+        self._draft = State(initialValue: TimelineAnchorDraft(preferences: preferences))
     }
 
     var body: some View {
@@ -376,10 +471,7 @@ struct TimelineAnchorDetailSheetView: View {
         .background(Color.lifeboard.bgCanvas)
         .presentationDragIndicator(.visible)
         .accessibilityIdentifier("timelineAnchorDetail.view")
-        .onChange(of: selectedTime) { _, newValue in
-            guard let newValue else { return }
-            selection.save(time: newValue, to: preferencesStore)
-        }
+        .onDisappear(perform: commitDraftIfNeeded)
     }
 
     private var topBar: some View {
@@ -445,9 +537,15 @@ struct TimelineAnchorDetailSheetView: View {
 
     private var timeEditor: some View {
         TaskTimeWheelPicker(
-            startDate: $selectedTime,
+            startDate: Binding(
+                get: { Optional(draft.time(for: selection)) },
+                set: { newValue in
+                    guard let newValue else { return }
+                    draft.setTime(newValue, for: selection)
+                }
+            ),
             durationMinutes: 30,
-            defaultStartDate: selection.date(from: preferencesStore.load()),
+            defaultStartDate: draft.time(for: selection),
             intervalMinutes: TaskDetailViewModel.scheduleIntervalMinutes,
             showsDurationRange: false,
             accessibilityLabel: String(
@@ -464,7 +562,13 @@ struct TimelineAnchorDetailSheetView: View {
     private var currentTimeLabel: String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
-        return formatter.string(from: selectedTime ?? selection.date(from: preferencesStore.load()))
+        return formatter.string(from: draft.time(for: selection))
+    }
+
+    private func commitDraftIfNeeded() {
+        guard didCommitDraft == false else { return }
+        didCommitDraft = true
+        draft.commitIfNeeded(for: selection, to: preferencesStore)
     }
 }
 
