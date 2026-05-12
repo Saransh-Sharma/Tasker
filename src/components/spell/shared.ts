@@ -36,11 +36,10 @@ export function useAnimatedInView<T extends HTMLElement>({
 }) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const ref = useRef<T | null>(null);
-  const [isActive, setIsActive] = useState(!inView);
+  const [isInView, setIsInView] = useState(false);
 
   useEffect(() => {
     if (prefersReducedMotion || !inView) {
-      setIsActive(true);
       return;
     }
 
@@ -52,7 +51,7 @@ export function useAnimatedInView<T extends HTMLElement>({
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setIsActive(true);
+          setIsInView(true);
           if (once) {
             observer.disconnect();
           }
@@ -60,7 +59,7 @@ export function useAnimatedInView<T extends HTMLElement>({
         }
 
         if (!once) {
-          setIsActive(false);
+          setIsInView(false);
         }
       },
       { threshold: 0.2, rootMargin: '0px 0px -10% 0px' },
@@ -70,6 +69,8 @@ export function useAnimatedInView<T extends HTMLElement>({
 
     return () => observer.disconnect();
   }, [inView, once, prefersReducedMotion]);
+
+  const isActive = prefersReducedMotion || !inView || isInView;
 
   return { ref, isActive, prefersReducedMotion };
 }

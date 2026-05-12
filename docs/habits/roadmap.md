@@ -1,6 +1,6 @@
 # Habit Roadmap
 
-This roadmap tracks remaining work for Habit Streaks in Tasker after the core experience shipped.
+This roadmap tracks remaining work for Habit Streaks in LifeBoard after the core experience shipped.
 
 ## Near Term
 

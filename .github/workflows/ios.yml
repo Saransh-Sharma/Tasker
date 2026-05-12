@@ -30,9 +30,9 @@ jobs:
         run: |
           set -euo pipefail
           rg -n "assertV2RuntimeReady|v2RuntimeReady|v2_runtime_not_ready" \
-            "To Do List/AppDelegate.swift" \
-            "To Do List/Presentation/DI/PresentationDependencyContainer.swift" \
-            "To Do List/State/DI/EnhancedDependencyContainer.swift"
+            "LifeBoard/AppDelegate.swift" \
+            "LifeBoard/Presentation/DI/PresentationDependencyContainer.swift" \
+            "LifeBoard/State/DI/EnhancedDependencyContainer.swift"
 
       - name: Install flowctl
         env:
@@ -64,10 +64,10 @@ jobs:
         run: |
           set -euo pipefail
           xcodebuild \
-            -workspace "Tasker.xcworkspace" \
-            -scheme "To Do List" \
+            -workspace "LifeBoard.xcworkspace" \
+            -scheme "LifeBoard" \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
-            -only-testing:TaskerTests \
+            -only-testing:LifeBoardTests \
             test
 
   perf-gate:

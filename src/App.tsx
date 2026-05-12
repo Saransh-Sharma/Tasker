@@ -133,7 +133,7 @@ const privacySections: TextSection[] = [
     title: '1. The guarantee',
     content: (
       <p>
-        Tasker is built to protect working context. <strong>We do not read, mine, or sell your task data.</strong>{' '}
+        LifeBoard is built to protect working context. <strong>We do not read, mine, or sell your task data.</strong>{' '}
         If you enable sync, your content remains end-to-end encrypted.
       </p>
     ),
@@ -155,7 +155,7 @@ const privacySections: TextSection[] = [
   },
   {
     title: '3. Local storage',
-    content: <p>Tasker works locally by default. Your data stays on-device unless you explicitly turn on sync.</p>,
+    content: <p>LifeBoard works locally by default. Your data stays on-device unless you explicitly turn on sync.</p>,
   },
   {
     title: '4. Tracking and third parties',
@@ -168,13 +168,13 @@ const privacySections: TextSection[] = [
 const termsSections: TextSection[] = [
   {
     title: '1. Acceptance of terms',
-    content: <p>By downloading or using Tasker, you agree to these terms. Please read them before using the app.</p>,
+    content: <p>By downloading or using LifeBoard, you agree to these terms. Please read them before using the app.</p>,
   },
   {
     title: '2. Use license',
     content: (
       <p>
-        We grant a limited, personal, non-commercial license to use Tasker. You may not resell, redistribute,
+        We grant a limited, personal, non-commercial license to use LifeBoard. You may not resell, redistribute,
         reverse engineer, or otherwise misuse the software.
       </p>
     ),
@@ -183,7 +183,7 @@ const termsSections: TextSection[] = [
     title: '3. Disclaimer',
     content: (
       <p>
-        Tasker is provided on an &quot;as is&quot; basis, without warranties of any kind, including implied
+        LifeBoard is provided on an &quot;as is&quot; basis, without warranties of any kind, including implied
         warranties of merchantability, fitness for a particular purpose, or non-infringement.
       </p>
     ),
@@ -192,7 +192,7 @@ const termsSections: TextSection[] = [
     title: '4. Limitations',
     content: (
       <p>
-        Tasker and its developers are not liable for damages resulting from use of the app, inability to use it,
+        LifeBoard and its developers are not liable for damages resulting from use of the app, inability to use it,
         data loss, or business interruption, to the extent permitted by law.
       </p>
     ),
@@ -203,12 +203,12 @@ const supportFaqs = [
   {
     question: 'How do I delete my account?',
     answer:
-      'Open the Tasker iOS app, go to Settings > Account, and choose "Delete Account & Data." This permanently removes your synced data from our servers.',
+      'Open the LifeBoard iOS app, go to Settings > Account, and choose "Delete Account & Data." This permanently removes your synced data from our servers.',
   },
   {
     question: 'Can you recover my tasks if I lose my password?',
     answer:
-      'No. Because Tasker uses end-to-end encryption, we do not hold your decryption keys. Without your recovery phrase, encrypted data cannot be restored.',
+      'No. Because LifeBoard uses end-to-end encryption, we do not hold your decryption keys. Without your recovery phrase, encrypted data cannot be restored.',
   },
   {
     question: 'Is there a web or Mac app?',
@@ -228,7 +228,7 @@ const showcaseStories: ShowcaseStory[] = [
     images: [
       {
         src: homeScreen,
-        alt: 'Tasker home view showing the main focus surface and current priorities.',
+        alt: 'LifeBoard home view showing the main focus surface and current priorities.',
       },
     ],
   },
@@ -242,7 +242,7 @@ const showcaseStories: ShowcaseStory[] = [
     images: [
       {
         src: tasksHabits,
-        alt: 'Tasker tasks and habits screen showing tasks and recurring habits in one workflow.',
+        alt: 'LifeBoard tasks and habits screen showing tasks and recurring habits in one workflow.',
       },
     ],
   },
@@ -260,7 +260,7 @@ const showcaseStories: ShowcaseStory[] = [
     ),
     description: (
       <>
-        Tasker lets you ask, plan, and apply changes with confirmation gates, diff previews, and bounded undo instead
+        LifeBoard lets you ask, plan, and apply changes with confirmation gates, diff previews, and bounded undo instead
         of blind automation.
         <div className="mt-4 type-system-label text-white/58">
           <RandomizedText inView>Ask. Plan. Apply.</RandomizedText>
@@ -271,7 +271,7 @@ const showcaseStories: ShowcaseStory[] = [
     images: [
       {
         src: builtInAI,
-        alt: 'Tasker built-in AI screen for planning and task guidance.',
+        alt: 'LifeBoard built-in AI screen for planning and task guidance.',
       },
     ],
   },
@@ -292,7 +292,7 @@ const showcaseStories: ShowcaseStory[] = [
     images: [
       {
         src: privateAI,
-        alt: 'Tasker private AI screen showing privacy-focused assistant controls.',
+        alt: 'LifeBoard private AI screen showing privacy-focused assistant controls.',
       },
     ],
   },
@@ -306,17 +306,17 @@ const showcaseStories: ShowcaseStory[] = [
       </>
     ),
     description:
-      'Tasker turns your history into decision support with streak resilience, level progression, focus health, and recovery signals that stay actionable instead of judgmental.',
+      'LifeBoard turns your history into decision support with streak resilience, level progression, focus health, and recovery signals that stay actionable instead of judgmental.',
     layoutVariant: 'paired-right',
     images: [
       {
         src: analyticsOne,
-        alt: 'Tasker analytics screen highlighting momentum and completion patterns.',
+        alt: 'LifeBoard analytics screen highlighting momentum and completion patterns.',
         className: 'md:-translate-y-10',
       },
       {
         src: analyticsTwo,
-        alt: 'Tasker analytics screen showing follow-through and recovery insights.',
+        alt: 'LifeBoard analytics screen showing follow-through and recovery insights.',
         className: 'md:translate-y-10',
       },
     ],
@@ -382,7 +382,7 @@ function LegalLayout({
   return (
     <div className={legalShell}>
       <div className={legalContainer}>
-        <a href="#/" className={legalBackLink}>← Back to Tasker</a>
+        <a href="#/" className={legalBackLink}>← Back to LifeBoard</a>
         <div className="max-w-[44rem]">
           <h1 className="type-legal-title mb-5">{title}</h1>
           {updated ? <p className="type-meta mb-5">{updated}</p> : null}
@@ -412,7 +412,7 @@ function Privacy() {
     <LegalLayout
       title="Privacy Policy"
       updated="Last updated: March 25, 2026"
-      intro="Tasker is designed to keep your working life private, local-first, and readable on low bandwidth days."
+      intro="LifeBoard is designed to keep your working life private, local-first, and readable on low bandwidth days."
     >
       <LegalSectionList sections={privacySections} />
     </LegalLayout>
@@ -424,7 +424,7 @@ function Terms() {
     <LegalLayout
       title="Terms of Service"
       updated="Last updated: March 25, 2026"
-      intro="These terms cover the basic conditions for using Tasker. They are intentionally short and direct."
+      intro="These terms cover the basic conditions for using LifeBoard. They are intentionally short and direct."
     >
       <LegalSectionList sections={termsSections} />
     </LegalLayout>
@@ -435,7 +435,7 @@ function Support() {
   return (
     <LegalLayout
       title="Support"
-      intro="Help with bugs, sync issues, billing, and account questions. If Tasker is failing, tell us what broke and what device you are on."
+      intro="Help with bugs, sync issues, billing, and account questions. If LifeBoard is failing, tell us what broke and what device you are on."
     >
       <div className="space-y-16">
         <section className="group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0A0A0E] p-8 md:p-12">
@@ -446,10 +446,10 @@ function Support() {
               Include screenshots or device details if you can. We aim to respond within 24 hours.
             </p>
             <a
-              href="mailto:support@tasker.app"
+              href="mailto:support@lifeboard.app"
               className="liquid-glass inline-block rounded-full border border-white/10 px-8 py-3 text-sm font-medium text-white transition-all duration-300 hover:bg-white/10"
             >
-              Email support@tasker.app
+              Email support@lifeboard.app
             </a>
           </div>
         </section>
@@ -528,7 +528,7 @@ function ProductShowcase() {
             inView
             className="type-body-lg measure-reading mt-6"
           >
-            These product surfaces show how Tasker turns tasks, habits, AI planning, and analytics into a single execution system that keeps momentum alive.
+            These product surfaces show how LifeBoard turns tasks, habits, AI planning, and analytics into a single execution system that keeps momentum alive.
           </BlurReveal>
         </div>
 
@@ -595,10 +595,10 @@ function Landing() {
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-[#030305]/80 to-transparent backdrop-blur-sm" />
         <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-row items-center justify-between">
           <div className="type-brand cursor-pointer select-none drop-shadow-md transition-opacity duration-300 hover:opacity-80">
-            Tasker.
+            LifeBoard.
           </div>
           <div className="hidden items-center gap-10 md:flex">
-            <a href="#focus" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">Why Tasker</a>
+            <a href="#focus" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">Why LifeBoard</a>
             <a href="#flow" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">How It Works</a>
             <a href="#inside" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">Inside</a>
             <a href="#surfaces" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">Standouts</a>
@@ -675,7 +675,7 @@ function Landing() {
         <div className="relative z-10 mx-auto flex h-full min-h-screen max-w-7xl flex-col justify-center px-8 py-32">
           <div className="max-w-xl">
             <SlideUpText inView className="type-eyebrow mb-5 inline-flex">
-              Why Tasker
+              Why LifeBoard
             </SlideUpText>
             <h2 className="type-section-title mb-16 drop-shadow-xl">
               Built for <HighlightedText from="bottom" inView delay={0.46}>real workload</HighlightedText>, not ideal conditions.
@@ -717,7 +717,7 @@ function Landing() {
           inView
           className="type-body-lg mx-auto mb-24 max-w-[44rem] text-center"
         >
-          Tasker turns capture, decision-making, starting, resuming, and reflection into one operating model for reliable follow-through.
+          LifeBoard turns capture, decision-making, starting, resuming, and reflection into one operating model for reliable follow-through.
         </BlurReveal>
 
         <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
@@ -755,7 +755,7 @@ function Landing() {
             inView
             className="type-body-lg mx-auto mb-20 max-w-[48rem] text-center"
           >
-            Tasker combines capture speed, habit structure, chief-of-staff AI, XP momentum, and decision-ready analytics without sacrificing privacy, trust, or clarity.
+            LifeBoard combines capture speed, habit structure, chief-of-staff AI, XP momentum, and decision-ready analytics without sacrificing privacy, trust, or clarity.
           </BlurReveal>
           <div className="grid grid-cols-1 gap-x-12 gap-y-16 md:grid-cols-2 xl:grid-cols-5">
             {surfaceStories.map((story, index) => (
@@ -785,7 +785,7 @@ function Landing() {
           <div className="type-body-lg scroll-reveal mx-auto flex max-w-[42rem] flex-col gap-6 opacity-0 translate-y-6" style={delayStyle(100)}>
             <p>Most productivity software optimizes for return visits, not completed work. It gets louder as the day gets harder.</p>
             <p>
-              Tasker is built as execution infrastructure: a quieter system for deciding, starting, recovering, and improving without ads, shame loops, or ambiguous AI behavior.
+              LifeBoard is built as execution infrastructure: a quieter system for deciding, starting, recovering, and improving without ads, shame loops, or ambiguous AI behavior.
             </p>
           </div>
           <div className="scroll-reveal mt-16 opacity-0 translate-y-6" style={delayStyle(200)}>
@@ -806,13 +806,13 @@ function Landing() {
 
       <footer className="relative z-10 border-t border-white/5 bg-[#0A0A0E] px-8 py-16">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 md:flex-row">
-          <div className="type-brand select-none text-white/30">Tasker.</div>
+          <div className="type-brand select-none text-white/30">LifeBoard.</div>
           <div className="flex flex-wrap justify-center gap-10">
             <a href="#/support" className="type-footer transition-colors duration-300 hover:text-white">Support</a>
             <a href="#/privacy" className="type-footer transition-colors duration-300 hover:text-white">Privacy Policy</a>
             <a href="#/terms" className="type-footer transition-colors duration-300 hover:text-white">Terms of Service</a>
           </div>
-          <div className="type-footer text-white/30">&copy; {new Date().getFullYear()} Tasker App.</div>
+          <div className="type-footer text-white/30">&copy; {new Date().getFullYear()} LifeBoard App.</div>
         </div>
       </footer>
     </div>

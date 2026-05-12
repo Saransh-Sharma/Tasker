@@ -77,7 +77,7 @@ func runProcess(_ launchPath: String, _ arguments: [String]) throws {
 }
 
 func makeContainer(repoRoot: URL) throws -> NSPersistentContainer {
-    let sourceModel = repoRoot.appendingPathComponent("To Do List/TaskModelV3.xcdatamodeld")
+    let sourceModel = repoRoot.appendingPathComponent("LifeBoard/TaskModelV3.xcdatamodeld")
     let tempDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
     let compiledModel = tempDir.appendingPathComponent("TaskModelV3-benchmark-\(UUID().uuidString).momd")
     let momc = "/Applications/Xcode.app/Contents/Developer/usr/bin/momc"

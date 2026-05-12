@@ -13,4 +13,4 @@
 
 ## Notes
 
-- Running an individual unit test is currently blocked by scheme/test-plan setup (`To Do ListTests` is not included in the active `To Do List` scheme test plan from CLI).
+- Running an individual unit test is currently blocked by scheme/test-plan setup (`LifeBoardTests` is not included in the active `LifeBoard` scheme test plan from CLI).

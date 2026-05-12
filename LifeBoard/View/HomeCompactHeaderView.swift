@@ -1,0 +1,438 @@
+import SwiftUI
+
+struct HomeCompactHeaderView: View {
+    let presentation: HomeHeaderPresentationModel
+    let selectedQuickView: HomeQuickView
+    let taskCounts: [HomeQuickView: Int]
+    let extraTopPadding: CGFloat
+    let reduceMotion: Bool
+    let onSelectQuickView: (HomeQuickView) -> Void
+    let onBackToToday: () -> Void
+    let onShowDatePicker: () -> Void
+    let onShowAdvancedFilters: () -> Void
+    let onResetFilters: () -> Void
+    let onOpenMenuSearch: () -> Void
+    let onOpenReflection: () -> Void
+    let onOpenSettings: () -> Void
+
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var containerWidth: CGFloat = 0
+    @State private var measuredLeadingColumnWidth: CGFloat = 0
+    @State private var measuredTrailingColumnWidth: CGFloat = 0
+
+    init(
+        presentation: HomeHeaderPresentationModel,
+        selectedQuickView: HomeQuickView,
+        taskCounts: [HomeQuickView: Int],
+        extraTopPadding: CGFloat = 0,
+        reduceMotion: Bool,
+        onSelectQuickView: @escaping (HomeQuickView) -> Void,
+        onBackToToday: @escaping () -> Void,
+        onShowDatePicker: @escaping () -> Void,
+        onShowAdvancedFilters: @escaping () -> Void,
+        onResetFilters: @escaping () -> Void,
+        onOpenMenuSearch: @escaping () -> Void,
+        onOpenReflection: @escaping () -> Void,
+        onOpenSettings: @escaping () -> Void
+    ) {
+        self.presentation = presentation
+        self.selectedQuickView = selectedQuickView
+        self.taskCounts = taskCounts
+        self.extraTopPadding = extraTopPadding
+        self.reduceMotion = reduceMotion
+        self.onSelectQuickView = onSelectQuickView
+        self.onBackToToday = onBackToToday
+        self.onShowDatePicker = onShowDatePicker
+        self.onShowAdvancedFilters = onShowAdvancedFilters
+        self.onResetFilters = onResetFilters
+        self.onOpenMenuSearch = onOpenMenuSearch
+        self.onOpenReflection = onOpenReflection
+        self.onOpenSettings = onOpenSettings
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            headerTopRow
+            utilityRow
+            headerBottomAccent
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.top, spacing.s8 + extraTopPadding)
+        .padding(.bottom, spacing.s8)
+        .contentShape(Rectangle())
+        .accessibilityIdentifier("home.topChrome")
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { newWidth in
+            containerWidth = newWidth
+        }
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22), value: presentation.showsBackToToday)
+    }
+
+    @ViewBuilder
+    private var headerBottomAccent: some View {
+        if let dayProgress = presentation.dayProgress {
+            HomeMomentumProgressBar(
+                progress: dayProgress.progressFraction,
+                colors: dayProgress.isComplete
+                    ? [Color.lifeboard.statusSuccess.opacity(0.78), Color.lifeboard.statusSuccess]
+                    : [Color.lifeboard.accentPrimary.opacity(0.78), Color.lifeboard.accentPrimary],
+                trackColor: Color.lifeboard.surfaceSecondary.opacity(0.72),
+                height: 3,
+                animate: !reduceMotion
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: 3)
+            .accessibilityElement()
+            .accessibilityLabel(dayProgress.accessibilityLabel)
+            .accessibilityIdentifier("home.topChrome.dayProgress")
+        } else {
+            Rectangle()
+                .fill(Color.lifeboard.divider.opacity(0.88))
+                .frame(height: 1)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var canCenterDate: Bool {
+        return presentation.backgroundDateText != nil
+            && presentation.foregroundRelativeLabel != nil
+            && containerWidth >= 360
+            && !dynamicTypeSize.isAccessibilitySize
+    }
+
+    private var headerTopRow: some View {
+        Group {
+            if canCenterDate {
+                ZStack {
+                    layeredDateLabel
+                        .padding(.horizontal, dateHeroHorizontalInset)
+                        .offset(y: 10)
+
+                    HStack(alignment: .center, spacing: spacing.s8) {
+                        measuredLeadingHeaderContent
+                            .fixedSize(horizontal: true, vertical: true)
+
+                        Spacer(minLength: spacing.s8)
+
+                        measuredTrailingHeaderContent
+                            .fixedSize(horizontal: true, vertical: true)
+                    }
+                }
+                .frame(minHeight: 36)
+            } else {
+                HStack(spacing: spacing.s8) {
+                    VStack(alignment: .leading, spacing: spacing.s4) {
+                        measuredLeadingHeaderContent
+                            .layoutPriority(1)
+
+                        compactDateLabel
+                    }
+
+                    Spacer(minLength: spacing.s4)
+
+                    measuredTrailingHeaderContent
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var utilityRow: some View {
+        if presentation.showsReflectionCTA || presentation.statusText != nil || presentation.todayStatus != nil {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: spacing.s8) {
+                    if presentation.showsReflectionCTA {
+                        reflectionButton
+                    }
+                    Spacer(minLength: spacing.s8)
+                    statusContent
+                }
+
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    if presentation.showsReflectionCTA {
+                        reflectionButton
+                    }
+                    statusContent
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var statusContent: some View {
+        if let todayStatus = presentation.todayStatus {
+            HStack(spacing: spacing.s4) {
+                Text(todayStatus.completionText)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+
+                Text("·")
+                    .foregroundStyle(Color.lifeboard.textTertiary)
+
+                HStack(spacing: spacing.s4) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.lifeboard.statusWarning)
+                        .accessibilityHidden(true)
+
+                    Text(todayStatus.streakText)
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(todayStatus.streakAccessibilityLabel)
+            }
+            .font(.lifeboard(.caption1))
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(todayStatus.accessibilityLabel)
+            .accessibilityIdentifier("home.topChrome.status")
+        } else if let statusText = presentation.statusText {
+            Text(statusText)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .accessibilityIdentifier("home.topChrome.status")
+        }
+    }
+
+    private var layeredDateLabel: some View {
+        ZStack {
+            Text(presentation.backgroundDateText ?? "")
+                .font(.system(size: 80, weight: .heavy, design: .rounded))
+                .tracking(-0.4)
+                .foregroundStyle(watermarkDateColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.45)
+                .offset(y: -5)
+
+            Text(presentation.foregroundRelativeLabel ?? "")
+                .font(.system(size: 19, weight: .bold))
+                .tracking(2.8)
+                .foregroundStyle(foregroundDateColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .textCase(.uppercase)
+                .offset(y: 10)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 36)
+        .clipped()
+        .contentShape(Rectangle())
+        .multilineTextAlignment(.center)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            presentation.dateAccessibilityLabel
+                ?? presentation.foregroundRelativeLabel
+                ?? presentation.backgroundDateText
+                ?? presentation.compactDateText
+                ?? ""
+        )
+        .allowsHitTesting(false)
+        .accessibilityIdentifier("home.topChrome.date")
+    }
+
+    @ViewBuilder
+    private var compactDateLabel: some View {
+        if let dateText = presentation.compactDateText {
+            Text(dateText)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(presentation.dateAccessibilityLabel ?? dateText)
+                .accessibilityIdentifier("home.topChrome.date")
+        }
+    }
+
+    private var watermarkDateColor: Color {
+        switch colorScheme {
+        case .dark:
+            return Color.lifeboard.statusWarning.opacity(0.40)
+        default:
+            return Color.lifeboard.statusWarning.opacity(0.30)
+        }
+    }
+
+    private var foregroundDateColor: Color {
+        switch colorScheme {
+        case .dark:
+            return Color.white.opacity(0.955)
+        default:
+            return Color.lifeboard.textPrimary.opacity(0.87)
+        }
+    }
+
+    private var dateHeroHorizontalInset: CGFloat {
+        max(
+            92,
+            max(measuredLeadingColumnWidth, measuredTrailingColumnWidth) + spacing.s12
+        )
+    }
+
+    private func widthReader(_ action: @escaping (CGFloat) -> Void) -> some View {
+        Color.clear
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { newWidth in
+                guard newWidth > 0 else { return }
+                action(newWidth)
+            }
+    }
+
+    private var measuredLeadingHeaderContent: some View {
+        leadingHeaderContent
+            .background(
+                widthReader { newWidth in
+                    measuredLeadingColumnWidth = newWidth
+                }
+            )
+    }
+
+    private var measuredTrailingHeaderContent: some View {
+        trailingHeaderContent
+            .background(
+                widthReader { newWidth in
+                    measuredTrailingColumnWidth = newWidth
+                }
+            )
+    }
+
+    private var leadingHeaderContent: some View {
+        HStack(spacing: spacing.s8) {
+            if presentation.showsBackToToday {
+                HomeBackToTodayButtonView(action: onBackToToday)
+                    .fixedSize(horizontal: true, vertical: true)
+            }
+
+            scopeMenu
+                .layoutPriority(1)
+        }
+    }
+
+    private var trailingHeaderContent: some View {
+        HStack(spacing: spacing.s8) {
+            settingsButton
+                .fixedSize()
+        }
+    }
+
+    private var reflectionButton: some View {
+        Button {
+            LifeBoardFeedback.selection()
+            onOpenReflection()
+        } label: {
+            Text(presentation.reflectionCTATitle)
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.statusWarning)
+                .lineLimit(1)
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .accessibilityLabel(presentation.reflectionCTATitle)
+        .accessibilityHint("Opens \(presentation.reflectionCTATitle)")
+        .accessibilityIdentifier("home.reflectionReady.button")
+    }
+
+    private var scopeMenu: some View {
+        Menu {
+            Section("View") {
+                ForEach(HomeQuickView.allCases, id: \.rawValue) { quickView in
+                    Button {
+                        onSelectQuickView(quickView)
+                        LifeBoardFeedback.selection()
+                    } label: {
+                        HStack {
+                            Label(quickView.title, systemImage: iconName(for: quickView))
+                            Spacer()
+                            if let count = taskCounts[quickView] {
+                                Text("\(count)")
+                                    .foregroundStyle(.secondary)
+                            }
+                            if selectedQuickView == quickView {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("home.focus.menu.option.\(quickView.rawValue)")
+                }
+            }
+
+            Section("Tools") {
+                Button("Search", systemImage: "magnifyingglass", action: onOpenMenuSearch)
+                    .accessibilityIdentifier("home.focus.menu.search")
+
+                Button("Pick date", systemImage: "calendar", action: onShowDatePicker)
+                    .accessibilityIdentifier("home.focus.menu.datePicker")
+
+                Button("More filters", systemImage: "slider.horizontal.3", action: onShowAdvancedFilters)
+                    .accessibilityIdentifier("home.focus.menu.advanced")
+
+                Button(role: .destructive, action: onResetFilters) {
+                    Label("Reset", systemImage: "line.3.horizontal.decrease.circle")
+                }
+                .accessibilityIdentifier("home.focus.menu.reset")
+            }
+        } label: {
+            HomeScopeSummaryButtonView(
+                viewLabel: presentation.viewLabel,
+                accentColor: selectionTint,
+                hasActiveFilters: presentation.hasActiveFilters
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .accessibilityIdentifier("home.focus.menu.button")
+        .accessibilityLabel(scopeMenuAccessibilityLabel)
+        .accessibilityHint("Opens quick views and tools")
+    }
+
+    private var settingsButton: some View {
+        Button("Settings", systemImage: "gearshape", action: onOpenSettings)
+            .labelStyle(.iconOnly)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Color.lifeboard.statusWarning)
+            .frame(width: 36, height: 36)
+            .buttonStyle(.plain)
+            .scaleOnPress()
+            .accessibilityLabel("Settings")
+            .accessibilityHint("Opens settings")
+            .accessibilityIdentifier("home.settingsButton")
+    }
+
+    private var scopeMenuAccessibilityLabel: String {
+        if presentation.hasActiveFilters {
+            return "Current view, \(presentation.viewLabel), filters active"
+        }
+        return "Current view, \(presentation.viewLabel)"
+    }
+
+    private var selectionTint: Color {
+        switch selectedQuickView {
+        case .overdue:
+            return Color.lifeboard.statusWarning
+        case .done:
+            return Color.lifeboard.statusSuccess
+        case .morning:
+            return Color.lifeboard.accentPrimary
+        case .evening:
+            return Color.lifeboard.accentSecondary
+        case .today, .upcoming:
+            return Color.lifeboard.accentPrimary
+        }
+    }
+
+    private func iconName(for quickView: HomeQuickView) -> String {
+        switch quickView {
+        case .today: return "sun.max.fill"
+        case .upcoming: return "calendar.badge.clock"
+        case .overdue: return "flame.fill"
+        case .done: return "checkmark.circle.fill"
+        case .morning: return "sunrise.fill"
+        case .evening: return "moon.stars.fill"
+        }
+    }
+}

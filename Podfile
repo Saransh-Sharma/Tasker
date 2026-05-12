@@ -2,7 +2,7 @@ platform :ios, '16.0'
 inhibit_all_warnings!
 require 'shellwords'
 
-target 'Tasker' do
+target 'LifeBoard' do
   use_frameworks!
 
 
@@ -20,16 +20,16 @@ target 'Tasker' do
   pod 'DGCharts',                '~> 5.1'
 
 
-  target 'TaskerTests' do
+  target 'LifeBoardTests' do
     inherit! :search_paths
   end
 
-  target 'TaskerUITests' do
+  target 'LifeBoardUITests' do
     # UI tests need access to frameworks used by the main app
     # Change from :search_paths to :complete to inherit all dependencies
     inherit! :complete
   end
-end          # ← closes the outer 'Tasker' block
+end          # ← closes the outer 'LifeBoard' block
 
 # Runs after pods project is generated
 post_install do |installer|

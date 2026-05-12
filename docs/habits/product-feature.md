@@ -1,6 +1,6 @@
 # Habit Streaks Product Feature
 
-Tasker Habit Streaks turn repeat behaviors into a calm visual system that helps users stay consistent without forcing perfection.
+LifeBoard Habit Streaks turn repeat behaviors into a calm visual system that helps users stay consistent without forcing perfection.
 
 ## Product Philosophy
 

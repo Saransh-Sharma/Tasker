@@ -15,7 +15,7 @@
 
 ## Daily Summary Notification Modals (Morning + Nightly)
 
-- [x] Add new notification route enum support (`TaskerDailySummaryKind` + `.dailySummary(kind:dateStamp:)`)
+- [x] Add new notification route enum support (`LifeBoardDailySummaryKind` + `.dailySummary(kind:dateStamp:)`)
 - [x] Add route payload encode/decode support (`daily_summary:<kind>:<yyyyMMdd>`)
 - [x] Route morning/nightly scheduled notifications to `.dailySummary(...)`
 - [x] Add summary models (`SummaryTaskRow`, `MorningPlanSummary`, `NightlyRetrospectiveSummary`, `DailySummaryModalData`)
@@ -30,8 +30,8 @@
 
 ## Stabilization + Fixes Added In This Pass
 
-- [x] Wire `To Do ListTests/TestSupport/V3TestHarness.swift` into `TaskerTests` target (`project.pbxproj`)
-- [x] Fix test compile regressions in `To_Do_ListTests.swift`
+- [x] Wire `LifeBoardTests/TestSupport/V3TestHarness.swift` into `LifeBoardTests` target (`project.pbxproj`)
+- [x] Fix test compile regressions in `LifeBoardTests.swift`
 - [x] Fix task initializer argument order for `recurrenceSeriesID` and `isComplete/isEveningTask`
 - [x] Fix optional fire-date assertion in snooze test
 - [x] Add launch-route helper defaults for UI tests (`skip onboarding`, `disable cloud sync`)
@@ -68,13 +68,13 @@
 
 ## Verification Log
 
-- [x] `xcodebuild -workspace Tasker.xcworkspace -scheme "To Do List" -destination 'generic/platform=iOS Simulator' build-for-testing` succeeded once after fixes (test compile unblocked)
-- [x] `xcodebuild test-without-building ... -only-testing:TaskerTests/TaskNotificationOrchestratorTests -only-testing:TaskerTests/TaskerNotificationActionHandlerTests` succeeded (11 tests, 0 failures)
-- [ ] `xcodebuild test-without-building ... -only-testing:TaskerUITests/DailySummaryModalTests` still failing (modal not detected in UI tests)
+- [x] `xcodebuild -workspace LifeBoard.xcworkspace -scheme "LifeBoard" -destination 'generic/platform=iOS Simulator' build-for-testing` succeeded once after fixes (test compile unblocked)
+- [x] `xcodebuild test-without-building ... -only-testing:LifeBoardTests/TaskNotificationOrchestratorTests -only-testing:LifeBoardTests/LifeBoardNotificationActionHandlerTests` succeeded (11 tests, 0 failures)
+- [ ] `xcodebuild test-without-building ... -only-testing:LifeBoardUITests/DailySummaryModalTests` still failing (modal not detected in UI tests)
 - [ ] Rebuild reliability issue remains in this environment: intermittent `AssetCatalogSimulatorAgent/CoreSimulator` failures while building pods asset catalogs
 - [x] `xcrun swiftc -frontend -parse` on updated files:
-  - `To Do List/Domain/Interfaces/NotificationServiceProtocol.swift`
-  - `To Do List/Services/LocalNotificationService.swift`
-  - `To Do List/ViewControllers/SettingsPageViewController.swift`
-  - `To Do ListTests/To_Do_ListTests.swift`
+  - `LifeBoard/Domain/Interfaces/NotificationServiceProtocol.swift`
+  - `LifeBoard/Services/LocalNotificationService.swift`
+  - `LifeBoard/ViewControllers/SettingsPageViewController.swift`
+  - `LifeBoardTests/LifeBoardTests.swift`
 - [ ] Full simulator `xcodebuild test` for latest quiet-hours changes still pending (workspace dependency build is long-running in this environment)

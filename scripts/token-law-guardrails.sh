@@ -6,11 +6,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 UI_DIRS=(
-  "To Do List/View"
-  "To Do List/Views"
-  "To Do List/ViewControllers"
-  "To Do List/Presentation/Views"
-  "To Do List/LLM/Views"
+  "LifeBoard/View"
+  "LifeBoard/Views"
+  "LifeBoard/ViewControllers"
+  "LifeBoard/Presentation/Views"
+  "LifeBoard/LLM/Views"
 )
 
 UI_FILES=()
@@ -75,7 +75,7 @@ scan_rule \
 scan_rule \
   "Token Law: no ad-hoc shadows outside DesignSystem components" \
   'layer\.shadow(Color|Opacity|Offset|Radius|Path)|\.shadow\(' \
-  'To Do List/View/LiquidGlass/LGBaseView.swift'
+  'LifeBoard/View/LiquidGlass/LGBaseView.swift'
 
 if [[ $FAILED -eq 1 ]]; then
   echo ""

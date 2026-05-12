@@ -1,0 +1,519 @@
+//
+//  PerformanceTests.swift
+//  LifeBoardUITests
+//
+//  Performance Tests (10 tests)
+//  Tests app performance metrics and benchmarks
+//
+
+import XCTest
+
+class PerformanceTests: BaseUITest {
+
+    var homePage: HomePage!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        homePage = HomePage(app: app)
+    }
+
+    // MARK: - Test 66: App Launch Performance
+
+    func testAppLaunchPerformance() throws {
+        // Measure app launch time
+        measure(metrics: [XCTApplicationLaunchMetric()]) {
+            app.terminate()
+            app.launch()
+        }
+
+        app.terminate()
+        let launchDuration = PerformanceMetrics.measureExecutionTime(
+            named: "App Launch Budget",
+            testCase: self
+        ) {
+            app.launch()
+        }
+        PerformanceMetrics.assertAppLaunchTime(launchDuration, testCase: self)
+
+        // Verify app launched successfully
+        homePage = HomePage(app: app)
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "App should launch successfully")
+
+        takeScreenshot(named: "performance_app_launch")
+    }
+
+    // MARK: - Test 67: Task List Scrolling Performance
+
+    func testTaskListScrollingPerformance() throws {
+        // GIVEN: Many tasks exist for scrolling
+        print("📝 Creating 100 tasks for scroll performance test...")
+
+        for i in 1...100 {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.enterTitle("Scroll Task \(i)")
+            addTaskPage.selectPriority(i % 4 == 0 ? .max : (i % 3 == 0 ? .high : .medium))
+            addTaskPage.tapSave()
+
+            // Batch wait for performance
+            if i % 20 == 0 {
+                waitForAnimations(duration: 1.0)
+                print("  Created \(i) tasks...")
+            }
+        }
+
+        waitForAnimations(duration: 2.0)
+
+        let taskCount = homePage.getTaskCount()
+        print("📊 Total tasks for scroll test: \(taskCount)")
+
+        // WHEN: User scrolls through the list
+        let taskListScrollView = homePage.taskListScrollView
+        XCTAssertTrue(taskListScrollView.exists, "Task list scroll view should exist")
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "HomeTaskListScrollSession")], options: options) {
+            // Scroll through entire list
+            for _ in 0..<10 {
+                taskListScrollView.swipeUp()
+            }
+
+            // Scroll back up
+            for _ in 0..<10 {
+                taskListScrollView.swipeDown()
+            }
+        }
+
+        takeScreenshot(named: "performance_scroll_end")
+    }
+
+    // MARK: - Test 68: Task Creation Performance
+
+    func testTaskCreationPerformance() throws {
+        // GIVEN: User is on home screen
+        // WHEN: User creates a task
+        // THEN: Task creation should be fast
+
+        let metrics: [XCTMetric] = [XCTClockMetric()]
+
+        measure(metrics: metrics) {
+            let addTaskPage = homePage.tapAddTask()
+            _ = addTaskPage.verifyIsDisplayed()
+
+            addTaskPage.enterTitle("Performance Task")
+            addTaskPage.selectPriority(.medium)
+            addTaskPage.tapSave()
+
+            _ = homePage.waitForTask(withTitle: "Performance Task", timeout: 5)
+        }
+
+        takeScreenshot(named: "performance_task_creation")
+    }
+
+    func testAddTaskSheetPresentationPerformance() throws {
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "AddTaskSheetOpen")], options: options) {
+            let addTaskPage = homePage.tapAddTask()
+            _ = addTaskPage.verifyIsDisplayed()
+            addTaskPage.tapCancel()
+        }
+    }
+
+    // MARK: - Test 69: Task Completion Performance
+
+    func testTaskCompletionPerformance() throws {
+        // GIVEN: Tasks exist
+        for i in 1...10 {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(title: "Complete Perf \(i)", priority: .low, taskType: .morning)
+            _ = homePage.waitForTask(withTitle: "Complete Perf \(i)", timeout: 5)
+        }
+
+        waitForAnimations(duration: 1.0)
+
+        // WHEN: User completes tasks rapidly
+        // THEN: Completion should be fast
+
+        PerformanceMetrics.measureAndAssert(
+            named: "Task Completion (10 tasks)",
+            threshold: PerformanceMetrics.Thresholds.taskCompletionTime * 10, // 3 seconds for 10 tasks
+            testCase: self
+        ) {
+            for i in 0..<10 {
+                homePage.completeTask(at: i)
+            }
+        }
+
+        takeScreenshot(named: "performance_task_completion")
+    }
+
+    func testHomeHabitLastCellTapPerformance() throws {
+        relaunchForHomeHabitPerformance()
+
+        let row = firstHomeHabitRow()
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
+
+        let rowID = row.identifier.replacingOccurrences(of: "home.habitRow.", with: "")
+        let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
+
+        XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
+        XCTAssertTrue(waitForElementToBeHittable(lastCell, timeout: 3))
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "HomeHabitLastCellTap")], options: options) {
+            let previousValue = (lastCell.value as? String) ?? ""
+            lastCell.tap()
+
+            let predicate = NSPredicate(format: "value != %@", previousValue)
+            let expectation = XCTNSPredicateExpectation(predicate: predicate, object: lastCell)
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+        }
+    }
+
+    // MARK: - Test 70: Chart Rendering Performance
+
+    func testChartRenderPerformance() throws {
+        // GIVEN: Data exists for chart
+        for i in 1...20 {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(
+                title: "Chart Task \(i)",
+                priority: i % 4 == 0 ? .max : .high,
+                taskType: .morning
+            )
+            _ = homePage.waitForTask(withTitle: "Chart Task \(i)", timeout: 5)
+
+            let taskIndex = findTaskIndex(withTitle: "Chart Task \(i)")
+            homePage.completeTask(at: taskIndex)
+
+            if i % 5 == 0 {
+                waitForAnimations(duration: 0.5)
+            }
+        }
+
+        waitForAnimations(duration: 2.0)
+
+        // WHEN: Chart renders with data
+        // THEN: Rendering should be performant
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 1
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "HomeInsightsFirstMount")], options: options) {
+            homePage.tapCharts()
+            XCTAssertTrue(homePage.waitForToolSelection(homePage.chartsButton), "Analytics should open during perf run")
+        }
+
+        takeScreenshot(named: "performance_chart_render")
+    }
+
+    private func relaunchForHomeHabitPerformance() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "-RESET_APP_STATE",
+            "-UI_TESTING",
+            "-DISABLE_ANIMATIONS",
+            "-SKIP_ONBOARDING",
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
+            XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue
+        ]
+        app.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        app.launch()
+        waitForAppLaunch()
+        homePage = HomePage(app: app)
+    }
+
+    private func firstHomeHabitRow(file: StaticString = #file, line: UInt = #line) -> XCUIElement {
+        let rowQuery = app.otherElements.matching(NSPredicate(format: "identifier MATCHES %@", #"^home\.habitRow\.[A-Za-z0-9-]+$"#))
+        let firstRow = rowQuery.firstMatch
+
+        if firstRow.waitForExistence(timeout: 3) && firstRow.isHittable {
+            return firstRow
+        }
+
+        for _ in 0..<8 {
+            app.swipeUp()
+            if firstRow.exists && firstRow.isHittable {
+                break
+            }
+        }
+
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 2), "Expected to find a home habit row after scrolling", file: file, line: line)
+        return firstRow
+    }
+
+    // MARK: - Test 71: Memory Usage with Many Tasks
+
+    @available(iOS 14.0, *)
+    func testMemoryUsage_100Tasks() throws {
+        // GIVEN: 100 tasks exist
+        print("📝 Creating 100 tasks for memory test...")
+
+        for i in 1...100 {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.enterTitle("Memory Task \(i)")
+            addTaskPage.tapSave()
+
+            if i % 25 == 0 {
+                waitForAnimations(duration: 1.0)
+                print("  Created \(i) tasks...")
+            }
+        }
+
+        waitForAnimations(duration: 2.0)
+
+        // WHEN: User scrolls and interacts with many tasks
+        let taskListScrollView = homePage.taskListScrollView
+
+        // Measure memory
+        measure(metrics: [XCTMemoryMetric()]) {
+            // Scroll through all tasks
+            for _ in 0..<15 {
+                taskListScrollView.swipeUp()
+            }
+
+            // Complete some tasks
+            for i in 0..<10 {
+                homePage.completeTask(at: i)
+            }
+
+            // Scroll back
+            for _ in 0..<15 {
+                taskListScrollView.swipeDown()
+            }
+        }
+
+        takeScreenshot(named: "performance_memory_usage")
+    }
+
+    // MARK: - Test 72: Search Performance
+
+    func testSearchPerformance() throws {
+        // GIVEN: Many tasks exist
+        for i in 1...50 {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.enterTitle("Search Task \(i)")
+            addTaskPage.tapSave()
+
+            if i % 10 == 0 {
+                waitForAnimations(duration: 0.5)
+            }
+        }
+
+        waitForAnimations(duration: 1.0)
+
+        // WHEN: User performs search
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "HomeSearchSurface")], options: options) {
+            homePage.tapSearch()
+            XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 2), "Search face should open during perf run")
+            homePage.typeSearchQuery("Search Task 25")
+            homePage.tapSearchBackChip()
+        }
+
+        takeScreenshot(named: "performance_search")
+    }
+
+    // MARK: - Test 73: Project Filter Performance
+
+    func testProjectFilterPerformance() throws {
+        // GIVEN: Multiple projects and tasks exist
+        let settingsPage = homePage.tapSettings()
+        let projectPage = settingsPage.navigateToProjectManagement()
+
+        // Create 5 projects
+        for i in 1...5 {
+            let newProjectPage = projectPage.tapAddProject()
+            newProjectPage.createProject(name: "Project \(i)")
+            _ = projectPage.waitForProject(named: "Project \(i)", timeout: 5)
+        }
+
+        projectPage.tapBack()
+        settingsPage.tapDone()
+
+        // Create tasks for each project
+        for i in 1...25 {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.enterTitle("Filter Task \(i)")
+            addTaskPage.tapSave()
+        }
+
+        waitForAnimations(duration: 1.0)
+
+        // WHEN: User applies project filter
+        PerformanceMetrics.measureAndAssert(
+            named: "Project Filter",
+            threshold: 1.0, // 1 second
+            testCase: self
+        ) {
+            homePage.tapProjectFilter()
+            waitForAnimations(duration: 1.0)
+        }
+
+        takeScreenshot(named: "performance_project_filter")
+    }
+
+    // MARK: - Test 74: Animation Performance
+
+    func testAnimationPerformance() throws {
+        // GIVEN: Tasks exist with animations
+        for i in 1...10 {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(title: "Anim Task \(i)", priority: .medium, taskType: .morning)
+            _ = homePage.waitForTask(withTitle: "Anim Task \(i)", timeout: 5)
+        }
+
+        // WHEN: User performs animated actions
+        measure(metrics: [XCTClockMetric()]) {
+            // Complete with animation
+            for i in 0..<10 {
+                homePage.completeTask(at: i)
+                waitForAnimations(duration: 0.1)
+            }
+        }
+
+        takeScreenshot(named: "performance_animations")
+    }
+
+    // MARK: - Test 75: Cold Start Performance
+
+    func testColdStartPerformance() throws {
+        // Test cold start (first launch)
+        // This simulates user experience on first app open
+
+        let launchOptions = XCTMeasureOptions()
+        launchOptions.iterationCount = 5
+
+        measure(metrics: [XCTApplicationLaunchMetric()], options: launchOptions) {
+            app.terminate()
+
+            // Simulate cold start delay
+            Thread.sleep(forTimeInterval: 1.0)
+
+            app.launch()
+        }
+
+        // Verify app is responsive after launch
+        homePage = HomePage(app: app)
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "App should be responsive after cold start")
+
+        takeScreenshot(named: "performance_cold_start")
+    }
+
+    // MARK: - Bonus: Stress Test
+
+    func testStressTest_RapidInteractions() throws {
+        // Stress test with rapid interactions
+        // GIVEN: App is running
+        // WHEN: User performs many rapid actions
+
+        let iterations = 20
+
+        PerformanceMetrics.measureAndAssert(
+            named: "Stress Test - Rapid Interactions",
+            threshold: 10.0, // 10 seconds
+            testCase: self
+        ) {
+            for i in 0..<iterations {
+                // Rapid open/close add task
+                let addTaskPage = homePage.tapAddTask()
+                addTaskPage.tapCancel()
+
+                if i % 5 == 0 {
+                    // Occasionally create a task
+                    let page = homePage.tapAddTask()
+                    page.enterTitle("Stress Task \(i)")
+                    page.tapSave()
+                }
+            }
+        }
+
+        takeScreenshot(named: "performance_stress_test")
+    }
+
+    // MARK: - Insights Performance
+
+    func testInsightsTabSwitchingPerformance() throws {
+        homePage.tapCharts()
+        XCTAssertTrue(
+            homePage.insightsContainer.waitForExistence(timeout: 3),
+            "Insights container should be visible after opening charts"
+        )
+
+        PerformanceMetrics.measureAndAssert(
+            named: "Insights Tab Switching",
+            threshold: 3.0,
+            testCase: self
+        ) {
+            for _ in 0..<8 {
+                _ = homePage.switchInsightsTab(.today)
+                _ = homePage.switchInsightsTab(.week)
+                _ = homePage.switchInsightsTab(.systems)
+            }
+        }
+    }
+
+    func testInsightsTabScrollPerformance() throws {
+        homePage.tapCharts()
+        XCTAssertTrue(
+            homePage.insightsContainer.waitForExistence(timeout: 3),
+            "Insights container should be visible after opening charts"
+        )
+
+        PerformanceMetrics.measureAndAssert(
+            named: "Insights Tab Scroll",
+            threshold: 6.0,
+            testCase: self
+        ) {
+            _ = homePage.scrollInsightsTab(.today, swipeCount: 4)
+            _ = homePage.scrollInsightsTab(.week, swipeCount: 4)
+            _ = homePage.scrollInsightsTab(.systems, swipeCount: 4)
+        }
+    }
+
+    func testChatOpenPerformance() throws {
+        let composer = app.otherElements["chat.composer.container"]
+        let emptyState = app.otherElements["chat.emptyState.container"]
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "ChatOpenToFirstTranscriptRender")], options: options) {
+            homePage.tapChat()
+            XCTAssertTrue(
+                composer.waitForExistence(timeout: 4) || emptyState.waitForExistence(timeout: 4),
+                "Chat should present a composer or empty state during perf run"
+            )
+            if app.navigationBars.buttons.element(boundBy: 0).exists {
+                app.navigationBars.buttons.element(boundBy: 0).tap()
+            }
+        }
+    }
+
+    // MARK: - Helper
+
+    private func findTaskIndex(withTitle title: String) -> Int {
+        let taskRows = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
+        )
+        for index in 0..<taskRows.count {
+            let row = taskRows.element(boundBy: index)
+            if row.label.localizedCaseInsensitiveContains(title) || row.staticTexts[title].exists {
+                return index
+            }
+        }
+
+        let cells = app.tables.cells
+        for index in 0..<cells.count {
+            let cell = cells.element(boundBy: index)
+            if cell.staticTexts[title].exists {
+                return index
+            }
+        }
+        return 0
+    }
+}

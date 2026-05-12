@@ -1,12 +1,12 @@
-# Tasker Docs
+# LifeBoard Docs
 
-This directory is the navigation hub for product, architecture, audit, and feature documentation in Tasker.
+This directory is the navigation hub for product, architecture, audit, and feature documentation in LifeBoard.
 
 ## Canonical References
 
 - [Local EVA / LLM architecture](./architecture/LOCAL_LLM_EVA_ARCHITECTURE.md) - source of truth for local inference, chat routing, Chief of Staff day overview cards, planner proposals, apply/undo boundaries, and timeline-aware assistant context.
 - [Assistant mascot persona placement guide](./design/EVA_MASCOT_PLACEMENT_GUIDE.md) - source of truth for selectable Chief of Staff personas, sprite resources, placement mapping, accessibility rules, and QA checklist.
-- [Tasker V2 architecture guide](./architecture/TASKER_V2_ARCHITECTURE_GUIDE.md)
+- [LifeBoard V2 architecture guide](./architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md)
 - [Habit UX audit](./audits/HABITS_IOS_UX_AUDIT_2026-04-17.md)
 
 ## Feature Packages

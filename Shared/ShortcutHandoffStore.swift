@@ -1,7 +1,7 @@
 import Foundation
 
 extension Notification.Name {
-    static let taskerEvaChatLaunchRequestDidChange = Notification.Name("TaskerEvaChatLaunchRequestDidChange")
+    static let lifeboardEvaChatLaunchRequestDidChange = Notification.Name("LifeBoardEvaChatLaunchRequestDidChange")
 }
 
 struct EvaChatLaunchRequest: Codable, Equatable, Sendable {
@@ -72,17 +72,17 @@ enum ShortcutHandoffStoreError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return "Tasker shortcut handoff is unavailable right now."
+            return "LifeBoard shortcut handoff is unavailable right now."
         case .encodeFailed:
-            return "Tasker could not save the shortcut request."
+            return "LifeBoard could not save the shortcut request."
         }
     }
 }
 
 private enum ShortcutHandoffStoreKey {
-    static let chatLaunchRequest = "tasker.shortcut.chatLaunchRequest.v1"
-    static let pendingLaunchAction = "tasker.shortcut.pendingLaunchAction.v1"
-    static let mutationSignal = "tasker.shortcut.mutationSignal.v1"
+    static let chatLaunchRequest = "lifeboard.shortcut.chatLaunchRequest.v1"
+    static let pendingLaunchAction = "lifeboard.shortcut.pendingLaunchAction.v1"
+    static let mutationSignal = "lifeboard.shortcut.mutationSignal.v1"
 }
 
 private final class ShortcutHandoffCodableStore: @unchecked Sendable {
@@ -156,7 +156,7 @@ final class EvaChatLaunchRequestStore: @unchecked Sendable {
 
     func submit(_ request: EvaChatLaunchRequest) throws {
         try store.save(request, key: ShortcutHandoffStoreKey.chatLaunchRequest)
-        NotificationCenter.default.post(name: .taskerEvaChatLaunchRequestDidChange, object: nil)
+        NotificationCenter.default.post(name: .lifeboardEvaChatLaunchRequestDidChange, object: nil)
     }
 
     func consumePendingRequest() -> EvaChatLaunchRequest? {

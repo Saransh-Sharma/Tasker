@@ -1,6 +1,6 @@
 # Calendar + Timeline Product Feature
 
-Tasker uses calendar data as execution context, not as a competing calendar product.
+LifeBoard uses calendar data as execution context, not as a competing calendar product.
 
 The Home timeline is the user's calm command center for the day. It turns tasks, meetings, routines, busy blocks, open gaps, and EVA guidance into one visual day narrative so the user can understand the day without mentally stitching together a calendar, task list, and planner.
 
@@ -16,12 +16,12 @@ The purpose of the feature is to answer the user's most important day questions 
 
 ## Core Promise
 
-Tasker observes calendar reality and reflects it back in a compact, read-only form that supports orientation, prioritization, and action.
+LifeBoard observes calendar reality and reflects it back in a compact, read-only form that supports orientation, prioritization, and action.
 
 That means:
 
 - Users can connect calendars and choose which ones matter
-- Tasker can show schedule context without editing external events
+- LifeBoard can show schedule context without editing external events
 - The Home screen can surface the next meeting and free time
 - Task detail can surface fit hints derived from the live calendar picture
 - The timeline can remain task-first while still respecting schedule pressure
@@ -76,7 +76,7 @@ Day schedule should show:
 - Busy blocks
 - Open gaps
 - All-day context when relevant
-- Task-fit opportunities when Tasker can infer a useful match
+- Task-fit opportunities when LifeBoard can infer a useful match
 
 Week schedule should show:
 
@@ -95,7 +95,7 @@ These views should stay schedule-aware rather than calendar-complete. They can h
 
 ### Timeline
 
-The timeline is Tasker's task chronology, visual day narrative, and intelligent planning surface.
+The timeline is LifeBoard's task chronology, visual day narrative, and intelligent planning surface.
 
 It should remain task-first while still using calendar context to:
 
@@ -135,18 +135,18 @@ On iPhone, the timeline should optimize for glanceability rather than calendar f
 
 ## User Stories
 
-- As a user, I can allow read-only calendar access so Tasker can understand my day.
+- As a user, I can allow read-only calendar access so LifeBoard can understand my day.
 - As a user, I can select which calendars matter to my execution context.
 - As a user, I can see what meeting is coming next without opening a calendar app.
 - As a user, I can see when I am free until, so I can choose a task that fits.
 - As a user, I can open task detail and understand whether a task is likely to fit the current day.
-- As a user, I can inspect a day, week, or month schedule glance without worrying that Tasker will edit my calendar.
-- As a user, I can use the timeline without feeling like Tasker has turned into another calendar grid app.
-- As a user, I can open Tasker, look at the timeline for two seconds, and feel grounded about what matters now.
+- As a user, I can inspect a day, week, or month schedule glance without worrying that LifeBoard will edit my calendar.
+- As a user, I can use the timeline without feeling like LifeBoard has turned into another calendar grid app.
+- As a user, I can open LifeBoard, look at the timeline for two seconds, and feel grounded about what matters now.
 - As a user, I can see whether the day is packed, flexible, or sparse without decoding a crowded interface.
 - As a user, I can use large open gaps as planning opportunities instead of seeing them as empty space.
 - As a user, I can ask Eva what to do next and get an answer that reflects my visible timeline.
-- As a user, I can ask Eva to repair an overloaded block and review any proposed Tasker task changes before they are applied.
+- As a user, I can ask Eva to repair an overloaded block and review any proposed LifeBoard task changes before they are applied.
 - As a user, I can see when Eva is working from partial schedule context, such as missing calendar permission or no selected calendars.
 
 ## Calendar States
@@ -202,8 +202,8 @@ Eva cannot, in this package:
 
 - Edit external calendar events
 - RSVP to meetings
-- Silently reschedule Tasker tasks
+- Silently reschedule LifeBoard tasks
 - Auto-log habit outcomes
 - Hide uncertainty caused by missing schedule context
 
-If Eva proposes Tasker-owned changes, the proposal must remain reviewable and explicitly confirmed through the assistant action pipeline.
+If Eva proposes LifeBoard-owned changes, the proposal must remain reviewable and explicitly confirmed through the assistant action pipeline.

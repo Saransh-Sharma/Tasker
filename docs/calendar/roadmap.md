@@ -21,16 +21,16 @@
 - Strengthen task-fit hints with clearer fit, tight, and conflict explanation copy
 - Add clearer empty and error states across Home and schedule screens
 - Add timeline-aware Eva repair flows for overloaded blocks, slipped tasks, ambiguous free gaps, and end-of-day carry-over
-- Add schedule-aware proposal metadata so Tasker-owned reschedule suggestions can explain the calendar conflict they are responding to
+- Add schedule-aware proposal metadata so LifeBoard-owned reschedule suggestions can explain the calendar conflict they are responding to
 
 ## Long Term
 
 - Consider widgets or Live Activities only if they remain read-only and reinforce execution context
-- Consider broader planning-mode surfaces only if they do not collapse Tasker into a calendar-first app
+- Consider broader planning-mode surfaces only if they do not collapse LifeBoard into a calendar-first app
 - Expand timeline-adjacent context carefully, preserving the distinction between schedule context and task chronology
 - Evolve EVA into a quiet day-management layer on top of the timeline, with conflict detection, overloaded-window repair, focus-time protection, task deferral, and free-gap planning assistance
 - Keep EVA timeline guidance optional, reviewable, and oriented toward the next useful action rather than persistent advice noise
-- Evaluate calendar-write workflows only as a separate, explicitly permissioned future feature after read-only trust and Tasker-owned mutation flows are stable
+- Evaluate calendar-write workflows only as a separate, explicitly permissioned future feature after read-only trust and LifeBoard-owned mutation flows are stable
 
 ## Non-Goals
 

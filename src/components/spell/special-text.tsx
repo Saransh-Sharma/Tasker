@@ -27,28 +27,12 @@ export function SpecialText({
   speed = 38,
 }: SpecialTextProps) {
   const { ref, isActive, prefersReducedMotion } = useAnimatedInView<HTMLSpanElement>({ inView, once });
-  const [displayText, setDisplayText] = useState(() => children);
-  const [hasStarted, setHasStarted] = useState(false);
+  const [displayState, setDisplayState] = useState(() => ({ source: children, value: children }));
   const intervalRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isActive || prefersReducedMotion) {
-      setDisplayText(children);
-      return () => {
-        if (timeoutRef.current !== null) {
-          window.clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-
-        if (intervalRef.current !== null) {
-          window.clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      };
-    }
-
-    if (hasStarted) {
       return () => {
         if (timeoutRef.current !== null) {
           window.clearTimeout(timeoutRef.current);
@@ -63,8 +47,6 @@ export function SpecialText({
     }
 
     const begin = () => {
-      setHasStarted(true);
-
       let step = 0;
       const totalSteps = children.length * 2;
 
@@ -84,7 +66,7 @@ export function SpecialText({
           nextChars.push(getRandomChar(nextChars[nextChars.length - 1]));
         }
 
-        setDisplayText(nextChars.join(''));
+        setDisplayState({ source: children, value: nextChars.join('') });
         step += 1;
 
         if (step >= totalSteps) {
@@ -92,7 +74,7 @@ export function SpecialText({
             window.clearInterval(intervalRef.current);
             intervalRef.current = null;
           }
-          setDisplayText(children);
+          setDisplayState({ source: children, value: children });
         }
       }, speed);
     };
@@ -115,12 +97,11 @@ export function SpecialText({
         intervalRef.current = null;
       }
     };
-  }, [children, delay, hasStarted, isActive, prefersReducedMotion, speed]);
+  }, [children, delay, isActive, prefersReducedMotion, speed]);
 
-  useEffect(() => {
-    setHasStarted(false);
-    setDisplayText(children);
-  }, [children]);
+  const displayText = !isActive || prefersReducedMotion || displayState.source !== children
+    ? children
+    : displayState.value;
 
   return (
     <span ref={ref} className={cx('spell-special-text', className)}>

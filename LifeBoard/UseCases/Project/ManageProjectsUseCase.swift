@@ -1,0 +1,728 @@
+//
+//  ManageProjectsUseCase.swift
+//  LifeBoard
+//
+//  Use case for managing projects (create, update, delete)
+//
+
+import Foundation
+
+private final class ManageProjectsAccumulator<State: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var state: State
+
+    init(_ state: State) {
+        self.state = state
+    }
+
+    func update(_ body: (inout State) -> Void) {
+        lock.lock()
+        body(&state)
+        lock.unlock()
+    }
+
+    func snapshot() -> State {
+        lock.lock()
+        let state = state
+        lock.unlock()
+        return state
+    }
+}
+
+/// Use case for managing projects
+/// Handles all project CRUD operations with business rules
+public final class ManageProjectsUseCase: @unchecked Sendable {
+    
+    // MARK: - Dependencies
+    
+    private let projectRepository: ProjectRepositoryProtocol
+    
+    // MARK: - Initialization
+    
+    /// Initializes a new instance.
+    public init(
+        projectRepository: ProjectRepositoryProtocol
+    ) {
+        self.projectRepository = projectRepository
+    }
+    
+    // MARK: - Create Project
+    
+    /// Creates a new project
+    public func createProject(
+        request: CreateProjectRequest,
+        completion: @escaping @Sendable (Result<Project, ProjectError>) -> Void
+    ) {
+        // Validate project name
+        guard validateProjectName(request.name) else {
+            completion(.failure(.invalidName("Project name is invalid")))
+            return
+        }
+        
+        // Check if name is available
+        projectRepository.isProjectNameAvailable(request.name, excludingId: nil) { [weak self] result in
+            switch result {
+            case .success(let isAvailable):
+                if !isAvailable {
+                    completion(.failure(.duplicateName))
+                    return
+                }
+                
+                // Create the project
+                let project = Project(
+                    lifeAreaID: request.lifeAreaID,
+                    name: request.name,
+                    projectDescription: request.description,
+                    createdDate: Date(),
+                    modifiedDate: Date(),
+                    isDefault: false,
+                    color: request.color ?? .blue,
+                    icon: request.icon ?? .folder,
+                    motivationWhy: request.motivationWhy,
+                    motivationSuccessLooksLike: request.motivationSuccessLooksLike,
+                    motivationCostOfNeglect: request.motivationCostOfNeglect
+                )
+                
+                // Validate the project
+                do {
+                    try project.validate()
+                } catch {
+                    completion(.failure(.validationFailed(error.localizedDescription)))
+                    return
+                }
+                
+                // Save to repository
+                self?.projectRepository.createProject(project) { result in
+                    switch result {
+                    case .success(let createdProject):
+                        TaskNotificationDispatcher.postOnMain(
+                            name: NSNotification.Name("ProjectCreated"),
+                            object: createdProject
+                        )
+                        completion(.success(createdProject))
+                        
+                    case .failure(let error):
+                        completion(.failure(.repositoryError(error)))
+                    }
+                }
+                
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+    
+    // MARK: - Update Project
+    
+    /// Updates an existing project
+    public func updateProject(
+        projectId: UUID,
+        request: UpdateProjectRequest,
+        completion: @escaping @Sendable (Result<Project, ProjectError>) -> Void
+    ) {
+        // Fetch the existing project
+        projectRepository.fetchProject(withId: projectId) { [weak self] result in
+            switch result {
+            case .success(let project):
+                guard let project = project else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+                
+                // Don't allow updating the default Inbox project name
+                if project.isDefault && request.name != nil {
+                    completion(.failure(.cannotModifyDefault))
+                    return
+                }
+                
+                // Apply updates
+                if let newName = request.name {
+                    // Validate new name
+                    guard self?.validateProjectName(newName) == true else {
+                        completion(.failure(.invalidName("Project name is invalid")))
+                        return
+                    }
+                    
+                    // Check if new name is available
+                    guard let self else {
+                        completion(.failure(.repositoryError(NSError(
+                            domain: "ManageProjectsUseCase",
+                            code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "Project use case unavailable"]
+                        ))))
+                        return
+                    }
+                    self.projectRepository.isProjectNameAvailable(newName, excludingId: projectId) { result in
+                        switch result {
+                        case .success(let isAvailable):
+                            if !isAvailable {
+                                completion(.failure(.duplicateName))
+                                return
+                            }
+                            
+                            var updatedProject = project
+                            updatedProject.name = newName
+                            self.applyUpdateRequest(request, to: &updatedProject)
+                            updatedProject.modifiedDate = Date()
+                            self.performProjectUpdate(project: updatedProject, completion: completion)
+                            
+                        case .failure(let error):
+                            completion(.failure(.repositoryError(error)))
+                        }
+                    }
+                } else {
+                    // Just update description
+                    var updatedProject = project
+                    self?.applyUpdateRequest(request, to: &updatedProject)
+                    updatedProject.modifiedDate = Date()
+                    self?.performProjectUpdate(project: updatedProject, completion: completion)
+                }
+                
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Archives a project without deleting tasks.
+    public func archiveProject(
+        projectId: UUID,
+        completion: @escaping @Sendable (Result<Project, ProjectError>) -> Void
+    ) {
+        projectRepository.fetchProject(withId: projectId) { [weak self] result in
+            switch result {
+            case .success(let project):
+                guard var project else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+                if project.isDefault || project.isInbox {
+                    completion(.failure(.cannotModifyDefault))
+                    return
+                }
+
+                if project.isArchived {
+                    completion(.success(project))
+                    return
+                }
+
+                project.isArchived = true
+                project.modifiedDate = Date()
+                self?.performProjectUpdate(project: project) { updateResult in
+                    switch updateResult {
+                    case .success(let updatedProject):
+                        var userInfo = HomeTaskMutationPayload(
+                            reason: .projectChanged,
+                            source: "manageProjectsUseCase",
+                            affectedProjectID: updatedProject.id
+                        ).userInfo
+                        userInfo["archived"] = true
+                        TaskNotificationDispatcher.postOnMain(
+                            name: .homeTaskMutation,
+                            userInfo: userInfo
+                        )
+                        completion(.success(updatedProject))
+                    case .failure(let error):
+                        completion(.failure(error))
+                    }
+                }
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Unarchives a previously archived project.
+    public func unarchiveProject(
+        projectId: UUID,
+        completion: @escaping @Sendable (Result<Project, ProjectError>) -> Void
+    ) {
+        projectRepository.fetchProject(withId: projectId) { [weak self] result in
+            switch result {
+            case .success(let project):
+                guard var project else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+                if project.isDefault || project.isInbox {
+                    completion(.failure(.cannotModifyDefault))
+                    return
+                }
+
+                if project.isArchived == false {
+                    completion(.success(project))
+                    return
+                }
+
+                project.isArchived = false
+                project.modifiedDate = Date()
+                self?.performProjectUpdate(project: project) { updateResult in
+                    switch updateResult {
+                    case .success(let updatedProject):
+                        var userInfo = HomeTaskMutationPayload(
+                            reason: .projectChanged,
+                            source: "manageProjectsUseCase",
+                            affectedProjectID: updatedProject.id
+                        ).userInfo
+                        userInfo["archived"] = false
+                        TaskNotificationDispatcher.postOnMain(
+                            name: .homeTaskMutation,
+                            userInfo: userInfo
+                        )
+                        completion(.success(updatedProject))
+                    case .failure(let error):
+                        completion(.failure(error))
+                    }
+                }
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+    
+    // MARK: - Delete Project
+    
+    /// Deletes a project and optionally its tasks
+    public func deleteProject(
+        projectId: UUID,
+        deleteStrategy: DeleteStrategy = .moveToInbox,
+        completion: @escaping @Sendable (Result<Void, ProjectError>) -> Void
+    ) {
+        // Fetch the project to check if it's deletable
+        projectRepository.fetchProject(withId: projectId) { [weak self] result in
+            switch result {
+            case .success(let project):
+                guard let project = project else {
+                    // Project doesn't exist, consider it already deleted
+                    completion(.success(()))
+                    return
+                }
+                
+                // Don't allow deleting the default Inbox project
+                if project.isDefault {
+                    completion(.failure(.cannotDeleteDefault))
+                    return
+                }
+                
+                // Delete based on strategy
+                let deleteTasks = (deleteStrategy == .deleteAllTasks)
+                self?.projectRepository.deleteProject(withId: projectId, deleteTasks: deleteTasks) { result in
+                    switch result {
+                    case .success:
+                        TaskNotificationDispatcher.postOnMain(
+                            name: NSNotification.Name("ProjectDeleted"),
+                            object: project
+                        )
+                        completion(.success(()))
+                        
+                    case .failure(let error):
+                        completion(.failure(.repositoryError(error)))
+                    }
+                }
+                
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+    
+    // MARK: - Get Projects
+    
+    /// Gets all projects with task counts
+    public func getAllProjects(completion: @escaping @Sendable (Result<[ProjectWithStats], ProjectError>) -> Void) {
+        projectRepository.fetchAllProjects { [weak self] result in
+            switch result {
+            case .success(let projects):
+                let dedupedProjects = self?.dedupeProjects(projects) ?? projects
+                let projectsWithStats = ManageProjectsAccumulator([ProjectWithStats]())
+                let group = DispatchGroup()
+                
+                for project in dedupedProjects {
+                    group.enter()
+                    self?.projectRepository.getTaskCount(for: project.id) { countResult in
+                        if case .success(let count) = countResult {
+                            let stats = ProjectWithStats(
+                                project: project,
+                                taskCount: count,
+                                completedTaskCount: 0 // Would need additional query
+                            )
+                            projectsWithStats.update { $0.append(stats) }
+                        }
+                        group.leave()
+                    }
+                }
+                
+                group.notify(queue: .main) {
+                    var projectsWithStats = projectsWithStats.snapshot()
+                    // Sort projects: Inbox first, then alphabetically
+                    projectsWithStats.sort { p1, p2 in
+                        if p1.project.isDefault { return true }
+                        if p2.project.isDefault { return false }
+                        return p1.project.name < p2.project.name
+                    }
+                    completion(.success(projectsWithStats))
+                }
+                
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Executes repairProjectIdentityCollisions.
+    public func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, ProjectError>) -> Void) {
+        projectRepository.repairProjectIdentityCollisions { result in
+            switch result {
+            case .success(let report):
+                completion(.success(report))
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+    
+    /// Gets custom (non-default) projects
+    public func getCustomProjects(completion: @escaping @Sendable (Result<[Project], ProjectError>) -> Void) {
+        projectRepository.fetchCustomProjects { result in
+            switch result {
+            case .success(let projects):
+                completion(.success(projects))
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+    
+    // MARK: - Move Tasks
+    
+    /// Moves all tasks from one project to another
+    public func moveTasksBetweenProjects(
+        from sourceProjectId: UUID,
+        to targetProjectId: UUID,
+        completion: @escaping @Sendable (Result<Int, ProjectError>) -> Void
+    ) {
+        // Validate both projects exist
+        projectRepository.fetchProject(withId: sourceProjectId) { [weak self] sourceResult in
+            switch sourceResult {
+            case .success(let sourceProject):
+                guard sourceProject != nil else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+                
+                guard let repository = self?.projectRepository else {
+                    completion(.failure(.repositoryError(NSError(
+                        domain: "ManageProjectsUseCase",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Project repository unavailable"]
+                    ))))
+                    return
+                }
+                repository.fetchProject(withId: targetProjectId) { targetResult in
+                    switch targetResult {
+                    case .success(let targetProject):
+                        guard targetProject != nil else {
+                            completion(.failure(.projectNotFound))
+                            return
+                        }
+                        
+                        // Get task count before moving
+                        repository.getTaskCount(for: sourceProjectId) { countResult in
+                            let taskCount = (try? countResult.get()) ?? 0
+                            
+                            // Perform the move
+                            repository.moveTasks(from: sourceProjectId, to: targetProjectId) { moveResult in
+                                switch moveResult {
+                                case .success:
+                                    completion(.success(taskCount))
+                                case .failure(let error):
+                                    completion(.failure(.repositoryError(error)))
+                                }
+                            }
+                        }
+                        
+                    case .failure(let error):
+                        completion(.failure(.repositoryError(error)))
+                    }
+                }
+                
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Move a project under a different life area and remap all tasks under the project.
+    public func moveProjectToLifeArea(
+        projectId: UUID,
+        lifeAreaID: UUID,
+        completion: @escaping @Sendable (Result<ProjectLifeAreaMoveResult, ProjectError>) -> Void
+    ) {
+        projectRepository.fetchProject(withId: projectId) { [weak self] sourceResult in
+            switch sourceResult {
+            case .success(let sourceProject):
+                guard let sourceProject else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+
+                if sourceProject.isDefault || sourceProject.isInbox {
+                    completion(.failure(.cannotModifyDefault))
+                    return
+                }
+
+                if sourceProject.lifeAreaID == lifeAreaID {
+                    let noOp = ProjectLifeAreaMoveResult(
+                        updatedProjectID: sourceProject.id,
+                        fromLifeAreaID: sourceProject.lifeAreaID,
+                        toLifeAreaID: lifeAreaID,
+                        tasksRemappedCount: 0
+                    )
+                    completion(.success(noOp))
+                    return
+                }
+
+                self?.projectRepository.moveProjectToLifeArea(
+                    projectID: projectId,
+                    lifeAreaID: lifeAreaID
+                ) { result in
+                    switch result {
+                    case .success(let moveResult):
+                        TaskNotificationDispatcher.postOnMain(
+                            name: NSNotification.Name("ProjectUpdated"),
+                            userInfo: [
+                                "projectID": moveResult.updatedProjectID.uuidString,
+                                "lifeAreaID": moveResult.toLifeAreaID.uuidString
+                            ]
+                        )
+                        var userInfo = HomeTaskMutationPayload(
+                            reason: .projectChanged,
+                            source: "manageProjectsUseCase",
+                            affectedProjectID: moveResult.updatedProjectID
+                        ).userInfo
+                        userInfo["lifeAreaID"] = moveResult.toLifeAreaID.uuidString
+                        userInfo["tasksRemappedCount"] = moveResult.tasksRemappedCount
+                        TaskNotificationDispatcher.postOnMain(
+                            name: .homeTaskMutation,
+                            userInfo: userInfo
+                        )
+                        completion(.success(moveResult))
+                    case .failure(let error):
+                        completion(.failure(.repositoryError(error)))
+                    }
+                }
+
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Backfill projects without a life-area linkage to the provided default life area.
+    public func backfillUnassignedProjectsToGeneral(
+        generalLifeAreaID: UUID,
+        completion: @escaping @Sendable (Result<ProjectLifeAreaBackfillResult, ProjectError>) -> Void
+    ) {
+        projectRepository.backfillProjectsWithoutLifeArea(defaultLifeAreaID: generalLifeAreaID) { result in
+            switch result {
+            case .success(let backfillResult):
+                if backfillResult.projectsUpdatedCount > 0 || backfillResult.tasksRemappedCount > 0 {
+                    var userInfo = HomeTaskMutationPayload(
+                        reason: .bulkChanged,
+                        source: "manageProjectsUseCase"
+                    ).userInfo
+                    userInfo["lifeAreaID"] = generalLifeAreaID.uuidString
+                    userInfo["projectsUpdatedCount"] = backfillResult.projectsUpdatedCount
+                    userInfo["tasksRemappedCount"] = backfillResult.tasksRemappedCount
+                    TaskNotificationDispatcher.postOnMain(
+                        name: .homeTaskMutation,
+                        userInfo: userInfo
+                    )
+                }
+                completion(.success(backfillResult))
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+    
+    // MARK: - Private Methods
+    
+    /// Executes validateProjectName.
+    private func validateProjectName(_ name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && trimmed.count <= 100
+    }
+
+    private func applyUpdateRequest(_ request: UpdateProjectRequest, to project: inout Project) {
+        if let newDescription = request.description {
+            project.projectDescription = newDescription
+        }
+        if let color = request.color {
+            project.color = color
+        }
+        if let icon = request.icon {
+            project.icon = icon
+        }
+        if let motivationWhy = request.motivationWhy {
+            project.motivationWhy = motivationWhy
+        }
+        if let motivationSuccessLooksLike = request.motivationSuccessLooksLike {
+            project.motivationSuccessLooksLike = motivationSuccessLooksLike
+        }
+        if let motivationCostOfNeglect = request.motivationCostOfNeglect {
+            project.motivationCostOfNeglect = motivationCostOfNeglect
+        }
+    }
+    
+    /// Executes performProjectUpdate.
+    private func performProjectUpdate(project: Project, completion: @escaping @Sendable (Result<Project, ProjectError>) -> Void) {
+        // Validate the updated project
+        do {
+            try project.validate()
+        } catch {
+            completion(.failure(.validationFailed(error.localizedDescription)))
+            return
+        }
+        
+        // Save to repository
+        projectRepository.updateProject(project) { result in
+            switch result {
+            case .success(let updatedProject):
+                TaskNotificationDispatcher.postOnMain(
+                    name: NSNotification.Name("ProjectUpdated"),
+                    object: updatedProject
+                )
+                completion(.success(updatedProject))
+                
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Executes dedupeProjects.
+    private func dedupeProjects(_ projects: [Project]) -> [Project] {
+        var byID: [UUID: Project] = [:]
+        for project in projects {
+            if let existing = byID[project.id] {
+                let keepIncoming =
+                    (project.isDefault && !existing.isDefault) ||
+                    (project.isInbox && !existing.isInbox)
+                if keepIncoming {
+                    byID[project.id] = project
+                }
+            } else {
+                byID[project.id] = project
+            }
+        }
+        return Array(byID.values)
+    }
+}
+
+// MARK: - Request Models
+
+public struct CreateProjectRequest: Sendable {
+    public let name: String
+    public let description: String?
+    public let lifeAreaID: UUID?
+    public let color: ProjectColor?
+    public let icon: ProjectIcon?
+    public let motivationWhy: String?
+    public let motivationSuccessLooksLike: String?
+    public let motivationCostOfNeglect: String?
+    
+    /// Initializes a new instance.
+    public init(
+        name: String,
+        description: String? = nil,
+        lifeAreaID: UUID? = nil,
+        color: ProjectColor? = nil,
+        icon: ProjectIcon? = nil,
+        motivationWhy: String? = nil,
+        motivationSuccessLooksLike: String? = nil,
+        motivationCostOfNeglect: String? = nil
+    ) {
+        self.name = name
+        self.description = description
+        self.lifeAreaID = lifeAreaID
+        self.color = color
+        self.icon = icon
+        self.motivationWhy = motivationWhy
+        self.motivationSuccessLooksLike = motivationSuccessLooksLike
+        self.motivationCostOfNeglect = motivationCostOfNeglect
+    }
+}
+
+public struct UpdateProjectRequest: Sendable {
+    public let name: String?
+    public let description: String?
+    public let color: ProjectColor?
+    public let icon: ProjectIcon?
+    public let motivationWhy: String?
+    public let motivationSuccessLooksLike: String?
+    public let motivationCostOfNeglect: String?
+    
+    /// Initializes a new instance.
+    public init(
+        name: String? = nil,
+        description: String? = nil,
+        color: ProjectColor? = nil,
+        icon: ProjectIcon? = nil,
+        motivationWhy: String? = nil,
+        motivationSuccessLooksLike: String? = nil,
+        motivationCostOfNeglect: String? = nil
+    ) {
+        self.name = name
+        self.description = description
+        self.color = color
+        self.icon = icon
+        self.motivationWhy = motivationWhy
+        self.motivationSuccessLooksLike = motivationSuccessLooksLike
+        self.motivationCostOfNeglect = motivationCostOfNeglect
+    }
+}
+
+// MARK: - Result Models
+
+public struct ProjectWithStats: Sendable {
+    public let project: Project
+    public let taskCount: Int
+    public let completedTaskCount: Int
+}
+
+// MARK: - Supporting Types
+
+public enum DeleteStrategy: Sendable {
+    case moveToInbox    // Move tasks to Inbox before deleting project
+    case deleteAllTasks // Delete all tasks in the project
+}
+
+public enum ProjectError: LocalizedError, @unchecked Sendable {
+    case projectNotFound
+    case invalidName(String)
+    case duplicateName
+    case cannotDeleteDefault
+    case cannotModifyDefault
+    case validationFailed(String)
+    case repositoryError(Error)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .projectNotFound:
+            return "Project not found"
+        case .invalidName(let reason):
+            return "Invalid project name: \(reason)"
+        case .duplicateName:
+            return "A project with this name already exists"
+        case .cannotDeleteDefault:
+            return "Cannot delete the default Inbox project"
+        case .cannotModifyDefault:
+            return "Cannot modify the default Inbox project"
+        case .validationFailed(let reason):
+            return "Validation failed: \(reason)"
+        case .repositoryError(let error):
+            return "Repository error: \(error.localizedDescription)"
+        }
+    }
+}

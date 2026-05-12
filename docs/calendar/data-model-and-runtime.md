@@ -13,24 +13,24 @@ The current flow is:
 5. Schedule context is projected into Home, schedule-specific view state, task-fit hints, and timeline render models
 6. Eva consumes the same bounded projections through LLM context receipts when a chat or planning turn needs schedule awareness
 
-The implementation is read-only from Tasker's point of view.
+The implementation is read-only from LifeBoard's point of view.
 
 ## Core Types
 
 The repo currently uses these primary types:
 
-- `TaskerCalendarAuthorizationStatus`
-- `TaskerCalendarEventAvailability`
-- `TaskerCalendarEventParticipationStatus`
-- `TaskerCalendarEventStatus`
-- `TaskerCalendarSourceSnapshot`
-- `TaskerCalendarEventSnapshot`
-- `TaskerCalendarEventSlice`
-- `TaskerCalendarBusyBlock`
-- `TaskerNextMeetingSummary`
-- `TaskerTaskFitHintResult`
-- `TaskerCalendarDayAgenda`
-- `TaskerCalendarSnapshot`
+- `LifeBoardCalendarAuthorizationStatus`
+- `LifeBoardCalendarEventAvailability`
+- `LifeBoardCalendarEventParticipationStatus`
+- `LifeBoardCalendarEventStatus`
+- `LifeBoardCalendarSourceSnapshot`
+- `LifeBoardCalendarEventSnapshot`
+- `LifeBoardCalendarEventSlice`
+- `LifeBoardCalendarBusyBlock`
+- `LifeBoardNextMeetingSummary`
+- `LifeBoardTaskFitHintResult`
+- `LifeBoardCalendarDayAgenda`
+- `LifeBoardCalendarSnapshot`
 - `HomeCalendarModuleState`
 - `HomeCalendarSnapshot`
 - `TimelinePhoneRenderModel`
@@ -41,7 +41,7 @@ These types are the canonical projection layer for the feature.
 
 ## Authorization Contract
 
-Tasker must distinguish these states clearly:
+LifeBoard must distinguish these states clearly:
 
 - `notDetermined`
 - `denied`
@@ -99,7 +99,7 @@ Derived projections should respect these rules consistently across Home, task-fi
 
 ### Next Meeting
 
-`TaskerNextMeetingSummary` should capture:
+`LifeBoardNextMeetingSummary` should capture:
 
 - The event
 - Whether it is already in progress
@@ -109,7 +109,7 @@ This is the main "what's next" signal for Home.
 
 ### Busy Blocks
 
-`TaskerCalendarBusyBlock` is the coarse schedule pressure model used for:
+`LifeBoardCalendarBusyBlock` is the coarse schedule pressure model used for:
 
 - Busy-strips
 - Free-until hints
@@ -119,7 +119,7 @@ Busy blocks should be derived from the filtered event set, not from raw provider
 
 ### Task Fit Hints
 
-`TaskerTaskFitHintResult` is advisory output for a task and current time.
+`LifeBoardTaskFitHintResult` is advisory output for a task and current time.
 
 It should classify a task into one of:
 
@@ -149,7 +149,7 @@ Week schedule projection should include:
 - Per-day load summaries
 - Overloaded periods
 - Usable planning windows
-- Deadline or commitment clusters where available from Tasker task metadata and selected calendar context
+- Deadline or commitment clusters where available from LifeBoard task metadata and selected calendar context
 
 Month schedule projection should include:
 

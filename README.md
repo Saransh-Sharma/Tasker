@@ -1,8 +1,8 @@
-# Tasker
+# LifeBoard
 
-Tasker is a personal execution system with two codebases in one repository:
+LifeBoard is a personal execution system with two codebases in one repository:
 
-- `To Do List/` contains the iOS app, widgets, Core Data stack, and XCTest targets.
+- `LifeBoard/` contains the iOS app, widgets, Core Data stack, and XCTest targets.
 - `src/` contains the marketing site built with React, TypeScript, and Vite.
 
 ## Setup
@@ -10,9 +10,9 @@ Tasker is a personal execution system with two codebases in one repository:
 ### iOS app
 
 1. Install CocoaPods dependencies with `pod install`.
-2. Open `Tasker.xcworkspace` in Xcode.
-3. Use `./taskerctl setup` to validate the local environment when bootstrapping a machine.
-4. Use `./taskerctl build`, `./taskerctl test`, and `./taskerctl doctor` for the common build, test, and diagnostics flows.
+2. Open `LifeBoard.xcworkspace` in Xcode.
+3. Use `./lifeboardctl setup` to validate the local environment when bootstrapping a machine.
+4. Use `./lifeboardctl build`, `./lifeboardctl test`, and `./lifeboardctl doctor` for the common build, test, and diagnostics flows.
 
 ### Marketing site
 
@@ -22,22 +22,22 @@ Tasker is a personal execution system with two codebases in one repository:
 
 ## Architecture
 
-- `To Do List/Domain` holds the app domain models and use cases.
-- `To Do List/Presentation` holds Home planning state, view models, and presentation adapters.
-- `To Do List/View` and `To Do List/ViewControllers` hold the SwiftUI and UIKit surfaces.
-- `To Do ListTests/` and `To Do ListUITests/` cover unit, integration, and UI regressions.
-- `Shared/` and `TaskerWidgets/` contain shared code and widget targets.
+- `LifeBoard/Domain` holds the app domain models and use cases.
+- `LifeBoard/Presentation` holds Home planning state, view models, and presentation adapters.
+- `LifeBoard/View` and `LifeBoard/ViewControllers` hold the SwiftUI and UIKit surfaces.
+- `LifeBoardTests/` and `LifeBoardUITests/` cover unit, integration, and UI regressions.
+- `Shared/` and `LifeBoardWidgets/` contain shared code and widget targets.
 
 ## Documentation
 
 - `docs/README.md` is the main docs index.
-- `docs/habits/README.md` documents Tasker's habit streak system, product behavior, runtime contract, risks, and roadmap.
-- `docs/calendar/README.md` documents Tasker's read-only calendar integration, calendar schedule surfaces, Home timeline, timeline-aware Eva guidance, risks, and roadmap.
+- `docs/habits/README.md` documents LifeBoard's habit streak system, product behavior, runtime contract, risks, and roadmap.
+- `docs/calendar/README.md` documents LifeBoard's read-only calendar integration, calendar schedule surfaces, Home timeline, timeline-aware Eva guidance, risks, and roadmap.
 - `docs/audits/HABITS_IOS_UX_AUDIT_2026-04-17.md` captures the current habit UX audit findings and follow-up items.
 
 ## Local EVA / LLM
 
-EVA is Tasker's local assistant layer and day-management interface. It uses on-device MLX inference, deterministic planner guards, schema-validated proposal cards, and the existing task action pipeline; prompts and task context are not sent to a cloud AI service in the local path.
+EVA is LifeBoard's local assistant layer and day-management interface. It uses on-device MLX inference, deterministic planner guards, schema-validated proposal cards, and the existing task action pipeline; prompts and task context are not sent to a cloud AI service in the local path.
 
 Product-wise, Eva acts as the user's Chief of Staff: a chat-first assistant that can explain the day, summarize open commitments, highlight overloaded windows, suggest a realistic sequence, and help the user repair the plan after interruptions. Eva is not an autonomous scheduler. Meaningful changes remain proposal-driven, explicitly confirmed, and undoable where the action pipeline supports undo.
 
@@ -55,23 +55,23 @@ Timeline-aware assistant work is documented across two canonical packages:
 - `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md` covers the local LLM, chat routing, context projection, proposal pipeline, day overview card contract, trust boundaries, risks, and manual test guide.
 - `docs/calendar/README.md` covers the calendar schedule and Home timeline contract that Eva can read from when offering schedule-aware planning guidance.
 
-Use `Tasker.xcworkspace` for iOS builds and tests because CocoaPods dependencies are required.
+Use `LifeBoard.xcworkspace` for iOS builds and tests because CocoaPods dependencies are required.
 
 ### Assistant Mascot Persona System
 
-Tasker's visual Chief of Staff is user-selectable. Eva remains the default persona, and users can choose Eva, Cloudlet, Dude, Elon, Friday, Johnny, Maddie, Paperclip, Punch, Retriever, Sato, Steve, Theo, or YesMan during onboarding or from Settings. The selected persona controls the visible assistant name, accessibility labels, and mascot artwork while the local assistant architecture can keep Eva-prefixed internal implementation names.
+LifeBoard's visual Chief of Staff is user-selectable. Eva remains the default persona, and users can choose Eva, Cloudlet, Dude, Elon, Friday, Johnny, Maddie, Paperclip, Punch, Retriever, Sato, Steve, Theo, or YesMan during onboarding or from Settings. The selected persona controls the visible assistant name, accessibility labels, and mascot artwork while the local assistant architecture can keep Eva-prefixed internal implementation names.
 
-Eva uses the original static PNG pose set in `Assets.xcassets`; non-Eva personas use bundled sprite assets from `To Do List/LLM/MascotSprites/`. Mascot placement philosophy, sprite ownership, semantic animation mapping, accessibility rules, and QA expectations live in `docs/design/EVA_MASCOT_PLACEMENT_GUIDE.md`; LLM behavior and planner architecture remain in `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
+Eva uses the original static PNG pose set in `Assets.xcassets`; non-Eva personas use bundled sprite assets from `LifeBoard/LLM/MascotSprites/`. Mascot placement philosophy, sprite ownership, semantic animation mapping, accessibility rules, and QA expectations live in `docs/design/EVA_MASCOT_PLACEMENT_GUIDE.md`; LLM behavior and planner architecture remain in `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
 
 ## Calendar And Timeline
 
-Tasker's calendar integration is view-only schedule context, not a calendar editing system.
+LifeBoard's calendar integration is view-only schedule context, not a calendar editing system.
 
-Home and the timeline are intended to be Tasker's single-glanceable command center for the day. The surface brings together tasks, fixed calendar commitments, routines, busy blocks, open gaps, and EVA guidance into one calm visual flow so users can understand what matters now without switching between a calendar, task list, and planner.
+Home and the timeline are intended to be LifeBoard's single-glanceable command center for the day. The surface brings together tasks, fixed calendar commitments, routines, busy blocks, open gaps, and EVA guidance into one calm visual flow so users can understand what matters now without switching between a calendar, task list, and planner.
 
 The calendar schedule feature reads EventKit data, lets users choose the calendars that matter, filters schedule context locally, and projects that context into Home, task detail, and timeline views. It answers practical execution questions: what meeting is next, when the user is free until, whether a task fits the current window, which part of the day is overloaded, and where there is usable open time.
 
-The timeline feature is Tasker's day narrative rather than a dense calendar grid. Fixed events stay anchored, tasks stay flexible, routines give the day rhythm, overlapping busy periods collapse into readable flocks, and long gaps become labeled opportunity windows. Eva can use the same day picture to offer optional Chief of Staff guidance such as sequencing, deferral, focus protection, and recovery suggestions, while calendar data remains read-only and task mutations stay behind confirmation.
+The timeline feature is LifeBoard's day narrative rather than a dense calendar grid. Fixed events stay anchored, tasks stay flexible, routines give the day rhythm, overlapping busy periods collapse into readable flocks, and long gaps become labeled opportunity windows. Eva can use the same day picture to offer optional Chief of Staff guidance such as sequencing, deferral, focus protection, and recovery suggestions, while calendar data remains read-only and task mutations stay behind confirmation.
 
 The feature is documented in `docs/calendar/README.md` and covers:
 
@@ -85,15 +85,15 @@ The feature is documented in `docs/calendar/README.md` and covers:
 
 ## Workflows
 
-- Prefer `taskerctl` for repeatable local build and test flows.
+- Prefer `lifeboardctl` for repeatable local build and test flows.
 - Keep Home-screen behavior covered with focused unit tests plus the targeted Secondary UI suite.
 - The repository may contain in-progress TODO documents; treat them as implementation context, not source of truth.
 
 ## Operations
 
-- `./taskerctl status` reports environment and project state.
-- `./taskerctl clean` removes build artifacts.
-- `./taskerctl archive` and `./taskerctl export` support release packaging.
+- `./lifeboardctl status` reports environment and project state.
+- `./lifeboardctl clean` removes build artifacts.
+- `./lifeboardctl archive` and `./lifeboardctl export` support release packaging.
 
 ## Tooling
 

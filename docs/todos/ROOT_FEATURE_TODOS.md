@@ -60,7 +60,7 @@ Source: `docs/calendar/README.md`
 Source: `TODO.home-rescue-followthrough.md`
 
 - [ ] Fix Add Task UI automation save/create path so Home UI suites are runnable again
-- [x] Add Rescue page-object coverage in `To Do ListUITests/PageObjects/HomePage.swift`
+- [x] Add Rescue page-object coverage in `LifeBoardUITests/PageObjects/HomePage.swift`
 - [x] Add Rescue UI tests for header visibility, collapsed preview rows, expand/collapse, and `Start rescue`
 - [x] Reset Rescue expansion override when Rescue state meaningfully changes
 - [x] Gate Rescue band and CTA consistently with the Rescue feature flag
@@ -107,9 +107,9 @@ Source: `XP_LIVE_UPDATE_CORE_DATA_V5_TODO.md`
 - [x] Add partial-write recovery in `GamificationEngine.recordEvent` (reconcile + replay mutation).
 - [x] Add regression test for post-event aggregate-write failure recovery path.
 - [x] Crash hardening: disable CloudKit mirroring in simulator/XCTest runtime to avoid entitlement trap.
-- [x] Validate build gate: `xcodebuild -workspace Tasker.xcworkspace -scheme "To Do List" build`.
-- [x] Validate build-for-testing gate: `xcodebuild -workspace Tasker.xcworkspace -scheme "To Do List" -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO build-for-testing`.
-- [x] Validate targeted test gate: `xcodebuild ... test -only-testing:TaskerTests/GamificationEngineMutationOrderingTests`.
+- [x] Validate build gate: `xcodebuild -workspace LifeBoard.xcworkspace -scheme "LifeBoard" build`.
+- [x] Validate build-for-testing gate: `xcodebuild -workspace LifeBoard.xcworkspace -scheme "LifeBoard" -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO build-for-testing`.
+- [x] Validate targeted test gate: `xcodebuild ... test -only-testing:LifeBoardTests/GamificationEngineMutationOrderingTests`.
 - [ ] Manual smoke: task complete XP, reflection first/second claim, top pie + insights live updates.
 - [ ] Manual smoke: verify no WAL checkpoint flood during idle/normal completion flow.
 - [ ] Add remote-change coordinator unit tests (author filter + token progression + coalescing).
@@ -128,7 +128,7 @@ Source: `XP_LIVE_UPDATE_CORE_DATA_V5_TODO.md`
 
 ## Weekly Operating Layer Integration
 
-Source: `00_PRD_tasker_weekly_planning_reflection_combined_spec.pdf`
+Source: `00_PRD_lifeboard_weekly_planning_reflection_combined_spec.pdf`
 
 - [x] Extend task/project domain models, requests, and read queries with weekly and motivation fields
 - [x] Add weekly domain entities plus repository contracts and dependency registration

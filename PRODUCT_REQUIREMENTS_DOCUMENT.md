@@ -1,4 +1,4 @@
-# Tasker iOS - Product Requirements Document
+# LifeBoard iOS - Product Requirements Document
 
 **Version:** 4.8
 **Last Updated:** May 3, 2026
@@ -7,13 +7,13 @@
 
 ## Vision And Positioning
 
-Tasker is a todo and life-management product for people who struggle with consistency, attention switching, and execution friction. The product promise is practical and specific: help users choose what matters now, start quickly, recover after interruption, and sustain momentum without shame loops.
+LifeBoard is a todo and life-management product for people who struggle with consistency, attention switching, and execution friction. The product promise is practical and specific: help users choose what matters now, start quickly, recover after interruption, and sustain momentum without shame loops.
 
-Tasker is not positioned as a clinical treatment product. It is a productivity system that supports ADHD-relevant day-to-day execution needs with respectful, non-judgmental UX.
+LifeBoard is not positioned as a clinical treatment product. It is a productivity system that supports ADHD-relevant day-to-day execution needs with respectful, non-judgmental UX.
 
 ## Product Promise And Mental Loop
 
-Tasker is designed around a repeating loop:
+LifeBoard is designed around a repeating loop:
 1. Capture
 2. Decide
 3. Start
@@ -110,7 +110,7 @@ Success indicators:
 
 ## Why This Design Direction
 
-Tasker intentionally adopts patterns that reduce day-level overwhelm and increase execution probability:
+LifeBoard intentionally adopts patterns that reduce day-level overwhelm and increase execution probability:
 - Daily focus scoping and gentle reset behavior.
 - Date- and attention-based task surfacing.
 - Lightning capture with optional deeper clarification.
@@ -246,7 +246,7 @@ Purpose:
 - Give Eva and the user the same shared picture of the day, so chat guidance, timeline guidance, and Home actions do not contradict each other.
 
 Product direction:
-- The Home timeline is Tasker's primary planning surface for the current day. It should help the user understand the shape of the day without mentally stitching together a calendar, task list, habit routine, and planner.
+- The Home timeline is LifeBoard's primary planning surface for the current day. It should help the user understand the shape of the day without mentally stitching together a calendar, task list, habit routine, and planner.
 - The timeline is not a dense calendar clone. It is optimized for orientation, prioritization, and action, not raw schedule completeness.
 - The user should be able to answer in about two seconds: what is happening now, what is coming next, which windows are busy, where usable free time exists, what needs attention, and what can safely be ignored or deferred.
 - The timeline should feel structured but not rigid. It should surface what is necessary, compress what is secondary, and guide the user toward the next useful action.
@@ -275,20 +275,20 @@ Requirements:
 
 ### Calendar Schedule And Timeline Context
 Purpose:
-- Use schedule reality to improve execution without turning Tasker into a calendar client.
-- Let the user select which calendars matter to Tasker and keep that selection local.
+- Use schedule reality to improve execution without turning LifeBoard into a calendar client.
+- Let the user select which calendars matter to LifeBoard and keep that selection local.
 - Provide read-only day, week, and month schedule context that informs Home, task detail, timeline, and Eva.
 
 Product direction:
-- Calendar schedule context is an input to Tasker, not a second source of task truth.
+- Calendar schedule context is an input to LifeBoard, not a second source of task truth.
 - The schedule layer should answer practical questions: what is next, when am I free, where is the day crowded, whether a task fits, and what open windows can be used.
-- The schedule feature should preserve user trust by clearly separating Tasker task mutations from external calendar event data.
+- The schedule feature should preserve user trust by clearly separating LifeBoard task mutations from external calendar event data.
 - Day schedule surfaces should support execution decisions. Week and month schedule surfaces should support orientation and planning, not deep calendar management.
 
 Requirements:
 - Calendar onboarding includes a plain-language pre-permission explanation before the system prompt.
 - Authorization states distinguish not determined, authorized, denied, restricted, write-only, no calendars selected, empty range, and all-day-only days.
-- Users can choose local calendars that contribute to Tasker context.
+- Users can choose local calendars that contribute to LifeBoard context.
 - Selected calendar identifiers are persisted locally, normalized before storage, and reconciled when calendars disappear.
 - Declined, canceled, all-day, and selected-source filtering rules are applied consistently across Home, timeline, task-fit hints, and schedule surfaces.
 - Home surfaces next meeting, in-progress meeting, free-until, and busy-block context without requiring a full schedule screen.
@@ -299,8 +299,8 @@ Requirements:
 - Schedule refresh runs when Home loads, selected day changes, calendar preference changes, EventKit changes, or the user requests refresh.
 - Stale schedule context must preserve the last usable snapshot while showing refresh state or failure state.
 - Calendar-derived context can influence Eva's explanation and proposals, but Eva must not create, edit, or delete external calendar events in this PRD cycle.
-- Any assistant suggestion involving calendar conflicts must mutate only Tasker-owned tasks or planning metadata unless a future explicit calendar-write feature is approved.
-- Calendar schedule copy must avoid implying Tasker owns external events.
+- Any assistant suggestion involving calendar conflicts must mutate only LifeBoard-owned tasks or planning metadata unless a future explicit calendar-write feature is approved.
+- Calendar schedule copy must avoid implying LifeBoard owns external events.
 
 ### Timeline Intelligence And Chief Of Staff Guidance
 Purpose:
@@ -385,10 +385,10 @@ Requirements:
 #### Habit Board And Visual Streaks
 Purpose:
 - Make consistency visible in under two seconds.
-- Give users a satisfying pattern-recognition surface while still fitting Tasker's task and life-area model.
+- Give users a satisfying pattern-recognition surface while still fitting LifeBoard's task and life-area model.
 
 Requirements:
-- Tasker must include a dedicated Habit Board reachable from habit library, habit detail, insights or systems, and contextual links from Home.
+- LifeBoard must include a dedicated Habit Board reachable from habit library, habit detail, insights or systems, and contextual links from Home.
 - The board shows one row per active habit and one cell per calendar day.
 - Minimum supported windows:
   - compact Home strip: last 14 days
@@ -495,9 +495,9 @@ Requirements:
 - Ask and Plan surfaces may summarize next meeting, free-until state, overloaded windows, flexible tasks that can move, and tasks that fit a discovered gap.
 - Plan mode outputs proposal cards with rationale.
 - Plan mode may suggest a sequence without producing mutations when the user asks for guidance only.
-- Plan mode may produce proposal cards for Tasker-owned changes such as rescheduling a task, moving a reminder, splitting a task, changing priority, deferring a focus candidate, or adding a planning task.
+- Plan mode may produce proposal cards for LifeBoard-owned changes such as rescheduling a task, moving a reminder, splitting a task, changing priority, deferring a focus candidate, or adding a planning task.
 - Plan mode may suggest shrinking a habit, moving a reminder window, pausing an overloaded habit, or converting a difficult daily habit into a smaller or weekday-only version.
-- Plan mode may recommend calendar-aware changes to Tasker tasks, but it must not mutate external calendar events.
+- Plan mode may recommend calendar-aware changes to LifeBoard tasks, but it must not mutate external calendar events.
 - Apply mode requires propose -> confirm -> apply sequence.
 - Day overview quick actions are explicit user actions, not assistant auto-apply behavior.
 - Day overview task quick actions support `Done`, `Tomorrow`, and `Open`; habit quick actions support `Done` / `Skip` / `Stayed Clean` / `Lapsed` / `Log Lapse` according to habit type and tracking mode.
@@ -604,7 +604,7 @@ flowchart TD
   F --> G[Render Home timeline and schedule glances]
   G --> H{User asks Eva or taps guidance}
   H -->|Ask| I[Read-only chief-of-staff brief]
-  H -->|Plan| J[Optional proposal cards for Tasker-owned changes]
+  H -->|Plan| J[Optional proposal cards for LifeBoard-owned changes]
   I --> K[User starts, completes, defers, or opens detail]
   J --> L[Confirm and apply through action pipeline]
   K --> G
@@ -784,7 +784,7 @@ This table maps product surfaces to existing runtime usecases for implementation
 - Chief-of-staff chat prompts produce either read-only guidance, a clarification, or proposal cards depending on user intent.
 - Day overview cards expose direct first-party quick actions and detail-sheet entry points without bypassing assistant trust boundaries.
 - Plan mode returns either proposals or explicit no-suggestion states.
-- Calendar-aware Plan mode may propose Tasker-owned task changes but never external calendar edits.
+- Calendar-aware Plan mode may propose LifeBoard-owned task changes but never external calendar edits.
 - Apply mode enforces diff preview and explicit confirmation before mutation.
 - Undo behavior is shown only while available; expired states are explicit.
 - Every assistant turn reaches a visible terminal state: answer, proposal, clarification, failure, or cancellation.
@@ -819,7 +819,7 @@ This table maps product surfaces to existing runtime usecases for implementation
 - Improve task breakdown templates and decomposition assists.
 
 ### Mid-Term
-- Expand the calendar + timeline package's schedule-context behavior without turning Tasker into a calendar-first app.
+- Expand the calendar + timeline package's schedule-context behavior without turning LifeBoard into a calendar-first app.
 - Add schedule-aware Eva repair flows for overloaded windows, free-gap planning, focus protection, and interrupted-day recovery.
 - Deepen habit-task linkage where useful while keeping habits analytically distinct from tasks.
 - Add more flexible count-based or frequency-based habits once the visual streak contract is stable.
@@ -827,7 +827,7 @@ This table maps product surfaces to existing runtime usecases for implementation
 
 ### Long-Term
 - Expand read-only schedule context carefully where it improves execution, while preserving task-first chronology.
-- Evaluate explicitly permissioned calendar-write workflows only after read-only schedule context, assistant trust, and Tasker-owned mutation flows are stable.
+- Evaluate explicitly permissioned calendar-write workflows only after read-only schedule context, assistant trust, and LifeBoard-owned mutation flows are stable.
 - Broader platform strategy beyond iOS.
 
 ## Technical References
@@ -846,15 +846,15 @@ Technical implementation details are intentionally kept out of this PRD. Use the
 - `docs/calendar/roadmap.md`
 - `docs/design/EVA_MASCOT_PLACEMENT_GUIDE.md`
 - `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`
-- `docs/architecture/TASKER_V2_ARCHITECTURE_GUIDE.md`
+- `docs/architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md`
 - `docs/audits/HABITS_IOS_UX_AUDIT_2026-04-17.md`
 
 ## Document History
 
-- **v4.8 (May 3, 2026):** Deepened the timeline, calendar schedule, Eva, LLM, chat, and Chief of Staff requirements. Added schedule-aware assistant metrics, timeline intelligence requirements, calendar schedule acceptance criteria, and clearer boundaries around read-only calendar context versus Tasker-owned mutations.
+- **v4.8 (May 3, 2026):** Deepened the timeline, calendar schedule, Eva, LLM, chat, and Chief of Staff requirements. Added schedule-aware assistant metrics, timeline intelligence requirements, calendar schedule acceptance criteria, and clearer boundaries around read-only calendar context versus LifeBoard-owned mutations.
 - **v4.7 (April 29, 2026):** Updated the canonical calendar + timeline docs for the iPhone glanceability model, including title-first timeline cards, stacked overlap flocks, readable visual positioning, current-time treatment, and dense timeline risks.
 - **v4.6 (April 25, 2026):** Added the canonical calendar + timeline docs package and linked the read-only schedule-context roadmap into the product reference set.
-- **v4.5 (April 25, 2026):** Expanded the habits contract with a Tasker-native streak model, dedicated Habit Board semantics, recovery-first behavior, a canonical habits docs package, and updated roadmap coverage for remaining UX gaps.
+- **v4.5 (April 25, 2026):** Expanded the habits contract with a LifeBoard-native streak model, dedicated Habit Board semantics, recovery-first behavior, a canonical habits docs package, and updated roadmap coverage for remaining UX gaps.
 - **v4.4 (March 22, 2026):** Added dedicated habits requirements summary and linked the new habits product, runtime, risk, and roadmap documentation package.
 - **v4.3 (March 11, 2026):** Updated Insights requirements to match the redesigned Today, Week, and Systems analytics surfaces, including richer widgets, empty-state behavior, and system-health framing.
 - **v4.2 (February 19, 2026):** Consolidated deep-research inputs into a detailed product-only PRD, added mental loop model, detailed screen requirements, implementation alignment table, interaction flows, explicit non-functional requirements, QA acceptance criteria, and horizon-based roadmap framing.

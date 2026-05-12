@@ -26,7 +26,7 @@ None found in scoped core surfaces.
 ### High-Severity Issues
 
 #### H1. Habit Board failure path is masked as empty state
-- Location: `To Do List/View/HabitBoardViews.swift:413`, `To Do List/Presentation/ViewModels/HabitBoardViewModel.swift:52`, `To Do List/Presentation/ViewModels/HabitBoardViewModel.swift:106`
+- Location: `LifeBoard/View/HabitBoardViews.swift:413`, `LifeBoard/Presentation/ViewModels/HabitBoardViewModel.swift:52`, `LifeBoard/Presentation/ViewModels/HabitBoardViewModel.swift:106`
 - Severity: High
 - Category: UX Flow / Missing Error State
 - Description: Board UI renders `ContentUnavailableView("No habits yet")` when rows are empty and loading is false, but does not branch on `viewModel.errorMessage`. VM failure states set `errorMessage`, yet users see an inaccurate empty-state message.
@@ -36,7 +36,7 @@ None found in scoped core surfaces.
 - Suggested command: `/harden`
 
 #### H2. Habit Board lacks explicit loading feedback for initial load
-- Location: `To Do List/View/HabitBoardViews.swift:413-421`, `To Do List/Presentation/ViewModels/HabitBoardViewModel.swift:44`
+- Location: `LifeBoard/View/HabitBoardViews.swift:413-421`, `LifeBoard/Presentation/ViewModels/HabitBoardViewModel.swift:44`
 - Severity: High
 - Category: UX Flow / Missing Loading State
 - Description: Initial loading sets `isLoading = true`, but board root has no dedicated loading UI for empty board case. The `boardMatrix` path can render with no rows and no progress indicator.
@@ -46,7 +46,7 @@ None found in scoped core surfaces.
 - Suggested command: `/harden`
 
 #### H3. Home habit mutation failures are not surfaced via Habits snapshot/UI channel
-- Location: `To Do List/Presentation/ViewModels/HomeViewModel.swift:4002-4024`, `To Do List/ViewControllers/HomeViewController.swift:264-271`, `To Do List/View/HomeForedropView.swift:2035`, `To Do List/View/HomeForedropView.swift:2225`
+- Location: `LifeBoard/Presentation/ViewModels/HomeViewModel.swift:4002-4024`, `LifeBoard/ViewControllers/HomeViewController.swift:264-271`, `LifeBoard/View/HomeForedropView.swift:2035`, `LifeBoard/View/HomeForedropView.swift:2225`
 - Severity: High
 - Category: UX Flow / Missing Error State
 - Description: Habit mutation failures set `HomeViewModel.errorMessage`, but `HomeHabitsSnapshot` carries only habit section data (no error), and the SwiftUI Habits surface snackbar is local-state driven, not bound to `viewModel.errorMessage`.
@@ -56,7 +56,7 @@ None found in scoped core surfaces.
 - Suggested command: `/harden`
 
 #### H4. Manage Habits empty state has no forward CTA to create a habit
-- Location: `To Do List/View/AddHabitForedropView.swift:833-839`, `To Do List/View/AddHabitForedropView.swift:2416-2441`
+- Location: `LifeBoard/View/AddHabitForedropView.swift:833-839`, `LifeBoard/View/AddHabitForedropView.swift:2416-2441`
 - Severity: High
 - Category: UX Flow / Dead-End View
 - Description: In `HabitLibraryView`, empty states are informative only; `HabitEmptyStateCard` has no action slot, and the toolbar has refresh-only control.
@@ -66,7 +66,7 @@ None found in scoped core surfaces.
 - Suggested command: `/onboard`
 
 #### H5. Habit Board empty state has no primary forward action
-- Location: `To Do List/View/HabitBoardViews.swift:413-418`
+- Location: `LifeBoard/View/HabitBoardViews.swift:413-418`
 - Severity: High
 - Category: UX Flow / Dead-End View
 - Description: "No habits yet" state in Habit Board provides description only; no create/navigate action.
@@ -78,7 +78,7 @@ None found in scoped core surfaces.
 ### Medium-Severity Issues
 
 #### M1. Habit Board typography remains fixed-size despite accessibility layout branching
-- Location: `To Do List/View/HabitBoardViews.swift:48-50`, `To Do List/View/HabitBoardViews.swift:88-90`, `To Do List/View/HabitBoardViews.swift:446`, `To Do List/View/HabitBoardViews.swift:494`, `To Do List/View/HabitBoardViews.swift:760`, `To Do List/View/HabitBoardViews.swift:767`
+- Location: `LifeBoard/View/HabitBoardViews.swift:48-50`, `LifeBoard/View/HabitBoardViews.swift:88-90`, `LifeBoard/View/HabitBoardViews.swift:446`, `LifeBoard/View/HabitBoardViews.swift:494`, `LifeBoard/View/HabitBoardViews.swift:760`, `LifeBoard/View/HabitBoardViews.swift:767`
 - Severity: Medium
 - Category: Accessibility / Dynamic Type
 - Description: Board adjusts dimensions for accessibility sizes, but many text styles use fixed `.font(.system(size: ...))` values.
@@ -88,7 +88,7 @@ None found in scoped core surfaces.
 - Suggested command: `/normalize`
 
 #### M2. Habit Library modal lacks explicit close affordance
-- Location: `To Do List/View/AddHabitForedropView.swift:790-797`
+- Location: `LifeBoard/View/AddHabitForedropView.swift:790-797`
 - Severity: Medium
 - Category: UX Flow / Escape Hatch Discoverability
 - Description: Habit Library toolbar exposes refresh only; there is no explicit Close/Done control in its own chrome.
@@ -98,7 +98,7 @@ None found in scoped core surfaces.
 - Suggested command: `/adapt`
 
 #### M3. Add Habit composer has no explicit dependency-loading state
-- Location: `To Do List/View/AddHabitForedropView.swift:228-229`, `To Do List/Presentation/ViewModels/AddHabitViewModel.swift:214-253`
+- Location: `LifeBoard/View/AddHabitForedropView.swift:228-229`, `LifeBoard/Presentation/ViewModels/AddHabitViewModel.swift:214-253`
 - Severity: Medium
 - Category: UX Flow / Loading State
 - Description: Composer triggers `loadIfNeeded()` and blocks submission while loading, but form presents without clear loading explanation for life areas/projects.
@@ -108,7 +108,7 @@ None found in scoped core surfaces.
 - Suggested command: `/harden`
 
 #### M4. External reachability for Habits-specific destinations is limited
-- Location: `To Do List/SceneDelegate.swift:241-301`
+- Location: `LifeBoard/SceneDelegate.swift:241-301`
 - Severity: Medium
 - Category: UX Flow / Deep Link Reachability
 - Description: Deep-link host handling includes `chat`, `focus`, `home`, `insights`, `quickadd`, `tasks`, `task`; no Habits-specific routes.
@@ -120,7 +120,7 @@ None found in scoped core surfaces.
 ### Low-Severity Issues
 
 #### L1. Loading card uses static symbol rather than active progress component
-- Location: `To Do List/View/AddHabitForedropView.swift:827-831`
+- Location: `LifeBoard/View/AddHabitForedropView.swift:827-831`
 - Severity: Low
 - Category: UX Polish / Loading Semantics
 - Description: Initial library loading card uses `systemImage: "progress.indicator"` instead of animated `ProgressView`.
@@ -145,11 +145,11 @@ None found in scoped core surfaces.
 - **Accessibility split implementation**: Touch targets and labels are strong, but large-text typography scaling is inconsistent in board-heavy surfaces.
 
 ## Positive Findings
-- Home Habit rows provide multiple action paths (`swipeActions`, `contextMenu`, dedicated last-cell interaction), reducing gesture-only risk. (`To Do List/View/HomeHabitRowView.swift:174-196`)
-- Strong accessibility labeling/hints for row-level and cell-level interactions in Home, Board, and Detail. (`To Do List/View/HomeHabitRowView.swift:67-95`, `To Do List/View/HabitBoardViews.swift:612-634`, `To Do List/View/AddHabitForedropView.swift:1972-1974`)
-- Explicit minimum day-cell touch target of 44 in Habit Detail calendar layout metrics. (`To Do List/View/AddHabitForedropView.swift:1673`)
-- Habit Board has explicit close escape hatch in toolbar. (`To Do List/View/HabitBoardViews.swift:389`)
-- Life Management consistently exposes Add Habit paths in top-level and empty-state contexts. (`To Do List/Views/Settings/LifeManagementView.swift:143-144`, `To Do List/Views/Settings/LifeManagementView.swift:631-633`)
+- Home Habit rows provide multiple action paths (`swipeActions`, `contextMenu`, dedicated last-cell interaction), reducing gesture-only risk. (`LifeBoard/View/HomeHabitRowView.swift:174-196`)
+- Strong accessibility labeling/hints for row-level and cell-level interactions in Home, Board, and Detail. (`LifeBoard/View/HomeHabitRowView.swift:67-95`, `LifeBoard/View/HabitBoardViews.swift:612-634`, `LifeBoard/View/AddHabitForedropView.swift:1972-1974`)
+- Explicit minimum day-cell touch target of 44 in Habit Detail calendar layout metrics. (`LifeBoard/View/AddHabitForedropView.swift:1673`)
+- Habit Board has explicit close escape hatch in toolbar. (`LifeBoard/View/HabitBoardViews.swift:389`)
+- Life Management consistently exposes Add Habit paths in top-level and empty-state contexts. (`LifeBoard/Views/Settings/LifeManagementView.swift:143-144`, `LifeBoard/Views/Settings/LifeManagementView.swift:631-633`)
 
 ## Recommendations by Priority
 1. Immediate
@@ -179,8 +179,8 @@ None found in scoped core surfaces.
 ## Navigation Reachability
 
 - Total screens found: **8** (core Habits surfaces and habit-centric management/detail entry screens)
-- Deep-linkable screens: **1** (`tasker://home` reaches Home surface that contains Habits entry)
-- Widget-reachable screens: **1** (`tasker://home` widget URL route in TodayXPWidget)
+- Deep-linkable screens: **1** (`lifeboard://home` reaches Home surface that contains Habits entry)
+- Widget-reachable screens: **1** (`lifeboard://home` widget URL route in TodayXPWidget)
 - Notification-reachable screens: **1** (`home_today` notification route fallback)
 - Coverage: **12.5%** of scoped screens are externally reachable
 
@@ -189,5 +189,5 @@ None found in scoped core surfaces.
   - `HabitBoardViewModelTests` (8 tests passed)
   - `HomeHabitLastCellInteractionTests` (6 tests passed)
 - Targeted UI sanity pass status:
-  - `HabitBoardUITests/testHomeHabitLastCellCyclesThroughThreeStates` **failed** at `To Do ListUITests/Tests/Secondary/HabitBoardUITests.swift:193` (could not find home habit row after scrolling in this simulator run).
+  - `HabitBoardUITests/testHomeHabitLastCellCyclesThroughThreeStates` **failed** at `LifeBoardUITests/Tests/Secondary/HabitBoardUITests.swift:193` (could not find home habit row after scrolling in this simulator run).
 - Interpretation: core interaction logic is stable at unit level; UI flow test reliability/data-seeding assumptions need follow-up.

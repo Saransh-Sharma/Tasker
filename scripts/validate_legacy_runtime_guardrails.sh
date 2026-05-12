@@ -8,26 +8,26 @@ LEGACY_BUILD_GRAPH_PATTERN="/\\* NAddTaskScreen.swift in Sources \\*/|/\\* Depen
 LEGACY_STORYBOARD_PATTERN='addTaskLegacy_unreachable|customClass="NAddTaskScreen"'
 LEGACY_SINGLETON_PATTERN='(^|[^A-Za-z0-9_])DependencyContainer\.shared\b'
 LEGACY_SCREEN_PATTERN='\bNAddTaskScreen\b'
-PRODUCTION_SWIFT_ROOT="To Do List"
-CHAT_SWIFT_ROOT="To Do List/LLM/Views/Chat"
+PRODUCTION_SWIFT_ROOT="LifeBoard"
+CHAT_SWIFT_ROOT="LifeBoard/LLM/Views/Chat"
 CHAT_MUTATION_BYPASS_PATTERN='\b(createTaskDefinition|updateTaskDefinition|deleteTaskDefinition|completeTaskDefinition|rescheduleTaskDefinition)\b'
 CHAT_SEMANTIC_REBUILD_PATTERN='TaskSemanticRetrievalService\.shared\.(rebuildIndex|index)\('
 PROPOSAL_RUN_GUARD_PATTERN='payload\.runID\s*==\s*nil'
 
 RUNTIME_FILES=(
-  "To Do List/AppDelegate.swift"
-  "To Do List/SceneDelegate.swift"
-  "To Do List/Presentation/DI/PresentationDependencyContainer.swift"
-  "To Do List/State/DI/EnhancedDependencyContainer.swift"
-  "To Do List/UseCases/Coordinator/UseCaseCoordinator.swift"
+  "LifeBoard/AppDelegate.swift"
+  "LifeBoard/SceneDelegate.swift"
+  "LifeBoard/Presentation/DI/PresentationDependencyContainer.swift"
+  "LifeBoard/State/DI/EnhancedDependencyContainer.swift"
+  "LifeBoard/UseCases/Coordinator/UseCaseCoordinator.swift"
 )
 
-if rg -n "$LEGACY_BUILD_GRAPH_PATTERN" "Tasker.xcodeproj/project.pbxproj"; then
+if rg -n "$LEGACY_BUILD_GRAPH_PATTERN" "LifeBoard.xcodeproj/project.pbxproj"; then
   echo "Legacy add-task runtime files are still compiled in app target"
   exit 1
 fi
 
-if rg -n "$LEGACY_STORYBOARD_PATTERN" "To Do List/Storyboards/Base.lproj/Main.storyboard"; then
+if rg -n "$LEGACY_STORYBOARD_PATTERN" "LifeBoard/Storyboards/Base.lproj/Main.storyboard"; then
   echo "Legacy storyboard route still present"
   exit 1
 fi
@@ -68,12 +68,12 @@ check_banned_symbol "evaluateV2RuntimeReadiness" '\bevaluateV2RuntimeReadiness\b
 check_banned_symbol "v2RuntimeReady" '\bv2RuntimeReady\b'
 check_banned_symbol "v2_runtime_not_ready" '\bv2_runtime_not_ready\b'
 
-if rg -n "TaskModelV2" "${RUNTIME_FILES[@]}" --glob '*.swift' | rg -v "^To Do List/AppDelegate.swift:"; then
+if rg -n "TaskModelV2" "${RUNTIME_FILES[@]}" --glob '*.swift' | rg -v "^LifeBoard/AppDelegate.swift:"; then
   echo "TaskModelV2 reference detected outside AppDelegate runtime cleanup allowlist"
   exit 1
 fi
 
-if rg -n "TaskModelV2" "To Do List/AppDelegate.swift" | rg -v "TaskModelV2-(cloud|local)\\.sqlite(-wal|-shm)?"; then
+if rg -n "TaskModelV2" "LifeBoard/AppDelegate.swift" | rg -v "TaskModelV2-(cloud|local)\\.sqlite(-wal|-shm)?"; then
   echo "TaskModelV2 reference detected in AppDelegate outside cleanup filename allowlist"
   exit 1
 fi
@@ -88,13 +88,13 @@ if rg -n -P "$CHAT_SEMANTIC_REBUILD_PATTERN" "$CHAT_SWIFT_ROOT" --glob '*.swift'
   exit 1
 fi
 
-if ! rg -n -P "$PROPOSAL_RUN_GUARD_PATTERN" "To Do List/LLM/Views/Chat/ConversationView.swift" >/dev/null; then
+if ! rg -n -P "$PROPOSAL_RUN_GUARD_PATTERN" "LifeBoard/LLM/Views/Chat/ConversationView.swift" >/dev/null; then
   echo "Proposal card rendering must guard against missing run ID"
   exit 1
 fi
 
 if rg -n "assistantApplyEnabled" "$PRODUCTION_SWIFT_ROOT" --glob '*.swift' \
-  | rg -v "^To Do List/Services/V2FeatureFlags.swift:|^To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift:"; then
+  | rg -v "^LifeBoard/Services/V2FeatureFlags.swift:|^LifeBoard/UseCases/LLM/AssistantActionPipelineUseCase.swift:"; then
   echo "assistantApplyEnabled must only be checked in feature flags and assistant pipeline"
   exit 1
 fi
