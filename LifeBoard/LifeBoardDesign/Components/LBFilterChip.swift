@@ -51,7 +51,7 @@ struct LBFilterChip: View {
                     Group {
                         if model.isSelected {
                             LinearGradient(
-                                colors: [LBColorTokens.violet, LBColorTokens.violetDeep],
+                                colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -63,7 +63,7 @@ struct LBFilterChip: View {
                 }
                 .overlay {
                     Capsule()
-                        .stroke(model.isSelected ? Color.white.opacity(0.52) : LBColorTokens.hairline.opacity(0.70), lineWidth: 1)
+                        .stroke(model.isSelected ? LBColorTokens.whiteStroke : LBColorTokens.hairline.opacity(0.70), lineWidth: 1)
                 }
 
                 if model.showsIndicator {
@@ -71,7 +71,7 @@ struct LBFilterChip: View {
                         .fill(LBColorTokens.sunriseGold)
                         .frame(width: 8, height: 8)
                         .overlay {
-                            Circle().stroke(Color.white.opacity(0.86), lineWidth: 1)
+                            Circle().stroke(LBColorTokens.whiteStroke, lineWidth: 1)
                         }
                         .offset(x: 1, y: -1)
                 }

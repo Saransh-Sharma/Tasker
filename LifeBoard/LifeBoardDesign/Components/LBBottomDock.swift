@@ -34,12 +34,12 @@ struct LBBottomDock: View {
             .padding(.horizontal, LBSpacingTokens.sm)
             .frame(height: 68)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
-            .background(Color.white.opacity(0.36), in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
+            .background(LBColorTokens.glassStrong.opacity(0.62), in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous)
-                    .stroke(Color.white.opacity(0.58), lineWidth: 1)
+                    .stroke(LBColorTokens.glassBorder, lineWidth: 1)
             }
-            .shadow(color: Color.black.opacity(0.06), radius: 14, x: 0, y: 6)
+            .shadow(color: LBColorTokens.dockShadow, radius: 18, x: 0, y: 8)
 
             LBFloatingAddButton(action: handleCreate)
                 .offset(y: -6)
@@ -66,14 +66,14 @@ struct LBBottomDock: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
             }
-            .foregroundStyle(selected ? LBColorTokens.violetDeep : Color.gray.opacity(0.82))
+            .foregroundStyle(selected ? LBColorTokens.violetDeep : LBColorTokens.navyMuted)
             .frame(maxWidth: .infinity, minHeight: 54)
             .background {
                 if selected {
                     Capsule()
                         .fill(LBColorTokens.violetSoft)
                         .overlay {
-                            Capsule().stroke(LBColorTokens.violet.opacity(0.18), lineWidth: 1)
+                            Capsule().stroke(LBColorTokens.violet.opacity(0.30), lineWidth: 1)
                         }
                 }
             }

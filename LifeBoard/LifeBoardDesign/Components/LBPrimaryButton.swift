@@ -19,7 +19,7 @@ struct LBPrimaryButton: View {
             .padding(.horizontal, LBSpacingTokens.lg)
             .background {
                 LinearGradient(
-                    colors: [LBColorTokens.violet, LBColorTokens.violetDeep],
+                    colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

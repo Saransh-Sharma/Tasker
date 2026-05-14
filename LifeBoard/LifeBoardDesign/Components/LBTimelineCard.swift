@@ -72,6 +72,17 @@ struct LBTimelineCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    private var accessibilityIdentifier: String {
+        if model.id.hasPrefix("event:") {
+            return "home.timeline.event.\(String(model.id.dropFirst("event:".count)))"
+        }
+        if model.id.hasPrefix("task:") {
+            return "home.timeline.task.\(String(model.id.dropFirst("task:".count)))"
+        }
+        return "home.timeline.\(model.kind.rawValue).\(model.id)"
     }
 
     @ViewBuilder
@@ -80,7 +91,7 @@ struct LBTimelineCard: View {
             Button(action: { onToggleComplete?() }) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(model.isCompleted ? style.base : Color.white.opacity(model.temporalState == .past ? 0.52 : 0.92))
+                        .fill(model.isCompleted ? style.base : LBColorTokens.glassStrong.opacity(model.temporalState == .past ? 0.58 : 0.94))
                         .frame(width: 34, height: 34)
                         .overlay {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)

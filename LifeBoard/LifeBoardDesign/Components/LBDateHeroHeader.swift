@@ -206,13 +206,13 @@ struct LBDateHeroHeader: View {
                 .fill(.clear)
                 .glassEffect(.clear, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.06)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.04)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }
@@ -225,13 +225,13 @@ struct LBDateHeroHeader: View {
                 .fill(.clear)
                 .glassEffect(.clear, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.05)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.04)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }

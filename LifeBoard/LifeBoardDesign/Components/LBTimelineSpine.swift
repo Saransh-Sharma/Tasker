@@ -13,7 +13,7 @@ struct LBTimelineSpine: View {
             Circle()
                 .fill(temporalState == .current ? LBColorTokens.violet : style.base.opacity(dotOpacity))
                 .frame(width: temporalState == .current ? 12 : 7, height: temporalState == .current ? 12 : 7)
-                .overlay(Circle().stroke(Color.white.opacity(0.92), lineWidth: temporalState == .current ? 3 : 2))
+                .overlay(Circle().stroke(LBColorTokens.canvas.opacity(0.92), lineWidth: temporalState == .current ? 3 : 2))
             Rectangle()
                 .fill(style.base.opacity(lineOpacity))
                 .frame(width: temporalState == .current ? 1.5 : 1)

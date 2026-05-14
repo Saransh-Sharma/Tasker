@@ -22,7 +22,7 @@ struct LBCurrentTimeRail: View {
                 Circle()
                     .fill(LBColorTokens.violet)
                     .frame(width: 11, height: 11)
-                    .overlay(Circle().stroke(Color.white.opacity(0.92), lineWidth: 3))
+                    .overlay(Circle().stroke(LBColorTokens.canvas.opacity(0.92), lineWidth: 3))
                     .frame(width: LBSpacingTokens.timelineRailWidth)
 
                 Color.clear

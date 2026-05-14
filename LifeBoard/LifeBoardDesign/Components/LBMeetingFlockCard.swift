@@ -54,13 +54,13 @@ struct LBMeetingFlockCard: View {
                                     .lineLimit(1)
                                 Text(meeting.isNow ? "• Now" : meeting.timeText)
                                     .font(LBTypographyTokens.meta)
-                                    .foregroundStyle(meeting.isNow ? Color.red : LBColorTokens.navyMuted)
+                                    .foregroundStyle(meeting.isNow ? LBColorTokens.coral : LBColorTokens.navyMuted)
                             }
                             Spacer()
                         }
                         .padding(.horizontal, LBSpacingTokens.sm)
                         .padding(.vertical, LBSpacingTokens.xs)
-                        .background(Color.white.opacity(meeting.isNow ? 0.60 : 0.48), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                        .background(LBColorTokens.glassStrong.opacity(meeting.isNow ? 0.70 : 0.54), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
