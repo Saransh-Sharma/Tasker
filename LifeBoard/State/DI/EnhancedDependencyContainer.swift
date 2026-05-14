@@ -527,7 +527,11 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol, @unche
         case .active:
             let calendar = Calendar.current
             let now = Date()
-            let firstStart = calendar.date(byAdding: .minute, value: 30, to: now) ?? now
+            let dayStart = calendar.startOfDay(for: now)
+            let morningStart = calendar.date(byAdding: .hour, value: 9, to: dayStart) ?? now
+            let latestVisibleStart = calendar.date(byAdding: .hour, value: 17, to: dayStart) ?? morningStart
+            let upcomingStart = calendar.date(byAdding: .minute, value: 30, to: now) ?? now
+            let firstStart = min(max(upcomingStart, morningStart), latestVisibleStart)
             let firstEnd = calendar.date(byAdding: .minute, value: 30, to: firstStart) ?? firstStart
             let secondStart = calendar.date(byAdding: .minute, value: 60, to: firstEnd) ?? firstEnd
             let secondEnd = calendar.date(byAdding: .minute, value: 30, to: secondStart) ?? secondStart

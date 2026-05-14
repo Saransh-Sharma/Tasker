@@ -1078,6 +1078,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             tasks: invalidation.includes(.tasks) ? buildHomeTasksState() : previousTransaction.tasks,
             habits: invalidation.includes(.habits) ? buildHomeHabitsState() : previousTransaction.habits,
             calendar: invalidation.includes(.calendar) ? buildHomeCalendarState() : previousTransaction.calendar,
+            timeline: invalidation.includes(.timeline) ? previousTransaction.timeline.advanced() : previousTransaction.timeline,
             overlay: invalidation.includes(.overlay) ? buildHomeOverlayState() : previousTransaction.overlay
         )
         guard homeRenderTransaction != transaction else { return }
