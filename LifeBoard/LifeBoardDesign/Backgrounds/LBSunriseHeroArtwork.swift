@@ -13,6 +13,7 @@ struct LBSunriseHeroArtwork: View {
     let model: Model
     var height: CGFloat
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
     @State private var displayedAsset: TimeOfDayHeaderAsset?
     @State private var deferredAsset: TimeOfDayHeaderAsset?
 
@@ -28,6 +29,19 @@ struct LBSunriseHeroArtwork: View {
                     .clipped()
             } else {
                 fallbackGradient
+            }
+
+            if colorScheme == .dark {
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.28),
+                        Color.black.opacity(0.16),
+                        Color.black.opacity(0.08)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .allowsHitTesting(false)
             }
 
             LinearGradient(
@@ -81,13 +95,29 @@ struct LBSunriseHeroArtwork: View {
     private func fallbackColors(for period: TimeOfDayHeaderAsset.Period) -> [Color] {
         switch period {
         case .morning:
-            return [Color(lifeboardHex: "#DFF5FF"), Color(lifeboardHex: "#FFF1D9"), LBColorTokens.canvas]
+            return [
+                LBColorTokens.adaptive(light: "#DFF5FF", dark: "#13243B"),
+                LBColorTokens.adaptive(light: "#FFF1D9", dark: "#2A2217"),
+                LBColorTokens.canvas
+            ]
         case .afternoon:
-            return [Color(lifeboardHex: "#DFF0FF"), Color(lifeboardHex: "#FFF8E7"), LBColorTokens.canvas]
+            return [
+                LBColorTokens.adaptive(light: "#DFF0FF", dark: "#10263F"),
+                LBColorTokens.adaptive(light: "#FFF8E7", dark: "#2A2517"),
+                LBColorTokens.canvas
+            ]
         case .evening:
-            return [Color(lifeboardHex: "#EBDFFF"), Color(lifeboardHex: "#FFDDBF"), LBColorTokens.canvas]
+            return [
+                LBColorTokens.adaptive(light: "#EBDFFF", dark: "#211A38"),
+                LBColorTokens.adaptive(light: "#FFDDBF", dark: "#352016"),
+                LBColorTokens.canvas
+            ]
         case .night:
-            return [Color(lifeboardHex: "#071B52"), Color(lifeboardHex: "#28326F"), Color(lifeboardHex: "#F7FBFF")]
+            return [
+                Color(lifeboardHex: "#071B52"),
+                LBColorTokens.adaptive(light: "#28326F", dark: "#151C3F"),
+                LBColorTokens.canvas
+            ]
         }
     }
 }

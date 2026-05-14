@@ -41,11 +41,12 @@ struct TimeOfDayHeaderAsset: Equatable {
 
     let period: Period
     let name: String
-    let dateKey: String
+    let selectionKey: String
 
-    private static let assetCount = 6
+    private static let assetCount = 4
+    static let defaultActivationID = "default"
     private static let cacheLock = NSLock()
-    nonisolated(unsafe) private static var cachedByDatePeriod: [String: TimeOfDayHeaderAsset] = [:]
+    nonisolated(unsafe) private static var cachedBySelectionKey: [String: TimeOfDayHeaderAsset] = [:]
 
     static func period(for date: Date, calendar: Calendar = .current) -> Period {
         let hour = calendar.component(.hour, from: date)
@@ -65,35 +66,41 @@ struct TimeOfDayHeaderAsset: Equatable {
         (1...assetCount).map { "\(period.rawValue)\($0)" }
     }
 
-    static func resolve(for date: Date, calendar: Calendar = .current) -> TimeOfDayHeaderAsset {
+    static func resolve(
+        for date: Date,
+        activationID: String = defaultActivationID,
+        calendar: Calendar = .current
+    ) -> TimeOfDayHeaderAsset {
         let period = period(for: date, calendar: calendar)
-        let key = cacheKey(for: date, period: period, calendar: calendar)
+        let key = selectionKey(for: period, activationID: activationID)
         cacheLock.lock()
-        if let cached = cachedByDatePeriod[key] {
+        if let cached = cachedBySelectionKey[key] {
             cacheLock.unlock()
             return cached
         }
         cacheLock.unlock()
 
         let names = assetNames(for: period)
-        let index = stableIndex(dateKey: key, count: names.count)
-        let asset = TimeOfDayHeaderAsset(period: period, name: names[index], dateKey: key)
+        let index = stableIndex(selectionKey: key, count: names.count)
+        let asset = TimeOfDayHeaderAsset(period: period, name: names[index], selectionKey: key)
 
         cacheLock.lock()
-        cachedByDatePeriod[key] = asset
+        cachedBySelectionKey[key] = asset
         cacheLock.unlock()
         return asset
     }
 
-    static func cacheKey(for date: Date, period: Period, calendar: Calendar = .current) -> String {
-        let startOfDay = calendar.startOfDay(for: date)
-        let day = Int(startOfDay.timeIntervalSinceReferenceDate / 86_400)
-        return "\(day)-\(period.rawValue)"
+    static func makeActivationID() -> String {
+        UUID().uuidString
     }
 
-    static func stableIndex(dateKey: String, count: Int) -> Int {
+    static func selectionKey(for period: Period, activationID: String) -> String {
+        "\(period.rawValue)-\(activationID)"
+    }
+
+    static func stableIndex(selectionKey: String, count: Int) -> Int {
         guard count > 0 else { return 0 }
-        let hash = dateKey.unicodeScalars.reduce(UInt64(14_695_981_039_346_656_037)) { partial, scalar in
+        let hash = selectionKey.unicodeScalars.reduce(UInt64(14_695_981_039_346_656_037)) { partial, scalar in
             (partial ^ UInt64(scalar.value)) &* 1_099_511_628_211
         }
         return Int(hash % UInt64(count))
@@ -101,7 +108,7 @@ struct TimeOfDayHeaderAsset: Equatable {
 
     static func resetCacheForTests() {
         cacheLock.lock()
-        cachedByDatePeriod.removeAll()
+        cachedBySelectionKey.removeAll()
         cacheLock.unlock()
     }
 
@@ -159,7 +166,7 @@ struct LBHeaderTimeContext: Equatable {
         var titleColor: Color {
             switch self {
             case .navy:
-                return LBColorTokens.navy
+                return Color(lifeboardHex: "#071B52")
             case .light:
                 return Color.white
             }
@@ -168,7 +175,7 @@ struct LBHeaderTimeContext: Equatable {
         var controlColor: Color {
             switch self {
             case .navy:
-                return LBColorTokens.navy
+                return Color(lifeboardHex: "#071B52")
             case .light:
                 return Color.white
             }
@@ -204,10 +211,11 @@ struct LBHeaderTimeContext: Equatable {
     static func resolve(
         selectedDate: Date,
         now: Date = Date(),
+        activationID: String = TimeOfDayHeaderAsset.defaultActivationID,
         calendar: Calendar = .current
     ) -> LBHeaderTimeContext {
         let effectiveDate = effectiveDate(selectedDate: selectedDate, now: now, calendar: calendar)
-        let asset = TimeOfDayHeaderAsset.resolve(for: effectiveDate, calendar: calendar)
+        let asset = TimeOfDayHeaderAsset.resolve(for: effectiveDate, activationID: activationID, calendar: calendar)
         let foregroundStyle = foregroundStyle(for: asset)
         return LBHeaderTimeContext(
             selectedDate: selectedDate,
