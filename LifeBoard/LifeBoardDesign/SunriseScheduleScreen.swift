@@ -30,6 +30,7 @@ struct SunriseScheduleScreen: View {
     @State private var isDayLiquidSwipeChromeVisible = true
     @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
     @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
+    @State private var headerActivationID = TimeOfDayHeaderAsset.makeActivationID()
 
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
 
@@ -92,6 +93,11 @@ struct SunriseScheduleScreen: View {
         .onChange(of: service.snapshot) { _, _ in
             schedulePresentation = makePresentation(selectedWeekDate: selectedWeekDate)
         }
+        #if canImport(UIKit)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            refreshHeaderActivationID()
+        }
+        #endif
         .sheet(item: $presentationState.activeSheet) { sheet in
             switch sheet {
             case .event(let eventID):
@@ -277,7 +283,11 @@ struct SunriseScheduleScreen: View {
 
     private func header(safeAreaTop: CGFloat) -> some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
-            let context = LBHeaderTimeContext.resolve(selectedDate: selectedDate, now: timeline.date)
+            let context = LBHeaderTimeContext.resolve(
+                selectedDate: selectedDate,
+                now: timeline.date,
+                activationID: headerActivationID
+            )
             SunriseHeaderView(
                 context: context,
                 isScrollActive: isScrollActive,
@@ -298,6 +308,10 @@ struct SunriseScheduleScreen: View {
                 .frame(height: headerHeight, alignment: .top)
             }
         }
+    }
+
+    private func refreshHeaderActivationID() {
+        headerActivationID = TimeOfDayHeaderAsset.makeActivationID()
     }
 
     private var segmentControl: some View {
@@ -340,7 +354,7 @@ struct SunriseScheduleScreen: View {
             .background {
                 if isSelected {
                     LinearGradient(
-                        colors: [LBColorTokens.violet, LBColorTokens.violetDeep],
+                        colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -519,7 +533,7 @@ struct SunriseScheduleScreen: View {
             .background {
                 if isSelected {
                     LinearGradient(
-                        colors: [LBColorTokens.violet, LBColorTokens.violetDeep],
+                        colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -651,7 +665,7 @@ struct SunriseScheduleScreen: View {
                         .frame(maxWidth: .infinity, minHeight: 50)
                         .background {
                             LinearGradient(
-                                colors: [style.base, style.deep],
+                                colors: LBColorTokens.actionGradient(for: role),
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -1082,7 +1096,7 @@ private struct SunriseScheduleHeaderChrome: View {
                     .foregroundStyle(context.foregroundStyle.controlColor)
                     .frame(width: 44, height: 44)
                     .background {
-                        clearCircleSurface(fill: Color.white.opacity(0.12), stroke: context.foregroundStyle.glassStroke.opacity(0.72))
+                        clearCircleSurface(fill: context.foregroundStyle.glassFill.opacity(0.72), stroke: context.foregroundStyle.glassStroke.opacity(0.72))
                     }
                     .accessibilityHidden(true)
             }
@@ -1101,7 +1115,7 @@ private struct SunriseScheduleHeaderChrome: View {
                 .frame(minHeight: 44)
                 .padding(.horizontal, LBSpacingTokens.sm)
                 .background {
-                    clearCapsuleSurface(fill: Color.white.opacity(0.14), stroke: context.foregroundStyle.glassStroke.opacity(0.72))
+                    clearCapsuleSurface(fill: context.foregroundStyle.glassFill.opacity(0.76), stroke: context.foregroundStyle.glassStroke.opacity(0.72))
                 }
             }
             .buttonStyle(.plain)
@@ -1144,11 +1158,11 @@ private struct SunriseScheduleHeaderChrome: View {
                 Text(LBHeaderTimeContext.navigatorTitle(selectedDate: selectedDate))
             }
             .font(LBTypographyTokens.chip)
-            .foregroundStyle(LBColorTokens.navy)
+            .foregroundStyle(context.foregroundStyle.controlColor)
             .frame(minHeight: 44)
             .padding(.horizontal, LBSpacingTokens.md)
             .background {
-                clearCapsuleSurface(fill: Color.white.opacity(0.18), stroke: Color.white.opacity(0.58))
+                clearCapsuleSurface(fill: context.foregroundStyle.glassFill, stroke: context.foregroundStyle.glassStroke)
             }
             headerCircleButton(systemName: "chevron.right", accessibilityLabel: "Next day", action: onNextDay)
         }
@@ -1160,12 +1174,12 @@ private struct SunriseScheduleHeaderChrome: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(systemName == "xmark" ? context.foregroundStyle.controlColor : LBColorTokens.navy)
+                .foregroundStyle(context.foregroundStyle.controlColor)
                 .frame(width: 44, height: 44)
                 .background {
                     clearCircleSurface(
-                        fill: systemName == "xmark" ? Color.white.opacity(0.12) : Color.white.opacity(0.18),
-                        stroke: systemName == "xmark" ? context.foregroundStyle.glassStroke.opacity(0.72) : Color.white.opacity(0.58)
+                        fill: context.foregroundStyle.glassFill.opacity(systemName == "xmark" ? 0.72 : 1),
+                        stroke: context.foregroundStyle.glassStroke.opacity(systemName == "xmark" ? 0.72 : 1)
                     )
                 }
         }
@@ -1205,13 +1219,13 @@ private struct SunriseScheduleHeaderChrome: View {
                 .fill(.clear)
                 .glassEffect(.clear, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.05)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.04)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }
@@ -1224,13 +1238,13 @@ private struct SunriseScheduleHeaderChrome: View {
                 .fill(.clear)
                 .glassEffect(.clear, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.05)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.04)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }

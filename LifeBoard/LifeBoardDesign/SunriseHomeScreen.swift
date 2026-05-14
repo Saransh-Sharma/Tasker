@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct SunriseHomeScreen: View {
     let chrome: HomeChromeSnapshot
@@ -30,6 +33,7 @@ struct SunriseHomeScreen: View {
     @State private var scrollStopTask: Task<Void, Never>?
     @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
     @State private var selectedFilterID = "all"
+    @State private var headerActivationID = TimeOfDayHeaderAsset.makeActivationID()
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -63,11 +67,20 @@ struct SunriseHomeScreen: View {
             }
         }
         .accessibilityIdentifier("home.view")
+        #if canImport(UIKit)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            refreshHeaderActivationID()
+        }
+        #endif
     }
 
     private var header: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
-            let context = LBHeaderTimeContext.resolve(selectedDate: chrome.selectedDate, now: timeline.date)
+            let context = LBHeaderTimeContext.resolve(
+                selectedDate: chrome.selectedDate,
+                now: timeline.date,
+                activationID: headerActivationID
+            )
             SunriseHeaderView(
                 context: context,
                 isScrollActive: isScrollActive,
@@ -81,12 +94,12 @@ struct SunriseHomeScreen: View {
                         heroTitleColor: context.foregroundStyle.titleColor,
                         heroSubtitleColor: context.foregroundStyle.controlColor,
                         chromeControlColor: context.foregroundStyle.controlColor,
-                        chromeGlassFill: Color.white.opacity(0.12),
+                        chromeGlassFill: context.foregroundStyle.glassFill.opacity(0.72),
                         chromeGlassStroke: context.foregroundStyle.glassStroke.opacity(0.72),
-                        navigatorColor: LBColorTokens.navy,
+                        navigatorColor: context.foregroundStyle.controlColor,
                         navigatorTitle: LBHeaderTimeContext.navigatorTitle(selectedDate: chrome.selectedDate, now: timeline.date),
-                        navigatorGlassFill: Color.white.opacity(0.16),
-                        navigatorGlassStroke: Color.white.opacity(0.58),
+                        navigatorGlassFill: context.foregroundStyle.glassFill,
+                        navigatorGlassStroke: context.foregroundStyle.glassStroke,
                         hasNotifications: false,
                         hasActiveFilters: chrome.activeFilterState.hasActiveFilters
                     ),
@@ -100,6 +113,10 @@ struct SunriseHomeScreen: View {
                 )
             }
         }
+    }
+
+    private func refreshHeaderActivationID() {
+        headerActivationID = TimeOfDayHeaderAsset.makeActivationID()
     }
 
     private var headerHeight: CGFloat {
@@ -165,6 +182,7 @@ struct SunriseHomeScreen: View {
     private var timelineContent: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             let rows = timelineRows(now: context.date)
+            let nextUpcomingCalendarItemID = Self.nextUpcomingCalendarItemID(in: rows, now: context.date)
             if rows.isEmpty {
                 LBEmptyState(
                     model: LBEmptyState.Model(
@@ -204,7 +222,12 @@ struct SunriseHomeScreen: View {
                     case .item(let item):
                         LBTimelineItem(timeText: timeText(item.startDate), role: role(for: item), temporalState: temporalState) {
                             LBTimelineCard(
-                                model: timelineCardModel(for: item, temporalState: temporalState),
+                                model: timelineCardModel(
+                                    for: item,
+                                    temporalState: temporalState,
+                                    now: context.date,
+                                    nextUpcomingCalendarItemID: nextUpcomingCalendarItemID
+                                ),
                                 onTap: { onTimelineItemTap(item) },
                                 onToggleComplete: item.taskID == nil ? nil : { onTimelineItemToggleComplete(item) }
                             )
@@ -532,12 +555,21 @@ struct SunriseHomeScreen: View {
         )
     }
 
-    private func timelineCardModel(for item: TimelinePlanItem, temporalState: LBTimelineTemporalState) -> LBTimelineCard.Model {
+    private func timelineCardModel(
+        for item: TimelinePlanItem,
+        temporalState: LBTimelineTemporalState,
+        now: Date,
+        nextUpcomingCalendarItemID: String?
+    ) -> LBTimelineCard.Model {
         let kind = cardKind(for: item)
         return LBTimelineCard.Model(
             id: item.id,
             title: item.title,
-            subtitle: item.subtitle ?? (item.source == .calendarEvent ? "Calendar" : ""),
+            subtitle: Self.timelineCardSubtitle(
+                for: item,
+                now: now,
+                nextUpcomingCalendarItemID: nextUpcomingCalendarItemID
+            ),
             timeText: "\(timeText(item.startDate))\(item.endDate == nil ? "" : " – \(timeText(item.endDate))")",
             role: role(for: item),
             kind: kind,
@@ -622,6 +654,53 @@ struct SunriseHomeScreen: View {
             return now
         }
         return gap.startDate
+    }
+
+    nonisolated static func nextUpcomingCalendarItemID(in rows: [SunriseTimelineRow], now: Date) -> String? {
+        rows.compactMap { row -> TimelinePlanItem? in
+            guard case .item(let item) = row,
+                  item.source == .calendarEvent,
+                  let startDate = item.startDate,
+                  startDate > now else {
+                return nil
+            }
+            return item
+        }
+        .sorted { lhs, rhs in
+            guard let leftStart = lhs.startDate, let rightStart = rhs.startDate else {
+                return lhs.id < rhs.id
+            }
+            if leftStart == rightStart {
+                return lhs.id < rhs.id
+            }
+            return leftStart < rightStart
+        }
+        .first?
+        .id
+    }
+
+    nonisolated static func timelineCardSubtitle(
+        for item: TimelinePlanItem,
+        now: Date,
+        nextUpcomingCalendarItemID: String?
+    ) -> String {
+        guard item.source == .calendarEvent else {
+            return item.subtitle ?? ""
+        }
+        guard item.id == nextUpcomingCalendarItemID,
+              let startDate = item.startDate else {
+            return ""
+        }
+        return calendarCountdownSubtitle(until: startDate, now: now) ?? ""
+    }
+
+    nonisolated static func calendarCountdownSubtitle(until startDate: Date, now: Date) -> String? {
+        guard startDate > now else { return nil }
+        let minutes = max(1, Int(ceil(startDate.timeIntervalSince(now) / 60)))
+        if minutes < 60 {
+            return "in \(minutes)m"
+        }
+        return "in \(Int(ceil(Double(minutes) / 60.0)))h"
     }
 
     private static func dayLabels(for cells: [HabitBoardCell]) -> [String] {

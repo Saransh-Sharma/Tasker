@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 enum LBRole: String, CaseIterable {
     case routine
@@ -23,52 +26,121 @@ struct LBRoleStyle: Equatable {
 }
 
 enum LBColorTokens {
-    static let navy = Color(lifeboardHex: "#071B52")
-    static let navySoft = Color(lifeboardHex: "#203765")
-    static let navyMuted = Color(lifeboardHex: "#48607F")
-    static let textTertiary = Color(lifeboardHex: "#7A8BA5")
-    static let canvas = Color(lifeboardHex: "#FFFDFC")
-    static let warmCanvas = Color(lifeboardHex: "#FFF8EF")
-    static let coolCanvas = Color(lifeboardHex: "#F7FBFF")
-    static let glass = Color.white.opacity(0.90)
-    static let glassStrong = Color.white.opacity(0.96)
-    static let glassBorder = Color.white.opacity(0.72)
-    static let hairline = Color(lifeboardHex: "#DDE3EE")
-    static let violet = Color(lifeboardHex: "#6842FF")
-    static let violetDeep = Color(lifeboardHex: "#4F2CFF")
-    static let violetSoft = Color(lifeboardHex: "#EEE9FF")
+    static let navy = adaptive(light: "#071B52", dark: "#F7F1E7", darkHighContrast: "#FFFFFF")
+    static let navySoft = adaptive(light: "#203765", dark: "#E7DFD1", darkHighContrast: "#FFFFFF")
+    static let navyMuted = adaptive(light: "#48607F", dark: "#C9D2E3", darkHighContrast: "#E4EBF8")
+    static let textTertiary = adaptive(light: "#7A8BA5", dark: "#9DAAC2", darkHighContrast: "#C6D0E4")
+    static let canvas = adaptive(light: "#FFFDFC", dark: "#080C17", darkHighContrast: "#03050A")
+    static let warmCanvas = adaptive(light: "#FFF8EF", dark: "#10101A", darkHighContrast: "#07070D")
+    static let coolCanvas = adaptive(light: "#F7FBFF", dark: "#07111E", darkHighContrast: "#030911")
+    static let glass = adaptive(light: "#FFFFFF", dark: "#171C2B", lightOpacity: 0.90, darkOpacity: 0.86, darkHighContrast: "#20263A", darkHighContrastOpacity: 0.94)
+    static let glassStrong = adaptive(light: "#FFFFFF", dark: "#22283A", lightOpacity: 0.96, darkOpacity: 0.92, darkHighContrast: "#2B3146", darkHighContrastOpacity: 0.98)
+    static let glassBorder = adaptive(light: "#FFFFFF", dark: "#FFFFFF", lightOpacity: 0.72, darkOpacity: 0.16, darkHighContrastOpacity: 0.28)
+    static let glassDimmingOverlay = adaptive(light: "#000000", dark: "#000000", lightOpacity: 0.05, darkOpacity: 0.12, darkHighContrastOpacity: 0.18)
+    static let hairline = adaptive(light: "#DDE3EE", dark: "#3A4258", darkHighContrast: "#56617B")
+    static let elevationShadow = adaptive(light: "#071B52", dark: "#000000", lightOpacity: 0.10, darkOpacity: 0.34)
+    static let floatingShadow = adaptive(light: "#6842FF", dark: "#000000", lightOpacity: 0.28, darkOpacity: 0.38)
+    static let dockShadow = adaptive(light: "#071B52", dark: "#000000", lightOpacity: 0.12, darkOpacity: 0.42)
+    static let whiteStroke = adaptive(light: "#FFFFFF", dark: "#FFFFFF", lightOpacity: 0.58, darkOpacity: 0.18, darkHighContrastOpacity: 0.30)
+    static let violet = adaptive(light: "#6842FF", dark: "#A890FF", darkHighContrast: "#C3B5FF")
+    static let violetDeep = adaptive(light: "#4F2CFF", dark: "#D8CCFF", darkHighContrast: "#F1ECFF")
+    static let violetFill = adaptive(light: "#6842FF", dark: "#6F55FF", darkHighContrast: "#846CFF")
+    static let violetFillDeep = adaptive(light: "#4F2CFF", dark: "#4F37D9", darkHighContrast: "#674FE8")
+    static let violetSoft = adaptive(light: "#EEE9FF", dark: "#29243F", darkHighContrast: "#3A315E")
     static let sunriseGold = Color(lifeboardHex: "#FFB300")
-    static let sky = Color(lifeboardHex: "#2F8CFF")
-    static let leaf = Color(lifeboardHex: "#28B53F")
-    static let coral = Color(lifeboardHex: "#FF7A3D")
-    static let amberSoft = Color(lifeboardHex: "#FFF7DF")
-    static let coralSoft = Color(lifeboardHex: "#FFF1E9")
+    static let sky = adaptive(light: "#2F8CFF", dark: "#78B7FF", darkHighContrast: "#A8D0FF")
+    static let leaf = adaptive(light: "#28B53F", dark: "#6EE581", darkHighContrast: "#95F0A4")
+    static let coral = adaptive(light: "#FF7A3D", dark: "#FF9A70", darkHighContrast: "#FFC0A8")
+    static let amberSoft = adaptive(light: "#FFF7DF", dark: "#332611", darkHighContrast: "#483618")
+    static let coralSoft = adaptive(light: "#FFF1E9", dark: "#3A2018", darkHighContrast: "#522D21")
 
     static func role(_ role: LBRole) -> LBRoleStyle {
         switch role {
         case .routine:
-            return LBRoleStyle(base: sunriseGold, deep: Color(lifeboardHex: "#D88900"), softSurface: amberSoft, border: Color(lifeboardHex: "#F6DE9A"), symbolName: "sun.max")
+            return LBRoleStyle(base: sunriseGold, deep: adaptive(light: "#D88900", dark: "#FFD36A"), softSurface: amberSoft, border: adaptive(light: "#F6DE9A", dark: "#7E6425"), symbolName: "sun.max")
         case .windDown:
-            return LBRoleStyle(base: Color(lifeboardHex: "#E7A900"), deep: Color(lifeboardHex: "#8F6500"), softSurface: Color(lifeboardHex: "#FFF9EC"), border: Color(lifeboardHex: "#F4E0B8"), symbolName: "moon.stars.fill")
+            return LBRoleStyle(base: adaptive(light: "#E7A900", dark: "#F0C96A"), deep: adaptive(light: "#8F6500", dark: "#F7DD97"), softSurface: adaptive(light: "#FFF9EC", dark: "#292414"), border: adaptive(light: "#F4E0B8", dark: "#69572D"), symbolName: "moon.stars.fill")
         case .task:
-            return LBRoleStyle(base: leaf, deep: Color(lifeboardHex: "#15952B"), softSurface: Color(lifeboardHex: "#EFF9EC"), border: Color(lifeboardHex: "#D6EFD3"), symbolName: "checkmark.square")
+            return LBRoleStyle(base: leaf, deep: adaptive(light: "#15952B", dark: "#8AF09A"), softSurface: adaptive(light: "#EFF9EC", dark: "#152819"), border: adaptive(light: "#D6EFD3", dark: "#315F38"), symbolName: "checkmark.square")
         case .meeting:
-            return LBRoleStyle(base: violet, deep: Color(lifeboardHex: "#5230F3"), softSurface: Color(lifeboardHex: "#F4F0FF"), border: Color(lifeboardHex: "#E2D8FF"), symbolName: "calendar")
+            return LBRoleStyle(base: violet, deep: adaptive(light: "#5230F3", dark: "#C7B9FF"), softSurface: adaptive(light: "#F4F0FF", dark: "#211B38"), border: adaptive(light: "#E2D8FF", dark: "#4C3D76"), symbolName: "calendar")
         case .personal:
-            return LBRoleStyle(base: coral, deep: Color(lifeboardHex: "#C74716"), softSurface: coralSoft, border: Color(lifeboardHex: "#FFD8C5"), symbolName: "figure.walk")
+            return LBRoleStyle(base: coral, deep: adaptive(light: "#C74716", dark: "#FFB494"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#7A442F"), symbolName: "figure.walk")
         case .focus:
-            return LBRoleStyle(base: sky, deep: Color(lifeboardHex: "#1266D6"), softSurface: Color(lifeboardHex: "#EAF6FF"), border: Color(lifeboardHex: "#CFE9FF"), symbolName: "sparkles")
+            return LBRoleStyle(base: sky, deep: adaptive(light: "#1266D6", dark: "#A8D0FF"), softSurface: adaptive(light: "#EAF6FF", dark: "#11283C"), border: adaptive(light: "#CFE9FF", dark: "#315F86"), symbolName: "sparkles")
         case .meal:
-            return LBRoleStyle(base: Color(lifeboardHex: "#F26C35"), deep: Color(lifeboardHex: "#B84312"), softSurface: Color(lifeboardHex: "#FFF0E8"), border: Color(lifeboardHex: "#FFD8C5"), symbolName: "fork.knife")
+            return LBRoleStyle(base: adaptive(light: "#F26C35", dark: "#FF9A70"), deep: adaptive(light: "#B84312", dark: "#FFB99F"), softSurface: adaptive(light: "#FFF0E8", dark: "#351F17"), border: adaptive(light: "#FFD8C5", dark: "#74442E"), symbolName: "fork.knife")
         case .assistant:
-            return LBRoleStyle(base: violet, deep: violetDeep, softSurface: Color(lifeboardHex: "#F6F2FF"), border: Color(lifeboardHex: "#DACDFF"), symbolName: "sparkles")
+            return LBRoleStyle(base: violet, deep: violetDeep, softSurface: adaptive(light: "#F6F2FF", dark: "#231D3B"), border: adaptive(light: "#DACDFF", dark: "#51417E"), symbolName: "sparkles")
         case .warning:
-            return LBRoleStyle(base: Color(lifeboardHex: "#D88900"), deep: Color(lifeboardHex: "#9B6200"), softSurface: amberSoft, border: Color(lifeboardHex: "#F4E0B8"), symbolName: "exclamationmark.triangle")
+            return LBRoleStyle(base: adaptive(light: "#D88900", dark: "#FFD36A"), deep: adaptive(light: "#9B6200", dark: "#FFE0A0"), softSurface: amberSoft, border: adaptive(light: "#F4E0B8", dark: "#7B622D"), symbolName: "exclamationmark.triangle")
         case .error:
-            return LBRoleStyle(base: coral, deep: Color(lifeboardHex: "#A83A32"), softSurface: coralSoft, border: Color(lifeboardHex: "#FFD8C5"), symbolName: "exclamationmark.circle")
+            return LBRoleStyle(base: coral, deep: adaptive(light: "#A83A32", dark: "#FFB7AD"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#80463F"), symbolName: "exclamationmark.circle")
         case .neutral:
-            return LBRoleStyle(base: textTertiary, deep: navyMuted, softSurface: Color(lifeboardHex: "#F8FAFF"), border: hairline, symbolName: "minus")
+            return LBRoleStyle(base: textTertiary, deep: navyMuted, softSurface: adaptive(light: "#F8FAFF", dark: "#171C2B"), border: hairline, symbolName: "minus")
         }
+    }
+
+    static func actionGradient(for role: LBRole) -> [Color] {
+        switch role {
+        case .routine, .windDown, .warning:
+            return [
+                adaptive(light: "#B87300", dark: "#D58A00"),
+                adaptive(light: "#8C5400", dark: "#9E6400")
+            ]
+        case .task:
+            return [
+                adaptive(light: "#15952B", dark: "#218A38"),
+                adaptive(light: "#0B6F1D", dark: "#11692A")
+            ]
+        case .meeting, .assistant:
+            return [violetFill, violetFillDeep]
+        case .personal, .meal, .error:
+            return [
+                adaptive(light: "#C74716", dark: "#C85B32"),
+                adaptive(light: "#A83A32", dark: "#96372F")
+            ]
+        case .focus:
+            return [
+                adaptive(light: "#1266D6", dark: "#1F6ECB"),
+                adaptive(light: "#0B4FA8", dark: "#134C95")
+            ]
+        case .neutral:
+            return [
+                adaptive(light: "#48607F", dark: "#3A4258"),
+                adaptive(light: "#203765", dark: "#252D40")
+            ]
+        }
+    }
+
+    static func adaptive(
+        light: String,
+        dark: String,
+        lightOpacity: Double = 1,
+        darkOpacity: Double = 1,
+        lightHighContrast: String? = nil,
+        darkHighContrast: String? = nil,
+        lightHighContrastOpacity: Double? = nil,
+        darkHighContrastOpacity: Double? = nil
+    ) -> Color {
+        #if canImport(UIKit)
+        Color(UIColor { traits in
+            let isDark = traits.userInterfaceStyle == .dark
+            let isHighContrast = traits.accessibilityContrast == .high
+            let hex: String
+            let opacity: Double
+            if isDark {
+                hex = isHighContrast ? (darkHighContrast ?? dark) : dark
+                opacity = isHighContrast ? (darkHighContrastOpacity ?? darkOpacity) : darkOpacity
+            } else {
+                hex = isHighContrast ? (lightHighContrast ?? light) : light
+                opacity = isHighContrast ? (lightHighContrastOpacity ?? lightOpacity) : lightOpacity
+            }
+            return UIColor(lifeboardHex: hex).withAlphaComponent(CGFloat(opacity))
+        })
+        #else
+        Color(lifeboardHex: light).opacity(lightOpacity)
+        #endif
     }
 }
 
