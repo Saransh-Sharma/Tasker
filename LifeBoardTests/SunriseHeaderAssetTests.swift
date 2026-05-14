@@ -1,5 +1,9 @@
 import XCTest
+import SwiftUI
 @testable import LifeBoard
+#if canImport(UIKit)
+import UIKit
+#endif
 
 final class SunriseHeaderAssetTests: XCTestCase {
     private var calendar: Calendar!
@@ -29,46 +33,64 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(TimeOfDayHeaderAsset.period(for: date(hour: 21), calendar: calendar), .night)
     }
 
-    func testAssetNamesMatchSixVariantsPerPeriod() {
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .morning), ["M1", "M2", "M3", "M4", "M5", "M6"])
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .afternoon), ["A1", "A2", "A3", "A4", "A5", "A6"])
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .evening), ["E1", "E2", "E3", "E4", "E5", "E6"])
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .night), ["N1", "N2", "N3", "N4", "N5", "N6"])
+    func testAssetNamesMatchFourVariantsPerPeriod() {
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .morning), ["M1", "M2", "M3", "M4"])
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .afternoon), ["A1", "A2", "A3", "A4"])
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .evening), ["E1", "E2", "E3", "E4"])
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .night), ["N1", "N2", "N3", "N4"])
     }
 
-    func testResolveIsStableForSameDateAndPeriod() {
-        let first = TimeOfDayHeaderAsset.resolve(for: date(hour: 8), calendar: calendar)
-        let second = TimeOfDayHeaderAsset.resolve(for: date(hour: 11, minute: 30), calendar: calendar)
+    func testResolveIsStableForSameActivationAndPeriod() {
+        let activationID = "launch-1"
+
+        let first = TimeOfDayHeaderAsset.resolve(for: date(hour: 8), activationID: activationID, calendar: calendar)
+        let second = TimeOfDayHeaderAsset.resolve(for: date(hour: 11, minute: 30), activationID: activationID, calendar: calendar)
 
         XCTAssertEqual(first, second)
         XCTAssertTrue(TimeOfDayHeaderAsset.assetNames(for: .morning).contains(first.name))
     }
 
-    func testResolveChangesCacheKeyWhenPeriodChanges() {
-        let morning = TimeOfDayHeaderAsset.resolve(for: date(hour: 8), calendar: calendar)
-        let afternoon = TimeOfDayHeaderAsset.resolve(for: date(hour: 14), calendar: calendar)
+    func testResolveChangesSelectionKeyWhenPeriodChanges() {
+        let activationID = "launch-1"
 
-        XCTAssertNotEqual(morning.dateKey, afternoon.dateKey)
+        let morning = TimeOfDayHeaderAsset.resolve(for: date(hour: 8), activationID: activationID, calendar: calendar)
+        let afternoon = TimeOfDayHeaderAsset.resolve(for: date(hour: 14), activationID: activationID, calendar: calendar)
+
+        XCTAssertNotEqual(morning.selectionKey, afternoon.selectionKey)
         XCTAssertEqual(morning.period, .morning)
         XCTAssertEqual(afternoon.period, .afternoon)
     }
 
     func testStableIndexIsDeterministicAndBounded() {
-        let key = TimeOfDayHeaderAsset.cacheKey(for: date(hour: 8), period: .morning, calendar: calendar)
+        let key = TimeOfDayHeaderAsset.selectionKey(for: .morning, activationID: "launch-1")
 
-        let first = TimeOfDayHeaderAsset.stableIndex(dateKey: key, count: 6)
-        let second = TimeOfDayHeaderAsset.stableIndex(dateKey: key, count: 6)
+        let first = TimeOfDayHeaderAsset.stableIndex(selectionKey: key, count: 4)
+        let second = TimeOfDayHeaderAsset.stableIndex(selectionKey: key, count: 4)
 
         XCTAssertEqual(first, second)
-        XCTAssertTrue((0..<6).contains(first))
-        XCTAssertEqual(TimeOfDayHeaderAsset.stableIndex(dateKey: key, count: 0), 0)
+        XCTAssertTrue((0..<4).contains(first))
+        XCTAssertEqual(TimeOfDayHeaderAsset.stableIndex(selectionKey: key, count: 0), 0)
+    }
+
+    func testResolveChangesSelectionKeyWhenActivationChanges() {
+        let first = TimeOfDayHeaderAsset.resolve(for: date(hour: 8), activationID: "launch-1", calendar: calendar)
+        let second = TimeOfDayHeaderAsset.resolve(for: date(hour: 8), activationID: "launch-2", calendar: calendar)
+
+        XCTAssertNotEqual(first.selectionKey, second.selectionKey)
+        XCTAssertTrue(TimeOfDayHeaderAsset.assetNames(for: .morning).contains(first.name))
+        XCTAssertTrue(TimeOfDayHeaderAsset.assetNames(for: .morning).contains(second.name))
     }
 
     func testHeaderContextUsesCurrentClockForSelectedToday() {
         let selectedDateAtMidnight = date(hour: 0)
         let now = date(hour: 16, minute: 24)
 
-        let context = LBHeaderTimeContext.resolve(selectedDate: selectedDateAtMidnight, now: now, calendar: calendar)
+        let context = LBHeaderTimeContext.resolve(
+            selectedDate: selectedDateAtMidnight,
+            now: now,
+            activationID: "launch-1",
+            calendar: calendar
+        )
 
         XCTAssertEqual(context.period, .afternoon)
         XCTAssertEqual(context.asset.period, .afternoon)
@@ -79,7 +101,12 @@ final class SunriseHeaderAssetTests: XCTestCase {
         let selectedDateAtMidnight = date(hour: 0, day: 9)
         let now = date(hour: 22, day: 8)
 
-        let context = LBHeaderTimeContext.resolve(selectedDate: selectedDateAtMidnight, now: now, calendar: calendar)
+        let context = LBHeaderTimeContext.resolve(
+            selectedDate: selectedDateAtMidnight,
+            now: now,
+            activationID: "launch-1",
+            calendar: calendar
+        )
 
         XCTAssertEqual(calendar.component(.hour, from: context.effectiveDate), 12)
         XCTAssertEqual(context.period, .afternoon)
@@ -235,7 +262,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
         let calendarModel = LBTimelineCard.Model(
             id: "calendar",
             title: "Calendar",
-            subtitle: "Calendar",
+            subtitle: "",
             timeText: "9:00 PM",
             role: .meeting,
             kind: .calendar,
@@ -252,6 +279,180 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(calendarModel.kind, .calendar)
         XCTAssertFalse(calendarModel.isToggleable)
     }
+
+    func testCalendarCardSubtitleIsEmptyWhenEventIsNotNextUpcoming() {
+        let now = date(hour: 21, minute: 15)
+        let calendarItem = timelineItem(
+            id: "calendar",
+            source: .calendarEvent,
+            startHour: 22,
+            endHour: 23
+        )
+
+        XCTAssertEqual(
+            SunriseHomeScreen.timelineCardSubtitle(
+                for: calendarItem,
+                now: now,
+                nextUpcomingCalendarItemID: nil
+            ),
+            ""
+        )
+    }
+
+    func testNextUpcomingCalendarCardSubtitleUsesMinuteCountdown() {
+        let now = date(hour: 21, minute: 15)
+        let current = timelineItem(
+            id: "current",
+            source: .calendarEvent,
+            startHour: 21,
+            startMinute: 0,
+            endHour: 21,
+            endMinute: 30
+        )
+        let next = timelineItem(
+            id: "next",
+            source: .calendarEvent,
+            startHour: 21,
+            startMinute: 42,
+            endHour: 22
+        )
+        let later = timelineItem(
+            id: "later",
+            source: .calendarEvent,
+            startHour: 22,
+            startMinute: 30,
+            endHour: 23
+        )
+        let rows = [
+            SunriseTimelineRow.item(current),
+            SunriseTimelineRow.item(next),
+            SunriseTimelineRow.item(later)
+        ]
+        let nextID = SunriseHomeScreen.nextUpcomingCalendarItemID(in: rows, now: now)
+
+        XCTAssertEqual(nextID, "next")
+        XCTAssertEqual(
+            SunriseHomeScreen.timelineCardSubtitle(
+                for: next,
+                now: now,
+                nextUpcomingCalendarItemID: nextID
+            ),
+            "in 27m"
+        )
+        XCTAssertEqual(
+            SunriseHomeScreen.timelineCardSubtitle(
+                for: later,
+                now: now,
+                nextUpcomingCalendarItemID: nextID
+            ),
+            ""
+        )
+    }
+
+    func testCalendarCountdownRoundsUpToHoursAtSixtyMinutesOrMore() {
+        let now = date(hour: 21, minute: 15)
+
+        XCTAssertEqual(
+            SunriseHomeScreen.calendarCountdownSubtitle(
+                until: date(hour: 22, minute: 15),
+                now: now
+            ),
+            "in 1h"
+        )
+        XCTAssertEqual(
+            SunriseHomeScreen.calendarCountdownSubtitle(
+                until: date(hour: 22, minute: 16),
+                now: now
+            ),
+            "in 2h"
+        )
+    }
+
+    func testPastAndCurrentCalendarEventsDoNotReceiveCountdownText() {
+        let now = date(hour: 21, minute: 15)
+        let past = timelineItem(
+            id: "past",
+            source: .calendarEvent,
+            startHour: 20,
+            endHour: 21
+        )
+        let current = timelineItem(
+            id: "current",
+            source: .calendarEvent,
+            startHour: 21,
+            startMinute: 0,
+            endHour: 21,
+            endMinute: 30
+        )
+
+        XCTAssertNil(SunriseHomeScreen.nextUpcomingCalendarItemID(in: [.item(past), .item(current)], now: now))
+        XCTAssertNil(SunriseHomeScreen.calendarCountdownSubtitle(until: past.startDate!, now: now))
+        XCTAssertNil(SunriseHomeScreen.calendarCountdownSubtitle(until: current.startDate!, now: now))
+    }
+
+    func testTaskCardSubtitleKeepsExistingTaskSubtitle() {
+        let now = date(hour: 21, minute: 15)
+        let task = timelineItem(id: "task", startHour: 22, endHour: 23)
+
+        XCTAssertEqual(
+            SunriseHomeScreen.timelineCardSubtitle(
+                for: task,
+                now: now,
+                nextUpcomingCalendarItemID: nil
+            ),
+            "Inbox"
+        )
+    }
+
+    #if canImport(UIKit)
+    func testSunriseTokensResolveDarkModeGlassAwayFromNearWhite() {
+        let darkGlass = resolvedColor(LBColorTokens.glass, style: .dark)
+        let darkStrongGlass = resolvedColor(LBColorTokens.glassStrong, style: .dark)
+        let darkCanvas = resolvedColor(LBColorTokens.canvas, style: .dark)
+
+        XCTAssertLessThan(relativeLuminance(darkGlass), 0.04)
+        XCTAssertLessThan(relativeLuminance(darkStrongGlass), 0.06)
+        XCTAssertLessThan(relativeLuminance(darkCanvas), 0.01)
+        XCTAssertLessThan(redComponent(darkGlass), 0.20)
+        XCTAssertLessThan(greenComponent(darkGlass), 0.24)
+        XCTAssertLessThan(blueComponent(darkGlass), 0.32)
+    }
+
+    func testSunriseDarkModeTextAndDockContrast() {
+        let darkCanvas = resolvedColor(LBColorTokens.canvas, style: .dark)
+        let darkGlassStrong = resolvedColor(LBColorTokens.glassStrong, style: .dark)
+        let primaryText = resolvedColor(LBColorTokens.navy, style: .dark)
+        let secondaryText = resolvedColor(LBColorTokens.navyMuted, style: .dark)
+        let selectedDockText = resolvedColor(LBColorTokens.violetDeep, style: .dark)
+        let selectedDockFill = resolvedColor(LBColorTokens.violetSoft, style: .dark)
+
+        XCTAssertGreaterThan(contrastRatio(primaryText, darkCanvas), 12.0)
+        XCTAssertGreaterThan(contrastRatio(secondaryText, darkGlassStrong), 7.0)
+        XCTAssertGreaterThan(contrastRatio(selectedDockText, selectedDockFill), 6.0)
+
+        for role in [LBRole.task, .meeting, .warning, .error, .neutral] {
+            let style = LBColorTokens.role(role)
+            XCTAssertGreaterThan(
+                contrastRatio(
+                    resolvedColor(LBColorTokens.navy, style: .dark),
+                    resolvedColor(style.softSurface, style: .dark)
+                ),
+                7.0,
+                "Expected readable primary text on \(role.rawValue) dark Sunrise surface."
+            )
+        }
+    }
+
+    func testSunriseIncreasedContrastStrengthensDarkSeparators() {
+        let normalHairline = resolvedColor(LBColorTokens.hairline, style: .dark)
+        let highContrastHairline = resolvedColor(LBColorTokens.hairline, style: .dark, contrast: .high)
+        let normalGlass = resolvedColor(LBColorTokens.glassStrong, style: .dark)
+        let highContrastGlass = resolvedColor(LBColorTokens.glassStrong, style: .dark, contrast: .high)
+
+        XCTAssertGreaterThan(relativeLuminance(highContrastHairline), relativeLuminance(normalHairline))
+        XCTAssertGreaterThan(alphaComponent(highContrastGlass), alphaComponent(normalGlass))
+    }
+    #endif
 
     func testSunriseScrollOffsetNormalizesForChromeTracker() {
         XCTAssertEqual(SunriseHomeScreen.chromeOffset(forScrollMinY: 16), 0)
@@ -299,4 +500,59 @@ final class SunriseHeaderAssetTests: XCTestCase {
             eventCountText: "\(items.count) events"
         )
     }
+
+    #if canImport(UIKit)
+    private func resolvedColor(
+        _ color: Color,
+        style: UIUserInterfaceStyle,
+        contrast: UIAccessibilityContrast = .normal
+    ) -> UIColor {
+        let traits = UITraitCollection(traitsFrom: [
+            UITraitCollection(userInterfaceStyle: style),
+            UITraitCollection(accessibilityContrast: contrast)
+        ])
+        return UIColor(color).resolvedColor(with: traits)
+    }
+
+    private func contrastRatio(_ foreground: UIColor, _ background: UIColor) -> CGFloat {
+        let lighter = max(relativeLuminance(foreground), relativeLuminance(background))
+        let darker = min(relativeLuminance(foreground), relativeLuminance(background))
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    private func relativeLuminance(_ color: UIColor) -> CGFloat {
+        let components = rgbaComponents(color)
+        func channel(_ value: CGFloat) -> CGFloat {
+            value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * channel(components.red)
+            + 0.7152 * channel(components.green)
+            + 0.0722 * channel(components.blue)
+    }
+
+    private func redComponent(_ color: UIColor) -> CGFloat {
+        rgbaComponents(color).red
+    }
+
+    private func greenComponent(_ color: UIColor) -> CGFloat {
+        rgbaComponents(color).green
+    }
+
+    private func blueComponent(_ color: UIColor) -> CGFloat {
+        rgbaComponents(color).blue
+    }
+
+    private func alphaComponent(_ color: UIColor) -> CGFloat {
+        rgbaComponents(color).alpha
+    }
+
+    private func rgbaComponents(_ color: UIColor) -> (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return (red, green, blue, alpha)
+    }
+    #endif
 }

@@ -375,6 +375,33 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertEqual(todaySummary?.timedMarkers.count, 1)
     }
 
+    func testHidingCalendarEventPublishesTimelineRenderRevision() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([
+            event(id: "meeting", start: todayDate(hour: 9), end: todayDate(hour: 10))
+        ])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineHideRenderRevisionTests")
+        let hiddenStore = HomeTimelineHiddenCalendarEventStore(defaults: defaults)
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            hiddenCalendarEventStore: hiddenStore
+        )
+
+        waitForMainQueue(seconds: 0.45)
+        let beforeRevision = viewModel.homeRenderTransaction.timeline.revision
+
+        viewModel.hideCalendarEventFromTimeline(eventID: "meeting", on: todayDate(hour: 9))
+        waitForMainQueue(seconds: 0.1)
+
+        XCTAssertTrue(hiddenStore.isHidden(eventID: "meeting", on: todayDate(hour: 9)))
+        XCTAssertGreaterThan(viewModel.homeRenderTransaction.timeline.revision, beforeRevision)
+    }
+
     func testHomeTimelineBlocksIncludeOnlyBusyTimedCalendarEvents() {
         let preferences = LifeBoardWorkspacePreferences(
             selectedCalendarIDs: ["work"],

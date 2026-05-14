@@ -123,9 +123,20 @@ final class HomeCalendarModuleUITests: XCTestCase {
             app.descendants(matching: .any)["schedule.list"].waitForExistence(timeout: 1),
             "Tapping a Home timeline event should not open the full schedule behind the event detail."
         )
+
+        let closeButton = eventDetailButton(
+            in: app,
+            identifier: "schedule.detail.close",
+            label: "Close"
+        )
         XCTAssertTrue(
-            dismissEventDetailIfPresented(in: app),
-            "Expected Home timeline event tap to present the native event detail sheet."
+            closeButton.waitForExistence(timeout: 4),
+            "Expected Home timeline-origin event detail to expose a top Close button."
+        )
+        tapElement(closeButton, in: app)
+        XCTAssertFalse(
+            app.descendants(matching: .any)["schedule.detail.sheet"].waitForExistence(timeout: 2),
+            "Close should dismiss the Home timeline event detail sheet."
         )
     }
 
@@ -139,7 +150,11 @@ final class HomeCalendarModuleUITests: XCTestCase {
         )
         tapElement(eventCard, in: app)
 
-        let hideButton = app.descendants(matching: .any)["schedule.detail.hideFromTimeline"]
+        let hideButton = eventDetailButton(
+            in: app,
+            identifier: "schedule.detail.hideFromTimeline",
+            label: "Hide from Timeline"
+        )
         XCTAssertTrue(
             hideButton.waitForExistence(timeout: 4),
             "Expected Home timeline-origin event detail to expose Hide from Timeline."
@@ -468,6 +483,18 @@ final class HomeCalendarModuleUITests: XCTestCase {
         return app.descendants(matching: .any)[identifier]
     }
 
+    private func eventDetailButton(in app: XCUIApplication, identifier: String, label: String) -> XCUIElement {
+        let identifiedButton = app.buttons[identifier]
+        if identifiedButton.exists {
+            return identifiedButton
+        }
+        let identified = app.descendants(matching: .any)[identifier]
+        if identified.exists {
+            return identified
+        }
+        return app.buttons[label].firstMatch
+    }
+
     private func dismissScheduleEventDetailIfPresented(in app: XCUIApplication) -> Bool {
         let detailAppeared = dismissEventDetailIfPresented(in: app)
         return detailAppeared && scheduleSurfaceIsVisible(in: app, timeout: 8)
@@ -476,7 +503,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     private func dismissEventDetailIfPresented(in app: XCUIApplication) -> Bool {
         let sheet = app.sheets.firstMatch
         let detailSheet = app.descendants(matching: .any)["schedule.detail.sheet"]
-        let identifiedClose = app.descendants(matching: .any)["schedule.detail.close"]
+        let identifiedClose = eventDetailButton(in: app, identifier: "schedule.detail.close", label: "Close")
         let done = app.navigationBars.buttons["Done"].firstMatch
 
         let detailAppeared =
