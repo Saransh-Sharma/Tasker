@@ -2932,6 +2932,62 @@ private struct HomeCalendarEventDetailSelection: Identifiable, Equatable {
     }
 }
 
+private struct HomeCalendarEventDetailSheet: View {
+    let selection: HomeCalendarEventDetailSelection
+    let onDismiss: () -> Void
+    let onHideFromTimeline: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Button(action: onDismiss) {
+                    Label(String(localized: "Close"), systemImage: "xmark")
+                        .labelStyle(.titleAndIcon)
+                        .font(.lifeboard(.body).weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.lifeboard.textPrimary)
+                .background(Color.lifeboard.surfaceSecondary.opacity(0.82), in: Capsule())
+                .accessibilityIdentifier("schedule.detail.close")
+
+                Spacer(minLength: 12)
+
+                if selection.allowsTimelineHide {
+                    Button(action: onHideFromTimeline) {
+                        Label(String(localized: "Hide"), systemImage: "eye.slash")
+                            .labelStyle(.titleAndIcon)
+                            .font(.lifeboard(.body).weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.lifeboard.statusDanger)
+                    .background(Color.lifeboard.statusDanger.opacity(0.12), in: Capsule())
+                    .accessibilityLabel(String(localized: "Hide from Timeline"))
+                    .accessibilityHint(String(localized: "Hides this event from the Home timeline for this day."))
+                    .accessibilityIdentifier("schedule.detail.hideFromTimeline")
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+            .background(Color.lifeboard(.bgElevated))
+
+            Divider()
+
+            EventKitEventDetailView(
+                eventID: selection.eventID,
+                onDismiss: onDismiss,
+                showsCloseButton: false,
+                onHideFromTimeline: nil
+            )
+        }
+        .background(Color.lifeboard(.bgElevated))
+    }
+}
+
 private struct SunriseHomeDatePickerPopover: View {
     @Binding var draftDate: Date
     let selectedDate: Date
@@ -3063,6 +3119,7 @@ struct HomeBackdropForedropRootView: View {
     @ObservedObject var tasksStore: HomeTasksStore
     @ObservedObject var habitsStore: HomeHabitsStore
     @ObservedObject var calendarStore: HomeCalendarStore
+    @ObservedObject var timelineStore: HomeTimelineStore
     let calendarIntegrationService: CalendarIntegrationService?
     let chatAppManager: AppManager
     @ObservedObject var overlayStore: HomeOverlayStore
@@ -3185,6 +3242,7 @@ struct HomeBackdropForedropRootView: View {
     private var tasksSnapshot: HomeTasksSnapshot { tasksStore.snapshot }
     private var habitsSnapshot: HomeHabitsSnapshot { habitsStore.snapshot }
     private var calendarSnapshot: HomeCalendarSnapshot { calendarStore.snapshot }
+    private var timelineRenderState: HomeTimelineRenderState { timelineStore.state }
     private var overlaySnapshot: HomeOverlaySnapshot { overlayStore.snapshot }
     private var activeFace: HomeForedropFace { faceCoordinator.activeFace }
     private var shellPhase: HomeShellPhase { faceCoordinator.shellPhase }
@@ -3249,7 +3307,8 @@ struct HomeBackdropForedropRootView: View {
         )
     }
     private var timelineSnapshot: HomeTimelineSnapshot {
-        viewModel.buildTimelineSnapshot(
+        let _ = timelineRenderState.revision
+        return viewModel.buildTimelineSnapshot(
             calendarSnapshot: calendarSnapshot,
             foredropAnchor: timelineViewModel.foredropAnchor
         )
@@ -3693,19 +3752,19 @@ struct HomeBackdropForedropRootView: View {
             )
         }
         .sheet(item: $selectedHomeCalendarEventDetail) { selection in
-            EventKitEventDetailView(
-                eventID: selection.eventID,
+            HomeCalendarEventDetailSheet(
+                selection: selection,
                 onDismiss: {
                     selectedHomeCalendarEventDetail = nil
                 },
-                onHideFromTimeline: selection.allowsTimelineHide ? {
+                onHideFromTimeline: {
                     viewModel.hideCalendarEventFromTimeline(
                         eventID: selection.eventID,
                         on: selection.selectedDate
                     )
                     selectedHomeCalendarEventDetail = nil
                     snackbar = SnackbarData(message: "Hidden from Home timeline for this day.", autoDismissSeconds: 2)
-                } : nil
+                }
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)

@@ -102,11 +102,24 @@ typealias HomeTasksState = HomeTasksSnapshot
 typealias HomeCalendarState = HomeCalendarSnapshot
 typealias HomeOverlayState = HomeOverlaySnapshot
 
+struct HomeTimelineRenderState: Equatable {
+    let revision: UInt64
+
+    static var empty: HomeTimelineRenderState {
+        HomeTimelineRenderState(revision: 0)
+    }
+
+    func advanced() -> HomeTimelineRenderState {
+        HomeTimelineRenderState(revision: revision &+ 1)
+    }
+}
+
 struct HomeRenderTransaction: Equatable {
     let chrome: HomeChromeState
     let tasks: HomeTasksState
     let habits: HomeHabitsSnapshot
     let calendar: HomeCalendarState
+    let timeline: HomeTimelineRenderState
     let overlay: HomeOverlayState
 
     init(
@@ -114,12 +127,14 @@ struct HomeRenderTransaction: Equatable {
         tasks: HomeTasksState,
         habits: HomeHabitsSnapshot,
         calendar: HomeCalendarState = .empty,
+        timeline: HomeTimelineRenderState = .empty,
         overlay: HomeOverlayState
     ) {
         self.chrome = chrome
         self.tasks = tasks
         self.habits = habits
         self.calendar = calendar
+        self.timeline = timeline
         self.overlay = overlay
     }
 
@@ -129,6 +144,7 @@ struct HomeRenderTransaction: Equatable {
             tasks: .empty,
             habits: .empty,
             calendar: .empty,
+            timeline: .empty,
             overlay: .empty
         )
     }
@@ -145,6 +161,9 @@ struct HomeRenderTransaction: Equatable {
             count += 1
         }
         if calendar != previous.calendar {
+            count += 1
+        }
+        if timeline != previous.timeline {
             count += 1
         }
         if overlay != previous.overlay {
@@ -1158,6 +1177,16 @@ final class HomeCalendarStore: ObservableObject {
 }
 
 @MainActor
+final class HomeTimelineStore: ObservableObject {
+    @Published private(set) var state: HomeTimelineRenderState = .empty
+
+    func apply(_ state: HomeTimelineRenderState) {
+        guard self.state != state else { return }
+        self.state = state
+    }
+}
+
+@MainActor
 final class HomeFaceCoordinator: ObservableObject {
     @Published private(set) var activeFace: HomeForedropFace = .tasks
     @Published private(set) var shellPhase: HomeShellPhase = .startup
@@ -1318,6 +1347,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private let tasksStore = HomeTasksStore()
     private let habitsStore = HomeHabitsStore()
     private let calendarStore = HomeCalendarStore()
+    private let timelineStore = HomeTimelineStore()
     private let overlayStore = HomeOverlayStore()
     private let faceCoordinator = HomeFaceCoordinator()
     private let navigationCoordinator = HomeNavigationCoordinator()
@@ -2327,6 +2357,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             calendarStore.apply(transaction.calendar)
             LifeBoardPerformanceTrace.event("home.render.calendarCommitted")
         }
+        if transaction.timeline != lastAppliedHomeRenderTransaction.timeline {
+            timelineStore.apply(transaction.timeline)
+            LifeBoardPerformanceTrace.event("home.render.timelineCommitted")
+        }
         if transaction.overlay != lastAppliedHomeRenderTransaction.overlay {
             applyOverlayState(transaction.overlay)
         }
@@ -2581,6 +2615,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             tasksStore: tasksStore,
             habitsStore: habitsStore,
             calendarStore: calendarStore,
+            timelineStore: timelineStore,
             calendarIntegrationService: presentationDependencyContainer?.coordinator.calendarIntegrationService,
             chatAppManager: homeChatAppManager,
             overlayStore: overlayStore,
