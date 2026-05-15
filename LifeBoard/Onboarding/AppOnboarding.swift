@@ -8729,7 +8729,7 @@ struct OnboardingHomeDemoSnapshotFactory {
         )
         return HomeTimelineSnapshot(
             selectedDate: day,
-            foredropAnchor: .collapsed,
+            sunriseAnchor: .collapsed,
             day: projection,
             week: weekSummary(selectedDate: day, timedItems: timedItems, calendar: calendar),
             placementCandidate: nil
@@ -8932,7 +8932,7 @@ struct OnboardingHomeDemoPreview: View {
                 }
             }
 
-            TimelineForedropView(
+            SunriseTimelineSurface(
                 snapshot: timelineSnapshot,
                 layoutClass: layoutClass,
                 showsRevealHandle: false,

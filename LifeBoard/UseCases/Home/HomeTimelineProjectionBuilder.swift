@@ -4,7 +4,7 @@ struct HomeTimelineProjectionInput {
     let dataRevision: HomeDataRevision
     let selectedDay: Date
     let currentMinuteStamp: Int
-    let foredropAnchor: ForedropAnchor
+    let sunriseAnchor: SunriseAnchor
     let calendarSnapshot: HomeCalendarSnapshot
     let workspacePreferences: LifeBoardWorkspacePreferences
     let hiddenCalendarEvents: [HomeTimelineHiddenCalendarEventKey]
@@ -19,7 +19,7 @@ struct HomeTimelineProjectionBuilder {
             dataRevision: input.dataRevision,
             selectedDay: input.selectedDay,
             currentMinuteStamp: input.currentMinuteStamp,
-            foredropAnchor: input.foredropAnchor,
+            sunriseAnchor: input.sunriseAnchor,
             calendarSignature: HomeTimelineCalendarSignature(input.calendarSnapshot),
             workspacePreferences: HomeTimelineWorkspacePreferencesSignature(input.workspacePreferences),
             hiddenCalendarEvents: input.hiddenCalendarEvents.sorted(),
