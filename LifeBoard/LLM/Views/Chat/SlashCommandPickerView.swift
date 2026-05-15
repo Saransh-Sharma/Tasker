@@ -22,18 +22,23 @@ struct SlashCommandPickerView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
+            ZStack {
+                EvaChatSunriseBackground()
+
+                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
                 TextField("Search commands", text: $query)
                     .focused($isSearchFocused)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(.horizontal, LifeBoardTheme.Spacing.md)
                     .padding(.vertical, LifeBoardTheme.Spacing.sm)
-                    .background(Color.lifeboard(.surfaceSecondary))
-                    .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
-                            .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
+                    .tint(EvaChatSunriseGlass.primary)
+                    .lifeboardPremiumSurface(
+                        cornerRadius: 18,
+                        fillColor: EvaChatSunriseGlass.glassFill,
+                        strokeColor: EvaChatSunriseGlass.glassBorder,
+                        accentColor: EvaChatSunriseGlass.primary,
+                        level: .e1
                     )
                     .padding(.horizontal, LifeBoardTheme.Spacing.lg)
                     .accessibilityIdentifier("chat.command_picker.search")
@@ -60,6 +65,7 @@ struct SlashCommandPickerView: View {
                     .padding(.bottom, LifeBoardTheme.Spacing.xl)
                 }
             }
+            }
             .navigationTitle("Commands")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -74,7 +80,7 @@ struct SlashCommandPickerView: View {
             VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
                 Text(title)
                     .font(.lifeboard(.caption1))
-                    .foregroundColor(Color.lifeboard(.textTertiary))
+                    .foregroundStyle(EvaChatSunriseGlass.navyMuted)
 
                 VStack(spacing: LifeBoardTheme.Spacing.xs) {
                     ForEach(commands, id: \.id) { descriptor in
@@ -101,16 +107,16 @@ private struct SlashCommandRowView: View {
         HStack(spacing: LifeBoardTheme.Spacing.sm) {
             Image(systemName: descriptor.id.icon)
                 .font(.lifeboard(.callout))
-                .foregroundColor(Color.lifeboard(.accentPrimary))
+                .foregroundStyle(EvaChatSunriseGlass.primary)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
                 highlightedCommand
                     .font(.lifeboard(.callout))
-                    .foregroundColor(Color.lifeboard(.textPrimary))
+                    .foregroundStyle(EvaChatSunriseGlass.navy)
                 Text(descriptor.shortDescription)
                     .font(.lifeboard(.caption1))
-                    .foregroundColor(Color.lifeboard(.textTertiary))
+                    .foregroundStyle(EvaChatSunriseGlass.navyMuted)
             }
 
             Spacer(minLength: LifeBoardTheme.Spacing.sm)
@@ -123,11 +129,12 @@ private struct SlashCommandRowView: View {
         .padding(.horizontal, LifeBoardTheme.Spacing.md)
         .padding(.vertical, LifeBoardTheme.Spacing.sm)
         .frame(minHeight: 44)
-        .background(Color.lifeboard(.surfaceSecondary))
-        .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
-                .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
+        .lifeboardPremiumSurface(
+            cornerRadius: 18,
+            fillColor: EvaChatSunriseGlass.glassFill,
+            strokeColor: EvaChatSunriseGlass.glassBorder,
+            accentColor: EvaChatSunriseGlass.primary,
+            level: .e1
         )
     }
 

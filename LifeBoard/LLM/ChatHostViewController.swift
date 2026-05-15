@@ -254,28 +254,13 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     /// Executes setupNavigationBar.
     private func setupNavigationBar() {
-        let themeColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
-        let onAccent = themeColors.accentOnPrimary
-
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = themeColors.accentPrimary
-        appearance.titleTextAttributes = [.foregroundColor: onAccent]
-        appearance.largeTitleTextAttributes = [.foregroundColor: onAccent]
-
-        navigationController?.navigationBar.standardAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
-        navigationController?.navigationBar.compactAppearance = appearance
+        applyActivationNavigationAppearance()
         navigationController?.navigationBar.prefersLargeTitles = false
         navigationItem.largeTitleDisplayMode = .never
-        leadingBarButtonItem.tintColor = onAccent
-        historyBarButtonItem.tintColor = onAccent
         historyBarButtonItem.accessibilityLabel = "History"
         historyBarButtonItem.accessibilityIdentifier = "chat.header.history"
-        settingsBarButtonItem.tintColor = onAccent
         settingsBarButtonItem.accessibilityLabel = "Settings"
         settingsBarButtonItem.accessibilityIdentifier = "chat.header.settings"
-        newChatBarButtonItem.tintColor = onAccent
         newChatBarButtonItem.accessibilityLabel = "New chat"
         newChatBarButtonItem.accessibilityIdentifier = "chat.header.new_chat"
     }
@@ -315,7 +300,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         loadProjectsIfNeeded(coordinator: coordinator) { [weak self] projects in
             guard let self else { return }
             self.resolveTodayXPSoFar(coordinator: coordinator) { todayXPSoFar in
-                let detailView = TaskDetailSheetView(
+                let detailView = SunriseTaskDetailScreen(
                     task: task,
                     projects: projects,
                     todayXPSoFar: todayXPSoFar,
@@ -499,7 +484,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                         return
                     }
 
-                    let detailView = HabitDetailSheetView(
+                    let detailView = SunriseHabitDetailScreen(
                         viewModel: presentationDependencyContainer.makeHabitDetailViewModel(row: row),
                         onMutation: {}
                     )
@@ -796,6 +781,11 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     private func applyTheme() {
         let themeColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         view.backgroundColor = themeColors.bgCanvas
+        updateNavigationBarChrome()
+    }
+
+    private func applyActivationNavigationAppearance() {
+        let themeColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         let onAccent = themeColors.accentOnPrimary
 
         let appearance = UINavigationBarAppearance()
@@ -811,7 +801,29 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         historyBarButtonItem.tintColor = onAccent
         settingsBarButtonItem.tintColor = onAccent
         newChatBarButtonItem.tintColor = onAccent
-        updateNavigationBarChrome()
+    }
+
+    private func applyCompletedChatNavigationAppearance() {
+        let navBackground = UIColor(lifeboardHex: "#FFFDFC").withAlphaComponent(0.82)
+        let navText = UIColor(lifeboardHex: "#071B52")
+        let navMuted = UIColor(lifeboardHex: "#48607F")
+        let navAccent = UIColor(lifeboardHex: "#6842FF")
+
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundEffect = UIBlurEffect(style: .systemThinMaterial)
+        appearance.backgroundColor = navBackground
+        appearance.shadowColor = UIColor(lifeboardHex: "#DDE3EE").withAlphaComponent(0.58)
+        appearance.titleTextAttributes = [.foregroundColor: navText]
+        appearance.largeTitleTextAttributes = [.foregroundColor: navText]
+
+        navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.compactAppearance = appearance
+        leadingBarButtonItem.tintColor = navMuted
+        historyBarButtonItem.tintColor = navMuted
+        settingsBarButtonItem.tintColor = navMuted
+        newChatBarButtonItem.tintColor = navAccent
     }
 
     private func bindActivationCoordinator() {
@@ -832,13 +844,14 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         navigationItem.leftBarButtonItem = leadingBarButtonItem
 
         if activationCoordinator.state.stage == .completed {
+            applyCompletedChatNavigationAppearance()
             navigationItem.title = nil
             chatTitleView.preferredWidth = navigationTitleWidth
             chatTitleView.configure(
                 title: chatNavigationChromeState.title,
                 subtitle: chatNavigationChromeState.subtitle,
-                titleColor: themeColors.accentOnPrimary,
-                subtitleColor: themeColors.accentOnPrimary.withAlphaComponent(0.78)
+                titleColor: UIColor(lifeboardHex: "#071B52"),
+                subtitleColor: UIColor(lifeboardHex: "#48607F")
             )
             chatTitleView.frame = CGRect(
                 x: 0,
@@ -851,6 +864,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             return
         }
 
+        applyActivationNavigationAppearance()
         navigationItem.title = nil
         activationTitleView.preferredWidth = navigationTitleWidth
         activationTitleView.configure(

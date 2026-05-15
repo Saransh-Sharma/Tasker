@@ -18,6 +18,61 @@ struct EvaChatNavigationChromeState {
     }
 }
 
+enum EvaChatSunriseGlass {
+    static let canvasTop = LBColorTokens.adaptive(light: "#FFF8EF", dark: "#10101A")
+    static let canvasMid = LBColorTokens.adaptive(light: "#FFFDFC", dark: "#080C17")
+    static let canvasBottom = LBColorTokens.adaptive(light: "#F7FBFF", dark: "#07111E")
+    static let assistantSurface = LBColorTokens.role(.assistant).softSurface
+    static let assistantBorder = LBColorTokens.role(.assistant).border
+    static let glassFill = LBColorTokens.glassStrong
+    static let glassBorder = LBColorTokens.glassBorder
+    static let primary = LBColorTokens.violet
+    static let primaryDeep = LBColorTokens.violetDeep
+    static let navy = LBColorTokens.navy
+    static let navyMuted = LBColorTokens.navyMuted
+    static let gold = LBColorTokens.sunriseGold
+
+    static var background: LinearGradient {
+        LinearGradient(
+            colors: [
+                canvasTop,
+                canvasMid,
+                canvasBottom.opacity(0.74)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+}
+
+struct EvaChatSunriseBackground: View {
+    var body: some View {
+        ZStack {
+            EvaChatSunriseGlass.background
+
+            LinearGradient(
+                colors: [
+                    EvaChatSunriseGlass.gold.opacity(0.12),
+                    .clear
+                ],
+                startPoint: .top,
+                endPoint: .center
+            )
+
+            LinearGradient(
+                colors: [
+                    .clear,
+                    EvaChatSunriseGlass.primary.opacity(0.05)
+                ],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+        }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+}
+
 struct ChatHeaderView: View {
     let identity: AssistantIdentitySnapshot
     let title: String
@@ -195,11 +250,15 @@ struct ChatEmptyStateView: View {
             } else {
                 ZStack {
                     Circle()
-                        .fill(Color.lifeboard(.accentWash))
+                        .fill(EvaChatSunriseGlass.assistantSurface)
                         .frame(width: 80, height: 80)
+                        .overlay(
+                            Circle()
+                                .stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.78), lineWidth: 1)
+                        )
                     Image(systemName: "bubble.left.and.text.bubble.right")
                         .font(.system(size: 32, weight: .light))
-                        .foregroundStyle(Color.lifeboard(.accentPrimary))
+                        .foregroundStyle(EvaChatSunriseGlass.primary)
                         .symbolEffect(
                             .wiggle.byLayer,
                             options: .repeat(.periodic(delay: 3.0)),
@@ -209,21 +268,21 @@ struct ChatEmptyStateView: View {
                 VStack(spacing: LifeBoardTheme.Spacing.xs) {
                     Text("\(identity.askAction) anything")
                         .font(.lifeboard(.title2))
-                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                        .foregroundStyle(EvaChatSunriseGlass.navy)
                         .accessibilityIdentifier("chat.emptyState.title")
                     Text("Type / for commands")
                         .font(.lifeboard(.callout))
-                        .foregroundStyle(Color.lifeboard(.textTertiary))
+                        .foregroundStyle(EvaChatSunriseGlass.navyMuted)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, LifeBoardTheme.Spacing.xl)
                 .padding(.vertical, LifeBoardTheme.Spacing.lg)
                 .lifeboardPremiumSurface(
                     cornerRadius: LifeBoardTheme.CornerRadius.xl,
-                    fillColor: Color.lifeboard(.surfacePrimary),
-                    strokeColor: Color.lifeboard(.strokeHairline),
-                    accentColor: Color.lifeboard(.accentSecondary),
-                    level: .e1
+                    fillColor: EvaChatSunriseGlass.glassFill,
+                    strokeColor: EvaChatSunriseGlass.glassBorder,
+                    accentColor: EvaChatSunriseGlass.primary,
+                    level: .e2
                 )
                 .enhancedStaggeredAppearance(index: 0)
             }
@@ -233,6 +292,7 @@ struct ChatEmptyStateView: View {
 
             Spacer()
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat.emptyState.container")
         }
     }
@@ -245,29 +305,20 @@ struct ChatEmptyStateView: View {
                         EvaMascotView(placement: .chatEmptyHeader, size: .avatar)
                         Text("Hi there!")
                             .lifeboardFont(.screenTitle)
-                            .foregroundStyle(Color.lifeboard(.accentPrimary))
+                            .foregroundStyle(EvaChatSunriseGlass.primary)
                     }
 
                     Text("What do you need to plan?")
                         .lifeboardFont(.title1)
-                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                        .foregroundStyle(EvaChatSunriseGlass.navy)
+                        .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                }
 
-                Spacer(minLength: LifeBoardTheme.Spacing.md)
-
-                Button(action: onOpenEvaGuide) {
-                    EvaMascotView(placement: .chatHelp, size: .custom(46))
-                        .padding(5)
-                        .frame(width: 56, height: 56)
-                        .background(Color.lifeboard(.surfacePrimary), in: Circle())
+                    guideButton
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(identity.displayName) help")
-                .accessibilityHint("Shows ways to use \(identity.displayName) as your chief of staff.")
-                .accessibilityIdentifier("eva.structured.help")
-                .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, LifeBoardTheme.Spacing.xl)
             .padding(.top, LifeBoardTheme.Spacing.xl)
 
@@ -283,7 +334,40 @@ struct ChatEmptyStateView: View {
                 .padding(.bottom, LifeBoardTheme.Spacing.sm)
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat.emptyState.container")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var guideButton: some View {
+        Button(action: onOpenEvaGuide) {
+            HStack(spacing: 7) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("Guide")
+                    .font(.lifeboard(.caption1))
+                    .fontWeight(.semibold)
+            }
+            .foregroundStyle(EvaChatSunriseGlass.primary)
+            .padding(.horizontal, LifeBoardTheme.Spacing.md)
+            .frame(minHeight: 44)
+            .background {
+                Capsule()
+                    .fill(.regularMaterial)
+                Capsule()
+                    .fill(EvaChatSunriseGlass.assistantSurface.opacity(0.54))
+            }
+            .overlay {
+                Capsule()
+                    .stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.78), lineWidth: 1)
+            }
+            .shadow(color: EvaChatSunriseGlass.navy.opacity(0.08), radius: 12, x: 0, y: 6)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(identity.displayName) help")
+        .accessibilityHint("Shows ways to use \(identity.displayName) as your chief of staff.")
+        .accessibilityIdentifier("eva.structured.help")
+        .lifeboardPressFeedback(reduceMotion: reduceMotion)
     }
 
     private func structuredExampleChip(_ chip: EvaHomePromptChip) -> some View {
@@ -293,18 +377,18 @@ struct ChatEmptyStateView: View {
             HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.sm) {
                 Image(systemName: chip.icon)
                     .lifeboardFont(.caption1)
-                    .foregroundStyle(Color.lifeboard(.accentPrimary))
+                    .foregroundStyle(EvaChatSunriseGlass.primary)
                     .frame(width: 32, height: 32)
-                    .background(Color.lifeboard(.accentWash), in: Circle())
+                    .background(EvaChatSunriseGlass.assistantSurface, in: Circle())
                 VStack(alignment: .leading, spacing: 4) {
                     Text(chip.prompt.title)
                         .lifeboardFont(.callout)
-                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                        .foregroundStyle(EvaChatSunriseGlass.navy)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(chip.prompt.submissionText)
                         .lifeboardFont(.caption1)
-                        .foregroundStyle(Color.lifeboard(.textTertiary))
+                        .foregroundStyle(EvaChatSunriseGlass.navyMuted)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -313,9 +397,11 @@ struct ChatEmptyStateView: View {
             .padding(.vertical, LifeBoardTheme.Spacing.md)
             .frame(width: 236, alignment: .leading)
             .frame(minHeight: 78, alignment: .leading)
-            .lifeboardChromeSurface(
+            .lifeboardPremiumSurface(
                 cornerRadius: LifeBoardTheme.CornerRadius.lg,
-                accentColor: Color.lifeboard(.accentSecondary),
+                fillColor: EvaChatSunriseGlass.glassFill,
+                strokeColor: EvaChatSunriseGlass.assistantBorder.opacity(0.72),
+                accentColor: EvaChatSunriseGlass.primary,
                 level: .e1
             )
         }
@@ -351,12 +437,12 @@ struct ChatEmptyStateView: View {
                 Text(prompt.title)
                     .font(.lifeboard(.callout))
             }
-            .foregroundStyle(prompt.isRecommended ? Color.lifeboard(.accentOnPrimary) : Color.lifeboard(.accentPrimary))
+            .foregroundStyle(prompt.isRecommended ? Color.lifeboard(.accentOnPrimary) : EvaChatSunriseGlass.primary)
             .padding(.horizontal, LifeBoardTheme.Spacing.md)
             .padding(.vertical, LifeBoardTheme.Spacing.sm)
-            .background(prompt.isRecommended ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.accentWash))
+            .background(prompt.isRecommended ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.assistantSurface)
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(prompt.isRecommended ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.accentMuted), lineWidth: 1))
+            .overlay(Capsule().stroke(prompt.isRecommended ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.assistantBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Send \(prompt.title)")
@@ -374,12 +460,12 @@ struct ChatEmptyStateView: View {
                 Text(descriptor.command)
                     .font(.lifeboard(.callout))
             }
-            .foregroundStyle(Color.lifeboard(.accentPrimary))
+            .foregroundStyle(EvaChatSunriseGlass.primary)
             .padding(.horizontal, LifeBoardTheme.Spacing.md)
             .padding(.vertical, LifeBoardTheme.Spacing.sm)
-            .background(Color.lifeboard(.accentWash))
+            .background(EvaChatSunriseGlass.assistantSurface)
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.lifeboard(.accentMuted), lineWidth: 1))
+            .overlay(Capsule().stroke(EvaChatSunriseGlass.assistantBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Run command \(descriptor.command)")
@@ -625,6 +711,7 @@ struct EvaChiefOfStaffGuideView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     private var sections: [EvaChiefOfStaffGuideSection] {
@@ -633,19 +720,22 @@ struct EvaChiefOfStaffGuideView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.lg) {
-                    hero
+            ZStack {
+                guideBackground
 
-                    ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
-                        sectionCard(section)
-                            .enhancedStaggeredAppearance(index: index + 1)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.lg) {
+                        hero
+
+                        ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
+                            sectionCard(section)
+                                .enhancedStaggeredAppearance(index: index + 1)
+                        }
                     }
+                    .padding(.horizontal, LifeBoardTheme.Spacing.lg)
+                    .padding(.vertical, LifeBoardTheme.Spacing.lg)
                 }
-                .padding(.horizontal, LifeBoardTheme.Spacing.lg)
-                .padding(.vertical, LifeBoardTheme.Spacing.lg)
             }
-            .background(Color.lifeboard(.bgElevated))
             .navigationTitle("\(assistantIdentity.snapshot.displayName) guide")
             #if os(iOS) || os(visionOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -662,75 +752,138 @@ struct EvaChiefOfStaffGuideView: View {
         .accessibilityIdentifier("eva.guide.sheet")
     }
 
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.sm) {
-            HStack(spacing: LifeBoardTheme.Spacing.sm) {
-                EvaMascotView(placement: .chiefOfStaffGuide, size: .custom(42))
-                    .frame(width: 48, height: 48)
-                    .background(Color.lifeboard(.accentWash), in: Circle())
+    private var guideBackground: some View {
+        ZStack {
+            EvaChatSunriseBackground()
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("\(assistantIdentity.snapshot.displayName) as Chief of Staff")
-                        .font(.lifeboard(.title2))
-                        .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text("Plan, triage, and apply with confirmation.")
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
-                }
-            }
-
-            Text("Start with one of these prompts, or read the examples to learn when \(assistantIdentity.snapshot.displayName) is strongest.")
-                .font(.lifeboard(.body))
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
+            LinearGradient(
+                colors: [
+                    LBColorTokens.role(.assistant).softSurface.opacity(reduceTransparency ? 0.62 : 0.36),
+                    LBColorTokens.canvas.opacity(0.08),
+                    LBColorTokens.coolCanvas.opacity(0.34)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
         }
-        .padding(LifeBoardTheme.Spacing.lg)
-        .lifeboardPremiumSurface(
-            cornerRadius: LifeBoardTheme.CornerRadius.xl,
-            fillColor: Color.lifeboard(.surfacePrimary),
-            strokeColor: Color.lifeboard(.strokeHairline),
-            accentColor: Color.lifeboard(.accentSecondary),
-            level: .e1
-        )
+        .accessibilityHidden(true)
+    }
+
+    private var hero: some View {
+        LBGlassCard(
+            cornerRadius: LBRadiusTokens.largeCard,
+            borderColor: LBColorTokens.role(.assistant).border.opacity(0.82),
+            fill: reduceTransparency ? LBColorTokens.glassStrong : LBColorTokens.glassStrong.opacity(0.78),
+            shadow: LBShadowToken(color: LBColorTokens.elevationShadow, radius: 24, x: 0, y: 12),
+            usesMaterialBackground: !reduceTransparency
+        ) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
+                HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.md) {
+                    mascotWell
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(assistantIdentity.snapshot.displayName) as Chief of Staff")
+                            .font(LBTypographyTokens.sectionTitle)
+                            .foregroundStyle(LBColorTokens.navy)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Plan, triage, and apply with confirmation.")
+                            .font(LBTypographyTokens.bodyStrong)
+                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Text("Start with one of these prompts, or read the examples to learn when \(assistantIdentity.snapshot.displayName) is strongest.")
+                    .font(LBTypographyTokens.body)
+                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(LifeBoardTheme.Spacing.lg)
+        }
+        .overlay(alignment: .topTrailing) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(LBColorTokens.violet.opacity(0.54))
+                .padding(LifeBoardTheme.Spacing.lg)
+                .accessibilityHidden(true)
+        }
         .enhancedStaggeredAppearance(index: 0)
     }
 
-    private func sectionCard(_ section: EvaChiefOfStaffGuideSection) -> some View {
-        VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
-            HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.sm) {
-                Image(systemName: section.icon)
-                    .font(.lifeboard(.headline))
-                    .foregroundStyle(Color.lifeboard(.accentPrimary))
-                    .frame(width: 28, height: 28)
-
-                VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
-                    Text(section.title)
-                        .font(.lifeboard(.headline))
-                        .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text(section.body)
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
-                        .fixedSize(horizontal: false, vertical: true)
+    private var mascotWell: some View {
+        ZStack {
+            Circle()
+                .fill(LBColorTokens.role(.assistant).softSurface.opacity(0.86))
+                .overlay {
+                    Circle()
+                        .stroke(LBColorTokens.role(.assistant).border.opacity(0.84), lineWidth: 1)
                 }
-            }
 
-            FlowPromptChipsView(
-                prompts: section.prompts,
-                reduceMotion: reduceMotion,
-                onSelectPrompt: { prompt in
-                    dismiss()
-                    onSelectPrompt(prompt)
-                }
-            )
+            Circle()
+                .fill(LBColorTokens.glassStrong.opacity(0.56))
+                .frame(width: 42, height: 42)
+
+            EvaMascotView(placement: .chiefOfStaffGuide, size: .custom(36))
+                .frame(width: 40, height: 40)
         }
-        .padding(LifeBoardTheme.Spacing.md)
-        .lifeboardChromeSurface(
-            cornerRadius: LifeBoardTheme.CornerRadius.lg,
-            accentColor: Color.lifeboard(.accentSecondary),
-            level: .e1
-        )
+        .frame(width: 52, height: 52)
+        .shadow(color: LBColorTokens.elevationShadow.opacity(0.14), radius: 12, x: 0, y: 6)
+        .accessibilityHidden(true)
+    }
+
+    private func sectionCard(_ section: EvaChiefOfStaffGuideSection) -> some View {
+        let assistantStyle = LBColorTokens.role(.assistant)
+
+        return LBGlassCard(
+            cornerRadius: LBRadiusTokens.card,
+            borderColor: assistantStyle.border.opacity(0.76),
+            fill: reduceTransparency ? LBColorTokens.glassStrong : assistantStyle.softSurface.opacity(0.54),
+            shadow: LBShadowToken(color: LBColorTokens.elevationShadow, radius: 18, x: 0, y: 8),
+            usesMaterialBackground: !reduceTransparency
+        ) {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
+                HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.md) {
+                    sectionIconWell(section.icon, style: assistantStyle)
+
+                    VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
+                        Text(section.title)
+                            .font(LBTypographyTokens.cardTitle)
+                            .foregroundStyle(LBColorTokens.navy)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(section.body)
+                            .font(LBTypographyTokens.body)
+                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                FlowPromptChipsView(
+                    prompts: section.prompts,
+                    reduceMotion: reduceMotion,
+                    onSelectPrompt: { prompt in
+                        dismiss()
+                        onSelectPrompt(prompt)
+                    }
+                )
+            }
+            .padding(LifeBoardTheme.Spacing.md)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("eva.guide.section.\(section.id)")
+    }
+
+    private func sectionIconWell(_ icon: String, style: LBRoleStyle) -> some View {
+        Image(systemName: icon)
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(style.base)
+            .frame(width: 44, height: 44)
+            .background(style.softSurface.opacity(0.92), in: RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
+                    .stroke(style.border.opacity(0.86), lineWidth: 1)
+            }
+            .accessibilityHidden(true)
     }
 
 }
@@ -750,22 +903,30 @@ private struct FlowPromptChipsView: View {
                 Button {
                     onSelectPrompt(prompt)
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: prompt.style == .slashCommand ? "command" : "arrow.up.message")
-                            .font(.lifeboard(.caption2))
+                    HStack(spacing: LifeBoardTheme.Spacing.xs) {
+                        Image(systemName: promptIcon(for: prompt))
+                            .font(.system(size: 12, weight: .semibold))
+                            .frame(width: 20, height: 20)
                         Text(prompt.title)
-                            .font(.lifeboard(.caption1))
-                            .fontWeight(.semibold)
+                            .font(LBTypographyTokens.chip)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    .foregroundStyle(Color.lifeboard(.accentPrimary))
-                    .padding(.horizontal, LifeBoardTheme.Spacing.sm)
+                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .padding(.horizontal, LifeBoardTheme.Spacing.md)
                     .padding(.vertical, LifeBoardTheme.Spacing.xs)
+                    .frame(minHeight: 44)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.lifeboard(.accentWash))
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(Color.lifeboard(.accentMuted), lineWidth: 1))
+                    .background {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(.regularMaterial)
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(LBColorTokens.glassStrong.opacity(0.68))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(LBColorTokens.role(.assistant).border.opacity(0.82), lineWidth: 1)
+                    }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Send prompt: \(prompt.submissionText)")
@@ -773,6 +934,10 @@ private struct FlowPromptChipsView: View {
                 .lifeboardPressFeedback(reduceMotion: reduceMotion)
             }
         }
+    }
+
+    private func promptIcon(for prompt: EvaStarterPrompt) -> String {
+        prompt.style == .slashCommand ? "command" : "arrow.up.message"
     }
 }
 
@@ -874,6 +1039,7 @@ struct ChatComposerView: View {
                     .textFieldStyle(.plain)
                     .font(.lifeboard(.body))
                     .foregroundStyle(Color.lifeboard(.textPrimary))
+                    .tint(EvaChatSunriseGlass.primary)
                 #if os(iOS) || os(visionOS)
                     .padding(.horizontal, LifeBoardTheme.Spacing.md)
                 #elseif os(macOS)
@@ -900,11 +1066,11 @@ struct ChatComposerView: View {
         .padding(.vertical, LifeBoardTheme.Spacing.sm)
         .padding(.horizontal, 2)
         .lifeboardPremiumSurface(
-            cornerRadius: LifeBoardTheme.CornerRadius.xl,
-            fillColor: Color.lifeboard(.surfaceSecondary),
-            strokeColor: Color.lifeboard(.strokeHairline),
-            accentColor: Color.lifeboard(.accentSecondary),
-            level: .e2
+            cornerRadius: 28,
+            fillColor: EvaChatSunriseGlass.glassFill,
+            strokeColor: EvaChatSunriseGlass.glassBorder,
+            accentColor: EvaChatSunriseGlass.primary,
+            level: .e3
         )
         #elseif os(macOS)
         .background(
@@ -972,19 +1138,17 @@ struct ChatComposerView: View {
             }
         }
         .padding(.vertical, LifeBoardTheme.Spacing.xs)
-        .background(Color.lifeboard(.surfacePrimary))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(
-                    isPromptFocused ? Color.lifeboard(.accentRing) : Color.lifeboard(.strokeHairline),
-                    lineWidth: isPromptFocused ? 1.2 : 1
-                )
+        .lifeboardPremiumSurface(
+            cornerRadius: 28,
+            fillColor: EvaChatSunriseGlass.glassFill,
+            strokeColor: isPromptFocused ? EvaChatSunriseGlass.primary.opacity(0.42) : EvaChatSunriseGlass.glassBorder,
+            accentColor: EvaChatSunriseGlass.primary,
+            level: isPromptFocused ? .e3 : .e2
         )
         .shadow(
-            color: isPromptFocused ? Color.lifeboard(.accentPrimary).opacity(0.12) : Color.lifeboard(.textPrimary).opacity(0.04),
-            radius: isPromptFocused ? 8 : 4,
-            y: isPromptFocused ? 2 : 1
+            color: isPromptFocused ? EvaChatSunriseGlass.primary.opacity(0.14) : EvaChatSunriseGlass.navy.opacity(0.04),
+            radius: isPromptFocused ? 12 : 5,
+            y: isPromptFocused ? 4 : 2
         )
         .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isPromptFocused)
         .accessibilityIdentifier("eva.structured.composer")
@@ -1024,10 +1188,10 @@ struct ChatComposerView: View {
                                 Text(prompt.title)
                                     .font(.lifeboard(.caption1))
                             }
-                            .foregroundStyle(prompt.isRecommended ? Color.lifeboard(.accentOnPrimary) : Color.lifeboard(.accentPrimary))
+                            .foregroundStyle(prompt.isRecommended ? Color.lifeboard(.accentOnPrimary) : EvaChatSunriseGlass.primary)
                             .padding(.horizontal, LifeBoardTheme.Spacing.sm)
                             .padding(.vertical, LifeBoardTheme.Spacing.xs)
-                            .background(prompt.isRecommended ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.accentWash))
+                            .background(prompt.isRecommended ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.assistantSurface)
                             .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -1035,7 +1199,7 @@ struct ChatComposerView: View {
                         .accessibilityIdentifier("chat.activation.composer_starter.\(prompt.id)")
                         .overlay(
                             Capsule()
-                                .stroke(prompt.isRecommended ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.accentMuted), lineWidth: 1)
+                                .stroke(prompt.isRecommended ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.assistantBorder, lineWidth: 1)
                         )
                         .lifeboardPressFeedback(reduceMotion: reduceMotion)
                         .enhancedStaggeredAppearance(index: index)
@@ -1053,7 +1217,7 @@ struct ChatComposerView: View {
                         .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                         .padding(.horizontal, LifeBoardTheme.Spacing.sm)
                         .padding(.vertical, LifeBoardTheme.Spacing.xs)
-                        .background(Color.lifeboard(.accentPrimary))
+                        .background(EvaChatSunriseGlass.primary)
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -1061,7 +1225,7 @@ struct ChatComposerView: View {
                     .accessibilityIdentifier("chat.command_composer_starter.\(dayOverviewStarterPrompt.id)")
                     .overlay(
                         Capsule()
-                            .stroke(Color.lifeboard(.accentPrimary), lineWidth: 1)
+                            .stroke(EvaChatSunriseGlass.primary, lineWidth: 1)
                     )
                     .lifeboardPressFeedback(reduceMotion: reduceMotion)
 
@@ -1075,10 +1239,10 @@ struct ChatComposerView: View {
                                 Text(descriptor.command)
                                     .font(.lifeboard(.caption1))
                             }
-                            .foregroundStyle(Color.lifeboard(.accentPrimary))
+                            .foregroundStyle(EvaChatSunriseGlass.primary)
                             .padding(.horizontal, LifeBoardTheme.Spacing.sm)
                             .padding(.vertical, LifeBoardTheme.Spacing.xs)
-                            .background(Color.lifeboard(.accentWash))
+                            .background(EvaChatSunriseGlass.assistantSurface)
                             .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -1157,15 +1321,14 @@ struct ChatComposerView: View {
             Text("/")
                 .font(.lifeboard(.callout))
                 .fontWeight(.semibold)
-                .foregroundStyle(Color.lifeboard(.accentPrimary))
-                .frame(width: 32, height: 32)
-                .background(
-                    Circle()
-                        .fill(Color.lifeboard(.accentWash))
-                )
-                .overlay(
-                    Circle()
-                        .stroke(Color.lifeboard(.accentMuted), lineWidth: 1)
+                .foregroundStyle(EvaChatSunriseGlass.primary)
+                .frame(width: 40, height: 40)
+                .lifeboardPremiumSurface(
+                    cornerRadius: 20,
+                    fillColor: EvaChatSunriseGlass.assistantSurface,
+                    strokeColor: EvaChatSunriseGlass.assistantBorder,
+                    accentColor: EvaChatSunriseGlass.primary,
+                    level: .e1
                 )
         }
         .padding(.leading, LifeBoardTheme.Spacing.sm)
@@ -1182,11 +1345,12 @@ struct ChatComposerView: View {
             HStack(spacing: LifeBoardTheme.Spacing.xs) {
                 Label(invocation.id.canonicalCommand, systemImage: invocation.id.icon)
                     .font(.lifeboard(.caption1))
-                    .foregroundStyle(Color.lifeboard(.accentPrimary))
+                    .foregroundStyle(EvaChatSunriseGlass.primary)
                     .padding(.horizontal, LifeBoardTheme.Spacing.sm)
                     .padding(.vertical, LifeBoardTheme.Spacing.xs)
-                    .background(Color.lifeboard(.accentWash))
+                    .background(EvaChatSunriseGlass.assistantSurface)
                     .clipShape(Capsule())
+                    .overlay(Capsule().stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.74), lineWidth: 1))
                     .accessibilityIdentifier("chat.command_chip.\(invocation.id.rawValue)")
 
                 Button(action: onCancelDraft) {
@@ -1224,11 +1388,11 @@ struct ChatComposerView: View {
                 }
                 .padding(.horizontal, LifeBoardTheme.Spacing.sm)
                 .padding(.vertical, LifeBoardTheme.Spacing.sm)
-                .background(Color.lifeboard(.surfaceTertiary))
+                .background(EvaChatSunriseGlass.glassFill.opacity(0.78))
                 .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
-                        .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
+                        .stroke(EvaChatSunriseGlass.glassBorder, lineWidth: 1)
                 )
                 .padding(.horizontal, LifeBoardTheme.Spacing.sm)
             }
@@ -1249,7 +1413,7 @@ struct ChatComposerView: View {
             #endif
                 .background(
                     Circle()
-                        .fill(canSubmit ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.surfaceTertiary))
+                        .fill(canSubmit ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.glassFill.opacity(0.68))
                 )
         }
         .disabled(!canSubmit)
@@ -1318,11 +1482,11 @@ private struct ChatStorageDegradedBanner: View {
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.sm, style: .continuous)
-                .fill(Color.lifeboard(.statusWarning).opacity(0.12))
+                .fill(LBColorTokens.role(.warning).softSurface.opacity(0.72))
         )
         .overlay(
             RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.sm, style: .continuous)
-                .stroke(Color.lifeboard(.statusWarning).opacity(0.22), lineWidth: 1)
+                .stroke(LBColorTokens.role(.warning).border.opacity(0.76), lineWidth: 1)
         )
         .accessibilityLabel("Chat history is temporarily limited")
         .accessibilityHint("Storage fallback reason: \(reason)")
@@ -1410,7 +1574,10 @@ struct ChatScaffoldView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
+            EvaChatSunriseBackground()
+
+            VStack(spacing: 0) {
                 if transcriptSnapshot.threadID != nil {
                     ConversationView(
                         snapshot: transcriptSnapshot,
@@ -1473,12 +1640,10 @@ struct ChatScaffoldView: View {
                 .padding(.horizontal, LifeBoardTheme.Spacing.lg)
                 .padding(.bottom, LifeBoardTheme.Spacing.md)
                 .padding(.top, isActivationPresentation ? LifeBoardTheme.Spacing.xs : LifeBoardTheme.Spacing.sm)
-                .background(
-                    Color.lifeboard(.bgCanvas)
-                        .shadow(color: Color.lifeboard(.textPrimary).opacity(0.04), radius: 8, y: -4)
-                )
+                .background(.clear)
             }
-            .background(Color.lifeboard(.bgCanvas))
+        }
+            .background(EvaChatSunriseGlass.canvasMid)
                 .onAppear {
                     publishNavigationChromeState()
                 }
@@ -1512,7 +1677,7 @@ struct ChatScaffoldView: View {
                         #endif
                     }
                     #if os(iOS)
-                    .presentationBackground(Color.lifeboard(.bgElevated))
+                    .presentationBackground(EvaChatSunriseGlass.canvasMid)
                     .presentationCornerRadius(LifeBoardTheme.CornerRadius.xl)
                     .presentationDragIndicator(.visible)
                     .presentationDetents(layoutClass == .phone ? [.large] : [.large])
@@ -1534,7 +1699,7 @@ struct ChatScaffoldView: View {
                         allCommands: allCommands,
                         onSelect: onSelectSuggestion
                     )
-                    .presentationBackground(Color.lifeboard(.bgElevated))
+                    .presentationBackground(EvaChatSunriseGlass.canvasMid)
                     .presentationDragIndicator(.visible)
                     .presentationDetents(layoutClass == .phone ? [.medium, .large] : [.large])
                 }
@@ -1543,7 +1708,7 @@ struct ChatScaffoldView: View {
                         onSelectStarterPrompt(prompt)
                     }
                     #if os(iOS)
-                    .presentationBackground(Color.lifeboard(.bgElevated))
+                    .presentationBackground(EvaChatSunriseGlass.canvasMid)
                     .presentationCornerRadius(LifeBoardTheme.CornerRadius.xl)
                     .presentationDragIndicator(.visible)
                     .presentationDetents([.large])
