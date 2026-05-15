@@ -142,7 +142,7 @@ struct SunriseScheduleScreen: View {
                             .id(selectedDayKey)
                             .transition(daySwipeTransition)
                             .animation(daySwipeAnimation, value: selectedDayKey)
-                            .padding(.top, -contentOverlap)
+                            .padding(.top, contentTopGap)
                             .padding(.bottom, bottomInset + LBSpacingTokens.bottomDockClearance)
                     }
                     .contentShape(Rectangle())
@@ -301,8 +301,6 @@ struct SunriseScheduleScreen: View {
                     isModal: presentationMode == .modal,
                     safeAreaTop: safeAreaTop,
                     onClose: dismiss.callAsFunction,
-                    onPreviousDay: { commitScheduleDaySwipe(.previous) },
-                    onNextDay: { commitScheduleDaySwipe(.next) },
                     onOpenFilters: handleCalendarFilterTap
                 )
                 .frame(height: headerHeight, alignment: .top)
@@ -321,11 +319,12 @@ struct SunriseScheduleScreen: View {
             }
         }
         .padding(5)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .background(LBColorTokens.glass.opacity(0.56), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(LBColorTokens.glassBorder, lineWidth: 1)
+        .background {
+            clearRoundedRectangleSurface(
+                cornerRadius: 22,
+                fill: LBColorTokens.glass.opacity(0.56),
+                stroke: LBColorTokens.glassBorder
+            )
         }
         .accessibilityIdentifier("schedule.segmented")
     }
@@ -353,18 +352,36 @@ struct SunriseScheduleScreen: View {
             .frame(maxWidth: .infinity, minHeight: 44)
             .background {
                 if isSelected {
-                    LinearGradient(
-                        colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+                    clearRoundedRectangleSurface(
+                        cornerRadius: 18,
+                        fill: LBColorTokens.violetFill.opacity(0.58),
+                        stroke: LBColorTokens.violet.opacity(0.36)
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
             }
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("schedule.segment.\(tab.rawValue)")
         .accessibilityValue(isSelected ? String(localized: "selected") : String(localized: "unselected"))
+    }
+
+    @ViewBuilder
+    private func clearRoundedRectangleSurface(cornerRadius: CGFloat, fill: Color, stroke: Color) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        if #available(iOS 26.0, *) {
+            shape
+                .fill(.clear)
+                .glassEffect(.clear, in: shape)
+                .overlay { shape.fill(fill) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
+                .overlay { shape.stroke(stroke, lineWidth: 1) }
+        } else {
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay { shape.fill(fill) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
+                .overlay { shape.stroke(stroke, lineWidth: 1) }
+        }
     }
 
     @ViewBuilder
@@ -780,8 +797,8 @@ struct SunriseScheduleScreen: View {
         dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.compactHeaderAccessibilityHeight : LBSpacingTokens.compactHeaderHeight
     }
 
-    private var contentOverlap: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 16 : 30
+    private var contentTopGap: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.md : LBSpacingTokens.sm
     }
 
     private var selectedDayKey: Int {
@@ -1067,8 +1084,6 @@ private struct SunriseScheduleHeaderChrome: View {
     let isModal: Bool
     let safeAreaTop: CGFloat
     let onClose: () -> Void
-    let onPreviousDay: () -> Void
-    let onNextDay: () -> Void
     let onOpenFilters: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -1080,9 +1095,6 @@ private struct SunriseScheduleHeaderChrome: View {
 
             titleGroup
                 .padding(.top, dynamicTypeSize.isAccessibilitySize ? safeHeaderTop + 64 : safeHeaderTop + 48)
-
-            navigatorRow
-                .padding(.top, dynamicTypeSize.isAccessibilitySize ? safeHeaderTop + 170 : safeHeaderTop + 132)
         }
     }
 
@@ -1148,26 +1160,6 @@ private struct SunriseScheduleHeaderChrome: View {
         }
         .padding(.horizontal, LBSpacingTokens.screenMargin * 2)
         .frame(maxWidth: .infinity)
-    }
-
-    private var navigatorRow: some View {
-        HStack(spacing: LBSpacingTokens.xs) {
-            headerCircleButton(systemName: "chevron.left", accessibilityLabel: "Previous day", action: onPreviousDay)
-            HStack(spacing: LBSpacingTokens.sm) {
-                Image(systemName: "calendar")
-                Text(LBHeaderTimeContext.navigatorTitle(selectedDate: selectedDate))
-            }
-            .font(LBTypographyTokens.chip)
-            .foregroundStyle(context.foregroundStyle.controlColor)
-            .frame(minHeight: 44)
-            .padding(.horizontal, LBSpacingTokens.md)
-            .background {
-                clearCapsuleSurface(fill: context.foregroundStyle.glassFill, stroke: context.foregroundStyle.glassStroke)
-            }
-            headerCircleButton(systemName: "chevron.right", accessibilityLabel: "Next day", action: onNextDay)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, LBSpacingTokens.screenMargin)
     }
 
     private func headerCircleButton(systemName: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {

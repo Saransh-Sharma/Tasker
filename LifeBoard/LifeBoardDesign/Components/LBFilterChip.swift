@@ -81,5 +81,6 @@ struct LBFilterChip: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(model.accessibilityID ?? "home.sunrise.filter.\(model.id)")
         .accessibilityLabel(model.title)
+        .accessibilityAddTraits(model.isSelected ? .isSelected : [])
     }
 }

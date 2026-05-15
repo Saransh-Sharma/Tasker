@@ -21,6 +21,7 @@ struct LBTimelineCard: View {
         let role: LBRole
         let kind: Kind
         let systemImage: String
+        let tintHex: String?
         let accessoryText: String?
         let temporalState: LBTimelineTemporalState
         let isCompleted: Bool
@@ -56,6 +57,7 @@ struct LBTimelineCard: View {
                             .foregroundStyle(metaColor)
                             .lineLimit(2)
                     }
+                    .layoutPriority(1)
                     Spacer(minLength: LBSpacingTokens.xs)
                     if let accessoryText = model.accessoryText {
                         Text(accessoryText)
@@ -88,18 +90,19 @@ struct LBTimelineCard: View {
     @ViewBuilder
     private func leadingControl(style: LBRoleStyle) -> some View {
         if model.kind == .task {
+            let accentColor = taskAccentColor(fallback: style.base)
             Button(action: { onToggleComplete?() }) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(model.isCompleted ? style.base : LBColorTokens.glassStrong.opacity(model.temporalState == .past ? 0.58 : 0.94))
+                        .fill(model.isCompleted ? accentColor : LBColorTokens.glassStrong.opacity(model.temporalState == .past ? 0.58 : 0.94))
                         .frame(width: 34, height: 34)
                         .overlay {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(model.isCompleted ? style.base : style.base.opacity(model.temporalState == .past ? 0.42 : 0.85), lineWidth: 2)
+                                .stroke(model.isCompleted ? accentColor : accentColor.opacity(model.temporalState == .past ? 0.42 : 0.85), lineWidth: 2)
                         }
                     Image(systemName: model.isCompleted ? "checkmark" : "checkmark")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(model.isCompleted ? Color.white : style.base.opacity(0.0))
+                        .foregroundStyle(model.isCompleted ? Color.white : accentColor.opacity(0.0))
                 }
             }
             .buttonStyle(.plain)
@@ -144,11 +147,26 @@ struct LBTimelineCard: View {
         case .task:
             baseOpacity = model.isCompleted ? 0.36 : 0.68
         }
+        if model.kind == .task, hasTaskTint {
+            let tintOpacity = model.isCompleted ? 0.12 : 0.18
+            return taskAccentColor(fallback: style.base).opacity(model.temporalState == .past ? tintOpacity * 0.58 : tintOpacity)
+        }
         return style.softSurface.opacity(model.temporalState == .past ? baseOpacity * 0.58 : baseOpacity)
     }
 
     private func borderColor(_ style: LBRoleStyle) -> Color {
-        model.temporalState == .past ? style.border.opacity(0.48) : style.border
+        if model.kind == .task, hasTaskTint {
+            return taskAccentColor(fallback: style.border).opacity(model.temporalState == .past ? 0.20 : 0.38)
+        }
+        return model.temporalState == .past ? style.border.opacity(0.48) : style.border
+    }
+
+    private var hasTaskTint: Bool {
+        model.kind == .task && LifeBoardHexColor.normalized(model.tintHex) != nil
+    }
+
+    private func taskAccentColor(fallback: Color) -> Color {
+        LifeBoardHexColor.color(model.tintHex, fallback: fallback)
     }
 
     private func accessoryColor(_ style: LBRoleStyle) -> Color {

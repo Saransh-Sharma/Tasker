@@ -3,6 +3,7 @@ import SwiftUI
 struct LBTimelineItem<Content: View>: View {
     let timeText: String
     let role: LBRole
+    var tintHex: String?
     var temporalState: LBTimelineTemporalState = .future
     @ViewBuilder let content: Content
 
@@ -17,7 +18,7 @@ struct LBTimelineItem<Content: View>: View {
                 .frame(width: LBSpacingTokens.timelineTimeColumnWidth, alignment: .trailing)
                 .padding(.top, LBSpacingTokens.sm)
 
-            LBTimelineSpine(role: role, temporalState: temporalState)
+            LBTimelineSpine(role: role, tintHex: tintHex, temporalState: temporalState)
                 .frame(width: LBSpacingTokens.timelineRailWidth)
 
             content
