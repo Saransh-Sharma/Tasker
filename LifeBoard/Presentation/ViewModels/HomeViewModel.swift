@@ -119,7 +119,7 @@ public enum HomeReloadScope: String, CaseIterable, Hashable, Sendable {
     case habits
     case facets
     case analytics
-    case charts
+    case insightss
     case savedViews
 }
 
@@ -6719,8 +6719,8 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         )
     }
 
-    /// Executes requestChartRefresh.
-    public func requestChartRefresh(reason: HomeTaskMutationEvent, taskID: UUID? = nil) {
+    /// Executes requestInsightsRefresh.
+    public func requestInsightsRefresh(reason: HomeTaskMutationEvent, taskID: UUID? = nil) {
         let userInfo = HomeTaskMutationPayload(
             reason: reason,
             source: Self.mutationNotificationSource,
@@ -8223,23 +8223,20 @@ extension HomeViewModel {
             wakeAnchor: wakeAnchor,
             sleepAnchor: sleepAnchor
         )
-        let allOperationalGaps = timelineOperationalGaps(
+        let gaps = timelineOperationalGaps(
             between: timedBuckets.operationalItems,
             wakeAnchor: wakeAnchor,
             sleepAnchor: sleepAnchor,
             inboxCount: inboxItems.count
         )
-        let gaps = timelineGaps(
-            between: timedBuckets.operationalItems,
-            wakeAnchor: wakeAnchor,
-            sleepAnchor: sleepAnchor,
-            inboxCount: inboxItems.count,
+        let actionableGaps = timelineActionableGaps(
+            from: gaps,
             selectedDate: selectedDay,
             now: now
         )
         let layoutMode = timelineDayLayoutMode(
             timedItems: timedBuckets.operationalItems,
-            gaps: allOperationalGaps,
+            gaps: gaps,
             wakeAnchor: wakeAnchor,
             sleepAnchor: sleepAnchor
         )
@@ -8258,7 +8255,7 @@ extension HomeViewModel {
                 beforeWakeSummaryItems: timedBuckets.beforeWakeItems,
                 afterSleepSummaryItems: timedBuckets.afterSleepItems,
                 bridgeItems: timedBuckets.bridgeItems,
-                actionableGaps: gaps,
+                actionableGaps: actionableGaps,
                 layoutMode: layoutMode,
                 calendarPlottingEnabled: showCalendarEventsInTimeline,
                 wakeAnchor: wakeAnchor,
@@ -8697,23 +8694,81 @@ extension HomeViewModel {
             inboxCount: inboxCount
         )
 
+        return timelineActionableGaps(
+            from: gaps,
+            selectedDate: selectedDate,
+            now: now,
+            actionableHorizon: actionableHorizon,
+            calendar: calendar
+        )
+    }
+
+    func timelineActionableGaps(
+        from gaps: [TimelineGap],
+        selectedDate: Date,
+        now: Date,
+        actionableHorizon: TimeInterval = 4 * 60 * 60,
+        minimumFutureDuration: TimeInterval = 45 * 60,
+        minimumQuietDuration: TimeInterval = 90 * 60,
+        minimumPromptSpacing: TimeInterval = 90 * 60,
+        calendar: Calendar = .current
+    ) -> [TimelineGap] {
         let selectedDay = calendar.startOfDay(for: selectedDate)
         let today = calendar.startOfDay(for: now)
         if selectedDay < today {
             return []
         }
+
+        func spaced(_ candidates: [TimelineGap], limit: Int) -> [TimelineGap] {
+            var selected: [TimelineGap] = []
+            for gap in candidates.sorted(by: { $0.startDate < $1.startDate }) {
+                guard selected.count < limit else { break }
+                guard selected.allSatisfy({ abs(gap.startDate.timeIntervalSince($0.startDate)) >= minimumPromptSpacing }) else {
+                    continue
+                }
+                selected.append(gap)
+            }
+            return selected
+        }
+
+        func preferredFutureCandidates(from source: [TimelineGap]) -> [TimelineGap] {
+            let nonQuiet = source.filter { $0.emphasis != .quietWindow && $0.duration >= minimumFutureDuration }
+            if nonQuiet.isEmpty == false {
+                return nonQuiet
+            }
+            return source.filter { $0.emphasis == .quietWindow && $0.duration >= minimumQuietDuration }
+        }
+
         if selectedDay > today {
-            return gaps
+            return spaced(preferredFutureCandidates(from: gaps), limit: 2)
         }
 
         let horizonEnd = now.addingTimeInterval(actionableHorizon)
-        return gaps.filter { gap in
-            guard gap.endDate > now else { return false }
-            if gap.startDate <= now && now < gap.endDate {
-                return true
-            }
-            return gap.startDate <= horizonEnd
+        let activeGap = gaps.first { gap in
+            gap.startDate <= now
+                && now < gap.endDate
+                && gap.endDate.timeIntervalSince(now) >= 20 * 60
         }
+        let upcoming = preferredFutureCandidates(
+            from: gaps.filter { gap in
+                gap.startDate > now && gap.startDate <= horizonEnd
+            }
+        )
+
+        var selected = activeGap.map { [$0] } ?? []
+        for gap in upcoming.sorted(by: { $0.startDate < $1.startDate }) {
+            guard selected.count < (activeGap == nil ? 2 : 2) else { break }
+            guard activeGap == nil || selected.count < 2 else { break }
+            guard selected.allSatisfy({ abs(gap.startDate.timeIntervalSince($0.startDate)) >= minimumPromptSpacing }) else {
+                continue
+            }
+            selected.append(gap)
+            if activeGap != nil || selected.count >= 1 {
+                break
+            }
+        }
+
+        return selected
     }
 
     func timelineOperationalGaps(
