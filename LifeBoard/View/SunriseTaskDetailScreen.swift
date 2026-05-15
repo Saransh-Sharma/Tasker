@@ -853,7 +853,7 @@ struct SunriseTaskDetailScreen: View {
 
     private func expand(_ section: SunriseTaskDetailSection) {
         withAnimation(LifeBoardAnimation.snappy) {
-            expandedSections.insert(section)
+            _ = expandedSections.insert(section)
         }
     }
 

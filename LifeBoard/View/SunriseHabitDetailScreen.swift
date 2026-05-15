@@ -404,21 +404,21 @@ struct SunriseHabitDetailScreen: View {
         disclosureCard(.lifecycle, title: "Lifecycle", systemImage: "arrow.triangle.branch", summary: "Pause, recover, or archive without losing history.", accessibilityIdentifier: nil) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 Button(viewModel.row.isPaused ? "Resume habit" : "Pause habit", systemImage: viewModel.row.isPaused ? "play.fill" : "pause.fill") {
-                    viewModel.togglePause { notifyMutation() }
+                    viewModel.togglePause { Task { @MainActor in notifyMutation() } }
                 }
                 .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .quiet))
                 .disabled(viewModel.isSaving)
 
                 if viewModel.row.trackingMode == .lapseOnly && !viewModel.row.isArchived {
                     Button("Log lapse", systemImage: "arrow.uturn.backward.circle") {
-                        viewModel.logLapse { notifyMutation() }
+                        viewModel.logLapse { Task { @MainActor in notifyMutation() } }
                     }
                     .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .warning))
                     .disabled(viewModel.isSaving)
                 }
 
                 Button(String(localized: "Archive", defaultValue: "Archive") + " habit", systemImage: "archivebox.fill") {
-                    viewModel.archive { notifyMutation() }
+                    viewModel.archive { Task { @MainActor in notifyMutation() } }
                 }
                 .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .danger))
                 .disabled(viewModel.isSaving || viewModel.row.isArchived)

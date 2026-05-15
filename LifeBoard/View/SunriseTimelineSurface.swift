@@ -2028,7 +2028,7 @@ struct TimelineCanvasLayoutPlan: Equatable {
             maxVisualColumns: maxVisualColumns
         )
 
-        let positionedGaps: [PositionedGap] = projection.gaps.compactMap { gap -> PositionedGap? in
+        let positionedGaps: [PositionedGap] = projection.actionableGaps.compactMap { gap -> PositionedGap? in
             let startMinute = Self.minuteOffset(for: gap.startDate, start: start, calendar: calendar)
             let endMinute = Self.minuteOffset(for: gap.endDate, start: start, calendar: calendar)
             let gapHeight = max((endMinute - startMinute) * pointsPerMinute, 0)
@@ -3389,6 +3389,18 @@ private struct TimelineBottomProtectionBudget: Equatable {
 
 private func timelineDisplayedNow(for projection: TimelineDayProjection, timelineDate: Date) -> Date {
     Calendar.current.isDate(projection.date, inSameDayAs: timelineDate) ? timelineDate : projection.currentTime
+}
+
+private func timelineSuggestedAddDate(for gap: TimelineGap, now: Date, calendar: Calendar = .current) -> Date {
+    guard gap.startDate <= now, now < gap.endDate else {
+        return gap.startDate
+    }
+
+    let quarterHour: TimeInterval = 15 * 60
+    let roundedInterval = ceil(now.timeIntervalSinceReferenceDate / quarterHour) * quarterHour
+    let roundedDate = Date(timeIntervalSinceReferenceDate: roundedInterval)
+    let latestInsideGap = gap.endDate.addingTimeInterval(-60)
+    return min(max(roundedDate, gap.startDate), latestInsideGap)
 }
 
 private func timelineMetaText(for row: TimelineRenderableRow, item: TimelinePlanItem? = nil, anchor: TimelineAnchorItem? = nil) -> String {
@@ -5954,10 +5966,12 @@ struct DailyTimelineCanvas: View {
             .offset(x: contentX, y: positioned.y)
             .zIndex(3)
         case .gapPrompt(let model):
+            let suggestedDate = timelineSuggestedAddDate(for: model.gap, now: presentation.now)
             TimelineGapPrompt(
                 gap: model.gap,
                 row: presentation.row(for: model.gap),
-                onAddTask: { onAddTask(model.gap.startDate) },
+                suggestedDate: suggestedDate,
+                onAddTask: { onAddTask(suggestedDate) },
                 onPlanBlock: onScheduleInbox
             )
             .frame(width: contentWidth, height: positioned.height, alignment: .leading)
@@ -6414,11 +6428,12 @@ private struct DailyTimelineCompactView: View {
             )
             .frame(minHeight: item.rowHeight, alignment: .center)
         case .gap(let gap):
+            let suggestedDate = timelineSuggestedAddDate(for: gap.gap, now: presentation.now)
             TimelineCompactGapRow(
                 gap: gap.gap,
                 row: presentation.row(for: gap.gap),
                 layoutClass: layoutClass,
-                onAddTask: { onAddTask(gap.gap.startDate) },
+                onAddTask: { onAddTask(suggestedDate) },
                 onScheduleInbox: onScheduleInbox
             )
             .frame(minHeight: gap.rowHeight, alignment: .center)
@@ -6768,10 +6783,12 @@ private struct DailyTimelineAgendaView: View {
                         )
                             .environment(\.lifeboardLayoutClass, layoutClass)
                     case .gap(let gap):
+                        let suggestedDate = timelineSuggestedAddDate(for: gap, now: presentation.now)
                         TimelineGapPrompt(
                             gap: gap,
                             row: presentation.row(for: gap),
-                            onAddTask: { onAddTask(gap.startDate) },
+                            suggestedDate: suggestedDate,
+                            onAddTask: { onAddTask(suggestedDate) },
                             onPlanBlock: onScheduleInbox
                         )
                             .environment(\.lifeboardLayoutClass, layoutClass)
@@ -7136,6 +7153,7 @@ private struct TimelineCompletionRing: View {
 private struct TimelineGapPrompt: View {
     let gap: TimelineGap
     let row: TimelineRenderableRow
+    let suggestedDate: Date
     let onAddTask: () -> Void
     let onPlanBlock: () -> Void
     @Environment(\.lifeboardLayoutClass) private var layoutClass
@@ -7154,19 +7172,22 @@ private struct TimelineGapPrompt: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Button(action: onAddTask) {
-                Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.lifeboard.accentPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(Color.lifeboard.accentWash.opacity(0.68), in: Circle())
-                    .contentShape(Circle())
-                    .accessibilityHidden(true)
-            }
+            Button("Add task", systemImage: "plus", action: onAddTask)
             .buttonStyle(.plain)
-            .frame(width: 44, height: 44)
-            .accessibilityLabel("Create task")
-            .accessibilityHint("Creates a task at the start of this open time.")
+            .font(.lifeboard(.caption1).weight(.semibold))
+            .foregroundStyle(Color.lifeboard.textSecondary)
+            .labelStyle(.titleAndIcon)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .frame(minWidth: 44, minHeight: 44)
+            .background(Color.lifeboard.surfaceSecondary.opacity(0.58), in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.56), lineWidth: 1)
+            }
+            .contentShape(Capsule())
+            .accessibilityLabel("Add task at \(suggestedDate.formatted(date: .omitted, time: .shortened))")
+            .accessibilityHint("Opens Add Task with this timeline time.")
             .accessibilityIdentifier("home.timeline.gap.createTask")
 
             Menu {

@@ -1691,9 +1691,9 @@ struct HomeDaySwipeResolver {
         startLocation: CGPoint,
         translation: CGSize,
         containerSize: CGSize
-    ) -> HomeDayLiquidSwipeSide? {
+    ) -> SunriseDaySwipeSide? {
         guard isLiquidActivationCandidate(translation: translation) else { return nil }
-        guard let side = HomeDayLiquidSwipeData.side(
+        guard let side = SunriseDaySwipeData.side(
             forStartLocation: startLocation,
             containerSize: containerSize
         ) else {
@@ -1708,8 +1708,8 @@ struct HomeDaySwipeResolver {
         translation: CGSize,
         velocity: CGPoint,
         containerSize: CGSize
-    ) -> HomeDayLiquidSwipeSide? {
-        guard let side = HomeDayLiquidSwipeData.side(
+    ) -> SunriseDaySwipeSide? {
+        guard let side = SunriseDaySwipeData.side(
             forStartLocation: startLocation,
             containerSize: containerSize
         ) else {
@@ -2325,12 +2325,15 @@ private struct HomeHabitSectionCardHost: View, Equatable {
     let onRowAction: (HomeHabitRow) -> Void
     let onLastCellAction: (HomeHabitRow) -> Void
     let onOpenHabit: (HomeHabitRow) -> Void
+    let showsAddHabitCTA: Bool
+    let onAddHabit: (() -> Void)?
 
     nonisolated static func == (lhs: HomeHabitSectionCardHost, rhs: HomeHabitSectionCardHost) -> Bool {
         lhs.title == rhs.title
             && lhs.summaryLine == rhs.summaryLine
             && lhs.rows == rhs.rows
             && lhs.accessibilityIdentifier == rhs.accessibilityIdentifier
+            && lhs.showsAddHabitCTA == rhs.showsAddHabitCTA
     }
 
     var body: some View {
@@ -2344,7 +2347,8 @@ private struct HomeHabitSectionCardHost: View, Equatable {
             onSecondaryAction: onSecondaryAction,
             onRowAction: onRowAction,
             onLastCellAction: onLastCellAction,
-            onOpenHabit: onOpenHabit
+            onOpenHabit: onOpenHabit,
+            onAddHabit: onAddHabit
         )
         .accessibilityIdentifier(accessibilityIdentifier)
     }
@@ -3158,8 +3162,6 @@ struct SunriseAppShellView: View {
     @ObservedObject var overlayStore: HomeOverlayStore
     @ObservedObject var faceCoordinator: HomeFaceCoordinator
     @ObservedObject var searchState: HomeSearchState
-    let chartCardViewModel: ChartCardViewModel
-    let radarChartCardViewModel: RadarChartCardViewModel
     let layoutClass: LifeBoardLayoutClass
     let forcedFace: Binding<HomeSunriseFace>?
     @ObservedObject private var themeManager = LifeBoardThemeManager.shared
@@ -3235,6 +3237,8 @@ struct SunriseAppShellView: View {
     @State private var showHabitBoardPresented = false
     @State private var showHabitLibraryPresented = false
     @State private var selectedHomeHabitRow: HabitLibraryRow?
+    @State private var showHomeAddHabitPresented = false
+    @StateObject private var homeHabitComposerViewModel = PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
     @State private var hasPresentedUITestHabitBoard = false
     @State private var isSchedulingUITestHabitBoardPresentation = false
     @State private var passiveTrackingRailViewportWidth: CGFloat = 0
@@ -3249,14 +3253,14 @@ struct SunriseAppShellView: View {
     @State private var measuredNeedsReplanTrayHeight: CGFloat = 0
     @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
     @State private var isDaySwipeTracingActive = false
-    @State private var leadingDayLiquidSwipeData = HomeDayLiquidSwipeData(side: .leading)
-    @State private var trailingDayLiquidSwipeData = HomeDayLiquidSwipeData(side: .trailing)
-    @State private var topDayLiquidSwipeSide: HomeDayLiquidSwipeSide = .trailing
-    @State private var activeDayLiquidSwipeSide: HomeDayLiquidSwipeSide?
-    @State private var isDayLiquidSwipeChromeVisible = true
+    @State private var leadingDaySunriseSwipeData = SunriseDaySwipeData(side: .leading)
+    @State private var trailingDaySunriseSwipeData = SunriseDaySwipeData(side: .trailing)
+    @State private var topDaySunriseSwipeSide: SunriseDaySwipeSide = .trailing
+    @State private var activeDaySunriseSwipeSide: SunriseDaySwipeSide?
+    @State private var isDaySunriseSwipeChromeVisible = true
     @State private var timelineScrollChromeStateTracker = HomeScrollChromeStateTracker()
     @StateObject private var timelineViewModel = HomeTimelineViewModel()
-    private static let dayLiquidSwipeCoordinateSpaceName = "home.dayLiquidSwipe"
+    private static let daySunriseSwipeCoordinateSpaceName = "home.daySunriseSwipe"
     private static let sunriseHintLaunchDelay: TimeInterval = 0.10
     private static let sunriseHintPeekDistance: CGFloat = 24
     private static let sunriseHintPeekDuration: TimeInterval = 0.10
@@ -3355,7 +3359,7 @@ struct SunriseAppShellView: View {
         return true
     }
     private var isDaySwipeInteractionEnabled: Bool {
-        isDaySwipeGestureEnabled && isDayLiquidSwipeChromeVisible
+        isDaySwipeGestureEnabled && isDaySunriseSwipeChromeVisible
     }
     private var daySwipeAnimation: Animation {
         if reduceMotion || isUITesting {
@@ -3395,12 +3399,12 @@ struct SunriseAppShellView: View {
         }
         return false
     }
-    private var dayLiquidSwipeRestingCenterY: CGFloat {
+    private var daySunriseSwipeRestingCenterY: CGFloat {
         guard isScheduleFaceVisible == false else {
-            return HomeDayLiquidSwipeData.timelineHandleCenterY
+            return SunriseDaySwipeData.timelineHandleCenterY
         }
-        return HomeDayLiquidSwipeRestingPosition.centerY(
-            defaultCenterY: HomeDayLiquidSwipeData.timelineHandleCenterY,
+        return SunriseDaySwipeRestingPosition.centerY(
+            defaultCenterY: SunriseDaySwipeData.timelineHandleCenterY,
             showsQuietTrackingRail: habitsSnapshot.quietTrackingSummaryState.isVisible,
             measuredQuietTrackingRailHeight: measuredPassiveTrackingRailHeight,
             quietTrackingRailFallbackHeight: passiveTrackingRailFallbackHeight,
@@ -3409,7 +3413,7 @@ struct SunriseAppShellView: View {
             needsReplanTrayFallbackHeight: needsReplanTrayFallbackHeight,
             topPadding: spacing.s8,
             interModuleSpacing: spacing.s12,
-            buttonRadius: HomeDayLiquidSwipeData.buttonRadius,
+            buttonRadius: SunriseDaySwipeData.buttonRadius,
             clearance: spacing.s4
         )
     }
@@ -3656,17 +3660,17 @@ struct SunriseAppShellView: View {
         .onPreferenceChange(TimelineHeaderHeightPreferenceKey.self) { measuredTimelineHeaderHeight = $0 }
         .onPreferenceChange(TimelineCalendarCardHeightPreferenceKey.self) { measuredCalendarCardHeight = $0 }
         .onPreferenceChange(TimelineBackdropWeekHeightPreferenceKey.self) { measuredWeekBackdropHeight = $0 }
-        .onChange(of: dayLiquidSwipeRestingCenterY) { _, newValue in
-            resetIdleDayLiquidSwipeHandles(restingCenterY: newValue)
+        .onChange(of: daySunriseSwipeRestingCenterY) { _, newValue in
+            resetIdleDaySunriseSwipeHandles(restingCenterY: newValue)
         }
         .onChange(of: isTodayTimelineVisible) { _, isVisible in
             guard isVisible else { return }
-            resetDayLiquidSwipeChromeVisibility()
+            resetDaySunriseSwipeChromeVisibility()
         }
         .onChange(of: isScheduleFaceVisible) { _, isVisible in
             guard isVisible else { return }
-            resetDayLiquidSwipeChromeVisibility()
-            resetIdleDayLiquidSwipeHandles(restingCenterY: dayLiquidSwipeRestingCenterY)
+            resetDaySunriseSwipeChromeVisibility()
+            resetIdleDaySunriseSwipeHandles(restingCenterY: daySunriseSwipeRestingCenterY)
         }
         .onChange(of: habitRenderSignature) { _, _ in
             HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
@@ -3744,7 +3748,7 @@ struct SunriseAppShellView: View {
             }
         }
         .sheet(isPresented: $showAdvancedFilters) {
-            HomeAdvancedFilterSheetView(
+            SunriseAdvancedFilterSheetView(
                 initialFilter: viewModel.activeFilterState.advancedFilter,
                 initialShowCompletedInline: viewModel.activeFilterState.showCompletedInline,
                 savedViews: chromeSnapshot.savedHomeViews,
@@ -3871,21 +3875,12 @@ struct SunriseAppShellView: View {
             get: { overlaySnapshot.triagePresented },
             set: { viewModel.setEvaTriagePresented($0) }
         )) {
-            EvaTriageSprintSheetV2(
+            SunriseEvaTriageSprintSheet(
                 queue: overlaySnapshot.triageQueue,
                 projectsByID: tasksSnapshot.projectsByID,
-                activeScope: overlaySnapshot.triageScope,
-                isLoadingScope: overlaySnapshot.triageQueueLoading,
-                queueErrorMessage: overlaySnapshot.triageQueueErrorMessage,
-                lastBatchRunID: overlaySnapshot.lastBatchRunID,
-                onScopeChange: { scope, completion in
+                onApplySuggestion: { item, completion in
                     Task { @MainActor in
-                        viewModel.refreshTriageQueue(scope: scope, completion: completion)
-                    }
-                },
-                onApplyDecision: { item, decision, completion in
-                    Task { @MainActor in
-                        viewModel.applyTriageDecision(for: item, decision: decision, completion: completion)
+                        viewModel.applyTriageSuggestion(for: item, completion: completion)
                     }
                 },
                 onApplyAll: { completion in
@@ -3893,33 +3888,26 @@ struct SunriseAppShellView: View {
                         viewModel.applyAllTriageSuggestions(completion: completion)
                     }
                 },
-                onUndoBulkApply: { completion in
-                    Task { @MainActor in
-                        viewModel.undoEvaBatchPlan(completion: completion)
-                    }
-                },
                 onSkip: { taskID in
                     Task { @MainActor in
                         viewModel.removeTriageQueueItem(taskID: taskID)
                     }
                 },
-                onDelete: { taskID, completion in
+                onDelete: { taskID in
                     Task { @MainActor in
                         viewModel.deleteTask(taskID: taskID, scope: .single) { result in
                             Task { @MainActor in
-                                switch result {
-                                case .success:
+                                if case .success = result {
                                     viewModel.removeTriageQueueItem(taskID: taskID)
-                                    completion(.success(()))
-                                case .failure(let error):
-                                    completion(.failure(error))
                                 }
                             }
                         }
                     }
                 },
-                onTrack: { action, metadata in
-                    viewModel.trackHomeInteraction(action: action, metadata: metadata)
+                onEdit: { taskID in
+                    if let task = overlaySnapshot.triageQueue.first(where: { $0.task.id == taskID })?.task {
+                        onTaskTap(task)
+                    }
                 }
             )
         }
@@ -4100,6 +4088,18 @@ struct SunriseAppShellView: View {
             .sheet(isPresented: $showHabitLibraryPresented) {
                 SunriseHabitLibraryView(
                     viewModel: PresentationDependencyContainer.shared.makeNewHabitLibraryViewModel()
+                )
+            }
+            .sheet(isPresented: $showHomeAddHabitPresented) {
+                SunriseAddHabitSheetView(
+                    viewModel: homeHabitComposerViewModel,
+                    onHabitCreated: { _ in
+                        showHomeAddHabitPresented = false
+                        viewModel.refreshCurrentScopeContent(source: "home_add_habit_created")
+                    },
+                    onDismissWithoutHabit: {
+                        showHomeAddHabitPresented = false
+                    }
                 )
             }
             .sheet(item: $selectedHomeHabitRow) { row in
@@ -4472,7 +4472,7 @@ struct SunriseAppShellView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .coordinateSpace(name: Self.dayLiquidSwipeCoordinateSpaceName)
+        .coordinateSpace(name: Self.daySunriseSwipeCoordinateSpaceName)
     }
 
     private func sunriseAnalyticsFace() -> some View {
@@ -4815,7 +4815,7 @@ struct SunriseAppShellView: View {
                     habits: habitsSnapshot
                 )
 
-                HomeCompactHeaderView(
+                SunriseCompactHeaderChrome(
                     presentation: headerPresentation,
                     selectedQuickView: chromeSnapshot.activeScope.quickView,
                     taskCounts: chromeSnapshot.quickViewCounts,
@@ -5034,88 +5034,88 @@ struct SunriseAppShellView: View {
         isDaySwipeTracingActive = false
     }
 
-    private var dayLiquidSwipeContainerSize: CGSize {
+    private var daySunriseSwipeContainerSize: CGSize {
         CGSize(
             width: max(layoutMetrics.width, 1),
             height: max(layoutMetrics.height - measuredTimelineHeaderHeight, 1)
         )
     }
 
-    private func normalizedDayLiquidSwipeSize(_ size: CGSize) -> CGSize {
-        let fallback = dayLiquidSwipeContainerSize
+    private func normalizedDaySunriseSwipeSize(_ size: CGSize) -> CGSize {
+        let fallback = daySunriseSwipeContainerSize
         return CGSize(
             width: max(size.width, fallback.width, 1),
             height: max(size.height, fallback.height, 1)
         )
     }
 
-    private func dayLiquidSwipeData(for side: HomeDayLiquidSwipeSide, size: CGSize) -> HomeDayLiquidSwipeData {
-        let data = side == .leading ? leadingDayLiquidSwipeData : trailingDayLiquidSwipeData
+    private func daySunriseSwipeData(for side: SunriseDaySwipeSide, size: CGSize) -> SunriseDaySwipeData {
+        let data = side == .leading ? leadingDaySunriseSwipeData : trailingDaySunriseSwipeData
         return data
-            .resting(at: dayLiquidSwipeRestingCenterY)
+            .resting(at: daySunriseSwipeRestingCenterY)
             .sized(to: size)
     }
 
-    private func setDayLiquidSwipeData(_ data: HomeDayLiquidSwipeData) {
+    private func setDaySunriseSwipeData(_ data: SunriseDaySwipeData) {
         switch data.side {
         case .leading:
-            leadingDayLiquidSwipeData = data
+            leadingDaySunriseSwipeData = data
         case .trailing:
-            trailingDayLiquidSwipeData = data
+            trailingDaySunriseSwipeData = data
         }
     }
 
     private func handleTimelineScrollOffsetChange(_ newOffset: CGFloat) {
         if let nextState = timelineScrollChromeStateTracker.consume(offset: newOffset) {
-            updateDayLiquidSwipeChromeVisibility(for: nextState)
+            updateDaySunriseSwipeChromeVisibility(for: nextState)
         }
     }
 
-    private func updateDayLiquidSwipeChromeVisibility(for state: HomeScrollChromeState) {
-        let nextVisibility = HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
-            currentVisibility: isDayLiquidSwipeChromeVisible,
+    private func updateDaySunriseSwipeChromeVisibility(for state: HomeScrollChromeState) {
+        let nextVisibility = SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            currentVisibility: isDaySunriseSwipeChromeVisible,
             for: state
         )
-        guard nextVisibility != isDayLiquidSwipeChromeVisible else { return }
-        isDayLiquidSwipeChromeVisible = nextVisibility
+        guard nextVisibility != isDaySunriseSwipeChromeVisible else { return }
+        isDaySunriseSwipeChromeVisible = nextVisibility
         if nextVisibility == false {
-            activeDayLiquidSwipeSide = nil
+            activeDaySunriseSwipeSide = nil
             cancelDaySwipeTraceIfNeeded()
         }
     }
 
-    private func resetDayLiquidSwipeChromeVisibility() {
+    private func resetDaySunriseSwipeChromeVisibility() {
         timelineScrollChromeStateTracker = HomeScrollChromeStateTracker()
-        isDayLiquidSwipeChromeVisible = true
+        isDaySunriseSwipeChromeVisible = true
     }
 
-    private func updateDayLiquidSwipe(
-        side: HomeDayLiquidSwipeSide,
+    private func updateDaySunriseSwipe(
+        side: SunriseDaySwipeSide,
         translation: CGSize,
         location: CGPoint,
         size: CGSize
     ) {
         guard isDaySwipeGestureEnabled else { return }
-        let containerSize = normalizedDayLiquidSwipeSize(size)
-        activeDayLiquidSwipeSide = side
-        topDayLiquidSwipeSide = side
-        setDayLiquidSwipeData(
-            dayLiquidSwipeData(for: side, size: containerSize)
+        let containerSize = normalizedDaySunriseSwipeSize(size)
+        activeDaySunriseSwipeSide = side
+        topDaySunriseSwipeSide = side
+        setDaySunriseSwipeData(
+            daySunriseSwipeData(for: side, size: containerSize)
                 .drag(translation: translation, location: location)
         )
     }
 
-    private func endDayLiquidSwipe(
-        side: HomeDayLiquidSwipeSide,
+    private func endDaySunriseSwipe(
+        side: SunriseDaySwipeSide,
         translation: CGSize,
         predictedEndTranslation: CGSize,
         size: CGSize
     ) {
-        activeDayLiquidSwipeSide = nil
-        let containerSize = normalizedDayLiquidSwipeSize(size)
+        activeDaySunriseSwipeSide = nil
+        let containerSize = normalizedDaySunriseSwipeSize(size)
 
         guard isDaySwipeGestureEnabled else {
-            resetDayLiquidSwipe(side, size: containerSize)
+            resetDaySunriseSwipe(side, size: containerSize)
             return
         }
 
@@ -5124,56 +5124,56 @@ struct SunriseAppShellView: View {
             predictedEndTranslation: predictedEndTranslation
         ), direction == side.direction else {
             cancelDaySwipeTraceIfNeeded()
-            resetDayLiquidSwipe(side, size: containerSize)
+            resetDaySunriseSwipe(side, size: containerSize)
             return
         }
 
-        commitDayLiquidSwipe(side, size: containerSize)
+        commitDaySunriseSwipe(side, size: containerSize)
     }
 
-    private func cancelDayLiquidSwipe(side: HomeDayLiquidSwipeSide, size: CGSize) {
-        activeDayLiquidSwipeSide = nil
+    private func cancelDaySunriseSwipe(side: SunriseDaySwipeSide, size: CGSize) {
+        activeDaySunriseSwipeSide = nil
         cancelDaySwipeTraceIfNeeded()
-        resetDayLiquidSwipe(side, size: normalizedDayLiquidSwipeSize(size))
+        resetDaySunriseSwipe(side, size: normalizedDaySunriseSwipeSize(size))
     }
 
-    private func resetDayLiquidSwipe(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
-        let data = dayLiquidSwipeData(for: side, size: size).initial()
+    private func resetDaySunriseSwipe(_ side: SunriseDaySwipeSide, size: CGSize) {
+        let data = daySunriseSwipeData(for: side, size: size).initial()
         if reduceMotion || isUITesting {
-            setDayLiquidSwipeData(data)
+            setDaySunriseSwipeData(data)
         } else {
             withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
-                setDayLiquidSwipeData(data)
+                setDaySunriseSwipeData(data)
             }
         }
     }
 
-    private func resetIdleDayLiquidSwipeHandles(restingCenterY: CGFloat) {
-        guard activeDayLiquidSwipeSide == nil else { return }
-        let size = normalizedDayLiquidSwipeSize(dayLiquidSwipeContainerSize)
-        leadingDayLiquidSwipeData = leadingDayLiquidSwipeData
+    private func resetIdleDaySunriseSwipeHandles(restingCenterY: CGFloat) {
+        guard activeDaySunriseSwipeSide == nil else { return }
+        let size = normalizedDaySunriseSwipeSize(daySunriseSwipeContainerSize)
+        leadingDaySunriseSwipeData = leadingDaySunriseSwipeData
             .resting(at: restingCenterY)
             .sized(to: size)
             .initial()
-        trailingDayLiquidSwipeData = trailingDayLiquidSwipeData
+        trailingDaySunriseSwipeData = trailingDaySunriseSwipeData
             .resting(at: restingCenterY)
             .sized(to: size)
             .initial()
     }
 
-    private func commitDayLiquidSwipe(_ side: HomeDayLiquidSwipeSide, size: CGSize) {
-        topDayLiquidSwipeSide = side
+    private func commitDaySunriseSwipe(_ side: SunriseDaySwipeSide, size: CGSize) {
+        topDaySunriseSwipeSide = side
         if reduceMotion || isUITesting {
             commitDaySwipe(side.direction)
-            resetDayLiquidSwipe(side, size: size)
+            resetDaySunriseSwipe(side, size: size)
             return
         }
 
         withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
-            setDayLiquidSwipeData(dayLiquidSwipeData(for: side, size: size).final())
+            setDaySunriseSwipeData(daySunriseSwipeData(for: side, size: size).final())
         } completion: {
             commitDaySwipe(side.direction)
-            resetDayLiquidSwipe(side, size: size)
+            resetDaySunriseSwipe(side, size: size)
         }
     }
 
@@ -5376,32 +5376,32 @@ struct SunriseAppShellView: View {
                     .padding(.top, spacing.s8)
                     .contentShape(Rectangle())
                     .background {
-                        HomeDayLiquidSwipeGestureSurface(
+                        SunriseDaySwipeGestureSurface(
                             isEnabled: isDaySwipeInteractionEnabled,
-                            containerSize: dayLiquidSwipeContainerSize,
-                            restingCenterY: dayLiquidSwipeRestingCenterY,
+                            containerSize: daySunriseSwipeContainerSize,
+                            restingCenterY: daySunriseSwipeRestingCenterY,
                             resolver: .default,
                             onInteractionStarted: beginDaySwipeTrace,
                             onChanged: { side, translation, location in
-                                updateDayLiquidSwipe(
+                                updateDaySunriseSwipe(
                                     side: side,
                                     translation: translation,
                                     location: location,
-                                    size: dayLiquidSwipeContainerSize
+                                    size: daySunriseSwipeContainerSize
                                 )
                             },
                             onEnded: { side, translation, predictedEndTranslation, _ in
-                                endDayLiquidSwipe(
+                                endDaySunriseSwipe(
                                     side: side,
                                     translation: translation,
                                     predictedEndTranslation: predictedEndTranslation,
-                                    size: dayLiquidSwipeContainerSize
+                                    size: daySunriseSwipeContainerSize
                                 )
                             },
                             onCancelled: { side in
-                                cancelDayLiquidSwipe(
+                                cancelDaySunriseSwipe(
                                     side: side,
-                                    size: dayLiquidSwipeContainerSize
+                                    size: daySunriseSwipeContainerSize
                                 )
                             }
                         )
@@ -5421,24 +5421,24 @@ struct SunriseAppShellView: View {
                     }
                 )
 
-                dayLiquidSwipeOverlay
+                daySunriseSwipeOverlay
             }
-            .coordinateSpace(name: Self.dayLiquidSwipeCoordinateSpaceName)
+            .coordinateSpace(name: Self.daySunriseSwipeCoordinateSpaceName)
         }
         .accessibilityIdentifier("home.timeline.surface")
     }
 
-    private var dayLiquidSwipeOverlay: some View {
-        HomeDayLiquidSwipeOverlay(
+    private var daySunriseSwipeOverlay: some View {
+        SunriseDaySwipeOverlay(
             isEnabled: isDaySwipeGestureEnabled,
-            isChromeVisible: isDayLiquidSwipeChromeVisible,
+            isChromeVisible: isDaySunriseSwipeChromeVisible,
             reduceMotion: reduceMotion || isUITesting,
-            restingCenterY: dayLiquidSwipeRestingCenterY,
+            restingCenterY: daySunriseSwipeRestingCenterY,
             onInteractionStarted: beginDaySwipeTrace,
             onInteractionCancelled: cancelDaySwipeTraceIfNeeded,
             onCommit: commitDaySwipe,
             onHandleDragChanged: { side, translation, location, size in
-                updateDayLiquidSwipe(
+                updateDaySunriseSwipe(
                     side: side,
                     translation: translation,
                     location: location,
@@ -5446,16 +5446,16 @@ struct SunriseAppShellView: View {
                 )
             },
             onHandleDragEnded: { side, translation, predictedEndTranslation, _, size in
-                endDayLiquidSwipe(
+                endDaySunriseSwipe(
                     side: side,
                     translation: translation,
                     predictedEndTranslation: predictedEndTranslation,
                     size: size
                 )
             },
-            leadingData: $leadingDayLiquidSwipeData,
-            trailingData: $trailingDayLiquidSwipeData,
-            topSide: $topDayLiquidSwipeSide
+            leadingData: $leadingDaySunriseSwipeData,
+            trailingData: $trailingDaySunriseSwipeData,
+            topSide: $topDaySunriseSwipeSide
         )
     }
 
@@ -5862,7 +5862,9 @@ struct SunriseAppShellView: View {
             onSecondaryAction: handleHabitSecondaryAction(_:),
             onRowAction: handleHabitRowAction(_:),
             onLastCellAction: handleHabitLastCellAction(_:),
-            onOpenHabit: openHabitDetail
+            onOpenHabit: openHabitDetail,
+            showsAddHabitCTA: true,
+            onAddHabit: presentHomeAddHabitComposer
         )
         .equatable()
     }
@@ -5878,9 +5880,19 @@ struct SunriseAppShellView: View {
             onSecondaryAction: handleHabitSecondaryAction(_:),
             onRowAction: handleHabitRowAction(_:),
             onLastCellAction: handleHabitLastCellAction(_:),
-            onOpenHabit: openHabitDetail
+            onOpenHabit: openHabitDetail,
+            showsAddHabitCTA: false,
+            onAddHabit: nil
         )
         .equatable()
+    }
+
+    private func presentHomeAddHabitComposer() {
+        selectedHomeHabitRow = nil
+        showHabitBoardPresented = false
+        showHabitLibraryPresented = false
+        homeHabitComposerViewModel.resetForm()
+        showHomeAddHabitPresented = true
     }
 
     private func handleHabitPrimaryAction(_ habit: HomeHabitRow) {
@@ -5960,18 +5972,21 @@ struct SunriseAppShellView: View {
     }
 
     private func presentHabitBoardFromDeepLink() {
+        showHomeAddHabitPresented = false
         showHabitLibraryPresented = false
         selectedHomeHabitRow = nil
         showHabitBoardPresented = true
     }
 
     private func presentHabitLibraryFromDeepLink() {
+        showHomeAddHabitPresented = false
         selectedHomeHabitRow = nil
         showHabitBoardPresented = false
         showHabitLibraryPresented = true
     }
 
     private func presentHabitDetailFromDeepLink(habitID: UUID) {
+        showHomeAddHabitPresented = false
         showHabitLibraryPresented = false
         showHabitBoardPresented = false
         selectedHomeHabitRow = nil

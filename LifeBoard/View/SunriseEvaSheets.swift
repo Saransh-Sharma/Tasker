@@ -450,11 +450,11 @@ private struct EvaFocusShuffleCandidateRow: View {
     }
 }
 
-private struct SunriseEvaTriageSprintSheet: View {
+struct SunriseEvaTriageSprintSheet: View {
     let queue: [EvaTriageQueueItem]
     let projectsByID: [UUID: Project]
-    let onApplySuggestion: (EvaTriageQueueItem, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    let onApplyAll: (@escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    let onApplySuggestion: @Sendable (EvaTriageQueueItem, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    let onApplyAll: @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
     let onSkip: (UUID) -> Void
     let onDelete: (UUID) -> Void
     let onEdit: (UUID) -> Void
