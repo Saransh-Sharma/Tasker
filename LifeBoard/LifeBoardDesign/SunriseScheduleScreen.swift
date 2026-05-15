@@ -23,11 +23,11 @@ struct SunriseScheduleScreen: View {
     @State private var schedulePresentation: CalendarSchedulePresentation
     @State private var isScrollActive = false
     @State private var scrollStopTask: Task<Void, Never>?
-    @State private var leadingDayLiquidSwipeData = HomeDayLiquidSwipeData(side: .leading)
-    @State private var trailingDayLiquidSwipeData = HomeDayLiquidSwipeData(side: .trailing)
-    @State private var topDayLiquidSwipeSide: HomeDayLiquidSwipeSide = .trailing
-    @State private var activeDayLiquidSwipeSide: HomeDayLiquidSwipeSide?
-    @State private var isDayLiquidSwipeChromeVisible = true
+    @State private var leadingDaySunriseSwipeData = SunriseDaySwipeData(side: .leading)
+    @State private var trailingDaySunriseSwipeData = SunriseDaySwipeData(side: .trailing)
+    @State private var topDaySunriseSwipeSide: SunriseDaySwipeSide = .trailing
+    @State private var activeDaySunriseSwipeSide: SunriseDaySwipeSide?
+    @State private var isDaySunriseSwipeChromeVisible = true
     @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
     @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
     @State private var headerActivationID = TimeOfDayHeaderAsset.makeActivationID()
@@ -147,35 +147,35 @@ struct SunriseScheduleScreen: View {
                     }
                     .contentShape(Rectangle())
                     .background {
-                        HomeDayLiquidSwipeGestureSurface(
+                        SunriseDaySwipeGestureSurface(
                             isEnabled: isDaySwipeGestureEnabled,
-                            containerSize: dayLiquidSwipeContainerSize(proxy.size),
-                            restingCenterY: dayLiquidSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
+                            containerSize: daySunriseSwipeContainerSize(proxy.size),
+                            restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
                             resolver: .default,
                             onInteractionStarted: {},
                             onChanged: { side, translation, location in
-                                updateDayLiquidSwipe(
+                                updateDaySunriseSwipe(
                                     side: side,
                                     translation: translation,
                                     location: location,
-                                    size: dayLiquidSwipeContainerSize(proxy.size),
-                                    restingCenterY: dayLiquidSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
+                                    size: daySunriseSwipeContainerSize(proxy.size),
+                                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
                                 )
                             },
                             onEnded: { side, translation, predictedEndTranslation, _ in
-                                endDayLiquidSwipe(
+                                endDaySunriseSwipe(
                                     side: side,
                                     translation: translation,
                                     predictedEndTranslation: predictedEndTranslation,
-                                    size: dayLiquidSwipeContainerSize(proxy.size),
-                                    restingCenterY: dayLiquidSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
+                                    size: daySunriseSwipeContainerSize(proxy.size),
+                                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
                                 )
                             },
                             onCancelled: { side in
-                                cancelDayLiquidSwipe(
+                                cancelDaySunriseSwipe(
                                     side: side,
-                                    size: dayLiquidSwipeContainerSize(proxy.size),
-                                    restingCenterY: dayLiquidSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
+                                    size: daySunriseSwipeContainerSize(proxy.size),
+                                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
                                 )
                             }
                         )
@@ -214,62 +214,62 @@ struct SunriseScheduleScreen: View {
                 .accessibilityIdentifier("schedule.list")
                 .accessibilityLabel("Schedule list")
 
-                dayLiquidSwipeOverlay(safeAreaTop: proxy.safeAreaInsets.top)
+                daySunriseSwipeOverlay(safeAreaTop: proxy.safeAreaInsets.top)
                     .zIndex(10)
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("schedule.list")
             .onAppear {
-                resetIdleDayLiquidSwipeHandles(
-                    restingCenterY: dayLiquidSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
-                    size: dayLiquidSwipeContainerSize(proxy.size)
+                resetIdleDaySunriseSwipeHandles(
+                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
+                    size: daySunriseSwipeContainerSize(proxy.size)
                 )
             }
             .onChange(of: proxy.size) { _, newSize in
-                resetIdleDayLiquidSwipeHandles(
-                    restingCenterY: dayLiquidSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
-                    size: dayLiquidSwipeContainerSize(newSize)
+                resetIdleDaySunriseSwipeHandles(
+                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
+                    size: daySunriseSwipeContainerSize(newSize)
                 )
             }
             .onChange(of: proxy.safeAreaInsets.top) { _, newSafeAreaTop in
-                resetIdleDayLiquidSwipeHandles(
-                    restingCenterY: dayLiquidSwipeRestingCenterY(safeAreaTop: newSafeAreaTop),
-                    size: dayLiquidSwipeContainerSize(proxy.size)
+                resetIdleDaySunriseSwipeHandles(
+                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: newSafeAreaTop),
+                    size: daySunriseSwipeContainerSize(proxy.size)
                 )
             }
         }
     }
 
-    private func dayLiquidSwipeOverlay(safeAreaTop: CGFloat) -> some View {
-        HomeDayLiquidSwipeOverlay(
+    private func daySunriseSwipeOverlay(safeAreaTop: CGFloat) -> some View {
+        SunriseDaySwipeOverlay(
             isEnabled: isDaySwipeGestureEnabled,
-            isChromeVisible: isDayLiquidSwipeChromeVisible,
+            isChromeVisible: isDaySunriseSwipeChromeVisible,
             reduceMotion: reduceMotion || isUITesting,
-            restingCenterY: dayLiquidSwipeRestingCenterY(safeAreaTop: safeAreaTop),
+            restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: safeAreaTop),
             onInteractionStarted: {},
             onInteractionCancelled: {},
             onCommit: commitScheduleDaySwipe,
             onHandleDragChanged: { side, translation, location, size in
-                updateDayLiquidSwipe(
+                updateDaySunriseSwipe(
                     side: side,
                     translation: translation,
                     location: location,
                     size: size,
-                    restingCenterY: dayLiquidSwipeRestingCenterY(safeAreaTop: safeAreaTop)
+                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: safeAreaTop)
                 )
             },
             onHandleDragEnded: { side, translation, predictedEndTranslation, _, size in
-                endDayLiquidSwipe(
+                endDaySunriseSwipe(
                     side: side,
                     translation: translation,
                     predictedEndTranslation: predictedEndTranslation,
                     size: size,
-                    restingCenterY: dayLiquidSwipeRestingCenterY(safeAreaTop: safeAreaTop)
+                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: safeAreaTop)
                 )
             },
-            leadingData: $leadingDayLiquidSwipeData,
-            trailingData: $trailingDayLiquidSwipeData,
-            topSide: $topDayLiquidSwipeSide
+            leadingData: $leadingDaySunriseSwipeData,
+            trailingData: $trailingDaySunriseSwipeData,
+            topSide: $topDaySunriseSwipeSide
         )
     }
 
@@ -841,61 +841,61 @@ struct SunriseScheduleScreen: View {
         }
     }
 
-    private func dayLiquidSwipeContainerSize(_ size: CGSize) -> CGSize {
+    private func daySunriseSwipeContainerSize(_ size: CGSize) -> CGSize {
         CGSize(width: max(size.width, 1), height: max(size.height, 1))
     }
 
-    private func dayLiquidSwipeRestingCenterY(safeAreaTop: CGFloat) -> CGFloat {
-        max(safeAreaTop, 0) + HomeDayLiquidSwipeData.timelineHandleCenterY
+    private func daySunriseSwipeRestingCenterY(safeAreaTop: CGFloat) -> CGFloat {
+        max(safeAreaTop, 0) + SunriseDaySwipeData.timelineHandleCenterY
     }
 
-    private func dayLiquidSwipeData(
-        for side: HomeDayLiquidSwipeSide,
+    private func daySunriseSwipeData(
+        for side: SunriseDaySwipeSide,
         size: CGSize,
         restingCenterY: CGFloat
-    ) -> HomeDayLiquidSwipeData {
-        let data = side == .leading ? leadingDayLiquidSwipeData : trailingDayLiquidSwipeData
+    ) -> SunriseDaySwipeData {
+        let data = side == .leading ? leadingDaySunriseSwipeData : trailingDaySunriseSwipeData
         return data
             .resting(at: restingCenterY)
-            .sized(to: dayLiquidSwipeContainerSize(size))
+            .sized(to: daySunriseSwipeContainerSize(size))
     }
 
-    private func setDayLiquidSwipeData(_ data: HomeDayLiquidSwipeData) {
+    private func setDaySunriseSwipeData(_ data: SunriseDaySwipeData) {
         switch data.side {
         case .leading:
-            leadingDayLiquidSwipeData = data
+            leadingDaySunriseSwipeData = data
         case .trailing:
-            trailingDayLiquidSwipeData = data
+            trailingDaySunriseSwipeData = data
         }
     }
 
-    private func updateDayLiquidSwipe(
-        side: HomeDayLiquidSwipeSide,
+    private func updateDaySunriseSwipe(
+        side: SunriseDaySwipeSide,
         translation: CGSize,
         location: CGPoint,
         size: CGSize,
         restingCenterY: CGFloat
     ) {
         guard isDaySwipeGestureEnabled else { return }
-        activeDayLiquidSwipeSide = side
-        topDayLiquidSwipeSide = side
-        setDayLiquidSwipeData(
-            dayLiquidSwipeData(for: side, size: size, restingCenterY: restingCenterY)
+        activeDaySunriseSwipeSide = side
+        topDaySunriseSwipeSide = side
+        setDaySunriseSwipeData(
+            daySunriseSwipeData(for: side, size: size, restingCenterY: restingCenterY)
                 .drag(translation: translation, location: location)
         )
     }
 
-    private func endDayLiquidSwipe(
-        side: HomeDayLiquidSwipeSide,
+    private func endDaySunriseSwipe(
+        side: SunriseDaySwipeSide,
         translation: CGSize,
         predictedEndTranslation: CGSize,
         size: CGSize,
         restingCenterY: CGFloat
     ) {
-        activeDayLiquidSwipeSide = nil
+        activeDaySunriseSwipeSide = nil
 
         guard isDaySwipeGestureEnabled else {
-            resetDayLiquidSwipe(side, size: size, restingCenterY: restingCenterY)
+            resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
             return
         }
 
@@ -903,69 +903,69 @@ struct SunriseScheduleScreen: View {
             translation: translation,
             predictedEndTranslation: predictedEndTranslation
         ), direction == side.direction else {
-            resetDayLiquidSwipe(side, size: size, restingCenterY: restingCenterY)
+            resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
             return
         }
 
-        commitDayLiquidSwipe(side, size: size, restingCenterY: restingCenterY)
+        commitDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
     }
 
-    private func cancelDayLiquidSwipe(
-        side: HomeDayLiquidSwipeSide,
+    private func cancelDaySunriseSwipe(
+        side: SunriseDaySwipeSide,
         size: CGSize,
         restingCenterY: CGFloat
     ) {
-        activeDayLiquidSwipeSide = nil
-        resetDayLiquidSwipe(side, size: size, restingCenterY: restingCenterY)
+        activeDaySunriseSwipeSide = nil
+        resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
     }
 
-    private func resetDayLiquidSwipe(
-        _ side: HomeDayLiquidSwipeSide,
+    private func resetDaySunriseSwipe(
+        _ side: SunriseDaySwipeSide,
         size: CGSize,
         restingCenterY: CGFloat
     ) {
-        let data = dayLiquidSwipeData(for: side, size: size, restingCenterY: restingCenterY).initial()
+        let data = daySunriseSwipeData(for: side, size: size, restingCenterY: restingCenterY).initial()
         if reduceMotion || isUITesting {
-            setDayLiquidSwipeData(data)
+            setDaySunriseSwipeData(data)
         } else {
             withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
-                setDayLiquidSwipeData(data)
+                setDaySunriseSwipeData(data)
             }
         }
     }
 
-    private func resetIdleDayLiquidSwipeHandles(restingCenterY: CGFloat, size: CGSize) {
-        guard activeDayLiquidSwipeSide == nil else { return }
-        let containerSize = dayLiquidSwipeContainerSize(size)
-        leadingDayLiquidSwipeData = leadingDayLiquidSwipeData
+    private func resetIdleDaySunriseSwipeHandles(restingCenterY: CGFloat, size: CGSize) {
+        guard activeDaySunriseSwipeSide == nil else { return }
+        let containerSize = daySunriseSwipeContainerSize(size)
+        leadingDaySunriseSwipeData = leadingDaySunriseSwipeData
             .resting(at: restingCenterY)
             .sized(to: containerSize)
             .initial()
-        trailingDayLiquidSwipeData = trailingDayLiquidSwipeData
+        trailingDaySunriseSwipeData = trailingDaySunriseSwipeData
             .resting(at: restingCenterY)
             .sized(to: containerSize)
             .initial()
     }
 
-    private func commitDayLiquidSwipe(
-        _ side: HomeDayLiquidSwipeSide,
+    private func commitDaySunriseSwipe(
+        _ side: SunriseDaySwipeSide,
         size: CGSize,
         restingCenterY: CGFloat
     ) {
-        topDayLiquidSwipeSide = side
+        topDaySunriseSwipeSide = side
         if reduceMotion || isUITesting {
             commitScheduleDaySwipe(side.direction)
-            resetDayLiquidSwipe(side, size: size, restingCenterY: restingCenterY)
+            resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
             return
         }
 
         withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
-            setDayLiquidSwipeData(
-                dayLiquidSwipeData(for: side, size: size, restingCenterY: restingCenterY).final()
+            setDaySunriseSwipeData(
+                daySunriseSwipeData(for: side, size: size, restingCenterY: restingCenterY).final()
             )
         } completion: {
             commitScheduleDaySwipe(side.direction)
-            resetDayLiquidSwipe(side, size: size, restingCenterY: restingCenterY)
+            resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
         }
     }
 
@@ -986,25 +986,25 @@ struct SunriseScheduleScreen: View {
 
     private func handleScrollOffsetChange(_ newOffset: CGFloat) {
         if let nextState = scrollChromeStateTracker.consume(offset: newOffset) {
-            updateDayLiquidSwipeChromeVisibility(for: nextState)
+            updateDaySunriseSwipeChromeVisibility(for: nextState)
         }
     }
 
-    private func updateDayLiquidSwipeChromeVisibility(for state: HomeScrollChromeState) {
-        let nextVisibility = HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
-            currentVisibility: isDayLiquidSwipeChromeVisible,
+    private func updateDaySunriseSwipeChromeVisibility(for state: HomeScrollChromeState) {
+        let nextVisibility = SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            currentVisibility: isDaySunriseSwipeChromeVisible,
             for: state
         )
-        guard nextVisibility != isDayLiquidSwipeChromeVisible else { return }
-        isDayLiquidSwipeChromeVisible = nextVisibility
+        guard nextVisibility != isDaySunriseSwipeChromeVisible else { return }
+        isDaySunriseSwipeChromeVisible = nextVisibility
         if nextVisibility == false {
-            activeDayLiquidSwipeSide = nil
+            activeDaySunriseSwipeSide = nil
         }
     }
 
     private func handleScrollIdle() {
         if let nextState = scrollChromeStateTracker.emitIdleIfNeeded() {
-            updateDayLiquidSwipeChromeVisibility(for: nextState)
+            updateDaySunriseSwipeChromeVisibility(for: nextState)
         }
     }
 

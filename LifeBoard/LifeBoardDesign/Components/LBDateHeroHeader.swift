@@ -114,9 +114,9 @@ struct LBDateHeroHeader: View {
 
     private var navigatorTop: CGFloat {
         if dynamicTypeSize.isAccessibilitySize {
-            return safeHeaderTop + 159
+            return safeHeaderTop + 159 + LBSpacingTokens.xs
         }
-        return safeHeaderTop + 117
+        return safeHeaderTop + 117 + LBSpacingTokens.xs
     }
 
     private var topChromeTop: CGFloat {
