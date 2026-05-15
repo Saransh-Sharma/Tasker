@@ -157,8 +157,8 @@ public enum HomeTaskMutationReasonResolver {
     }
 }
 
-public enum ChartInvalidationPolicy {
-    public static func shouldRefreshLineChart(
+public enum InsightsInvalidationPolicy {
+    public static func shouldRefreshProgressInsights(
         for payload: HomeTaskMutationPayload,
         referenceDate: Date,
         calendar: Calendar = .autoupdatingCurrent
@@ -171,11 +171,11 @@ public enum ChartInvalidationPolicy {
         case .projectChanged:
             return false
         case .created, .deleted, .completed, .reopened, .rescheduled, .dueDateChanged, .priorityChanged:
-            return taskAffectsLineChart(payload, referenceDate: referenceDate, calendar: calendar)
+            return taskAffectsProgressInsights(payload, referenceDate: referenceDate, calendar: calendar)
         }
     }
 
-    public static func shouldRefreshRadarChart(
+    public static func shouldRefreshProjectInsights(
         for payload: HomeTaskMutationPayload,
         referenceDate: Date,
         calendar: Calendar = .autoupdatingCurrent
@@ -189,13 +189,13 @@ public enum ChartInvalidationPolicy {
             if payload.taskID == nil, payload.affectedProjectID != nil {
                 return true
             }
-            return taskAffectsRadarChart(payload, referenceDate: referenceDate, calendar: calendar)
+            return taskAffectsProjectInsights(payload, referenceDate: referenceDate, calendar: calendar)
         case .created, .deleted, .completed, .reopened, .priorityChanged:
-            return taskAffectsRadarChart(payload, referenceDate: referenceDate, calendar: calendar)
+            return taskAffectsProjectInsights(payload, referenceDate: referenceDate, calendar: calendar)
         }
     }
 
-    private static func taskAffectsLineChart(
+    private static func taskAffectsProgressInsights(
         _ payload: HomeTaskMutationPayload,
         referenceDate: Date,
         calendar: Calendar
@@ -216,7 +216,7 @@ public enum ChartInvalidationPolicy {
         )
     }
 
-    private static func taskAffectsRadarChart(
+    private static func taskAffectsProjectInsights(
         _ payload: HomeTaskMutationPayload,
         referenceDate: Date,
         calendar: Calendar

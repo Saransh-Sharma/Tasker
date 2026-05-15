@@ -451,13 +451,10 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     private func showTaskDetailUnavailableAlert() {
-        let alert = UIAlertController(
+        presentSunriseUnavailableSheet(
             title: "Task details unavailable",
-            message: "Could not open task details from chat right now. Please try again from Home.",
-            preferredStyle: .alert
+            message: "Could not open task details from chat right now. Please try again from Home."
         )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
     }
 
     private func presentHabitDetailSheet(for habitID: UUID) {
@@ -506,13 +503,26 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     private func showHabitDetailUnavailableAlert() {
-        let alert = UIAlertController(
+        presentSunriseUnavailableSheet(
             title: "Habit details unavailable",
-            message: "Could not open habit details from chat right now. Please try again from Home.",
-            preferredStyle: .alert
+            message: "Could not open habit details from chat right now. Please try again from Home."
         )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+    }
+
+    private func presentSunriseUnavailableSheet(title: String, message: String) {
+        let sheetView = SunriseChatUnavailableSheet(title: title, message: message)
+            .lifeboardLayoutClass(currentLayoutClass)
+        let hostingController = UIHostingController(rootView: sheetView)
+        hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        hostingController.modalPresentationStyle = .pageSheet
+
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
+        }
+
+        present(hostingController, animated: true)
     }
 
     private func performDayTaskAction(
@@ -913,6 +923,77 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             themeCancellable?.cancel()
             activationCoordinatorCancellable?.cancel()
         }
+    }
+}
+
+private struct SunriseChatUnavailableSheet: View {
+    let title: String
+    let message: String
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.lifeboard.bgCanvas.ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: LBSpacingTokens.lg) {
+                    LBGlassCard(
+                        cornerRadius: LBRadiusTokens.largeCard,
+                        fill: reduceTransparency ? Color.lifeboard.surfacePrimary : LBColorTokens.glassStrong.opacity(0.86),
+                        usesMaterialBackground: reduceTransparency == false
+                    ) {
+                        VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 28, weight: .semibold))
+                                .foregroundColor(Color.lifeboard.statusWarning)
+                                .accessibilityHidden(true)
+
+                            VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+                                Text(title)
+                                    .font(.lifeboard(.title3))
+                                    .foregroundColor(Color.lifeboard.textPrimary)
+
+                                Text(message)
+                                    .font(.lifeboard(.body))
+                                    .foregroundColor(Color.lifeboard.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(LBSpacingTokens.lg)
+                    }
+
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .font(.lifeboard(.body))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(
+                        LinearGradient(
+                            colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: Capsule()
+                    )
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("chat.unavailable.done")
+                }
+                .padding(LBSpacingTokens.lg)
+                .frame(maxWidth: 560)
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("chat.unavailable.close")
+                }
+            }
+        }
+        .presentationDragIndicator(.visible)
     }
 }
 
