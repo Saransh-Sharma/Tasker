@@ -2584,7 +2584,7 @@ final class ArchitectureBoundaryTests: XCTestCase {
             "LifeBoard/Views/Cards/ChartCard.swift",
             "LifeBoard/Views/Cards/RadarChartCard.swift",
             "LifeBoard/Views/ProjectSelectionSheet.swift",
-            "LifeBoard/View/AddTaskForedropView.swift"
+            "LifeBoard/View/AddTaskSunriseView.swift"
         ]
 
         for relativePath in files {
@@ -11735,7 +11735,7 @@ final class XPExactPreviewParityTests: XCTestCase {
 final class XPRewardPreviewCopyRegressionTests: XCTestCase {
     func testCompletionRewardSurfacesUseExactPreviewAPI() throws {
         let rewardSurfaceFiles = [
-            "LifeBoard/View/TaskRowView.swift",
+            "LifeBoard/View/SunriseTaskRowView.swift",
             "LifeBoard/View/TaskDetailSheetView.swift",
             "LifeBoard/View/AddTaskXPPreview.swift"
         ]
@@ -11755,7 +11755,7 @@ final class XPRewardPreviewCopyRegressionTests: XCTestCase {
 
     func testCompletionRewardSurfacesDoNotUseApproximateCopy() throws {
         let rewardCopyFiles = [
-            "LifeBoard/View/TaskRowView.swift",
+            "LifeBoard/View/SunriseTaskRowView.swift",
             "LifeBoard/View/TaskDetailComponents.swift",
             "LifeBoard/View/AddTaskXPPreview.swift"
         ]

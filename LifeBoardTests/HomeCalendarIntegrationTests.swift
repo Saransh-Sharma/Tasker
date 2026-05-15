@@ -244,7 +244,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         XCTAssertFalse(timeline.day.allDayItems.contains { $0.source == .calendarEvent })
@@ -282,7 +282,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.45)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         XCTAssertTrue(timeline.day.allDayItems.contains { $0.source == .calendarEvent && $0.eventID == "all_day" })
@@ -363,7 +363,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         XCTAssertEqual(timeline.day.allDayItems.compactMap(\.eventID), [])
@@ -433,7 +433,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.45)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
         let plan = TimelineCanvasLayoutPlan(projection: timeline.day)
         let blockEventIDs = plan.blocks.flatMap { $0.block.items.compactMap(\.eventID) }
@@ -485,7 +485,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.45)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
         let plan = TimelineCanvasLayoutPlan(projection: timeline.day)
         let conflictBlock = plan.blocks.first { $0.block.isConflict }
@@ -546,7 +546,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.45)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
         let plan = TimelineCanvasLayoutPlan(projection: timeline.day)
         let conflictBlock = plan.blocks.first { $0.block.isConflict }
@@ -598,7 +598,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         let calendar = Calendar.current
@@ -650,7 +650,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         let calendar = Calendar.current
@@ -691,7 +691,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         let calendar = Calendar.current
@@ -727,12 +727,12 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         XCTAssertEqual(timeline.day.layoutMode, .compact)
         XCTAssertEqual(
-            TimelineForedropRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: timeline.day.layoutMode, isAccessibilitySize: false),
+            SunriseTimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: timeline.day.layoutMode, isAccessibilitySize: false),
             .expanded
         )
         XCTAssertTrue(timeline.day.timedItems.isEmpty)
@@ -768,12 +768,12 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         XCTAssertEqual(timeline.day.layoutMode, .compact)
         XCTAssertEqual(
-            TimelineForedropRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: timeline.day.layoutMode, isAccessibilitySize: false),
+            SunriseTimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: timeline.day.layoutMode, isAccessibilitySize: false),
             .expanded
         )
         XCTAssertEqual(timeline.day.timedItems.count, 2)
@@ -810,7 +810,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         XCTAssertEqual(timeline.day.layoutMode, .expanded)
@@ -909,7 +909,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.45)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         XCTAssertEqual(timeline.day.beforeWakeItems.map(\.eventID), ["pre_wake"])
@@ -1058,7 +1058,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.45)
         let todayTimeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
         XCTAssertEqual(todayTimeline.day.afterSleepItems.map(\.taskID), [lateTask.id])
         XCTAssertTrue(todayTimeline.day.actionableGaps.allSatisfy { $0.endDate <= todayTimeline.day.sleepAnchor.time })
@@ -1067,7 +1067,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.45)
         let tomorrowTimeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
         XCTAssertEqual(tomorrowTimeline.day.beforeWakeItems.map(\.taskID), [lateTask.id])
 
@@ -1147,7 +1147,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.45)
         let beforeWakeTimeline = beforeWakeViewModel.buildTimelineSnapshot(
             calendarSnapshot: beforeWakeViewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         XCTAssertEqual(beforeWakeTimeline.day.currentItemID, "event:current_before_wake")
@@ -1174,7 +1174,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let afterSleepTimeline = afterSleepViewModel.buildTimelineSnapshot(
             calendarSnapshot: afterSleepViewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         XCTAssertEqual(afterSleepTimeline.day.currentItemID, "event:current_before_wake")
@@ -1214,7 +1214,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.2)
         let timeline = viewModel.buildTimelineSnapshot(
             calendarSnapshot: viewModel.homeCalendarSnapshot,
-            foredropAnchor: .collapsed
+            sunriseAnchor: .collapsed
         )
 
         XCTAssertEqual(timeline.week.days.count, 7)

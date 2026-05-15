@@ -966,29 +966,29 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
     }
 
     func testHomeSurfaceSectionHeadersUseSectionAccentHexSource() throws {
-        let source = try loadWorkspaceFile("LifeBoard/View/TaskSectionView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/View/SunriseTaskSectionView.swift")
 
         XCTAssertTrue(source.contains("guard let accentHex = section.accentHex"))
         XCTAssertTrue(source.contains("LifeBoardHexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)"))
     }
 
     func testHomeSurfacePlainSectionRowsUseCanonicalRowTintResolver() throws {
-        let source = try loadWorkspaceFile("LifeBoard/View/TaskSectionView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/View/SunriseTaskSectionView.swift")
 
         XCTAssertTrue(source.contains("if section.showsHeader, let sectionAccentHex = section.accentHex"))
         XCTAssertTrue(source.contains("HomeTaskTintResolver.rowAccentHex("))
     }
 
     func testHomeSurfaceDueTodayAndRescueRowsUseSharedRowResolver() throws {
-        let taskListSource = try loadWorkspaceFile("LifeBoard/View/TaskListView.swift")
-        let foredropSource = try loadWorkspaceFile("LifeBoard/View/HomeForedropView.swift")
+        let taskListSource = try loadWorkspaceFile("LifeBoard/View/SunriseTaskListView.swift")
+        let sunriseSource = try loadWorkspaceFile("LifeBoard/View/SunriseAppShellView.swift")
 
         XCTAssertTrue(taskListSource.contains("HomeTaskTintResolver.rowAccentHex("))
-        XCTAssertTrue(foredropSource.contains("HomeTaskTintResolver.rowAccentHex("))
+        XCTAssertTrue(sunriseSource.contains("HomeTaskTintResolver.rowAccentHex("))
     }
 
     func testTaskListSectionIDsAvoidRuntimeRandomizedSources() throws {
-        let source = try loadWorkspaceFile("LifeBoard/View/TaskListView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/View/SunriseTaskListView.swift")
 
         XCTAssertFalse(source.contains("value.hashValue"))
         XCTAssertFalse(source.contains("id: UUID(),\n                name:"))

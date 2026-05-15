@@ -21,8 +21,8 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
         XCTAssertEqual(TaskListLayoutStyle.inset.taskMetadataPolicy, .default)
     }
 
-    func testTaskRowViewDefaultsToCardChromeAndDefaultMetadataPolicy() {
-        let view = TaskRowView(
+    func testSunriseTaskRowViewDefaultsToCardChromeAndDefaultMetadataPolicy() {
+        let view = SunriseTaskRowView(
             task: TaskDefinition(title: "Review roadmap"),
             showTypeBadge: false,
             isTaskDragEnabled: false
@@ -32,8 +32,8 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
         XCTAssertEqual(view.metadataPolicy, .default)
     }
 
-    func testHomeForedropUsesEdgeToEdgeTaskSurfaceConfiguration() throws {
-        let source = try loadWorkspaceFile("LifeBoard/View/HomeForedropView.swift")
+    func testHomeSunriseUsesEdgeToEdgeTaskSurfaceConfiguration() throws {
+        let source = try loadWorkspaceFile("LifeBoard/View/SunriseAppShellView.swift")
 
         XCTAssertTrue(source.contains("layoutStyle: .edgeToEdgeHome"))
         XCTAssertTrue(source.contains("chromeStyle: .flatHomeList"))
@@ -41,8 +41,8 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
     }
 
     func testHomeListViewsThreadLayoutStyleIntoTaskRows() throws {
-        let taskListSource = try loadWorkspaceFile("LifeBoard/View/TaskListView.swift")
-        let taskSectionSource = try loadWorkspaceFile("LifeBoard/View/TaskSectionView.swift")
+        let taskListSource = try loadWorkspaceFile("LifeBoard/View/SunriseTaskListView.swift")
+        let taskSectionSource = try loadWorkspaceFile("LifeBoard/View/SunriseTaskSectionView.swift")
 
         XCTAssertTrue(taskListSource.contains("taskChromeStyle: layoutStyle.taskChromeStyle"))
         XCTAssertTrue(taskListSource.contains("taskMetadataPolicy: layoutStyle.taskMetadataPolicy"))
@@ -51,25 +51,25 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
     }
 
     func testHomeListSectionHeadersUseSectionAccentHexWhenAvailable() throws {
-        let source = try loadWorkspaceFile("LifeBoard/View/TaskSectionView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/View/SunriseTaskSectionView.swift")
 
         XCTAssertTrue(source.contains("guard let accentHex = section.accentHex"))
         XCTAssertTrue(source.contains("LifeBoardHexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)"))
     }
 
     func testHomeListSectionRowsUseSharedResolverForPlainSections() throws {
-        let source = try loadWorkspaceFile("LifeBoard/View/TaskSectionView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/View/SunriseTaskSectionView.swift")
 
         XCTAssertTrue(source.contains("if section.showsHeader, let sectionAccentHex = section.accentHex"))
         XCTAssertTrue(source.contains("HomeTaskTintResolver.rowAccentHex("))
     }
 
     func testDueTodayAndRescueRowsUseSharedRowTintResolver() throws {
-        let taskListSource = try loadWorkspaceFile("LifeBoard/View/TaskListView.swift")
-        let foredropSource = try loadWorkspaceFile("LifeBoard/View/HomeForedropView.swift")
+        let taskListSource = try loadWorkspaceFile("LifeBoard/View/SunriseTaskListView.swift")
+        let sunriseSource = try loadWorkspaceFile("LifeBoard/View/SunriseAppShellView.swift")
 
         XCTAssertTrue(taskListSource.contains("HomeTaskTintResolver.rowAccentHex("))
-        XCTAssertTrue(foredropSource.contains("HomeTaskTintResolver.rowAccentHex("))
+        XCTAssertTrue(sunriseSource.contains("HomeTaskTintResolver.rowAccentHex("))
     }
 
     func testTimelineTintUsesCanonicalHomeTaskTintResolver() throws {

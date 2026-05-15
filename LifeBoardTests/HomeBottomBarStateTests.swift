@@ -117,10 +117,10 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertEqual(state.selectedItem, .home)
     }
 
-    func testChatForedropFaceMapsToChatBottomBarItemAndFullReveal() {
-        XCTAssertEqual(HomeForedropFace.chat.selectedBottomBarItem, .chat)
-        XCTAssertTrue(HomeForedropFace.chat.isBackFace)
-        XCTAssertEqual(HomeForedropFace.chat.surfaceAccessibilityValue, "fullReveal")
+    func testChatSunriseFaceMapsToChatBottomBarItemAndFullReveal() {
+        XCTAssertEqual(HomeSunriseFace.chat.selectedBottomBarItem, .chat)
+        XCTAssertTrue(HomeSunriseFace.chat.isBackFace)
+        XCTAssertEqual(HomeSunriseFace.chat.surfaceAccessibilityValue, "fullReveal")
     }
 
     func testIPadChatDestinationUsesHomeChatFace() {

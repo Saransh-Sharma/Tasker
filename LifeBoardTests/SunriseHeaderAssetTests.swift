@@ -126,11 +126,11 @@ final class SunriseHeaderAssetTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         let headerSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/LifeBoardDesign/Components/LBDateHeroHeader.swift"))
-        let homeSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/View/HomeForedropView.swift"))
+        let homeSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/View/SunriseAppShellView.swift"))
 
-        XCTAssertTrue(headerSource.contains("\"home.sunrise.date.previous\""))
-        XCTAssertTrue(headerSource.contains("\"home.sunrise.date.next\""))
         XCTAssertTrue(headerSource.contains("\"home.sunrise.date.selector\""))
+        XCTAssertFalse(headerSource.contains("\"home.sunrise.date.previous\""))
+        XCTAssertFalse(headerSource.contains("\"home.sunrise.date.next\""))
         XCTAssertTrue(homeSource.contains("\"home.datePicker\""))
     }
 
@@ -146,7 +146,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
     @MainActor
     func testOnlyOneFilterChipIsSelected() {
-        let models = SunriseHomeScreen.filterChipModels(selectedFilterID: "tasks")
+        let models = SunriseHomeScreen.filterChipModels(selectedContentScope: .tasks)
         let selectedIDs = models.filter(\.isSelected).map(\.id)
 
         XCTAssertEqual(selectedIDs, ["tasks"])
@@ -155,12 +155,122 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
     @MainActor
     func testFilterChipOrderIncludesFiltersAfterHabits() {
-        let models = SunriseHomeScreen.filterChipModels(selectedFilterID: "all", hasActiveFilters: true)
+        let models = SunriseHomeScreen.filterChipModels(selectedContentScope: .all, hasActiveFilters: true)
 
         XCTAssertEqual(models.map(\.title), ["All", "Meetings", "Tasks", "Habits", "Filters"])
         XCTAssertEqual(models.map(\.id), ["all", "meetings", "tasks", "habits", "filters"])
         XCTAssertFalse(models.first(where: { $0.id == "filters" })?.isSelected ?? true)
         XCTAssertTrue(models.first(where: { $0.id == "filters" })?.showsIndicator ?? false)
+    }
+
+    @MainActor
+    func testFilterChipIndicatorDoesNotSelectFiltersChip() {
+        let models = SunriseHomeScreen.filterChipModels(selectedContentScope: .meetings, hasActiveFilters: true)
+        let selectedIDs = models.filter(\.isSelected).map(\.id)
+        let filters = models.first(where: { $0.id == "filters" })
+
+        XCTAssertEqual(selectedIDs, ["meetings"])
+        XCTAssertFalse(filters?.isSelected ?? true)
+        XCTAssertTrue(filters?.showsIndicator ?? false)
+    }
+
+    func testTasksContentScopeShowsOnlyTaskTimelineItems() {
+        let now = date(hour: 21, minute: 15)
+        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise")
+        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
+        let task = timelineItem(id: "task", startHour: 18, endHour: 19)
+        let meetingTask = timelineItem(id: "meeting-task", startHour: 19, endHour: 20, isMeetingLike: true)
+        let calendarEvent = timelineItem(id: "event", source: .calendarEvent, startHour: 20, endHour: 21)
+        let gap = TimelineGap(startDate: date(hour: 21), endDate: date(hour: 22), suggestedTaskCount: 0)
+
+        let rows = SunriseHomeScreen.buildTimelineRows(
+            wakeAnchor: wake,
+            sleepAnchor: sleep,
+            plottedItems: [task, meetingTask, calendarEvent],
+            gaps: [gap],
+            now: now,
+            isToday: true,
+            contentScope: .tasks,
+            meetingFlockModel: stubMeetingFlock
+        )
+
+        XCTAssertEqual(rows.map(\.id), ["item-task"])
+    }
+
+    func testMeetingsContentScopeShowsCalendarAndMeetingRowsOnly() {
+        let now = date(hour: 21, minute: 15)
+        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise")
+        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
+        let task = timelineItem(id: "task", startHour: 17, endHour: 18)
+        let meetingOne = timelineItem(id: "meeting-1", source: .calendarEvent, startHour: 18, endHour: 19)
+        let meetingTwo = timelineItem(id: "meeting-2", source: .calendarEvent, startHour: 18, startMinute: 15, endHour: 19)
+        let meetingThree = timelineItem(id: "meeting-3", source: .calendarEvent, startHour: 18, startMinute: 30, endHour: 19)
+        let meetingTask = timelineItem(id: "meeting-task", startHour: 20, endHour: 21, isMeetingLike: true)
+        let gap = TimelineGap(startDate: date(hour: 21), endDate: date(hour: 22), suggestedTaskCount: 0)
+
+        let rows = SunriseHomeScreen.buildTimelineRows(
+            wakeAnchor: wake,
+            sleepAnchor: sleep,
+            plottedItems: [task, meetingOne, meetingTwo, meetingThree, meetingTask],
+            gaps: [gap],
+            now: now,
+            isToday: true,
+            contentScope: .meetings,
+            meetingFlockModel: stubMeetingFlock
+        )
+
+        XCTAssertEqual(rows.map(\.id), ["item-meeting-1", "item-meeting-2", "item-meeting-3", "item-meeting-task"])
+        XCTAssertFalse(rows.contains { $0.id == "item-task" })
+        XCTAssertFalse(rows.contains { if case .gap = $0 { return true }; return false })
+        XCTAssertFalse(rows.contains { if case .now = $0 { return true }; return false })
+        XCTAssertFalse(rows.contains { $0.id.hasPrefix("anchor-") })
+    }
+
+    func testHabitsContentScopeSuppressesTimelineRows() {
+        let now = date(hour: 21, minute: 15)
+        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise")
+        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
+        let task = timelineItem(id: "task", startHour: 18, endHour: 19)
+
+        let rows = SunriseHomeScreen.buildTimelineRows(
+            wakeAnchor: wake,
+            sleepAnchor: sleep,
+            plottedItems: [task],
+            gaps: [TimelineGap(startDate: date(hour: 21), endDate: date(hour: 22), suggestedTaskCount: 0)],
+            now: now,
+            isToday: true,
+            contentScope: .habits,
+            meetingFlockModel: stubMeetingFlock
+        )
+
+        XCTAssertTrue(rows.isEmpty)
+    }
+
+    func testAllContentScopeRestoresMixedTimelineRows() {
+        let now = date(hour: 21, minute: 15)
+        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise")
+        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
+        let task = timelineItem(id: "task", startHour: 18, endHour: 19)
+        let calendarEvent = timelineItem(id: "event", source: .calendarEvent, startHour: 20, endHour: 21)
+        let gap = TimelineGap(startDate: date(hour: 21), endDate: date(hour: 22), suggestedTaskCount: 0)
+
+        let rows = SunriseHomeScreen.buildTimelineRows(
+            wakeAnchor: wake,
+            sleepAnchor: sleep,
+            plottedItems: [task, calendarEvent],
+            gaps: [gap],
+            now: now,
+            isToday: true,
+            contentScope: .all,
+            meetingFlockModel: stubMeetingFlock
+        )
+
+        XCTAssertTrue(rows.contains { $0.id == "anchor-wake" })
+        XCTAssertTrue(rows.contains { $0.id == "item-task" })
+        XCTAssertTrue(rows.contains { $0.id == "item-event" })
+        XCTAssertTrue(rows.contains { if case .gap = $0 { return true }; return false })
+        XCTAssertTrue(rows.contains { if case .now = $0 { return true }; return false })
+        XCTAssertTrue(rows.contains { $0.id == "anchor-sleep" })
     }
 
     func testNowRowSortsChronologicallyBetweenTimelineItems() {
@@ -253,7 +363,8 @@ final class SunriseHeaderAssetTests: XCTestCase {
             role: .task,
             kind: .task,
             systemImage: "checkmark.square",
-            accessoryText: "Task",
+            tintHex: "#123456",
+            accessoryText: nil,
             temporalState: .future,
             isCompleted: false,
             isToggleable: true,
@@ -267,6 +378,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
             role: .meeting,
             kind: .calendar,
             systemImage: "calendar",
+            tintHex: nil,
             accessoryText: nil,
             temporalState: .future,
             isCompleted: false,
@@ -275,8 +387,11 @@ final class SunriseHeaderAssetTests: XCTestCase {
         )
 
         XCTAssertEqual(taskModel.kind, .task)
+        XCTAssertEqual(taskModel.tintHex, "#123456")
+        XCTAssertNil(taskModel.accessoryText)
         XCTAssertTrue(taskModel.isToggleable)
         XCTAssertEqual(calendarModel.kind, .calendar)
+        XCTAssertNil(calendarModel.tintHex)
         XCTAssertFalse(calendarModel.isToggleable)
     }
 
@@ -471,7 +586,8 @@ final class SunriseHeaderAssetTests: XCTestCase {
         startMinute: Int = 0,
         endHour: Int,
         endMinute: Int = 0,
-        isComplete: Bool = false
+        isComplete: Bool = false,
+        isMeetingLike: Bool = false
     ) -> TimelinePlanItem {
         TimelinePlanItem(
             id: id,
@@ -486,7 +602,8 @@ final class SunriseHeaderAssetTests: XCTestCase {
             isComplete: isComplete,
             tintHex: nil,
             systemImageName: source == .calendarEvent ? "calendar" : "checkmark.square",
-            accessoryText: nil
+            accessoryText: nil,
+            isMeetingLike: isMeetingLike
         )
     }
 
