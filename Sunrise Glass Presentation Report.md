@@ -25,7 +25,7 @@ This report reflects the current worktree after the remaining cleanup pass. Doma
 | Area | Current Sunrise Surface |
 |---|---|
 | App shell | `SunriseAppShellView`, `SunriseiPadSplitShellView` |
-| Home task surface | `SunriseHomeScreen`, `SunriseTaskListView`, `SunriseTaskSectionView`, `SunriseTaskRowView` |
+| Home task surface | `SunriseHomeScreen`, `SunriseTaskListView`, `SunriseTaskSectionView`, `SunriseTaskRowView`, `SunriseDaySwipe*`, `SunriseCompactHeaderChrome` |
 | Timeline | `SunriseTimelineSurface`, `SunriseTimelineBar`, `SunriseTimelineRendererPolicy` |
 | Schedule | `SunriseScheduleScreen` |
 | Creation | `SunriseAddTaskSheetView`, `SunriseAddHabitSheetView` |
@@ -42,6 +42,13 @@ This report reflects the current worktree after the remaining cleanup pass. Doma
 - Replaced the active Home shell with Sunrise-named shell types.
 - Replaced task list, task section, task row, timeline, Eva sheet, focus zone, focus session summary, reflection composer, and quiet tracking composer symbols with Sunrise names.
 - Replaced Home and UI-test accessibility naming from `home.foredrop.*` to `home.sunrise.*`.
+- Removed the inactive DGCharts analytics leaf pipeline: old chart cards, chart view models, formatters, markers, and animation helpers are no longer compiled.
+- Replaced chart-specific Home reload invalidation naming with Insights-neutral refresh naming.
+- Deleted `HomeGlassBottomBar.swift`; Home now uses the canonical `LBBottomDock` directly.
+- Deleted unused `ProjectPillCell.swift`, `FilterPill.swift`, and the stale Eva triage V2 sheet file.
+- Replaced recurring-task delete and chat detail-unavailable `UIAlertController` usage with Sunrise SwiftUI sheets.
+- Removed legacy project/search/settings UI-test fallback identifiers and added guardrail coverage for those UI-test fallbacks.
+- Renamed stale analytics UI-test chart/radar assertions to Sunrise Insights terminology and removed unused chart accessibility constants.
 - Deleted stale compiled Insights leaf views: `InsightsTodayView.swift`, `InsightsWeekView.swift`, and `InsightsSystemsView.swift`.
 - Deleted old `SettingsView.swift`.
 - Deleted unused UIKit settings cells: `DarkModeToggleCell.swift`, `ThemeSelectionCell.swift`, and `UnifiedThemePickerCell.swift`.
@@ -61,9 +68,10 @@ This report reflects the current worktree after the remaining cleanup pass. Doma
 | Baseline simulator build | Passed | Before remaining cleanup. |
 | Post-cleanup simulator build | Passed | `LifeBoard.xcworkspace` / `LifeBoard` on iPhone 16 iOS 18.6; no build warnings or errors in the final run. |
 | Legacy runtime guardrail | Passed | Allows only onboarding's `legacyTaskIDMap` compatibility hit. |
-| Legacy test guardrail | Passed | No stale legacy test names remain in the checked scope. |
-| Focused unit tests | Passed | 280 selected migration tests passed with 0 failures. Existing Swift 6 Sendable warnings remain in test stubs. |
-| QuickFilter UI tests | No current failures | Seeded Sunrise content-filter coverage passes; launch-state checks skip when their old chrome state is not reachable. |
+| Legacy test guardrail | Passed | Includes UI-test fallback checks for old project/search/settings identifiers. |
+| Focused unit tests | Passed | 285 selected migration tests passed with 0 failures. |
+| Focused UI test | Passed | `LifeBoardUITests/AnalyticsAndChartsTests/testInsightsUpdatesAfterCompletion`; the UI-test target still emits pre-existing Swift concurrency warnings in test stubs/page objects. |
+| QuickFilter UI tests | No current failures | Seeded Sunrise content-filter coverage passed in the earlier cleanup pass; broader launch-state checks can still skip when their old chrome state is not reachable. |
 | Full UI tests | Not completed | Broader UI suite still needs a clean end-to-end run for task creation, habit creation, onboarding composer launch, habit board, settings, chat, and calendar. |
 
 # Open Verification Work
@@ -76,9 +84,11 @@ This report reflects the current worktree after the remaining cleanup pass. Doma
 These checks should remain empty outside accepted onboarding or non-presentation compatibility exceptions:
 
 ```sh
-rg "AddTaskSheetView|AddItemComposerView|AddTaskForedropView|AddHabitForedropView" LifeBoard LifeBoard.xcodeproj/project.pbxproj
+rg "\b(AddTaskSheetView|AddItemComposerView|AddTaskForedropView|AddHabitForedropView)\b" LifeBoard LifeBoard.xcodeproj/project.pbxproj
 rg "LGSearch|LiquidGlass|ToDoColors|ToDoFont|CardViewModifier|MaterialComponents" LifeBoard LifeBoard.xcodeproj/project.pbxproj
 rg "Foredrop|foredrop" LifeBoard LifeBoard.xcodeproj/project.pbxproj
+rg "HomeDayLiquidSwipe|LiquidSwipe|ToDoAnimations|TinyPieChart|ProjectPillCell|ChartCardsScrollView|ChartCardViewModel|RadarChartCardViewModel|BalloonMarker|RadarChart|radarChart|chartView|ChartView|DGCharts|LineChart" LifeBoard LifeBoardTests LifeBoardUITests LifeBoard.xcodeproj/project.pbxproj
+rg "legacyView|legacyComposer|legacyIdentifier|legacyProjectFilter|Legacy Why|legacy fallback|AccessibilityIdentifiers\.(ProjectManagement|NewProject)|home\.projectFilterButton" LifeBoardUITests
 rg "NewProjectViewController|WeeklyViewController|InboxViewController|UpcominngTasksViewController|ThemeSelectionViewController" LifeBoard LifeBoard.xcodeproj/project.pbxproj LifeBoard/Storyboards
 scripts/validate_legacy_runtime_guardrails.sh
 scripts/validate_legacy_test_guardrails.sh
