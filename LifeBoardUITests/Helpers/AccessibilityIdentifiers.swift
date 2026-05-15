@@ -14,8 +14,8 @@ enum AccessibilityIdentifiers {
 
     enum Home {
         static let view = "home.view"
-        static let foredropSurface = "home.foredrop.surface"
-        static let foredropCollapseHint = "home.foredrop.collapseHint"
+        static let sunriseSurface = "home.sunrise.surface"
+        static let sunriseCollapseHint = "home.sunrise.collapseHint"
         static let addTaskButton = "home.addTaskButton"
         static let morningTasksList = "home.morningTasksList"
         static let eveningTasksList = "home.eveningTasksList"
@@ -151,6 +151,7 @@ enum AccessibilityIdentifiers {
         static let lifeAreaSelector = "addTask.lifeAreaSelector"
         static let projectSelector = "addTask.projectSelector"
         static let detailsDisclosure = "addTask.detailsDisclosure"
+        static let timelinePreview = "addTask.timelinePreview"
         static let scheduleEditor = "addTask.scheduleEditor"
         static let scheduleDateToday = "addTask.schedule.date.today"
         static let scheduleDateTomorrow = "addTask.schedule.date.tomorrow"

@@ -39,10 +39,10 @@ class SearchAndFilteringTests: BaseUITest {
         // GIVEN: Multiple tasks exist
         seedSearchTasks()
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting with Team"), "Task should exist")
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Home should start collapsed")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Home should start collapsed")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home tool should be selected initially")
         XCTAssertTrue(homePage.topNavActionRow.waitForExistence(timeout: 2), "Home top-nav action row should exist")
-        let collapsedMinY = homePage.foredropSurface.frame.minY
+        let collapsedMinY = homePage.sunriseSurface.frame.minY
         let homeActionRowMinY = homePage.topNavActionRow.frame.minY
 
         // WHEN: User searches for "Meeting"
@@ -52,8 +52,8 @@ class SearchAndFilteringTests: BaseUITest {
         XCTAssertTrue(homePage.searchField.waitForExistence(timeout: 3), "Backdrop search field should be visible")
         XCTAssertTrue(homePage.searchChromeContainer.waitForExistence(timeout: 2), "Search chrome container should exist")
         XCTAssertTrue(homePage.searchContentContainer.waitForExistence(timeout: 2), "Search content container should exist")
-        let searchOpenMinY = homePage.foredropSurface.frame.minY
-        XCTAssertLessThan(abs(searchOpenMinY - collapsedMinY), 12, "Foredrop should stay anchored while opening search")
+        let searchOpenMinY = homePage.sunriseSurface.frame.minY
+        XCTAssertLessThan(abs(searchOpenMinY - collapsedMinY), 12, "Sunrise should stay anchored while opening search")
         let safeAreaBoundary = homePage.topSafeAreaBoundary()
         let initialFieldMinY = homePage.searchField.frame.minY
         XCTAssertGreaterThanOrEqual(initialFieldMinY, safeAreaBoundary - 1, "Search field should stay below the safe area")
@@ -107,7 +107,7 @@ class SearchAndFilteringTests: BaseUITest {
 
         // Close path by tapping Search again.
         homePage.tapSearch()
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Search should collapse on second tap")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Search should collapse on second tap")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be re-selected when search closes")
     }
 
@@ -175,7 +175,7 @@ class SearchAndFilteringTests: BaseUITest {
     }
 
     func testSearchFaceClosePaths_HomeAndBackChip() throws {
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Home should start collapsed")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Home should start collapsed")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should start selected")
 
         homePage.tapSearch()
@@ -183,14 +183,14 @@ class SearchAndFilteringTests: BaseUITest {
         XCTAssertTrue(homePage.waitForToolSelection(homePage.searchButton), "Search tool should be selected")
 
         homePage.tapHome()
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Home tap should collapse search")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Home tap should collapse search")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after closing search")
 
         homePage.tapSearch()
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Bottom search should reopen search face")
         XCTAssertTrue(homePage.searchBackChip.waitForExistence(timeout: 2), "Back chip should appear on search face")
         homePage.tapSearchBackChip()
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Back chip should collapse search")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Back chip should collapse search")
     }
 
     // MARK: - Test 55: Filter by Priority - High Only

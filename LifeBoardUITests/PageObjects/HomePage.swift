@@ -23,22 +23,22 @@ class HomePage {
         return app.otherElements[AccessibilityIdentifiers.Home.view]
     }
 
-    var foredropSurface: XCUIElement {
+    var sunriseSurface: XCUIElement {
         let predicate = NSPredicate(
             format: "identifier == %@ OR identifier == %@ OR identifier == %@",
-            AccessibilityIdentifiers.Home.foredropSurface,
-            "home.foredropSurface",
-            "homeForedropSurface"
+            AccessibilityIdentifiers.Home.sunriseSurface,
+            "home.sunriseSurface",
+            "homeSunriseSurface"
         )
         return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
-    var foredropCollapseHint: XCUIElement {
-        let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.foredropCollapseHint]
+    var sunriseCollapseHint: XCUIElement {
+        let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.sunriseCollapseHint]
         if byIdentifier.exists {
             return byIdentifier
         }
-        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.foredropCollapseHint]
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.sunriseCollapseHint]
     }
 
     var timelineSurface: XCUIElement {
@@ -150,6 +150,11 @@ class HomePage {
     }
 
     var headerDateLabel: XCUIElement {
+        let sunriseDateSelector = app.descendants(matching: .any)["home.sunrise.date.selector"]
+        if sunriseDateSelector.exists {
+            return sunriseDateSelector
+        }
+
         let byText = app.staticTexts["home.topChrome.date"]
         if byText.exists {
             return byText
@@ -912,7 +917,7 @@ class HomePage {
 
     @discardableResult
     func waitForSearchFaceOpen(timeout: TimeInterval = 3) -> Bool {
-        guard waitForForedropState("fullReveal", timeout: timeout) else { return false }
+        guard waitForSunriseState("fullReveal", timeout: timeout) else { return false }
         return searchView.waitForExistence(timeout: timeout)
     }
 
@@ -1494,9 +1499,9 @@ class HomePage {
     }
 
     @discardableResult
-    func waitForForedropState(_ expectedState: String, timeout: TimeInterval = 3) -> Bool {
+    func waitForSunriseState(_ expectedState: String, timeout: TimeInterval = 3) -> Bool {
         let predicate = NSPredicate(format: "value == %@", expectedState)
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: foredropSurface)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: sunriseSurface)
         let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
         return result == .completed
     }

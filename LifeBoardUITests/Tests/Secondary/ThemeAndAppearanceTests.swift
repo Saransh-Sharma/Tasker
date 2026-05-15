@@ -169,7 +169,7 @@ class ThemeAndAppearanceTests: BaseUITest {
         } else {
             homePage.tapSearch()
         }
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Search should collapse before opening settings")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Search should collapse before opening settings")
 
         // Settings + LLM surfaces
         settingsPage = homePage.tapSettings()

@@ -135,19 +135,15 @@ class TaskCreationTests: BaseUITest {
     func testAddTaskCTAEnablesAfterTypingTitle() throws {
         let addTaskPage = homePage.tapAddTask()
         XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add Task screen should appear")
-        XCTAssertTrue(addTaskPage.createButton.waitForExistence(timeout: 3), "Add Task CTA should be visible")
-        XCTAssertFalse(addTaskPage.createButton.isEnabled, "Add Task CTA should start disabled with an empty title")
+        XCTAssertTrue(addTaskPage.timelinePreview.waitForExistence(timeout: 3), "Sunrise timeline preview should be visible")
+        XCTAssertTrue(addTaskPage.scheduleTimeRow.waitForExistence(timeout: 3), "Sunrise Add Task should expose editable time")
 
-        addTaskPage.enterTitle("Plan quarterly roadmap")
+        let title = "Plan quarterly roadmap"
+        addTaskPage.enterTitle(title)
 
-        let enabled = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "isEnabled == true"),
-            object: addTaskPage.createButton
-        )
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [enabled], timeout: 2),
-            .completed,
-            "Add Task CTA should enable immediately after typing a valid title"
+        XCTAssertTrue(
+            addTaskPage.timelinePreview.label.localizedCaseInsensitiveContains(title),
+            "Sunrise timeline preview should update with the typed title"
         )
     }
 

@@ -95,6 +95,10 @@ class AddTaskPage {
         app.buttons[AccessibilityIdentifiers.AddTask.detailsDisclosure]
     }
 
+    var timelinePreview: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.timelinePreview]
+    }
+
     var lifeAreaSelector: XCUIElement {
         app.otherElements[AccessibilityIdentifiers.AddTask.lifeAreaSelector]
     }
