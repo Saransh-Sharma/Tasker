@@ -450,7 +450,7 @@ struct HabitBoardScreen: View {
                 viewModel.loadIfNeeded()
             }
             .sheet(item: $selectedHabitRow) { row in
-                HabitDetailSheetView(
+                SunriseHabitDetailScreen(
                     viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
                     onMutation: { viewModel.refresh() }
                 )

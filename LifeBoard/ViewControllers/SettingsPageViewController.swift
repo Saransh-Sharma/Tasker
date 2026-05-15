@@ -180,7 +180,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
             return
         }
         let viewModel = presentationDependencyContainer.makeProjectManagementViewModel()
-        let view = ProjectManagementView(viewModel: viewModel)
+        let view = SunriseProjectManagementView(viewModel: viewModel)
             .lifeboardLayoutClass(currentLayoutClass)
         let controller = UIHostingController(rootView: view)
         controller.title = "Projects"

@@ -3,7 +3,7 @@
 //  LifeBoard
 //
 //  Compact navigation bar pie chart showing today's XP.
-//  SwiftUI replacement for legacy TinyPieChart (DGCharts).
+//  SwiftUI replacement for TinyPieChart (DGCharts).
 //
 
  import SwiftUI

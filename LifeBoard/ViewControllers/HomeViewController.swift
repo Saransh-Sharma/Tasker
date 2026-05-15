@@ -2,7 +2,7 @@
 //  HomeViewController.swift
 //  LifeBoard
 //
-//  SwiftUI host for Home screen with backdrop/foredrop shell.
+//  SwiftUI host for Home screen with backdrop/sunrise shell.
 //
 
 import UIKit
@@ -66,7 +66,7 @@ struct HomeLayoutMetrics: Equatable {
 
 struct HomeBottomBarVisibilityPolicy {
     static func shouldConcealBottomBar(
-        activeFace: HomeForedropFace,
+        activeFace: HomeSunriseFace,
         isPromptFocused: Bool,
         keyboardOverlapHeight: CGFloat
     ) -> Bool {
@@ -1073,7 +1073,7 @@ struct TimelineWeekSummary: Equatable {
 
 struct HomeTimelineSnapshot: Equatable {
     let selectedDate: Date
-    let foredropAnchor: ForedropAnchor
+    let sunriseAnchor: SunriseAnchor
     let day: TimelineDayProjection
     let week: TimelineWeekSummary
     let placementCandidate: TimelinePlacementCandidate?
@@ -1188,7 +1188,7 @@ final class HomeTimelineStore: ObservableObject {
 
 @MainActor
 final class HomeFaceCoordinator: ObservableObject {
-    @Published private(set) var activeFace: HomeForedropFace = .tasks
+    @Published private(set) var activeFace: HomeSunriseFace = .tasks
     @Published private(set) var shellPhase: HomeShellPhase = .startup
     @Published private(set) var layoutMetrics: HomeLayoutMetrics = .zero
     @Published private(set) var searchMutationRevision: UInt64 = 0
@@ -1199,7 +1199,7 @@ final class HomeFaceCoordinator: ObservableObject {
 
     let bottomBarState = HomeBottomBarState()
 
-    func setActiveFace(_ face: HomeForedropFace) {
+    func setActiveFace(_ face: HomeSunriseFace) {
         guard activeFace != face else { return }
         activeFace = face
         bottomBarState.select(face.selectedBottomBarItem)
@@ -1235,7 +1235,7 @@ final class HomeFaceCoordinator: ObservableObject {
 }
 
 private struct PhoneHomeRootContainer: View {
-    let root: HomeBackdropForedropRootView
+    let root: SunriseAppShellView
     let layoutClass: LifeBoardLayoutClass
 
     var body: some View {
@@ -1245,7 +1245,7 @@ private struct PhoneHomeRootContainer: View {
 
 private struct HomeHostRootView: View {
     let layoutClass: LifeBoardLayoutClass
-    let phoneRoot: HomeBackdropForedropRootView?
+    let phoneRoot: SunriseAppShellView?
     let iPadRoot: AnyView?
 
     @ViewBuilder
@@ -1384,7 +1384,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private let surfacePrewarmPolicy = HomeSurfacePrewarmPolicy()
     private var pendingOnboardingEvaluationTask: Task<Void, Never>?
     private var awaitsAnalyticsFirstInteractiveFrame = false
-    private var retainedHomeSearchEngine: LGHomeSearchEngine?
+    private var retainedHomeSearchEngine: HomeSearchEngineAdapter?
     private var onboardingEvaluationSceneToken: Int = 1
     private var completedOnboardingEvaluationSceneToken: Int = 0
     private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
@@ -1708,7 +1708,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         insightsViewModel.highlightAchievement(request.highlightedAchievementKey)
     }
 
-    private func trackFaceSelection(_ activeFace: HomeForedropFace) {
+    private func trackFaceSelection(_ activeFace: HomeSunriseFace) {
         let faceName: String
         switch activeFace {
         case .tasks:
@@ -2163,11 +2163,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         return resolvedViewModel
     }
 
-    private func resolveHomeSearchEngine() -> LGHomeSearchEngine {
+    private func resolveHomeSearchEngine() -> HomeSearchEngineAdapter {
         if let retainedHomeSearchEngine {
             return retainedHomeSearchEngine
         }
-        let engine = LGHomeSearchEngine(viewModel: viewModel.makeHomeSearchViewModel())
+        let engine = HomeSearchEngineAdapter(viewModel: viewModel.makeHomeSearchViewModel())
         retainedHomeSearchEngine = engine
         return engine
     }
@@ -2607,9 +2607,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     /// Executes makeHomeBackdropRoot.
     private func makeHomeBackdropRoot(
         layoutClass: LifeBoardLayoutClass,
-        forcedFace: Binding<HomeForedropFace>?
-    ) -> HomeBackdropForedropRootView {
-        HomeBackdropForedropRootView(
+        forcedFace: Binding<HomeSunriseFace>?
+    ) -> SunriseAppShellView {
+        SunriseAppShellView(
             viewModel: viewModel,
             chromeStore: chromeStore,
             tasksStore: tasksStore,
@@ -2720,7 +2720,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes makeIPadSplitRoot.
     private func makeIPadSplitRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
-        let root = HomeiPadSplitShellView(
+        let root = SunriseiPadSplitShellView(
             layoutClass: layoutClass,
             shellState: iPadShellState,
             shellEpoch: iPadShellEpoch,
@@ -2766,15 +2766,19 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard let presentationDependencyContainer else {
             return AnyView(Text("Add Task unavailable").font(.lifeboard(.body)))
         }
+        let viewModel = presentationDependencyContainer.makeNewAddTaskViewModel()
         return AnyView(
-            AddTaskInspectorContainer(
-                viewModel: presentationDependencyContainer.makeNewAddTaskViewModel(),
-                habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
-                onClose: { [weak self] in
+            SunriseAddTaskSheetView(
+                viewModel: viewModel,
+                onTaskCreated: { [weak self] _ in
+                    self?.iPadShellState.destination = .tasks
+                },
+                onDismissWithoutTask: { [weak self] in
                     self?.iPadShellState.destination = .tasks
                 }
             )
             .lifeboardLayoutClass(layoutClass)
+            .accessibilityIdentifier("home.ipad.detail.addTask")
         )
     }
 
@@ -2837,7 +2841,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         let vm = presentationDependencyContainer.makeProjectManagementViewModel()
         return AnyView(
-            ProjectManagementView(viewModel: vm)
+            SunriseProjectManagementView(viewModel: vm)
                 .lifeboardLayoutClass(layoutClass)
         )
     }
@@ -3618,9 +3622,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         let viewModel = presentationDependencyContainer.makeNewAddTaskViewModel()
         viewModel.applyPrefill(prefill)
-        let sheet = AddTaskSheetView(
+        let sheet = SunriseAddTaskSheetView(
             viewModel: viewModel,
-            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
             onTaskCreated: onTaskCreated,
             onDismissWithoutTask: onDismissWithoutTask
         )
@@ -3642,19 +3645,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard let presentationDependencyContainer else {
             return nil
         }
-        let taskViewModel = presentationDependencyContainer.makeNewAddTaskViewModel()
         let habitViewModel = presentationDependencyContainer.makeNewAddHabitViewModel()
         habitViewModel.applyPrefill(prefill)
-        let sheet = AddTaskSheetView(
-            itemViewModel: AddItemViewModel(
-                taskViewModel: taskViewModel,
-                habitViewModel: habitViewModel,
-                allowedModes: [.habit],
-                selectedMode: .habit
-            ),
-            modePolicy: .habitOnly,
+        let sheet = SunriseAddHabitSheetView(
+            viewModel: habitViewModel,
             onHabitCreated: onHabitCreated,
-            onDismissWithoutTask: onDismissWithoutTask
+            onDismissWithoutHabit: onDismissWithoutTask
         )
         let hostingController = UIHostingController(rootView: AnyView(sheet.lifeboardLayoutClass(currentLayoutClass)))
         hostingController.modalPresentationStyle = .pageSheet
@@ -3746,11 +3742,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
         applyTimelineSuggestedDate(suggestedDate, to: vm)
-        let sheet = AddTaskSheetView(
-            viewModel: vm,
-            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
-            modePolicy: .unified(defaultMode: .task)
-        )
+        let sheet = SunriseAddTaskSheetView(viewModel: vm)
         let hostingVC = UIHostingController(rootView: sheet)
         hostingVC.modalPresentationStyle = .pageSheet
         if let sheetController = hostingVC.sheetPresentationController {
@@ -3774,11 +3766,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
         applyTimelineSuggestedDate(suggestedDate, to: vm)
-        let sheet = AddTaskSheetView(
-            viewModel: vm,
-            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
-            modePolicy: .unified(defaultMode: .task)
-        )
+        let sheet = SunriseAddTaskSheetView(viewModel: vm)
         let hostingVC = UIHostingController(rootView: sheet.lifeboardLayoutClass(currentLayoutClass))
         hostingVC.modalPresentationStyle = .formSheet
         hostingVC.preferredContentSize = CGSize(width: 540, height: 620)
@@ -3822,7 +3810,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
 
         let viewModel = presentationDependencyContainer.makeProjectManagementViewModel()
-        let rootView = ProjectManagementView(viewModel: viewModel)
+        let rootView = SunriseProjectManagementView(viewModel: viewModel)
             .lifeboardLayoutClass(currentLayoutClass)
         let controller = UIHostingController(rootView: rootView)
         controller.title = "Projects"
@@ -3848,7 +3836,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let referenceDate = weeklySummary?.weekStartDate ?? Date()
         let plannerPresentation = weeklySummary?.plannerPresentation ?? .thisWeek
 
-        let plannerView = WeeklyPlannerView(
+        let plannerView = SunriseWeeklyPlannerView(
             viewModel: presentationDependencyContainer.makeWeeklyPlannerViewModel(
                 referenceDate: referenceDate,
                 plannerPresentation: plannerPresentation
@@ -3877,7 +3865,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         let referenceDate = viewModel?.weeklySummary?.weekStartDate ?? Date()
 
-        let reviewView = WeeklyReviewView(
+        let reviewView = SunriseWeeklyReviewView(
             viewModel: presentationDependencyContainer.makeWeeklyReviewViewModel(referenceDate: referenceDate),
             onClose: { [weak self] in
                 self?.dismiss(animated: true)
@@ -3903,36 +3891,26 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes searchButtonTapped.
     @objc func searchButtonTapped() {
-        if isUsingIPadNativeShell {
-            let presentSearch = { [weak self] in
-                guard let self else { return }
-                self.openSearch(source: "navigation_search_button")
+        let presentSearch = { [weak self] in
+            guard let self else { return }
+            self.openSearch(source: "navigation_search_button")
+            if self.isUsingIPadNativeShell {
                 self.iPadShellState.destination = .search
             }
+        }
 
-            if presentedViewController != nil {
-                dismiss(animated: true) {
-                    presentSearch()
-                }
-            } else {
+        if presentedViewController != nil {
+            dismiss(animated: true) {
                 presentSearch()
             }
-            return
+        } else {
+            presentSearch()
         }
-
-        let searchVC = LGSearchViewController()
-        guard let presentationDependencyContainer else {
-            fatalError("HomeViewController missing PresentationDependencyContainer")
-        }
-        presentationDependencyContainer.inject(into: searchVC)
-        searchVC.modalPresentationStyle = .fullScreen
-        searchVC.modalTransitionStyle = .crossDissolve
-        present(searchVC, animated: true)
     }
 
     /// Executes chatButtonTapped.
     @objc func chatButtonTapped() {
-        presentEvaChatScreen(source: "legacy_chat_button")
+        presentEvaChatScreen(source: "sunrise_chat_button")
     }
 
     private func resetHomeSelectionAfterEvaChatDismissalIfNeeded() {
@@ -4185,8 +4163,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func makeTaskDetailView(
         for task: TaskDefinition,
         containerMode: TaskDetailContainerMode
-    ) -> TaskDetailSheetView {
-        TaskDetailSheetView(
+    ) -> SunriseTaskDetailScreen {
+        SunriseTaskDetailScreen(
             task: task,
             projects: viewModel?.projects ?? [],
             todayXPSoFar: {
@@ -4821,7 +4799,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func presentFocusTimer(task: TaskDefinition?, session: FocusSessionDefinition, source: String) {
-        let timerView = FocusTimerView(
+        let timerView = SunriseFocusTimerView(
             taskTitle: task?.title,
             taskPriority: task?.priority.displayName,
             targetDurationSeconds: session.targetDurationSeconds,
@@ -4872,7 +4850,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func presentFocusSummary(_ result: FocusSessionResult) {
         guard let viewModel else { return }
-        let summaryView = FocusSessionSummaryView(
+        let summaryView = SunriseFocusSessionSummaryView(
             durationSeconds: result.session.durationSeconds,
             xpAwarded: result.xpResult?.awardedXP ?? result.session.xpAwarded,
             dailyXPSoFar: result.xpResult?.dailyXPSoFar ?? viewModel.dailyScore,
@@ -5110,7 +5088,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         )
 
         let hostingController = UIHostingController(
-            rootView: ReflectPlanScreen(
+            rootView: SunriseReflectPlanScreen(
                 viewModel: reflectPlanViewModel,
                 onClose: { [weak self] in
                     self?.dismiss(animated: true)

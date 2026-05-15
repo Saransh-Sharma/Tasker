@@ -35,12 +35,12 @@ struct HomeEvaChatTopChromeView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(chromeState.title)
                     .font(.lifeboard(.headline))
-                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .foregroundStyle(EvaChatSunriseGlass.navy)
                     .lineLimit(1)
 
                 Text(chromeState.subtitle)
                     .font(.lifeboard(.caption1))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .foregroundStyle(EvaChatSunriseGlass.navyMuted)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -77,6 +77,7 @@ struct HomeEvaChatTopChromeView: View {
         .padding(.horizontal, spacing.s16)
         .padding(.top, spacing.s8)
         .padding(.bottom, spacing.s8)
+        .background(EvaChatSunriseGlass.canvasMid.opacity(0.72))
         .accessibilityIdentifier("home.chat.topChrome")
     }
 
@@ -89,8 +90,15 @@ struct HomeEvaChatTopChromeView: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.lifeboard.textSecondary)
+                .foregroundStyle(EvaChatSunriseGlass.navyMuted)
                 .frame(width: 44, height: 44)
+                .lifeboardPremiumSurface(
+                    cornerRadius: 22,
+                    fillColor: EvaChatSunriseGlass.glassFill,
+                    strokeColor: EvaChatSunriseGlass.glassBorder,
+                    accentColor: EvaChatSunriseGlass.primary,
+                    level: .e1
+                )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
