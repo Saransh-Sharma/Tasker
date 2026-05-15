@@ -2,7 +2,7 @@
 //  ProjectSelectionSheet.swift
 //  LifeBoard
 //
-//  Created by Assistant on Radar Chart Implementation
+//  Project picker sheet for Sunrise analytics filters.
 //  Copyright 2025 saransh1337. All rights reserved.
 //
 

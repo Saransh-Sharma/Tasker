@@ -45,7 +45,7 @@ struct HomeLayoutMetrics: Equatable {
     let backdropGradientHeight: CGFloat
     let taskListBottomInset: CGFloat
     let chatComposerBottomInset: CGFloat
-    let chartViewportHeight: CGFloat
+    let insightsViewportHeight: CGFloat
 
     static let zero = HomeLayoutMetrics(
         width: 0,
@@ -56,7 +56,7 @@ struct HomeLayoutMetrics: Equatable {
         backdropGradientHeight: 0,
         taskListBottomInset: 80,
         chatComposerBottomInset: 80,
-        chartViewportHeight: 560
+        insightsViewportHeight: 560
     )
 
     var isReady: Bool {
@@ -1274,7 +1274,7 @@ private struct HomeBottomBarContainer: View {
     let onHeightChange: (CGFloat) -> Void
 
     var body: some View {
-        HomeGlassBottomBar(
+        LBBottomDock(
             state: state,
             shellPhase: shellPhase,
             onHome: onHome,
@@ -1318,18 +1318,17 @@ private final class OnboardingTaskDetailDismissBridge: NSObject, UIAdaptivePrese
     }
 }
 
-final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware, UIAdaptivePresentationControllerDelegate {
+final class HomeViewController: UIViewController, HomeViewControllerProtocol, PresentationDependencyContainerAware, UIAdaptivePresentationControllerDelegate {
     private static var hasSeededUITestEstablishedWorkspace = false
     private static var hasSeededUITestRescueWorkspace = false
     private static var hasSeededUITestFocusWorkspace = false
     private static var hasSeededUITestHabitBoardWorkspace = false
     private static var hasSeededUITestQuietTrackingWorkspace = false
+    private static let bottomBarVerticalLift: CGFloat = 6
 
     // MARK: - Dependencies
 
     var viewModel: HomeViewModel!
-    var chartCardViewModel: ChartCardViewModel!
-    var radarChartCardViewModel: RadarChartCardViewModel!
     var presentationDependencyContainer: PresentationDependencyContainer?
 
     // MARK: - UI
@@ -1463,14 +1462,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         refreshLayoutClassIfNeeded()
         refreshLayoutMetrics()
         updateInteractivePhaseIfNeeded()
-        mountBottomBarOverlayIfNeeded()
-        updateBottomBarBottomConstraint()
+        mountBottomBarOverlayIfNeeded(animated: false)
+        updateBottomBarBottomConstraint(animated: false)
     }
 
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         refreshLayoutMetrics()
-        updateBottomBarBottomConstraint()
+        updateBottomBarBottomConstraint(animated: false)
     }
 
     /// Executes viewWillDisappear.
@@ -1498,12 +1497,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func injectDependenciesIfNeeded() {
         guard viewModel != nil else {
             fatalError("HomeViewController requires injected HomeViewModel")
-        }
-        guard chartCardViewModel != nil else {
-            fatalError("HomeViewController requires injected ChartCardViewModel")
-        }
-        guard radarChartCardViewModel != nil else {
-            fatalError("HomeViewController requires injected RadarChartCardViewModel")
         }
         guard presentationDependencyContainer != nil else {
             fatalError("HomeViewController requires injected PresentationDependencyContainer")
@@ -1573,14 +1566,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.isEmbeddedChatPromptFocused = false
                 }
                 self?.refreshLayoutMetrics()
-                self?.mountBottomBarOverlayIfNeeded()
+                self?.mountBottomBarOverlayIfNeeded(animated: true)
             }
             .store(in: &cancellables)
 
         faceCoordinator.$shellPhase
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.mountBottomBarOverlayIfNeeded()
+                self?.mountBottomBarOverlayIfNeeded(animated: true)
                 self?.scheduleOnboardingEvaluationIfNeeded()
                 self?.scheduleBackgroundSurfacePrewarmIfNeeded()
             }
@@ -2236,7 +2229,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             keyboardSpacing: spacing.s16,
             regularSpacing: spacing.s24
         )
-        let chartViewportHeight = min(max(height * 0.66, 560), max(560, height - 150))
+        let insightsViewportHeight = min(max(height * 0.66, 560), max(560, height - 150))
 
         return HomeLayoutMetrics(
             width: width,
@@ -2247,7 +2240,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             backdropGradientHeight: height + safeAreaInsets.top + safeAreaInsets.bottom,
             taskListBottomInset: taskListBottomInset,
             chatComposerBottomInset: chatComposerBottomInset,
-            chartViewportHeight: chartViewportHeight
+            insightsViewportHeight: insightsViewportHeight
         )
     }
 
@@ -2296,8 +2289,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard abs(keyboardOverlapHeight - sanitizedValue) > 0.5 else { return }
         keyboardOverlapHeight = sanitizedValue
         refreshLayoutMetrics()
-        mountBottomBarOverlayIfNeeded()
-        updateBottomBarBottomConstraint()
+        mountBottomBarOverlayIfNeeded(animated: true)
+        updateBottomBarBottomConstraint(animated: true)
     }
 
     private var isBottomBarConcealedForChatInput: Bool {
@@ -2311,14 +2304,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func setEmbeddedChatPromptFocused(_ isFocused: Bool) {
         guard isEmbeddedChatPromptFocused != isFocused else {
             refreshLayoutMetrics()
-            mountBottomBarOverlayIfNeeded()
-            updateBottomBarBottomConstraint()
+            mountBottomBarOverlayIfNeeded(animated: true)
+            updateBottomBarBottomConstraint(animated: true)
             return
         }
         isEmbeddedChatPromptFocused = isFocused
         refreshLayoutMetrics()
-        mountBottomBarOverlayIfNeeded()
-        updateBottomBarBottomConstraint()
+        mountBottomBarOverlayIfNeeded(animated: true)
+        updateBottomBarBottomConstraint(animated: true)
     }
 
     private func updateInteractivePhaseIfNeeded() {
@@ -2383,10 +2376,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 replanState: state.replanState
             )
         )
-        mountBottomBarOverlayIfNeeded()
+        mountBottomBarOverlayIfNeeded(animated: true)
     }
 
-    private func mountBottomBarOverlayIfNeeded() {
+    private func mountBottomBarOverlayIfNeeded(animated: Bool = true) {
         let shouldShowBottomBar = currentLayoutClass == .phone
             && faceCoordinator.shellPhase == .interactive
             && overlayStore.snapshot.replanState.suppressesBottomBar == false
@@ -2411,13 +2404,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             bottomBarHostingController.rootView = root
             applyBottomBarConcealmentState()
             updateBottomBarHeightConstraint()
-            updateBottomBarBottomConstraint()
+            updateBottomBarBottomConstraint(animated: animated)
             return
         }
 
         let hostingController = UIHostingController(rootView: root)
         hostingController.view.backgroundColor = .clear
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        bottomBarHostingController = hostingController
         addChild(hostingController)
         view.addSubview(hostingController.view)
         let bottomConstraint = hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
@@ -2430,10 +2424,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             bottomConstraint,
             heightConstraint
         ])
-        updateBottomBarBottomConstraint()
         hostingController.didMove(toParent: self)
-        bottomBarHostingController = hostingController
         applyBottomBarConcealmentState()
+        updateBottomBarBottomConstraint(animated: false)
     }
 
     private func applyBottomBarConcealmentState() {
@@ -2501,23 +2494,27 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         measuredBottomBarHeight = sanitizedValue
         refreshLayoutMetrics()
         updateBottomBarHeightConstraint()
-        updateBottomBarBottomConstraint()
+        updateBottomBarBottomConstraint(animated: false)
     }
 
     private func resolvedBottomBarDownshift() -> CGFloat {
         guard currentLayoutClass == .phone else { return 0 }
-        let restingDownshift = max(0, view.safeAreaInsets.bottom - 10)
+        let restingDownshift = max(0, view.safeAreaInsets.bottom - 10) - Self.bottomBarVerticalLift
         guard isBottomBarConcealedForChatInput else { return restingDownshift }
 
         let tokens = LifeBoardThemeManager.shared.tokens(for: currentLayoutClass)
         return restingDownshift + resolvedBottomBarHostHeight() + tokens.spacing.s16
     }
 
-    private func updateBottomBarBottomConstraint() {
+    private func updateBottomBarBottomConstraint(animated: Bool = true) {
         guard let bottomBarBottomConstraint else { return }
         let downshift = resolvedBottomBarDownshift()
         guard abs(bottomBarBottomConstraint.constant - downshift) > 0.5 else { return }
         bottomBarBottomConstraint.constant = downshift
+        guard animated else {
+            view.setNeedsLayout()
+            return
+        }
         UIView.animate(
             withDuration: 0.24,
             delay: 0,
@@ -2577,7 +2574,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             existingHostingController.rootView = root
             refreshLayoutMetrics()
             updateInteractivePhaseIfNeeded()
-            mountBottomBarOverlayIfNeeded()
+            mountBottomBarOverlayIfNeeded(animated: false)
             return
         }
 
@@ -2601,7 +2598,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         hostingController.didMove(toParent: self)
         refreshLayoutMetrics()
         updateInteractivePhaseIfNeeded()
-        mountBottomBarOverlayIfNeeded()
+        mountBottomBarOverlayIfNeeded(animated: false)
     }
 
     /// Executes makeHomeBackdropRoot.
@@ -2621,8 +2618,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             overlayStore: overlayStore,
             faceCoordinator: faceCoordinator,
             searchState: searchState,
-            chartCardViewModel: chartCardViewModel,
-            radarChartCardViewModel: radarChartCardViewModel,
             layoutClass: layoutClass,
             forcedFace: forcedFace,
             onTaskTap: { [weak self] task in
@@ -4048,23 +4043,40 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             return
         }
 
-        let alert = UIAlertController(
-            title: "Delete recurring task?",
-            message: "Choose whether to delete only this task or every task in the series.",
-            preferredStyle: .actionSheet
+        presentRecurringTaskDeleteConfirmation(
+            taskTitle: task.title,
+            onDeleteSingle: { [viewModel] in
+                viewModel.deleteTask(taskID: task.id, scope: .single) { _ in }
+            },
+            onDeleteSeries: { [viewModel] in
+                viewModel.deleteTask(taskID: task.id, scope: .series) { _ in }
+            }
         )
-        alert.addAction(UIAlertAction(title: "Delete This Task", style: .destructive) { _ in
-            viewModel.deleteTask(taskID: task.id, scope: .single) { _ in }
-        })
-        alert.addAction(UIAlertAction(title: "Delete Entire Series", style: .destructive) { _ in
-            viewModel.deleteTask(taskID: task.id, scope: .series) { _ in }
-        })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        if let popover = alert.popoverPresentationController {
-            popover.sourceView = view
-            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+    }
+
+    private func presentRecurringTaskDeleteConfirmation(
+        taskTitle: String,
+        onDeleteSingle: @escaping () -> Void,
+        onDeleteSeries: @escaping () -> Void
+    ) {
+        let confirmationView = SunriseRecurringTaskDeleteConfirmationView(
+            taskTitle: taskTitle,
+            onDeleteSingle: onDeleteSingle,
+            onDeleteSeries: onDeleteSeries
+        )
+        .lifeboardLayoutClass(currentLayoutClass)
+
+        let hostingController = UIHostingController(rootView: confirmationView)
+        hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        hostingController.modalPresentationStyle = .pageSheet
+
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
         }
-        present(alert, animated: true)
+
+        present(hostingController, animated: true)
     }
 
     private func presentTimelineAnchorDetail(for anchor: TimelineAnchorItem) {
@@ -5169,20 +5181,20 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         return Calendar.current.date(from: components) ?? Date()
     }
 
-    // MARK: - Chart Refresh Contract
+    // MARK: - Insights Refresh Contract
 
-    /// Executes refreshChartsAfterTaskCompletion.
-    func refreshChartsAfterTaskCompletion() {
-        refreshChartsAfterTaskMutation(reason: .completed)
+    /// Executes refreshInsightsAfterTaskCompletion.
+    func refreshInsightsAfterTaskCompletion() {
+        refreshInsightsAfterTaskMutation(reason: .completed)
     }
 
-    /// Executes refreshChartsAfterTaskMutation.
-    func refreshChartsAfterTaskMutation(reason: HomeTaskMutationEvent? = nil) {
+    /// Executes refreshInsightsAfterTaskMutation.
+    func refreshInsightsAfterTaskMutation(reason: HomeTaskMutationEvent? = nil) {
         if let reason {
-            logDebug("🎯 HomeViewController chart refresh reason=\(reason.rawValue)")
+            logDebug("🎯 HomeViewController insights refresh reason=\(reason.rawValue)")
         }
-        chartCardViewModel?.load(referenceDate: nil, force: true)
-        radarChartCardViewModel?.load(referenceDate: nil, force: true)
+        insightsViewModel?.refresh()
+        faceCoordinator.insightsViewModel?.refresh()
     }
 
     @objc private func homeTaskMutationReceived(_ notification: Notification) {
@@ -5346,8 +5358,8 @@ extension HomeViewController: HomeReloadCoordinatorDelegate {
         faceCoordinator.recordSearchMutation()
     }
 
-    func homeReloadCoordinatorRefreshCharts(reason: HomeTaskMutationEvent?) {
-        refreshChartsAfterTaskMutation(reason: reason)
+    func homeReloadCoordinatorRefreshInsights(reason: HomeTaskMutationEvent?) {
+        refreshInsightsAfterTaskMutation(reason: reason)
     }
 
     func homeReloadCoordinatorRefreshPersistentSyncMode() {
@@ -6048,6 +6060,109 @@ private struct DailySummaryModalView: View {
         formatter.dateStyle = .full
         formatter.timeStyle = .none
         return formatter.string(from: date)
+    }
+}
+
+private struct SunriseRecurringTaskDeleteConfirmationView: View {
+    let taskTitle: String
+    let onDeleteSingle: () -> Void
+    let onDeleteSeries: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.lifeboard.bgCanvas.ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: LBSpacingTokens.lg) {
+                    header
+
+                    LBGlassCard(
+                        cornerRadius: LBRadiusTokens.largeCard,
+                        fill: reduceTransparency ? Color.lifeboard.surfacePrimary : LBColorTokens.glassStrong.opacity(0.86),
+                        usesMaterialBackground: reduceTransparency == false
+                    ) {
+                        VStack(spacing: LBSpacingTokens.sm) {
+                            destructiveAction(
+                                title: "Delete This Task",
+                                systemImage: "calendar.badge.minus",
+                                action: onDeleteSingle
+                            )
+
+                            Divider()
+                                .overlay(Color.lifeboard.strokeHairline.opacity(0.5))
+
+                            destructiveAction(
+                                title: "Delete Entire Series",
+                                systemImage: "repeat.circle",
+                                action: onDeleteSeries
+                            )
+                        }
+                        .padding(LBSpacingTokens.md)
+                    }
+
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .font(.lifeboard(.body))
+                    .foregroundColor(Color.lifeboard.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(Color.lifeboard.surfaceSecondary, in: Capsule())
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.recurringTaskDelete.cancel")
+                }
+                .padding(LBSpacingTokens.lg)
+                .frame(maxWidth: 560)
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("home.recurringTaskDelete.close")
+                }
+            }
+        }
+        .presentationDragIndicator(.visible)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+            Text("Delete recurring task?")
+                .font(.lifeboard(.title3))
+                .foregroundColor(Color.lifeboard.textPrimary)
+
+            Text("Choose whether to delete only \"\(taskTitle)\" or every task in the series.")
+                .font(.lifeboard(.body))
+                .foregroundColor(Color.lifeboard.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func destructiveAction(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button {
+            dismiss()
+            action()
+        } label: {
+            HStack(spacing: LBSpacingTokens.sm) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 28, height: 28)
+
+                Text(title)
+                    .font(.lifeboard(.body))
+
+                Spacer()
+            }
+            .foregroundColor(Color.lifeboard.statusDanger)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(title == "Delete This Task" ? "home.recurringTaskDelete.single" : "home.recurringTaskDelete.series")
     }
 }
 

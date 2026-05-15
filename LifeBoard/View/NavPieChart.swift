@@ -2,8 +2,7 @@
 //  NavPieChart.swift
 //  LifeBoard
 //
-//  Compact navigation bar pie chart showing today's XP.
-//  SwiftUI replacement for TinyPieChart (DGCharts).
+//  Compact Sunrise navigation ring showing today's XP.
 //
 
  import SwiftUI

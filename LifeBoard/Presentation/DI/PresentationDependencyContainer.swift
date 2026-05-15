@@ -33,8 +33,6 @@ public final class PresentationDependencyContainer {
     private var _addHabitViewModel: AddHabitViewModel?
     private var _projectManagementViewModel: ProjectManagementViewModel?
     private var _lifeManagementViewModel: LifeManagementViewModel?
-    private var _chartCardViewModel: ChartCardViewModel?
-    private var _radarChartCardViewModel: RadarChartCardViewModel?
     private var _projectSelectionViewModel: ProjectSelectionViewModel?
     private var _habitLibraryViewModel: HabitLibraryViewModel?
 
@@ -84,8 +82,6 @@ public final class PresentationDependencyContainer {
         _addHabitViewModel = nil
         _projectManagementViewModel = nil
         _lifeManagementViewModel = nil
-        _chartCardViewModel = nil
-        _radarChartCardViewModel = nil
         _projectSelectionViewModel = nil
         _habitLibraryViewModel = nil
 
@@ -296,35 +292,6 @@ public final class PresentationDependencyContainer {
         return viewModel
     }
 
-    /// Executes makeChartCardViewModel.
-    public func makeChartCardViewModel() -> ChartCardViewModel {
-        assertConfigured()
-        if let existing = _chartCardViewModel {
-            return existing
-        }
-
-        let viewModel = ChartCardViewModel(
-            readModelRepository: taskReadModelRepository
-        )
-        _chartCardViewModel = viewModel
-        return viewModel
-    }
-
-    /// Executes makeRadarChartCardViewModel.
-    public func makeRadarChartCardViewModel() -> RadarChartCardViewModel {
-        assertConfigured()
-        if let existing = _radarChartCardViewModel {
-            return existing
-        }
-
-        let viewModel = RadarChartCardViewModel(
-            projectRepository: projectRepository,
-            readModelRepository: taskReadModelRepository
-        )
-        _radarChartCardViewModel = viewModel
-        return viewModel
-    }
-
     /// Executes makeProjectSelectionViewModel.
     public func makeProjectSelectionViewModel() -> ProjectSelectionViewModel {
         assertConfigured()
@@ -434,10 +401,6 @@ public final class PresentationDependencyContainer {
         switch viewController {
         case let homeVC as HomeViewControllerProtocol:
             homeVC.viewModel = makeHomeViewModel()
-            if let analyticsInjectable = viewController as? HomeAnalyticsViewModelsInjectable {
-                analyticsInjectable.chartCardViewModel = makeChartCardViewModel()
-                analyticsInjectable.radarChartCardViewModel = makeRadarChartCardViewModel()
-            }
             logDebug("✅ Injected HomeViewModel")
 
         case let projectVC as ProjectManagementViewControllerProtocol:
@@ -489,11 +452,6 @@ public final class PresentationDependencyContainer {
 /// Protocol for HomeViewController to receive ViewModel
 @MainActor public protocol HomeViewControllerProtocol: AnyObject {
     var viewModel: HomeViewModel! { get set }
-}
-
-@MainActor public protocol HomeAnalyticsViewModelsInjectable: AnyObject {
-    var chartCardViewModel: ChartCardViewModel! { get set }
-    var radarChartCardViewModel: RadarChartCardViewModel! { get set }
 }
 
 /// Protocol for ProjectManagementViewController to receive ViewModel
