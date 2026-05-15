@@ -1,7 +1,7 @@
 import Foundation
 
 @MainActor
-public final class ReflectionNoteComposerViewModel: ObservableObject {
+public final class SunriseReflectionNoteComposerViewModel: ObservableObject {
     @Published public var noteText: String
     @Published public var prompt: String
     @Published public var mood: Int

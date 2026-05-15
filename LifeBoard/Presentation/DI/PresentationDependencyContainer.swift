@@ -31,7 +31,6 @@ public final class PresentationDependencyContainer {
     private var _homeViewModel: HomeViewModel?
     private var _addTaskViewModel: AddTaskViewModel?
     private var _addHabitViewModel: AddHabitViewModel?
-    private var _addItemViewModel: AddItemViewModel?
     private var _projectManagementViewModel: ProjectManagementViewModel?
     private var _lifeManagementViewModel: LifeManagementViewModel?
     private var _chartCardViewModel: ChartCardViewModel?
@@ -83,7 +82,6 @@ public final class PresentationDependencyContainer {
         _homeViewModel = nil
         _addTaskViewModel = nil
         _addHabitViewModel = nil
-        _addItemViewModel = nil
         _projectManagementViewModel = nil
         _lifeManagementViewModel = nil
         _chartCardViewModel = nil
@@ -209,22 +207,6 @@ public final class PresentationDependencyContainer {
             iconCatalog: HabitIconCatalog.shared
         )
         _addHabitViewModel = viewModel
-        return viewModel
-    }
-
-    /// Get or create AddItemViewModel
-    @MainActor
-    public func makeAddItemViewModel() -> AddItemViewModel {
-        assertConfigured()
-        if let existing = _addItemViewModel {
-            return existing
-        }
-
-        let viewModel = AddItemViewModel(
-            taskViewModel: makeAddTaskViewModel(),
-            habitViewModel: makeAddHabitViewModel()
-        )
-        _addItemViewModel = viewModel
         return viewModel
     }
 
@@ -398,16 +380,6 @@ public final class PresentationDependencyContainer {
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
             manageProjectsUseCase: useCaseCoordinator.manageProjects,
             iconCatalog: HabitIconCatalog.shared
-        )
-    }
-
-    /// Create a fresh AddItemViewModel (for modal presentations)
-    @MainActor
-    public func makeNewAddItemViewModel() -> AddItemViewModel {
-        assertConfigured()
-        return AddItemViewModel(
-            taskViewModel: makeNewAddTaskViewModel(),
-            habitViewModel: makeNewAddHabitViewModel()
         )
     }
 

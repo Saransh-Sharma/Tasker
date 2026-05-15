@@ -213,7 +213,7 @@ struct HomeTimelineSnapshotCacheKey: Equatable {
     let dataRevision: HomeDataRevision
     let selectedDay: Date
     let currentMinuteStamp: Int
-    let foredropAnchor: ForedropAnchor
+    let sunriseAnchor: SunriseAnchor
     let calendarSignature: HomeTimelineCalendarSignature
     let workspacePreferences: HomeTimelineWorkspacePreferencesSignature
     let hiddenCalendarEvents: [HomeTimelineHiddenCalendarEventKey]
@@ -809,7 +809,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private let needsReplanViewModel = HomeNeedsReplanViewModel()
     private var cancellables = Set<AnyCancellable>()
     private var retainedInsightsViewModel: InsightsViewModel?
-    private var retainedHomeSearchViewModel: LGSearchViewModel?
+    private var retainedHomeSearchViewModel: HomeSearchViewModel?
     private var needsReplanCandidates: [HomeReplanCandidate] {
         get { needsReplanViewModel.passiveCandidates }
         set { needsReplanViewModel.passiveCandidates = newValue }
@@ -2930,12 +2930,12 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         return resolvedViewModel
     }
 
-    func makeHomeSearchViewModel() -> LGSearchViewModel {
+    func makeHomeSearchViewModel() -> HomeSearchViewModel {
         if let retainedHomeSearchViewModel {
             return retainedHomeSearchViewModel
         }
 
-        let resolvedViewModel = LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
+        let resolvedViewModel = HomeSearchViewModel(useCaseCoordinator: useCaseCoordinator)
         retainedHomeSearchViewModel = resolvedViewModel
         return resolvedViewModel
     }
@@ -8080,16 +8080,16 @@ public enum DailySummaryModalData: Equatable, Sendable {
 @MainActor
 final class HomeTimelineViewModel: ObservableObject {
     @Published private(set) var selectedDate: Date
-    @Published private(set) var foredropAnchor: ForedropAnchor
+    @Published private(set) var sunriseAnchor: SunriseAnchor
     @Published private(set) var dragTranslation: CGFloat
 
     init(
         selectedDate: Date = Date(),
-        foredropAnchor: ForedropAnchor = .collapsed,
+        sunriseAnchor: SunriseAnchor = .collapsed,
         dragTranslation: CGFloat = 0
     ) {
         self.selectedDate = selectedDate
-        self.foredropAnchor = foredropAnchor
+        self.sunriseAnchor = sunriseAnchor
         self.dragTranslation = dragTranslation
     }
 
@@ -8098,34 +8098,34 @@ final class HomeTimelineViewModel: ObservableObject {
         selectedDate = date
     }
 
-    func snap(to anchor: ForedropAnchor) {
-        foredropAnchor = anchor
+    func snap(to anchor: SunriseAnchor) {
+        sunriseAnchor = anchor
         dragTranslation = 0
     }
 
-    func updateDrag(_ translation: CGFloat, metrics: HomeForedropLayoutMetrics) {
-        let baseOffset = metrics.offset(for: foredropAnchor)
+    func updateDrag(_ translation: CGFloat, metrics: HomeSunriseLayoutMetrics) {
+        let baseOffset = metrics.offset(for: sunriseAnchor)
         let proposed = baseOffset + translation
         let clamped = min(max(proposed, metrics.offset(for: .collapsed)), metrics.offset(for: .fullReveal))
         dragTranslation = clamped - baseOffset
     }
 
-    func endDrag(predictedTranslation: CGFloat, metrics: HomeForedropLayoutMetrics) {
+    func endDrag(predictedTranslation: CGFloat, metrics: HomeSunriseLayoutMetrics) {
         let current = interactiveOffset(metrics: metrics)
         let projected = min(
             max(current + (predictedTranslation - dragTranslation), metrics.offset(for: .collapsed)),
             metrics.offset(for: .fullReveal)
         )
-        let anchors: [ForedropAnchor] = [.collapsed, .midReveal, .fullReveal]
+        let anchors: [SunriseAnchor] = [.collapsed, .midReveal, .fullReveal]
         let target = anchors.min { lhs, rhs in
             abs(metrics.offset(for: lhs) - projected) < abs(metrics.offset(for: rhs) - projected)
         } ?? .collapsed
-        foredropAnchor = target
+        sunriseAnchor = target
         dragTranslation = 0
     }
 
-    func interactiveOffset(metrics: HomeForedropLayoutMetrics) -> CGFloat {
-        let baseOffset = metrics.offset(for: foredropAnchor)
+    func interactiveOffset(metrics: HomeSunriseLayoutMetrics) -> CGFloat {
+        let baseOffset = metrics.offset(for: sunriseAnchor)
         let proposed = baseOffset + dragTranslation
         return min(max(proposed, metrics.offset(for: .collapsed)), metrics.offset(for: .fullReveal))
     }
@@ -8134,7 +8134,7 @@ final class HomeTimelineViewModel: ObservableObject {
 extension HomeViewModel {
     func buildTimelineSnapshot(
         calendarSnapshot: HomeCalendarSnapshot,
-        foredropAnchor: ForedropAnchor
+        sunriseAnchor: SunriseAnchor
     ) -> HomeTimelineSnapshot {
         let interval = LifeBoardPerformanceTrace.begin("HomeTimelineSnapshotBuild")
         defer { LifeBoardPerformanceTrace.end(interval) }
@@ -8147,7 +8147,7 @@ extension HomeViewModel {
             dataRevision: dataRevision,
             selectedDay: selectedDay,
             currentMinuteStamp: currentMinuteStamp,
-            foredropAnchor: foredropAnchor,
+            sunriseAnchor: sunriseAnchor,
             calendarSnapshot: calendarSnapshot,
             workspacePreferences: workspacePreferences,
             hiddenCalendarEvents: hiddenHomeTimelineCalendarEvents.sorted(),
@@ -8247,7 +8247,7 @@ extension HomeViewModel {
 
         return HomeTimelineSnapshot(
             selectedDate: selectedDay,
-            foredropAnchor: foredropAnchor,
+            sunriseAnchor: sunriseAnchor,
             day: TimelineDayProjection(
                 date: selectedDay,
                 allDayItems: allDayItems,
