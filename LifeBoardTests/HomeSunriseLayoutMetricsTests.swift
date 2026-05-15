@@ -3,9 +3,9 @@ import XCTest
 
 final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
-    func testLiquidSwipeSidesMapToDayDirections() {
-        XCTAssertEqual(HomeDayLiquidSwipeSide.leading.direction, .previous)
-        XCTAssertEqual(HomeDayLiquidSwipeSide.trailing.direction, .next)
+    func testSunriseDaySwipeSidesMapToDayDirections() {
+        XCTAssertEqual(SunriseDaySwipeSide.leading.direction, .previous)
+        XCTAssertEqual(SunriseDaySwipeSide.trailing.direction, .next)
     }
 
     func testCurvedTimelineStreamLaneIsResponsiveAndPreservesContentWidth() {
@@ -343,8 +343,8 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertTrue(TimelineNowBeadPresentation.shouldPulse(reduceMotion: false))
     }
 
-    func testLiquidSwipeHandleInteractionStartsOncePerDragSequence() {
-        var state = HomeDayLiquidSwipeHandleInteractionState()
+    func testSunriseDaySwipeHandleInteractionStartsOncePerDragSequence() {
+        var state = SunriseDaySwipeHandleInteractionState()
 
         XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
         XCTAssertFalse(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
@@ -354,8 +354,8 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
     }
 
-    func testLiquidSwipeHandleInteractionResetsWhenUnavailable() {
-        var state = HomeDayLiquidSwipeHandleInteractionState()
+    func testSunriseDaySwipeHandleInteractionResetsWhenUnavailable() {
+        var state = SunriseDaySwipeHandleInteractionState()
 
         XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
         XCTAssertFalse(state.startIfNeeded(isEnabled: false, isChromeVisible: true))
@@ -372,114 +372,114 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(HomeSunriseFace.schedule.surfaceAccessibilityValue, "fullReveal")
     }
 
-    func testLiquidSwipeEdgeStartMapsLeadingAndTrailingEdges() {
+    func testSunriseDaySwipeEdgeStartMapsLeadingAndTrailingEdges() {
         let size = CGSize(width: 390, height: 760)
 
         XCTAssertEqual(
-            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 20, y: 300), containerSize: size),
+            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 20, y: 300), containerSize: size),
             .leading
         )
         XCTAssertEqual(
-            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 370, y: 300), containerSize: size),
+            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 370, y: 300), containerSize: size),
             .trailing
         )
     }
 
-    func testLiquidSwipeEdgeActivationWidthUsesTwentyPercentReduction() {
-        XCTAssertEqual(HomeDayLiquidSwipeData.edgeActivationWidth, 70.4, accuracy: 0.001)
+    func testSunriseDaySwipeEdgeActivationWidthUsesTwentyPercentReduction() {
+        XCTAssertEqual(SunriseDaySwipeData.edgeActivationWidth, 70.4, accuracy: 0.001)
     }
 
-    func testLiquidSwipeEdgeStartUsesReducedLeadingBoundary() {
+    func testSunriseDaySwipeEdgeStartUsesReducedLeadingBoundary() {
         let size = CGSize(width: 390, height: 760)
 
         XCTAssertEqual(
-            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 70.4, y: 300), containerSize: size),
+            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 70.4, y: 300), containerSize: size),
             .leading
         )
         XCTAssertNil(
-            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 70.5, y: 300), containerSize: size)
+            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 70.5, y: 300), containerSize: size)
         )
     }
 
-    func testLiquidSwipeEdgeStartUsesReducedTrailingBoundary() {
+    func testSunriseDaySwipeEdgeStartUsesReducedTrailingBoundary() {
         let size = CGSize(width: 390, height: 760)
 
         XCTAssertNil(
-            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 319.5, y: 300), containerSize: size)
+            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 319.5, y: 300), containerSize: size)
         )
         XCTAssertEqual(
-            HomeDayLiquidSwipeData.side(forStartLocation: CGPoint(x: 319.6, y: 300), containerSize: size),
+            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 319.6, y: 300), containerSize: size),
             .trailing
         )
     }
 
-    func testLiquidSwipeEdgeStartIgnoresCenterDrag() {
+    func testSunriseDaySwipeEdgeStartIgnoresCenterDrag() {
         XCTAssertNil(
-            HomeDayLiquidSwipeData.side(
+            SunriseDaySwipeData.side(
                 forStartLocation: CGPoint(x: 195, y: 300),
                 containerSize: CGSize(width: 390, height: 760)
             )
         )
     }
 
-    func testLiquidSwipeRestingLedgeUsesCompactFourPointInset() {
+    func testSunriseDaySwipeRestingLedgeUsesCompactFourPointInset() {
         let size = CGSize(width: 390, height: 760)
-        let leading = HomeDayLiquidSwipeData(side: .leading, containerSize: size)
-        let trailing = HomeDayLiquidSwipeData(side: .trailing, containerSize: size)
+        let leading = SunriseDaySwipeData(side: .leading, containerSize: size)
+        let trailing = SunriseDaySwipeData(side: .trailing, containerSize: size)
 
-        XCTAssertEqual(HomeDayLiquidSwipeData.waveMinLedge, 4, accuracy: 0.001)
+        XCTAssertEqual(SunriseDaySwipeData.waveMinLedge, 4, accuracy: 0.001)
         XCTAssertEqual(leading.waveLedgeX, 4, accuracy: 0.001)
         XCTAssertEqual(trailing.waveLedgeX, size.width - 4, accuracy: 0.001)
     }
 
-    func testLiquidSwipeVisibleHandleUsesTwentyPercentReduction() {
-        XCTAssertEqual(HomeDayLiquidSwipeData.buttonRadius, 24, accuracy: 0.001)
-        XCTAssertEqual(HomeDayLiquidSwipeData.buttonVisualScale, 0.8, accuracy: 0.001)
-        XCTAssertEqual(HomeDayLiquidSwipeData.buttonVisualRadius, 19.2, accuracy: 0.001)
-        XCTAssertEqual(HomeDayLiquidSwipeData.buttonVisualRadius * 2, 38.4, accuracy: 0.001)
+    func testSunriseDaySwipeVisibleHandleUsesTwentyPercentReduction() {
+        XCTAssertEqual(SunriseDaySwipeData.buttonRadius, 24, accuracy: 0.001)
+        XCTAssertEqual(SunriseDaySwipeData.buttonVisualScale, 0.8, accuracy: 0.001)
+        XCTAssertEqual(SunriseDaySwipeData.buttonVisualRadius, 19.2, accuracy: 0.001)
+        XCTAssertEqual(SunriseDaySwipeData.buttonVisualRadius * 2, 38.4, accuracy: 0.001)
     }
 
-    func testLiquidSwipeInitialHandlesShareTimelineStartHeight() {
+    func testSunriseDaySwipeInitialHandlesShareTimelineStartHeight() {
         let size = CGSize(width: 390, height: 760)
-        let leading = HomeDayLiquidSwipeData(side: .leading, containerSize: size)
-        let trailing = HomeDayLiquidSwipeData(side: .trailing, containerSize: size)
+        let leading = SunriseDaySwipeData(side: .leading, containerSize: size)
+        let trailing = SunriseDaySwipeData(side: .trailing, containerSize: size)
 
         XCTAssertEqual(leading.buttonCenter.y, trailing.buttonCenter.y)
-        XCTAssertEqual(leading.buttonCenter.y, HomeDayLiquidSwipeData.timelineHandleCenterY)
+        XCTAssertEqual(leading.buttonCenter.y, SunriseDaySwipeData.timelineHandleCenterY)
     }
 
-    func testLiquidSwipeInitialHandleHeightIsNearTopAndClampedInsideOverlay() {
+    func testSunriseDaySwipeInitialHandleHeightIsNearTopAndClampedInsideOverlay() {
         let size = CGSize(width: 390, height: 760)
-        let leading = HomeDayLiquidSwipeData(side: .leading, containerSize: size)
-        let trailing = HomeDayLiquidSwipeData(side: .trailing, containerSize: size)
+        let leading = SunriseDaySwipeData(side: .leading, containerSize: size)
+        let trailing = SunriseDaySwipeData(side: .trailing, containerSize: size)
 
-        XCTAssertGreaterThanOrEqual(leading.buttonCenter.y, HomeDayLiquidSwipeData.buttonRadius)
+        XCTAssertGreaterThanOrEqual(leading.buttonCenter.y, SunriseDaySwipeData.buttonRadius)
         XCTAssertLessThanOrEqual(leading.buttonCenter.y, 48)
-        XCTAssertGreaterThanOrEqual(trailing.buttonCenter.y, HomeDayLiquidSwipeData.buttonRadius)
+        XCTAssertGreaterThanOrEqual(trailing.buttonCenter.y, SunriseDaySwipeData.buttonRadius)
         XCTAssertLessThanOrEqual(trailing.buttonCenter.y, 48)
     }
 
-    func testLiquidSwipeInitialResetReturnsHandleToTimelineStartHeight() {
-        let data = HomeDayLiquidSwipeData(
+    func testSunriseDaySwipeInitialResetReturnsHandleToTimelineStartHeight() {
+        let data = SunriseDaySwipeData(
             side: .leading,
             centerY: 220,
             progress: 0.24,
             containerSize: CGSize(width: 390, height: 760)
         )
 
-        XCTAssertEqual(data.initial().buttonCenter.y, HomeDayLiquidSwipeData.timelineHandleCenterY)
+        XCTAssertEqual(data.initial().buttonCenter.y, SunriseDaySwipeData.timelineHandleCenterY)
         XCTAssertEqual(data.initial().progress, 0)
     }
 
-    func testLiquidSwipeInitialHandlesUseConfiguredRestingHeight() {
+    func testSunriseDaySwipeInitialHandlesUseConfiguredRestingHeight() {
         let size = CGSize(width: 390, height: 760)
         let restingCenterY: CGFloat = 124
-        let leading = HomeDayLiquidSwipeData(
+        let leading = SunriseDaySwipeData(
             side: .leading,
             containerSize: size,
             restingCenterY: restingCenterY
         )
-        let trailing = HomeDayLiquidSwipeData(
+        let trailing = SunriseDaySwipeData(
             side: .trailing,
             containerSize: size,
             restingCenterY: restingCenterY
@@ -490,9 +490,9 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(leading.buttonCenter.y, trailing.buttonCenter.y)
     }
 
-    func testLiquidSwipeInitialResetReturnsHandleToConfiguredRestingHeight() {
+    func testSunriseDaySwipeInitialResetReturnsHandleToConfiguredRestingHeight() {
         let restingCenterY: CGFloat = 132
-        let data = HomeDayLiquidSwipeData(
+        let data = SunriseDaySwipeData(
             side: .leading,
             centerY: 220,
             progress: 0.24,
@@ -504,51 +504,68 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(data.initial().progress, 0)
     }
 
-    func testLiquidSwipeChromeVisibilityHidesOnCollapsedScrollState() {
+    func testSunriseDaySwipeChromeVisibilityHidesOnCollapsedScrollState() {
         XCTAssertFalse(
-            HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: true,
                 for: .collapsed
             )
         )
     }
 
-    func testLiquidSwipeChromeVisibilityShowsNearTopAndExpanded() {
+    func testSunriseDaySwipeChromeVisibilityShowsNearTopAndExpanded() {
         XCTAssertTrue(
-            HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: false,
                 for: .nearTop
             )
         )
         XCTAssertTrue(
-            HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: false,
                 for: .expanded
             )
         )
     }
 
-    func testLiquidSwipeChromeVisibilityKeepsCurrentStateWhenIdle() {
+    func testSunriseDaySwipeChromeVisibilityCanRestoreOnlyNearTop() {
+        XCTAssertFalse(
+            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+                currentVisibility: false,
+                for: .expanded,
+                restoresOnExpanded: false
+            )
+        )
         XCTAssertTrue(
-            HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+                currentVisibility: false,
+                for: .nearTop,
+                restoresOnExpanded: false
+            )
+        )
+    }
+
+    func testSunriseDaySwipeChromeVisibilityKeepsCurrentStateWhenIdle() {
+        XCTAssertTrue(
+            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: true,
                 for: .idle
             )
         )
         XCTAssertFalse(
-            HomeDayLiquidSwipeChromeVisibilityPolicy.nextVisibility(
+            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: false,
                 for: .idle
             )
         )
     }
 
-    func testLiquidSwipeVisibleChromePresentationDoesNotOffsetHandles() {
-        let leading = HomeDayLiquidSwipeChromePresentation.value(
+    func testSunriseDaySwipeVisibleChromePresentationDoesNotOffsetHandles() {
+        let leading = SunriseDaySwipeChromePresentation.value(
             for: .leading,
             isChromeVisible: true
         )
-        let trailing = HomeDayLiquidSwipeChromePresentation.value(
+        let trailing = SunriseDaySwipeChromePresentation.value(
             for: .trailing,
             isChromeVisible: true
         )
@@ -557,16 +574,18 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(trailing.offsetX, 0, accuracy: 0.001)
         XCTAssertEqual(leading.scaleX, 1, accuracy: 0.001)
         XCTAssertEqual(leading.scaleY, 1, accuracy: 0.001)
+        XCTAssertEqual(leading.opacity, 1, accuracy: 0.001)
         XCTAssertEqual(trailing.scaleX, 1, accuracy: 0.001)
         XCTAssertEqual(trailing.scaleY, 1, accuracy: 0.001)
+        XCTAssertEqual(trailing.opacity, 1, accuracy: 0.001)
     }
 
-    func testLiquidSwipeHiddenChromePresentationCollapsesTowardEdges() {
-        let leading = HomeDayLiquidSwipeChromePresentation.value(
+    func testSunriseDaySwipeHiddenChromePresentationCollapsesTowardEdges() {
+        let leading = SunriseDaySwipeChromePresentation.value(
             for: .leading,
             isChromeVisible: false
         )
-        let trailing = HomeDayLiquidSwipeChromePresentation.value(
+        let trailing = SunriseDaySwipeChromePresentation.value(
             for: .trailing,
             isChromeVisible: false
         )
@@ -577,6 +596,8 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertLessThan(leading.scaleY, 1)
         XCTAssertLessThan(trailing.scaleX, 1)
         XCTAssertLessThan(trailing.scaleY, 1)
+        XCTAssertEqual(leading.opacity, 0, accuracy: 0.001)
+        XCTAssertEqual(trailing.opacity, 0, accuracy: 0.001)
     }
 
     func testHomeScrollChromeTrackerEmitsCollapsedAfterDownwardScroll() {
@@ -595,7 +616,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(tracker.consume(offset: 67), .expanded)
     }
 
-    func testLiquidSwipeRestingPositionUsesDefaultWhenNoTopModulesAreVisible() {
+    func testSunriseDaySwipeRestingPositionUsesDefaultWhenNoTopModulesAreVisible() {
         let centerY = liquidRestingCenterY(
             showsQuietTrackingRail: false,
             measuredQuietTrackingRailHeight: 64,
@@ -603,10 +624,10 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
             measuredNeedsReplanTrayHeight: 96
         )
 
-        XCTAssertEqual(centerY, HomeDayLiquidSwipeData.timelineHandleCenterY, accuracy: 0.001)
+        XCTAssertEqual(centerY, SunriseDaySwipeData.timelineHandleCenterY, accuracy: 0.001)
     }
 
-    func testLiquidSwipeRestingPositionClearsQuietTrackingRailOnly() {
+    func testSunriseDaySwipeRestingPositionClearsQuietTrackingRailOnly() {
         let centerY = liquidRestingCenterY(
             showsQuietTrackingRail: true,
             measuredQuietTrackingRailHeight: 64,
@@ -617,7 +638,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(centerY, 8 + 64 + 12 + 24 + 4, accuracy: 0.001)
     }
 
-    func testLiquidSwipeRestingPositionClearsNeedsReplanTrayOnly() {
+    func testSunriseDaySwipeRestingPositionClearsNeedsReplanTrayOnly() {
         let centerY = liquidRestingCenterY(
             showsQuietTrackingRail: false,
             measuredQuietTrackingRailHeight: 0,
@@ -628,7 +649,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(centerY, 8 + 96 + 12 + 24 + 4, accuracy: 0.001)
     }
 
-    func testLiquidSwipeRestingPositionClearsQuietTrackingRailAndNeedsReplanTray() {
+    func testSunriseDaySwipeRestingPositionClearsQuietTrackingRailAndNeedsReplanTray() {
         let centerY = liquidRestingCenterY(
             showsQuietTrackingRail: true,
             measuredQuietTrackingRailHeight: 64,
@@ -639,7 +660,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(centerY, 8 + 64 + 12 + 96 + 12 + 24 + 4, accuracy: 0.001)
     }
 
-    func testLiquidSwipeRestingPositionUsesFallbackHeightsBeforeMeasurement() {
+    func testSunriseDaySwipeRestingPositionUsesFallbackHeightsBeforeMeasurement() {
         let centerY = liquidRestingCenterY(
             showsQuietTrackingRail: true,
             measuredQuietTrackingRailHeight: 0,
@@ -652,8 +673,8 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(centerY, 8 + 72 + 12 + 120 + 12 + 24 + 4, accuracy: 0.001)
     }
 
-    func testLiquidSwipeKeepsVerticalDragAvailableFromEdges() {
-        let side = HomeDayLiquidSwipeData.side(
+    func testSunriseDaySwipeKeepsVerticalDragAvailableFromEdges() {
+        let side = SunriseDaySwipeData.side(
             forStartLocation: CGPoint(x: 20, y: 300),
             containerSize: CGSize(width: 390, height: 760)
         )
@@ -666,7 +687,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         )
     }
 
-    func testLiquidSwipeActivatesVisualDragBeforeCommitThreshold() {
+    func testSunriseDaySwipeActivatesVisualDragBeforeCommitThreshold() {
         let resolver = HomeDaySwipeResolver.default
         let size = CGSize(width: 390, height: 760)
         let translation = CGSize(width: 12, height: 2)
@@ -680,7 +701,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
             translation: translation,
             predictedEndTranslation: translation
         )
-        let dragged = HomeDayLiquidSwipeData(side: .leading, containerSize: size)
+        let dragged = SunriseDaySwipeData(side: .leading, containerSize: size)
             .drag(translation: translation, location: CGPoint(x: 32, y: 304))
 
         XCTAssertEqual(side, .leading)
@@ -688,7 +709,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertGreaterThan(dragged.progress, 0)
     }
 
-    func testLiquidSwipeVisualActivationIgnoresVerticalEdgeDrag() {
+    func testSunriseDaySwipeVisualActivationIgnoresVerticalEdgeDrag() {
         let side = HomeDaySwipeResolver.default.liquidActivationSide(
             startLocation: CGPoint(x: 20, y: 300),
             translation: CGSize(width: 18, height: 120),
@@ -698,7 +719,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertNil(side)
     }
 
-    func testLiquidSwipeVisualActivationIgnoresCenterDrag() {
+    func testSunriseDaySwipeVisualActivationIgnoresCenterDrag() {
         let side = HomeDaySwipeResolver.default.liquidActivationSide(
             startLocation: CGPoint(x: 195, y: 300),
             translation: CGSize(width: 24, height: 4),
@@ -708,7 +729,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertNil(side)
     }
 
-    func testLiquidSwipeGestureActivationUsesVelocityForEarlyHorizontalIntent() {
+    func testSunriseDaySwipeGestureActivationUsesVelocityForEarlyHorizontalIntent() {
         let side = HomeDaySwipeResolver.default.liquidActivationSide(
             startLocation: CGPoint(x: 20, y: 300),
             translation: CGSize(width: 2, height: 0),
@@ -719,7 +740,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(side, .leading)
     }
 
-    func testLiquidSwipeGestureActivationRejectsOppositeEdgeDirection() {
+    func testSunriseDaySwipeGestureActivationRejectsOppositeEdgeDirection() {
         let side = HomeDaySwipeResolver.default.liquidActivationSide(
             startLocation: CGPoint(x: 20, y: 300),
             translation: CGSize(width: -24, height: 0),
@@ -730,7 +751,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertNil(side)
     }
 
-    func testLiquidSwipeProjectedEndKeepsQuickFlickCommitEligible() {
+    func testSunriseDaySwipeProjectedEndKeepsQuickFlickCommitEligible() {
         let resolver = HomeDaySwipeResolver.default
         let predicted = resolver.predictedEndTranslation(
             translation: CGSize(width: -32, height: 2),
@@ -745,8 +766,8 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(direction, .next)
     }
 
-    func testLeadingLiquidDataProgressesOnRightwardDrag() {
-        let data = HomeDayLiquidSwipeData(
+    func testLeadingSunriseDaySwipeDataProgressesOnRightwardDrag() {
+        let data = SunriseDaySwipeData(
             side: .leading,
             centerY: 180,
             progress: 0,
@@ -765,8 +786,8 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(dragged.buttonCenter.y, 220)
     }
 
-    func testTrailingLiquidDataProgressesOnLeftwardDrag() {
-        let data = HomeDayLiquidSwipeData(
+    func testTrailingSunriseDaySwipeDataProgressesOnLeftwardDrag() {
+        let data = SunriseDaySwipeData(
             side: .trailing,
             centerY: 320,
             progress: 0,
@@ -783,9 +804,9 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(dragged.centerY, 260)
     }
 
-    func testLeadingLiquidDataDoesNotProgressOnOppositeHandleDrag() {
+    func testLeadingSunriseDaySwipeDataDoesNotProgressOnOppositeHandleDrag() {
         let restingCenterY: CGFloat = 124
-        let data = HomeDayLiquidSwipeData(
+        let data = SunriseDaySwipeData(
             side: .leading,
             containerSize: CGSize(width: 390, height: 760),
             restingCenterY: restingCenterY
@@ -799,9 +820,9 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(dragged.progress, 0)
     }
 
-    func testTrailingLiquidDataDoesNotProgressOnOppositeHandleDrag() {
+    func testTrailingSunriseDaySwipeDataDoesNotProgressOnOppositeHandleDrag() {
         let restingCenterY: CGFloat = 124
-        let data = HomeDayLiquidSwipeData(
+        let data = SunriseDaySwipeData(
             side: .trailing,
             containerSize: CGSize(width: 390, height: 760),
             restingCenterY: restingCenterY
@@ -825,12 +846,12 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
             predictedEndTranslation: CGSize(width: 110, height: 6)
         )
 
-        XCTAssertNotEqual(leadingDirection, HomeDayLiquidSwipeSide.leading.direction)
-        XCTAssertNotEqual(trailingDirection, HomeDayLiquidSwipeSide.trailing.direction)
+        XCTAssertNotEqual(leadingDirection, SunriseDaySwipeSide.leading.direction)
+        XCTAssertNotEqual(trailingDirection, SunriseDaySwipeSide.trailing.direction)
     }
 
-    func testLiquidDataCancelsShortDragAndResetsProgress() {
-        let data = HomeDayLiquidSwipeData(
+    func testSunriseDaySwipeDataCancelsShortDragAndResetsProgress() {
+        let data = SunriseDaySwipeData(
             side: .leading,
             centerY: 180,
             progress: 0.12,
@@ -1895,6 +1916,36 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(projection.timelineDensityMode, .normal)
     }
 
+    func testExpandedTimelinePlacesPromptsFromActionableGapsOnly() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0)
+        let firstStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0)
+        let firstEnd = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0)
+        let secondStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 12, minute: 0)
+        let secondEnd = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 13, minute: 0)
+        let hiddenGap = TimelineGap(startDate: wake, endDate: firstStart, suggestedTaskCount: 0)
+        let actionableGap = TimelineGap(startDate: firstEnd, endDate: secondStart, suggestedTaskCount: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: sleep,
+            timedItems: [
+                Self.makeTimedItem(id: "first", title: "First", start: firstStart, end: firstEnd),
+                Self.makeTimedItem(id: "second", title: "Second", start: secondStart, end: secondEnd)
+            ],
+            gaps: [hiddenGap, actionableGap],
+            actionableGaps: [actionableGap]
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let gapPromptIDs = plan.visualElements.compactMap { positioned -> String? in
+            guard case .gapPrompt = positioned.element else { return nil }
+            return positioned.element.id
+        }
+
+        XCTAssertEqual(gapPromptIDs, ["gap:\(actionableGap.id)"])
+    }
+
     func testLongGapIndicatorIsCenteredInsideCompressedGap() {
         let calendar = Self.fixedCalendar
         let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
@@ -2273,15 +2324,18 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     func testTimelineGapPromptActionsForwardGapStartDatesOutsideExpandedCanvas() throws {
         let source = try Self.homeTimelineSurfaceSource()
 
-        XCTAssertTrue(source.contains("onAddTask: { onAddTask(gap.gap.startDate) }"))
-        XCTAssertTrue(source.contains("onAddTask: { onAddTask(gap.startDate) }"))
+        XCTAssertTrue(source.contains("timelineSuggestedAddDate(for: gap.gap"))
+        XCTAssertTrue(source.contains("timelineSuggestedAddDate(for: gap,"))
+        XCTAssertTrue(source.contains("onAddTask: { onAddTask(suggestedDate) }"))
     }
 
     func testExpandedTimelineGapPromptStaysTappableAbovePassiveStream() throws {
         let source = try Self.homeTimelineSurfaceSource()
 
+        XCTAssertTrue(source.contains("projection.actionableGaps.compactMap"))
         XCTAssertTrue(source.contains("CurvingDayStreamView(\n                    geometry: streamGeometry,\n                    currentY: currentY\n                )\n                    .frame(width: totalWidth, height: plan.contentHeight)\n                    .zIndex(1)\n                    .allowsHitTesting(false)"))
-        XCTAssertTrue(source.contains("onAddTask: { onAddTask(model.gap.startDate) }"))
+        XCTAssertTrue(source.contains("suggestedDate: suggestedDate"))
+        XCTAssertTrue(source.contains("onAddTask: { onAddTask(suggestedDate) }"))
         XCTAssertTrue(source.contains(".zIndex(1.5)"))
         XCTAssertTrue(source.contains(".accessibilityIdentifier(\"home.timeline.gap.createTask\")"))
     }
@@ -2588,8 +2642,8 @@ private extension HomeSunriseLayoutMetricsTests {
         measuredNeedsReplanTrayHeight: CGFloat,
         needsReplanTrayFallbackHeight: CGFloat = 88
     ) -> CGFloat {
-        HomeDayLiquidSwipeRestingPosition.centerY(
-            defaultCenterY: HomeDayLiquidSwipeData.timelineHandleCenterY,
+        SunriseDaySwipeRestingPosition.centerY(
+            defaultCenterY: SunriseDaySwipeData.timelineHandleCenterY,
             showsQuietTrackingRail: showsQuietTrackingRail,
             measuredQuietTrackingRailHeight: measuredQuietTrackingRailHeight,
             quietTrackingRailFallbackHeight: quietTrackingRailFallbackHeight,
@@ -2598,7 +2652,7 @@ private extension HomeSunriseLayoutMetricsTests {
             needsReplanTrayFallbackHeight: needsReplanTrayFallbackHeight,
             topPadding: 8,
             interModuleSpacing: 12,
-            buttonRadius: HomeDayLiquidSwipeData.buttonRadius,
+            buttonRadius: SunriseDaySwipeData.buttonRadius,
             clearance: 4
         )
     }
@@ -2696,6 +2750,7 @@ private extension HomeSunriseLayoutMetricsTests {
         beforeWakeItems: [TimelinePlanItem] = [],
         afterSleepItems: [TimelinePlanItem] = [],
         gaps: [TimelineGap] = [],
+        actionableGaps: [TimelineGap]? = nil,
         layoutMode: TimelineDayLayoutMode = .expanded,
         calendarPlottingEnabled: Bool = true
     ) -> TimelineDayProjection {
@@ -2707,6 +2762,7 @@ private extension HomeSunriseLayoutMetricsTests {
             gaps: gaps,
             beforeWakeSummaryItems: beforeWakeItems,
             afterSleepSummaryItems: afterSleepItems,
+            actionableGaps: actionableGaps,
             layoutMode: layoutMode,
             calendarPlottingEnabled: calendarPlottingEnabled,
             wakeAnchor: TimelineAnchorItem(id: "wake", title: "Wake", time: wake, systemImageName: "sun.max.fill"),

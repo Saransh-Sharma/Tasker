@@ -856,13 +856,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             accessoryText: nil
         )
 
-        let gaps = viewModel.timelineGaps(
+        let gaps = viewModel.timelineOperationalGaps(
             between: [morningTask, noonTask],
             wakeAnchor: TimelineAnchorItem(id: "wake", title: "Rise and shine", time: wake, systemImageName: "alarm.fill"),
             sleepAnchor: TimelineAnchorItem(id: "sleep", title: "Wind down", time: sleep, systemImageName: "moon.fill"),
-            inboxCount: 3,
-            selectedDate: CalendarTestClock.date(hour: 8),
-            now: CalendarTestClock.date(day: 14, hour: 12)
+            inboxCount: 3
         )
 
         XCTAssertEqual(gaps.count, 3)
@@ -925,7 +923,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         )
     }
 
-    func testTimelineGapsForTodayOnlyIncludeActionableOperationalWindows() {
+    func testTimelineProjectionKeepsAllGapsButCapsActionablePrompts() {
         let provider = CalendarEventsProviderStub()
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineTodayActionableGapsTests")
@@ -937,18 +935,22 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         let morningTask = timelineItem(id: "task:morning", start: CalendarTestClock.date(hour: 11, minute: 30), end: CalendarTestClock.date(hour: 12, minute: 0))
         let lateTask = timelineItem(id: "task:late", start: CalendarTestClock.date(hour: 17, minute: 0), end: CalendarTestClock.date(hour: 17, minute: 30))
 
-        let gaps = viewModel.timelineGaps(
+        let gaps = viewModel.timelineOperationalGaps(
             between: [morningTask, lateTask],
             wakeAnchor: TimelineAnchorItem(id: "wake", title: "Rise and shine", time: wake, systemImageName: "alarm.fill"),
             sleepAnchor: TimelineAnchorItem(id: "sleep", title: "Wind down", time: sleep, systemImageName: "moon.fill"),
-            inboxCount: 0,
+            inboxCount: 0
+        )
+        let actionableGaps = viewModel.timelineActionableGaps(
+            from: gaps,
             selectedDate: CalendarTestClock.date(hour: 0),
             now: now
         )
 
-        XCTAssertEqual(gaps.count, 1)
-        XCTAssertEqual(gaps.first?.startDate, CalendarTestClock.date(hour: 12, minute: 0))
-        XCTAssertEqual(gaps.first?.endDate, CalendarTestClock.date(hour: 17, minute: 0))
+        XCTAssertEqual(gaps.count, 3)
+        XCTAssertEqual(actionableGaps.count, 1)
+        XCTAssertEqual(actionableGaps.first?.startDate, CalendarTestClock.date(hour: 12, minute: 0))
+        XCTAssertEqual(actionableGaps.first?.endDate, CalendarTestClock.date(hour: 17, minute: 0))
     }
 
     func testTimelineGapsForPastDatesReturnNoPromptRows() {
@@ -971,7 +973,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertTrue(gaps.isEmpty)
     }
 
-    func testTimelineGapsForFutureDatesPreserveOperationalPromptWindows() {
+    func testTimelineGapsForFutureDatesLimitPromptsAndSuppressShortGaps() {
         let provider = CalendarEventsProviderStub()
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineFutureGapsTests")
@@ -982,16 +984,95 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         let morningTask = timelineItem(id: "task:morning", start: CalendarTestClock.date(day: 15, hour: 10), end: CalendarTestClock.date(day: 15, hour: 11))
         let noonTask = timelineItem(id: "task:noon", start: CalendarTestClock.date(day: 15, hour: 11, minute: 30), end: CalendarTestClock.date(day: 15, hour: 12))
 
-        let gaps = viewModel.timelineGaps(
+        let gaps = viewModel.timelineOperationalGaps(
             between: [morningTask, noonTask],
             wakeAnchor: TimelineAnchorItem(id: "wake", title: "Rise and shine", time: wake, systemImageName: "alarm.fill"),
             sleepAnchor: TimelineAnchorItem(id: "sleep", title: "Wind down", time: sleep, systemImageName: "moon.fill"),
-            inboxCount: 3,
+            inboxCount: 3
+        )
+        let actionableGaps = viewModel.timelineActionableGaps(
+            from: gaps,
             selectedDate: CalendarTestClock.date(day: 15, hour: 0),
             now: CalendarTestClock.date(day: 14, hour: 12)
         )
 
         XCTAssertEqual(gaps.count, 3)
+        XCTAssertEqual(actionableGaps.map(\.startDate), [wake])
+        XCTAssertFalse(actionableGaps.contains { $0.duration < 45 * 60 })
+        XCTAssertFalse(actionableGaps.contains { $0.emphasis == .quietWindow })
+    }
+
+    func testTimelineActionableGapsUseAtMostTwoWellSpacedFuturePrompts() {
+        let provider = CalendarEventsProviderStub()
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineFutureGapCapTests")
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
+
+        let wake = CalendarTestClock.date(day: 15, hour: 8, minute: 0)
+        let sleep = CalendarTestClock.date(day: 15, hour: 22, minute: 0)
+        let timedItems = [
+            timelineItem(id: "task:one", start: CalendarTestClock.date(day: 15, hour: 9), end: CalendarTestClock.date(day: 15, hour: 10)),
+            timelineItem(id: "task:two", start: CalendarTestClock.date(day: 15, hour: 12), end: CalendarTestClock.date(day: 15, hour: 13)),
+            timelineItem(id: "task:three", start: CalendarTestClock.date(day: 15, hour: 15), end: CalendarTestClock.date(day: 15, hour: 16)),
+            timelineItem(id: "task:four", start: CalendarTestClock.date(day: 15, hour: 18), end: CalendarTestClock.date(day: 15, hour: 19))
+        ]
+
+        let gaps = viewModel.timelineOperationalGaps(
+            between: timedItems,
+            wakeAnchor: TimelineAnchorItem(id: "wake", title: "Rise and shine", time: wake, systemImageName: "alarm.fill"),
+            sleepAnchor: TimelineAnchorItem(id: "sleep", title: "Wind down", time: sleep, systemImageName: "moon.fill"),
+            inboxCount: 0
+        )
+        let actionableGaps = viewModel.timelineActionableGaps(
+            from: gaps,
+            selectedDate: CalendarTestClock.date(day: 15, hour: 0),
+            now: CalendarTestClock.date(day: 14, hour: 12)
+        )
+
+        XCTAssertEqual(gaps.count, 5)
+        XCTAssertEqual(actionableGaps.count, 2)
+        XCTAssertEqual(actionableGaps.map(\.startDate), [
+            CalendarTestClock.date(day: 15, hour: 8),
+            CalendarTestClock.date(day: 15, hour: 10)
+        ])
+        XCTAssertGreaterThanOrEqual(
+            actionableGaps[1].startDate.timeIntervalSince(actionableGaps[0].startDate),
+            90 * 60
+        )
+    }
+
+    func testTimelineActionableGapsUseQuietWindowOnlyAsFallback() {
+        let provider = CalendarEventsProviderStub()
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineQuietFallbackTests")
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
+
+        let normalGap = TimelineGap(
+            startDate: CalendarTestClock.date(day: 15, hour: 9),
+            endDate: CalendarTestClock.date(day: 15, hour: 10),
+            suggestedTaskCount: 0,
+            emphasis: .openTime
+        )
+        let quietGap = TimelineGap(
+            startDate: CalendarTestClock.date(day: 15, hour: 20),
+            endDate: CalendarTestClock.date(day: 15, hour: 22),
+            suggestedTaskCount: 0,
+            emphasis: .quietWindow
+        )
+
+        let withNormal = viewModel.timelineActionableGaps(
+            from: [normalGap, quietGap],
+            selectedDate: CalendarTestClock.date(day: 15, hour: 0),
+            now: CalendarTestClock.date(day: 14, hour: 12)
+        )
+        let quietOnly = viewModel.timelineActionableGaps(
+            from: [quietGap],
+            selectedDate: CalendarTestClock.date(day: 15, hour: 0),
+            now: CalendarTestClock.date(day: 14, hour: 12)
+        )
+
+        XCTAssertEqual(withNormal.map(\.emphasis), [.openTime])
+        XCTAssertEqual(quietOnly.map(\.emphasis), [.quietWindow])
     }
 
     func testPartitionTimelineItemsKeepsBridgeItemsInOperationalSection() {
@@ -1275,11 +1356,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let controller = HomeViewController()
         controller.viewModel = viewModel
-        controller.chartCardViewModel = ChartCardViewModel(readModelRepository: readModelRepository)
-        controller.radarChartCardViewModel = RadarChartCardViewModel(
-            projectRepository: projectRepository,
-            readModelRepository: readModelRepository
-        )
         controller.presentationDependencyContainer = presentationContainer
 
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 420, height: 900))

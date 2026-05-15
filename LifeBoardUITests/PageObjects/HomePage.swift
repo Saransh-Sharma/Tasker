@@ -175,11 +175,6 @@ class HomePage {
     }
 
     var searchButton: XCUIElement {
-        let legacyIdentifier = app.buttons[AccessibilityIdentifiers.Home.searchButton]
-        if legacyIdentifier.exists {
-            return legacyIdentifier
-        }
-
         let bottomSearchByLabel = bottomBar.buttons.matching(
             NSPredicate(
                 format: "label == 'Search' OR identifier == %@",
@@ -291,16 +286,6 @@ class HomePage {
         let quickMenuAny = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.quickFilterMenuButton]
         if quickMenuAny.exists {
             return quickMenuAny
-        }
-
-        let legacyProjectFilter = app.buttons["home.projectFilterButton"]
-        if legacyProjectFilter.exists {
-            return legacyProjectFilter
-        }
-
-        let legacyProjectFilterAny = app.descendants(matching: .any)["home.projectFilterButton"]
-        if legacyProjectFilterAny.exists {
-            return legacyProjectFilterAny
         }
 
         let navMenuButton = app.buttons["home.focus.menu.button.nav"]
@@ -687,14 +672,6 @@ class HomePage {
 
     var completionRateLabel: XCUIElement {
         return app.staticTexts[AccessibilityIdentifiers.Home.completionRateLabel]
-    }
-
-    var chartView: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.chartView]
-    }
-
-    var radarChartView: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.radarChartView]
     }
 
     var weeklyCalendar: XCUIElement {
@@ -1596,9 +1573,9 @@ class HomePage {
         return containsRate
     }
 
-    /// Verify chart is visible
-    func verifyChartIsVisible() -> Bool {
-        return chartView.exists
+    /// Verify Sunrise Insights is visible.
+    func verifyInsightsContainerIsVisible() -> Bool {
+        return insightsContainer.exists
     }
 
     /// Verify floating nav XP pie chart is visible.

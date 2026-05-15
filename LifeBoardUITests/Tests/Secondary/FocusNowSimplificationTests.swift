@@ -42,7 +42,7 @@ final class FocusNowSimplificationTests: BaseUITest {
         relaunchWithFocusSeed()
         XCTAssertTrue(homePage.focusStrip.waitForExistence(timeout: 5), "Focus strip should exist with focus seed")
 
-        XCTAssertFalse(app.buttons["home.focus.why"].exists, "Legacy Why button should be removed")
+        XCTAssertFalse(app.buttons["home.focus.why"].exists, "Old Why button should be removed")
         XCTAssertFalse(app.buttons["home.focus.plan15"].exists, "Plan next 15m button should be removed")
         XCTAssertFalse(app.staticTexts["home.focus.summary"].exists, "Focus summary subtitle should be removed")
         XCTAssertFalse(homePage.focusShuffleButton.exists, "Home Focus Now should no longer expose shuffle")

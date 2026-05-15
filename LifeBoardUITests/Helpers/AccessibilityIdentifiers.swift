@@ -72,8 +72,6 @@ enum AccessibilityIdentifiers {
         static let rescueExpand = "home.rescue.expand"
         static let rescueSheet = "home.rescue.sheet"
         static let listDropZone = "home.list.dropzone"
-        static let chartView = "home.chartView"
-        static let radarChartView = "home.radarChartView"
         static let navXpPieChart = "home.navXpPieChart"
         static let weeklyCalendar = "home.weeklyCalendar"
         static let timelineSurface = "home.timeline.surface"
@@ -98,6 +96,7 @@ enum AccessibilityIdentifiers {
         static let habitsRecoverySection = "home.habits.recovery"
         static let habitsSectionAction = "home.habits.section.action"
         static let habitsOpenBoard = "home.habits.openBoard"
+        static let habitsAddHabit = "home.habits.addHabit"
         static let quietTrackingSummary = "home.quietTracking.summary"
         static let quietTrackingSheet = "home.quietTracking.sheet"
         static let quietTrackingSheetScroll = "home.quietTracking.sheet.scroll"
@@ -412,7 +411,6 @@ enum AccessibilityIdentifiers {
 
     enum Analytics {
         static let view = "analytics.view"
-        static let radarChart = "analytics.radarChart"
         static let dailyScoreLabel = "analytics.dailyScoreLabel"
         static let weeklyScoreLabel = "analytics.weeklyScoreLabel"
         static let monthlyScoreLabel = "analytics.monthlyScoreLabel"

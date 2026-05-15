@@ -3,18 +3,18 @@ import XCTest
 
 final class HomeTaskMutationPayloadTests: XCTestCase {
 
-    func testLineChartIgnoresNonChartTaskUpdate() {
+    func testProgressInsightsIgnoresNonInsightsTaskUpdate() {
         let payload = HomeTaskMutationPayload(
             reason: .updated,
             source: "test",
             taskID: UUID()
         )
 
-        XCTAssertFalse(ChartInvalidationPolicy.shouldRefreshLineChart(for: payload, referenceDate: Date()))
-        XCTAssertFalse(ChartInvalidationPolicy.shouldRefreshRadarChart(for: payload, referenceDate: Date()))
+        XCTAssertFalse(InsightsInvalidationPolicy.shouldRefreshProgressInsights(for: payload, referenceDate: Date()))
+        XCTAssertFalse(InsightsInvalidationPolicy.shouldRefreshProjectInsights(for: payload, referenceDate: Date()))
     }
 
-    func testLineChartRefreshesForCompletedTaskInsideDisplayedWeek() {
+    func testProgressInsightsRefreshesForCompletedTaskInsideDisplayedWeek() {
         let referenceDate = Date()
         let payload = HomeTaskMutationPayload(
             reason: .completed,
@@ -28,19 +28,19 @@ final class HomeTaskMutationPayloadTests: XCTestCase {
             newCompletionDate: referenceDate
         )
 
-        XCTAssertTrue(ChartInvalidationPolicy.shouldRefreshLineChart(for: payload, referenceDate: referenceDate))
-        XCTAssertTrue(ChartInvalidationPolicy.shouldRefreshRadarChart(for: payload, referenceDate: referenceDate))
+        XCTAssertTrue(InsightsInvalidationPolicy.shouldRefreshProgressInsights(for: payload, referenceDate: referenceDate))
+        XCTAssertTrue(InsightsInvalidationPolicy.shouldRefreshProjectInsights(for: payload, referenceDate: referenceDate))
     }
 
-    func testRadarChartRefreshesForProjectMutationWithoutTaskPayload() {
+    func testProjectInsightsRefreshesForProjectMutationWithoutTaskPayload() {
         let payload = HomeTaskMutationPayload(
             reason: .projectChanged,
             source: "test",
             affectedProjectID: UUID()
         )
 
-        XCTAssertFalse(ChartInvalidationPolicy.shouldRefreshLineChart(for: payload, referenceDate: Date()))
-        XCTAssertTrue(ChartInvalidationPolicy.shouldRefreshRadarChart(for: payload, referenceDate: Date()))
+        XCTAssertFalse(InsightsInvalidationPolicy.shouldRefreshProgressInsights(for: payload, referenceDate: Date()))
+        XCTAssertTrue(InsightsInvalidationPolicy.shouldRefreshProjectInsights(for: payload, referenceDate: Date()))
     }
 
     func testSearchRefreshTriggersForTaskScopedMutation() {

@@ -224,9 +224,9 @@ final class HomeNavigationCoordinatorTests: XCTestCase {
 
 @MainActor
 final class HomeReloadCoordinatorTests: XCTestCase {
-    func testHomeTaskMutationCoalescesChartRefreshAndInvalidatesSearch() async throws {
+    func testHomeTaskMutationCoalescesInsightsRefreshAndInvalidatesSearch() async throws {
         let spy = HomeReloadCoordinatorSpy()
-        let coordinator = HomeReloadCoordinator(delegate: spy, chartRefreshDebounceSeconds: 0.01)
+        let coordinator = HomeReloadCoordinator(delegate: spy, insightsRefreshDebounceSeconds: 0.01)
 
         coordinator.handleHomeTaskMutation(
             Notification(
@@ -254,13 +254,13 @@ final class HomeReloadCoordinatorTests: XCTestCase {
         )
 
         let deadline = Date().addingTimeInterval(1)
-        while spy.chartRefreshReasons.isEmpty, Date() < deadline {
+        while spy.insightsRefreshReasons.isEmpty, Date() < deadline {
             try await _Concurrency.Task.sleep(nanoseconds: 20_000_000)
         }
         withExtendedLifetime(coordinator) {}
 
         XCTAssertEqual(spy.searchMutationCount, 2)
-        XCTAssertEqual(spy.chartRefreshReasons, [.created])
+        XCTAssertEqual(spy.insightsRefreshReasons, [.created])
     }
 
     func testAppActiveEventRefreshesWeeklySummaryAndCalendarContext() {
@@ -276,7 +276,7 @@ final class HomeReloadCoordinatorTests: XCTestCase {
 
     func testTaskMutationNotificationIsInterpretedOnce() async throws {
         let spy = HomeReloadCoordinatorSpy()
-        let coordinator = HomeReloadCoordinator(delegate: spy, chartRefreshDebounceSeconds: 0)
+        let coordinator = HomeReloadCoordinator(delegate: spy, insightsRefreshDebounceSeconds: 0)
         let taskID = UUID()
         let payload = HomeTaskMutationPayload(
             reason: .deleted,
@@ -291,14 +291,14 @@ final class HomeReloadCoordinatorTests: XCTestCase {
         ))))
 
         let deadline = Date().addingTimeInterval(1)
-        while spy.chartRefreshReasons.isEmpty, Date() < deadline {
+        while spy.insightsRefreshReasons.isEmpty, Date() < deadline {
             try await _Concurrency.Task.sleep(nanoseconds: 20_000_000)
         }
 
         XCTAssertEqual(spy.receivedMutations.map(\.reason), [.deleted])
         XCTAssertEqual(spy.receivedMutations.map(\.taskID), [taskID])
         XCTAssertEqual(spy.searchMutationCount, 1)
-        XCTAssertEqual(spy.chartRefreshReasons, [.deleted])
+        XCTAssertEqual(spy.insightsRefreshReasons, [.deleted])
     }
 }
 
@@ -356,7 +356,7 @@ final class BuildNeedsReplanCandidatesUseCaseTests: XCTestCase {
 private final class HomeReloadCoordinatorSpy: HomeReloadCoordinatorDelegate {
     private(set) var receivedMutations: [HomeTaskMutationReloadEvent] = []
     private(set) var searchMutationCount = 0
-    private(set) var chartRefreshReasons: [HomeTaskMutationEvent?] = []
+    private(set) var insightsRefreshReasons: [HomeTaskMutationEvent?] = []
     private(set) var persistentSyncRefreshCount = 0
     private(set) var weeklySummaryRefreshCount = 0
     private(set) var calendarRefreshReasons: [String] = []
@@ -369,8 +369,8 @@ private final class HomeReloadCoordinatorSpy: HomeReloadCoordinatorDelegate {
         searchMutationCount += 1
     }
 
-    func homeReloadCoordinatorRefreshCharts(reason: HomeTaskMutationEvent?) {
-        chartRefreshReasons.append(reason)
+    func homeReloadCoordinatorRefreshInsights(reason: HomeTaskMutationEvent?) {
+        insightsRefreshReasons.append(reason)
     }
 
     func homeReloadCoordinatorRefreshPersistentSyncMode() {
@@ -2581,8 +2581,6 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testTargetedViewsDoNotAccessEnhancedDependencyContainerSingleton() throws {
         let files = [
-            "LifeBoard/Views/Cards/ChartCard.swift",
-            "LifeBoard/Views/Cards/RadarChartCard.swift",
             "LifeBoard/Views/ProjectSelectionSheet.swift",
             "LifeBoard/View/AddTaskSunriseView.swift"
         ]
@@ -2690,7 +2688,6 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testChartAndProjectSelectionViewsDoNotPublishDirectShowProjectManagementNotifications() throws {
         let files = [
-            "LifeBoard/Views/Cards/ChartCardsScrollView.swift",
             "LifeBoard/Views/ProjectSelectionSheet.swift"
         ]
 
@@ -2709,8 +2706,6 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testViewsDirectoryDoesNotDeclarePresentationViewModelTypes() throws {
         let forbiddenDeclarations = [
-            "class ChartCardViewModel",
-            "class RadarChartCardViewModel",
             "class ProjectSelectionViewModel"
         ]
 

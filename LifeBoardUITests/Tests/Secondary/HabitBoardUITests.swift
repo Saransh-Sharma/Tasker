@@ -41,6 +41,31 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertGreaterThanOrEqual(title.frame.minY, strip.frame.minY, "Title overlay should be vertically inside the streak surface")
     }
 
+    func testHomeHabitsFooterAddHabitOpensComposer() {
+        relaunchForHomeHabitRowAssertions()
+
+        let addHabitButton = app.buttons[AccessibilityIdentifiers.Home.habitsAddHabit]
+        var foundAddHabitButton = addHabitButton.waitForExistence(timeout: 4)
+        if !foundAddHabitButton || !addHabitButton.isHittable {
+            for _ in 0..<8 {
+                if addHabitButton.exists && addHabitButton.isHittable {
+                    foundAddHabitButton = true
+                    break
+                }
+                app.swipeUp()
+                foundAddHabitButton = addHabitButton.waitForExistence(timeout: 1)
+            }
+        }
+
+        XCTAssertTrue(foundAddHabitButton, "Home habits section should expose the Add Habit footer action")
+        XCTAssertTrue(waitForElementToBeHittable(addHabitButton, timeout: 4))
+
+        addHabitButton.tap()
+
+        let habitComposer = app.otherElements["addHabit.view"]
+        XCTAssertTrue(habitComposer.waitForExistence(timeout: 5), "Tapping the Home habits footer action should open the habit composer")
+    }
+
     func testHabitBoardShowsSevenDayMatrixAndPages() throws {
         openHabitBoard()
         _ = try requireHabitBoardRows(timeout: 12)

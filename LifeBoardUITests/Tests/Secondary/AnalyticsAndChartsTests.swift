@@ -2,8 +2,8 @@
 //  AnalyticsAndChartsTests.swift
 //  LifeBoardUITests
 //
-//  Secondary Tests: Analytics & Charts (4 tests)
-//  Tests analytics display and chart rendering
+//  Secondary Tests: Analytics & Insights
+//  Tests analytics display and Sunrise Insights rendering
 //
 
 import XCTest
@@ -22,29 +22,29 @@ class AnalyticsAndChartsTests: BaseUITest {
         homePage = HomePage(app: app)
     }
 
-    // MARK: - Test 57: Chart Renders After Completion
+    // MARK: - Test 57: Insights Updates After Completion
 
-    func testChartRendersAfterCompletion() throws {
+    func testInsightsUpdatesAfterCompletion() throws {
         // GIVEN: Tasks exist
         let addTaskPage = homePage.tapAddTask()
-        addTaskPage.createTask(title: "Task for Chart", priority: .max, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: "Task for Chart", timeout: 5)
+        addTaskPage.createTask(title: "Task for Insights", priority: .max, taskType: .morning)
+        _ = homePage.waitForTask(withTitle: "Task for Insights", timeout: 5)
 
         // WHEN: User completes a task
-        let taskIndex = findTaskIndex(withTitle: "Task for Chart")
+        let taskIndex = findTaskIndex(withTitle: "Task for Insights")
         homePage.completeTask(at: taskIndex)
         waitForAnimations(duration: 2.0)
 
-        // THEN: Chart should render/update
-        let chartExists = homePage.verifyChartIsVisible()
+        // THEN: Insights should render/update
+        let insightsExists = homePage.verifyInsightsContainerIsVisible()
 
-        if chartExists {
-            print("✅ Chart is visible")
+        if insightsExists {
+            print("✅ Insights container is visible")
         } else {
-            print("⚠️ Chart may be below fold or not visible in current view")
+            print("⚠️ Insights may be below fold or not visible in current view")
         }
 
-        takeScreenshot(named: "chart_renders_after_completion")
+        takeScreenshot(named: "insights_updates_after_completion")
     }
 
     // MARK: - Test 58: Nav XP Chart Is Visible And Toggles Analytics
@@ -183,17 +183,17 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "nav_xp_pie_chart_visibility_follows_score")
     }
 
-    // MARK: - Test 59: Radar Chart Display
+    // MARK: - Test 59: Insights Project Breakdown Display
 
-    func testRadarChartDisplay() throws {
+    func testInsightsProjectBreakdownDisplay() throws {
         // GIVEN: User has a custom project with completed tasks
-        let projectName = uniqueProjectName(prefix: "Radar Display")
+        let projectName = uniqueProjectName(prefix: "Insights Display")
         createCustomProject(named: projectName)
 
         let tasks = [
-            ("Chart Task 1", TestDataFactory.TaskPriority.max),
-            ("Chart Task 2", TestDataFactory.TaskPriority.high),
-            ("Chart Task 3", TestDataFactory.TaskPriority.medium)
+            ("Insights Task 1", TestDataFactory.TaskPriority.max),
+            ("Insights Task 2", TestDataFactory.TaskPriority.high),
+            ("Insights Task 3", TestDataFactory.TaskPriority.medium)
         ]
 
         for (title, priority) in tasks {
@@ -208,46 +208,46 @@ class AnalyticsAndChartsTests: BaseUITest {
 
         waitForAnimations(duration: 2.0)
 
-        // THEN: Radar/radial chart should be displayed
-        XCTAssertTrue(waitForRadarChartToAppear(timeout: 5), "Radar chart should be visible after custom project completions")
-        takeScreenshot(named: "radar_chart_display")
+        // THEN: Insights project breakdown should be displayed
+        XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 5), "Insights project breakdown should be visible after custom project completions")
+        takeScreenshot(named: "insights_project_breakdown_display")
     }
 
-    // MARK: - Test 59B: Radar Chart Entry Count Growth Crash Guard
+    // MARK: - Test 59B: Insights Project Breakdown Entry Count Growth Crash Guard
 
-    func testRadarChartDoesNotCrashWhenEntryCountIncreasesAfterTaskCompletion() throws {
+    func testInsightsProjectBreakdownDoesNotCrashWhenEntryCountIncreasesAfterTaskCompletion() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
 
-        let projectA = uniqueProjectName(prefix: "Radar A")
-        let projectB = uniqueProjectName(prefix: "Radar B")
+        let projectA = uniqueProjectName(prefix: "Insights A")
+        let projectB = uniqueProjectName(prefix: "Insights B")
         createCustomProject(named: projectA)
 
-        let projectATask = "Radar Task A"
+        let projectATask = "Insights Task A"
         createAndCompleteTask(title: projectATask, priority: .high, project: projectA)
-        XCTAssertTrue(waitForRadarChartToAppear(timeout: 5), "Radar chart should appear after first project completion")
+        XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 5), "Insights project breakdown should appear after first project completion")
 
         createCustomProject(named: projectB)
 
-        let projectBTask = "Radar Task B"
+        let projectBTask = "Insights Task B"
         createAndCompleteTask(title: projectBTask, priority: .max, project: projectB)
-        XCTAssertTrue(waitForRadarChartToAppear(timeout: 5), "Radar chart should stay visible after entry-count growth")
-        XCTAssertEqual(app.state, .runningForeground, "App should remain running after radar redraw with increased entries")
+        XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 5), "Insights project breakdown should stay visible after entry-count growth")
+        XCTAssertEqual(app.state, .runningForeground, "App should remain running after insights redraw with increased entries")
 
         for iteration in 1...3 {
             var toggleIndex = findTaskIndex(withTitle: projectBTask)
             homePage.uncompleteTask(at: toggleIndex)
             waitForAnimations(duration: 0.8)
             XCTAssertEqual(app.state, .runningForeground, "App should remain running after uncomplete iteration \(iteration)")
-            XCTAssertTrue(waitForRadarChartToAppear(timeout: 4), "Radar chart should remain visible after uncomplete iteration \(iteration)")
+            XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 4), "Insights project breakdown should remain visible after uncomplete iteration \(iteration)")
 
             toggleIndex = findTaskIndex(withTitle: projectBTask)
             homePage.completeTask(at: toggleIndex)
             waitForAnimations(duration: 0.8)
             XCTAssertEqual(app.state, .runningForeground, "App should remain running after complete iteration \(iteration)")
-            XCTAssertTrue(waitForRadarChartToAppear(timeout: 4), "Radar chart should remain visible after complete iteration \(iteration)")
+            XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 4), "Insights project breakdown should remain visible after complete iteration \(iteration)")
         }
 
-        takeScreenshot(named: "radar_chart_entry_count_growth_no_crash")
+        takeScreenshot(named: "insights_project_breakdown_entry_count_growth_no_crash")
     }
 
     // MARK: - Test 60: Analytics Score Display
@@ -704,7 +704,7 @@ class AnalyticsAndChartsTests: BaseUITest {
         let newProjectPage = projectPage.tapAddProject()
         let updatedProjectPage = newProjectPage.createProject(
             name: name,
-            description: "Radar crash regression project"
+            description: "Insights regression project"
         )
         XCTAssertTrue(updatedProjectPage.waitForProject(named: name, timeout: 5), "Project '\(name)' should be created")
 
@@ -727,24 +727,24 @@ class AnalyticsAndChartsTests: BaseUITest {
         waitForAnimations(duration: 1.0)
     }
 
-    private func waitForRadarChartToAppear(timeout: TimeInterval) -> Bool {
-        if homePage.radarChartView.waitForExistence(timeout: timeout) {
+    private func waitForInsightsProjectBreakdownToAppear(timeout: TimeInterval) -> Bool {
+        if homePage.insightsContainer.waitForExistence(timeout: timeout) {
             return true
         }
 
         let scrollView = homePage.taskListScrollView
         guard scrollView.exists else {
-            return homePage.radarChartView.exists
+            return homePage.insightsContainer.exists
         }
 
         for _ in 0..<3 {
             scrollView.swipeUp()
-            if homePage.radarChartView.waitForExistence(timeout: 1.0) {
+            if homePage.insightsContainer.waitForExistence(timeout: 1.0) {
                 return true
             }
         }
 
-        return homePage.radarChartView.exists
+        return homePage.insightsContainer.exists
     }
 
     private func findTaskIndex(withTitle title: String) -> Int {
