@@ -76,6 +76,24 @@ final class TaskSemanticRetrievalServiceTests: XCTestCase {
         XCTAssertEqual(result.fallbackReason, "index_empty")
     }
 
+    func testConcurrentIndexAndSearchUseSynchronizedState() {
+        let service = makeService { text in
+            text.lowercased().contains("alpha") ? [1.0, 0.0] : [0.0, 1.0]
+        }
+
+        let tasks = (0..<50).map { index in
+            TaskDefinition(title: "Alpha task \(index)")
+        }
+
+        DispatchQueue.concurrentPerform(iterations: tasks.count) { index in
+            service.index(tasks: [tasks[index]])
+            _ = service.search(query: "alpha", topK: 5)
+        }
+
+        let hits = service.search(query: "alpha", topK: tasks.count)
+        XCTAssertEqual(Set(hits.map(\.taskID)), Set(tasks.map(\.id)))
+    }
+
     func testCosineSimilarityIsDeterministic() {
         let similarity = TaskEmbeddingEngine.cosineSimilarity([1, 2, 3], [1, 2, 3])
         let orthogonal = TaskEmbeddingEngine.cosineSimilarity([1, 0], [0, 1])

@@ -80,6 +80,34 @@ private struct TransformersTokenizerLoader: MLXLMCommon.TokenizerLoader {
     }
 }
 
+private enum LLMModelLoadOperation {
+    static func task(
+        modelName: String,
+        onProgress: (@Sendable (Double) -> Void)?
+    ) -> Task<ModelContainer, Error> {
+        Task.detached(priority: .utility) {
+            try Task.checkCancellation()
+            guard let model = ModelConfiguration.getModelByName(modelName) else {
+                throw LLMEvaluatorError.modelNotFound(modelName)
+            }
+
+            let progressHandler: @Sendable (Progress) -> Void = { progress in
+                guard Task.isCancelled == false else { return }
+                onProgress?(progress.fractionCompleted)
+            }
+
+            let container = try await LLMModelFactory.shared.loadContainer(
+                from: HuggingFaceSnapshotDownloader(),
+                using: TransformersTokenizerLoader(),
+                configuration: model,
+                progressHandler: progressHandler
+            )
+            try Task.checkCancellation()
+            return container
+        }
+    }
+}
+
 private struct TransformersTokenizerAdapter: MLXLMCommon.Tokenizer {
     private let upstream: any Tokenizers.Tokenizer
 
@@ -532,7 +560,7 @@ actor LLMInferenceEngine {
         modelName: String,
         onProgress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> ModelContainer {
-        guard let model = ModelConfiguration.getModelByName(modelName) else {
+        guard ModelConfiguration.getModelByName(modelName) != nil else {
             throw LLMEvaluatorError.modelNotFound(modelName)
         }
 
@@ -556,17 +584,7 @@ actor LLMInferenceEngine {
 
         MLX.Memory.cacheLimit = 20 * 1024 * 1024
 
-        let task = Task.detached(priority: .utility) { () async throws -> ModelContainer in
-            try Task.checkCancellation()
-            return try await LLMModelFactory.shared.loadContainer(
-                from: HuggingFaceSnapshotDownloader(),
-                using: TransformersTokenizerLoader(),
-                configuration: model,
-                progressHandler: { progress in
-                    onProgress?(progress.fractionCompleted)
-                }
-            )
-        }
+        let task = LLMModelLoadOperation.task(modelName: modelName, onProgress: onProgress)
 
         inFlightLoadTask = (modelName, task)
 

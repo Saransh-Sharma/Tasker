@@ -2,6 +2,113 @@ import Foundation
 import MLXLMCommon
 import UIKit
 
+struct LLMPrewarmEligibilityPolicy: Sendable {
+    enum DeviceClass: Sendable {
+        case phone
+        case pad
+        case unknown
+    }
+
+    enum SkipReason: String, Equatable, Sendable {
+        case cancelled
+        case unsupportedModel
+        case alreadyReady
+        case thermalPressure
+        case lowPowerMode
+        case tooManyActiveSessions
+        case missingModelSize
+        case memoryBudgetExceeded
+        case staleRecentUsage
+    }
+
+    enum Decision: Equatable, Sendable {
+        case eligible
+        case skipped(SkipReason)
+
+        var isEligible: Bool {
+            self == .eligible
+        }
+    }
+
+    struct Input: Sendable {
+        let model: ModelConfiguration
+        let compatibilityCanActivate: Bool
+        let loadedModelName: String?
+        let activeModelName: String?
+        let activeSessionCount: Int
+        let thermalState: ProcessInfo.ThermalState
+        let physicalMemoryBytes: UInt64
+        let isLowPowerModeEnabled: Bool
+        let recentUsageAt: Date?
+        let now: Date
+        let isCancelled: Bool
+        let deviceClass: DeviceClass
+    }
+
+    var recentUsageWindow: TimeInterval = 10 * 60
+
+    func decision(for input: Input) -> Decision {
+        if input.isCancelled {
+            return .skipped(.cancelled)
+        }
+        guard input.compatibilityCanActivate else {
+            return .skipped(.unsupportedModel)
+        }
+        if input.loadedModelName == input.model.name || input.activeModelName == input.model.name {
+            return .skipped(.alreadyReady)
+        }
+        guard Self.isThermalStateBelowSerious(input.thermalState) else {
+            return .skipped(.thermalPressure)
+        }
+        guard input.isLowPowerModeEnabled == false else {
+            return .skipped(.lowPowerMode)
+        }
+        guard input.activeSessionCount <= 2 else {
+            return .skipped(.tooManyActiveSessions)
+        }
+        if let recentUsageAt = input.recentUsageAt,
+           input.now.timeIntervalSince(recentUsageAt) > recentUsageWindow {
+            return .skipped(.staleRecentUsage)
+        }
+        guard let modelSize = input.model.modelSize else {
+            return .skipped(.missingModelSize)
+        }
+
+        let physicalMemoryGB = Decimal(Double(input.physicalMemoryBytes) / 1_073_741_824)
+        let budget = physicalMemoryGB * memoryBudgetMultiplier(for: input.model, deviceClass: input.deviceClass)
+        guard modelSize <= budget else {
+            return .skipped(.memoryBudgetExceeded)
+        }
+        return .eligible
+    }
+
+    private func memoryBudgetMultiplier(
+        for model: ModelConfiguration,
+        deviceClass: DeviceClass
+    ) -> Decimal {
+        if model == .qwen_3_5_0_8b_optiq_4bit {
+            return Decimal(string: "0.7")!
+        }
+        switch deviceClass {
+        case .pad:
+            return Decimal(string: "0.65")!
+        case .phone, .unknown:
+            return Decimal(string: "0.6")!
+        }
+    }
+
+    private static func isThermalStateBelowSerious(_ thermalState: ProcessInfo.ThermalState) -> Bool {
+        switch thermalState {
+        case .nominal, .fair:
+            return true
+        case .serious, .critical:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+}
+
 @MainActor
 final class LLMRuntimeCoordinator {
     struct EnsureReadyResult {
@@ -27,6 +134,7 @@ final class LLMRuntimeCoordinator {
     private let switchHandler: SwitchHandler
     private let unloadHandler: UnloadHandler
     private let compatibilityProvider: CompatibilityProvider
+    private let prewarmEligibilityPolicy: LLMPrewarmEligibilityPolicy
     private let backgroundUnloadDelayNanoseconds: UInt64
     private let idleUnloadDelayNanoseconds: UInt64
 
@@ -38,6 +146,7 @@ final class LLMRuntimeCoordinator {
     private var backgroundUnloadTask: Task<Void, Never>?
     private var idleUnloadTask: Task<Void, Never>?
     private var activeSessionReasons: Set<String> = []
+    private var lastPrewarmUsageAt: Date?
 
     private(set) var activeModelName: String?
 
@@ -49,6 +158,7 @@ final class LLMRuntimeCoordinator {
         switchHandler: SwitchHandler? = nil,
         unloadHandler: UnloadHandler? = nil,
         compatibilityProvider: CompatibilityProvider? = nil,
+        prewarmEligibilityPolicy: LLMPrewarmEligibilityPolicy = LLMPrewarmEligibilityPolicy(),
         backgroundUnloadDelayNanoseconds: UInt64 = 5 * 60 * 1_000_000_000,
         idleUnloadDelayNanoseconds: UInt64 = 20 * 1_000_000_000,
         registerLifecycleObservers: Bool = true
@@ -73,6 +183,7 @@ final class LLMRuntimeCoordinator {
         self.compatibilityProvider = compatibilityProvider ?? { modelName in
             LLMRuntimeSupportMatrix.compatibility(for: modelName)
         }
+        self.prewarmEligibilityPolicy = prewarmEligibilityPolicy
         self.backgroundUnloadDelayNanoseconds = backgroundUnloadDelayNanoseconds
         self.idleUnloadDelayNanoseconds = idleUnloadDelayNanoseconds
 
@@ -82,6 +193,7 @@ final class LLMRuntimeCoordinator {
     }
 
     deinit {
+        // Deinit is synchronous; lifecycle observers and pending tasks are main-actor-owned.
         MainActor.assumeIsolated {
             for observer in observers {
                 notificationCenter.removeObserver(observer)
@@ -94,6 +206,7 @@ final class LLMRuntimeCoordinator {
     }
 
     func enterChatScreen(trigger: String) {
+        markRecentPrewarmUsage()
         acquireSession(reason: "chat_host_visible")
         LifeBoardMemoryDiagnostics.checkpoint(
             event: "llm_chat_entry",
@@ -173,6 +286,7 @@ final class LLMRuntimeCoordinator {
     }
 
     func requestChatEntryPrewarm(trigger: String, delaySeconds: TimeInterval = 0.5) {
+        markRecentPrewarmUsage()
         guard V2FeatureFlags.llmChatPrewarmMode != .disabled else { return }
         guard let modelName = normalizedCurrentModelName(), !modelName.isEmpty else { return }
 
@@ -693,34 +807,45 @@ final class LLMRuntimeCoordinator {
     }
 
     private func canPrimeOnChatEntry(model: ModelConfiguration) -> Bool {
-        guard compatibilityProvider(model.name)?.canActivate == true else {
-            return false
+        let decision = prewarmEligibilityPolicy.decision(for: LLMPrewarmEligibilityPolicy.Input(
+            model: model,
+            compatibilityCanActivate: compatibilityProvider(model.name)?.canActivate == true,
+            loadedModelName: evaluator.loadedModelName,
+            activeModelName: activeModelName,
+            activeSessionCount: activeSessionReasons.count,
+            thermalState: ProcessInfo.processInfo.thermalState,
+            physicalMemoryBytes: ProcessInfo.processInfo.physicalMemory,
+            isLowPowerModeEnabled: ProcessInfo.processInfo.isLowPowerModeEnabled,
+            recentUsageAt: lastPrewarmUsageAt,
+            now: Date(),
+            isCancelled: Task.isCancelled,
+            deviceClass: currentDeviceClass()
+        ))
+        if case .skipped(let reason) = decision, reason != .alreadyReady {
+            logWarning(
+                event: "chat_prewarm_skipped_policy",
+                message: "Skipped model prewarm due to runtime eligibility policy",
+                fields: [
+                    "model_name": model.name,
+                    "reason": reason.rawValue
+                ]
+            )
         }
-        guard isThermalStateBelowSerious(ProcessInfo.processInfo.thermalState) else {
-            return false
-        }
-        guard let modelSize = model.modelSize else {
-            return false
-        }
-        // Avoid prewarming when more than two independent sessions already hold runtime state.
-        if activeSessionReasons.count > 2 {
-            return false
-        }
-        let physicalMemoryGB = Decimal(Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824)
-        // OptiQ models have lower memory overhead, so they can use a slightly larger share of RAM.
-        let budgetMultiplier = model == .qwen_3_5_0_8b_optiq_4bit ? Decimal(string: "0.7")! : Decimal(string: "0.6")!
-        let budget = physicalMemoryGB * budgetMultiplier
-        return modelSize <= budget
+        return decision.isEligible
     }
 
-    private func isThermalStateBelowSerious(_ thermalState: ProcessInfo.ThermalState) -> Bool {
-        switch thermalState {
-        case .nominal, .fair:
-            return true
-        case .serious, .critical:
-            return false
-        @unknown default:
-            return false
+    private func markRecentPrewarmUsage(now: Date = Date()) {
+        lastPrewarmUsageAt = now
+    }
+
+    private func currentDeviceClass() -> LLMPrewarmEligibilityPolicy.DeviceClass {
+        switch UIDevice.current.userInterfaceIdiom {
+        case .phone:
+            return .phone
+        case .pad:
+            return .pad
+        default:
+            return .unknown
         }
     }
 

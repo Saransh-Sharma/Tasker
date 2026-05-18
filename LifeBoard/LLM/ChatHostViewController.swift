@@ -10,42 +10,6 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-private final class LockedMetadataAccumulator<Value>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value: Value
-    private var firstError: Error?
-
-    init(_ value: Value) {
-        self.value = value
-    }
-
-    func update(_ body: (inout Value) -> Void) {
-        lock.lock()
-        body(&value)
-        lock.unlock()
-    }
-
-    func record(_ error: Error) {
-        lock.lock()
-        if firstError == nil {
-            firstError = error
-        }
-        lock.unlock()
-    }
-
-    func result() -> Result<Value, Error> {
-        lock.lock()
-        let resolvedValue = value
-        let resolvedError = firstError
-        lock.unlock()
-
-        if let resolvedError {
-            return .failure(resolvedError)
-        }
-        return .success(resolvedValue)
-    }
-}
-
 private struct ChatTaskDetailMetadataState: Sendable {
     var projects: [Project]
     var sections: [LifeBoardProjectSection]
@@ -668,7 +632,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         }
 
         let group = DispatchGroup()
-        let accumulator = LockedMetadataAccumulator(ChatTaskDetailMetadataState(
+        let accumulator = LockedResultAccumulator(ChatTaskDetailMetadataState(
             projects: cachedProjects,
             sections: []
         ))
@@ -706,7 +670,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                     sections: state.sections
                 )
             }
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 completion(result)
             }
         }
@@ -726,7 +690,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         }
 
         let group = DispatchGroup()
-        let accumulator = LockedMetadataAccumulator(ChatTaskDetailRelationshipMetadataState(
+        let accumulator = LockedResultAccumulator(ChatTaskDetailRelationshipMetadataState(
             lifeAreas: [],
             tags: [],
             availableTasks: []
@@ -779,7 +743,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                     availableTasks: state.availableTasks
                 )
             }
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 completion(result)
             }
         }
@@ -919,6 +883,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     deinit {
+        // Deinit is synchronous; these main-actor-owned UIKit subscriptions cannot be hopped.
         MainActor.assumeIsolated {
             themeCancellable?.cancel()
             activationCoordinatorCancellable?.cancel()

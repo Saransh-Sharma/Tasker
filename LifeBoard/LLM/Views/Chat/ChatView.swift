@@ -9,42 +9,6 @@ import SwiftData
 import SwiftUI
 import os
 
-struct ChatThreadChangeCancellationPolicy {
-    enum Decision: Equatable {
-        case ignore
-        case preserveFirstGeneratedThreadAttach
-        case cancel
-    }
-
-    static func decision(
-        oldThreadID: UUID?,
-        newThreadID: UUID?,
-        generatingThreadID: UUID?,
-        hasActiveGeneration: Bool
-    ) -> Decision {
-        guard hasActiveGeneration else { return .ignore }
-        guard oldThreadID != newThreadID else { return .ignore }
-        if oldThreadID == nil, newThreadID == generatingThreadID {
-            return .preserveFirstGeneratedThreadAttach
-        }
-        return .cancel
-    }
-
-    static func shouldCancelActiveGeneration(
-        oldThreadID: UUID?,
-        newThreadID: UUID?,
-        generatingThreadID: UUID?,
-        hasActiveGeneration: Bool
-    ) -> Bool {
-        decision(
-            oldThreadID: oldThreadID,
-            newThreadID: newThreadID,
-            generatingThreadID: generatingThreadID,
-            hasActiveGeneration: hasActiveGeneration
-        ) == .cancel
-    }
-}
-
 struct ChatView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(\.modelContext) var modelContext
@@ -341,7 +305,7 @@ struct ChatView: View {
                 submitPromptFromSendButton()
             },
             onStop: {
-                cancelActiveGeneration(reason: "stop_button")
+                cancelActiveGeneration(reason: .stopButton)
             },
             onSubmitPrompt: {
                 submitPromptFromComposer()
@@ -513,7 +477,7 @@ struct ChatView: View {
             self.chatOpenTraceInterval = nil
         }
         LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_view_disappear")
-        cancelActiveGeneration(reason: "chat_view_disappear")
+        cancelActiveGeneration(reason: .chatViewDisappear)
         LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_prompt_focus")
         LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_view")
     }
@@ -527,7 +491,7 @@ struct ChatView: View {
         slashCommandTask = nil
         contextInvalidationTask?.cancel()
         contextInvalidationTask = nil
-        let threadChangeDecision = ChatThreadChangeCancellationPolicy.decision(
+        let threadChangeDecision = ChatGenerationCancellationPolicy.decision(
             oldThreadID: oldThreadID,
             newThreadID: newThreadID,
             generatingThreadID: generatingThreadID,
@@ -535,7 +499,7 @@ struct ChatView: View {
         )
         switch threadChangeDecision {
         case .cancel:
-            cancelActiveGeneration(reason: "thread_changed")
+            cancelActiveGeneration(reason: .threadChanged)
         case .preserveFirstGeneratedThreadAttach:
             logWarning(
                 event: "chat_thread_change_generation_preserved",
@@ -656,7 +620,7 @@ struct ChatView: View {
     @MainActor
     private func clearCurrentThread() {
         projectLookupTask?.cancel()
-        cancelActiveGeneration(reason: "clear_thread")
+        cancelActiveGeneration(reason: .clearThread)
         if let thread = currentThread {
             modelContext.delete(thread)
             try? modelContext.save()
@@ -687,7 +651,7 @@ struct ChatView: View {
     private func startNewChat() {
         projectLookupTask?.cancel()
         if isGenerationInFlight {
-            cancelActiveGeneration(reason: "start_new_chat")
+            cancelActiveGeneration(reason: .startNewChat)
         }
 
         currentThread = nil
@@ -831,7 +795,7 @@ struct ChatView: View {
         activationFocusTask = nil
         projectLookupTask?.cancel()
         if generationTask != nil {
-            cancelActiveGeneration(reason: "superseded_by_new_generation")
+            cancelActiveGeneration(reason: .supersededByNewGeneration)
         }
         let runID = UUID()
         generationRunID = runID
@@ -1812,28 +1776,45 @@ struct ChatView: View {
     }
 
     @MainActor
-    private func cancelActiveGeneration(reason: String) {
-        let cancelledRunID = generationRunID
-        let hadGenerationTask = generationTask != nil
-        let hadSlashCommandTask = slashCommandTask != nil
-        let shouldCancelEvaluator = llm.running ||
-            llm.runtimePhase == .preparing ||
+    private var evaluatorRuntimePhaseRequiresCancellation: Bool {
+        llm.runtimePhase == .preparing ||
             llm.runtimePhase == .thinking ||
             llm.runtimePhase == .answering ||
             llm.runtimePhase == .stopping
-        if hadGenerationTask || hadSlashCommandTask || shouldCancelEvaluator {
+    }
+
+    @MainActor
+    private func cancellationSnapshot() -> ChatGenerationCancellationSnapshot {
+        ChatGenerationCancellationSnapshot(
+            generationRunID: generationRunID,
+            generatingThreadID: generatingThreadID,
+            currentThreadID: currentThread?.id,
+            hasGenerationTask: generationTask != nil,
+            hasSlashCommandTask: slashCommandTask != nil,
+            evaluatorIsRunning: llm.running,
+            evaluatorRuntimePhaseRequiresCancellation: evaluatorRuntimePhaseRequiresCancellation
+        )
+    }
+
+    @MainActor
+    private func cancelActiveGeneration(reason: ChatGenerationCancellationReason) {
+        let decision = ChatGenerationCancellationPolicy.generationDecision(
+            reason: reason,
+            snapshot: cancellationSnapshot()
+        )
+        if decision.shouldLog {
             LifeBoardPerformanceTrace.event("ChatGenerationCancelled")
             logWarning(
                 event: "chat_generation_cancelled",
                 message: "Cancelled active chat generation or slash-command work",
                 component: "ChatView",
                 fields: [
-                    "reason": reason,
-                    "had_generation_task": hadGenerationTask ? "true" : "false",
-                    "had_slash_command_task": hadSlashCommandTask ? "true" : "false",
-                    "cancelled_evaluator": shouldCancelEvaluator ? "true" : "false",
-                    "run_id": cancelledRunID?.uuidString ?? "none",
-                    "thread_id": generatingThreadID?.uuidString ?? currentThread?.id.uuidString ?? "none"
+                    "reason": decision.reason.rawValue,
+                    "had_generation_task": decision.hadGenerationTask ? "true" : "false",
+                    "had_slash_command_task": decision.hadSlashCommandTask ? "true" : "false",
+                    "cancelled_evaluator": decision.shouldCancelEvaluator ? "true" : "false",
+                    "run_id": decision.cancelledRunID?.uuidString ?? "none",
+                    "thread_id": decision.logThreadID?.uuidString ?? "none"
                 ]
             )
         }
@@ -1849,12 +1830,12 @@ struct ChatView: View {
         }
         pendingResponsePhase = .idle
         llm.isThinking = false
-        if shouldCancelEvaluator {
-            llm.cancelGeneration(reason: reason)
-            LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: reason)
+        if decision.shouldCancelEvaluator {
+            llm.cancelGeneration(reason: decision.reason.rawValue)
+            LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: decision.reason.rawValue)
         }
-        if reason == "stop_button" || reason == "chat_view_disappear" {
-            restoreEvaSubmittedDraftIfNeeded(runID: cancelledRunID, reason: reason)
+        if decision.shouldRestoreSubmittedDraft {
+            restoreEvaSubmittedDraftIfNeeded(runID: decision.cancelledRunID, reason: decision.reason.rawValue)
         }
     }
 

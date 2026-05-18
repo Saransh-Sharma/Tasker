@@ -1,6 +1,6 @@
 import Foundation
 
-final class TaskSemanticIndexStore {
+final class TaskSemanticIndexStore: @unchecked Sendable {
     private struct PersistedIndex: Codable {
         var vectorsByTaskID: [String: [Double]]
         var textByTaskID: [String: String]
@@ -13,6 +13,7 @@ final class TaskSemanticIndexStore {
     private let fileURL: URL
     private var didAttemptLoadPersisted = false
     private var isDirty = false
+    private var dirtyGeneration = 0
 
     /// Initializes a new instance.
     init(fileName: String = "lifeboard-semantic-index-v1.bin") {
@@ -45,6 +46,7 @@ final class TaskSemanticIndexStore {
         vectorsByTaskID[taskID] = vector
         textByTaskID[taskID] = text
         isDirty = true
+        dirtyGeneration += 1
         lock.unlock()
     }
 
@@ -55,6 +57,7 @@ final class TaskSemanticIndexStore {
         vectorsByTaskID.removeValue(forKey: taskID)
         textByTaskID.removeValue(forKey: taskID)
         isDirty = true
+        dirtyGeneration += 1
         lock.unlock()
     }
 
@@ -76,6 +79,7 @@ final class TaskSemanticIndexStore {
         textByTaskID = Dictionary(uniqueKeysWithValues: items.map { ($0.taskID, $0.text) })
         didAttemptLoadPersisted = true
         isDirty = true
+        dirtyGeneration += 1
         lock.unlock()
     }
 
@@ -88,6 +92,7 @@ final class TaskSemanticIndexStore {
             textByTaskID: Dictionary(uniqueKeysWithValues: textByTaskID.map { ($0.key.uuidString, $0.value) }),
             updatedAt: Date()
         )
+        let persistedGeneration = dirtyGeneration
         lock.unlock()
 
         do {
@@ -96,7 +101,9 @@ final class TaskSemanticIndexStore {
             try data.write(to: fileURL, options: [.atomic])
             lock.lock()
             didAttemptLoadPersisted = true
-            isDirty = false
+            if dirtyGeneration == persistedGeneration {
+                isDirty = false
+            }
             lock.unlock()
         } catch {
             logWarning(
@@ -117,6 +124,8 @@ final class TaskSemanticIndexStore {
         vectorsByTaskID = [:]
         textByTaskID = [:]
         didAttemptLoadPersisted = false
+        isDirty = false
+        dirtyGeneration = 0
         lock.unlock()
     }
 
@@ -153,6 +162,7 @@ final class TaskSemanticIndexStore {
             }
         }
         isDirty = false
+        dirtyGeneration = 0
         lock.unlock()
     }
 }

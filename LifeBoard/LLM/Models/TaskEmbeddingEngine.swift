@@ -1,5 +1,5 @@
 import Foundation
- import NaturalLanguage
+import NaturalLanguage
 
 private final class TaskEmbeddingVectorBox: NSObject {
     let vector: [Double]
@@ -34,8 +34,8 @@ private final class TaskEmbeddingStorage: @unchecked Sendable {
     }
 }
 
-struct TaskEmbeddingEngine {
-    typealias VectorProvider = (String) -> [Double]?
+struct TaskEmbeddingEngine: Sendable {
+    typealias VectorProvider = @Sendable (String) -> [Double]?
 
     private static let storage = TaskEmbeddingStorage()
 

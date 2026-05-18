@@ -92,6 +92,7 @@ class LoopingPlayerUIView: UIView {
     }
 
     deinit {
+        // Deinit is synchronous; AVPlayer teardown touches main-thread-owned UIKit layers.
         MainActor.assumeIsolated {
             tearDownPlayback()
         }
