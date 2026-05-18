@@ -11,7 +11,6 @@ struct SunriseHomeScreen: View {
     let timeline: HomeTimelineSnapshot
     let bottomInset: CGFloat
     let safeAreaTop: CGFloat
-    let backgroundNoiseAmount: Int
     let isShellInteractive: Bool
     let isDaySwipeEnabled: Bool
     let onSelectQuickView: (HomeQuickView) -> Void
@@ -48,7 +47,7 @@ struct SunriseHomeScreen: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .top) {
-                HomeDynamicGradientBackdrop(noiseAmount: backgroundNoiseAmount)
+                Color.lifeboard.bgCanvas
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
 

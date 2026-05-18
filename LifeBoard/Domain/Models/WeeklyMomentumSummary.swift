@@ -1,6 +1,6 @@
 import Foundation
 
-public struct WeeklyMomentumDriver: Codable, Equatable, Hashable, Identifiable {
+public struct WeeklyMomentumDriver: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: String
     public var label: String
     public var value: Double
@@ -19,7 +19,7 @@ public struct WeeklyMomentumDriver: Codable, Equatable, Hashable, Identifiable {
     }
 }
 
-public struct WeeklyMomentumSummary: Codable, Equatable, Hashable {
+public struct WeeklyMomentumSummary: Codable, Equatable, Hashable, Sendable {
     public var weekStartDate: Date
     public var weekEndDate: Date
     public var score: Int
