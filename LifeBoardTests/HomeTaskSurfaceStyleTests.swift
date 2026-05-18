@@ -40,6 +40,18 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
         XCTAssertTrue(source.contains("metadataPolicy: .homeUnifiedList"))
     }
 
+    func testHomeBackgroundUsesPlainCanvasWithoutAnimatedGradient() throws {
+        let appShellSource = try loadWorkspaceFile("LifeBoard/View/SunriseAppShellView.swift")
+        let homeScreenSource = try loadWorkspaceFile("LifeBoard/LifeBoardDesign/SunriseHomeScreen.swift")
+        let bezelSource = try loadWorkspaceFile("LifeBoard/DesignSystem/LifeBoardCTABezel.swift")
+
+        XCTAssertTrue(homeScreenSource.contains("Color.lifeboard.bgCanvas"))
+        XCTAssertFalse(appShellSource.contains("HomeDynamicGradientBackdrop"))
+        XCTAssertFalse(homeScreenSource.contains("HomeDynamicGradientBackdrop"))
+        XCTAssertFalse(bezelSource.contains("LifeBoardNoisyGradientBackdrop"))
+        XCTAssertFalse(bezelSource.contains("LifeBoardNoisyGradient"))
+    }
+
     func testHomeListViewsThreadLayoutStyleIntoTaskRows() throws {
         let taskListSource = try loadWorkspaceFile("LifeBoard/View/SunriseTaskListView.swift")
         let taskSectionSource = try loadWorkspaceFile("LifeBoard/View/SunriseTaskSectionView.swift")

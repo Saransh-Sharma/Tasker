@@ -776,6 +776,34 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertTrue(state(.skippedReview).suppressesBottomBar)
     }
 
+    func testNeedsReplanCoordinatorBuildsSessionStateFromOwnedState() {
+        let start = Date()
+        let candidate = HomeReplanCandidate(
+            task: makeDefinition(title: "Coordinator", start: start),
+            kind: .scheduledCarryOver,
+            anchorDate: start,
+            anchorEndDate: start.addingTimeInterval(30 * 60),
+            projectName: "Home"
+        )
+        let coordinator = HomeNeedsReplanCoordinator()
+
+        coordinator.replacePassiveCandidates([candidate])
+        coordinator.beginSession(with: [candidate], scopedTo: nil)
+        coordinator.applyingAction = .reschedule
+        coordinator.errorMessage = "Working"
+
+        let state = coordinator.makeState(phase: .card(candidateIndex: 1))
+
+        XCTAssertEqual(state.currentCandidate?.id, candidate.id)
+        XCTAssertEqual(state.candidateIndex, 1)
+        XCTAssertEqual(state.candidateTotal, 1)
+        XCTAssertEqual(state.summary?.count, 1)
+        XCTAssertEqual(state.persistentSummary.count, 1)
+        XCTAssertTrue(state.isApplying)
+        XCTAssertEqual(state.applyingAction, .reschedule)
+        XCTAssertEqual(state.errorMessage, "Working")
+    }
+
     func testCancelCurrentReplanPlacementReturnsToSameCard() {
         let suiteName = "HomeViewModelPersistenceTests.ReplanCancel.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

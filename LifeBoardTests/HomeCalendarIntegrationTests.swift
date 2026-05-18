@@ -1161,8 +1161,14 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotMarksCurrentItemOutsideOperationalWindow() {
-        let now = Date()
         let currentCalendar = Calendar.current
+        let today = currentCalendar.startOfDay(for: Date())
+        let now = currentCalendar.date(
+            bySettingHour: 21,
+            minute: 30,
+            second: 0,
+            of: today
+        ) ?? today.addingTimeInterval(21.5 * 60 * 60)
         let manualBeforeWakeItem = timelineItem(
             id: "task:current_before_wake",
             start: now.addingTimeInterval(-15 * 60),
@@ -1191,7 +1197,13 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertEqual(beforeWakeBuckets.beforeWakeItems.map(\.id), ["task:current_before_wake"])
         XCTAssertTrue(beforeWakeBuckets.beforeWakeItems.first?.isActive(at: now) == true)
 
-        let afterSleepHour = max(1, currentCalendar.component(.hour, from: now) - 1)
+        let windDownBeforeNow = max(
+            currentCalendar.startOfDay(for: now),
+            now.addingTimeInterval(-30 * 60)
+        )
+        let windDownComponents = currentCalendar.dateComponents([.hour, .minute], from: windDownBeforeNow)
+        let afterSleepHour = windDownComponents.hour ?? 0
+        let afterSleepMinute = windDownComponents.minute ?? 0
         let beforeWakePreferences = LifeBoardWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -1202,7 +1214,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             timelineRiseAndShineHour: 0,
             timelineRiseAndShineMinute: 0,
             timelineWindDownHour: afterSleepHour,
-            timelineWindDownMinute: 0
+            timelineWindDownMinute: afterSleepMinute
         )
         workspaceStore.save(beforeWakePreferences)
 
@@ -1228,7 +1240,9 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.45)
         let beforeWakeTimeline = beforeWakeViewModel.buildTimelineSnapshot(
             calendarSnapshot: beforeWakeViewModel.homeCalendarSnapshot,
-            sunriseAnchor: .collapsed
+            sunriseAnchor: .collapsed,
+            now: now,
+            calendar: currentCalendar
         )
 
         XCTAssertEqual(beforeWakeTimeline.day.currentItemID, "event:current_before_wake")
@@ -1244,7 +1258,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             timelineRiseAndShineHour: 0,
             timelineRiseAndShineMinute: 0,
             timelineWindDownHour: afterSleepHour,
-            timelineWindDownMinute: 0
+            timelineWindDownMinute: afterSleepMinute
         )
         let afterSleepViewModel = makeHomeViewModel(
             coordinator: coordinator,
@@ -1255,7 +1269,9 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let afterSleepTimeline = afterSleepViewModel.buildTimelineSnapshot(
             calendarSnapshot: afterSleepViewModel.homeCalendarSnapshot,
-            sunriseAnchor: .collapsed
+            sunriseAnchor: .collapsed,
+            now: now,
+            calendar: currentCalendar
         )
 
         XCTAssertEqual(afterSleepTimeline.day.currentItemID, "event:current_before_wake")

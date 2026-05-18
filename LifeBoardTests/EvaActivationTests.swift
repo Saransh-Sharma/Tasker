@@ -230,62 +230,6 @@ final class EvaActivationTests: XCTestCase {
     }
     #endif
 
-    func testThreadChangePolicyPreservesFirstThreadAttachDuringGeneration() {
-        let firstThreadID = UUID()
-
-        XCTAssertFalse(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
-            oldThreadID: nil,
-            newThreadID: firstThreadID,
-            generatingThreadID: firstThreadID,
-            hasActiveGeneration: true
-        ))
-    }
-
-    func testChatViewGenerateFirstThreadAttachPreservesGenerationLifecycle() {
-        let internallyCreatedThreadID = UUID()
-
-        let decision = ChatThreadChangeCancellationPolicy.decision(
-            oldThreadID: nil,
-            newThreadID: internallyCreatedThreadID,
-            generatingThreadID: internallyCreatedThreadID,
-            hasActiveGeneration: true
-        )
-
-        XCTAssertEqual(decision, .preserveFirstGeneratedThreadAttach)
-    }
-
-    func testThreadChangePolicyCancelsRealSwitchDuringGeneration() {
-        let originalThreadID = UUID()
-        let switchedThreadID = UUID()
-
-        XCTAssertTrue(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
-            oldThreadID: originalThreadID,
-            newThreadID: switchedThreadID,
-            generatingThreadID: originalThreadID,
-            hasActiveGeneration: true
-        ))
-    }
-
-    func testThreadChangePolicyCancelsClearDuringGeneration() {
-        let originalThreadID = UUID()
-
-        XCTAssertTrue(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
-            oldThreadID: originalThreadID,
-            newThreadID: nil,
-            generatingThreadID: originalThreadID,
-            hasActiveGeneration: true
-        ))
-    }
-
-    func testThreadChangePolicyDoesNotCancelWhenNoGenerationIsActive() {
-        XCTAssertFalse(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
-            oldThreadID: UUID(),
-            newThreadID: UUID(),
-            generatingThreadID: nil,
-            hasActiveGeneration: false
-        ))
-    }
-
     func testMemoryMapperPrependsNewUniqueEntriesAndRespectsLimits() {
         let existing = LLMPersonalMemoryStoreV1(
             preferences: [

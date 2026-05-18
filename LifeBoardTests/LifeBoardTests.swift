@@ -192,7 +192,6 @@ final class HomeNavigationCoordinatorTests: XCTestCase {
         coordinator.handle(.weeklyPlannerDeepLink)
         coordinator.handle(.weeklyReviewDeepLink)
         coordinator.handle(.widgetActionCommand)
-        coordinator.handle(.persistentSyncModeChanged)
         coordinator.handle(.pendingShortcutHandoff)
         coordinator.handle(.uiTestInjectedRoute)
         coordinator.handle(.uiTestOpenSettings)
@@ -214,7 +213,6 @@ final class HomeNavigationCoordinatorTests: XCTestCase {
         XCTAssertEqual(spy.didOpenWeeklyPlannerCount, 1)
         XCTAssertEqual(spy.didOpenWeeklyReviewCount, 1)
         XCTAssertEqual(spy.didProcessWidgetActionCommandCount, 2)
-        XCTAssertEqual(spy.didRefreshPersistentSyncModeCount, 1)
         XCTAssertEqual(spy.didConsumePendingShortcutHandoffCount, 1)
         XCTAssertEqual(spy.didConsumeUITestInjectedRouteCount, 1)
         XCTAssertEqual(spy.didConsumeUITestOpenSettingsCount, 1)
@@ -406,7 +404,6 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
     private(set) var didOpenCalendarScheduleCount = 0
     private(set) var didOpenCalendarChooserCount = 0
     private(set) var didProcessWidgetActionCommandCount = 0
-    private(set) var didRefreshPersistentSyncModeCount = 0
     private(set) var didConsumePendingShortcutHandoffCount = 0
     private(set) var didConsumeUITestInjectedRouteCount = 0
     private(set) var didConsumeUITestOpenSettingsCount = 0
@@ -485,10 +482,6 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
 
     func homeNavigationProcessWidgetActionCommand() {
         didProcessWidgetActionCommandCount += 1
-    }
-
-    func homeNavigationRefreshPersistentSyncMode() {
-        didRefreshPersistentSyncModeCount += 1
     }
 
     func homeNavigationConsumePendingShortcutHandoff() {
@@ -4671,6 +4664,171 @@ final class TombstoneRetentionTests: XCTestCase {
 }
 
 @MainActor
+final class CoreDataModelCompatibilityTests: XCTestCase {
+    func testFreshInstallLoadsCurrentTaskModelV3TaskIconsModel() throws {
+        let model = try currentTaskModelV3Model()
+        let storeURL = temporaryStoreURL(name: "fresh-current-taskmodelv3")
+        defer { removeSQLiteArtifacts(at: storeURL) }
+
+        let container = try makeSQLiteContainer(name: "TaskModelV3", model: model, url: storeURL)
+        defer { unloadPersistentStores(from: container) }
+
+        XCTAssertNotNil(model.entitiesByName["TaskDefinition"])
+        XCTAssertNotNil(model.entitiesByName["LifeArea"])
+        XCTAssertEqual(container.persistentStoreCoordinator.persistentStores.count, 1)
+    }
+
+    func testHistoricalTaskModelV3VersionsMigrateToCurrentWithoutLifeAreaRowLoss() throws {
+        let currentModel = try currentTaskModelV3Model()
+        let versionModels = try historicalTaskModelV3Models()
+        XCTAssertFalse(versionModels.isEmpty)
+
+        for (versionName, sourceModel) in versionModels {
+            guard sourceModel.entitiesByName["LifeArea"] != nil else { continue }
+            let storeURL = temporaryStoreURL(name: "migrate-\(versionName)")
+            defer { removeSQLiteArtifacts(at: storeURL) }
+
+            let sourceContainer = try makeSQLiteContainer(name: versionName, model: sourceModel, url: storeURL)
+            seedLifeAreaRow(in: sourceContainer.viewContext, model: sourceModel, name: "Migrated \(versionName)")
+            try sourceContainer.viewContext.save()
+            unloadPersistentStores(from: sourceContainer)
+
+            let migratedContainer = try makeSQLiteContainer(name: "TaskModelV3", model: currentModel, url: storeURL)
+            defer { unloadPersistentStores(from: migratedContainer) }
+
+            let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+            let migratedRows = try migratedContainer.viewContext.fetch(request)
+            XCTAssertEqual(migratedRows.count, 1, "Expected LifeArea row to survive migration from \(versionName)")
+            XCTAssertEqual(migratedRows.first?.value(forKey: "name") as? String, "Migrated \(versionName)")
+        }
+    }
+
+    func testCloudKitBackedEntitiesDoNotUseCoreDataUniquenessConstraints() throws {
+        let model = try currentTaskModelV3Model()
+        let cloudBackedEntityNames: Set<String> = [
+            "LifeArea", "Project", "ProjectSection", "Tag", "TaskDefinition",
+            "TaskDependency", "TaskTagLink", "WeeklyPlan", "WeeklyOutcome",
+            "WeeklyReview", "ReflectionNote", "HabitDefinition", "ScheduleTemplate",
+            "ScheduleRule", "ScheduleException", "Occurrence", "OccurrenceResolution",
+            "Reminder", "ReminderTrigger", "GamificationProfile", "XPEvent",
+            "AchievementUnlock", "DailyXPAggregate", "FocusSession",
+            "ExternalContainerMap", "ExternalItemMap", "Tombstone", "AssistantActionRun"
+        ]
+
+        for entityName in cloudBackedEntityNames.sorted() {
+            let entity = try XCTUnwrap(model.entitiesByName[entityName], "Missing CloudKit entity \(entityName)")
+            XCTAssertTrue(
+                entity.uniquenessConstraints.isEmpty,
+                "\(entityName) must use app-level canonicalization, not Core Data uniqueness constraints"
+            )
+        }
+    }
+
+    private func currentTaskModelV3Model() throws -> NSManagedObjectModel {
+        let momdURL = try taskModelV3MomdURL()
+        let currentURL = momdURL.appendingPathComponent("TaskModelV3_TaskIcons.mom")
+        guard let model = NSManagedObjectModel(contentsOf: currentURL) else {
+            throw NSError(domain: "CoreDataModelCompatibilityTests", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: "Unable to load current TaskModelV3_TaskIcons model"
+            ])
+        }
+        return model
+    }
+
+    private func historicalTaskModelV3Models() throws -> [(String, NSManagedObjectModel)] {
+        let momdURL = try taskModelV3MomdURL()
+        let versionURLs = try FileManager.default.contentsOfDirectory(
+            at: momdURL,
+            includingPropertiesForKeys: nil
+        )
+        .filter { $0.pathExtension == "mom" }
+        .filter { $0.deletingPathExtension().lastPathComponent != "TaskModelV3_TaskIcons" }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+
+        return versionURLs.compactMap { url in
+            guard let model = NSManagedObjectModel(contentsOf: url) else { return nil }
+            return (url.deletingPathExtension().lastPathComponent, model)
+        }
+    }
+
+    private func taskModelV3MomdURL() throws -> URL {
+        for bundle in [Bundle.main, Bundle(for: type(of: self))] {
+            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") {
+                return url
+            }
+        }
+        throw NSError(domain: "CoreDataModelCompatibilityTests", code: 1, userInfo: [
+            NSLocalizedDescriptionKey: "Unable to locate TaskModelV3.momd in test bundles"
+        ])
+    }
+
+    private func makeSQLiteContainer(
+        name: String,
+        model: NSManagedObjectModel,
+        url: URL
+    ) throws -> NSPersistentContainer {
+        let container = NSPersistentContainer(name: name, managedObjectModel: model)
+        let description = NSPersistentStoreDescription(url: url)
+        description.type = NSSQLiteStoreType
+        description.shouldAddStoreAsynchronously = false
+        description.shouldMigrateStoreAutomatically = true
+        description.shouldInferMappingModelAutomatically = true
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
+    }
+
+    private func seedLifeAreaRow(in context: NSManagedObjectContext, model: NSManagedObjectModel, name: String) {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
+        let attributes = model.entitiesByName["LifeArea"]?.attributesByName ?? [:]
+        set(UUID(), forKey: "id", on: object, attributes: attributes)
+        set(name, forKey: "name", on: object, attributes: attributes)
+        set("#4F7DF3", forKey: "color", on: object, attributes: attributes)
+        set("circle.grid.2x2", forKey: "icon", on: object, attributes: attributes)
+        set(Int32(0), forKey: "sortOrder", on: object, attributes: attributes)
+        set(false, forKey: "isArchived", on: object, attributes: attributes)
+        set(Date(timeIntervalSince1970: 1_700_000_000), forKey: "createdAt", on: object, attributes: attributes)
+        set(Date(timeIntervalSince1970: 1_700_000_000), forKey: "updatedAt", on: object, attributes: attributes)
+        set(Int32(1), forKey: "version", on: object, attributes: attributes)
+    }
+
+    private func set(_ value: Any, forKey key: String, on object: NSManagedObject, attributes: [String: NSAttributeDescription]) {
+        guard attributes[key] != nil else { return }
+        object.setValue(value, forKey: key)
+    }
+
+    private func temporaryStoreURL(name: String) -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(name)-\(UUID().uuidString).sqlite")
+    }
+
+    private func removeSQLiteArtifacts(at url: URL) {
+        let fileManager = FileManager.default
+        let sidecars = [
+            url,
+            URL(fileURLWithPath: url.path + "-wal"),
+            URL(fileURLWithPath: url.path + "-shm")
+        ]
+        for fileURL in sidecars where fileManager.fileExists(atPath: fileURL.path) {
+            try? fileManager.removeItem(at: fileURL)
+        }
+    }
+
+    private func unloadPersistentStores(from container: NSPersistentContainer) {
+        for store in container.persistentStoreCoordinator.persistentStores {
+            try? container.persistentStoreCoordinator.remove(store)
+        }
+    }
+}
+
+@MainActor
 final class V2RepositoryInvariantTests: XCTestCase {
     func testTaskDefinitionUpsertRepairsDuplicateIDsDeterministically() throws {
         let container = try makeInMemoryV2Container()
@@ -4869,6 +5027,405 @@ final class V2RepositoryInvariantTests: XCTestCase {
         XCTAssertEqual(byLocal?.id, byExternal?.id)
     }
 
+    func testTagRepositoryCanonicalizesNormalizedNamesGlobally() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTagRepository(container: container)
+
+        let first = try awaitResult { completion in
+            repository.create(
+                TagDefinition(name: " Work ", color: "#111111", icon: "briefcase", sortOrder: 4),
+                completion: completion
+            )
+        }
+        let second = try awaitResult { completion in
+            repository.create(
+                TagDefinition(name: "work", color: "#222222", icon: "folder", sortOrder: 9),
+                completion: completion
+            )
+        }
+
+        let fetched = try awaitResult { completion in
+            repository.fetchAll(completion: completion)
+        }
+
+        XCTAssertEqual(first.id, second.id)
+        XCTAssertEqual(fetched.filter { $0.name.localizedCaseInsensitiveCompare("work") == .orderedSame }.count, 1)
+        XCTAssertEqual(fetched.first?.name, "Work")
+        XCTAssertEqual(fetched.first?.color, "#111111")
+        XCTAssertEqual(fetched.first?.icon, "briefcase")
+        XCTAssertEqual(fetched.first?.sortOrder, 4)
+    }
+
+    func testMalformedLifeAreaRowsFailFetchValidation() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataLifeAreaRepository(container: container)
+        let malformed = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: container.viewContext)
+        malformed.setValue(UUID(uuidString: "00000000-0000-0000-0000-000000000000"), forKey: "id")
+        malformed.setValue("Malformed", forKey: "name")
+        try container.viewContext.save()
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.fetchAll(completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "V2CoreDataRepositorySupport")
+            XCTAssertEqual((error as NSError).code, 422)
+        }
+    }
+
+    func testMalformedTagRowsFailFetchValidation() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTagRepository(container: container)
+        let malformed = NSEntityDescription.insertNewObject(forEntityName: "Tag", into: container.viewContext)
+        malformed.setValue(UUID(), forKey: "id")
+        malformed.setValue("   ", forKey: "name")
+        try container.viewContext.save()
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.fetchAll(completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "V2CoreDataRepositorySupport")
+            XCTAssertEqual((error as NSError).code, 422)
+        }
+    }
+
+    func testMalformedSectionRowsFailFetchValidation() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataSectionRepository(container: container)
+        let projectID = UUID()
+        let malformed = NSEntityDescription.insertNewObject(forEntityName: "ProjectSection", into: container.viewContext)
+        malformed.setValue(UUID(), forKey: "id")
+        malformed.setValue(projectID, forKey: "projectID")
+        malformed.setValue("", forKey: "name")
+        try container.viewContext.save()
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.fetchSections(projectID: projectID, completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "V2CoreDataRepositorySupport")
+            XCTAssertEqual((error as NSError).code, 422)
+        }
+    }
+
+    func testBlankOccurrenceKeyFailsWriteValidation() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataOccurrenceRepository(container: container)
+        let now = Date(timeIntervalSince1970: 1_750_300_000)
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.saveOccurrences([
+                OccurrenceDefinition(
+                    id: UUID(),
+                    occurrenceKey: "   ",
+                    scheduleTemplateID: UUID(),
+                    sourceType: .habit,
+                    sourceID: UUID(),
+                    scheduledAt: now,
+                    dueAt: nil,
+                    state: .pending,
+                    isGenerated: true,
+                    generationWindow: nil,
+                    createdAt: now,
+                    updatedAt: now
+                )
+            ], completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "V2CoreDataRepositorySupport")
+            XCTAssertEqual((error as NSError).code, 422)
+        }
+    }
+
+    func testBlankReminderPolicyFailsWriteValidation() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataReminderRepository(container: container)
+        let now = Date(timeIntervalSince1970: 1_750_400_000)
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.saveReminder(
+                ReminderDefinition(
+                    id: UUID(),
+                    sourceType: .task,
+                    sourceID: UUID(),
+                    occurrenceID: nil,
+                    policy: "  ",
+                    channelMask: 1,
+                    isEnabled: true,
+                    createdAt: now,
+                    updatedAt: now
+                ),
+                completion: completion
+            )
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "V2CoreDataRepositorySupport")
+            XCTAssertEqual((error as NSError).code, 422)
+        }
+    }
+
+    func testLifeAreaRepositoryRejectsDuplicateActiveNamesAtWriteBoundary() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataLifeAreaRepository(container: container)
+
+        _ = try awaitResult { completion in
+            repository.create(LifeArea(name: "Health"), completion: completion)
+        }
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.create(LifeArea(name: " health "), completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "CoreDataLifeAreaRepository")
+            XCTAssertEqual((error as NSError).code, 409)
+        }
+    }
+
+    func testLifeAreaRepositoryRejectsHistoricalWhitespaceCaseDuplicateNames() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataLifeAreaRepository(container: container)
+        insertLifeAreaObject(in: container.viewContext, id: UUID(), name: "  Health  ", isArchived: false)
+        try container.viewContext.save()
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.create(LifeArea(name: "health"), completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "CoreDataLifeAreaRepository")
+            XCTAssertEqual((error as NSError).code, 409)
+        }
+    }
+
+    func testSectionRepositoryRejectsDuplicateNamesWithinProject() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataSectionRepository(container: container)
+        let projectID = UUID()
+
+        _ = try awaitResult { completion in
+            repository.create(
+                LifeBoardProjectSection(projectID: projectID, name: "Backlog"),
+                completion: completion
+            )
+        }
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.create(
+                LifeBoardProjectSection(projectID: projectID, name: " backlog "),
+                completion: completion
+            )
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "CoreDataSectionRepository")
+            XCTAssertEqual((error as NSError).code, 409)
+        }
+    }
+
+    func testSectionRepositoryRejectsHistoricalWhitespaceCaseDuplicateNamesWithinProject() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataSectionRepository(container: container)
+        let projectID = UUID()
+        insertSectionObject(in: container.viewContext, id: UUID(), projectID: projectID, name: "  Backlog  ")
+        try container.viewContext.save()
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.create(
+                LifeBoardProjectSection(projectID: projectID, name: "backlog"),
+                completion: completion
+            )
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "CoreDataSectionRepository")
+            XCTAssertEqual((error as NSError).code, 409)
+        }
+    }
+
+    func testTagRepositoryCanonicalizesHistoricalWhitespaceCaseDuplicateNames() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTagRepository(container: container)
+        let historicalID = UUID()
+        insertTagObject(in: container.viewContext, id: historicalID, name: "  Work  ")
+        try container.viewContext.save()
+
+        let result = try awaitResult { completion in
+            repository.create(
+                TagDefinition(name: "work", color: "#222222", icon: "folder", sortOrder: 9),
+                completion: completion
+            )
+        }
+        let fetched = try awaitResult { completion in
+            repository.fetchAll(completion: completion)
+        }
+
+        XCTAssertEqual(result.id, historicalID)
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.id, historicalID)
+    }
+
+    func testOccurrenceRepositoryCanonicalizesDuplicateOccurrenceKeys() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataOccurrenceRepository(container: container)
+        let templateID = UUID()
+        let sourceID = UUID()
+        let scheduledAt = Date(timeIntervalSince1970: 1_750_000_000)
+        let key = OccurrenceKeyCodec.encode(
+            scheduleTemplateID: templateID,
+            scheduledAt: scheduledAt,
+            sourceID: sourceID
+        )
+
+        _ = try awaitResult { completion in
+            repository.saveOccurrences([
+                OccurrenceDefinition(
+                    id: UUID(),
+                    occurrenceKey: key,
+                    scheduleTemplateID: templateID,
+                    sourceType: .habit,
+                    sourceID: sourceID,
+                    scheduledAt: scheduledAt,
+                    dueAt: scheduledAt.addingTimeInterval(3_600),
+                    state: .pending,
+                    isGenerated: true,
+                    generationWindow: "test",
+                    createdAt: scheduledAt,
+                    updatedAt: scheduledAt
+                )
+            ], completion: completion)
+        }
+
+        _ = try awaitResult { completion in
+            repository.saveOccurrences([
+                OccurrenceDefinition(
+                    id: UUID(),
+                    occurrenceKey: key,
+                    scheduleTemplateID: templateID,
+                    sourceType: .habit,
+                    sourceID: sourceID,
+                    scheduledAt: scheduledAt,
+                    dueAt: scheduledAt.addingTimeInterval(7_200),
+                    state: .completed,
+                    isGenerated: true,
+                    generationWindow: "test",
+                    createdAt: scheduledAt.addingTimeInterval(60),
+                    updatedAt: scheduledAt.addingTimeInterval(60)
+                )
+            ], completion: completion)
+        }
+
+        let occurrences = try awaitResult { completion in
+            repository.fetchInRange(
+                start: scheduledAt.addingTimeInterval(-60),
+                end: scheduledAt.addingTimeInterval(60),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(occurrences.filter { $0.occurrenceKey == key }.count, 1)
+        XCTAssertEqual(occurrences.first?.state, .completed)
+        XCTAssertEqual(occurrences.first?.dueAt, scheduledAt.addingTimeInterval(7_200))
+    }
+
+    func testScheduleExceptionRepositoryCanonicalizesTemplateOccurrenceKey() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataScheduleRepository(container: container)
+        let templateID = UUID()
+        let sourceID = UUID()
+        let scheduledAt = Date(timeIntervalSince1970: 1_750_100_000)
+        let key = OccurrenceKeyCodec.encode(
+            scheduleTemplateID: templateID,
+            scheduledAt: scheduledAt,
+            sourceID: sourceID
+        )
+
+        _ = try awaitResult { completion in
+            repository.saveTemplate(
+                ScheduleTemplateDefinition(
+                    id: templateID,
+                    sourceType: .habit,
+                    sourceID: sourceID,
+                    createdAt: scheduledAt,
+                    updatedAt: scheduledAt
+                ),
+                completion: completion
+            )
+        }
+
+        _ = try awaitResult { completion in
+            repository.saveException(
+                ScheduleExceptionDefinition(
+                    id: UUID(),
+                    scheduleTemplateID: templateID,
+                    occurrenceKey: key,
+                    action: .skip,
+                    createdAt: scheduledAt
+                ),
+                completion: completion
+            )
+        }
+        _ = try awaitResult { completion in
+            repository.saveException(
+                ScheduleExceptionDefinition(
+                    id: UUID(),
+                    scheduleTemplateID: templateID,
+                    occurrenceKey: key,
+                    action: .move,
+                    movedToAt: scheduledAt.addingTimeInterval(3_600),
+                    createdAt: scheduledAt.addingTimeInterval(60)
+                ),
+                completion: completion
+            )
+        }
+
+        let exceptions = try awaitResult { completion in
+            repository.fetchExceptions(templateID: templateID, completion: completion)
+        }
+
+        XCTAssertEqual(exceptions.filter { $0.occurrenceKey == key }.count, 1)
+        XCTAssertEqual(exceptions.first?.action, .move)
+        XCTAssertEqual(exceptions.first?.movedToAt, scheduledAt.addingTimeInterval(3_600))
+    }
+
+    func testReminderRepositoryCanonicalizesSourceOccurrencePolicyIdentity() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataReminderRepository(container: container)
+        let sourceID = UUID()
+        let occurrenceID = UUID()
+        let createdAt = Date(timeIntervalSince1970: 1_750_200_000)
+
+        _ = try awaitResult { completion in
+            repository.saveReminder(
+                ReminderDefinition(
+                    id: UUID(),
+                    sourceType: .occurrence,
+                    sourceID: sourceID,
+                    occurrenceID: occurrenceID,
+                    policy: "default",
+                    channelMask: 1,
+                    isEnabled: true,
+                    createdAt: createdAt,
+                    updatedAt: createdAt
+                ),
+                completion: completion
+            )
+        }
+        _ = try awaitResult { completion in
+            repository.saveReminder(
+                ReminderDefinition(
+                    id: UUID(),
+                    sourceType: .occurrence,
+                    sourceID: sourceID,
+                    occurrenceID: occurrenceID,
+                    policy: " default ",
+                    channelMask: 3,
+                    isEnabled: false,
+                    createdAt: createdAt.addingTimeInterval(60),
+                    updatedAt: createdAt.addingTimeInterval(60)
+                ),
+                completion: completion
+            )
+        }
+
+        let reminders = try awaitResult { completion in
+            repository.fetchReminders(completion: completion)
+        }
+
+        XCTAssertEqual(reminders.count, 1)
+        XCTAssertEqual(reminders.first?.policy, "default")
+        XCTAssertEqual(reminders.first?.channelMask, 3)
+        XCTAssertEqual(reminders.first?.isEnabled, false)
+    }
+
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
         let bundles = [Bundle.main, Bundle(for: type(of: self))]
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
@@ -4914,6 +5471,54 @@ final class V2RepositoryInvariantTests: XCTestCase {
         task.setValue(createdAt, forKey: "createdAt")
         task.setValue(updatedAt, forKey: "updatedAt")
         task.setValue("pending", forKey: "status")
+    }
+
+    private func insertLifeAreaObject(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        name: String,
+        isArchived: Bool
+    ) {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(name, forKey: "name")
+        object.setValue("#4F7DF3", forKey: "color")
+        object.setValue("circle.grid.2x2", forKey: "icon")
+        object.setValue(Int32(0), forKey: "sortOrder")
+        object.setValue(isArchived, forKey: "isArchived")
+        object.setValue(Date(timeIntervalSince1970: 1_750_500_000), forKey: "createdAt")
+        object.setValue(Date(timeIntervalSince1970: 1_750_500_000), forKey: "updatedAt")
+        object.setValue(Int32(1), forKey: "version")
+    }
+
+    private func insertSectionObject(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        projectID: UUID,
+        name: String
+    ) {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "ProjectSection", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(projectID, forKey: "projectID")
+        object.setValue(name, forKey: "name")
+        object.setValue(Int32(0), forKey: "sortOrder")
+        object.setValue(false, forKey: "isCollapsed")
+        object.setValue(Date(timeIntervalSince1970: 1_750_500_000), forKey: "createdAt")
+        object.setValue(Date(timeIntervalSince1970: 1_750_500_000), forKey: "updatedAt")
+    }
+
+    private func insertTagObject(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        name: String
+    ) {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "Tag", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(name, forKey: "name")
+        object.setValue("#111111", forKey: "color")
+        object.setValue("briefcase", forKey: "icon")
+        object.setValue(Int32(4), forKey: "sortOrder")
+        object.setValue(Date(timeIntervalSince1970: 1_750_500_000), forKey: "createdAt")
     }
 }
 
