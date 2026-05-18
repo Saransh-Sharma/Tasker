@@ -13,10 +13,22 @@ UI_DIRS=(
   "LifeBoard/LLM/Views"
 )
 
+EXISTING_UI_DIRS=()
+for dir in "${UI_DIRS[@]}"; do
+  if [[ -d "$dir" ]]; then
+    EXISTING_UI_DIRS+=("$dir")
+  fi
+done
+
+if [[ ${#EXISTING_UI_DIRS[@]} -eq 0 ]]; then
+  echo "No UI directories found for token-law guardrails."
+  exit 0
+fi
+
 UI_FILES=()
 while IFS= read -r file; do
   UI_FILES+=("$file")
-done < <(rg --files "${UI_DIRS[@]}" -g '*.swift')
+done < <(rg --files "${EXISTING_UI_DIRS[@]}" -g '*.swift')
 
 if [[ ${#UI_FILES[@]} -eq 0 ]]; then
   echo "No UI files found for token-law guardrails."
