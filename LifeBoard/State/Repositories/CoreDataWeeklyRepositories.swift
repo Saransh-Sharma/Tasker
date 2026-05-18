@@ -160,7 +160,7 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol, @
         let canonicalWeekStart = WeeklyRepositoryCalendar.normalizedWeekStart(for: weekStartDate)
         viewContext.perform {
             do {
-                if let object = try V2CoreDataRepositorySupport.canonicalObject(
+                if let object = try V2CoreDataRepositorySupport.canonicalReadObject(
                     in: self.viewContext,
                     entityName: "WeeklyPlan",
                     predicate: NSPredicate(format: "weekStartDate == %@", canonicalWeekStart as NSDate),
@@ -477,7 +477,7 @@ public final class CoreDataWeeklyReviewRepository: WeeklyReviewRepositoryProtoco
         let callback = WeeklyRepositoryCompletion(completion)
         viewContext.perform {
             do {
-                let object = try V2CoreDataRepositorySupport.canonicalObject(
+                let object = try V2CoreDataRepositorySupport.canonicalReadObject(
                     in: self.viewContext,
                     entityName: "WeeklyReview",
                     predicate: NSPredicate(format: "weeklyPlanID == %@", weeklyPlanID as CVarArg),
@@ -675,7 +675,7 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
         let callback = WeeklyRepositoryCompletion(completion)
         backgroundContext.perform {
             do {
-                guard let planObject = try V2CoreDataRepositorySupport.canonicalObject(
+                guard let planObject = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "WeeklyPlan",
                     predicate: NSPredicate(format: "id == %@", request.weeklyPlanID as CVarArg),
@@ -710,7 +710,7 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
                     outcomeObjectsByID: outcomeResolution.outcomeObjectsByID
                 )
 
-                let existingReview = try V2CoreDataRepositorySupport.canonicalObject(
+                let existingReview = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "WeeklyReview",
                     predicate: NSPredicate(format: "weeklyPlanID == %@", request.weeklyPlanID as CVarArg),

@@ -112,7 +112,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol, @
                             userInfo: [NSLocalizedDescriptionKey: "Malformed occurrenceKey; expected canonical key with templateID, scheduledAt, and sourceID"]
                         )
                     }
-                    let existingByID = try V2CoreDataRepositorySupport.canonicalObject(
+                    let existingByID = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                         in: self.backgroundContext,
                         entityName: "Occurrence",
                         predicate: NSPredicate(format: "id == %@", occurrence.id as CVarArg)
@@ -129,7 +129,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol, @
                             ]
                         )
                     }
-                    let existingByKey = try V2CoreDataRepositorySupport.canonicalObject(
+                    let existingByKey = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                         in: self.backgroundContext,
                         entityName: "Occurrence",
                         predicate: NSPredicate(format: "occurrenceKey == %@", canonicalOccurrenceKey),

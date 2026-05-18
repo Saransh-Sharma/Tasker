@@ -2,6 +2,24 @@ import Foundation
 import CoreData
 
 struct V2CoreDataRepositorySupport {
+    private enum DuplicateResolutionPolicy {
+        case observeOnly
+        case deleteDuplicates
+    }
+
+    private final class ObservedDuplicateLogLimiter: @unchecked Sendable {
+        private var emittedKeys: Set<String> = []
+        private let lock = NSLock()
+
+        func shouldLog(key: String) -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return emittedKeys.insert(key).inserted
+        }
+    }
+
+    private static let observedDuplicateLogLimiter = ObservedDuplicateLogLimiter()
+
     /// Executes requireID.
     static func requireID(_ id: UUID, field: String) throws -> UUID {
         let invalid = UUID(uuidString: "00000000-0000-0000-0000-000000000000")
@@ -90,15 +108,54 @@ struct V2CoreDataRepositorySupport {
         return try context.fetch(request)
     }
 
-    /// Fetches matching rows in deterministic order and repairs duplicates,
-    /// keeping the first row as canonical while logging the repair.
+    /// Fetches matching rows in deterministic order without mutating duplicates.
     @discardableResult
-    static func canonicalObject(
+    static func canonicalReadObject(
         in context: NSManagedObjectContext,
         entityName: String,
         predicate: NSPredicate,
         sort: [NSSortDescriptor] = [NSSortDescriptor(key: "id", ascending: true)],
         createIfMissing: Bool = false
+    ) throws -> NSManagedObject? {
+        try canonicalObject(
+            in: context,
+            entityName: entityName,
+            predicate: predicate,
+            sort: sort,
+            createIfMissing: createIfMissing,
+            duplicateResolutionPolicy: .observeOnly
+        )
+    }
+
+    /// Fetches matching rows in deterministic order and deletes duplicate rows.
+    @discardableResult
+    static func canonicalWriteRepairObject(
+        in context: NSManagedObjectContext,
+        entityName: String,
+        predicate: NSPredicate,
+        sort: [NSSortDescriptor] = [NSSortDescriptor(key: "id", ascending: true)],
+        createIfMissing: Bool = false
+    ) throws -> NSManagedObject? {
+        try canonicalObject(
+            in: context,
+            entityName: entityName,
+            predicate: predicate,
+            sort: sort,
+            createIfMissing: createIfMissing,
+            duplicateResolutionPolicy: .deleteDuplicates
+        )
+    }
+
+    /// Fetches matching rows in deterministic order, keeping the first row as canonical.
+    /// Duplicate deletion must be requested explicitly from write-boundary repair flows.
+    @discardableResult
+    private static func canonicalObject(
+        in context: NSManagedObjectContext,
+        entityName: String,
+        predicate: NSPredicate,
+        sort: [NSSortDescriptor] = [NSSortDescriptor(key: "id", ascending: true)],
+        createIfMissing: Bool = false,
+        duplicateResolutionPolicy: DuplicateResolutionPolicy = .observeOnly
     ) throws -> NSManagedObject? {
         let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
         request.predicate = predicate
@@ -108,19 +165,18 @@ struct V2CoreDataRepositorySupport {
         if let first = matches.first {
             let duplicates = Array(matches.dropFirst())
             if duplicates.isEmpty == false {
-                logWarning(
-                    event: "core_data_duplicate_rows_repaired",
-                    message: "Repaired duplicate Core Data rows during canonical object lookup",
-                    component: "V2CoreDataRepositorySupport",
-                    fields: [
-                        "entity": entityName,
-                        "canonical_object_id": first.objectID.uriRepresentation().absoluteString,
-                        "duplicate_count": String(duplicates.count)
-                    ]
+                logDuplicateRows(
+                    policy: duplicateResolutionPolicy,
+                    entityName: entityName,
+                    predicate: predicate,
+                    canonicalObject: first,
+                    duplicateCount: duplicates.count
                 )
             }
-            for duplicate in duplicates {
-                context.delete(duplicate)
+            if duplicateResolutionPolicy == .deleteDuplicates {
+                for duplicate in duplicates {
+                    context.delete(duplicate)
+                }
             }
             return first
         }
@@ -129,6 +185,41 @@ struct V2CoreDataRepositorySupport {
             return NSEntityDescription.insertNewObject(forEntityName: entityName, into: context)
         }
         return nil
+    }
+
+    private static func logDuplicateRows(
+        policy: DuplicateResolutionPolicy,
+        entityName: String,
+        predicate: NSPredicate,
+        canonicalObject: NSManagedObject,
+        duplicateCount: Int
+    ) {
+        let canonicalObjectID = canonicalObject.objectID.uriRepresentation().absoluteString
+        if policy == .observeOnly {
+            let key = [
+                entityName,
+                predicate.description,
+                canonicalObjectID,
+                String(duplicateCount)
+            ].joined(separator: "|")
+            guard observedDuplicateLogLimiter.shouldLog(key: key) else { return }
+        }
+
+        logWarning(
+            event: policy == .deleteDuplicates
+                ? "core_data_duplicate_rows_repaired"
+                : "core_data_duplicate_rows_observed",
+            message: policy == .deleteDuplicates
+                ? "Repaired duplicate Core Data rows during canonical object lookup"
+                : "Observed duplicate Core Data rows during canonical object lookup",
+            component: "V2CoreDataRepositorySupport",
+            fields: [
+                "entity": entityName,
+                "canonical_object_id": canonicalObjectID,
+                "duplicate_count": String(duplicateCount),
+                "duplicate_resolution_policy": policy == .deleteDuplicates ? "delete" : "observe"
+            ]
+        )
     }
 
     /// Executes fetchObject.
@@ -152,7 +243,7 @@ struct V2CoreDataRepositorySupport {
         predicate: NSPredicate,
         sort: [NSSortDescriptor] = [NSSortDescriptor(key: "id", ascending: true)]
     ) throws -> NSManagedObject {
-        if let existing = try canonicalObject(
+        if let existing = try canonicalWriteRepairObject(
             in: context,
             entityName: entityName,
             predicate: predicate,
@@ -170,7 +261,7 @@ struct V2CoreDataRepositorySupport {
         id: UUID
     ) throws -> NSManagedObject {
         let predicate = NSPredicate(format: "id == %@", id as CVarArg)
-        if let existing = try canonicalObject(
+        if let existing = try canonicalWriteRepairObject(
             in: context,
             entityName: entityName,
             predicate: predicate,

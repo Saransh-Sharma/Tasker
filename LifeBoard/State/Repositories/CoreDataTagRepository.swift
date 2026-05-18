@@ -38,7 +38,7 @@ public final class CoreDataTagRepository: TagRepositoryProtocol, @unchecked Send
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(tag.id, field: "tag.id")
                 let normalized = try V2CoreDataRepositorySupport.requireNonEmpty(tag.name, field: "tag.name")
-                let exactExisting = try V2CoreDataRepositorySupport.canonicalObject(
+                let exactExisting = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "Tag",
                     predicate: NSPredicate(format: "name =[c] %@", normalized),

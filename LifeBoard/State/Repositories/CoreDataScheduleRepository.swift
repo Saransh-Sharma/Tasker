@@ -265,7 +265,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol, @unch
                         userInfo: [NSLocalizedDescriptionKey: "Malformed occurrenceKey; expected canonical key with templateID, scheduledAt, and sourceID"]
                     )
                 }
-                let existingByKey = try V2CoreDataRepositorySupport.canonicalObject(
+                let existingByKey = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "ScheduleException",
                     predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -277,7 +277,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol, @unch
                         NSSortDescriptor(key: "id", ascending: true)
                     ]
                 )
-                let existingByID = try V2CoreDataRepositorySupport.canonicalObject(
+                let existingByID = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "ScheduleException",
                     predicate: NSPredicate(format: "id == %@", exception.id as CVarArg)

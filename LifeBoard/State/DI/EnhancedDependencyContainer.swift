@@ -531,7 +531,10 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol, @unche
             let morningStart = calendar.date(byAdding: .hour, value: 9, to: dayStart) ?? now
             let latestVisibleStart = calendar.date(byAdding: .hour, value: 17, to: dayStart) ?? morningStart
             let upcomingStart = calendar.date(byAdding: .minute, value: 30, to: now) ?? now
-            let firstStart = min(max(upcomingStart, morningStart), latestVisibleStart)
+            let deterministicTimelineSeed = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE")
+            let firstStart = deterministicTimelineSeed
+                ? (calendar.date(byAdding: .hour, value: 10, to: dayStart) ?? morningStart)
+                : min(max(upcomingStart, morningStart), latestVisibleStart)
             let firstEnd = calendar.date(byAdding: .minute, value: 30, to: firstStart) ?? firstStart
             let secondStart = calendar.date(byAdding: .minute, value: 60, to: firstEnd) ?? firstEnd
             let secondEnd = calendar.date(byAdding: .minute, value: 30, to: secondStart) ?? secondStart

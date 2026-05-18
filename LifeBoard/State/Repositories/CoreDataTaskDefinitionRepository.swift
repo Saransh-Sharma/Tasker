@@ -671,7 +671,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(request.id, field: "taskDefinition.id")
-                guard let entity = try V2CoreDataRepositorySupport.canonicalObject(
+                guard let entity = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "TaskDefinition",
                     predicate: NSPredicate(format: "taskID == %@", request.id as CVarArg),
@@ -715,7 +715,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(id, field: "taskDefinition.id")
-                if let entity = try V2CoreDataRepositorySupport.canonicalObject(
+                if let entity = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "TaskDefinition",
                     predicate: NSPredicate(format: "taskID == %@", id as CVarArg),

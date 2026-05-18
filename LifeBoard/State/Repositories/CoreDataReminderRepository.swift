@@ -50,7 +50,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol, @unch
                     occurrencePredicate,
                     NSPredicate(format: "policy == %@", normalizedPolicy)
                 ])
-                let existingByKey = try V2CoreDataRepositorySupport.canonicalObject(
+                let existingByKey = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "Reminder",
                     predicate: identityPredicate,
@@ -60,7 +60,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol, @unch
                         NSSortDescriptor(key: "id", ascending: true)
                     ]
                 )
-                let existingByID = try V2CoreDataRepositorySupport.canonicalObject(
+                let existingByID = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "Reminder",
                     predicate: NSPredicate(format: "id == %@", reminder.id as CVarArg)

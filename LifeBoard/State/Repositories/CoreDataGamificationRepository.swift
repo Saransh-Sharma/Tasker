@@ -84,7 +84,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(profile.id, field: "gamificationProfile.id")
-                let object = try V2CoreDataRepositorySupport.canonicalObject(
+                let object = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "GamificationProfile",
                     predicate: NSPredicate(value: true),
@@ -188,7 +188,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     event.idempotencyKey,
                     field: "xpEvent.idempotencyKey"
                 )
-                let existing = try V2CoreDataRepositorySupport.canonicalObject(
+                let existing = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "XPEvent",
                     predicate: NSPredicate(format: "idempotencyKey == %@", normalizedIdempotencyKey),
@@ -273,7 +273,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     unlock.achievementKey,
                     field: "achievementUnlock.achievementKey"
                 )
-                let existing = try V2CoreDataRepositorySupport.canonicalObject(
+                let existing = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "AchievementUnlock",
                     predicate: NSPredicate(format: "achievementKey == %@", normalizedAchievementKey),
@@ -414,7 +414,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     aggregate.dateKey,
                     field: "dailyXPAggregate.dateKey"
                 )
-                let object = try V2CoreDataRepositorySupport.canonicalObject(
+                let object = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "DailyXPAggregate",
                     predicate: NSPredicate(format: "dateKey == %@", normalizedDateKey),
