@@ -81,6 +81,7 @@ struct LBBottomDock: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(item.accessibilityID)
         .accessibilityLabel(item.title)
+        .accessibilityValue(selected ? "selected" : "not selected")
     }
 
     private func handleTap(_ item: HomeBottomBarItem) {

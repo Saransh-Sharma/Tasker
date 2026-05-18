@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import SwiftUI
 #if canImport(UIKit)
 import UIKit
@@ -45,8 +46,7 @@ struct TimeOfDayHeaderAsset: Equatable {
 
     private static let assetCount = 4
     static let defaultActivationID = "default"
-    private static let cacheLock = NSLock()
-    nonisolated(unsafe) private static var cachedBySelectionKey: [String: TimeOfDayHeaderAsset] = [:]
+    private static let cachedBySelectionKey = Mutex<[String: TimeOfDayHeaderAsset]>([:])
 
     static func period(for date: Date, calendar: Calendar = .current) -> Period {
         let hour = calendar.component(.hour, from: date)
@@ -73,21 +73,21 @@ struct TimeOfDayHeaderAsset: Equatable {
     ) -> TimeOfDayHeaderAsset {
         let period = period(for: date, calendar: calendar)
         let key = selectionKey(for: period, activationID: activationID)
-        cacheLock.lock()
-        if let cached = cachedBySelectionKey[key] {
-            cacheLock.unlock()
+        if let cached = cachedBySelectionKey.withLock({ $0[key] }) {
             return cached
         }
-        cacheLock.unlock()
 
         let names = assetNames(for: period)
         let index = stableIndex(selectionKey: key, count: names.count)
         let asset = TimeOfDayHeaderAsset(period: period, name: names[index], selectionKey: key)
 
-        cacheLock.lock()
-        cachedBySelectionKey[key] = asset
-        cacheLock.unlock()
-        return asset
+        return cachedBySelectionKey.withLock { cache in
+            if let cached = cache[key] {
+                return cached
+            }
+            cache[key] = asset
+            return asset
+        }
     }
 
     static func makeActivationID() -> String {
@@ -107,9 +107,9 @@ struct TimeOfDayHeaderAsset: Equatable {
     }
 
     static func resetCacheForTests() {
-        cacheLock.lock()
-        cachedBySelectionKey.removeAll()
-        cacheLock.unlock()
+        cachedBySelectionKey.withLock {
+            $0.removeAll()
+        }
     }
 
     #if canImport(UIKit)
