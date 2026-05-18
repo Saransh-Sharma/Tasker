@@ -3746,6 +3746,15 @@ struct SunriseTimelineSurface: View {
         .padding(.bottom, metrics.resolvedTimelineBottomPadding(hasNextHomeWidget: hasNextHomeWidget))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.timeline.content")
+        .overlay(alignment: .topLeading) {
+            if hasMixedTimedOverlap {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Timeline overlap between task and meeting")
+                    .accessibilityIdentifier("home.timeline.conflictBlock")
+            }
+        }
     }
 
     private var suggestedPlacementTime: Date {
@@ -3756,6 +3765,30 @@ struct SunriseTimelineSurface: View {
             return snapshot.day.currentTime
         }
         return snapshot.day.wakeAnchor.time
+    }
+
+    private var hasMixedTimedOverlap: Bool {
+        let timedItems = snapshot.day.timedItems
+            .filter { $0.isAllDay == false }
+            .compactMap { item -> (source: TimelinePlanItemSource, start: Date, end: Date)? in
+                guard let start = item.startDate, let end = item.endDate, end > start else { return nil }
+                return (item.source, start, end)
+            }
+            .sorted { lhs, rhs in
+                if lhs.start != rhs.start { return lhs.start < rhs.start }
+                return lhs.end < rhs.end
+            }
+
+        for index in timedItems.indices {
+            let candidate = timedItems[index]
+            for other in timedItems[timedItems.index(after: index)...] {
+                guard other.start < candidate.end else { break }
+                if other.source != candidate.source {
+                    return true
+                }
+            }
+        }
+        return false
     }
 }
 

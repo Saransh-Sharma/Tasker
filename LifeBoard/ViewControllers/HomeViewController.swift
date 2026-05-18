@@ -65,6 +65,13 @@ struct HomeLayoutMetrics: Equatable {
 }
 
 struct HomeBottomBarVisibilityPolicy {
+    static func restingDockDownshift(
+        safeAreaBottom: CGFloat,
+        verticalLift: CGFloat
+    ) -> CGFloat {
+        max(0, safeAreaBottom - 10) - verticalLift
+    }
+
     static func shouldConcealBottomBar(
         activeFace: HomeSunriseFace,
         isPromptFocused: Bool,
@@ -1324,6 +1331,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
     private static var hasSeededUITestFocusWorkspace = false
     private static var hasSeededUITestHabitBoardWorkspace = false
     private static var hasSeededUITestQuietTrackingWorkspace = false
+    private static var hasSeededUITestFullTimelineWorkspace = false
     private static let bottomBarVerticalLift: CGFloat = 6
 
     // MARK: - Dependencies
@@ -1452,7 +1460,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
                 rescueSeed: seedUITestRescueWorkspaceIfNeeded,
                 focusSeed: seedUITestFocusWorkspaceIfNeeded,
                 habitBoardSeed: seedUITestHabitBoardWorkspaceIfNeeded,
-                quietTrackingSeed: seedUITestQuietTrackingWorkspaceIfNeeded
+                quietTrackingSeed: seedUITestQuietTrackingWorkspaceIfNeeded,
+                fullTimelineSeed: seedUITestFullTimelineWorkspaceIfNeeded
             )
         ) { [weak self] in
             self?.viewModel.loadTodayTasks()
@@ -1785,6 +1794,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         scheduleInsightsPreparationIfNeeded()
     }
 
+    private static func duration(nanoseconds: UInt64) -> Duration {
+        .nanoseconds(Int64(min(nanoseconds, UInt64(Int64.max))))
+    }
+
     @MainActor
     func runOnboardingEvaluationAfterDelay(
         sceneToken: Int,
@@ -1797,7 +1810,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         defer { clear() }
 
         do {
-            try await Task.sleep(nanoseconds: sleepNanoseconds)
+            try await Task.sleep(for: Self.duration(nanoseconds: sleepNanoseconds))
         } catch {
             return
         }
@@ -1963,6 +1976,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         if let presentationDependencyContainer {
             _ = presentationDependencyContainer.tryInject(into: chatHostVC)
         }
+        chatHostVC.onDismissToHome = { [weak self] in
+            self?.resetHomeSelectionAfterEvaChatDismissal()
+        }
         let navController = UINavigationController(rootViewController: chatHostVC)
         navController.modalPresentationStyle = .fullScreen
         navController.navigationBar.prefersLargeTitles = false
@@ -2077,7 +2093,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
             pendingBackgroundSearchPrewarmTask = Task(priority: .utility) { @MainActor [weak self] in
                 defer { self?.pendingBackgroundSearchPrewarmTask = nil }
                 do {
-                    try await Task.sleep(nanoseconds: 800_000_000)
+                    try await Task.sleep(for: .milliseconds(800))
                 } catch {
                     return
                 }
@@ -2100,7 +2116,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
             pendingBackgroundInsightsPrewarmTask = Task(priority: .utility) { @MainActor [weak self] in
                 defer { self?.pendingBackgroundInsightsPrewarmTask = nil }
                 do {
-                    try await Task.sleep(nanoseconds: 1_500_000_000)
+                    try await Task.sleep(for: .milliseconds(1_500))
                 } catch {
                     return
                 }
@@ -2155,7 +2171,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         pendingSearchWarmupTask = Task { @MainActor [weak self] in
             defer { self?.pendingSearchWarmupTask = nil }
             do {
-                try await Task.sleep(nanoseconds: 300_000_000)
+                try await Task.sleep(for: .milliseconds(300))
             } catch {
                 return
             }
@@ -2174,7 +2190,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         pendingSearchMutationRefreshTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await Task.sleep(nanoseconds: 250_000_000)
+                try await Task.sleep(for: .milliseconds(250))
             } catch {
                 return
             }
@@ -2484,7 +2500,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
 
     private func resolvedBottomBarDownshift() -> CGFloat {
         guard currentLayoutClass == .phone else { return 0 }
-        let restingDownshift = max(0, view.safeAreaInsets.bottom - 10) - Self.bottomBarVerticalLift
+        let restingDownshift = HomeBottomBarVisibilityPolicy.restingDockDownshift(
+            safeAreaBottom: view.safeAreaInsets.bottom,
+            verticalLift: Self.bottomBarVerticalLift
+        )
         guard isBottomBarConcealedForChatInput else { return restingDownshift }
 
         let tokens = LifeBoardThemeManager.shared.tokens(for: currentLayoutClass)
@@ -3498,7 +3517,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
     }
 
     private func seedUITestQuietTrackingWorkspaceIfNeeded(completion: @escaping () -> Void) {
-        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE") else {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE")
+            || arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") else {
             completion()
             return
         }
@@ -3564,6 +3585,228 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
                 logError(
                     event: "ui_test_quiet_tracking_workspace_seed_failed",
                     message: "Failed to seed quiet tracking workspace for Home UI tests",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
+    private func seedUITestFullTimelineWorkspaceIfNeeded(completion: @escaping () -> Void) {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") else {
+            completion()
+            return
+        }
+        guard Self.hasSeededUITestFullTimelineWorkspace == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededUITestFullTimelineWorkspace = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
+                let completeTaskDefinition = presentationDependencyContainer.coordinator.completeTaskDefinition
+                let createHabit = presentationDependencyContainer.coordinator.createHabit
+
+                let workArea = try await manageLifeAreas.createAsync(
+                    name: "Timeline Work",
+                    color: "#2F5B8A",
+                    icon: "briefcase.fill"
+                )
+                let healthArea = try await manageLifeAreas.createAsync(
+                    name: "Timeline Health",
+                    color: "#3B8A5D",
+                    icon: "heart.fill"
+                )
+                let recoveryArea = try await manageLifeAreas.createAsync(
+                    name: "Timeline Recovery",
+                    color: "#C46A54",
+                    icon: "moon.zzz.fill"
+                )
+
+                let launchProject = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Timeline Launch",
+                        description: "Full timeline UI test seed",
+                        lifeAreaID: workArea.id
+                    )
+                )
+                let opsProject = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Timeline Ops",
+                        description: "Full timeline UI test support seed",
+                        lifeAreaID: workArea.id
+                    )
+                )
+
+                let calendar = Calendar.current
+                let now = Date()
+                let startOfDay = calendar.startOfDay(for: now)
+                let designReviewStart = calendar.date(byAdding: .hour, value: 10, to: startOfDay) ?? now
+                let overlapStart = calendar.date(byAdding: .minute, value: 10, to: designReviewStart) ?? designReviewStart
+                let overlapEnd = calendar.date(byAdding: .minute, value: 45, to: overlapStart) ?? overlapStart
+                let deepWorkStart = calendar.date(byAdding: .hour, value: 12, to: startOfDay) ?? now
+                let deepWorkEnd = calendar.date(byAdding: .minute, value: 50, to: deepWorkStart) ?? deepWorkStart
+                let completedStart = calendar.date(byAdding: .hour, value: 8, to: startOfDay) ?? now
+                let completedEnd = calendar.date(byAdding: .minute, value: 25, to: completedStart) ?? completedStart
+                let overdueDate = calendar.date(byAdding: .day, value: -2, to: startOfDay) ?? now
+
+                let overlapTaskID = UUID(uuidString: "20000000-0000-0000-0000-000000000001") ?? UUID()
+                let deepWorkTaskID = UUID(uuidString: "20000000-0000-0000-0000-000000000002") ?? UUID()
+                let inboxTaskID = UUID(uuidString: "20000000-0000-0000-0000-000000000003") ?? UUID()
+                let overdueTaskID = UUID(uuidString: "20000000-0000-0000-0000-000000000004") ?? UUID()
+                let completedTaskID = UUID(uuidString: "20000000-0000-0000-0000-000000000005") ?? UUID()
+
+                let taskRequests = [
+                    CreateTaskDefinitionRequest(
+                        id: overlapTaskID,
+                        title: "Timeline overlap task",
+                        details: "Overlaps Design Review for conflict-block UI coverage",
+                        projectID: launchProject.id,
+                        projectName: launchProject.name,
+                        iconSymbolName: "rectangle.stack.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: overlapStart,
+                        scheduledStartAt: overlapStart,
+                        scheduledEndAt: overlapEnd,
+                        priority: .max,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: overlapEnd.timeIntervalSince(overlapStart),
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: deepWorkTaskID,
+                        title: "Timeline deep work block",
+                        details: "Standalone scheduled task for timeline detail coverage",
+                        projectID: launchProject.id,
+                        projectName: launchProject.name,
+                        iconSymbolName: "scope",
+                        lifeAreaID: workArea.id,
+                        dueDate: deepWorkStart,
+                        scheduledStartAt: deepWorkStart,
+                        scheduledEndAt: deepWorkEnd,
+                        priority: .high,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: deepWorkEnd.timeIntervalSince(deepWorkStart),
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: inboxTaskID,
+                        title: "Timeline inbox capture",
+                        details: "Unscheduled inbox task for fill-open-time coverage",
+                        projectID: ProjectConstants.inboxProjectID,
+                        projectName: ProjectConstants.inboxProjectName,
+                        iconSymbolName: "tray.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: nil,
+                        priority: .low,
+                        type: .morning,
+                        context: .anywhere,
+                        estimatedDuration: 20 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: overdueTaskID,
+                        title: "Timeline overdue rescue",
+                        details: "Overdue task for critical triage coverage",
+                        projectID: opsProject.id,
+                        projectName: opsProject.name,
+                        iconSymbolName: "exclamationmark.triangle.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: overdueDate,
+                        priority: .high,
+                        type: .morning,
+                        context: .office,
+                        estimatedDuration: 30 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: completedTaskID,
+                        title: "Timeline completed report",
+                        details: "Completed timeline task for persistence coverage",
+                        projectID: opsProject.id,
+                        projectName: opsProject.name,
+                        iconSymbolName: "checkmark.seal.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: completedStart,
+                        scheduledStartAt: completedStart,
+                        scheduledEndAt: completedEnd,
+                        priority: .low,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: completedEnd.timeIntervalSince(completedStart),
+                        createdAt: now
+                    )
+                ]
+
+                for request in taskRequests {
+                    _ = try await createTaskDefinition.executeAsync(request: request)
+                }
+                _ = try await completeTaskDefinition.setCompletionAsync(taskID: completedTaskID, to: true)
+
+                let habitRequests = [
+                    CreateHabitRequest(
+                        id: UUID(uuidString: "30000000-0000-0000-0000-000000000001") ?? UUID(),
+                        title: "Timeline hydrate",
+                        lifeAreaID: healthArea.id,
+                        projectID: launchProject.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+                        colorHex: HabitColorFamily.green.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: now
+                    ),
+                    CreateHabitRequest(
+                        id: UUID(uuidString: "30000000-0000-0000-0000-000000000002") ?? UUID(),
+                        title: "Timeline no phone in bed",
+                        lifeAreaID: recoveryArea.id,
+                        projectID: opsProject.id,
+                        kind: .negative,
+                        trackingMode: .lapseOnly,
+                        icon: HabitIconMetadata(symbolName: "bed.double.fill", categoryKey: "sleep"),
+                        colorHex: HabitColorFamily.coral.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: now
+                    ),
+                    CreateHabitRequest(
+                        id: UUID(uuidString: "30000000-0000-0000-0000-000000000003") ?? UUID(),
+                        title: "Timeline no doomscrolling after dinner",
+                        lifeAreaID: recoveryArea.id,
+                        projectID: opsProject.id,
+                        kind: .negative,
+                        trackingMode: .lapseOnly,
+                        icon: HabitIconMetadata(symbolName: "moon.zzz.fill", categoryKey: "recovery"),
+                        colorHex: HabitColorFamily.blue.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: now
+                    )
+                ]
+
+                for request in habitRequests {
+                    _ = try await createHabit.executeAsync(request: request)
+                }
+
+                UserDefaults.standard.removeObject(forKey: "home.eva.recentShuffleTaskIDs.v1")
+                viewModel.invalidateTaskCaches()
+            } catch {
+                logError(
+                    event: "ui_test_full_timeline_workspace_seed_failed",
+                    message: "Failed to seed full timeline workspace for Home UI tests",
                     fields: ["error": error.localizedDescription]
                 )
             }

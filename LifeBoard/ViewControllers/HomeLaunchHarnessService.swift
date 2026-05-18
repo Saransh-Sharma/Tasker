@@ -7,6 +7,23 @@ struct HomeLaunchHarnessWorkspaceSeeders {
     let focusSeed: (@escaping () -> Void) -> Void
     let habitBoardSeed: (@escaping () -> Void) -> Void
     let quietTrackingSeed: (@escaping () -> Void) -> Void
+    let fullTimelineSeed: (@escaping () -> Void) -> Void
+
+    init(
+        establishedSeed: @escaping (@escaping () -> Void) -> Void,
+        rescueSeed: @escaping (@escaping () -> Void) -> Void,
+        focusSeed: @escaping (@escaping () -> Void) -> Void,
+        habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
+        quietTrackingSeed: @escaping (@escaping () -> Void) -> Void,
+        fullTimelineSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() }
+    ) {
+        self.establishedSeed = establishedSeed
+        self.rescueSeed = rescueSeed
+        self.focusSeed = focusSeed
+        self.habitBoardSeed = habitBoardSeed
+        self.quietTrackingSeed = quietTrackingSeed
+        self.fullTimelineSeed = fullTimelineSeed
+    }
 }
 
 @MainActor
@@ -23,7 +40,9 @@ final class UITestWorkspaceSeeder {
                 self.seeders.focusSeed {
                     self.seeders.habitBoardSeed {
                         self.seeders.quietTrackingSeed {
-                            completion()
+                            self.seeders.fullTimelineSeed {
+                                completion()
+                            }
                         }
                     }
                 }
@@ -69,6 +88,7 @@ final class HomeLaunchHarnessService {
         focusSeed: @escaping (@escaping () -> Void) -> Void,
         habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
         quietTrackingSeed: @escaping (@escaping () -> Void) -> Void,
+        fullTimelineSeed: @escaping (@escaping () -> Void) -> Void,
         completion: @escaping () -> Void
     ) {
         seedUITestWorkspacesIfNeeded(
@@ -77,7 +97,8 @@ final class HomeLaunchHarnessService {
                 rescueSeed: rescueSeed,
                 focusSeed: focusSeed,
                 habitBoardSeed: habitBoardSeed,
-                quietTrackingSeed: quietTrackingSeed
+                quietTrackingSeed: quietTrackingSeed,
+                fullTimelineSeed: fullTimelineSeed
             ),
             completion: completion
         )

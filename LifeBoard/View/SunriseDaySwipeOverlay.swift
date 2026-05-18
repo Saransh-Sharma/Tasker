@@ -57,7 +57,8 @@ struct SunriseDaySwipeOverlay: View {
         let isInteractive = isEnabled && isChromeVisible
         let presentation = SunriseDaySwipeChromePresentation.value(
             for: side,
-            isChromeVisible: isChromeVisible
+            isChromeVisible: isChromeVisible,
+            reduceMotion: reduceMotion
         )
         return ZStack(alignment: .topLeading) {
             waveGlassLayer(data: data)

@@ -32,6 +32,7 @@ extension Notification.Name {
 class ChatHostViewController: UIViewController, PresentationDependencyContainerAware, UseCaseCoordinatorInjectable {
     var presentationDependencyContainer: PresentationDependencyContainer?
     var useCaseCoordinator: UseCaseCoordinator!
+    var onDismissToHome: (() -> Void)?
 
     private let appManager = AppManager()
     private let llmEvaluator = LLMRuntimeCoordinator.shared.evaluator
@@ -231,7 +232,31 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     @objc private func onBackTapped() {
         activationCoordinator.handleLeadingNavigation { [weak self] in
-            self?.dismiss(animated: true)
+            self?.dismissToHome()
+        }
+    }
+
+    private func dismissToHome() {
+        if let navigationController,
+           navigationController.presentingViewController != nil {
+            let onDismissToHome = onDismissToHome
+            navigationController.dismiss(animated: true) {
+                onDismissToHome?()
+            }
+            return
+        }
+
+        if presentingViewController != nil {
+            let onDismissToHome = onDismissToHome
+            dismiss(animated: true) {
+                onDismissToHome?()
+            }
+            return
+        }
+
+        if let navigationController,
+           navigationController.viewControllers.first !== self {
+            navigationController.popViewController(animated: true)
         }
     }
 

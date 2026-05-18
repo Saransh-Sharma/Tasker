@@ -60,7 +60,8 @@ struct SunriseDaySwipeChromePresentation: Equatable {
 
     static func value(
         for side: SunriseDaySwipeSide,
-        isChromeVisible: Bool
+        isChromeVisible: Bool,
+        reduceMotion: Bool = false
     ) -> SunriseDaySwipeChromePresentation {
         if isChromeVisible {
             return SunriseDaySwipeChromePresentation(
@@ -68,6 +69,15 @@ struct SunriseDaySwipeChromePresentation: Equatable {
                 scaleX: 1,
                 scaleY: 1,
                 opacity: 1
+            )
+        }
+
+        if reduceMotion {
+            return SunriseDaySwipeChromePresentation(
+                offsetX: 0,
+                scaleX: 1,
+                scaleY: 1,
+                opacity: 0
             )
         }
 

@@ -187,7 +187,7 @@ private final class LifeBoardMetricKitSubscriber: NSObject, MXMetricManagerSubsc
     }
 }
 
-@UIApplicationMain
+@main
 @MainActor
 class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotificationCenterDelegate {
 
@@ -206,6 +206,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     private var notificationOrchestrator: TaskNotificationOrchestrator?
     private var notificationActionHandler: LifeBoardNotificationActionHandler?
     private var gamificationRemoteChangeCoordinator: GamificationRemoteChangeCoordinator?
+    private var persistentStoreRemoteChangeObserver: NSObjectProtocol?
     private var cloudKitEventObserver: NSObjectProtocol?
     private var semanticTaskObservers: [NSObjectProtocol] = []
     private var semanticStateContainer: EnhancedDependencyContainer?
@@ -558,11 +559,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             AppDelegate.persistentBootstrapFailureMessage = message
             persistentContainer = nil
             gamificationRemoteChangeCoordinator = nil
-            NotificationCenter.default.removeObserver(
-                self,
-                name: .NSPersistentStoreRemoteChange,
-                object: nil
-            )
+            if let persistentStoreRemoteChangeObserver {
+                NotificationCenter.default.removeObserver(persistentStoreRemoteChangeObserver)
+                self.persistentStoreRemoteChangeObserver = nil
+            }
             if let cloudKitEventObserver {
                 NotificationCenter.default.removeObserver(cloudKitEventObserver)
                 self.cloudKitEventObserver = nil
@@ -652,17 +652,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     }
 
     private func installPersistentStoreObservers(container: NSPersistentCloudKitContainer) {
-        NotificationCenter.default.removeObserver(
-            self,
-            name: .NSPersistentStoreRemoteChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handlePersistentStoreRemoteChange),
-            name: .NSPersistentStoreRemoteChange,
-            object: container.persistentStoreCoordinator
-        )
+        if let persistentStoreRemoteChangeObserver {
+            NotificationCenter.default.removeObserver(persistentStoreRemoteChangeObserver)
+            self.persistentStoreRemoteChangeObserver = nil
+        }
+
+        let remoteChangeCoordinator = gamificationRemoteChangeCoordinator
+        persistentStoreRemoteChangeObserver = NotificationCenter.default.addObserver(
+            forName: .NSPersistentStoreRemoteChange,
+            object: container.persistentStoreCoordinator,
+            queue: nil
+        ) { [weak remoteChangeCoordinator] _ in
+            remoteChangeCoordinator?.handleRemoteChange()
+        }
 
         if let cloudKitEventObserver {
             NotificationCenter.default.removeObserver(cloudKitEventObserver)
@@ -772,13 +774,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     /// Reset app state for UI testing
     /// This clears UserDefaults and Core Data to ensure clean test runs
     private func resetAppState() {
-
         // Clear UserDefaults
         let domain = Bundle.main.bundleIdentifier!
         UserDefaults.standard.removePersistentDomain(forName: domain)
         UserDefaults.standard.synchronize()
 
-        // Clear Core Data
+        // UI tests launch before the persistent container is bootstrapped, so remove
+        // store files only from this explicit test reset path.
+        wipeV3StoreFiles()
+
+        // Clear Core Data if a container has already been installed.
         clearCoreData()
     }
 
@@ -869,12 +874,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     }
     
     // MARK: - Push Notification Handling
-    
-    /// Executes handlePersistentStoreRemoteChange.
-    @objc
-    func handlePersistentStoreRemoteChange(_ notification: Notification) {
-        gamificationRemoteChangeCoordinator?.handleRemoteChange(notification)
-    }
     
     // Remote notification registration success/failure callbacks
     /// Executes application.
@@ -981,7 +980,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
     // MARK: - V3 Bootstrap
 
-    /// Executes performV3BootstrapCutoverIfNeeded.
+    /// Records V3 epoch changes without deleting production stores.
     private func performV3BootstrapCutoverIfNeeded() {
         let defaults = UserDefaults.standard
         let epochKey = "lifeboard.v3.store.epoch"
@@ -990,7 +989,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             return
         }
 
-        wipeV3StoreFiles()
+        logWarning(
+            event: "v3_store_epoch_mismatch_observed",
+            message: "Observed V3 store epoch mismatch; preserving active store files for bootstrap migration/recovery",
+            fields: [
+                "applied_epoch": String(appliedEpoch),
+                "expected_epoch": String(v3StoreEpoch)
+            ]
+        )
         clearLegacyV1PreferenceKeys(defaults: defaults)
     }
 
@@ -1848,8 +1854,7 @@ final class GamificationRemoteChangeCoordinator: @unchecked Sendable {
         self.historyToken = Self.loadPersistedToken(defaults: defaults)
     }
 
-    func handleRemoteChange(_ notification: Notification) {
-        _ = notification
+    func handleRemoteChange() {
         workQueue.async { [weak self] in
             guard let self else { return }
             self.pendingReplay = true

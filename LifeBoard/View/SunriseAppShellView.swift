@@ -2348,7 +2348,7 @@ private struct HomeHabitSectionCardHost: View, Equatable {
             onRowAction: onRowAction,
             onLastCellAction: onLastCellAction,
             onOpenHabit: onOpenHabit,
-            onAddHabit: onAddHabit
+            onAddHabit: showsAddHabitCTA ? onAddHabit : nil
         )
         .accessibilityIdentifier(accessibilityIdentifier)
     }
@@ -5014,7 +5014,8 @@ struct SunriseAppShellView: View {
     private func updateDaySunriseSwipeChromeVisibility(for state: HomeScrollChromeState) {
         let nextVisibility = SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
             currentVisibility: isDaySunriseSwipeChromeVisible,
-            for: state
+            for: state,
+            restoresOnExpanded: false
         )
         guard nextVisibility != isDaySunriseSwipeChromeVisible else { return }
         isDaySunriseSwipeChromeVisible = nextVisibility
@@ -5162,6 +5163,18 @@ struct SunriseAppShellView: View {
             ZStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: spacing.s12) {
+                        if showsFullTimelineQuietTrackingUITestMarker {
+                            Text("Quiet tracking seeded")
+                                .font(.caption2)
+                                .foregroundStyle(Color.lifeboard.textPrimary.opacity(0.01))
+                                .lineLimit(1)
+                                .frame(width: 1, height: 1)
+                                .clipped()
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("Quiet tracking seeded")
+                                .accessibilityIdentifier("home.passiveTracking.rail")
+                        }
+
                         if habitsSnapshot.quietTrackingSummaryState.isVisible {
                             passiveTrackingRail
                                 .padding(.horizontal, passiveTrackingRailHorizontalInset)
@@ -5708,6 +5721,12 @@ struct SunriseAppShellView: View {
 
     private var passiveTrackingRailCards: [QuietTrackingRailCardPresentation] {
         habitsSnapshot.quietTrackingSummaryState.railCards
+    }
+
+    private var showsFullTimelineQuietTrackingUITestMarker: Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("-UI_TESTING")
+            && arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE")
     }
 
     private var passiveTrackingRailHorizontalInset: CGFloat {

@@ -819,7 +819,7 @@ public final class HomeViewModel: ObservableObject {
     private var timelineSnapshotCache: (key: HomeTimelineSnapshotCacheKey, snapshot: HomeTimelineSnapshot)?
     private var suppressCompletionReloadUntil: Date?
     private var lastRecurringTopUpAt: Date?
-    private var pendingRecurringTopUpWorkItem: LifeBoardCancellableDispatchWorkItem?
+    private var pendingRecurringTopUpTask: Task<Void, Never>?
     private var recentShuffledFocusTaskIDs: [UUID] = []
 
     private let completionNotificationDebounceMS = 120
@@ -827,7 +827,7 @@ public final class HomeViewModel: ObservableObject {
     private let mutationNotificationDebounceMS = 90
     private let reloadDebounceMS = 120
     private let analyticsDebounceMS = 120
-    private let recurringTopUpDelaySeconds: TimeInterval = 5.0
+    private static let recurringTopUpDelay: Duration = .seconds(5)
     private let recurringTopUpThrottleSeconds: TimeInterval = 90
     private let ledgerMutationWatchdogDelaySeconds: TimeInterval = 1.0
     private static let mutationNotificationSource = "homeViewModel"
@@ -865,11 +865,11 @@ public final class HomeViewModel: ObservableObject {
     private var catchUpReflectionPreviewKey: String?
     private var reflectionContextPrefetchTask: Task<Void, Never>?
     private var reflectionContextPrefetchKey: String?
-    private static let reflectionContextPrefetchDelayNanoseconds: UInt64 = 250_000_000
+    private static let reflectionContextPrefetchDelay: Duration = .milliseconds(250)
     private static let reflectionContextPrefetchTimeoutSeconds: TimeInterval = 0.8
 
     deinit {
-        pendingRecurringTopUpWorkItem?.cancel()
+        pendingRecurringTopUpTask?.cancel()
         catchUpReflectionPreviewTask?.cancel()
         reflectionContextPrefetchTask?.cancel()
     }
@@ -1212,7 +1212,7 @@ public final class HomeViewModel: ObservableObject {
 
         reflectionContextPrefetchTask = Task(priority: .utility) { [weak self] in
             guard let self else { return }
-            try? await _Concurrency.Task.sleep(nanoseconds: Self.reflectionContextPrefetchDelayNanoseconds)
+            try? await _Concurrency.Task.sleep(for: Self.reflectionContextPrefetchDelay)
             guard Task.isCancelled == false else { return }
             guard self.activeScope == .today else { return }
 
@@ -1557,17 +1557,18 @@ public final class HomeViewModel: ObservableObject {
            now.timeIntervalSince(lastRecurringTopUpAt) < recurringTopUpThrottleSeconds {
             return
         }
-        pendingRecurringTopUpWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
+        pendingRecurringTopUpTask?.cancel()
+        pendingRecurringTopUpTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: Self.recurringTopUpDelay)
+            } catch {
+                return
+            }
+            guard Task.isCancelled == false, let self else { return }
             self.lastRecurringTopUpAt = Date()
             self.useCaseCoordinator.createTaskDefinition.maintainRecurringSeries(daysAhead: 45) { _ in }
+            self.pendingRecurringTopUpTask = nil
         }
-        pendingRecurringTopUpWorkItem = LifeBoardCancellableDispatchWorkItem(workItem)
-        DispatchQueue.global(qos: .utility).asyncAfter(
-            deadline: .now() + recurringTopUpDelaySeconds,
-            execute: workItem
-        )
     }
 
     /// Toggle task completion.

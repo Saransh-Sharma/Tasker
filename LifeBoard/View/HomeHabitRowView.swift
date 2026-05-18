@@ -221,7 +221,13 @@ struct HomeHabitRowView: View {
 
     var body: some View {
         rowBase
-            .accessibilityIdentifier("home.habitRow.\(row.id)")
+            .overlay(alignment: .topLeading) {
+                Color.black.opacity(0.001)
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(row.title)
+                    .accessibilityIdentifier("home.habitRow.\(row.id)")
+            }
             .contextMenu {
                 if let onOpenDetail {
                     Button {
