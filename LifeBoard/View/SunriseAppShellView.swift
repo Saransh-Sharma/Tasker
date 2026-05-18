@@ -3117,39 +3117,6 @@ private struct SunriseHomeDatePickerPopover: View {
     }
 }
 
-struct HomeDynamicGradientBackdrop: View {
-    let noiseAmount: Int
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        ZStack {
-            Color.lifeboard.bgCanvas
-
-            LifeBoardNoisyGradientBackdrop(opacity: 0.9)
-
-            LifeBoardBackdropNoiseOverlay(amount: noiseAmount)
-
-            LinearGradient(
-                colors: [
-                    Color.lifeboard.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.16 : 0.24),
-                    Color.lifeboard.accentWash.opacity(colorScheme == .dark ? 0.11 : 0.18),
-                    Color.lifeboard.bgCanvas.opacity(0.01)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            Circle()
-                .fill(Color.lifeboard.accentSecondaryWash.opacity(colorScheme == .dark ? 0.28 : 0.34))
-                .frame(width: 240, height: 240)
-                .blur(radius: 28)
-                .offset(x: 72, y: -48)
-        }
-        .accessibilityHidden(true)
-        .allowsHitTesting(false)
-    }
-}
-
 struct SunriseAppShellView: View {
     let viewModel: HomeViewModel
     @ObservedObject var chromeStore: HomeChromeStore
@@ -3165,8 +3132,6 @@ struct SunriseAppShellView: View {
     let layoutClass: LifeBoardLayoutClass
     let forcedFace: Binding<HomeSunriseFace>?
     @ObservedObject private var themeManager = LifeBoardThemeManager.shared
-    @AppStorage(V2FeatureFlags.homeBackdropNoiseAmountUserKey)
-    private var homeBackdropNoiseAmountStorage = V2FeatureFlags.defaultHomeBackdropNoiseAmount
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -3303,9 +3268,6 @@ struct SunriseAppShellView: View {
     private var isScheduleFaceVisible: Bool { activeFace == .schedule }
     private var isTodayTimelineVisible: Bool {
         activeFace == .tasks && tasksSnapshot.activeQuickView == .today
-    }
-    private var homeBackdropNoiseAmount: Int {
-        V2FeatureFlags.clampedHomeBackdropNoiseAmount(homeBackdropNoiseAmountStorage)
     }
     private var isRescueEnabled: Bool { V2FeatureFlags.evaRescueEnabled }
     private var visibleAgendaTailItems: [HomeAgendaTailItem] {
@@ -3473,10 +3435,6 @@ struct SunriseAppShellView: View {
         return .easeInOut(duration: duration)
     }
 
-    private var homeBackdropGradient: some View {
-        HomeDynamicGradientBackdrop(noiseAmount: homeBackdropNoiseAmount)
-    }
-
     private var sunriseDatePickerDropdown: some View {
         ZStack(alignment: .top) {
             Color.black.opacity(0.001)
@@ -3531,7 +3489,6 @@ struct SunriseAppShellView: View {
                         timeline: timelineSnapshot,
                         bottomInset: layoutMetrics.taskListBottomInset,
                         safeAreaTop: layoutMetrics.safeAreaTop,
-                        backgroundNoiseAmount: homeBackdropNoiseAmount,
                         isShellInteractive: shellPhase == .interactive,
                         isDaySwipeEnabled: isDaySwipeGestureEnabled,
                         onSelectQuickView: { viewModel.setQuickView($0) },
@@ -3588,23 +3545,6 @@ struct SunriseAppShellView: View {
                 } else {
                     Color.lifeboard.bgCanvas
                         .ignoresSafeArea()
-
-                    homeBackdropGradient
-                        .frame(height: max(layoutMetrics.backdropGradientHeight, 720))
-                        .ignoresSafeArea()
-                        .allowsHitTesting(false)
-
-                    LinearGradient(
-                        colors: [
-                            Color.lifeboard(.overlayScrim).opacity(0.12),
-                            .clear
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: max(layoutMetrics.backdropGradientHeight, 720))
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
 
                     VStack(spacing: 0) {
                         topNavigationBar()

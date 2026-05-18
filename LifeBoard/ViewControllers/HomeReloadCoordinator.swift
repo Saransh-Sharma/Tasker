@@ -1,4 +1,6 @@
+import Combine
 import Foundation
+import UIKit
 
 @MainActor
 protocol HomeReloadCoordinatorDelegate: AnyObject {
@@ -16,6 +18,89 @@ enum HomeReloadEvent {
     case appDidBecomeActive
     case significantTimeChanged
     case workspacePreferencesChanged
+    case homeHabitMutation
+    case gamificationLedgerMutation
+}
+
+@MainActor
+protocol HomeReloadEventAdapterDelegate: AnyObject {
+    func homeReloadEventAdapter(
+        _ adapter: HomeReloadEventAdapter,
+        didReceive event: HomeReloadEvent
+    )
+}
+
+@MainActor
+final class HomeReloadEventAdapter {
+    weak var delegate: HomeReloadEventAdapterDelegate?
+
+    private let notificationCenter: NotificationCenter
+    private var cancellables = Set<AnyCancellable>()
+
+    init(notificationCenter: NotificationCenter = .default) {
+        self.notificationCenter = notificationCenter
+    }
+
+    func start() {
+        stop()
+
+        notificationCenter.publisher(for: .homeTaskMutation)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                self?.emit(.taskMutation(HomeTaskMutationReloadEvent(notification: notification)))
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: .lifeboardPersistentSyncModeDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.persistentSyncModeChanged)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: UIApplication.didBecomeActiveNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.appDidBecomeActive)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: UIApplication.significantTimeChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.significantTimeChanged)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: LifeBoardWorkspacePreferencesStore.didChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.workspacePreferencesChanged)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: .homeHabitMutation)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.homeHabitMutation)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: .gamificationLedgerDidMutate)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.gamificationLedgerMutation)
+            }
+            .store(in: &cancellables)
+    }
+
+    func stop() {
+        cancellables.removeAll()
+    }
+
+    private func emit(_ event: HomeReloadEvent) {
+        delegate?.homeReloadEventAdapter(self, didReceive: event)
+    }
 }
 
 struct HomeTaskMutationReloadEvent: Equatable {
@@ -83,6 +168,11 @@ final class HomeReloadCoordinator {
         case .workspacePreferencesChanged:
             delegate?.homeReloadCoordinatorRefreshWeeklySummary()
             delegate?.homeReloadCoordinatorRefreshCalendarContext(reason: "workspace_preferences_changed")
+        case .homeHabitMutation:
+            delegate?.homeReloadCoordinatorRefreshWeeklySummary()
+            delegate?.homeReloadCoordinatorRefreshCalendarContext(reason: "home_habit_mutation")
+        case .gamificationLedgerMutation:
+            delegate?.homeReloadCoordinatorRefreshWeeklySummary()
         }
     }
 

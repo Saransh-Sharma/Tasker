@@ -104,7 +104,7 @@ struct AddTaskProjectBar_Previews: PreviewProvider {
             AddTaskProjectBar(
                 selectedProject: $selectedProject,
                 projects: sampleProjects,
-                onCreateProject: { name in print("Created: \(name)") }
+                onCreateProject: { _ in }
             )
         }
         .padding()

@@ -7,42 +7,6 @@
 
 import Foundation
 
-private final class LockedSearchMetadataAccumulator<Value>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value: Value
-    private var firstError: Error?
-
-    init(_ value: Value) {
-        self.value = value
-    }
-
-    func update(_ body: (inout Value) -> Void) {
-        lock.lock()
-        body(&value)
-        lock.unlock()
-    }
-
-    func record(_ error: Error) {
-        lock.lock()
-        if firstError == nil {
-            firstError = error
-        }
-        lock.unlock()
-    }
-
-    func result() -> Result<Value, Error> {
-        lock.lock()
-        let resolvedValue = value
-        let resolvedError = firstError
-        lock.unlock()
-
-        if let resolvedError {
-            return .failure(resolvedError)
-        }
-        return .success(resolvedValue)
-    }
-}
-
 private struct SearchTaskDetailMetadataState: Sendable {
     var projects: [Project]
     var sections: [LifeBoardProjectSection]
@@ -391,7 +355,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
         completion: @escaping @MainActor @Sendable (Result<TaskDetailMetadataPayload, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let accumulator = LockedSearchMetadataAccumulator(SearchTaskDetailMetadataState(
+        let accumulator = LockedResultAccumulator(SearchTaskDetailMetadataState(
             projects: projects,
             sections: []
         ))
@@ -429,7 +393,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
                     sections: state.sections
                 )
             }
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 completion(result)
             }
         }
@@ -440,7 +404,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
         completion: @escaping @MainActor @Sendable (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let accumulator = LockedSearchMetadataAccumulator(SearchTaskDetailRelationshipMetadataState(
+        let accumulator = LockedResultAccumulator(SearchTaskDetailRelationshipMetadataState(
             lifeAreas: [],
             tags: [],
             availableTasks: []
@@ -493,7 +457,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
                     availableTasks: state.availableTasks
                 )
             }
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 completion(result)
             }
         }

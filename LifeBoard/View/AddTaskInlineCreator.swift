@@ -81,8 +81,8 @@ struct AddTaskInlineCreator_Previews: PreviewProvider {
         VStack(spacing: 16) {
             AddTaskInlineCreator(
                 projectName: $projectName,
-                onCreate: { print("Create: \(projectName)") },
-                onCancel: { print("Cancel") }
+                onCreate: {},
+                onCancel: {}
             )
 
             AddTaskInlineCreator(

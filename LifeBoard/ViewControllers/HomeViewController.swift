@@ -1352,6 +1352,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
     private let navigationCoordinator = HomeNavigationCoordinator()
     private let navigationEventAdapter = HomeNavigationEventAdapter()
     private let reloadCoordinator = HomeReloadCoordinator()
+    private let reloadEventAdapter = HomeReloadEventAdapter()
     private let launchHarnessService = HomeLaunchHarnessService()
 
     // MARK: - State
@@ -1402,12 +1403,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         navigationCoordinator.delegate = self
         navigationEventAdapter.delegate = self
         reloadCoordinator.delegate = self
+        reloadEventAdapter.delegate = self
         bindTheme()
         bindViewModel()
         bindRenderPipeline()
         mountHomeShell()
-        observeMutations()
         navigationEventAdapter.start()
+        reloadEventAdapter.start()
         observeTaskCreatedForSnackbar()
         observeIPadShellTelemetry()
         observeOnboardingRequests()
@@ -1445,11 +1447,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         navigationCoordinator.handle(.pendingWidgetActionCommand)
         navigationCoordinator.handle(.pendingIPadModalRequest)
         launchHarnessService.seedUITestWorkspacesIfNeeded(
-            establishedSeed: seedUITestEstablishedWorkspaceIfNeeded,
-            rescueSeed: seedUITestRescueWorkspaceIfNeeded,
-            focusSeed: seedUITestFocusWorkspaceIfNeeded,
-            habitBoardSeed: seedUITestHabitBoardWorkspaceIfNeeded,
-            quietTrackingSeed: seedUITestQuietTrackingWorkspaceIfNeeded
+            seeders: HomeLaunchHarnessWorkspaceSeeders(
+                establishedSeed: seedUITestEstablishedWorkspaceIfNeeded,
+                rescueSeed: seedUITestRescueWorkspaceIfNeeded,
+                focusSeed: seedUITestFocusWorkspaceIfNeeded,
+                habitBoardSeed: seedUITestHabitBoardWorkspaceIfNeeded,
+                quietTrackingSeed: seedUITestQuietTrackingWorkspaceIfNeeded
+            )
         ) { [weak self] in
             self?.viewModel.loadTodayTasks()
             self?.scheduleOnboardingEvaluationIfNeeded()
@@ -1576,25 +1580,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
                 self?.mountBottomBarOverlayIfNeeded(animated: true)
                 self?.scheduleOnboardingEvaluationIfNeeded()
                 self?.scheduleBackgroundSurfacePrewarmIfNeeded()
-            }
-            .store(in: &cancellables)
-
-        notificationCenter.publisher(for: UIApplication.didBecomeActiveNotification)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                self.onboardingEvaluationSceneToken &+= 1
-                self.navigationCoordinator.handle(.pendingShortcutHandoff)
-                self.scheduleOnboardingEvaluationIfNeeded()
-                self.reloadCoordinator.handle(.appDidBecomeActive)
-            }
-            .store(in: &cancellables)
-
-        notificationCenter.publisher(for: UIApplication.significantTimeChangeNotification)
-            .merge(with: notificationCenter.publisher(for: LifeBoardWorkspacePreferencesStore.didChangeNotification))
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                self?.reloadCoordinator.handle(.fromTimeOrWorkspaceNotification(notification))
             }
             .store(in: &cancellables)
 
@@ -2994,16 +2979,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
            presentationController.delegate === self {
             presentationController.delegate = nil
         }
-    }
-
-    /// Executes observeMutations.
-    private func observeMutations() {
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(homeTaskMutationReceived(_:)),
-            name: .homeTaskMutation,
-            object: nil
-        )
     }
 
     private func refreshPersistentSyncOutageBanner() {
@@ -5197,10 +5172,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         faceCoordinator.insightsViewModel?.refresh()
     }
 
-    @objc private func homeTaskMutationReceived(_ notification: Notification) {
-        reloadCoordinator.handle(.taskMutation(HomeTaskMutationReloadEvent(notification: notification)))
-    }
-
     // MARK: - Theme
 
     /// Executes applyTheme.
@@ -5299,10 +5270,6 @@ extension HomeViewController: HomeNavigationCoordinatorDelegate {
         processPendingWidgetActionCommand()
     }
 
-    func homeNavigationRefreshPersistentSyncMode() {
-        reloadCoordinator.handle(.persistentSyncModeChanged)
-    }
-
     func homeNavigationConsumePendingShortcutHandoff() {
         guard viewModel != nil else { return }
         consumePendingShortcutHandoffIfNeeded()
@@ -5346,7 +5313,19 @@ extension HomeViewController: HomeNavigationEventAdapterDelegate {
     }
 }
 
-extension HomeViewController: HomeReloadCoordinatorDelegate {
+extension HomeViewController: HomeReloadCoordinatorDelegate, HomeReloadEventAdapterDelegate {
+    func homeReloadEventAdapter(
+        _ adapter: HomeReloadEventAdapter,
+        didReceive event: HomeReloadEvent
+    ) {
+        if case .appDidBecomeActive = event {
+            onboardingEvaluationSceneToken &+= 1
+            navigationCoordinator.handle(.pendingShortcutHandoff)
+            scheduleOnboardingEvaluationIfNeeded()
+        }
+        reloadCoordinator.handle(event)
+    }
+
     func homeReloadCoordinatorDidReceiveTaskMutation(_ mutation: HomeTaskMutationReloadEvent) {
         LifeBoardPerformanceTrace.event("HomeTaskMutationReloadEvent")
         if let reason = mutation.reason {

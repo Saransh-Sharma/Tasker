@@ -17,7 +17,6 @@ enum HomeNavigationIntent: Equatable {
     case weeklyPlannerDeepLink
     case weeklyReviewDeepLink
     case widgetActionCommand
-    case persistentSyncModeChanged
     case pendingShortcutHandoff
     case uiTestInjectedRoute
     case uiTestOpenSettings

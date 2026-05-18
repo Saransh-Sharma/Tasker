@@ -1,6 +1,37 @@
 import Foundation
 import UIKit
 
+struct HomeLaunchHarnessWorkspaceSeeders {
+    let establishedSeed: (@escaping () -> Void) -> Void
+    let rescueSeed: (@escaping () -> Void) -> Void
+    let focusSeed: (@escaping () -> Void) -> Void
+    let habitBoardSeed: (@escaping () -> Void) -> Void
+    let quietTrackingSeed: (@escaping () -> Void) -> Void
+}
+
+@MainActor
+final class UITestWorkspaceSeeder {
+    private let seeders: HomeLaunchHarnessWorkspaceSeeders
+
+    init(seeders: HomeLaunchHarnessWorkspaceSeeders) {
+        self.seeders = seeders
+    }
+
+    func seed(completion: @escaping () -> Void) {
+        seeders.establishedSeed {
+            self.seeders.rescueSeed {
+                self.seeders.focusSeed {
+                    self.seeders.habitBoardSeed {
+                        self.seeders.quietTrackingSeed {
+                            completion()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @MainActor
 final class HomeLaunchHarnessService {
     private static var hasConsumedUITestRoute = false
@@ -40,16 +71,22 @@ final class HomeLaunchHarnessService {
         quietTrackingSeed: @escaping (@escaping () -> Void) -> Void,
         completion: @escaping () -> Void
     ) {
-        establishedSeed {
-            rescueSeed {
-                focusSeed {
-                    habitBoardSeed {
-                        quietTrackingSeed {
-                            completion()
-                        }
-                    }
-                }
-            }
-        }
+        seedUITestWorkspacesIfNeeded(
+            seeders: HomeLaunchHarnessWorkspaceSeeders(
+                establishedSeed: establishedSeed,
+                rescueSeed: rescueSeed,
+                focusSeed: focusSeed,
+                habitBoardSeed: habitBoardSeed,
+                quietTrackingSeed: quietTrackingSeed
+            ),
+            completion: completion
+        )
+    }
+
+    func seedUITestWorkspacesIfNeeded(
+        seeders: HomeLaunchHarnessWorkspaceSeeders,
+        completion: @escaping () -> Void
+    ) {
+        UITestWorkspaceSeeder(seeders: seeders).seed(completion: completion)
     }
 }

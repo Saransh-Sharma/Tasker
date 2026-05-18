@@ -151,12 +151,6 @@ final class HomeNavigationEventAdapter {
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .lifeboardPersistentSyncModeDidChange)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.emit(.persistentSyncModeChanged)
-            }
-            .store(in: &cancellables)
     }
 
     func stop() {
