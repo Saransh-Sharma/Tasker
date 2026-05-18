@@ -34,6 +34,8 @@ This tracker records the concrete implementation state for the 7-phase audit rem
   - [x] Isolate UIKit search delegate callbacks and EventKit coordinator conformance for UI-bound execution.
   - [x] Replace LLM template profile global mutable cache with `Synchronization.Mutex`.
   - [x] Replace write-gate access to `AppDelegate.persistentSyncMode` with a locked nonisolated snapshot.
+  - [x] Remove typography static cache escape hatch and replace time-of-day header asset cache with `Synchronization.Mutex`.
+  - [x] Replace targeted Home prewarm/onboarding `Task.sleep(nanoseconds:)` calls with duration-based `Task.sleep(for:)`.
 - [x] Add chat cancellation tests for disappear/thread switching.
 - [ ] Run Thread Sanitizer on chat, onboarding, and Home launch flows.
   - [x] 2026-05-18 focused TSan pass: chat cancellation, semantic concurrent indexing, Core Data write-boundary invariants, Home reload/calendar state, and LLM chat-entry prewarm selected tests passed.
@@ -42,7 +44,15 @@ This tracker records the concrete implementation state for the 7-phase audit rem
 
 ## Phase 3: Persistence And Data Integrity
 
+- [x] Remove production launch-time Core Data store deletion from the V3 bootstrap epoch path.
+  - [x] Treat epoch mismatch as observe/log/recoverable state in production.
+  - [x] Keep destructive state reset limited to explicit UI-test/debug reset entrypoints.
 - [x] Replace silent duplicate pruning with explicit merge/repair logging and metrics.
+  - [x] Keep canonical read lookups observe-only; delete duplicate rows only from explicit write-boundary upsert/repair flows.
+  - [x] Split Core Data canonical lookup helpers into `canonicalReadObject` and `canonicalWriteRepairObject`.
+  - [x] Throttle observe-only duplicate logs per process by entity, predicate, canonical object, and duplicate count; keep repair logs unthrottled.
+  - [x] Route Reminder, Occurrence, ScheduleException, Tag, Weekly review mutation, ExternalSync map, Gamification, and TaskDefinition write-boundary canonicalization through explicit repair semantics.
+  - [x] Keep WeeklyPlan/WeeklyReview fetch paths observe-only.
 - [x] Replace fallback UUID/date creation in task snapshots with validation and explicit repair paths.
 - [x] Add schema/versioning strategy for SwiftData LLM chat store.
 - [x] Add schema/versioning strategy for SwiftData reflection stores.
@@ -114,6 +124,9 @@ Core Data uniqueness constraints stay out of CloudKit-backed entities; identitie
 - [x] Replace broad NotificationCenter mutation handling with typed domain event adapters.
 - [x] Move test seeding out of `HomeViewController.viewDidAppear`.
   - [x] Introduce `UITestWorkspaceSeeder` as the named service boundary behind `HomeLaunchHarnessService`.
+- [x] Add internal Home architecture protocol boundaries.
+  - [x] Define seams for reload orchestration, timeline projection, habit actions, calendar state, search coordination, and widget snapshot writing.
+  - [x] Wire existing `HomeViewModel`, `HomeSearchEngineAdapter`, and `TaskListWidgetSnapshotService` conformance without changing runtime behavior.
 - [ ] Split `AppOnboarding.swift` into state/store, catalog/copy, eligibility/guidance, flow model, coordinator, demo/theme, and SwiftUI view files.
 
 ## Phase 5: Query And Performance Work
@@ -181,11 +194,19 @@ Core Data uniqueness constraints stay out of CloudKit-backed entities; identitie
   - [x] Emit Home task mutation chart refresh trace events.
   - [x] Log chat generation/slash-command cancellation.
 - [ ] Remove dead hooks after coordinator extraction.
+  - [x] Add `scripts/check-xcode-target-membership.sh` guardrail for Swift files missing from `LifeBoard.xcodeproj`.
+  - [x] Add explicit allowlist for known orphan/dead-code investigation candidates, including presentation model, mesh, pulse, and test files.
 - [x] Document new architecture boundaries and async bridge rules.
   - [x] Document Home reload/navigation adapters, timeline projection builder, Core Data identity validation, async bridge cancellation rules, and LLM prewarm policy in `docs/audits/audit-remediation-boundaries-2026-05-18.md`.
-- [ ] Move to Swift 6 mode after strict-concurrency diagnostics are clean.
+- [ ] Move all targets to Swift 6 mode after strict-concurrency diagnostics are clean.
+  - [x] Move production app, widget, and watch targets to Swift 6 mode while keeping complete strict concurrency.
+  - [x] Move unit/UI test targets to Swift 6.
+    - [x] Add `LockedTestState<Value>` under `LifeBoardTests/TestSupport`.
+    - [x] Migrate first-pass mutable test doubles in `V3TestHarness.swift`, `DeleteTaskDefinitionUseCaseTests.swift`, `CalendarTestSupport.swift`, and high-fanout `LifeBoardTests.swift` doubles.
+    - [x] Clear Swift 6 compile blockers in remaining unit-test callback accumulators, Core Data fixture helpers, and UI test key-path usages.
+    - [ ] Burn down remaining UI-test XCTest lifecycle isolation warnings; latest `build-for-testing` passes with 73 first-party warnings, concentrated in `setUpWithError` overrides that touch `XCUIApplication`/page objects.
   - [ ] Reduce or justify the remaining app `@unchecked Sendable` inventory. Current app count on 2026-05-18: 167.
-  - [ ] Keep Swift 5 language mode with complete strict concurrency until clean build, full selected tests, focused TSan, and warning burn-down are recorded.
+  - [ ] Keep test targets in Swift 6 language mode and finish warning burn-down before treating `build-for-testing` as a zero-warning gate.
 
 ## Verification Log
 
@@ -195,3 +216,17 @@ Core Data uniqueness constraints stay out of CloudKit-backed entities; identitie
 - [x] 2026-05-18 focused simulator tests passed: 115 tests across chat cancellation, LLM runtime coordinator, semantic retrieval, Home calendar/timeline, Home lifecycle, and V2 repository invariants.
 - [x] 2026-05-18 focused TSan simulator tests passed: 33 tests across chat cancellation, semantic concurrent indexing, Core Data write-boundary invariants, Home reload/calendar state, and LLM chat-entry prewarm.
 - [ ] 2026-05-18 `scripts/token-law-guardrails.sh` still fails; remaining failures are raw `UIColor` bridges, raw `.font(.system...)`, and ad-hoc shadows across UI modules.
+- [x] 2026-05-18 production Swift 6 simulator build passed after replacing deprecated `@UIApplicationMain` with `@main`.
+- [x] 2026-05-18 production Swift 6 Debug simulator build passed with no warnings after fixing the Core Data remote-change main-actor observer crash and `LLMContextProjectionService` generic `Sendable` warning.
+- [x] 2026-05-18 production Swift 6 Release simulator build passed; remaining warnings were third-party MLX C++ `constexpr if` and AppIntents metadata processor warnings.
+- [x] 2026-05-18 `LifeBoardWidgets` Debug/Release simulator builds passed; previous containing-app/extension version mismatch warning is gone after aligning `CURRENT_PROJECT_VERSION = 2` and `MARKETING_VERSION = 1.9.5`.
+- [x] 2026-05-18 `LifeBoardWatch` Debug/Release watchOS simulator builds passed on Apple Watch Series 11 (46mm), watchOS 26.2.
+- [x] 2026-05-18 `LifeBoardWatchWidgets` Debug/Release watchOS simulator builds passed on Apple Watch Series 11 (46mm), watchOS 26.2.
+- [x] 2026-05-18 focused simulator tests passed for canonical read-only duplicate observation and write-boundary duplicate repair.
+- [x] 2026-05-18 full `V2RepositoryInvariantTests` simulator suite passed: 22 tests, including duplicate observe/repair coverage for Core Data repository boundaries.
+- [x] 2026-05-18 affected test-migration simulator tests passed: `HomeViewModelFocusSessionThreadingTests` and `AssistantPipelineTransactionalTests`.
+- [x] 2026-05-18 Swift 6 test-target compile blockers cleared; `build-for-testing` succeeds for `LifeBoardTests` and `LifeBoardUITests`.
+- [ ] 2026-05-18 Swift 6 test-target warning burn-down remains open: latest `build-for-testing` emits 73 first-party UI-test lifecycle isolation warnings plus the expected AppIntents metadata processor warning.
+- [x] 2026-05-18 Debug simulator app build passed with zero warnings.
+- [x] 2026-05-18 target-membership guard passed with the current known-orphan allowlist.
+- [x] 2026-05-18 Debug simulator app build passed after the Home boundary, target-membership, and Swift 6 cache/sleep hardening tranche.
