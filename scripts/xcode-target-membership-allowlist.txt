@@ -1,0 +1,25 @@
+# Known Swift files that are intentionally not referenced by LifeBoard.xcodeproj yet.
+# Each entry must be investigated and resolved as: add to a target, move to test support, or delete.
+LifeBoard/DesignSystem/LifeBoardMeshTokens.swift
+LifeBoard/Domain/Models/PulseModels.swift
+LifeBoard/Presentation/Models/AgendaPresentationModels.swift
+LifeBoard/Presentation/Models/HomeBandLayoutPlanner.swift
+LifeBoard/Presentation/Models/InsightsModuleVisibilityPlanner.swift
+LifeBoard/Presentation/Models/TaskAgendaPresentationModel.swift
+LifeBoard/Presentation/ViewModels/InsightsViewModel+Presentation.swift
+LifeBoard/View/AgendaRowScaffold.swift
+LifeBoard/View/Effects/LifeBoardAnimatedMesh.swift
+LifeBoard/View/Effects/LifeBoardMeshModifiers.swift
+LifeBoardTests/AISuggestionServiceTests.swift
+LifeBoardTests/AssistantCardPayloadTests.swift
+LifeBoardTests/AssistantDiffPreviewBuilderTests.swift
+LifeBoardTests/EvaHomeIntelligenceUseCasesTests.swift
+LifeBoardTests/HomeBandLayoutPlannerTests.swift
+LifeBoardTests/HomeSearchStateTests.swift
+LifeBoardTests/HomeTaskSurfaceStyleTests.swift
+LifeBoardTests/InsightsModuleVisibilityPlannerTests.swift
+LifeBoardTests/OverdueTriageServiceTests.swift
+LifeBoardTests/TaskAgendaPresentationModelBuilderTests.swift
+LifeBoardTests/TaskAgendaPresentationModelTests.swift
+LifeBoardUITests/AddTaskSuggestionFlowTests.swift
+LifeBoardUITests/TaskBreakdownFlowTests.swift
