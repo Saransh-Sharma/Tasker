@@ -92,7 +92,7 @@ public struct AddTaskPrefillTemplate: Equatable {
 /// ViewModel for the Add Task screen
 /// Manages task creation state and validation
 @MainActor
-public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
+public final class AddTaskViewModel: ObservableObject {
     public static let defaultEstimatedDuration: TimeInterval = 15 * 60
 
     private struct TaskIconSearchCacheKey: Equatable {

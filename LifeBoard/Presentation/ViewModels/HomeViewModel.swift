@@ -26,42 +26,6 @@ final class LifeBoardCancellableDispatchWorkItem: @unchecked Sendable {
     }
 }
 
-private final class LockedHomeMetadataAccumulator<State: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var state: State
-    private var firstError: Error?
-
-    init(_ state: State) {
-        self.state = state
-    }
-
-    func update(_ body: (inout State) -> Void) {
-        lock.lock()
-        body(&state)
-        lock.unlock()
-    }
-
-    func record(_ error: Error) {
-        lock.lock()
-        if firstError == nil {
-            firstError = error
-        }
-        lock.unlock()
-    }
-
-    func result() -> Result<State, Error> {
-        lock.lock()
-        let state = state
-        let firstError = firstError
-        lock.unlock()
-
-        if let firstError {
-            return .failure(firstError)
-        }
-        return .success(state)
-    }
-}
-
 private struct HomeTaskDetailMetadataState: Sendable {
     var projects: [Project]
     var sections: [LifeBoardProjectSection] = []
@@ -617,7 +581,7 @@ public struct InsightsLaunchRequest: Equatable {
 /// ViewModel for the Home screen
 /// Manages all business logic and state for the home view
 @MainActor
-public final class HomeViewModel: ObservableObject, @unchecked Sendable {
+public final class HomeViewModel: ObservableObject {
 
     // MARK: - Published Properties (Observable State)
 
@@ -806,7 +770,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private let workspacePreferencesProvider: () -> LifeBoardWorkspacePreferences
     private let hiddenCalendarEventStore: HomeTimelineHiddenCalendarEventStore
     private let timelineProjectionBuilder = HomeTimelineProjectionBuilder()
-    private let needsReplanViewModel = HomeNeedsReplanViewModel()
+    private let needsReplanViewModel: HomeNeedsReplanViewModel
     private var cancellables = Set<AnyCancellable>()
     private var retainedInsightsViewModel: InsightsViewModel?
     private var retainedHomeSearchViewModel: HomeSearchViewModel?
@@ -818,37 +782,13 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         get { needsReplanViewModel.activeCandidates }
         set { needsReplanViewModel.activeCandidates = newValue }
     }
-    private var skippedReplanCandidates: [HomeReplanCandidate] {
-        get { needsReplanViewModel.skippedCandidates }
-        set { needsReplanViewModel.skippedCandidates = newValue }
-    }
     private var replanUndoStack: [HomeReplanUndoEntry] {
         get { needsReplanViewModel.undoStack }
         set { needsReplanViewModel.undoStack = newValue }
     }
-    private var replanOutcomes: HomeReplanOutcomeSummary {
-        get { needsReplanViewModel.outcomes }
-        set { needsReplanViewModel.outcomes = newValue }
-    }
-    private var replanSessionTotal: Int {
-        get { needsReplanViewModel.sessionTotal }
-        set { needsReplanViewModel.sessionTotal = newValue }
-    }
-    private var replanSessionProgress: Int {
-        get { needsReplanViewModel.sessionProgress }
-        set { needsReplanViewModel.sessionProgress = newValue }
-    }
-    private var replanScopedDate: Date? {
-        get { needsReplanViewModel.scopedDate }
-        set { needsReplanViewModel.scopedDate = newValue }
-    }
     private var replanApplyingAction: HomeReplanApplyingAction? {
         get { needsReplanViewModel.applyingAction }
         set { needsReplanViewModel.applyingAction = newValue }
-    }
-    private var replanErrorMessage: String? {
-        get { needsReplanViewModel.errorMessage }
-        set { needsReplanViewModel.errorMessage = newValue }
     }
     private var cachedGlobalReplanRevision: HomeDataRevision?
     private var activeGlobalReplanFetchToken: UUID?
@@ -860,7 +800,6 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private static let lastFilterStateKey = "home.focus.lastFilterState.v2"
     private static let pinnedFocusTaskIDsKey = "home.focus.pinnedTaskIDs.v2"
     private static let recentShuffleTaskIDsKey = "home.eva.recentShuffleTaskIDs.v1"
-    private static let needsReplanDismissedDayKey = HomeNeedsReplanViewModel.dismissedDayKey
     private static let maxPinnedFocusTasks = 3
     private static let maxShuffleHistorySize = 10
     private static let defaultShuffleExclusionWindow = 3
@@ -1531,6 +1470,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         self.aiSuggestionService = aiSuggestionService
         self.workspacePreferencesProvider = workspacePreferencesProvider
         self.userDefaults = userDefaults
+        self.needsReplanViewModel = HomeNeedsReplanViewModel(userDefaults: userDefaults)
         self.hiddenCalendarEventStore = hiddenCalendarEventStore ?? HomeTimelineHiddenCalendarEventStore(defaults: userDefaults)
         self.hiddenHomeTimelineCalendarEvents = self.hiddenCalendarEventStore.load()
         self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
@@ -1819,7 +1759,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         completion: @escaping @Sendable (Result<TaskDetailMetadataPayload, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let accumulator = LockedHomeMetadataAccumulator(
+        let accumulator = LockedResultAccumulator(
             HomeTaskDetailMetadataState(projects: projects)
         )
 
@@ -1888,7 +1828,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         completion: @escaping @Sendable (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let accumulator = LockedHomeMetadataAccumulator(HomeTaskDetailRelationshipMetadataState())
+        let accumulator = LockedResultAccumulator(HomeTaskDetailRelationshipMetadataState())
 
         group.enter()
         useCaseCoordinator.manageLifeAreas.list { result in
@@ -3432,7 +3372,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
 
         let dueDate = draft.childDuePreset?.resolveDueDate()
         let group = DispatchGroup()
-        let accumulator = LockedHomeMetadataAccumulator([TaskDefinition]())
+        let accumulator = LockedResultAccumulator([TaskDefinition]())
 
         trackHomeInteraction(action: "rescue_split_open", metadata: [
             "parent_task_id": parentTaskID.uuidString
@@ -3504,7 +3444,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
 
         let group = DispatchGroup()
-        let accumulator = LockedHomeMetadataAccumulator(())
+        let accumulator = LockedResultAccumulator(())
 
         for taskID in childTaskIDs {
             group.enter()
@@ -3992,7 +3932,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     ) {
         let day = normalizedDay(targetDay)
         let group = DispatchGroup()
-        let accumulator = LockedHomeMetadataAccumulator(HomeDueTodayAgendaLoadState())
+        let accumulator = LockedResultAccumulator(HomeDueTodayAgendaLoadState())
 
         group.enter()
         buildHabitHomeProjectionUseCase.execute(date: day) { result in
@@ -4042,8 +3982,9 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                         historyByHabitID: resolvedHistoryByHabitID,
                         on: day
                     )
+                    let historyByHabitID = resolvedHistoryByHabitID
                     accumulator.update {
-                        $0.historyByHabitID = resolvedHistoryByHabitID
+                        $0.historyByHabitID = historyByHabitID
                         $0.trackingHabitRows = resolvedTrackingRows
                     }
                     group.leave()
@@ -4151,7 +4092,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         completion: @escaping @Sendable (Result<CanonicalHabitMutationState, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let accumulator = LockedHomeMetadataAccumulator(HomeCanonicalHabitMutationLoadState())
+        let accumulator = LockedResultAccumulator(HomeCanonicalHabitMutationLoadState())
 
         group.enter()
         buildHabitHomeProjectionUseCase.execute(date: date, habitID: habitID) { result in
@@ -6771,14 +6712,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     func beginReplanPlacementForTesting(candidate: HomeReplanCandidate) {
-        activeReplanCandidates = [candidate]
-        skippedReplanCandidates = []
-        replanUndoStack = []
-        replanOutcomes = HomeReplanOutcomeSummary()
-        replanSessionTotal = 1
-        replanSessionProgress = 0
-        replanApplyingAction = nil
-        replanErrorMessage = nil
+        needsReplanViewModel.beginSession(with: [candidate], scopedTo: nil)
         updateReplanState(phase: .placement(candidate, defaultDay: Date()))
     }
 
@@ -6798,63 +6732,40 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     public func startNeedsReplanSession() {
-        guard replanApplyingAction == nil else { return }
-        replanErrorMessage = nil
-        guard activeReplanCandidates.isEmpty == false else {
-            updateReplanState(phase: .summary(replanOutcomes, skippedCount: 0))
-            return
-        }
-        updateReplanState(phase: .card(candidateIndex: replanSessionProgress + 1))
+        guard let phase = needsReplanViewModel.phaseForStartingSession() else { return }
+        updateReplanState(phase: phase)
     }
 
     public func dismissNeedsReplanLater() {
-        guard replanApplyingAction == nil else { return }
-        if replanScopedDate == nil,
-           (activeReplanCandidates.isEmpty == false || needsReplanCandidates.isEmpty == false) {
-            userDefaults.set(needsReplanDayKey(for: Date()), forKey: Self.needsReplanDismissedDayKey)
-        }
-        resetReplanSession(keepPassiveCandidates: true)
+        guard needsReplanViewModel.dismissLater() else { return }
+        updateReplanState(phase: .trayHidden)
         refreshPassiveNeedsReplanState()
     }
 
     public func finishNeedsReplanSession() {
-        guard replanApplyingAction == nil else { return }
-        if skippedReplanCandidates.isEmpty == false, replanScopedDate == nil {
-            userDefaults.set(needsReplanDayKey(for: Date()), forKey: Self.needsReplanDismissedDayKey)
-        }
-        resetReplanSession(keepPassiveCandidates: true)
+        guard needsReplanViewModel.finishSession() else { return }
+        updateReplanState(phase: .trayHidden)
         refreshPassiveNeedsReplanState()
     }
 
     public func dismissNeedsReplanSessionUI() {
-        guard replanApplyingAction == nil else { return }
-        resetReplanSession(keepPassiveCandidates: true)
+        guard needsReplanViewModel.dismissSessionUI() else { return }
+        updateReplanState(phase: .trayHidden)
         refreshPassiveNeedsReplanState()
     }
 
     public func reviewSkippedReplanCandidates() {
-        guard replanApplyingAction == nil else { return }
-        guard skippedReplanCandidates.isEmpty == false else {
+        guard let phase = needsReplanViewModel.phaseForReviewingSkippedCandidates() else {
             finishNeedsReplanSession()
             return
         }
-        replanErrorMessage = nil
-        activeReplanCandidates = skippedReplanCandidates
-        skippedReplanCandidates = []
-        replanSessionTotal = activeReplanCandidates.count
-        replanSessionProgress = 0
         updateReplanState(phase: .skippedReview)
-        updateReplanState(phase: .card(candidateIndex: 1))
+        updateReplanState(phase: phase)
     }
 
     public func skipCurrentReplanCandidate() {
-        guard replanApplyingAction == nil else { return }
-        guard let candidate = activeReplanCandidates.first else { return }
-        replanErrorMessage = nil
-        skippedReplanCandidates.append(candidate)
-        activeReplanCandidates.removeFirst()
-        replanSessionProgress += 1
-        advanceReplanSession()
+        guard let phase = needsReplanViewModel.skipCurrentCandidate() else { return }
+        advanceReplanSession(to: phase)
     }
 
     public func moveCurrentReplanCandidateToInbox() {
@@ -6904,19 +6815,15 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     public func beginCurrentReplanPlacement() {
-        guard replanApplyingAction == nil else { return }
-        guard let candidate = activeReplanCandidates.first else { return }
-        replanErrorMessage = nil
         let defaultDay = defaultReplanPlacementDay()
+        guard let phase = needsReplanViewModel.phaseForBeginningPlacement(defaultDay: defaultDay) else { return }
         selectDate(defaultDay, source: .replan)
-        updateReplanState(phase: .placement(candidate, defaultDay: defaultDay))
+        updateReplanState(phase: phase)
     }
 
     public func cancelCurrentReplanPlacement() {
-        guard replanApplyingAction == nil else { return }
-        guard case .placement = homeReplanState.phase else { return }
-        replanErrorMessage = nil
-        updateReplanState(phase: .card(candidateIndex: replanSessionProgress + 1))
+        guard let phase = needsReplanViewModel.phaseForCancellingPlacement(currentPhase: homeReplanState.phase) else { return }
+        updateReplanState(phase: phase)
     }
 
     public func placeReplanCandidate(taskID: UUID, at startDate: Date) {
@@ -6966,12 +6873,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                 guard let self else { return }
                 switch result {
                 case .success:
-                    self.replanUndoStack.removeLast()
-                    self.decrementOutcome(for: entry.action)
-                    if self.activeReplanCandidates.contains(where: { $0.id == entry.candidate.id }) == false {
-                        self.activeReplanCandidates.insert(entry.candidate, at: 0)
-                    }
-                    self.replanSessionProgress = max(0, self.replanSessionProgress - 1)
+                    let phase = self.needsReplanViewModel.restoreUndoEntry(entry)
                     self.enqueueReload(
                         source: "needs_replan_undo",
                         reason: .bulkChanged,
@@ -6979,8 +6881,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
                         includeAnalytics: false,
                         repostEvent: true
                     )
-                    self.endReplanApplying()
-                    self.updateReplanState(phase: .card(candidateIndex: self.replanSessionProgress + 1))
+                    self.updateReplanState(phase: phase)
                 case .failure(let error):
                     self.recordReplanFailure(error)
                 }
@@ -6989,7 +6890,7 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     public func clearReplanError() {
-        replanErrorMessage = nil
+        needsReplanViewModel.errorMessage = nil
         updateReplanState(phase: homeReplanState.phase)
     }
 
@@ -7070,11 +6971,8 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             break
         }
 
-        let calendar = Calendar.current
         let summary = makeNeedsReplanSummary(for: needsReplanCandidates)
-        guard calendar.isDate(selectedDate, inSameDayAs: Date()),
-              summary.count > 0,
-              userDefaults.string(forKey: Self.needsReplanDismissedDayKey) != needsReplanDayKey(for: Date()) else {
+        guard needsReplanViewModel.shouldShowPassiveTray(selectedDate: selectedDate) else {
             updateReplanState(phase: .trayHidden)
             return
         }
@@ -7098,41 +6996,21 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     }
 
     private func updateReplanState(phase: HomeReplanSessionPhase) {
-        let currentCandidate = activeReplanCandidates.first
-        let candidateIndex = currentCandidate == nil ? 0 : min(max(replanSessionProgress + 1, 1), max(replanSessionTotal, 1))
-        let nextState = HomeReplanSessionState(
-            phase: phase,
-            summary: makeNeedsReplanSummary(for: activeReplanCandidates + skippedReplanCandidates),
-            persistentSummary: makeNeedsReplanSummary(for: needsReplanCandidates),
-            currentCandidate: currentCandidate,
-            candidateIndex: candidateIndex,
-            candidateTotal: max(replanSessionTotal, activeReplanCandidates.count + skippedReplanCandidates.count),
-            canUndo: replanUndoStack.isEmpty == false,
-            outcomes: replanOutcomes,
-            skippedCount: skippedReplanCandidates.count,
-            isApplying: replanApplyingAction != nil,
-            applyingAction: replanApplyingAction,
-            errorMessage: replanErrorMessage
-        )
+        let nextState = needsReplanViewModel.makeState(phase: phase)
         guard homeReplanState != nextState else { return }
         homeReplanState = nextState
     }
 
-    private func advanceReplanSession() {
+    private func advanceReplanSession(to phase: HomeReplanSessionPhase) {
         if let next = activeReplanCandidates.first {
-            updateReplanState(phase: .card(candidateIndex: replanSessionProgress + 1))
+            updateReplanState(phase: phase)
             trackHomeInteraction(action: "needs_replan_next", metadata: [
                 "task_id": next.task.id.uuidString
             ])
             return
         }
 
-        updateReplanState(phase: .summary(replanOutcomes, skippedCount: skippedReplanCandidates.count))
-    }
-
-    private func resetReplanSession(keepPassiveCandidates: Bool) {
-        needsReplanViewModel.resetSession(keepPassiveCandidates: keepPassiveCandidates)
-        updateReplanState(phase: .trayHidden)
+        updateReplanState(phase: phase)
     }
 
     private func applyReplanCommand(
@@ -7186,11 +7064,11 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         runID: UUID,
         reloadReason: HomeTaskMutationEvent
     ) {
-        activeReplanCandidates.removeAll { $0.id == candidate.id }
-        needsReplanCandidates.removeAll { $0.id == candidate.id }
-        replanSessionProgress += 1
-        incrementOutcome(for: action)
-        replanUndoStack.append(HomeReplanUndoEntry(runID: runID, action: action, candidate: candidate))
+        let phase = needsReplanViewModel.completeResolution(
+            action: action,
+            candidate: candidate,
+            runID: runID
+        )
         enqueueReload(
             source: "needs_replan_resolution",
             reason: reloadReason,
@@ -7199,24 +7077,16 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
             includeAnalytics: action == .completed,
             repostEvent: true
         )
-        endReplanApplying()
-        advanceReplanSession()
+        advanceReplanSession(to: phase)
     }
 
     private func beginReplanApplying(_ action: HomeReplanApplyingAction) {
-        replanApplyingAction = action
-        replanErrorMessage = nil
+        needsReplanViewModel.beginApplying(action)
         updateReplanState(phase: homeReplanState.phase)
     }
 
-    private func endReplanApplying() {
-        replanApplyingAction = nil
-        replanErrorMessage = nil
-    }
-
     private func recordReplanFailure(_ error: Error) {
-        replanApplyingAction = nil
-        replanErrorMessage = "Couldn't update this task. Try again."
+        needsReplanViewModel.recordFailure(error)
         errorMessage = error.localizedDescription
         updateReplanState(phase: homeReplanState.phase)
     }
@@ -7234,32 +7104,6 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func incrementOutcome(for action: HomeReplanResolutionKind) {
-        switch action {
-        case .rescheduled:
-            replanOutcomes.rescheduled += 1
-        case .movedToInbox:
-            replanOutcomes.movedToInbox += 1
-        case .completed:
-            replanOutcomes.completed += 1
-        case .deleted:
-            replanOutcomes.deleted += 1
-        }
-    }
-
-    private func decrementOutcome(for action: HomeReplanResolutionKind) {
-        switch action {
-        case .rescheduled:
-            replanOutcomes.rescheduled = max(0, replanOutcomes.rescheduled - 1)
-        case .movedToInbox:
-            replanOutcomes.movedToInbox = max(0, replanOutcomes.movedToInbox - 1)
-        case .completed:
-            replanOutcomes.completed = max(0, replanOutcomes.completed - 1)
-        case .deleted:
-            replanOutcomes.deleted = max(0, replanOutcomes.deleted - 1)
-        }
-    }
-
     private func defaultReplanPlacementDay(now: Date = Date()) -> Date {
         HomeNeedsReplanViewModel.defaultPlacementDay(now: now)
     }
@@ -7267,10 +7111,6 @@ public final class HomeViewModel: ObservableObject, @unchecked Sendable {
     private func roundedToNearestQuarterHour(_ date: Date) -> Date {
         let interval = (date.timeIntervalSinceReferenceDate / 900).rounded() * 900
         return Date(timeIntervalSinceReferenceDate: interval)
-    }
-
-    private func needsReplanDayKey(for date: Date) -> String {
-        HomeNeedsReplanViewModel.dayKey(for: date)
     }
 
     /// Executes trackFirstCompletionLatencyIfNeeded.
@@ -8134,18 +7974,25 @@ final class HomeTimelineViewModel: ObservableObject {
 extension HomeViewModel {
     func buildTimelineSnapshot(
         calendarSnapshot: HomeCalendarSnapshot,
-        sunriseAnchor: SunriseAnchor
+        sunriseAnchor: SunriseAnchor,
+        now: Date = Date(),
+        calendar: Calendar = .current
     ) -> HomeTimelineSnapshot {
         let interval = LifeBoardPerformanceTrace.begin("HomeTimelineSnapshotBuild")
         defer { LifeBoardPerformanceTrace.end(interval) }
         let workspacePreferences = workspacePreferencesProvider()
         let showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
-        let selectedDay = Calendar.current.startOfDay(for: selectedDate)
-        let now = Date()
+        let selectedDay = calendar.startOfDay(for: selectedDate)
         let currentMinuteStamp = Int(now.timeIntervalSinceReferenceDate / 60)
+        let taskCandidates = timelineTaskCandidates()
+        let weekAgenda = showCalendarEventsInTimeline
+            ? calendarIntegrationService.weekAgenda(anchorDate: selectedDate, weekStartsOn: workspacePreferences.weekStartsOn)
+            : []
         let projectionInput = HomeTimelineProjectionInput(
             dataRevision: dataRevision,
             selectedDay: selectedDay,
+            now: now,
+            calendar: calendar,
             currentMinuteStamp: currentMinuteStamp,
             sunriseAnchor: sunriseAnchor,
             calendarSnapshot: calendarSnapshot,
@@ -8153,125 +8000,17 @@ extension HomeViewModel {
             hiddenCalendarEvents: hiddenHomeTimelineCalendarEvents.sorted(),
             pinnedFocusTaskIDs: pinnedFocusTaskIDs,
             needsReplanCandidates: needsReplanCandidates,
-            replanState: homeReplanState
+            replanState: homeReplanState,
+            taskCandidates: taskCandidates,
+            taskIndexByID: timelineTaskUniverseByID(),
+            projects: projects,
+            lifeAreas: lifeAreas,
+            calendarWeekAgenda: weekAgenda
         )
         let builtProjection = timelineProjectionBuilder.build(
             input: projectionInput,
             cached: timelineSnapshotCache
-        ) {
-        let taskCandidates = timelineTaskCandidates()
-        let anchorWindow = resolvedTimelineAnchorWindow(on: selectedDay, preferences: workspacePreferences)
-        let wakeAnchor = TimelineAnchorItem(
-            id: "wake",
-            title: "Rise and shine",
-            time: anchorWindow.wake,
-            systemImageName: "alarm.fill",
-            subtitle: "Start the day"
         )
-        let sleepAnchor = TimelineAnchorItem(
-            id: "sleep",
-            title: "Wind down",
-            time: anchorWindow.sleep,
-            systemImageName: "moon.fill",
-            subtitle: "Close the day"
-        )
-        let dayTasks = timelineTasksForSelectedDay(candidates: taskCandidates)
-        let allDayTasks = dayTasks.filter { task in
-            task.isAllDay || timelineIsDateOnlyDueDate(task.dueDate)
-        }
-        let inboxTasks = dayTasks.filter { task in
-            task.isComplete == false
-                && task.projectID == ProjectConstants.inboxProjectID
-                && task.scheduledStartAt == nil
-                && task.scheduledEndAt == nil
-                && task.isAllDay == false
-                && task.dueDate == nil
-        }
-        let taskIndexByID = timelineTaskUniverseByID()
-        let timedTaskItems = dayTasks.compactMap { task -> TimelinePlanItem? in
-            let item = timelinePlanItem(from: task, taskIndexByID: taskIndexByID)
-            guard item.isAllDay == false, item.startDate != nil else { return nil }
-            return item
-        }
-        let calendarAllDayItems = showCalendarEventsInTimeline
-            ? calendarSnapshot.selectedDayEvents
-                .filter(\.isAllDay)
-                .filter { !isCalendarEventHiddenFromHomeTimeline(eventID: $0.id, on: selectedDay) }
-                .map(timelinePlanItem(from:))
-            : []
-        let calendarTimedItems = showCalendarEventsInTimeline
-            ? calendarSnapshot.selectedDayTimelineEvents
-                .filter { !isCalendarEventHiddenFromHomeTimeline(eventID: $0.id, on: selectedDay) }
-                .map(timelinePlanItem(from:))
-                .sorted { lhs, rhs in
-                    guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else { return lhs.title < rhs.title }
-                    if lhsStart != rhsStart { return lhsStart < rhsStart }
-                    return (lhs.endDate ?? lhsStart) < (rhs.endDate ?? rhsStart)
-                }
-            : []
-
-        let allDayItems = (allDayTasks.map { timelinePlanItem(from: $0, taskIndexByID: taskIndexByID) } + calendarAllDayItems)
-        let inboxItems = inboxTasks.map { timelinePlanItem(from: $0, taskIndexByID: taskIndexByID) }
-        let baseTimedItems = (timedTaskItems + calendarTimedItems)
-            .sorted { lhs, rhs in
-                guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else { return lhs.title < rhs.title }
-                if lhsStart != rhsStart { return lhsStart < rhsStart }
-                return (lhs.endDate ?? lhsStart) < (rhs.endDate ?? rhsStart)
-            }
-        let timedBuckets = partitionTimelineItems(
-            baseTimedItems,
-            wakeAnchor: wakeAnchor,
-            sleepAnchor: sleepAnchor
-        )
-        let gaps = timelineOperationalGaps(
-            between: timedBuckets.operationalItems,
-            wakeAnchor: wakeAnchor,
-            sleepAnchor: sleepAnchor,
-            inboxCount: inboxItems.count
-        )
-        let actionableGaps = timelineActionableGaps(
-            from: gaps,
-            selectedDate: selectedDay,
-            now: now
-        )
-        let layoutMode = timelineDayLayoutMode(
-            timedItems: timedBuckets.operationalItems,
-            gaps: gaps,
-            wakeAnchor: wakeAnchor,
-            sleepAnchor: sleepAnchor
-        )
-        let currentItemID = timedBuckets.allItems.first(where: { $0.isActive(at: now) })?.id
-
-        return HomeTimelineSnapshot(
-            selectedDate: selectedDay,
-            sunriseAnchor: sunriseAnchor,
-            day: TimelineDayProjection(
-                date: selectedDay,
-                allDayItems: allDayItems,
-                inboxItems: inboxItems,
-                timedItems: timedBuckets.operationalItems,
-                gaps: gaps,
-                operationalItems: timedBuckets.operationalItems,
-                beforeWakeSummaryItems: timedBuckets.beforeWakeItems,
-                afterSleepSummaryItems: timedBuckets.afterSleepItems,
-                bridgeItems: timedBuckets.bridgeItems,
-                actionableGaps: actionableGaps,
-                layoutMode: layoutMode,
-                calendarPlottingEnabled: showCalendarEventsInTimeline,
-                wakeAnchor: wakeAnchor,
-                sleepAnchor: sleepAnchor,
-                activeItemID: currentItemID,
-                currentItemID: currentItemID,
-                currentTime: now
-            ),
-            week: timelineWeekSummary(
-                weekStartsOn: workspacePreferences.weekStartsOn,
-                includeCalendarEvents: showCalendarEventsInTimeline,
-                candidates: taskCandidates
-            ),
-            placementCandidate: homeReplanState.placementCandidate
-        )
-        }
         timelineSnapshotCache = builtProjection
         return builtProjection.snapshot
     }
@@ -9888,7 +9627,7 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
         let group = DispatchGroup()
-        let state = LockedHomeMetadataAccumulator(HomeHabitWidgetRowsState())
+        let state = LockedResultAccumulator(HomeHabitWidgetRowsState())
 
         group.enter()
         coordinator.buildHabitHomeProjection.execute(date: day) { result in
@@ -10296,7 +10035,7 @@ final class GetDailySummaryModalUseCase {
         completion: @escaping @Sendable (Result<DailySummaryModalData, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let state = LockedHomeMetadataAccumulator(DailySummaryLoadState())
+        let state = LockedResultAccumulator(DailySummaryLoadState())
 
         group.enter()
         getTasksUseCase.searchTasks(query: "", in: .all) { result in

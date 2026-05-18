@@ -1,37 +1,5 @@
 import Foundation
 
-private final class LockedWeeklyPlannerLoadAccumulator: @unchecked Sendable {
-    private let lock = NSLock()
-    private var state = WeeklyPlannerLoadState()
-    private var firstError: Error?
-
-    func update(_ body: (inout WeeklyPlannerLoadState) -> Void) {
-        lock.lock()
-        body(&state)
-        lock.unlock()
-    }
-
-    func record(_ error: Error) {
-        lock.lock()
-        if firstError == nil {
-            firstError = error
-        }
-        lock.unlock()
-    }
-
-    func result() -> Result<WeeklyPlannerLoadState, Error> {
-        lock.lock()
-        let state = state
-        let firstError = firstError
-        lock.unlock()
-
-        if let firstError {
-            return .failure(firstError)
-        }
-        return .success(state)
-    }
-}
-
 private struct WeeklyPlannerLoadState: Sendable {
     var snapshot: WeeklyPlanSnapshot?
     var habits: [HabitLibraryRow] = []
@@ -527,7 +495,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         errorMessage = nil
 
         let group = DispatchGroup()
-        let accumulator = LockedWeeklyPlannerLoadAccumulator()
+        let accumulator = LockedResultAccumulator(WeeklyPlannerLoadState())
 
         group.enter()
         buildWeeklyPlanSnapshot.execute(referenceDate: weekStartDate) { result in

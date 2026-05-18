@@ -1,37 +1,5 @@
 import Foundation
 
-private final class LockedWeeklyReviewPayloadAccumulator: @unchecked Sendable {
-    private let lock = NSLock()
-    private var state = WeeklyReviewPayloadState()
-    private var firstError: Error?
-
-    func update(_ body: (inout WeeklyReviewPayloadState) -> Void) {
-        lock.lock()
-        body(&state)
-        lock.unlock()
-    }
-
-    func record(_ error: Error) {
-        lock.lock()
-        if firstError == nil {
-            firstError = error
-        }
-        lock.unlock()
-    }
-
-    func result() -> Result<WeeklyReviewPayloadState, Error> {
-        lock.lock()
-        let state = state
-        let firstError = firstError
-        lock.unlock()
-
-        if let firstError {
-            return .failure(firstError)
-        }
-        return .success(state)
-    }
-}
-
 private struct WeeklyReviewPayloadState: Sendable {
     var snapshot: WeeklyPlanSnapshot?
     var habitRows: [HabitLibraryRow] = []
@@ -328,7 +296,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
         completion: @escaping @MainActor @Sendable (Result<LoadedReviewPayload, Error>) -> Void
     ) {
         let group = DispatchGroup()
-        let accumulator = LockedWeeklyReviewPayloadAccumulator()
+        let accumulator = LockedResultAccumulator(WeeklyReviewPayloadState())
 
         group.enter()
         buildWeeklyPlanSnapshot.execute(referenceDate: weekStartDate) { result in
@@ -355,13 +323,13 @@ public final class WeeklyReviewViewModel: ObservableObject {
         group.notify(queue: .main) {
             let result = accumulator.result()
             if case .failure(let error) = result {
-                MainActor.assumeIsolated {
+                Task { @MainActor in
                     completion(.failure(error))
                 }
                 return
             }
             guard case .success(let payloadState) = result, let fetchedSnapshot = payloadState.snapshot else {
-                MainActor.assumeIsolated {
+                Task { @MainActor in
                     completion(.failure(
                         NSError(
                             domain: "WeeklyReviewViewModel",
@@ -372,7 +340,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
                 }
                 return
             }
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 completion(.success(LoadedReviewPayload(snapshot: fetchedSnapshot, habitRows: payloadState.habitRows)))
             }
         }

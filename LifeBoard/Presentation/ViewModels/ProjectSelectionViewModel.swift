@@ -3,7 +3,7 @@ import Combine
 import SwiftUI
 
 @MainActor
-public final class ProjectSelectionViewModel: ObservableObject, @unchecked Sendable {
+public final class ProjectSelectionViewModel: ObservableObject {
     @Published var availableProjects: [ProjectInfo] = []
     @Published var isLoading = true
 

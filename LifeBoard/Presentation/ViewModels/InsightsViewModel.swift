@@ -11,29 +11,7 @@ extension XPCalculationEngine.Milestone: Equatable {
     }
 }
 
-private final class InsightsRefreshAccumulator<State>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var state: State
-
-    init(_ state: State) {
-        self.state = state
-    }
-
-    func update(_ body: (inout State) -> Void) {
-        lock.lock()
-        body(&state)
-        lock.unlock()
-    }
-
-    func snapshot() -> State {
-        lock.lock()
-        let state = state
-        lock.unlock()
-        return state
-    }
-}
-
-private struct InsightsTodayRefreshSnapshot {
+private struct InsightsTodayRefreshSnapshot: Sendable {
     var dailyXP: Int
     var level: Int
     var xpEvents: [XPEventDefinition] = []
@@ -43,7 +21,7 @@ private struct InsightsTodayRefreshSnapshot {
     var dailyAnalytics: DailyAnalytics?
 }
 
-private struct InsightsWeekRefreshSnapshot {
+private struct InsightsWeekRefreshSnapshot: Sendable {
     var currentAggregates: [DailyXPAggregateDefinition] = []
     var previousAggregates: [DailyXPAggregateDefinition] = []
     var currentWeekEvents: [XPEventDefinition] = []
@@ -56,7 +34,7 @@ private struct InsightsWeekRefreshSnapshot {
     var recoveryDecisions: [WeeklyReviewTaskDecision] = []
 }
 
-private struct InsightsSystemsRefreshSnapshot {
+private struct InsightsSystemsRefreshSnapshot: Sendable {
     var state: InsightsSystemsState
     var latestProfile: GamificationSnapshot?
     var unlocks: [AchievementUnlockDefinition] = []
@@ -981,7 +959,7 @@ public final class InsightsViewModel: ObservableObject {
         let startOfToday = calendar.startOfDay(for: now)
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
         let group = DispatchGroup()
-        let snapshot = InsightsRefreshAccumulator(InsightsTodayRefreshSnapshot(
+        let snapshot = LockedResultAccumulator(InsightsTodayRefreshSnapshot(
             dailyXP: todayState.dailyXP,
             level: todayState.level
         ))
@@ -1088,7 +1066,7 @@ public final class InsightsViewModel: ObservableObject {
         let previousWeekEndKey = dateFormatter.string(from: previousWeekEnd)
 
         let group = DispatchGroup()
-        let snapshot = InsightsRefreshAccumulator(InsightsWeekRefreshSnapshot())
+        let snapshot = LockedResultAccumulator(InsightsWeekRefreshSnapshot())
 
         group.enter()
         repository.fetchDailyAggregates(from: currentWeekStartKey, to: currentWeekEndKey) { result in
@@ -1224,7 +1202,7 @@ public final class InsightsViewModel: ObservableObject {
         let lookbackStart = Calendar.current.date(byAdding: .day, value: -28, to: now) ?? now
         let achievementLookbackStart = Calendar.current.date(byAdding: .day, value: -365, to: now) ?? lookbackStart
 
-        let snapshot = InsightsRefreshAccumulator(InsightsSystemsRefreshSnapshot(state: systemsState))
+        let snapshot = LockedResultAccumulator(InsightsSystemsRefreshSnapshot(state: systemsState))
 
         group.enter()
         engine.fetchCurrentProfile { result in

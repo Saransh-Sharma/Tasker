@@ -159,7 +159,7 @@ public final class PresentationDependencyContainer {
 
         let viewModel = HomeViewModel(
             useCaseCoordinator: useCaseCoordinator,
-            aiSuggestionService: MainActor.assumeIsolated { AISuggestionService.shared }
+            aiSuggestionService: AISuggestionService.shared
         )
         _homeViewModel = viewModel
         return viewModel
@@ -182,7 +182,7 @@ public final class PresentationDependencyContainer {
             manageSectionsUseCase: useCaseCoordinator.manageSections,
             manageTagsUseCase: useCaseCoordinator.manageTags,
             gamificationEngine: useCaseCoordinator.gamificationEngine,
-            aiSuggestionService: MainActor.assumeIsolated { AISuggestionService.shared }
+            aiSuggestionService: AISuggestionService.shared
         )
         _addTaskViewModel = viewModel
         return viewModel
@@ -334,7 +334,7 @@ public final class PresentationDependencyContainer {
             manageSectionsUseCase: useCaseCoordinator.manageSections,
             manageTagsUseCase: useCaseCoordinator.manageTags,
             gamificationEngine: useCaseCoordinator.gamificationEngine,
-            aiSuggestionService: MainActor.assumeIsolated { AISuggestionService.shared }
+            aiSuggestionService: AISuggestionService.shared
         )
     }
 

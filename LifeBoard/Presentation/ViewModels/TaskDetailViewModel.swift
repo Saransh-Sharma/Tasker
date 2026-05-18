@@ -242,6 +242,7 @@ public final class TaskDetailViewModel: ObservableObject {
     }
 
     deinit {
+        // Deinit is synchronous; these main-actor-owned pending work items cannot be hopped.
         MainActor.assumeIsolated {
             autosaveWorkItem?.cancel()
             pendingEditingMetadataTask?.cancel()
