@@ -75,6 +75,10 @@ enum AccessibilityIdentifiers {
         static let navXpPieChart = "home.navXpPieChart"
         static let weeklyCalendar = "home.weeklyCalendar"
         static let timelineSurface = "home.timeline.surface"
+        static let timelineContent = "home.timeline.content"
+        static let timelineOverlapCluster = "home.timeline.overlapCluster"
+        static let timelineConflictBlock = "home.timeline.conflictBlock"
+        static let timelineEndAdd = "home.timeline.endAdd"
         static let taskListScrollView = "home.taskList.scrollView"
         static let dailySummaryModal = "home.dailySummaryModal"
         static let dailySummaryHeroOpenCount = "home.dailySummary.hero.openCount"
@@ -116,6 +120,9 @@ enum AccessibilityIdentifiers {
         static func habitRowTitle(_ id: String) -> String { "home.habitRow.title.\(id)" }
         static func habitRowStrip(_ id: String) -> String { "home.habitRow.strip.\(id)" }
         static func habitRowLastCell(_ id: String) -> String { "home.habitRow.lastCell.\(id)" }
+        static func timelineTask(_ id: String) -> String { "home.timeline.task.\(id)" }
+        static func timelineEvent(_ id: String) -> String { "home.timeline.event.\(id)" }
+        static func sunriseFilter(_ id: String) -> String { "home.sunrise.filter.\(id)" }
 
         // Task Cell
         static func taskCell(index: Int) -> String { "home.taskCell.\(index)" }

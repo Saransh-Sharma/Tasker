@@ -270,7 +270,7 @@ class TaskEditingTests: BaseUITest {
                 app.staticTexts[dayLabel].firstMatch
             ]
 
-            if let element = queries.first(where: \.exists) {
+            if let element = queries.first(where: { $0.exists }) {
                 element.tap()
                 return
             }

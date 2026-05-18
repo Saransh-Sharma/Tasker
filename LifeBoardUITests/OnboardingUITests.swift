@@ -294,6 +294,7 @@ final class OnboardingLaunchQueueUITests: BaseUITest {
     }
 }
 
+@MainActor
 private func advanceToSteadyWelcome(in app: XCUIApplication) {
     let introOverlay = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeIntroOverlay]
     XCTAssertTrue(introOverlay.waitForExistence(timeout: 4))
@@ -311,12 +312,14 @@ private func advanceToSteadyWelcome(in app: XCUIApplication) {
     XCTAssertTrue(app.staticTexts["Change this later"].exists)
 }
 
-private func waitForGoalReady(in app: XCUIApplication, file: StaticString = #file, line: UInt = #line) {
+@MainActor
+private func waitForGoalReady(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
     let goal = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.goal]
     XCTAssertTrue(goal.waitForExistence(timeout: 12), "Expected goal step to exist", file: file, line: line)
 }
 
-private func assertCinematicBackdrop(in app: XCUIApplication, grain expectedValue: String, file: StaticString = #file, line: UInt = #line) {
+@MainActor
+private func assertCinematicBackdrop(in app: XCUIApplication, grain expectedValue: String, file: StaticString = #filePath, line: UInt = #line) {
     let video = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.backdropVideo]
     XCTAssertTrue(video.waitForExistence(timeout: 8), "Expected cinematic backdrop video marker to exist", file: file, line: line)
 
@@ -325,7 +328,8 @@ private func assertCinematicBackdrop(in app: XCUIApplication, grain expectedValu
     XCTAssertEqual(grain.value as? String, expectedValue, "Unexpected onboarding video grain amount", file: file, line: line)
 }
 
-private func assertCinematicBackdropIsAbsent(in app: XCUIApplication, file: StaticString = #file, line: UInt = #line) {
+@MainActor
+private func assertCinematicBackdropIsAbsent(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
     let video = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.backdropVideo]
     XCTAssertFalse(video.exists, "Expected cinematic backdrop video marker to be absent", file: file, line: line)
 

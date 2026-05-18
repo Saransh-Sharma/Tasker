@@ -337,7 +337,7 @@ final class HabitBoardUITests: BaseUITest {
         )
     }
 
-    private func openHabitBoard(file: StaticString = #file, line: UInt = #line) {
+    private func openHabitBoard(file: StaticString = #filePath, line: UInt = #line) {
         for _ in 0..<12 {
             if waitForHabitBoardVisible(timeout: 1) {
                 return
@@ -379,7 +379,7 @@ final class HabitBoardUITests: BaseUITest {
             || close.waitForExistence(timeout: timeout)
     }
 
-    private func firstHomeHabitRow(file: StaticString = #file, line: UInt = #line) -> XCUIElement {
+    private func firstHomeHabitRow(file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         dismissHabitBoardIfVisible()
 
         let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
@@ -405,7 +405,7 @@ final class HabitBoardUITests: BaseUITest {
         return firstRow
     }
 
-    private func firstHomeHabitStrip(file: StaticString = #file, line: UInt = #line) throws -> (rowID: String, strip: XCUIElement) {
+    private func firstHomeHabitStrip(file: StaticString = #filePath, line: UInt = #line) throws -> (rowID: String, strip: XCUIElement) {
         dismissHabitBoardIfVisible()
 
         let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]

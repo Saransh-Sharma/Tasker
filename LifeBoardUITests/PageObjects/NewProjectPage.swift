@@ -7,6 +7,7 @@
 
 import XCTest
 
+@MainActor
 class NewProjectPage {
 
     // MARK: - Properties
@@ -351,7 +352,7 @@ class NewProjectPage {
             app.buttons["Create"],
             app.buttons["Save"]
         ]
-        if let existing = saveCandidates.first(where: \.exists) {
+        if let existing = saveCandidates.first(where: { $0.exists }) {
             return existing
         }
         for candidate in saveCandidates where candidate.waitForExistence(timeout: timeout) {

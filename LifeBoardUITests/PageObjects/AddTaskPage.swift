@@ -7,6 +7,7 @@
 
 import XCTest
 
+@MainActor
 class AddTaskPage {
 
     // MARK: - Properties

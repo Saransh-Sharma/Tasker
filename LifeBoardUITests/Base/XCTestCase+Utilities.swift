@@ -7,6 +7,7 @@
 
 import XCTest
 
+@MainActor
 extension XCTestCase {
 
     // MARK: - Element Query Helpers
@@ -81,7 +82,7 @@ extension XCTestCase {
     func verifyTableCellCount(
         _ expectedCount: Int,
         in table: XCUIElement,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         let actualCount = table.cells.count
@@ -162,7 +163,7 @@ extension XCTestCase {
     func verifyAlertIsShown(
         withTitle title: String,
         in app: XCUIApplication,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         let alert = app.alerts[title]
@@ -178,7 +179,7 @@ extension XCTestCase {
     func tapAlertButton(
         _ buttonTitle: String,
         in app: XCUIApplication,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         let button = app.alerts.buttons[buttonTitle]
@@ -279,7 +280,7 @@ extension XCTestCase {
     /// Assert execution time is under limit
     func assertExecutionTime(
         _ timeLimit: TimeInterval,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line,
         block: () -> Void
     ) {

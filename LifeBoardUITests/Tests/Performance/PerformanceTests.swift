@@ -227,7 +227,7 @@ class PerformanceTests: BaseUITest {
         homePage = HomePage(app: app)
     }
 
-    private func firstHomeHabitRow(file: StaticString = #file, line: UInt = #line) -> XCUIElement {
+    private func firstHomeHabitRow(file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         let rowQuery = app.otherElements.matching(NSPredicate(format: "identifier MATCHES %@", #"^home\.habitRow\.[A-Za-z0-9-]+$"#))
         let firstRow = rowQuery.firstMatch
 

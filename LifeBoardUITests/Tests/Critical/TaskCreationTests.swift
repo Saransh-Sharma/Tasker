@@ -282,7 +282,11 @@ class TaskCreationTests: BaseUITest {
 
     func testCreateUpcomingTaskWithReminder() throws {
         // Reminder feature not yet implemented in the UI
-        throw XCTSkip("Reminder toggle feature not yet implemented - test kept for future implementation")
+        let remindersEnabledInUITests = false
+        try XCTSkipIf(
+            !remindersEnabledInUITests,
+            "Reminder toggle feature not yet implemented - test kept for future implementation"
+        )
 
         // GIVEN: User is on the home screen
         let dueDate = TestDataFactory.daysFromNow(7) // 1 week from now

@@ -7,6 +7,7 @@
 
 import XCTest
 
+@MainActor
 class ProjectManagementPage {
 
     // MARK: - Properties
@@ -224,7 +225,7 @@ class ProjectManagementPage {
     }
 
     /// Verify project count
-    func verifyProjectCount(_ expectedCount: Int, file: StaticString = #file, line: UInt = #line) {
+    func verifyProjectCount(_ expectedCount: Int, file: StaticString = #filePath, line: UInt = #line) {
         let actualCount = getProjectCount()
         XCTAssertEqual(
             actualCount,

@@ -8,6 +8,7 @@
 import XCTest
 
 /// Performance metrics helper for measuring and asserting performance characteristics
+@MainActor
 struct PerformanceMetrics {
     static let lifeboardPerformanceSubsystem = "com.saransh1337.To-Do-List"
     static let lifeboardPerformanceCategory = "performance"
@@ -93,7 +94,7 @@ struct PerformanceMetrics {
         named name: String,
         threshold: TimeInterval,
         testCase: XCTestCase,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line,
         block: () -> Void
     ) {
@@ -165,7 +166,7 @@ struct PerformanceMetrics {
         _ duration: TimeInterval,
         threshold: TimeInterval = Thresholds.appLaunchTime,
         testCase: XCTestCase,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         XCTAssertLessThanOrEqual(
@@ -186,7 +187,7 @@ struct PerformanceMetrics {
         _ duration: TimeInterval,
         threshold: TimeInterval = Thresholds.viewTransitionTime,
         testCase: XCTestCase,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         XCTAssertLessThanOrEqual(
@@ -207,7 +208,7 @@ struct PerformanceMetrics {
         _ frameRate: Double,
         minThreshold: Double = Thresholds.scrollFrameRate,
         testCase: XCTestCase,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         XCTAssertGreaterThanOrEqual(
@@ -228,7 +229,7 @@ struct PerformanceMetrics {
         _ memoryMB: Double,
         maxThreshold: Double = Thresholds.maxMemoryUsageMB,
         testCase: XCTestCase,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         XCTAssertLessThanOrEqual(
@@ -332,7 +333,7 @@ struct PerformanceMetrics {
     static func testTaskCreationPerformance(
         app: XCUIApplication,
         testCase: XCTestCase,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         measureAndAssert(
@@ -355,7 +356,7 @@ struct PerformanceMetrics {
         app: XCUIApplication,
         taskIndex: Int = 0,
         testCase: XCTestCase,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         measureAndAssert(

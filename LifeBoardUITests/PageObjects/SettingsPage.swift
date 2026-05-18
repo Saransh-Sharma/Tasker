@@ -7,6 +7,7 @@
 
 import XCTest
 
+@MainActor
 class SettingsPage {
 
     // MARK: - Properties

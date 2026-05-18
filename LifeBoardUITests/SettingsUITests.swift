@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 class SettingsUITests: XCTestCase {
 
     override func setUpWithError() throws {
