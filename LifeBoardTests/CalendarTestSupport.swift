@@ -1,47 +1,88 @@
 import Foundation
-import Combine
+@preconcurrency import Combine
 import XCTest
 @testable import LifeBoard
 
 final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
-    var authorizationStatusValue: LifeBoardCalendarAuthorizationStatus = .authorized
-    var authorizationStatusAfterAccess: LifeBoardCalendarAuthorizationStatus?
-    var requestAccessResult: Result<Bool, Error> = .success(true)
+    private struct State {
+        var authorizationStatusValue: LifeBoardCalendarAuthorizationStatus = .authorized
+        var authorizationStatusAfterAccess: LifeBoardCalendarAuthorizationStatus?
+        var requestAccessResult: Result<Bool, Error> = .success(true)
+        var calendarsResult: Result<[LifeBoardCalendarSourceSnapshot], Error> = .success([])
+        var eventsResult: Result<[LifeBoardCalendarEventSnapshot], Error> = .success([])
+        var fetchCalendarsCallCount = 0
+        var fetchEventsCallCount = 0
+        var resetStoreCallCount = 0
+        var requestAccessCallCount = 0
+        var lastRequestedStartDate: Date?
+        var lastRequestedEndDate: Date?
+        var lastRequestedCalendarIDs: Set<String> = []
+    }
 
-    var calendarsResult: Result<[LifeBoardCalendarSourceSnapshot], Error> = .success([])
-    var eventsResult: Result<[LifeBoardCalendarEventSnapshot], Error> = .success([])
+    private let state = LockedTestState(State())
+
+    var authorizationStatusValue: LifeBoardCalendarAuthorizationStatus {
+        get { state.read().authorizationStatusValue }
+        set { state.withValue { $0.authorizationStatusValue = newValue } }
+    }
+
+    var authorizationStatusAfterAccess: LifeBoardCalendarAuthorizationStatus? {
+        get { state.read().authorizationStatusAfterAccess }
+        set { state.withValue { $0.authorizationStatusAfterAccess = newValue } }
+    }
+
+    var requestAccessResult: Result<Bool, Error> {
+        get { state.read().requestAccessResult }
+        set { state.withValue { $0.requestAccessResult = newValue } }
+    }
+
+    var calendarsResult: Result<[LifeBoardCalendarSourceSnapshot], Error> {
+        get { state.read().calendarsResult }
+        set { state.withValue { $0.calendarsResult = newValue } }
+    }
+
+    var eventsResult: Result<[LifeBoardCalendarEventSnapshot], Error> {
+        get { state.read().eventsResult }
+        set { state.withValue { $0.eventsResult = newValue } }
+    }
 
     private let storeChangedSubject = PassthroughSubject<Void, Never>()
 
-    private(set) var fetchCalendarsCallCount = 0
-    private(set) var fetchEventsCallCount = 0
-    private(set) var resetStoreCallCount = 0
-    private(set) var requestAccessCallCount = 0
-    private(set) var lastRequestedStartDate: Date?
-    private(set) var lastRequestedEndDate: Date?
-    private(set) var lastRequestedCalendarIDs: Set<String> = []
+    var fetchCalendarsCallCount: Int { state.read().fetchCalendarsCallCount }
+    var fetchEventsCallCount: Int { state.read().fetchEventsCallCount }
+    var resetStoreCallCount: Int { state.read().resetStoreCallCount }
+    var requestAccessCallCount: Int { state.read().requestAccessCallCount }
+    var lastRequestedStartDate: Date? { state.read().lastRequestedStartDate }
+    var lastRequestedEndDate: Date? { state.read().lastRequestedEndDate }
+    var lastRequestedCalendarIDs: Set<String> { state.read().lastRequestedCalendarIDs }
 
     init() {}
 
     func authorizationStatus() -> LifeBoardCalendarAuthorizationStatus {
-        authorizationStatusValue
+        state.read().authorizationStatusValue
     }
 
     func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
-        requestAccessCallCount += 1
-        if let nextStatus = authorizationStatusAfterAccess {
-            authorizationStatusValue = nextStatus
+        let result = state.withValue { state -> Result<Bool, Error> in
+            state.requestAccessCallCount += 1
+            if let nextStatus = state.authorizationStatusAfterAccess {
+                state.authorizationStatusValue = nextStatus
+            }
+            return state.requestAccessResult
         }
-        completion(requestAccessResult)
+        completion(result)
     }
 
     func resetStoreStateAfterPermissionChange() {
-        resetStoreCallCount += 1
+        state.withValue { $0.resetStoreCallCount += 1 }
     }
 
     func fetchCalendars(completion: @escaping @Sendable (Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void) {
-        fetchCalendarsCallCount += 1
-        completion(calendarsResult)
+        let result = state.withValue { state -> Result<[LifeBoardCalendarSourceSnapshot], Error> in
+            state.fetchCalendarsCallCount += 1
+            return state.calendarsResult
+        }
+        completion(result)
     }
 
     func fetchEvents(
@@ -50,11 +91,14 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
         calendarIDs: Set<String>,
         completion: @escaping @Sendable (Result<[LifeBoardCalendarEventSnapshot], Error>) -> Void
     ) {
-        fetchEventsCallCount += 1
-        lastRequestedStartDate = startDate
-        lastRequestedEndDate = endDate
-        lastRequestedCalendarIDs = calendarIDs
-        completion(eventsResult)
+        let result = state.withValue { state -> Result<[LifeBoardCalendarEventSnapshot], Error> in
+            state.fetchEventsCallCount += 1
+            state.lastRequestedStartDate = startDate
+            state.lastRequestedEndDate = endDate
+            state.lastRequestedCalendarIDs = calendarIDs
+            return state.eventsResult
+        }
+        completion(result)
     }
 
     func storeChangedPublisher() -> AnyPublisher<Void, Never> {
@@ -67,77 +111,90 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
 }
 
 final class CalendarProjectRepositoryStub: ProjectRepositoryProtocol {
-    private var projects: [Project]
+    private let projectsState: LockedTestState<[Project]>
 
     init(projects: [Project]) {
-        self.projects = projects
+        self.projectsState = LockedTestState(projects)
     }
 
     func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
-        completion(.success(projects))
+        completion(.success(projectsState.read()))
     }
 
     func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
-        completion(.success(projects.first { $0.id == id }))
+        completion(.success(projectsState.read().first { $0.id == id }))
     }
 
     func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) {
-        completion(.success(projects.first { $0.name == name }))
+        completion(.success(projectsState.read().first { $0.name == name }))
     }
 
     func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
-        if let inbox = projects.first(where: \.isInbox) {
-            completion(.success(inbox))
-            return
-        }
+        let inbox = projectsState.withValue { projects -> Project in
+            if let inbox = projects.first(where: \.isInbox) {
+                return inbox
+            }
 
-        let inbox = Project.createInbox()
-        projects.append(inbox)
+            let inbox = Project.createInbox()
+            projects.append(inbox)
+            return inbox
+        }
         completion(.success(inbox))
     }
 
     func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) {
-        completion(.success(projects.filter { !$0.isInbox }))
+        completion(.success(projectsState.read().filter { !$0.isInbox }))
     }
 
     func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
-        projects.append(project)
+        projectsState.withValue { $0.append(project) }
         completion(.success(project))
     }
 
     func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
-        if let inbox = projects.first(where: \.isInbox) {
-            completion(.success(inbox))
-            return
+        let inbox = projectsState.withValue { projects -> Project in
+            if let inbox = projects.first(where: \.isInbox) {
+                return inbox
+            }
+            let inbox = Project.createInbox()
+            projects.append(inbox)
+            return inbox
         }
-        let inbox = Project.createInbox()
-        projects.append(inbox)
         completion(.success(inbox))
     }
 
     func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
+        let projects = projectsState.read()
         completion(.success(ProjectRepairReport(scanned: projects.count, merged: 0, deleted: 0, inboxCandidates: projects.filter(\.isInbox).count, warnings: [])))
     }
 
     func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
-        if let index = projects.firstIndex(where: { $0.id == project.id }) {
-            projects[index] = project
+        projectsState.withValue { projects in
+            if let index = projects.firstIndex(where: { $0.id == project.id }) {
+                projects[index] = project
+            }
         }
         completion(.success(project))
     }
 
     func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
-        guard let index = projects.firstIndex(where: { $0.id == id }) else {
-            completion(.failure(NSError(domain: "CalendarProjectRepositoryStub", code: 404)))
-            return
+        do {
+            let renamed = try projectsState.withValue { projects -> Project in
+                guard let index = projects.firstIndex(where: { $0.id == id }) else {
+                    throw NSError(domain: "CalendarProjectRepositoryStub", code: 404)
+                }
+                projects[index].name = newName
+                return projects[index]
+            }
+            completion(.success(renamed))
+        } catch {
+            completion(.failure(error))
         }
-        projects[index].name = newName
-        completion(.success(projects[index]))
     }
 
     func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         _ = deleteTasks
-        projects.removeAll { $0.id == id }
+        projectsState.withValue { $0.removeAll { $0.id == id } }
         completion(.success(()))
     }
 
@@ -153,6 +210,7 @@ final class CalendarProjectRepositoryStub: ProjectRepositoryProtocol {
     }
 
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
+        let projects = projectsState.read()
         completion(.success(projects.contains { $0.name.caseInsensitiveCompare(name) == .orderedSame && $0.id != excludingId } == false))
     }
 }

@@ -124,24 +124,29 @@ final class HomeAIActionCoordinatorTests: XCTestCase {
 }
 
 private final class InMemoryAssistantActionRepositoryStub: AssistantActionRepositoryProtocol {
-    var runs: [UUID: AssistantActionRunDefinition] = [:]
+    private let runsState = LockedTestState<[UUID: AssistantActionRunDefinition]>([:])
+
+    var runs: [UUID: AssistantActionRunDefinition] {
+        get { runsState.read() }
+        set { runsState.write(newValue) }
+    }
 
     func createRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
-        runs[run.id] = run
+        runsState.withValue { $0[run.id] = run }
         completion(.success(run))
     }
 
     func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
-        runs[run.id] = run
+        runsState.withValue { $0[run.id] = run }
         completion(.success(run))
     }
 
     func fetchRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition?, Error>) -> Void) {
-        completion(.success(runs[id]))
+        completion(.success(runsState.read()[id]))
     }
 
     func fetchPendingRuns(threadID: String?, completion: @escaping @Sendable (Result<[AssistantActionRunDefinition], Error>) -> Void) {
-        let filtered = runs.values.filter { run in
+        let filtered = runsState.read().values.filter { run in
             run.status == .pending && (threadID == nil || run.threadID == threadID)
         }
         completion(.success(filtered.sorted { $0.createdAt < $1.createdAt }))

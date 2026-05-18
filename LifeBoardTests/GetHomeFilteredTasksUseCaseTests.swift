@@ -1,6 +1,7 @@
 import XCTest
 @testable import LifeBoard
 
+@MainActor
 final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
     func testCustomDateScopeIncludesAnchorDayAndAnchorRelativeOverdue() {
@@ -19,11 +20,11 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Custom date scope")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         useCase.execute(state: .default, scope: .customDate(anchor)) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
@@ -31,10 +32,10 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
 
         XCTAssertEqual(
-            Set(captured?.openTasks.map(\.title) ?? []),
+            Set(captured.read()?.openTasks.map(\.title) ?? []),
             Set(["Due On Anchor", "Overdue Relative Anchor"])
         )
-        XCTAssertEqual(captured?.doneTimelineTasks.count, 0)
+        XCTAssertEqual(captured.read()?.doneTimelineTasks.count, 0)
     }
 
     func testTodayScopeIncludesPastScheduledTaskWithoutDueDate() {
@@ -52,11 +53,11 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Today includes scheduled carry-over")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         useCase.execute(state: .default, scope: .today) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
@@ -64,10 +65,10 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
 
         XCTAssertEqual(
-            Set(captured?.openTasks.map(\.title) ?? []),
+            Set(captured.read()?.openTasks.map(\.title) ?? []),
             Set(["Scheduled Carry Over", "Due Today"])
         )
-        XCTAssertEqual(captured?.quickViewCounts[.today], 2)
+        XCTAssertEqual(captured.read()?.quickViewCounts[.today], 2)
     }
 
     func testCustomDateScopeIncludesScheduledTaskBeforeAnchorWithoutDueDate() {
@@ -84,19 +85,19 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Custom date includes scheduled carry-over")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         useCase.execute(state: .default, scope: .customDate(anchor)) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.openTasks.map(\.title), ["Scheduled Before Anchor"])
-        XCTAssertEqual(captured?.quickViewCounts[.today], 1)
+        XCTAssertEqual(captured.read()?.openTasks.map(\.title), ["Scheduled Before Anchor"])
+        XCTAssertEqual(captured.read()?.quickViewCounts[.today], 1)
     }
 
     func testCustomDateScopeComputesTodayQuickCountFromAnchorDate() {
@@ -124,18 +125,18 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Custom date quick count")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         useCase.execute(state: .default, scope: .customDate(anchor)) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.quickViewCounts[.today], 2)
+        XCTAssertEqual(captured.read()?.quickViewCounts[.today], 2)
     }
 
     func testUpcomingQuickViewReturnsOnlyNext14DaysOpenTasks() {
@@ -155,22 +156,22 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Upcoming filters")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         var state = HomeFilterState.default
         state.quickView = .upcoming
 
         useCase.execute(state: state) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.openTasks.map(\.title), ["Inside"])
-        XCTAssertEqual(captured?.doneTimelineTasks.map(\.title), ["Completed"])
+        XCTAssertEqual(captured.read()?.openTasks.map(\.title), ["Inside"])
+        XCTAssertEqual(captured.read()?.doneTimelineTasks.map(\.title), ["Completed"])
     }
 
     func testOverdueQuickViewReturnsOnlyOpenOverdueTasks() {
@@ -190,22 +191,22 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Overdue filters")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         var state = HomeFilterState.default
         state.quickView = .overdue
 
         useCase.execute(state: state) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.openTasks.map(\.title), ["Overdue Open"])
-        XCTAssertFalse(captured?.openTasks.contains(where: { $0.title == "Overdue Completed" }) ?? true)
+        XCTAssertEqual(captured.read()?.openTasks.map(\.title), ["Overdue Open"])
+        XCTAssertFalse(captured.read()?.openTasks.contains(where: { $0.title == "Overdue Completed" }) ?? true)
     }
 
     func testTodayQuickViewIncludesOnlyCompletedTasksCompletedToday() {
@@ -259,23 +260,23 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Today includes completed")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         var state = HomeFilterState.default
         state.quickView = .today
 
         useCase.execute(state: state) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.openTasks.map(\.title), ["Open Today"])
+        XCTAssertEqual(captured.read()?.openTasks.map(\.title), ["Open Today"])
         XCTAssertEqual(
-            Set(captured?.doneTimelineTasks.map(\.title) ?? []),
+            Set(captured.read()?.doneTimelineTasks.map(\.title) ?? []),
             Set(["Completed Today", "Completed Overdue"])
         )
     }
@@ -308,11 +309,11 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Custom date completed on anchor")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         useCase.execute(state: .default, scope: .customDate(anchor)) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
@@ -320,10 +321,10 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
 
         XCTAssertEqual(
-            Set(captured?.openTasks.map(\.title) ?? []),
+            Set(captured.read()?.openTasks.map(\.title) ?? []),
             Set(["Open On Anchor", "Overdue Open"])
         )
-        XCTAssertEqual(captured?.doneTimelineTasks.map(\.title), ["Completed On Anchor"])
+        XCTAssertEqual(captured.read()?.doneTimelineTasks.map(\.title), ["Completed On Anchor"])
     }
 
     func testCustomDateScopeExcludesCompletedTasksMissingCompletionDate() {
@@ -344,19 +345,19 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Custom date excludes missing completion")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         useCase.execute(state: .default, scope: .customDate(anchor)) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.openTasks.map(\.title), ["Open On Anchor"])
-        XCTAssertEqual(captured?.doneTimelineTasks.count, 0)
+        XCTAssertEqual(captured.read()?.openTasks.map(\.title), ["Open On Anchor"])
+        XCTAssertEqual(captured.read()?.doneTimelineTasks.count, 0)
     }
 
     func testDoneQuickViewLimitsToLastThirtyDaysAndSortsByDayThenPriority() {
@@ -375,22 +376,22 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Done filters")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         var state = HomeFilterState.default
         state.quickView = .done
 
         useCase.execute(state: state) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.doneTimelineTasks.map(\.title), ["Recent High", "Recent Low", "Older Recent"])
-        XCTAssertEqual(captured?.openTasks.count, 0)
+        XCTAssertEqual(captured.read()?.doneTimelineTasks.map(\.title), ["Recent High", "Recent Low", "Older Recent"])
+        XCTAssertEqual(captured.read()?.openTasks.count, 0)
     }
 
     func testMorningHybridUsesTypeFirstThenDueHourFallback() {
@@ -406,21 +407,21 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Morning hybrid")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         var state = HomeFilterState.default
         state.quickView = .morning
 
         useCase.execute(state: state) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(Set(captured?.openTasks.map(\.title) ?? []), Set(["Explicit Morning", "Inferred Morning"]))
+        XCTAssertEqual(Set(captured.read()?.openTasks.map(\.title) ?? []), Set(["Explicit Morning", "Inferred Morning"]))
     }
 
     func testMorningAndEveningQuickViewsIncludeCompletedTasksInDoneTimeline() {
@@ -459,33 +460,33 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let morningExpectation = expectation(description: "Morning includes completed")
-        var morningResult: HomeFilteredTasksResult?
+        let morningResult = LockedTestState<HomeFilteredTasksResult?>(nil)
         var morningState = HomeFilterState.default
         morningState.quickView = .morning
         useCase.execute(state: morningState) { result in
             if case let .success(value) = result {
-                morningResult = value
+                morningResult.write(value)
             }
             morningExpectation.fulfill()
         }
 
         let eveningExpectation = expectation(description: "Evening includes completed")
-        var eveningResult: HomeFilteredTasksResult?
+        let eveningResult = LockedTestState<HomeFilteredTasksResult?>(nil)
         var eveningState = HomeFilterState.default
         eveningState.quickView = .evening
         useCase.execute(state: eveningState) { result in
             if case let .success(value) = result {
-                eveningResult = value
+                eveningResult.write(value)
             }
             eveningExpectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(morningResult?.openTasks.map(\.title), ["Morning Open"])
-        XCTAssertEqual(morningResult?.doneTimelineTasks.map(\.title), ["Morning Done"])
-        XCTAssertEqual(eveningResult?.openTasks.map(\.title), ["Evening Open"])
-        XCTAssertEqual(eveningResult?.doneTimelineTasks.map(\.title), ["Evening Done"])
+        XCTAssertEqual(morningResult.read()?.openTasks.map(\.title), ["Morning Open"])
+        XCTAssertEqual(morningResult.read()?.doneTimelineTasks.map(\.title), ["Morning Done"])
+        XCTAssertEqual(eveningResult.read()?.openTasks.map(\.title), ["Evening Open"])
+        XCTAssertEqual(eveningResult.read()?.doneTimelineTasks.map(\.title), ["Evening Done"])
     }
 
     func testProjectFacetUsesORAcrossSelectedProjects() {
@@ -501,7 +502,7 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Project OR")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         var state = HomeFilterState.default
         state.quickView = .today
@@ -509,14 +510,14 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
         useCase.execute(state: state) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(Set(captured?.openTasks.map(\.title) ?? []), Set(["P1", "P2"]))
+        XCTAssertEqual(Set(captured.read()?.openTasks.map(\.title) ?? []), Set(["P1", "P2"]))
     }
 
     func testRevisionCacheAvoidsDuplicateFetchesUntilRevisionChanges() {
@@ -562,21 +563,21 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(readModelRepository: repository)
 
         let expectation = expectation(description: "Large today projection")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         useCase.execute(state: .default, scope: .today, revision: HomeDataRevision(rawValue: 7)) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.quickViewCounts[.today], 930)
-        XCTAssertEqual(captured?.pointsPotential, 930 * TaskPriority.low.scorePoints)
-        XCTAssertEqual(captured?.openTasks.count, 360)
-        XCTAssertEqual(captured?.matchingOpenTasks.count, 930)
+        XCTAssertEqual(captured.read()?.quickViewCounts[.today], 930)
+        XCTAssertEqual(captured.read()?.pointsPotential, 930 * TaskPriority.low.scorePoints)
+        XCTAssertEqual(captured.read()?.openTasks.count, 360)
+        XCTAssertEqual(captured.read()?.matchingOpenTasks.count, 930)
         XCTAssertEqual(repository.observedHomeProjectionPages.map { [$0.offset, $0.limit, $0.count] }, [[0, 400, 400], [400, 400, 400], [800, 400, 130]])
         XCTAssertEqual(repository.fetchCount, 3)
     }
@@ -604,19 +605,19 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         let useCase = GetHomeFilteredTasksUseCase(readModelRepository: repository)
 
         let expectation = expectation(description: "Matching open tasks include clipped candidate")
-        var captured: HomeFilteredTasksResult?
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
 
         useCase.execute(state: .default, scope: .today, revision: HomeDataRevision(rawValue: 9)) { result in
             if case let .success(value) = result {
-                captured = value
+                captured.write(value)
             }
             expectation.fulfill()
         }
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertFalse(captured?.openTasks.contains(where: { $0.title == "Clipped Scheduled Candidate" }) ?? true)
-        XCTAssertTrue(captured?.matchingOpenTasks.contains(where: { $0.title == "Clipped Scheduled Candidate" }) ?? false)
+        XCTAssertFalse(captured.read()?.openTasks.contains(where: { $0.title == "Clipped Scheduled Candidate" }) ?? true)
+        XCTAssertTrue(captured.read()?.matchingOpenTasks.contains(where: { $0.title == "Clipped Scheduled Candidate" }) ?? false)
     }
 
     private func makeTask(
@@ -703,9 +704,18 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim {
 }
 
 private final class CountingReadModelRepository: TaskReadModelRepositoryProtocol {
+    private struct State {
+        var fetchCount: Int = 0
+        var observedHomeProjectionPages: [(offset: Int, limit: Int, count: Int)] = []
+    }
+
     private let tasks: [TaskDefinition]
-    private(set) var fetchCount: Int = 0
-    private(set) var observedHomeProjectionPages: [(offset: Int, limit: Int, count: Int)] = []
+    private let state = LockedTestState(State())
+
+    var fetchCount: Int { state.read().fetchCount }
+    var observedHomeProjectionPages: [(offset: Int, limit: Int, count: Int)] {
+        state.read().observedHomeProjectionPages
+    }
 
     init(tasks: [TaskDefinition]) {
         self.tasks = tasks
@@ -724,10 +734,12 @@ private final class CountingReadModelRepository: TaskReadModelRepositoryProtocol
         offset: Int,
         completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void
     ) {
-        fetchCount += 1
         let start = min(offset, tasks.count)
         let end = min(start + limit, tasks.count)
-        observedHomeProjectionPages.append((offset, limit, end - start))
+        state.withValue {
+            $0.fetchCount += 1
+            $0.observedHomeProjectionPages.append((offset, limit, end - start))
+        }
         completion(.success(TaskDefinitionSliceResult(
             tasks: Array(tasks[start..<end]),
             totalCount: tasks.count,

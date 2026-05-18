@@ -264,20 +264,20 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         let baseline = LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"])
         store.save(baseline)
 
-        var notificationCount = 0
+        let notificationCount = LockedTestState(0)
         let observer = NotificationCenter.default.addObserver(
             forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
             object: nil,
             queue: .main
         ) { _ in
-            notificationCount += 1
+            notificationCount.withValue { $0 += 1 }
         }
         defer { NotificationCenter.default.removeObserver(observer) }
 
         store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work", "work"]))
         waitForMainQueue(seconds: 0.05)
 
-        XCTAssertEqual(notificationCount, 0)
+        XCTAssertEqual(notificationCount.read(), 0)
         XCTAssertEqual(store.load().selectedCalendarIDs, ["work"])
     }
 
@@ -823,10 +823,10 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
         let diagnosticsRecorded = expectation(description: "Calendar load diagnostics recorded")
         diagnosticsRecorded.assertForOverFulfill = false
-        var didRecordDiagnostics = false
+        let didRecordDiagnostics = LockedTestState(false)
         service.$snapshot
             .sink { snapshot in
-                guard didRecordDiagnostics == false,
+                guard didRecordDiagnostics.read() == false,
                       snapshot.isLoading == false,
                       snapshot.eventsInRange.count == 1 else {
                     return
@@ -834,7 +834,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
                 DispatchQueue.main.async {
                     let diagnostics = CalendarDiagnosticsStore.shared.recentEntriesText(limit: 20)
                     guard diagnostics.contains("calendar_context_loaded") else { return }
-                    didRecordDiagnostics = true
+                    didRecordDiagnostics.write(true)
                     diagnosticsRecorded.fulfill()
                 }
             }
@@ -1069,7 +1069,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 }
 
-private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtocol {
+private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtocol, @unchecked Sendable {
     var authorizationStatusValue: LifeBoardCalendarAuthorizationStatus = .authorized
     var calendars: [LifeBoardCalendarSourceSnapshot] = []
     private var calendarCompletions: [(Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void] = []
@@ -1120,7 +1120,7 @@ private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtoc
     }
 }
 
-private final class CalendarAccessAttemptStoreStub: CalendarAccessAttemptStore {
+private final class CalendarAccessAttemptStoreStub: CalendarAccessAttemptStore, @unchecked Sendable {
     private(set) var lastFullAccessAttempt: CalendarAccessAttemptRecord?
 
     var hasAttemptedFullAccessRequest: Bool {

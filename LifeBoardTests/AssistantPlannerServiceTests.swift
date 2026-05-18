@@ -1708,16 +1708,27 @@ private final class PlannerEvaluatorSpy: LLMEvaluator {
 }
 
 private final class AssistantPlannerTaskReadRepositoryStub: TaskReadModelRepositoryProtocol {
-    var tasks: [TaskDefinition]
-    private(set) var fetchQueries: [TaskReadQuery] = []
+    private struct State {
+        var tasks: [TaskDefinition]
+        var fetchQueries: [TaskReadQuery] = []
+    }
+
+    private let state: LockedTestState<State>
+
+    var tasks: [TaskDefinition] {
+        get { state.read().tasks }
+        set { state.withValue { $0.tasks = newValue } }
+    }
+    var fetchQueries: [TaskReadQuery] { state.read().fetchQueries }
 
     init(tasks: [TaskDefinition]) {
-        self.tasks = tasks
+        self.state = LockedTestState(State(tasks: tasks))
     }
 
     func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
-        fetchQueries.append(query)
-        let filtered = tasks.filter { task in
+        let filtered = state.withValue { state -> [TaskDefinition] in
+            state.fetchQueries.append(query)
+            return state.tasks.filter { task in
             if query.includeCompleted == false, task.isComplete {
                 return false
             }
@@ -1731,6 +1742,7 @@ private final class AssistantPlannerTaskReadRepositoryStub: TaskReadModelReposit
                 return false
             }
             return true
+            }
         }
         completion(.success(TaskDefinitionSliceResult(
             tasks: filtered,

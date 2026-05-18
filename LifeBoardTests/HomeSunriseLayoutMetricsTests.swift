@@ -545,6 +545,31 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         )
     }
 
+    func testHomeTimelineDaySwipeChromeRestoresOnlyWhenNearTopAfterUpwardScroll() {
+        var isVisible = true
+
+        isVisible = SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            currentVisibility: isVisible,
+            for: .collapsed,
+            restoresOnExpanded: false
+        )
+        XCTAssertFalse(isVisible)
+
+        isVisible = SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            currentVisibility: isVisible,
+            for: .expanded,
+            restoresOnExpanded: false
+        )
+        XCTAssertFalse(isVisible)
+
+        isVisible = SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            currentVisibility: isVisible,
+            for: .nearTop,
+            restoresOnExpanded: false
+        )
+        XCTAssertTrue(isVisible)
+    }
+
     func testSunriseDaySwipeChromeVisibilityKeepsCurrentStateWhenIdle() {
         XCTAssertTrue(
             SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
@@ -596,6 +621,28 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertLessThan(leading.scaleY, 1)
         XCTAssertLessThan(trailing.scaleX, 1)
         XCTAssertLessThan(trailing.scaleY, 1)
+        XCTAssertEqual(leading.opacity, 0, accuracy: 0.001)
+        XCTAssertEqual(trailing.opacity, 0, accuracy: 0.001)
+    }
+
+    func testSunriseDaySwipeHiddenChromePresentationUsesOpacityOnlyForReducedMotion() {
+        let leading = SunriseDaySwipeChromePresentation.value(
+            for: .leading,
+            isChromeVisible: false,
+            reduceMotion: true
+        )
+        let trailing = SunriseDaySwipeChromePresentation.value(
+            for: .trailing,
+            isChromeVisible: false,
+            reduceMotion: true
+        )
+
+        XCTAssertEqual(leading.offsetX, 0, accuracy: 0.001)
+        XCTAssertEqual(trailing.offsetX, 0, accuracy: 0.001)
+        XCTAssertEqual(leading.scaleX, 1, accuracy: 0.001)
+        XCTAssertEqual(leading.scaleY, 1, accuracy: 0.001)
+        XCTAssertEqual(trailing.scaleX, 1, accuracy: 0.001)
+        XCTAssertEqual(trailing.scaleY, 1, accuracy: 0.001)
         XCTAssertEqual(leading.opacity, 0, accuracy: 0.001)
         XCTAssertEqual(trailing.opacity, 0, accuracy: 0.001)
     }

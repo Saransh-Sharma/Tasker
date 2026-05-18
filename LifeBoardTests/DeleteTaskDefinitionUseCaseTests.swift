@@ -11,13 +11,13 @@ final class DeleteTaskDefinitionUseCaseTests: XCTestCase {
         let useCase = DeleteTaskDefinitionUseCase(repository: repository)
 
         let notificationExpectation = expectation(description: "TaskDeleted notification posted")
-        var observedDeletedTaskIDs: [String] = []
+        let observedDeletedTaskIDs = LockedTestState<[String]>([])
         let observer = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("TaskDeleted"),
             object: nil,
             queue: .main
         ) { notification in
-            observedDeletedTaskIDs = notification.userInfo?["deletedTaskIDs"] as? [String] ?? []
+            observedDeletedTaskIDs.write(notification.userInfo?["deletedTaskIDs"] as? [String] ?? [])
             notificationExpectation.fulfill()
         }
         defer { NotificationCenter.default.removeObserver(observer) }
@@ -33,32 +33,33 @@ final class DeleteTaskDefinitionUseCaseTests: XCTestCase {
         }
 
         wait(for: [notificationExpectation, completionExpectation], timeout: 1.0)
-        XCTAssertEqual(observedDeletedTaskIDs.count, 2)
-        XCTAssertEqual(Set(observedDeletedTaskIDs), Set([taskA.id.uuidString, taskB.id.uuidString]))
+        let deletedTaskIDs = observedDeletedTaskIDs.read()
+        XCTAssertEqual(deletedTaskIDs.count, 2)
+        XCTAssertEqual(Set(deletedTaskIDs), Set([taskA.id.uuidString, taskB.id.uuidString]))
     }
 }
 
 private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
-    private var tasksByID: [UUID: TaskDefinition]
+    private let tasksByIDState: LockedTestState<[UUID: TaskDefinition]>
 
     init(tasks: [TaskDefinition]) {
-        self.tasksByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
+        self.tasksByIDState = LockedTestState(Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) }))
     }
 
     func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
-        completion(.success(Array(tasksByID.values)))
+        completion(.success(Array(tasksByIDState.read().values)))
     }
 
     func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
-        completion(.success(Array(tasksByID.values)))
+        completion(.success(Array(tasksByIDState.read().values)))
     }
 
     func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) {
-        completion(.success(tasksByID[id]))
+        completion(.success(tasksByIDState.read()[id]))
     }
 
     func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
-        tasksByID[task.id] = task
+        tasksByIDState.withValue { $0[task.id] = task }
         completion(.success(task))
     }
 
@@ -68,7 +69,7 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
     }
 
     func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
-        tasksByID[task.id] = task
+        tasksByIDState.withValue { $0[task.id] = task }
         completion(.success(task))
     }
 
@@ -82,7 +83,7 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
     }
 
     func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        tasksByID.removeValue(forKey: id)
+        tasksByIDState.withValue { $0.removeValue(forKey: id) }
         completion(.success(()))
     }
 }

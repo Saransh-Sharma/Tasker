@@ -403,7 +403,7 @@ final class FocusSessionShortcutRecoveryTests: XCTestCase {
     }
 }
 
-private final class ShortcutProjectRepositoryStub: ProjectRepositoryProtocol {
+private final class ShortcutProjectRepositoryStub: ProjectRepositoryProtocol, @unchecked Sendable {
     private(set) var projects: [Project]
     private(set) var createProjectCallCount = 0
 
@@ -485,7 +485,7 @@ private final class ShortcutProjectRepositoryStub: ProjectRepositoryProtocol {
     }
 }
 
-private final class ShortcutFocusSessionRepositoryStub: GamificationRepositoryProtocol {
+private final class ShortcutFocusSessionRepositoryStub: GamificationRepositoryProtocol, @unchecked Sendable {
     var sessions: [FocusSessionDefinition]
 
     init(sessions: [FocusSessionDefinition]) {
@@ -512,13 +512,13 @@ private final class ShortcutFocusSessionRepositoryStub: GamificationRepositoryPr
 
 private func awaitResult<T>(
     timeout: TimeInterval = 1.0,
-    _ operation: (@escaping (Result<T, Error>) -> Void) -> Void
+    _ operation: (@escaping @Sendable (Result<T, Error>) -> Void) -> Void
 ) throws -> T {
     let semaphore = DispatchSemaphore(value: 0)
-    var capturedResult: Result<T, Error>?
+    let capturedResult = LockedTestState<Result<T, Error>?>(nil)
 
     operation { result in
-        capturedResult = result
+        capturedResult.write(result)
         semaphore.signal()
     }
 
@@ -527,5 +527,5 @@ private func awaitResult<T>(
         throw NSError(domain: "LifeBoardAppShortcutsTests", code: 408, userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for result"])
     }
 
-    return try XCTUnwrap(capturedResult).get()
+    return try XCTUnwrap(capturedResult.read()).get()
 }

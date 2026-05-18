@@ -234,6 +234,35 @@ final class HomeBottomBarStateTests: XCTestCase {
         )
     }
 
+    func testRestingDockDownshiftAppliesSixPointHostLiftWithoutChangingObstructionMetrics() {
+        let safeAreaBottom: CGFloat = 34
+        let baselineDownshift = HomeBottomBarVisibilityPolicy.restingDockDownshift(
+            safeAreaBottom: safeAreaBottom,
+            verticalLift: 0
+        )
+        let liftedDownshift = HomeBottomBarVisibilityPolicy.restingDockDownshift(
+            safeAreaBottom: safeAreaBottom,
+            verticalLift: 6
+        )
+
+        XCTAssertEqual(baselineDownshift, 24, accuracy: 0.001)
+        XCTAssertEqual(liftedDownshift, 18, accuracy: 0.001)
+        XCTAssertEqual(baselineDownshift - liftedDownshift, 6, accuracy: 0.001)
+        XCTAssertEqual(
+            HomeBottomBarVisibilityPolicy.chatComposerClearance(
+                layoutClass: .phone,
+                bottomOverlayObstruction: 72,
+                keyboardOverlapHeight: 0,
+                isBottomBarConcealed: false,
+                idleSpacing: 40,
+                idleExtraSpacing: 24,
+                keyboardSpacing: 12,
+                regularSpacing: 24
+            ),
+            136
+        )
+    }
+
     func testCalendarBottomBarSymbolBuildsDaySpecificCalendarSFImageNames() {
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 1), "1.calendar")
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 31), "31.calendar")

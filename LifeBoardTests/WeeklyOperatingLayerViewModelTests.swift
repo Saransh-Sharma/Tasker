@@ -21,17 +21,17 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
             after: referenceDate,
             startingOn: weekStartsOn
         )
-        var resolvedSummary: HomeWeeklySummary?
+        let resolvedSummary = LockedTestState<HomeWeeklySummary?>(nil)
 
         summaryUseCase.execute(referenceDate: referenceDate) { result in
-            resolvedSummary = try? result.get()
+            resolvedSummary.write(try? result.get())
             completion.fulfill()
         }
 
         wait(for: [completion], timeout: 1.0)
-        XCTAssertEqual(resolvedSummary?.ctaState, .planUpcomingWeek)
-        XCTAssertEqual(resolvedSummary?.plannerPresentation, .upcomingWeek)
-        XCTAssertEqual(resolvedSummary?.weekStartDate, expectedUpcomingWeekStart)
+        XCTAssertEqual(resolvedSummary.read()?.ctaState, .planUpcomingWeek)
+        XCTAssertEqual(resolvedSummary.read()?.plannerPresentation, .upcomingWeek)
+        XCTAssertEqual(resolvedSummary.read()?.weekStartDate, expectedUpcomingWeekStart)
     }
 
     func testWeeklySummaryPrefersReviewDuringUpcomingWindow() {
@@ -56,17 +56,17 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
             workspaceStore: workspaceStore
         )
         let completion = expectation(description: "weekly summary resolved")
-        var resolvedSummary: HomeWeeklySummary?
+        let resolvedSummary = LockedTestState<HomeWeeklySummary?>(nil)
 
         summaryUseCase.execute(referenceDate: referenceDate) { result in
-            resolvedSummary = try? result.get()
+            resolvedSummary.write(try? result.get())
             completion.fulfill()
         }
 
         wait(for: [completion], timeout: 1.0)
-        XCTAssertEqual(resolvedSummary?.ctaState, .reviewWeek)
-        XCTAssertEqual(resolvedSummary?.plannerPresentation, .thisWeek)
-        XCTAssertEqual(resolvedSummary?.weekStartDate, currentWeekStart)
+        XCTAssertEqual(resolvedSummary.read()?.ctaState, .reviewWeek)
+        XCTAssertEqual(resolvedSummary.read()?.plannerPresentation, .thisWeek)
+        XCTAssertEqual(resolvedSummary.read()?.weekStartDate, currentWeekStart)
     }
 
     func testEstimateWeeklyCapacityUsesCalendarWindowWeeks() {
@@ -93,15 +93,15 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
             workspacePreferencesStore: workspaceStore
         )
         let completion = expectation(description: "estimated capacity resolved")
-        var resolvedCapacity: Int?
+        let resolvedCapacity = LockedTestState<Int?>(nil)
 
         useCase.execute(referenceDate: referenceDate) { result in
-            resolvedCapacity = try? result.get()
+            resolvedCapacity.write(try? result.get())
             completion.fulfill()
         }
 
         wait(for: [completion], timeout: 1.0)
-        XCTAssertEqual(resolvedCapacity, 3)
+        XCTAssertEqual(resolvedCapacity.read(), 3)
     }
 
     @MainActor
@@ -836,23 +836,31 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
 }
 
 private final class StubWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
-    var plan: WeeklyPlan?
+    private let planState: LockedTestState<WeeklyPlan?>
+
+    var plan: WeeklyPlan? {
+        get { planState.read() }
+        set { planState.write(newValue) }
+    }
 
     init(plan: WeeklyPlan? = nil) {
-        self.plan = plan
+        self.planState = LockedTestState(plan)
     }
 
     func fetchPlan(id: UUID, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) {
+        let plan = planState.read()
         completion(.success(plan?.id == id ? plan : nil))
     }
 
     func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping @Sendable (Result<WeeklyPlan?, Error>) -> Void) {
+        let plan = planState.read()
         guard let plan else { return completion(.success(nil)) }
         let calendar = Calendar(identifier: .gregorian)
         completion(.success(calendar.isDate(plan.weekStartDate, inSameDayAs: weekStartDate) ? plan : nil))
     }
 
     func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[WeeklyPlan], Error>) -> Void) {
+        let plan = planState.read()
         guard let plan, plan.weekStartDate >= startDate, plan.weekStartDate <= endDate else {
             return completion(.success([]))
         }
@@ -860,27 +868,34 @@ private final class StubWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
     }
 
     func savePlan(_ plan: WeeklyPlan, completion: @escaping @Sendable (Result<WeeklyPlan, Error>) -> Void) {
-        self.plan = plan
+        planState.write(plan)
         completion(.success(plan))
     }
 }
 
 private final class StubWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol {
-    var outcomesByPlanID: [UUID: [WeeklyOutcome]]
+    private let outcomesState: LockedTestState<[UUID: [WeeklyOutcome]]>
+
+    var outcomesByPlanID: [UUID: [WeeklyOutcome]] {
+        get { outcomesState.read() }
+        set { outcomesState.write(newValue) }
+    }
 
     init(outcomesByPlanID: [UUID: [WeeklyOutcome]] = [:]) {
-        self.outcomesByPlanID = outcomesByPlanID
+        self.outcomesState = LockedTestState(outcomesByPlanID)
     }
 
     func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void) {
-        completion(.success(outcomesByPlanID[weeklyPlanID] ?? []))
+        completion(.success(outcomesState.read()[weeklyPlanID] ?? []))
     }
 
     func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping @Sendable (Result<WeeklyOutcome, Error>) -> Void) {
-        var outcomes = outcomesByPlanID[outcome.weeklyPlanID] ?? []
-        outcomes.removeAll { $0.id == outcome.id }
-        outcomes.append(outcome)
-        outcomesByPlanID[outcome.weeklyPlanID] = outcomes
+        outcomesState.withValue { outcomesByPlanID in
+            var outcomes = outcomesByPlanID[outcome.weeklyPlanID] ?? []
+            outcomes.removeAll { $0.id == outcome.id }
+            outcomes.append(outcome)
+            outcomesByPlanID[outcome.weeklyPlanID] = outcomes
+        }
         completion(.success(outcome))
     }
 
@@ -889,31 +904,39 @@ private final class StubWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol
         outcomes: [WeeklyOutcome],
         completion: @escaping @Sendable (Result<[WeeklyOutcome], Error>) -> Void
     ) {
-        outcomesByPlanID[weeklyPlanID] = outcomes
+        outcomesState.withValue { $0[weeklyPlanID] = outcomes }
         completion(.success(outcomes))
     }
 
     func deleteOutcome(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        for key in outcomesByPlanID.keys {
-            outcomesByPlanID[key]?.removeAll { $0.id == id }
+        outcomesState.withValue { outcomesByPlanID in
+            for key in outcomesByPlanID.keys {
+                outcomesByPlanID[key]?.removeAll { $0.id == id }
+            }
         }
         completion(.success(()))
     }
 }
 
 private final class StubWeeklyReviewRepository: WeeklyReviewRepositoryProtocol {
-    var review: WeeklyReview?
+    private let reviewState: LockedTestState<WeeklyReview?>
+
+    var review: WeeklyReview? {
+        get { reviewState.read() }
+        set { reviewState.write(newValue) }
+    }
 
     init(review: WeeklyReview? = nil) {
-        self.review = review
+        self.reviewState = LockedTestState(review)
     }
 
     func fetchReview(weeklyPlanID: UUID, completion: @escaping @Sendable (Result<WeeklyReview?, Error>) -> Void) {
+        let review = reviewState.read()
         completion(.success(review?.weeklyPlanID == weeklyPlanID ? review : nil))
     }
 
     func saveReview(_ review: WeeklyReview, completion: @escaping @Sendable (Result<WeeklyReview, Error>) -> Void) {
-        self.review = review
+        reviewState.write(review)
         completion(.success(review))
     }
 }
@@ -998,23 +1021,42 @@ private final class StubWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
 }
 
 private final class RecordingWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
-    var draft: WeeklyReviewDraft?
-    var savedDrafts: [WeeklyReviewDraft] = []
-    var savedCompletedDecisionBatches: [[WeeklyReviewTaskDecision]] = []
+    private struct State {
+        var draft: WeeklyReviewDraft?
+        var savedDrafts: [WeeklyReviewDraft] = []
+        var savedCompletedDecisionBatches: [[WeeklyReviewTaskDecision]] = []
+    }
+
+    private let state = LockedTestState(State())
+
+    var draft: WeeklyReviewDraft? {
+        get { state.read().draft }
+        set { state.withValue { $0.draft = newValue } }
+    }
+    var savedDrafts: [WeeklyReviewDraft] {
+        get { state.read().savedDrafts }
+        set { state.withValue { $0.savedDrafts = newValue } }
+    }
+    var savedCompletedDecisionBatches: [[WeeklyReviewTaskDecision]] {
+        get { state.read().savedCompletedDecisionBatches }
+        set { state.withValue { $0.savedCompletedDecisionBatches = newValue } }
+    }
 
     func fetchDraft(
         weekStartDate: Date,
         completion: @escaping @Sendable (Result<WeeklyReviewDraft?, Error>) -> Void
     ) {
-        completion(.success(draft))
+        completion(.success(state.read().draft))
     }
 
     func saveDraft(
         _ draft: WeeklyReviewDraft,
         completion: @escaping @Sendable (Result<WeeklyReviewDraft, Error>) -> Void
     ) {
-        self.draft = draft
-        savedDrafts.append(draft)
+        state.withValue {
+            $0.draft = draft
+            $0.savedDrafts.append(draft)
+        }
         completion(.success(draft))
     }
 
@@ -1022,7 +1064,7 @@ private final class RecordingWeeklyReviewDraftStore: WeeklyReviewDraftStoreProto
         weekStartDate: Date,
         completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
-        draft = nil
+        state.withValue { $0.draft = nil }
         completion(.success(()))
     }
 
@@ -1030,7 +1072,7 @@ private final class RecordingWeeklyReviewDraftStore: WeeklyReviewDraftStoreProto
         weekStartDate: Date,
         completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
-        completion(.success(savedCompletedDecisionBatches.last ?? []))
+        completion(.success(state.read().savedCompletedDecisionBatches.last ?? []))
     }
 
     func saveCompletedTaskDecisions(
@@ -1038,29 +1080,34 @@ private final class RecordingWeeklyReviewDraftStore: WeeklyReviewDraftStoreProto
         weekStartDate: Date,
         completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
-        savedCompletedDecisionBatches.append(decisions)
+        state.withValue { $0.savedCompletedDecisionBatches.append(decisions) }
         completion(.success(decisions))
     }
 }
 
 private final class StubReflectionNoteRepository: ReflectionNoteRepositoryProtocol {
-    var notes: [ReflectionNote]
+    private let notesState: LockedTestState<[ReflectionNote]>
+
+    var notes: [ReflectionNote] {
+        get { notesState.read() }
+        set { notesState.write(newValue) }
+    }
 
     init(notes: [ReflectionNote] = []) {
-        self.notes = notes
+        self.notesState = LockedTestState(notes)
     }
 
     func fetchNotes(query: ReflectionNoteQuery, completion: @escaping @Sendable (Result<[ReflectionNote], Error>) -> Void) {
-        completion(.success(notes))
+        completion(.success(notesState.read()))
     }
 
     func saveNote(_ note: ReflectionNote, completion: @escaping @Sendable (Result<ReflectionNote, Error>) -> Void) {
-        notes.append(note)
+        notesState.withValue { $0.append(note) }
         completion(.success(note))
     }
 
     func deleteNote(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        notes.removeAll { $0.id == id }
+        notesState.withValue { $0.removeAll { $0.id == id } }
         completion(.success(()))
     }
 }

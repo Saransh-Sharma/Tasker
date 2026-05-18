@@ -512,8 +512,8 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
 
 @MainActor
 final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCTestCase {
-    private let backfillKey = "lifeboard.life_area_color_palette_backfill.v1"
-    private let runtimeMarkerKeys = [
+    nonisolated private static let backfillKey = "lifeboard.life_area_color_palette_backfill.v1"
+    nonisolated private static let runtimeMarkerKeys = [
         "lifeboard.habit.runtime.field_backfill.v1",
         "lifeboard.habit.runtime.repair_required.v1",
         "lifeboard.habit.runtime.repair_completed.v1",
@@ -523,15 +523,15 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
 
     override func setUp() {
         super.setUp()
-        clearRuntimeInitializerMarkers()
+        Self.clearRuntimeInitializerMarkers()
     }
 
     override func tearDown() {
-        clearRuntimeInitializerMarkers()
+        Self.clearRuntimeInitializerMarkers()
         super.tearDown()
     }
 
-    private func clearRuntimeInitializerMarkers() {
+    nonisolated private static func clearRuntimeInitializerMarkers() {
         for key in runtimeMarkerKeys {
             UserDefaults.standard.removeObject(forKey: key)
         }
@@ -546,19 +546,19 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
         let legacyID = UUID()
 
         context.performAndWait {
-            _ = insertLifeArea(in: context, id: UUID(), name: "General", color: nil)
-            _ = insertLifeArea(in: context, id: missingID, name: "Health", color: nil)
-            _ = insertLifeArea(in: context, id: invalidID, name: "Career", color: "not-a-hex")
-            _ = insertLifeArea(in: context, id: legacyID, name: "Learning", color: "#3B82F6")
+            Self.insertLifeArea(in: context, id: UUID(), name: "General", color: nil)
+            Self.insertLifeArea(in: context, id: missingID, name: "Health", color: nil)
+            Self.insertLifeArea(in: context, id: invalidID, name: "Career", color: "not-a-hex")
+            Self.insertLifeArea(in: context, id: legacyID, name: "Learning", color: "#3B82F6")
             try? context.save()
         }
 
         LifeBoardPersistentRuntimeInitializer().initialize(container: container)
 
         context.performAndWait {
-            let missingColor = fetchLifeAreaColor(in: context, id: missingID)
-            let invalidColor = fetchLifeAreaColor(in: context, id: invalidID)
-            let legacyColor = fetchLifeAreaColor(in: context, id: legacyID)
+            let missingColor = Self.fetchLifeAreaColor(in: context, id: missingID)
+            let invalidColor = Self.fetchLifeAreaColor(in: context, id: invalidID)
+            let legacyColor = Self.fetchLifeAreaColor(in: context, id: legacyID)
             XCTAssertEqual(missingColor, LifeAreaColorPalette.defaultHex(for: missingID))
             XCTAssertEqual(invalidColor, LifeAreaColorPalette.defaultHex(for: invalidID))
             XCTAssertEqual(legacyColor, LifeAreaColorPalette.normalizeOrMap(hex: "#3B82F6", for: legacyID))
@@ -567,7 +567,7 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
             XCTAssertTrue(HabitColorFamily.allCases.map(\.canonicalHex).contains(legacyColor ?? ""))
         }
 
-        XCTAssertTrue(UserDefaults.standard.bool(forKey: backfillKey))
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: Self.backfillKey))
     }
 
     func testInitializeSkipsColorBackfillAfterMarkerIsSet() throws {
@@ -576,8 +576,8 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
         let areaID = UUID()
 
         context.performAndWait {
-            _ = insertLifeArea(in: context, id: UUID(), name: "General", color: nil)
-            _ = insertLifeArea(in: context, id: areaID, name: "Health", color: nil)
+            Self.insertLifeArea(in: context, id: UUID(), name: "General", color: nil)
+            Self.insertLifeArea(in: context, id: areaID, name: "Health", color: nil)
             try? context.save()
         }
 
@@ -596,7 +596,7 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
         initializer.initialize(container: container)
 
         context.performAndWait {
-            XCTAssertNil(fetchLifeAreaColor(in: context, id: areaID))
+            XCTAssertNil(Self.fetchLifeAreaColor(in: context, id: areaID))
         }
     }
 
@@ -607,9 +607,9 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
         let habitID = UUID()
 
         context.performAndWait {
-            _ = insertLifeArea(in: context, id: UUID(), name: "General", color: nil)
-            _ = insertLifeArea(in: context, id: areaID, name: "Health", color: nil)
-            _ = insertHabit(in: context, id: habitID, lifeAreaID: areaID, colorHex: "#8A46B5")
+            Self.insertLifeArea(in: context, id: UUID(), name: "General", color: nil)
+            Self.insertLifeArea(in: context, id: areaID, name: "Health", color: nil)
+            Self.insertHabit(in: context, id: habitID, lifeAreaID: areaID, colorHex: "#8A46B5")
             try? context.save()
         }
 
@@ -652,8 +652,7 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
         return container
     }
 
-    @discardableResult
-    private func insertLifeArea(in context: NSManagedObjectContext, id: UUID, name: String, color: String?) -> NSManagedObject {
+    nonisolated private static func insertLifeArea(in context: NSManagedObjectContext, id: UUID, name: String, color: String?) {
         let object = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
         object.setValue(id, forKey: "id")
         object.setValue(name, forKey: "name")
@@ -664,11 +663,9 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
         object.setValue(Date(), forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
         object.setValue(Int32(1), forKey: "version")
-        return object
     }
 
-    @discardableResult
-    private func insertHabit(in context: NSManagedObjectContext, id: UUID, lifeAreaID: UUID, colorHex: String) -> NSManagedObject {
+    nonisolated private static func insertHabit(in context: NSManagedObjectContext, id: UUID, lifeAreaID: UUID, colorHex: String) {
         let object = NSEntityDescription.insertNewObject(forEntityName: "HabitDefinition", into: context)
         object.setValue(id, forKey: "id")
         object.setValue(lifeAreaID, forKey: "lifeAreaID")
@@ -680,10 +677,9 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
         object.setValue(Int32(0), forKey: "streakBest")
         object.setValue(Date(), forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
-        return object
     }
 
-    private func fetchLifeAreaColor(in context: NSManagedObjectContext, id: UUID) -> String? {
+    nonisolated private static func fetchLifeAreaColor(in context: NSManagedObjectContext, id: UUID) -> String? {
         let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
         request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
         request.fetchLimit = 1
@@ -1426,7 +1422,7 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
     }
 }
 
-private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
+private final class ProjectRepositoryStub: ProjectRepositoryProtocol, @unchecked Sendable {
     var projects: [Project]
     var taskCounts: [UUID: Int]
     var deleteError: Error?
@@ -1603,7 +1599,7 @@ private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
     }
 }
 
-private final class LifeAreaRepositoryStub: LifeAreaRepositoryProtocol {
+private final class LifeAreaRepositoryStub: LifeAreaRepositoryProtocol, @unchecked Sendable {
     var areas: [LifeArea]
     var deleteError: Error?
 
@@ -1638,7 +1634,7 @@ private final class LifeAreaRepositoryStub: LifeAreaRepositoryProtocol {
     }
 }
 
-private final class CoordinatorHabitRepositoryStub: HabitRepositoryProtocol {
+private final class CoordinatorHabitRepositoryStub: HabitRepositoryProtocol, @unchecked Sendable {
     var habitsByID: [UUID: HabitDefinitionRecord]
     var updateCallCount = 0
     var queuedUpdateErrors: [Error] = []
@@ -1672,7 +1668,7 @@ private final class CoordinatorHabitRepositoryStub: HabitRepositoryProtocol {
     }
 }
 
-private final class CoordinatorTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtocol {
+private final class CoordinatorTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtocol, @unchecked Sendable {
     var tasksByID: [UUID: TaskDefinition]
     private(set) var updateRequests: [UpdateTaskDefinitionRequest] = []
     var queuedUpdateErrors: [Error] = []
@@ -1830,7 +1826,7 @@ private final class CoordinatorSchedulingEngineStub: SchedulingEngineProtocol {
     }
 }
 
-private final class CoordinatorHabitRuntimeReadRepositoryStub: HabitRuntimeReadRepositoryProtocol {
+private final class CoordinatorHabitRuntimeReadRepositoryStub: HabitRuntimeReadRepositoryProtocol, @unchecked Sendable {
     var libraryRows: [HabitLibraryRow]
     private(set) var fetchHabitLibraryCallCount = 0
 
@@ -2124,8 +2120,7 @@ private extension CoreDataProjectRepositoryLifeAreaMutationTests {
         return container
     }
 
-    @discardableResult
-    static func makeLifeArea(in context: NSManagedObjectContext, id: UUID, name: String) -> NSManagedObject {
+    nonisolated static func makeLifeArea(in context: NSManagedObjectContext, id: UUID, name: String) {
         let object = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
         object.setValue(id, forKey: "id")
         object.setValue(name, forKey: "name")
@@ -2133,17 +2128,15 @@ private extension CoreDataProjectRepositoryLifeAreaMutationTests {
         object.setValue(false, forKey: "isArchived")
         object.setValue(Date(), forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
-        return object
     }
 
-    @discardableResult
-    static func makeProject(
+    nonisolated static func makeProject(
         in context: NSManagedObjectContext,
         id: UUID,
         name: String,
         lifeAreaID: UUID?,
         isDefault: Bool
-    ) -> NSManagedObject {
+    ) {
         let object = NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
         object.setValue(id, forKey: "id")
         object.setValue(name, forKey: "name")
@@ -2154,17 +2147,15 @@ private extension CoreDataProjectRepositoryLifeAreaMutationTests {
         object.setValue(Date(), forKey: "modifiedDate")
         object.setValue(Date(), forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
-        return object
     }
 
-    @discardableResult
-    static func makeTask(
+    nonisolated static func makeTask(
         in context: NSManagedObjectContext,
         id: UUID,
         title: String,
         projectID: UUID,
         lifeAreaID: UUID?
-    ) -> NSManagedObject {
+    ) {
         let object = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
         object.setValue(id, forKey: "id")
         object.setValue(title, forKey: "title")
@@ -2173,6 +2164,5 @@ private extension CoreDataProjectRepositoryLifeAreaMutationTests {
         object.setValue(false, forKey: "isComplete")
         object.setValue(Date(), forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
-        return object
     }
 }
