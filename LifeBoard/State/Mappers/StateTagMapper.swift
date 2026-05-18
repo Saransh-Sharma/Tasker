@@ -16,6 +16,17 @@ enum StateTagMapper {
         )
     }
 
+    static func validatedDomain(from object: NSManagedObject) throws -> TagDefinition {
+        TagDefinition(
+            id: try V2CoreDataRepositorySupport.requireStoredID(object.value(forKey: "id"), field: "tag.id"),
+            name: try V2CoreDataRepositorySupport.requireStoredNonEmpty(object.value(forKey: "name"), field: "tag.name"),
+            color: object.value(forKey: "color") as? String,
+            icon: object.value(forKey: "icon") as? String,
+            sortOrder: Int(object.value(forKey: "sortOrder") as? Int32 ?? 0),
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date()
+        )
+    }
+
     /// Executes apply.
     @discardableResult
     static func apply(_ model: TagDefinition, to object: NSManagedObject) -> NSManagedObject {

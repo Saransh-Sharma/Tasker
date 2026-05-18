@@ -265,12 +265,32 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol, @unch
                         userInfo: [NSLocalizedDescriptionKey: "Malformed occurrenceKey; expected canonical key with templateID, scheduledAt, and sourceID"]
                     )
                 }
-                let object = try V2CoreDataRepositorySupport.upsertByID(
+                let existingByKey = try V2CoreDataRepositorySupport.canonicalObject(
                     in: self.backgroundContext,
                     entityName: "ScheduleException",
-                    id: exception.id
+                    predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        NSPredicate(format: "scheduleTemplateID == %@", exception.scheduleTemplateID as CVarArg),
+                        NSPredicate(format: "occurrenceKey == %@", canonicalOccurrenceKey)
+                    ]),
+                    sort: [
+                        NSSortDescriptor(key: "createdAt", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
-                object.setValue(exception.id, forKey: "id")
+                let existingByID = try V2CoreDataRepositorySupport.canonicalObject(
+                    in: self.backgroundContext,
+                    entityName: "ScheduleException",
+                    predicate: NSPredicate(format: "id == %@", exception.id as CVarArg)
+                )
+                if let existingByID, let existingByKey, existingByID != existingByKey {
+                    self.backgroundContext.delete(existingByID)
+                }
+                let object = existingByKey
+                    ?? existingByID
+                    ?? NSEntityDescription.insertNewObject(forEntityName: "ScheduleException", into: self.backgroundContext)
+                if object.value(forKey: "id") == nil {
+                    object.setValue(exception.id, forKey: "id")
+                }
                 object.setValue(exception.scheduleTemplateID, forKey: "scheduleTemplateID")
                 object.setValue(canonicalOccurrenceKey, forKey: "occurrenceKey")
                 object.setValue(exception.action.rawValue, forKey: "action")

@@ -24,16 +24,7 @@ public final class CoreDataTagRepository: TagRepositoryProtocol, @unchecked Send
                         NSSortDescriptor(key: "id", ascending: true)
                     ]
                 )
-                let mapped = objects.map { object in
-                    TagDefinition(
-                        id: object.value(forKey: "id") as? UUID ?? UUID(),
-                        name: object.value(forKey: "name") as? String ?? "Tag",
-                        color: object.value(forKey: "color") as? String,
-                        icon: object.value(forKey: "icon") as? String,
-                        sortOrder: Int(object.value(forKey: "sortOrder") as? Int32 ?? 0),
-                        createdAt: object.value(forKey: "createdAt") as? Date ?? Date()
-                    )
-                }
+                let mapped = try objects.map(TagMapper.validatedDomain)
                 completion(.success(mapped))
             } catch {
                 completion(.failure(error))
@@ -47,12 +38,20 @@ public final class CoreDataTagRepository: TagRepositoryProtocol, @unchecked Send
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(tag.id, field: "tag.id")
                 let normalized = try V2CoreDataRepositorySupport.requireNonEmpty(tag.name, field: "tag.name")
-                let existing = try V2CoreDataRepositorySupport.canonicalObject(
+                let exactExisting = try V2CoreDataRepositorySupport.canonicalObject(
                     in: self.backgroundContext,
                     entityName: "Tag",
                     predicate: NSPredicate(format: "name =[c] %@", normalized),
                     sort: [NSSortDescriptor(key: "id", ascending: true)]
                 )
+                let normalizedIdentity = V2CoreDataRepositorySupport.normalizedIdentityString(normalized)
+                let existing = try exactExisting ?? V2CoreDataRepositorySupport.fetchObjects(
+                    in: self.backgroundContext,
+                    entityName: "Tag",
+                    sort: [NSSortDescriptor(key: "id", ascending: true)]
+                ).first { object in
+                    V2CoreDataRepositorySupport.normalizedIdentityString(object.value(forKey: "name")) == normalizedIdentity
+                }
                 if let existing {
                     if (existing.value(forKey: "color") as? String)?.isEmpty != false {
                         existing.setValue(tag.color, forKey: "color")

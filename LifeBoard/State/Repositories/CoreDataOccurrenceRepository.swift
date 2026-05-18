@@ -101,25 +101,54 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol, @
                     _ = try V2CoreDataRepositorySupport.requireID(occurrence.scheduleTemplateID, field: "occurrence.scheduleTemplateID")
                     _ = try V2CoreDataRepositorySupport.requireID(occurrence.sourceID, field: "occurrence.sourceID")
                     _ = try V2CoreDataRepositorySupport.requireNonEmpty(occurrence.occurrenceKey, field: "occurrence.occurrenceKey")
-                    let object = try V2CoreDataRepositorySupport.upsertByID(
+                    guard let canonicalOccurrenceKey = OccurrenceKeyCodec.canonicalize(
+                        occurrence.occurrenceKey,
+                        fallbackTemplateID: occurrence.scheduleTemplateID,
+                        fallbackSourceID: occurrence.sourceID
+                    ) else {
+                        throw NSError(
+                            domain: "CoreDataOccurrenceRepository",
+                            code: 422,
+                            userInfo: [NSLocalizedDescriptionKey: "Malformed occurrenceKey; expected canonical key with templateID, scheduledAt, and sourceID"]
+                        )
+                    }
+                    let existingByID = try V2CoreDataRepositorySupport.canonicalObject(
                         in: self.backgroundContext,
                         entityName: "Occurrence",
-                        id: occurrence.id
+                        predicate: NSPredicate(format: "id == %@", occurrence.id as CVarArg)
                     )
-                    let persistedKey = (object.value(forKey: "occurrenceKey") as? String)?
+                    let persistedKey = (existingByID?.value(forKey: "occurrenceKey") as? String)?
                         .trimmingCharacters(in: .whitespacesAndNewlines)
-                    if let persistedKey, persistedKey.isEmpty == false, persistedKey != occurrence.occurrenceKey {
+                    if let persistedKey, persistedKey.isEmpty == false, persistedKey != canonicalOccurrenceKey {
                         throw NSError(
                             domain: "CoreDataOccurrenceRepository",
                             code: 409,
                             userInfo: [
                                 NSLocalizedDescriptionKey:
-                                    "Occurrence key is immutable (id=\(occurrence.id.uuidString), existing=\(persistedKey), incoming=\(occurrence.occurrenceKey))"
+                                    "Occurrence key is immutable (id=\(occurrence.id.uuidString), existing=\(persistedKey), incoming=\(canonicalOccurrenceKey))"
                             ]
                         )
                     }
-                    object.setValue(occurrence.id, forKey: "id")
-                    object.setValue(persistedKey?.isEmpty == false ? persistedKey : occurrence.occurrenceKey, forKey: "occurrenceKey")
+                    let existingByKey = try V2CoreDataRepositorySupport.canonicalObject(
+                        in: self.backgroundContext,
+                        entityName: "Occurrence",
+                        predicate: NSPredicate(format: "occurrenceKey == %@", canonicalOccurrenceKey),
+                        sort: [
+                            NSSortDescriptor(key: "updatedAt", ascending: false),
+                            NSSortDescriptor(key: "createdAt", ascending: true),
+                            NSSortDescriptor(key: "id", ascending: true)
+                        ]
+                    )
+                    if let existingByID, let existingByKey, existingByID != existingByKey {
+                        self.backgroundContext.delete(existingByID)
+                    }
+                    let object = existingByKey
+                        ?? existingByID
+                        ?? NSEntityDescription.insertNewObject(forEntityName: "Occurrence", into: self.backgroundContext)
+                    if object.value(forKey: "id") == nil {
+                        object.setValue(occurrence.id, forKey: "id")
+                    }
+                    object.setValue(canonicalOccurrenceKey, forKey: "occurrenceKey")
                     object.setValue(occurrence.scheduleTemplateID, forKey: "scheduleTemplateID")
                     object.setValue(occurrence.sourceType.rawValue, forKey: "sourceType")
                     object.setValue(occurrence.sourceID, forKey: "sourceID")

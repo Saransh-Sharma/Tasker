@@ -15,6 +15,18 @@ struct V2CoreDataRepositorySupport {
         return id
     }
 
+    /// Executes requireStoredID.
+    static func requireStoredID(_ value: Any?, field: String) throws -> UUID {
+        guard let id = value as? UUID else {
+            throw NSError(
+                domain: "V2CoreDataRepositorySupport",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "\(field) cannot be nil/zero UUID"]
+            )
+        }
+        return try requireID(id, field: field)
+    }
+
     /// Executes requireNonEmpty.
     static func requireNonEmpty(_ value: String, field: String) throws -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -26,6 +38,25 @@ struct V2CoreDataRepositorySupport {
             )
         }
         return trimmed
+    }
+
+    /// Executes requireStoredNonEmpty.
+    static func requireStoredNonEmpty(_ value: Any?, field: String) throws -> String {
+        guard let string = value as? String else {
+            throw NSError(
+                domain: "V2CoreDataRepositorySupport",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "\(field) cannot be empty"]
+            )
+        }
+        return try requireNonEmpty(string, field: field)
+    }
+
+    static func normalizedIdentityString(_ value: Any?) -> String? {
+        guard let string = value as? String else { return nil }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return nil }
+        return trimmed.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 
     /// Executes compositeKey.
