@@ -11,12 +11,14 @@ import SwiftUI
 // MARK: - Snackbar Data
 
 struct SnackbarData: Equatable {
+    let id: UUID
     let message: String
     let actions: [SnackbarAction]
     let autoDismissSeconds: TimeInterval
 
     /// Initializes a new instance.
-    init(message: String, actions: [SnackbarAction] = [], autoDismissSeconds: TimeInterval = 5.0) {
+    init(id: UUID = UUID(), message: String, actions: [SnackbarAction] = [], autoDismissSeconds: TimeInterval = 5.0) {
+        self.id = id
         self.message = message
         self.actions = actions
         self.autoDismissSeconds = autoDismissSeconds
@@ -24,7 +26,7 @@ struct SnackbarData: Equatable {
 
     /// Executes ==.
     static func == (lhs: SnackbarData, rhs: SnackbarData) -> Bool {
-        lhs.message == rhs.message
+        lhs.id == rhs.id
     }
 }
 
@@ -141,6 +143,7 @@ struct SnackbarModifier: ViewModifier {
                 LifeBoardSnackbar(data: data) {
                     snackbar = nil
                 }
+                .id(data.id)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(100)
             }

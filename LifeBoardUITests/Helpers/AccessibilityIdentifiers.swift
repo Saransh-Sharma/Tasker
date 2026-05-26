@@ -101,6 +101,7 @@ enum AccessibilityIdentifiers {
         static let habitsSectionAction = "home.habits.section.action"
         static let habitsOpenBoard = "home.habits.openBoard"
         static let habitsAddHabit = "home.habits.addHabit"
+        static let habitsHint = "home.habits.hint"
         static let quietTrackingSummary = "home.quietTracking.summary"
         static let quietTrackingSheet = "home.quietTracking.sheet"
         static let quietTrackingSheetScroll = "home.quietTracking.sheet.scroll"
@@ -120,6 +121,7 @@ enum AccessibilityIdentifiers {
         static func habitRowTitle(_ id: String) -> String { "home.habitRow.title.\(id)" }
         static func habitRowStrip(_ id: String) -> String { "home.habitRow.strip.\(id)" }
         static func habitRowLastCell(_ id: String) -> String { "home.habitRow.lastCell.\(id)" }
+        static func sunriseHabitRow(_ id: String) -> String { "home.habits.row.\(id)" }
         static func timelineTask(_ id: String) -> String { "home.timeline.task.\(id)" }
         static func timelineEvent(_ id: String) -> String { "home.timeline.event.\(id)" }
         static func sunriseFilter(_ id: String) -> String { "home.sunrise.filter.\(id)" }
