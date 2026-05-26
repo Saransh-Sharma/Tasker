@@ -44,6 +44,41 @@ struct WatchSnapshotProvider: TimelineProvider {
     }
 }
 
+private enum WatchSunriseStyle {
+    static let violet = Color(red: 0.41, green: 0.26, blue: 1.00)
+    static let sunriseGold = Color(red: 1.00, green: 0.70, blue: 0.00)
+    static let sky = Color(red: 0.18, green: 0.55, blue: 1.00)
+    static let leaf = Color(red: 0.16, green: 0.71, blue: 0.25)
+    static let peach = Color(red: 1.00, green: 0.48, blue: 0.24)
+    static let rose = Color(red: 0.96, green: 0.31, blue: 0.58)
+    static let quiet = Color.secondary
+
+    static func timelineTint(for item: TaskListWidgetTimelineItem?) -> Color {
+        guard let item else { return violet }
+        switch item.source {
+        case .calendarEvent:
+            return violet
+        case .task:
+            return leaf
+        }
+    }
+
+    static func habitTint(for state: TaskListWidgetHabitTodayState) -> Color {
+        switch state {
+        case .completedToday:
+            return leaf
+        case .due, .tracking:
+            return sunriseGold
+        case .overdue, .lapsedToday:
+            return peach
+        case .skippedToday:
+            return sky
+        case .empty:
+            return quiet
+        }
+    }
+}
+
 struct WatchTimelineComplication: Widget {
     let kind = "WatchTimelineComplication"
 
@@ -97,11 +132,13 @@ private struct WatchTimelineComplicationView: View {
             switch family {
             case .accessoryInline:
                 Label(inlineText, systemImage: primary?.systemImageName ?? "calendar")
+                    .foregroundStyle(WatchSunriseStyle.timelineTint(for: primary))
             case .accessoryCircular:
                 WatchAccessoryBackground {
                     VStack(spacing: 1) {
                         Image(systemName: primary?.systemImageName ?? "calendar")
                             .font(.caption)
+                            .foregroundStyle(WatchSunriseStyle.timelineTint(for: primary))
                             .widgetAccentable()
                         Text(primary.map(WatchFormat.timeOrCount(_:)) ?? "\(timeline.watchDisplayItems(limit: 9).count)")
                             .font(.caption2.weight(.semibold))
@@ -115,6 +152,7 @@ private struct WatchTimelineComplicationView: View {
                     Text(primary.map(WatchFormat.timeOrCount(_:)) ?? "Open")
                 }
                 .gaugeStyle(.accessoryCircular)
+                .tint(WatchSunriseStyle.timelineTint(for: primary))
                 .widgetLabel(primary?.title ?? "Timeline")
                 .widgetURL(WatchRoutes.timeline)
             case .accessoryRectangular:
@@ -122,13 +160,15 @@ private struct WatchTimelineComplicationView: View {
                     WatchRectangularLine(
                         symbol: primary?.systemImageName ?? "calendar",
                         title: primary?.title ?? "Open timeline",
-                        detail: primary.map(WatchFormat.itemDetail(_:)) ?? "No scheduled items"
+                        detail: primary.map(WatchFormat.itemDetail(_:)) ?? "No scheduled items",
+                        tint: WatchSunriseStyle.timelineTint(for: primary)
                     )
                     if let secondary {
                         WatchRectangularLine(
                             symbol: secondary.systemImageName,
                             title: secondary.title,
-                            detail: WatchFormat.itemDetail(secondary)
+                            detail: WatchFormat.itemDetail(secondary),
+                            tint: WatchSunriseStyle.timelineTint(for: secondary)
                         )
                     }
                 }
@@ -164,11 +204,13 @@ private struct WatchMeetingScheduleComplicationView: View {
             switch family {
             case .accessoryInline:
                 Label(inlineText, systemImage: "calendar.badge.clock")
+                    .foregroundStyle(meeting == nil ? WatchSunriseStyle.sky : WatchSunriseStyle.violet)
             case .accessoryCircular:
                 WatchAccessoryBackground {
                     VStack(spacing: 1) {
                         Image(systemName: meeting == nil ? "checkmark.circle" : "calendar.badge.clock")
                             .font(.caption)
+                            .foregroundStyle(meeting == nil ? WatchSunriseStyle.sky : WatchSunriseStyle.violet)
                             .widgetAccentable()
                         Text(circularText)
                             .font(.caption2.weight(.semibold))
@@ -182,6 +224,7 @@ private struct WatchMeetingScheduleComplicationView: View {
                     Text(circularText)
                 }
                 .gaugeStyle(.accessoryCircular)
+                .tint(meeting == nil ? WatchSunriseStyle.sky : WatchSunriseStyle.violet)
                 .widgetLabel(meeting?.event.title ?? "Clear")
             case .accessoryRectangular:
                 WatchRectangularShell(title: meeting?.isInProgress == true ? "Meeting Now" : "Next Meeting") {
@@ -189,7 +232,8 @@ private struct WatchMeetingScheduleComplicationView: View {
                         WatchRectangularLine(
                             symbol: "calendar.badge.clock",
                             title: meeting.event.title,
-                            detail: WatchFormat.meetingDetail(meeting, freeUntil: calendar.freeUntil)
+                            detail: WatchFormat.meetingDetail(meeting, freeUntil: calendar.freeUntil),
+                            tint: WatchSunriseStyle.violet
                         )
                         Text(meeting.event.calendarTitle)
                             .font(.caption2)
@@ -199,7 +243,8 @@ private struct WatchMeetingScheduleComplicationView: View {
                         WatchRectangularLine(
                             symbol: "checkmark.circle",
                             title: "No meetings",
-                            detail: calendar.freeUntil.map { "Free until \(WatchFormat.time($0))" } ?? "Clear window"
+                            detail: calendar.freeUntil.map { "Free until \(WatchFormat.time($0))" } ?? "Clear window",
+                            tint: WatchSunriseStyle.sky
                         )
                     }
                 }
@@ -256,6 +301,7 @@ private struct WatchHabitStreakComplicationView: View {
             switch family {
             case .accessoryInline:
                 Label(inlineText, systemImage: primary?.iconSymbolName ?? "flame")
+                    .foregroundStyle(primary.map { WatchSunriseStyle.habitTint(for: $0.todayState) } ?? WatchSunriseStyle.sunriseGold)
             case .accessoryCircular:
                 WatchAccessoryBackground {
                     Gauge(value: Double(primary?.currentStreak ?? entry.gamificationSnapshot.streakDays), in: 0...Double(max(primary?.bestStreak ?? entry.gamificationSnapshot.bestStreak, 1))) {
@@ -266,6 +312,7 @@ private struct WatchHabitStreakComplicationView: View {
                             .minimumScaleFactor(0.65)
                     }
                     .gaugeStyle(.accessoryCircular)
+                    .tint(primary.map { WatchSunriseStyle.habitTint(for: $0.todayState) } ?? WatchSunriseStyle.sunriseGold)
                 }
             case .accessoryCorner:
                 Gauge(value: Double(primary?.currentStreak ?? entry.gamificationSnapshot.streakDays), in: 0...Double(max(primary?.bestStreak ?? entry.gamificationSnapshot.bestStreak, 1))) {
@@ -274,13 +321,15 @@ private struct WatchHabitStreakComplicationView: View {
                     Text("\(primary?.currentStreak ?? entry.gamificationSnapshot.streakDays)d")
                 }
                 .gaugeStyle(.accessoryCircular)
+                .tint(primary.map { WatchSunriseStyle.habitTint(for: $0.todayState) } ?? WatchSunriseStyle.sunriseGold)
                 .widgetLabel(primary?.title ?? "Streak")
             case .accessoryRectangular:
                 WatchRectangularShell(title: "Habit Streak") {
                     WatchRectangularLine(
                         symbol: primary?.iconSymbolName ?? "flame",
                         title: primary?.title ?? "No habit selected",
-                        detail: rectangularDetail
+                        detail: rectangularDetail,
+                        tint: primary.map { WatchSunriseStyle.habitTint(for: $0.todayState) } ?? WatchSunriseStyle.sunriseGold
                     )
                     WatchHabitWeekDots(days: primary?.week ?? [])
                 }
@@ -334,7 +383,7 @@ private struct WatchRectangularShell<Content: View>: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title.uppercased())
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WatchSunriseStyle.sunriseGold)
                 .lineLimit(1)
             content()
         }
@@ -346,11 +395,13 @@ private struct WatchRectangularLine: View {
     let symbol: String
     let title: String
     let detail: String
+    var tint: Color = WatchSunriseStyle.violet
 
     var body: some View {
         HStack(alignment: .top, spacing: 4) {
             Image(systemName: symbol)
                 .font(.caption2)
+                .foregroundStyle(tint)
                 .widgetAccentable()
                 .frame(width: 12)
             VStack(alignment: .leading, spacing: 0) {
@@ -383,11 +434,11 @@ private struct WatchHabitWeekDots: View {
     private func color(for state: TaskListWidgetHabitDayState) -> Color {
         switch state {
         case .success:
-            return .green
+            return WatchSunriseStyle.leaf
         case .failure:
-            return .red
+            return WatchSunriseStyle.peach
         case .skipped:
-            return .yellow
+            return WatchSunriseStyle.sky
         case .none:
             return .secondary.opacity(0.35)
         case .future:
