@@ -8,7 +8,6 @@
 import SwiftUI
 
 private enum SunriseHabitDetailSection: Hashable {
-    case progress
     case rhythm
     case appearance
     case lifecycle
@@ -125,9 +124,7 @@ struct SunriseHabitDetailScreen: View {
     private var readOnlyContent: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             heroCard
-            todayActionCard
-            compactHistoryCard
-            progressDisclosure
+            habitProgressCard
             rhythmDisclosure
             lifecycleDisclosure
         }
@@ -187,12 +184,31 @@ struct SunriseHabitDetailScreen: View {
         .lifeboardPremiumSurface(cornerRadius: LifeBoardTheme.CornerRadius.card, fillColor: Color.lifeboard.surfacePrimary, accentColor: accentColor, level: .e2)
     }
 
-    private var todayActionCard: some View {
+    private var habitProgressCard: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: spacing.s8) { habitMetrics }
-                VStack(spacing: spacing.s8) { habitMetrics }
+            VStack(alignment: .leading, spacing: spacing.s4) {
+                Text("Habit Progress")
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                Text("A quiet view of the last \(HabitDetailCalendarBuilder.historyDayCount) days.")
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+
+            SunriseHabitCalendarSection(
+                row: viewModel.row,
+                viewState: viewModel.calendarViewState,
+                helperText: viewModel.detailCalendarHelperText,
+                isLoading: viewModel.isCalendarLoading,
+                isSaving: viewModel.isSaving,
+                onTapDay: mutate
+            )
+
+            SunriseHabitMetricGrid(
+                metrics: viewModel.calendarViewState.summaryMetrics,
+                accentColor: accentColor
+            )
 
             if let todayCell {
                 Button(todayActionTitle(for: todayCell), systemImage: todayActionSymbol(for: todayCell)) {
@@ -203,54 +219,12 @@ struct SunriseHabitDetailScreen: View {
             }
         }
         .padding(spacing.s12)
-        .lifeboardChromeSurface(cornerRadius: LifeBoardTheme.CornerRadius.card, accentColor: accentColor, level: .e1)
-    }
-
-    @ViewBuilder
-    private var habitMetrics: some View {
-        LifeBoardHeroMetricTile(
-            title: "Current streak",
-            value: "\(viewModel.row.currentStreak)d",
-            detail: viewModel.row.bestStreak > 0 ? "Best \(viewModel.row.bestStreak)d" : "Fresh cycle",
-            tone: viewModel.row.currentStreak > 0 ? .success : .neutral
+        .lifeboardPremiumSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.card,
+            fillColor: Color.lifeboard.surfacePrimary,
+            accentColor: accentColor,
+            level: .e1
         )
-        LifeBoardHeroMetricTile(
-            title: "Next due",
-            value: nextDueSummary,
-            detail: cadenceSummary(viewModel.row.cadence),
-            tone: viewModel.row.isPaused || viewModel.row.isArchived ? .neutral : .accent
-        )
-    }
-
-    private var compactHistoryCard: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            Text("Last 14 days")
-                .font(.lifeboard(.headline))
-                .foregroundStyle(Color.lifeboard.textPrimary)
-            HabitHistoryStripView(
-                marks: viewModel.historyMarks,
-                cadence: viewModel.row.cadence,
-                family: colorFamily
-            )
-            Text("Small steps, big changes.")
-                .font(.lifeboard(.callout))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-        }
-        .padding(spacing.s12)
-        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.card, fillColor: Color.lifeboard.surfacePrimary)
-    }
-
-    private var progressDisclosure: some View {
-        disclosureCard(.progress, title: "Progress", systemImage: "chart.bar.xaxis", summary: viewModel.detailCalendarHelperText, accessibilityIdentifier: nil) {
-            SunriseHabitCalendarSection(
-                row: viewModel.row,
-                viewState: viewModel.calendarViewState,
-                helperText: viewModel.detailCalendarHelperText,
-                isLoading: viewModel.isCalendarLoading,
-                isSaving: viewModel.isSaving,
-                onTapDay: mutate
-            )
-        }
     }
 
     private var rhythmDisclosure: some View {
@@ -527,15 +501,6 @@ struct SunriseHabitDetailScreen: View {
         return "leaf.fill"
     }
 
-    private var nextDueSummary: String {
-        if let nextDueAt = viewModel.row.nextDueAt {
-            return nextDueAt.formatted(date: .abbreviated, time: .shortened)
-        }
-        if viewModel.row.isPaused { return "Paused" }
-        if viewModel.row.isArchived { return String(localized: "Archived", defaultValue: "Archived") }
-        return "Not scheduled"
-    }
-
     private var reminderSummary: String {
         let startText = viewModel.row.reminderWindowStart?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let endText = viewModel.row.reminderWindowEnd?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -719,6 +684,10 @@ private enum SunriseHabitDetailAccessibilityID {
     static let helperText = "habitDetail.helperText"
     static let editButton = "habitDetail.editButton"
     static let saveButton = "habitDetail.saveButton"
+    static let currentStreakMetric = "habitDetail.metric.currentStreak"
+    static let bestStreakMetric = "habitDetail.metric.bestStreak"
+    static let totalCountMetric = "habitDetail.metric.totalCount"
+    static let completionRateMetric = "habitDetail.metric.completionRate"
 }
 
 private enum SunriseHabitCalendarMetrics {
@@ -751,6 +720,111 @@ enum HabitDetailCalendarLayoutMetrics {
 
     static func requiredWidth(for availableWidth: CGFloat) -> CGFloat {
         SunriseHabitCalendarMetrics.requiredWidth(for: availableWidth)
+    }
+}
+
+private struct SunriseHabitMetricGrid: View {
+    let metrics: HabitDetailCalendarSummaryMetrics
+    let accentColor: Color
+
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: spacing.s8) {
+                metricTiles
+            }
+
+            LazyVGrid(columns: compactColumns, spacing: spacing.s8) {
+                metricTiles
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var metricTiles: some View {
+        SunriseHabitMetricTile(
+            title: "Current",
+            subtitle: "Streak",
+            value: metrics.currentStreakDisplay,
+            valueColor: accentColor,
+            accessibilityIdentifier: SunriseHabitDetailAccessibilityID.currentStreakMetric
+        )
+        SunriseHabitMetricTile(
+            title: "Longest",
+            subtitle: "Streak",
+            value: metrics.bestStreakDisplay,
+            valueColor: Color.lifeboard.textPrimary,
+            accessibilityIdentifier: SunriseHabitDetailAccessibilityID.bestStreakMetric
+        )
+        SunriseHabitMetricTile(
+            title: "Total",
+            subtitle: "Count",
+            value: metrics.totalCountDisplay,
+            valueColor: Color.lifeboard.textPrimary,
+            accessibilityIdentifier: SunriseHabitDetailAccessibilityID.totalCountMetric
+        )
+        SunriseHabitMetricTile(
+            title: "Completion",
+            subtitle: "Rate",
+            value: metrics.completionRateDisplay,
+            valueColor: completionRateColor,
+            accessibilityIdentifier: SunriseHabitDetailAccessibilityID.completionRateMetric
+        )
+    }
+
+    private var compactColumns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: spacing.s8),
+            GridItem(.flexible(), spacing: spacing.s8)
+        ]
+    }
+
+    private var completionRateColor: Color {
+        metrics.completionRate >= 0.5 ? accentColor : Color.lifeboard.textPrimary
+    }
+}
+
+private struct SunriseHabitMetricTile: View {
+    let title: String
+    let subtitle: String
+    let value: String
+    let valueColor: Color
+    let accessibilityIdentifier: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(value)
+                .font(.lifeboard(.title2))
+                .bold()
+                .monospacedDigit()
+                .foregroundStyle(valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .contentTransition(.numericText())
+
+            Text(title.uppercased())
+                .font(.lifeboard(.meta))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .lineLimit(1)
+
+            Text(subtitle.uppercased())
+                .font(.lifeboard(.meta))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+        .padding(.horizontal, LifeBoardTheme.Spacing.md)
+        .padding(.vertical, LifeBoardTheme.Spacing.sm)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.md,
+            fillColor: Color.lifeboard.surfaceSecondary.opacity(0.72),
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.78)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .animation(LifeBoardAnimation.numericUpdate, value: value)
     }
 }
 
@@ -846,17 +920,20 @@ private struct SunriseHabitCalendarDayCell: View {
     let action: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
         Button(action: action) {
+            let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
             ZStack {
-                Rectangle().fill(fillColor)
-                Rectangle().strokeBorder(borderColor, style: strokeStyle)
+                shape.fill(fillColor)
+                shape.strokeBorder(borderColor, style: strokeStyle)
                 if cell.cell.isToday {
-                    Rectangle()
+                    shape
                         .strokeBorder(Color.lifeboard.accentPrimary, lineWidth: 1.6)
                         .padding(1)
                 }
+                differentiateOverlay
                 Text(cell.dayNumber)
                     .font(.lifeboard(.callout).weight(textWeight))
                     .foregroundStyle(textColor)
@@ -869,10 +946,28 @@ private struct SunriseHabitCalendarDayCell: View {
         .disabled(!cell.cell.isInteractive || isSaving)
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier(cell.accessibilityIdentifier)
-        .accessibilityLabel(cell.accessibilityLabel)
+        .accessibilityLabel("\(row.title), \(cell.accessibilityLabel)")
         .accessibilityValue(cell.accessibilityValue)
         .accessibilityHint(cell.accessibilityHint)
         .accessibilityAddTraits(cell.cell.isInteractive ? .isButton : .isStaticText)
+    }
+
+    @ViewBuilder
+    private var differentiateOverlay: some View {
+        if differentiateWithoutColor {
+            switch cell.cell.state {
+            case .lapsed, .empty:
+                Rectangle()
+                    .fill(Color.lifeboard.textSecondary.opacity(0.22))
+                    .frame(width: side * 0.42, height: 1)
+            case .skipped, .notScheduled:
+                Circle()
+                    .fill(Color.lifeboard.textSecondary.opacity(0.55))
+                    .frame(width: 5, height: 5)
+            case .success, .future:
+                EmptyView()
+            }
+        }
     }
 
     private var colorFamily: HabitColorFamily {
@@ -895,7 +990,7 @@ private struct SunriseHabitCalendarDayCell: View {
     private var borderColor: Color {
         switch cell.cell.state {
         case .lapsed:
-            return Color.lifeboard.statusWarning.opacity(0.38)
+            return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.96)
         default:
             return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.78)
         }
@@ -915,7 +1010,7 @@ private struct SunriseHabitCalendarDayCell: View {
         case .success:
             return (cell.streakDepth ?? 1) >= 4 ? Color.white.opacity(0.98) : Color.lifeboard.textPrimary
         case .lapsed:
-            return Color.lifeboard.statusWarning
+            return Color.lifeboard.textSecondary
         case .future, .notScheduled:
             return Color.lifeboard.textTertiary
         default:

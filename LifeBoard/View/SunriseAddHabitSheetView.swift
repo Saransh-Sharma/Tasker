@@ -86,6 +86,7 @@ public struct SunriseAddHabitSheetView: View {
         }
         .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 720 : .infinity, alignment: .center)
         .background(SunriseHabitSheetBackground().ignoresSafeArea())
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("addHabit.view")
         .presentationDetents([.medium, .large], selection: $selectedDetent)
         .presentationDragIndicator(.visible)

@@ -90,8 +90,10 @@ struct SunriseDaySwipeOverlay: View {
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(side.accessibilityLabel))
             .accessibilityIdentifier(side.accessibilityIdentifier)
+            .accessibilityHidden(!isInteractive)
             .opacity(isEnabled ? presentation.opacity * data.buttonOpacity : 0)
             .position(data.buttonCenter)
             .disabled(!isInteractive)
