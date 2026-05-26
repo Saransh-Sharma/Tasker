@@ -228,7 +228,7 @@ struct HabitBoardStripView: View {
 
     var body: some View {
         HStack(spacing: mode.spacing) {
-            ForEach(Array(cells.enumerated()), id: \.offset) { _, cell in
+            ForEach(cells, id: \.date) { cell in
                 HabitBoardCellView(
                     cell: cell,
                     family: family,
@@ -1166,7 +1166,7 @@ private struct HabitBoardCellView: View {
     private var doneGrainOverlay: some View {
         switch cell.state {
         case .done:
-            if mode.isMatrixLike {
+            if mode.isMatrixLike || mode == .homeList {
                 EmptyView()
             } else {
                 Canvas { context, size in
