@@ -34,7 +34,10 @@ struct HomeTimelineProjectionBuilder {
             hiddenCalendarEvents: input.hiddenCalendarEvents.sorted(),
             pinnedFocusTaskIDs: input.pinnedFocusTaskIDs,
             needsReplanCandidates: input.needsReplanCandidates.map(HomeTimelineReplanCandidateSignature.init),
-            replanState: HomeTimelineReplanStateSignature(input.replanState)
+            replanState: HomeTimelineReplanStateSignature(input.replanState),
+            taskCandidates: input.taskCandidates,
+            projects: input.projects,
+            lifeAreas: input.lifeAreas
         )
     }
 

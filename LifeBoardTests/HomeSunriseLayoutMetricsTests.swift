@@ -2684,6 +2684,73 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(queries.count, 2, "A data mutation should force one additional refresh")
     }
 
+    func testTimelineProjectionCacheReusesSnapshotForUnchangedTimelineInputs() {
+        let builder = HomeTimelineProjectionBuilder()
+        let input = makeTimelineProjectionInput()
+        var buildCount = 0
+
+        let first = builder.build(input: input, cached: nil) {
+            buildCount += 1
+            return makeTimelineSnapshot(selectedDay: input.selectedDay)
+        }
+        let second = builder.build(input: input, cached: first) {
+            buildCount += 1
+            return makeTimelineSnapshot(selectedDay: input.selectedDay.addingTimeInterval(60))
+        }
+
+        XCTAssertEqual(buildCount, 1)
+        XCTAssertEqual(second.key, first.key)
+        XCTAssertEqual(second.snapshot, first.snapshot)
+    }
+
+    func testTimelineProjectionCacheInvalidatesWhenTaskPlacementInputsChange() {
+        let builder = HomeTimelineProjectionBuilder()
+        let input = makeTimelineProjectionInput()
+        var buildCount = 0
+
+        let first = builder.build(input: input, cached: nil) {
+            buildCount += 1
+            return makeTimelineSnapshot(selectedDay: input.selectedDay)
+        }
+        let changedTaskInput = makeTimelineProjectionInput(taskCandidates: [
+            makeTimelineTask(on: input.selectedDay, title: "Deep work")
+        ])
+        let second = builder.build(input: changedTaskInput, cached: first) {
+            buildCount += 1
+            return makeTimelineSnapshot(selectedDay: changedTaskInput.selectedDay)
+        }
+
+        XCTAssertEqual(buildCount, 2)
+        XCTAssertNotEqual(second.key, first.key)
+    }
+
+    func testTimelineProjectionCacheInvalidatesWhenProjectTintInputsChange() {
+        let builder = HomeTimelineProjectionBuilder()
+        let input = makeTimelineProjectionInput()
+        var buildCount = 0
+
+        let first = builder.build(input: input, cached: nil) {
+            buildCount += 1
+            return makeTimelineSnapshot(selectedDay: input.selectedDay)
+        }
+        let lifeAreaID = UUID(uuidString: "E5D91716-087F-4B04-A5B6-3C0933703520")!
+        let changedTintInput = makeTimelineProjectionInput(
+            projects: [
+                Project(id: UUID(uuidString: "E8B1E526-A3F5-4856-8042-CA5DB010A236")!, lifeAreaID: lifeAreaID, name: "Work", icon: .work)
+            ],
+            lifeAreas: [
+                LifeArea(id: lifeAreaID, name: "Career", color: "#1A2B3C")
+            ]
+        )
+        let second = builder.build(input: changedTintInput, cached: first) {
+            buildCount += 1
+            return makeTimelineSnapshot(selectedDay: changedTintInput.selectedDay)
+        }
+
+        XCTAssertEqual(buildCount, 2)
+        XCTAssertNotEqual(second.key, first.key)
+    }
+
 }
 
 private extension HomeSunriseLayoutMetricsTests {
@@ -2863,6 +2930,106 @@ private extension HomeSunriseLayoutMetricsTests {
                 )
             }
         }
+    }
+
+    private func makeTimelineProjectionInput(
+        taskCandidates: [TaskDefinition] = [],
+        projects: [Project] = [],
+        lifeAreas: [LifeArea] = []
+    ) -> HomeTimelineProjectionInput {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let selectedDay = Date(timeIntervalSinceReferenceDate: 789_004_800)
+        let now = selectedDay.addingTimeInterval(12 * 60 * 60)
+
+        return HomeTimelineProjectionInput(
+            dataRevision: .zero,
+            selectedDay: selectedDay,
+            now: now,
+            calendar: calendar,
+            currentMinuteStamp: Int(now.timeIntervalSinceReferenceDate / 60),
+            sunriseAnchor: .collapsed,
+            calendarSnapshot: makeCalendarSnapshot(selectedDate: selectedDay),
+            workspacePreferences: LifeBoardWorkspacePreferences(),
+            hiddenCalendarEvents: [],
+            pinnedFocusTaskIDs: [],
+            needsReplanCandidates: [],
+            replanState: .hidden,
+            taskCandidates: taskCandidates,
+            taskIndexByID: Dictionary(uniqueKeysWithValues: taskCandidates.map { ($0.id, $0) }),
+            projects: projects,
+            lifeAreas: lifeAreas,
+            calendarWeekAgenda: []
+        )
+    }
+
+    private func makeCalendarSnapshot(selectedDate: Date) -> HomeCalendarSnapshot {
+        HomeCalendarSnapshot(
+            moduleState: .permissionRequired,
+            selectedDate: selectedDate,
+            authorizationStatus: .notDetermined,
+            accessAction: .requestPermission,
+            selectedCalendarCount: 0,
+            availableCalendarCount: 0,
+            nextMeeting: nil,
+            busyBlocks: [],
+            freeUntil: nil,
+            selectedDayEvents: [],
+            selectedDayTimelineEvents: [],
+            eventsTodayCount: 0,
+            isLoading: false,
+            errorMessage: nil
+        )
+    }
+
+    private func makeTimelineSnapshot(selectedDay: Date) -> HomeTimelineSnapshot {
+        let wake = selectedDay.addingTimeInterval(8 * 60 * 60)
+        let sleep = selectedDay.addingTimeInterval(22 * 60 * 60)
+        let wakeAnchor = TimelineAnchorItem(
+            id: "wake",
+            title: "Rise and shine",
+            time: wake,
+            systemImageName: "alarm.fill"
+        )
+        let sleepAnchor = TimelineAnchorItem(
+            id: "sleep",
+            title: "Wind down",
+            time: sleep,
+            systemImageName: "moon.fill"
+        )
+        return HomeTimelineSnapshot(
+            selectedDate: selectedDay,
+            sunriseAnchor: .collapsed,
+            day: TimelineDayProjection(
+                date: selectedDay,
+                allDayItems: [],
+                inboxItems: [],
+                timedItems: [],
+                gaps: [],
+                layoutMode: .compact,
+                wakeAnchor: wakeAnchor,
+                sleepAnchor: sleepAnchor,
+                activeItemID: nil,
+                currentTime: selectedDay.addingTimeInterval(12 * 60 * 60)
+            ),
+            week: TimelineWeekSummary(weekStart: selectedDay, weekStartsOn: .monday, days: []),
+            placementCandidate: nil
+        )
+    }
+
+    private func makeTimelineTask(on selectedDay: Date, title: String) -> TaskDefinition {
+        let start = selectedDay.addingTimeInterval(9 * 60 * 60)
+        return TaskDefinition(
+            id: UUID(uuidString: "5F24496E-8865-4B95-89B8-28CFAD7A692F")!,
+            title: title,
+            priority: .high,
+            dueDate: start,
+            scheduledStartAt: start,
+            scheduledEndAt: start.addingTimeInterval(45 * 60),
+            dateAdded: selectedDay,
+            createdAt: selectedDay,
+            updatedAt: selectedDay
+        )
     }
 }
 

@@ -184,6 +184,9 @@ struct HomeTimelineSnapshotCacheKey: Equatable {
     let pinnedFocusTaskIDs: [UUID]
     let needsReplanCandidates: [HomeTimelineReplanCandidateSignature]
     let replanState: HomeTimelineReplanStateSignature
+    let taskCandidates: [TaskDefinition]
+    let projects: [Project]
+    let lifeAreas: [LifeArea]
 }
 
 struct HomeTimelineCalendarSignature: Equatable {
@@ -820,6 +823,7 @@ public final class HomeViewModel: ObservableObject {
     private var suppressCompletionReloadUntil: Date?
     private var lastRecurringTopUpAt: Date?
     private var pendingRecurringTopUpTask: Task<Void, Never>?
+    private var pendingAdjacentDayPrefetchTask: Task<Void, Never>?
     private var recentShuffledFocusTaskIDs: [UUID] = []
 
     private let completionNotificationDebounceMS = 120
@@ -870,6 +874,7 @@ public final class HomeViewModel: ObservableObject {
 
     deinit {
         pendingRecurringTopUpTask?.cancel()
+        pendingAdjacentDayPrefetchTask?.cancel()
         catchUpReflectionPreviewTask?.cancel()
         reflectionContextPrefetchTask?.cancel()
     }
@@ -969,9 +974,6 @@ public final class HomeViewModel: ObservableObject {
             return
         }
         pendingHomeRenderInvalidation.formUnion(invalidation)
-        if invalidation.includes(.timeline) {
-            timelineSnapshotCache = nil
-        }
         if homeRenderStateRefreshBatchDepth > 0 {
             needsHomeRenderStateRefresh = true
             return
@@ -1005,9 +1007,6 @@ public final class HomeViewModel: ObservableObject {
         defer { LifeBoardPerformanceTrace.end(interval) }
         let invalidation = pendingHomeRenderInvalidation.isEmpty ? .all : pendingHomeRenderInvalidation
         pendingHomeRenderInvalidation = []
-        if invalidation.includes(.timeline) {
-            timelineSnapshotCache = nil
-        }
         if invalidation.includes(.chrome) {
             refreshDailyReflectionEntryPreviewIfNeeded()
         }
@@ -2546,6 +2545,9 @@ public final class HomeViewModel: ObservableObject {
     private func loadProjects(generation: Int) {
         let interval = LifeBoardPerformanceTrace.begin("HomeLoadProjects")
         useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
+            let preparedResult = result.map { projectsWithStats in
+                projectsWithStats.map { $0.project }
+            }
             Task { @MainActor in
                 defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
@@ -2553,9 +2555,8 @@ public final class HomeViewModel: ObservableObject {
                     logDebug("HOME_ROW_STATE vm.drop_stale_reload source=projects generation=\(generation)")
                     return
                 }
-                switch result {
-                case .success(let projectsWithStats):
-                    let loadedProjects = projectsWithStats.map { $0.project }
+                switch preparedResult {
+                case .success(let loadedProjects):
                     self.assignIfChanged(\.projects, loadedProjects)
                     self.seedPinnedProjectsIfNeeded(from: loadedProjects)
                     self.normalizeCustomProjectOrderIfNeeded(from: loadedProjects)
@@ -2570,20 +2571,22 @@ public final class HomeViewModel: ObservableObject {
     /// Executes loadLifeAreas.
     private func loadLifeAreas(generation: Int) {
         useCaseCoordinator.manageLifeAreas.list { [weak self] result in
+            let preparedResult = result.map { loadedLifeAreas in
+                loadedLifeAreas
+                    .filter { !$0.isArchived }
+                    .sorted {
+                        if $0.sortOrder != $1.sortOrder {
+                            return $0.sortOrder < $1.sortOrder
+                        }
+                        return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                    }
+            }
             Task { @MainActor in
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else { return }
 
-                switch result {
-                case .success(let loadedLifeAreas):
-                    let sortedLifeAreas = loadedLifeAreas
-                        .filter { !$0.isArchived }
-                        .sorted {
-                            if $0.sortOrder != $1.sortOrder {
-                                return $0.sortOrder < $1.sortOrder
-                            }
-                            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-                        }
+                switch preparedResult {
+                case .success(let sortedLifeAreas):
                     self.assignIfChanged(\.lifeAreas, sortedLifeAreas)
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
@@ -2596,6 +2599,11 @@ public final class HomeViewModel: ObservableObject {
     private func loadTags(generation: Int) {
         let interval = LifeBoardPerformanceTrace.begin("HomeLoadTags")
         useCaseCoordinator.manageTags.list { [weak self] result in
+            let preparedResult = result.map { loadedTags in
+                loadedTags.sorted {
+                    $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                }
+            }
             Task { @MainActor in
                 defer { LifeBoardPerformanceTrace.end(interval) }
                 guard let self else { return }
@@ -2604,11 +2612,8 @@ public final class HomeViewModel: ObservableObject {
                     return
                 }
 
-                switch result {
-                case .success(let loadedTags):
-                    let sortedTags = loadedTags.sorted {
-                        $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-                    }
+                switch preparedResult {
+                case .success(let sortedTags):
                     self.assignIfChanged(\.tags, sortedTags)
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
@@ -5651,15 +5656,30 @@ public final class HomeViewModel: ObservableObject {
                                 "advanced_filter": filterState.advancedFilter != nil
                             ])
                         }
-                        if scope.quickView == .today {
-                            self.prefetchAdjacentDays(around: targetDay)
-                        }
+                    }
+                    if scope.quickView == .today {
+                        self.scheduleAdjacentDayPrefetch(around: targetDay, generation: generation)
                     }
 
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }
             }
+        }
+    }
+
+    private func scheduleAdjacentDayPrefetch(around targetDay: Date, generation: Int) {
+        pendingAdjacentDayPrefetchTask?.cancel()
+        let baseDay = normalizedDay(targetDay)
+        pendingAdjacentDayPrefetchTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            guard self.isCurrentReloadGeneration(generation) else { return }
+            guard self.activeScope.quickView == .today else { return }
+            guard self.selectedDayMatches(baseDay, scope: self.activeScope) else { return }
+            self.prefetchAdjacentDays(around: baseDay)
+            self.pendingAdjacentDayPrefetchTask = nil
         }
     }
 
