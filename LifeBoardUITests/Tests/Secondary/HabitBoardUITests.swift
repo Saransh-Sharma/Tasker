@@ -66,6 +66,59 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(habitComposer.waitForExistence(timeout: 5), "Tapping the Home habits footer action should open the habit composer")
     }
 
+    func testSunriseHomeHabitGridRowsCycleWithToast() throws {
+        relaunchForSunriseHabitGridAssertions()
+
+        let hint = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.habitsHint]
+        XCTAssertTrue(hint.waitForExistence(timeout: 3), "Sunrise habits grid should explain that rows are tappable")
+
+        let positiveRow = try sunriseHomeHabitRow(title: "Drink water after breakfast")
+        XCTAssertEqual(positiveRow.value as? String, "Empty. Next: Mark done.")
+
+        positiveRow.tap()
+        XCTAssertTrue(
+            waitForElementValue(positiveRow, expectedAnyOf: ["Done. Next: Mark skipped."]),
+            "Tapping a positive Sunrise habit row should mark it done without removing the row"
+        )
+        XCTAssertTrue(positiveRow.exists, "Positive habit row should stay mounted after done state")
+        XCTAssertTrue(waitForHabitMutationToast(containing: "Marked done"), "Done tap should show mutation toast feedback")
+
+        positiveRow.tap()
+        XCTAssertTrue(
+            waitForElementValue(positiveRow, expectedAnyOf: ["Skipped. Next: Clear to empty."]),
+            "Second positive tap should mark skipped without removing the row"
+        )
+        XCTAssertTrue(positiveRow.exists, "Positive habit row should stay mounted after skipped state")
+        XCTAssertTrue(waitForHabitMutationToast(containing: "Marked skipped"), "Skipped tap should show mutation toast feedback")
+
+        positiveRow.tap()
+        XCTAssertTrue(
+            waitForElementValue(positiveRow, expectedAnyOf: ["Empty. Next: Mark done."]),
+            "Third positive tap should clear back to empty without removing the row"
+        )
+        XCTAssertTrue(positiveRow.exists, "Positive habit row should stay mounted after clear state")
+        XCTAssertTrue(waitForHabitMutationToast(containing: "Cleared to empty"), "Clear tap should show mutation toast feedback")
+
+        let negativeRow = try sunriseHomeHabitRow(title: "No phone in bed")
+        XCTAssertEqual(negativeRow.value as? String, "Empty. Next: Mark stayed clean.")
+
+        negativeRow.tap()
+        XCTAssertTrue(
+            waitForElementValue(negativeRow, expectedAnyOf: ["Stayed clean. Next: Mark lapsed."]),
+            "Tapping a negative Sunrise habit row should mark clean without removing the row"
+        )
+        XCTAssertTrue(negativeRow.exists, "Negative habit row should stay mounted after clean state")
+        XCTAssertTrue(waitForHabitMutationToast(containing: "Marked clean"), "Clean tap should show mutation toast feedback")
+
+        negativeRow.tap()
+        XCTAssertTrue(
+            waitForElementValue(negativeRow, expectedAnyOf: ["Lapsed. Next: Clear to empty."]),
+            "Lapsed negative habit should remain visible in the Sunrise habit grid"
+        )
+        XCTAssertTrue(negativeRow.exists, "Negative habit row should stay mounted after lapsed state")
+        XCTAssertTrue(waitForHabitMutationToast(containing: "Marked lapsed"), "Lapsed tap should show mutation toast feedback")
+    }
+
     func testHabitBoardShowsSevenDayMatrixAndPages() throws {
         openHabitBoard()
         _ = try requireHabitBoardRows(timeout: 12)
@@ -446,6 +499,41 @@ final class HabitBoardUITests: BaseUITest {
         return (rowID, firstStrip)
     }
 
+    private func sunriseHomeHabitRow(title: String, file: StaticString = #filePath, line: UInt = #line) throws -> XCUIElement {
+        dismissHabitBoardIfVisible()
+
+        let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
+        if backToTodayButton.waitForExistence(timeout: 2) && backToTodayButton.isHittable {
+            backToTodayButton.tap()
+        }
+
+        let rowQuery = app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "identifier MATCHES %@ AND label == %@",
+                #"^home\.habits\.row\.[A-Za-z0-9-]+$"#,
+                title
+            )
+        )
+        let firstRow = rowQuery.firstMatch
+
+        if firstRow.waitForExistence(timeout: 3) && firstRow.isHittable {
+            return firstRow
+        }
+
+        for _ in 0..<12 {
+            app.swipeUp()
+            if firstRow.exists && firstRow.isHittable {
+                break
+            }
+        }
+
+        guard firstRow.waitForExistence(timeout: 2) else {
+            throw XCTSkip("Sunrise home habit row '\(title)' is unavailable in the current UI test seed")
+        }
+        XCTAssertTrue(firstRow.isHittable, "Expected Sunrise home habit row to be hittable", file: file, line: line)
+        return firstRow
+    }
+
     private func firstHabitBoardRow() throws -> XCUIElement {
         do {
             return try requireHabitBoardRows(timeout: 12)
@@ -467,6 +555,26 @@ final class HabitBoardUITests: BaseUITest {
         let predicate = NSPredicate(format: "value == %@", expected)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    @discardableResult
+    private func waitForElementValue(_ element: XCUIElement, expectedAnyOf values: [String], timeout: TimeInterval = 5) -> Bool {
+        let predicate = NSPredicate { element, _ in
+            guard let element = element as? XCUIElement,
+                  let value = element.value as? String else {
+                return false
+            }
+            return values.contains(value)
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func waitForHabitMutationToast(containing text: String, timeout: TimeInterval = 3) -> Bool {
+        let toast = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS[c] %@", text)
+        ).firstMatch
+        return toast.waitForExistence(timeout: timeout)
     }
 
     private func relaunchWithPreferredContentSizeCategory(_ contentSizeCategory: String) {
@@ -507,6 +615,24 @@ final class HabitBoardUITests: BaseUITest {
             }
         )
         relaunchedApp.launchArguments.append(XCUIApplication.LaunchArgumentKey.testSeedEstablishedWorkspace.rawValue)
+        relaunchedApp.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        app = relaunchedApp
+        app.launch()
+        waitForAppLaunch()
+    }
+
+    private func relaunchForSunriseHabitGridAssertions() {
+        app.terminate()
+
+        let relaunchedApp = XCUIApplication()
+        relaunchedApp.launchArguments = [
+            "-RESET_APP_STATE",
+            "-UI_TESTING",
+            "-DISABLE_ANIMATIONS",
+            "-SKIP_ONBOARDING",
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
+            XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue
+        ]
         relaunchedApp.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         app = relaunchedApp
         app.launch()

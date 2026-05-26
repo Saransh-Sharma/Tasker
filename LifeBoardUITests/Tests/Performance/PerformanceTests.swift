@@ -87,6 +87,18 @@ class PerformanceTests: BaseUITest {
         takeScreenshot(named: "performance_scroll_end")
     }
 
+    func testHomeAllContentScrollHitches() throws {
+        try measureSeededHomeScrollHitches(scopeAccessibilityID: "home.sunrise.filter.all")
+    }
+
+    func testHomeTimelineOnlyScrollHitches() throws {
+        try measureSeededHomeScrollHitches(scopeAccessibilityID: "home.sunrise.filter.tasks")
+    }
+
+    func testHomeHabitsOnlyScrollHitches() throws {
+        try measureSeededHomeScrollHitches(scopeAccessibilityID: "home.sunrise.filter.habits")
+    }
+
     // MARK: - Test 68: Task Creation Performance
 
     func testTaskCreationPerformance() throws {
@@ -118,6 +130,36 @@ class PerformanceTests: BaseUITest {
             let addTaskPage = homePage.tapAddTask()
             _ = addTaskPage.verifyIsDisplayed()
             addTaskPage.tapCancel()
+        }
+    }
+
+    private func measureSeededHomeScrollHitches(scopeAccessibilityID: String) throws {
+        guard #available(iOS 19.0, *) else {
+            throw XCTSkip("XCTHitchMetric requires iOS 19.0 or later.")
+        }
+
+        app.terminate()
+        app.launchSeededTimelineWorkspace(calendarMode: "active")
+        homePage = HomePage(app: app)
+
+        let homeScrollView = app.scrollViews["home.view"].firstMatch
+        let homeSurface = homeScrollView.exists ? homeScrollView : app.otherElements["home.view"].firstMatch
+        XCTAssertTrue(homeSurface.waitForExistence(timeout: 8), "Seeded Home scroll surface should exist")
+
+        let scopeButton = app.buttons[scopeAccessibilityID].firstMatch
+        if scopeButton.waitForExistence(timeout: 3) {
+            scopeButton.tap()
+        }
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [XCTHitchMetric(application: app)], options: options) {
+            for _ in 0..<8 {
+                homeSurface.swipeUp()
+            }
+            for _ in 0..<8 {
+                homeSurface.swipeDown()
+            }
         }
     }
 
