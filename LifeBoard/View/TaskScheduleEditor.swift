@@ -74,21 +74,7 @@ struct TaskTimeWheelPicker: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 0) {
                         ForEach(slots) { slot in
-                            Button {
-                                select(slot)
-                                scroll(to: slot.id, proxy: proxy)
-                            } label: {
-                                TimeWheelSlotRow(
-                                    label: label(for: slot.date, isSelected: slot.id == selectedSlotID),
-                                    isSelected: slot.id == selectedSlotID,
-                                    distanceFromSelection: abs(slot.id - selectedSlotID)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .frame(height: rowHeight)
-                            .id(slot.id)
-                            .accessibilityLabel(accessibilityLabel(for: slot.date))
-                            .accessibilityAddTraits(slot.id == selectedSlotID ? [.isSelected] : [])
+                            timeSlotButton(slot, proxy: proxy)
                         }
                     }
                     .scrollTargetLayout()
@@ -125,11 +111,30 @@ struct TaskTimeWheelPicker: View {
             )
             .accessibilityElement(children: .contain)
             .accessibilityLabel(accessibilityLabel ?? String(localized: "Start time"))
-            .accessibilityValue(accessibilityLabel(for: selectedDate))
+            .accessibilityValue(accessibilityLabel(for: selectedSlot))
             .accessibilityAdjustableAction { direction in
                 adjustSelection(direction)
             }
         }
+    }
+
+    private func timeSlotButton(_ slot: TaskTimeSlot, proxy: ScrollViewProxy) -> some View {
+        let isSelected = slot.id == selectedSlotID
+        return Button {
+            select(slot)
+            scroll(to: slot.id, proxy: proxy)
+        } label: {
+            TimeWheelSlotRow(
+                label: label(for: slot, isSelected: isSelected),
+                isSelected: isSelected,
+                distanceFromSelection: abs(slot.id - selectedSlotID)
+            )
+        }
+        .buttonStyle(.plain)
+        .frame(height: rowHeight)
+        .id(slot.id)
+        .accessibilityLabel(accessibilityLabel(for: slot))
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     private var selectedDate: Date {
@@ -143,18 +148,35 @@ struct TaskTimeWheelPicker: View {
         slotID(for: selectedDate)
     }
 
+    private var selectedSlot: TaskTimeSlot {
+        TaskTimeSlot(
+            id: selectedSlotID,
+            date: selectedDate,
+            timeLabel: nextDaySuffix(for: selectedDate, text: selectedDate.formatted(date: .omitted, time: .shortened))
+        )
+    }
+
     private var baseDay: Date {
         Calendar.current.startOfDay(for: slotBaseDate ?? selectedDate)
     }
 
-    private var slots: [TaskTimeSlot] {
+    private var slotCount: Int {
         let slotsPerDay = (24 * 60) / max(1, intervalMinutes)
-        let slotCount = slotsPerDay * (1 + max(0, additionalDayCount))
+        return slotsPerDay * (1 + max(0, additionalDayCount))
+    }
+
+    private var slots: [TaskTimeSlot] {
+        let baseDay = baseDay
+        let calendar = Calendar.current
         return (0..<slotCount).compactMap { index in
-            guard let date = Calendar.current.date(byAdding: .minute, value: index * intervalMinutes, to: baseDay) else {
+            guard let date = calendar.date(byAdding: .minute, value: index * intervalMinutes, to: baseDay) else {
                 return nil
             }
-            return TaskTimeSlot(id: index, date: date)
+            return TaskTimeSlot(
+                id: index,
+                date: date,
+                timeLabel: nextDaySuffix(for: date, text: date.formatted(date: .omitted, time: .shortened))
+            )
         }
     }
 
@@ -173,7 +195,7 @@ struct TaskTimeWheelPicker: View {
         let nextID: Int
         switch direction {
         case .increment:
-            nextID = min(slots.count - 1, currentID + 1)
+            nextID = min(slotCount - 1, currentID + 1)
         case .decrement:
             nextID = max(0, currentID - 1)
         @unknown default:
@@ -193,31 +215,26 @@ struct TaskTimeWheelPicker: View {
     private func slotID(for date: Date) -> Int {
         let rounded = TaskDetailViewModel.roundedToNearestScheduleSlot(date, intervalMinutes: intervalMinutes)
         let minutes = Calendar.current.dateComponents([.minute], from: baseDay, to: rounded).minute ?? 0
-        let slotCount = slots.count
         return min(max(0, minutes / max(1, intervalMinutes)), slotCount - 1)
     }
 
-    private func label(for date: Date, isSelected: Bool) -> String {
+    private func label(for slot: TaskTimeSlot, isSelected: Bool) -> String {
         guard isSelected, showsDurationRange else {
-            let formatter = DateFormatter()
-            formatter.timeStyle = .short
-            return nextDaySuffix(for: date, text: formatter.string(from: date))
+            return slot.timeLabel
         }
         return TaskDetailViewModel.scheduleRangeLabel(
-            start: date,
-            end: date.addingTimeInterval(TimeInterval(durationMinutes * 60))
+            start: slot.date,
+            end: slot.date.addingTimeInterval(TimeInterval(durationMinutes * 60))
         )
     }
 
-    private func accessibilityLabel(for date: Date) -> String {
+    private func accessibilityLabel(for slot: TaskTimeSlot) -> String {
         guard showsDurationRange else {
-            let formatter = DateFormatter()
-            formatter.timeStyle = .short
-            return nextDaySuffix(for: date, text: formatter.string(from: date))
+            return slot.timeLabel
         }
         return TaskDetailViewModel.scheduleRangeAccessibilityLabel(
-            start: date,
-            end: date.addingTimeInterval(TimeInterval(durationMinutes * 60))
+            start: slot.date,
+            end: slot.date.addingTimeInterval(TimeInterval(durationMinutes * 60))
         )
     }
 
@@ -575,6 +592,7 @@ struct TimelineAnchorDetailSheetView: View {
 private struct TaskTimeSlot: Identifiable {
     let id: Int
     let date: Date
+    let timeLabel: String
 }
 
 private struct TimeWheelSlotRow: View {

@@ -148,6 +148,9 @@ struct HomeScrollChromeStateTracker {
 
         guard let lastOffsetY else {
             self.lastOffsetY = newOffset
+            if newOffset >= nearTopThreshold + minimizeThreshold {
+                return emit(.collapsed)
+            }
             return emit(.expanded)
         }
 
