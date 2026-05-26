@@ -228,6 +228,23 @@ final class EvaActivationTests: XCTestCase {
             )
         }
     }
+
+    func testMascotSpriteProviderClearsDecodedCaches() throws {
+        let provider = MascotSpriteFrameProvider.shared
+        provider.clearCaches(reason: "test_setup")
+
+        let persona = try XCTUnwrap(AssistantMascotPersona.all.first { $0.id == .cloudlet })
+        XCTAssertNotNil(provider.frame(persona: persona, animation: .idle, index: 0))
+        XCTAssertNotNil(provider.frame(persona: persona, animation: .idle, index: 1))
+
+        let populatedCounts = provider.cacheCounts()
+        XCTAssertEqual(populatedCounts.sheets, 1)
+        XCTAssertEqual(populatedCounts.frames, 2)
+
+        provider.clearCaches(reason: "test")
+
+        XCTAssertEqual(provider.cacheCounts(), MascotSpriteFrameProvider.CacheCounts(sheets: 0, frames: 0))
+    }
     #endif
 
     func testMemoryMapperPrependsNewUniqueEntriesAndRespectsLimits() {

@@ -386,6 +386,10 @@ enum AccessibilityIdentifiers {
         static let helperText = "habitDetail.helperText"
         static let editButton = "habitDetail.editButton"
         static let saveButton = "habitDetail.saveButton"
+        static let currentStreakMetric = "habitDetail.metric.currentStreak"
+        static let bestStreakMetric = "habitDetail.metric.bestStreak"
+        static let totalCountMetric = "habitDetail.metric.totalCount"
+        static let completionRateMetric = "habitDetail.metric.completionRate"
         static func dayCell(_ dateStamp: String) -> String { "habitDetail.cell.\(dateStamp)" }
     }
 

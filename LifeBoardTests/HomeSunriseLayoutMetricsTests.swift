@@ -654,6 +654,12 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(tracker.consume(offset: 80), .collapsed)
     }
 
+    func testHomeScrollChromeTrackerCollapsesWhenFirstSampleJumpsPastHideThreshold() {
+        var tracker = HomeScrollChromeStateTracker()
+
+        XCTAssertEqual(tracker.consume(offset: 80), .collapsed)
+    }
+
     func testHomeScrollChromeTrackerEmitsExpandedAfterUpwardScroll() {
         var tracker = HomeScrollChromeStateTracker()
 

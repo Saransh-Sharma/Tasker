@@ -12600,7 +12600,7 @@ final class XPRewardPreviewCopyRegressionTests: XCTestCase {
     func testCompletionRewardSurfacesUseExactPreviewAPI() throws {
         let rewardSurfaceFiles = [
             "LifeBoard/View/SunriseTaskRowView.swift",
-            "LifeBoard/View/TaskDetailSheetView.swift",
+            "LifeBoard/View/SunriseTaskDetailScreen.swift",
             "LifeBoard/View/AddTaskXPPreview.swift"
         ]
 

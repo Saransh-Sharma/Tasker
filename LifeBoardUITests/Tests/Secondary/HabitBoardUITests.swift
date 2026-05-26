@@ -183,6 +183,15 @@ final class HabitBoardUITests: BaseUITest {
         let grid = app.scrollViews[AccessibilityIdentifiers.HabitDetail.grid]
         XCTAssertTrue(grid.waitForExistence(timeout: 3), "Habit detail should expose the streak grid")
 
+        XCTAssertTrue(
+            app.otherElements[AccessibilityIdentifiers.HabitDetail.currentStreakMetric].waitForExistence(timeout: 3),
+            "Habit detail should show current streak metadata below the grid"
+        )
+        XCTAssertTrue(
+            app.otherElements[AccessibilityIdentifiers.HabitDetail.completionRateMetric].waitForExistence(timeout: 3),
+            "Habit detail should show completion rate metadata below the grid"
+        )
+
         let todayCell = app.buttons[AccessibilityIdentifiers.HabitDetail.dayCell(Self.accessibilityStamp(Date()))]
         XCTAssertTrue(todayCell.waitForExistence(timeout: 5), "Today's habit cell should exist in the detail grid")
         XCTAssertTrue(waitForElementToBeHittable(todayCell, timeout: 3))
