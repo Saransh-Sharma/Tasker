@@ -94,6 +94,22 @@ final class TaskSemanticRetrievalServiceTests: XCTestCase {
         XCTAssertEqual(Set(hits.map(\.taskID)), Set(tasks.map(\.id)))
     }
 
+    func testCleanActiveSemanticIndexCanBeReleasedForBackgrounding() async {
+        let service = makeService { _ in [1.0, 0.0] }
+        service.rebuildIndex(tasks: [TaskDefinition(title: "Plan tomorrow")])
+        service.persistIndex()
+
+        await service.activateIfNeeded {}
+
+        XCTAssertTrue(service.isActivated)
+        XCTAssertFalse(service.shouldPersistOnBackgroundTransition)
+
+        service.releaseInMemoryResources()
+
+        XCTAssertFalse(service.isActivated)
+        XCTAssertFalse(service.shouldPersistOnBackgroundTransition)
+    }
+
     func testCosineSimilarityIsDeterministic() {
         let similarity = TaskEmbeddingEngine.cosineSimilarity([1, 2, 3], [1, 2, 3])
         let orthogonal = TaskEmbeddingEngine.cosineSimilarity([1, 0], [0, 1])

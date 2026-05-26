@@ -119,6 +119,8 @@ final class LLMRuntimeCoordinator {
         let failureMessage: String?
     }
 
+    static let defaultBackgroundUnloadDelayNanoseconds: UInt64 = 45 * 1_000_000_000
+
     typealias PrepareHandler = @MainActor (String) async throws -> LLMEvaluator.PrepareResult
     typealias SwitchHandler = @MainActor (String) async throws -> Bool
     typealias UnloadHandler = @MainActor (String) async -> Void
@@ -159,7 +161,7 @@ final class LLMRuntimeCoordinator {
         unloadHandler: UnloadHandler? = nil,
         compatibilityProvider: CompatibilityProvider? = nil,
         prewarmEligibilityPolicy: LLMPrewarmEligibilityPolicy = LLMPrewarmEligibilityPolicy(),
-        backgroundUnloadDelayNanoseconds: UInt64 = 5 * 60 * 1_000_000_000,
+        backgroundUnloadDelayNanoseconds: UInt64 = LLMRuntimeCoordinator.defaultBackgroundUnloadDelayNanoseconds,
         idleUnloadDelayNanoseconds: UInt64 = 20 * 1_000_000_000,
         registerLifecycleObservers: Bool = true
     ) {
@@ -783,8 +785,9 @@ final class LLMRuntimeCoordinator {
 
     private func scheduleBackgroundUnload() {
         backgroundUnloadTask?.cancel()
-        cancelIdleUnload()
         cancelDeferredPrewarm(reason: "app_backgrounded")
+        cancelGenerationIfActive(reason: "app_backgrounded")
+        cancelIdleUnload()
         backgroundUnloadTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: backgroundUnloadDelayNanoseconds)

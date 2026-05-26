@@ -581,6 +581,11 @@ struct MascotSpriteAnimationView: View {
 final class MascotSpriteFrameProvider {
     static let shared = MascotSpriteFrameProvider()
 
+    struct CacheCounts: Equatable {
+        let sheets: Int
+        let frames: Int
+    }
+
     static let sheetPixelWidth = 1536
     static let sheetPixelHeight = 1872
     static let columns = 8
@@ -591,6 +596,40 @@ final class MascotSpriteFrameProvider {
     private var sheetCache: [AssistantMascotID: CGImage] = [:]
     private var frameCache: [String: UIImage] = [:]
     private let lock = NSLock()
+    private var observers: [NSObjectProtocol] = []
+
+    private init(notificationCenter: NotificationCenter = .default) {
+        observers.append(
+            notificationCenter.addObserver(
+                forName: UIApplication.didReceiveMemoryWarningNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.clearCaches(reason: "memory_warning")
+                }
+            }
+        )
+        observers.append(
+            notificationCenter.addObserver(
+                forName: UIApplication.didEnterBackgroundNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.clearCaches(reason: "app_backgrounded")
+                }
+            }
+        )
+    }
+
+    deinit {
+        MainActor.assumeIsolated {
+            for observer in observers {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+    }
 
     func frame(persona: AssistantMascotPersona, animation: MascotAnimation, index: Int) -> UIImage? {
         guard let sheet = sheet(for: persona) else { return nil }
@@ -649,6 +688,30 @@ final class MascotSpriteFrameProvider {
         sheetCache[persona.id] = image
         lock.unlock()
         return image
+    }
+
+    func clearCaches(reason: String) {
+        lock.lock()
+        let previousCounts = CacheCounts(sheets: sheetCache.count, frames: frameCache.count)
+        sheetCache.removeAll()
+        frameCache.removeAll()
+        lock.unlock()
+
+        LifeBoardMemoryDiagnostics.checkpoint(
+            event: "mascot_sprite_cache_cleared",
+            message: "Cleared decoded mascot sprite caches",
+            fields: ["reason": reason],
+            counts: [
+                "previous_sheet_count": previousCounts.sheets,
+                "previous_frame_count": previousCounts.frames
+            ]
+        )
+    }
+
+    func cacheCounts() -> CacheCounts {
+        lock.lock()
+        defer { lock.unlock() }
+        return CacheCounts(sheets: sheetCache.count, frames: frameCache.count)
     }
 }
 #else

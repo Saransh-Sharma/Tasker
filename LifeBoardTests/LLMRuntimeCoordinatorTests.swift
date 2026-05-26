@@ -29,6 +29,13 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         defaults.set(modelName, forKey: LLMPersistedModelSelection.currentModelKey)
     }
 
+    func testDefaultBackgroundUnloadDelayIs45Seconds() {
+        XCTAssertEqual(
+            LLMRuntimeCoordinator.defaultBackgroundUnloadDelayNanoseconds,
+            45 * 1_000_000_000
+        )
+    }
+
     private func prewarmInput(
         model: ModelConfiguration,
         compatibilityCanActivate: Bool = true,
