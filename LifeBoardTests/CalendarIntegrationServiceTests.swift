@@ -133,8 +133,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertFalse(LifeBoardWorkspacePreferences().includeCanceledCalendarEvents)
     }
 
-    func testWorkspacePreferencesDefaultTimelineCalendarSettingIsFalse() {
-        XCTAssertFalse(LifeBoardWorkspacePreferences().showCalendarEventsInTimeline)
+    func testWorkspacePreferencesDefaultTimelineCalendarSettingIsTrue() {
+        XCTAssertTrue(LifeBoardWorkspacePreferences().showCalendarEventsInTimeline)
     }
 
     func testWorkspacePreferencesDefaultTimelineAnchorTimes() {
@@ -163,7 +163,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertFalse(decoded.includeCanceledCalendarEvents)
     }
 
-    func testWorkspacePreferencesDecodeMissingTimelineCalendarFieldDefaultsToFalse() throws {
+    func testWorkspacePreferencesDecodeMissingTimelineCalendarFieldDefaultsToTrue() throws {
         let legacyJSON = """
         {
           "weekStartsOn": "monday",
@@ -176,6 +176,25 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         """.data(using: .utf8)!
 
         let decoded = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: legacyJSON)
+
+        XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
+        XCTAssertTrue(decoded.showCalendarEventsInTimeline)
+    }
+
+    func testWorkspacePreferencesDecodeExplicitTimelineCalendarFalsePreservesUserChoice() throws {
+        let json = """
+        {
+          "weekStartsOn": "monday",
+          "selectedCalendarIDs": ["work"],
+          "includeDeclinedCalendarEvents": true,
+          "includeCanceledCalendarEvents": false,
+          "includeAllDayInAgenda": true,
+          "includeAllDayInBusyStrip": false,
+          "showCalendarEventsInTimeline": false
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: json)
 
         XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
         XCTAssertFalse(decoded.showCalendarEventsInTimeline)

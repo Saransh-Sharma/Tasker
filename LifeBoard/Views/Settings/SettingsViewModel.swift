@@ -22,7 +22,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     @Published var includeCanceledCalendarEvents: Bool = false
     @Published var includeAllDayInAgenda: Bool = true
     @Published var includeAllDayInBusyStrip: Bool = false
-    @Published var showCalendarEventsInTimeline: Bool = false
+    @Published var showCalendarEventsInTimeline: Bool = true
 
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
