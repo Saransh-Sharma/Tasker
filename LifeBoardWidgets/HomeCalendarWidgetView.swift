@@ -246,7 +246,7 @@ private struct HomeCalendarNextMeetingSummary: View {
     let freeUntil: Date?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        TaskWidgetPanel(accent: WidgetBrand.role(.meeting).base, style: .accentWash, padding: 10) {
             Text(nextMeeting.isInProgress ? "Now" : "Next Up")
                 .font(TaskWidgetTypography.eyebrow)
                 .foregroundStyle(WidgetBrand.textSecondary)
@@ -307,6 +307,8 @@ private struct HomeCalendarEventRow: View {
     let event: TaskListWidgetCalendarEvent
 
     var body: some View {
+        let roleStyle = event.isAllDay ? WidgetBrand.role(.routine) : WidgetBrand.role(.meeting)
+
         HStack(alignment: .top, spacing: 8) {
             VStack(spacing: 3) {
                 Circle()
@@ -339,6 +341,13 @@ private struct HomeCalendarEventRow: View {
 
             Spacer(minLength: 0)
         }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 7)
+        .background(roleStyle.soft.opacity(event.isBusy ? 0.72 : 0.48), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(roleStyle.border.opacity(event.isBusy ? 0.76 : 0.46), lineWidth: 1)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(HomeCalendarWidgetFormatter.eventAccessibilityText(event))
     }
@@ -348,11 +357,11 @@ private struct HomeCalendarAllDayStrip: View {
     let events: [TaskListWidgetCalendarEvent]
 
     var body: some View {
-        HStack(spacing: 6) {
-            Label("All Day", systemImage: "sun.max")
-                .font(TaskWidgetTypography.captionStrong)
-                .foregroundStyle(WidgetBrand.textSecondary)
-                .lineLimit(1)
+            HStack(spacing: 6) {
+                Label("All Day", systemImage: "sun.max")
+                    .font(TaskWidgetTypography.captionStrong)
+                    .foregroundStyle(WidgetBrand.sunriseGoldDeep)
+                    .lineLimit(1)
 
             ForEach(Array(events.prefix(2))) { event in
                 Text(event.title)
@@ -361,7 +370,11 @@ private struct HomeCalendarAllDayStrip: View {
                     .lineLimit(1)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
-                    .background(HomeCalendarWidgetFormatter.tint(for: event).opacity(0.14), in: Capsule())
+                    .background(WidgetBrand.role(.routine).soft, in: Capsule())
+                    .overlay {
+                        Capsule()
+                            .stroke(WidgetBrand.role(.routine).border.opacity(0.72), lineWidth: 1)
+                    }
             }
 
             if events.count > 2 {
@@ -392,10 +405,10 @@ private struct HomeCalendarWeekStrip: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
-                .background(HomeCalendarWidgetFormatter.dayTint(day).opacity(day.eventCount > 0 ? 0.12 : 0.04), in: RoundedRectangle(cornerRadius: 8))
+                .background(WidgetBrand.glass.opacity(day.eventCount > 0 ? 0.86 : 0.42), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(WidgetBrand.line.opacity(day.eventCount > 0 ? 0.5 : 0.28), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(WidgetBrand.glassBorder.opacity(day.eventCount > 0 ? 0.78 : 0.42), lineWidth: 1)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(HomeCalendarWidgetFormatter.fullDateText(day.date)), \(HomeCalendarWidgetFormatter.countText(day.eventCount))")
@@ -461,9 +474,9 @@ private struct HomeCalendarWidgetFooter: View {
         HStack(spacing: 6) {
             Image(systemName: isStale ? "arrow.clockwise.circle" : "arrow.up.right")
                 .font(TaskWidgetTypography.caption)
-                .foregroundStyle(WidgetBrand.textSecondary)
+                .foregroundStyle(isStale ? WidgetBrand.sunriseGoldDeep : WidgetBrand.violet)
                 .accessibilityHidden(true)
-            Text(isStale ? "Open to refresh" : "Open schedule")
+            Text(isStale ? "Refresh day" : "Open schedule")
                 .font(TaskWidgetTypography.captionStrong)
                 .foregroundStyle(WidgetBrand.textSecondary)
                 .lineLimit(1)
@@ -528,23 +541,23 @@ private enum HomeCalendarWidgetFormatter {
     static func statusTint(_ status: TaskListWidgetCalendarStatus) -> Color {
         switch status {
         case .permissionRequired, .error:
-            return WidgetBrand.marigold
+            return WidgetBrand.role(.warning).base
         case .noCalendarsSelected, .allDayOnly:
-            return WidgetBrand.sandstone
+            return WidgetBrand.role(.routine).base
         case .empty:
-            return WidgetBrand.emerald
+            return WidgetBrand.role(.focus).base
         case .active:
-            return WidgetBrand.actionPrimary
+            return WidgetBrand.role(.meeting).base
         }
     }
 
     static func dayTint(_ day: TaskListWidgetCalendarDay) -> Color {
-        day.eventCount > 0 ? WidgetBrand.actionPrimary : WidgetBrand.textTertiary
+        day.eventCount > 0 ? WidgetBrand.role(.meeting).base : WidgetBrand.textTertiary
     }
 
     static func tint(for event: TaskListWidgetCalendarEvent) -> Color {
         guard let hex = event.calendarColorHex, let color = Color(widgetHex: hex) else {
-            return event.isBusy ? WidgetBrand.actionPrimary : WidgetBrand.textSecondary
+            return event.isBusy ? WidgetBrand.role(.meeting).base : WidgetBrand.textSecondary
         }
         return color
     }

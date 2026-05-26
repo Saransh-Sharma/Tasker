@@ -3449,11 +3449,11 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
     }
 
     func testWeeklyPlanningScreensRenderLoadingAndRetryContracts() throws {
-        let plannerSource = try loadWorkspaceFile("LifeBoard/View/WeeklyPlannerView.swift")
+        let plannerSource = try loadWorkspaceFile("LifeBoard/View/SunriseWeeklyPlannerView.swift")
         XCTAssertTrue(plannerSource.contains("WeeklyBlockingStateCard("))
         XCTAssertTrue(plannerSource.contains("primaryActionTitle: \"Retry\""))
 
-        let reviewSource = try loadWorkspaceFile("LifeBoard/View/WeeklyReviewView.swift")
+        let reviewSource = try loadWorkspaceFile("LifeBoard/View/SunriseWeeklyReviewView.swift")
         XCTAssertTrue(reviewSource.contains("WeeklyReviewBlockingStateCard("))
         XCTAssertTrue(reviewSource.contains("primaryActionTitle: \"Retry\""))
 
@@ -3517,11 +3517,17 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertTrue(project.contains("LifeBoardAnimations.swift in Sources"))
     }
 
-    func testWidgetBrandBridgesToLifeBoardThemeRoles() throws {
+    func testWidgetBrandDefinesSunriseGlassTokens() throws {
         let source = try loadWorkspaceFile("LifeBoardWidgets/WidgetBrand.swift")
 
-        XCTAssertTrue(source.contains("LifeBoardTheme.Colors"))
-        XCTAssertTrue(source.contains("Color.lifeboard("))
+        XCTAssertTrue(source.contains("static let navy"))
+        XCTAssertTrue(source.contains("static let sunriseGold"))
+        XCTAssertTrue(source.contains("static let glassStrong"))
+        XCTAssertTrue(source.contains("enum WidgetBrandRole"))
+        XCTAssertTrue(source.contains("WidgetBrandRoleStyle"))
+        XCTAssertTrue(source.contains("adaptive(light:"))
+        XCTAssertFalse(source.contains("LifeBoardTheme.Colors"))
+        XCTAssertFalse(source.contains("Color.lifeboard("))
         XCTAssertFalse(source.contains("dynamic(light:"))
         XCTAssertFalse(source.contains("Color(hex:"))
     }
@@ -3539,6 +3545,33 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertTrue(source.contains("compactWidthThreshold"))
         XCTAssertTrue(source.contains("taskWidgetAccentable(if:"))
         XCTAssertTrue(source.contains("accessibilityHidden(true)"))
+        XCTAssertTrue(source.contains("accessibilityReduceTransparency"))
+        XCTAssertTrue(source.contains("containerBackground(for: .widget)"))
+        XCTAssertTrue(source.contains("LinearGradient"))
+        XCTAssertTrue(source.contains("WidgetBrand.glassBorder"))
+        XCTAssertTrue(source.contains("ultraThinMaterial"))
+    }
+
+    func testWidgetViewsDoNotReintroduceLegacyBrandLiterals() throws {
+        let widgetFiles = [
+            "LifeBoardWidgets/WidgetBrand.swift",
+            "LifeBoardWidgets/TaskWidgetFoundation.swift",
+            "LifeBoardWidgets/TaskWidgetHomeViews.swift",
+            "LifeBoardWidgets/TaskWidgetAccessoryViews.swift",
+            "LifeBoardWidgets/HomeCalendarWidgetView.swift",
+            "LifeBoardWidgets/HomeTimelineWidgetView.swift",
+            "LifeBoardWidgets/TodayXPWidget.swift",
+            "LifeBoardWidgets/WeeklyScoreboardWidget.swift",
+            "LifeBoardWidgets/NextMilestoneWidget.swift",
+            "LifeBoardWidgets/StreakResilienceWidget.swift",
+            "LifeBoardWidgets/FocusSeedWidget.swift"
+        ]
+        let combinedSource = try widgetFiles.map(loadWorkspaceFile).joined(separator: "\n")
+
+        XCTAssertFalse(combinedSource.contains("#293A18"), "Widgets should not use the old forest brand color.")
+        XCTAssertFalse(combinedSource.contains("#B1205F"), "Widgets should not use the old magenta brand color.")
+        XCTAssertFalse(combinedSource.contains("#9E5F0A"), "Widgets should not use the old sandstone brand color.")
+        XCTAssertFalse(combinedSource.contains("#FEBF2B"), "Widgets should use Sunrise gold instead of the previous marigold.")
     }
 
     func testInteractiveWidgetAffordancesRespectFeatureFlagAtRenderTime() throws {

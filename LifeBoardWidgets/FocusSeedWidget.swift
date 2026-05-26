@@ -49,11 +49,11 @@ struct FocusSeedWidgetView: View {
                 HStack(alignment: .center, spacing: 14) {
                     ZStack {
                         Circle()
-                            .stroke(WidgetBrand.magenta.opacity(0.28), lineWidth: 6)
+                            .stroke(WidgetBrand.sky.opacity(0.28), lineWidth: 6)
                         Image(systemName: "timer")
                             .widgetAccentedRenderingMode(.accented)
                             .font(TaskWidgetTypography.titleLarge)
-                            .foregroundStyle(WidgetBrand.magenta)
+                            .foregroundStyle(WidgetBrand.sky)
                             .widgetAccentable()
                     }
                     .frame(width: 66, height: 66)

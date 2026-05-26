@@ -97,7 +97,7 @@ struct TodayXPWidgetView: View {
 
                 TaskWidgetProgressBar(
                     progress: Double(progress),
-                    tint: entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? WidgetBrand.emerald : WidgetBrand.magenta
+                    tint: entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? WidgetBrand.leaf : WidgetBrand.sunriseGold
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -131,18 +131,18 @@ struct TodayXPWidgetView: View {
                             .foregroundStyle(WidgetBrand.textSecondary)
                         TaskWidgetProgressBar(
                             progress: Double(progress),
-                            tint: entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? WidgetBrand.emerald : WidgetBrand.magenta
+                            tint: entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? WidgetBrand.leaf : WidgetBrand.sunriseGold
                         )
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 
-                TaskWidgetPanel(accent: WidgetBrand.magenta, style: .softSection, padding: 12) {
+                TaskWidgetPanel(accent: WidgetBrand.sunriseGold, style: .softSection, padding: 12) {
                     TaskWidgetStatStrip(items: [
                         TaskWidgetStatItem(title: "Level", value: "L\(entry.snapshot.level)", tint: WidgetBrand.textPrimary),
-                        TaskWidgetStatItem(title: "Streak", value: "\(entry.snapshot.streakDays)d", tint: WidgetBrand.marigold),
-                        TaskWidgetStatItem(title: "Focus", value: "\(entry.snapshot.focusMinutesToday)m", tint: WidgetBrand.magenta)
+                        TaskWidgetStatItem(title: "Streak", value: "\(entry.snapshot.streakDays)d", tint: WidgetBrand.sunriseGoldDeep),
+                        TaskWidgetStatItem(title: "Focus", value: "\(entry.snapshot.focusMinutesToday)m", tint: WidgetBrand.sky)
                     ])
                 }
             }
@@ -156,7 +156,7 @@ struct TodayXPWidgetView: View {
         TaskWidgetRing(
             progress: progress,
             lineWidth: lineWidth,
-            accent: WidgetBrand.magenta,
+            accent: WidgetBrand.sunriseGold,
             track: WidgetBrand.line,
             centerText: "\(entry.snapshot.dailyXP)",
             numericValue: reduceMotion ? nil : Double(entry.snapshot.dailyXP)
