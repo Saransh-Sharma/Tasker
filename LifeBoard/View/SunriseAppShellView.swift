@@ -3117,6 +3117,32 @@ private struct SunriseHomeDatePickerPopover: View {
     }
 }
 
+@MainActor
+private final class HomeTimelineSnapshotRenderCache: ObservableObject {
+    struct Key: Equatable {
+        let timelineRevision: UInt64
+        let calendarSnapshot: HomeCalendarSnapshot
+        let selectedDate: Date
+        let sunriseAnchor: SunriseAnchor
+    }
+
+    private var cachedKey: Key?
+    private var cachedSnapshot: HomeTimelineSnapshot?
+
+    func snapshot(for key: Key, build: () -> HomeTimelineSnapshot) -> HomeTimelineSnapshot {
+        if cachedKey == key, let cachedSnapshot {
+            return cachedSnapshot
+        }
+
+        let interval = LifeBoardPerformanceTrace.begin("HomeTimelineSnapshotRenderCacheMiss")
+        defer { LifeBoardPerformanceTrace.end(interval) }
+        let snapshot = build()
+        cachedKey = key
+        cachedSnapshot = snapshot
+        return snapshot
+    }
+}
+
 struct SunriseAppShellView: View {
     let viewModel: HomeViewModel
     @ObservedObject var chromeStore: HomeChromeStore
@@ -3224,7 +3250,9 @@ struct SunriseAppShellView: View {
     @State private var activeDaySunriseSwipeSide: SunriseDaySwipeSide?
     @State private var isDaySunriseSwipeChromeVisible = true
     @State private var timelineScrollChromeStateTracker = HomeScrollChromeStateTracker()
+    @State private var lastTimelineScrollOffsetY: CGFloat?
     @StateObject private var timelineViewModel = HomeTimelineViewModel()
+    @StateObject private var timelineSnapshotRenderCache = HomeTimelineSnapshotRenderCache()
     private static let daySunriseSwipeCoordinateSpaceName = "home.daySunriseSwipe"
     private static let sunriseHintLaunchDelay: TimeInterval = 0.10
     private static let sunriseHintPeekDistance: CGFloat = 24
@@ -3309,11 +3337,18 @@ struct SunriseAppShellView: View {
         )
     }
     private var timelineSnapshot: HomeTimelineSnapshot {
-        let _ = timelineRenderState.revision
-        return viewModel.buildTimelineSnapshot(
+        let key = HomeTimelineSnapshotRenderCache.Key(
+            timelineRevision: timelineRenderState.revision,
             calendarSnapshot: calendarSnapshot,
+            selectedDate: chromeSnapshot.selectedDate,
             sunriseAnchor: timelineViewModel.sunriseAnchor
         )
+        return timelineSnapshotRenderCache.snapshot(for: key) {
+            viewModel.buildTimelineSnapshot(
+                calendarSnapshot: calendarSnapshot,
+                sunriseAnchor: timelineViewModel.sunriseAnchor
+            )
+        }
     }
     private var isDaySwipeGestureEnabled: Bool {
         guard isTaskFaceVisible || isScheduleFaceVisible else { return false }
@@ -3523,6 +3558,9 @@ struct SunriseAppShellView: View {
                         },
                         onOpenHabitBoard: {
                             showHabitBoardPresented = true
+                        },
+                        onCycleHabit: { habit in
+                            performHabitRowAction(habit, source: "sunrise_habits_row_tap")
                         },
                         onAddHabit: presentHomeAddHabitComposer,
                         onAddTask: onAddTask,
@@ -4085,7 +4123,7 @@ struct SunriseAppShellView: View {
                 viewModel.clearHabitMutationErrorMessage()
             }
             .onReceive(viewModel.$habitMutationFeedback.compactMap { $0 }) { feedback in
-                snackbar = SnackbarData(message: feedback.message, autoDismissSeconds: 2)
+                snackbar = SnackbarData(id: feedback.id, message: feedback.message, autoDismissSeconds: 2)
                 playHabitMutationFeedbackHaptic(feedback.haptic)
                 viewModel.consumeHabitMutationFeedback(id: feedback.id)
             }
@@ -5016,7 +5054,16 @@ struct SunriseAppShellView: View {
     }
 
     private func handleTimelineScrollOffsetChange(_ newOffset: CGFloat) {
-        if let nextState = timelineScrollChromeStateTracker.consume(offset: newOffset) {
+        guard newOffset.isFinite else { return }
+        let normalizedOffset = max(0, newOffset)
+        if let lastTimelineScrollOffsetY,
+           normalizedOffset >= 40,
+           abs(normalizedOffset - lastTimelineScrollOffsetY) < 4 {
+            return
+        }
+        lastTimelineScrollOffsetY = normalizedOffset
+
+        if let nextState = timelineScrollChromeStateTracker.consume(offset: normalizedOffset) {
             updateDaySunriseSwipeChromeVisibility(for: nextState)
         }
     }
@@ -5043,6 +5090,7 @@ struct SunriseAppShellView: View {
 
     private func resetDaySunriseSwipeChromeVisibility() {
         timelineScrollChromeStateTracker = HomeScrollChromeStateTracker()
+        lastTimelineScrollOffsetY = nil
         isDaySunriseSwipeChromeVisible = true
     }
 
@@ -5344,6 +5392,7 @@ struct SunriseAppShellView: View {
                     }
                     .padding(.top, spacing.s8)
                     .contentShape(Rectangle())
+                    .lifeboardScrollOptimizedRendering()
                     .background {
                         SunriseDaySwipeGestureSurface(
                             isEnabled: isDaySwipeInteractionEnabled,

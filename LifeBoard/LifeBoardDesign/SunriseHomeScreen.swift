@@ -22,6 +22,7 @@ struct SunriseHomeScreen: View {
     let onOpenSearch: () -> Void
     let onOpenChat: () -> Void
     let onOpenHabitBoard: () -> Void
+    let onCycleHabit: (HomeHabitRow) -> Void
     let onAddHabit: () -> Void
     let onAddTask: (Date?) -> Void
     let onRequestCalendarPermission: () -> Void
@@ -35,6 +36,8 @@ struct SunriseHomeScreen: View {
     @State private var isScrollActive = false
     @State private var scrollStopTask: Task<Void, Never>?
     @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
+    @State private var lastScrollOffsetY: CGFloat?
+    @State private var lastEmittedScrollChromeState: HomeScrollChromeState?
     @State private var selectedContentScope: SunriseHomeContentScope = .all
     @State private var headerActivationID = TimeOfDayHeaderAsset.makeActivationID()
     @State private var leadingDaySunriseSwipeData = SunriseDaySwipeData(side: .leading)
@@ -101,7 +104,6 @@ struct SunriseHomeScreen: View {
 
                             SunriseHomeScrollChromeObserver(
                                 isEnabled: isDaySwipeChromeEnabled,
-                                onOffsetChange: handleScrollOffsetChange,
                                 onScrollIntent: handleScrollChromeState
                             )
                         }
@@ -109,20 +111,18 @@ struct SunriseHomeScreen: View {
                         .accessibilityHidden(true)
                         .allowsHitTesting(false)
                     }
-                    .background(
-                        GeometryReader { proxy in
-                            Color.clear.preference(key: SunriseScrollOffsetPreferenceKey.self, value: proxy.frame(in: .named("sunriseHomeScroll")).minY)
+                    .lifeboardScrollOptimizedRendering(isScrollActive)
+                    .transaction { transaction in
+                        if isScrollActive {
+                            transaction.animation = nil
                         }
-                    )
+                    }
                 }
                 .coordinateSpace(name: "sunriseHomeScroll")
                 .scrollIndicators(.hidden)
                 .accessibilityIdentifier("home.view")
                 .ignoresSafeArea(edges: .top)
                 .simultaneousGesture(scrollIntentGesture)
-                .onPreferenceChange(SunriseScrollOffsetPreferenceKey.self) { offset in
-                    handleScrollOffsetChange(Self.chromeOffset(forScrollMinY: offset))
-                }
                 .onScrollGeometryChange(
                     for: CGFloat.self,
                     of: { geometry in
@@ -449,7 +449,7 @@ struct SunriseHomeScreen: View {
 
     @ViewBuilder
     private var habitContent: some View {
-        let models = habitModels
+        let rows = visibleHabitRows
         LBGlassCard(cornerRadius: LBRadiusTokens.largeCard) {
             VStack(spacing: LBSpacingTokens.md) {
                 HStack {
@@ -460,7 +460,7 @@ struct SunriseHomeScreen: View {
                         .foregroundStyle(LBColorTokens.violetDeep)
                         .buttonStyle(.plain)
                 }
-                if models.isEmpty {
+                if rows.isEmpty {
                     HStack(spacing: LBSpacingTokens.sm) {
                         Image(systemName: "heart")
                             .font(.system(size: 18, weight: .semibold))
@@ -472,9 +472,10 @@ struct SunriseHomeScreen: View {
                     }
                     .padding(.top, LBSpacingTokens.xs)
                 } else {
-                    ForEach(models) { model in
-                        LBHabitCell(model: model)
-                            .equatable()
+                    habitUpdateHint
+
+                    ForEach(rows, id: \.habitID) { row in
+                        habitRowButton(row)
                     }
                 }
                 Divider().overlay(LBColorTokens.hairline)
@@ -491,6 +492,36 @@ struct SunriseHomeScreen: View {
         }
         .padding(.top, LBSpacingTokens.xs)
         .padding(.bottom, LBSpacingTokens.xxl)
+    }
+
+    private var habitUpdateHint: some View {
+        HStack(spacing: LBSpacingTokens.xs) {
+            Image(systemName: "hand.tap")
+                .font(.system(size: 13, weight: .semibold))
+            Text("Tap a habit to update today")
+                .font(LBTypographyTokens.meta)
+        }
+        .foregroundStyle(LBColorTokens.navyMuted)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("home.habits.hint")
+    }
+
+    private func habitRowButton(_ row: HomeHabitRow) -> some View {
+        let interaction = HomeHabitLastCellInteraction.resolve(for: row)
+        return Button {
+            onCycleHabit(row)
+        } label: {
+            LBHabitCell(model: habitCellModel(for: row))
+                .equatable()
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("home.habits.row.\(row.habitID.uuidString)")
+        .accessibilityLabel(row.title)
+        .accessibilityValue("\(interaction.currentStateText). Next: \(interaction.nextActionText).")
+        .accessibilityHint("Double-tap to \(interaction.nextActionText.lowercased()).")
     }
 
     private var addHabitFooterButton: some View {
@@ -658,7 +689,9 @@ struct SunriseHomeScreen: View {
     }
 
     func timelineRows(now: Date) -> [SunriseTimelineRow] {
-        Self.buildTimelineRows(
+        let interval = LifeBoardPerformanceTrace.begin("HomeTimelineRowsBuild")
+        defer { LifeBoardPerformanceTrace.end(interval) }
+        return Self.buildTimelineRows(
             wakeAnchor: timeline.day.wakeAnchor,
             sleepAnchor: timeline.day.sleepAnchor,
             plottedItems: timeline.day.plottedTimelineItems,
@@ -719,24 +752,33 @@ struct SunriseHomeScreen: View {
         return Self.sortedRows(rows, now: now)
     }
 
-    private var habitModels: [LBHabitCell.Model] {
-        Array(habits.habitHomeSectionState.primaryRows.prefix(8)).map { row in
-            let cells = Array((row.boardCellsCompact.isEmpty ? row.boardCellsExpanded : row.boardCellsCompact).suffix(7))
-            let doneCount = cells.filter { cell in
-                if case .done = cell.state { return true }
-                return false
-            }.count
-            return LBHabitCell.Model(
-                id: row.id,
-                title: row.title,
-                systemImage: row.iconSymbolName,
-                color: Color(lifeboardHex: row.accentHex ?? HabitColorFamily.family(for: row.accentHex).canonicalHex),
-                completionRatio: cells.isEmpty ? 0 : Double(doneCount) / Double(cells.count),
-                dayLabels: Self.dayLabels(for: cells),
-                cells: cells.map(LBHabitCell.CellState.init),
-                allowsTwoLineTitle: true
-            )
-        }
+    private var visibleHabitRows: [HomeHabitRow] {
+        let interval = LifeBoardPerformanceTrace.begin("HomeHabitModelsBuild")
+        defer { LifeBoardPerformanceTrace.end(interval) }
+        return Array(
+            (
+                habits.habitHomeSectionState.primaryRows
+                + habits.habitHomeSectionState.recoveryRows
+            ).prefix(8)
+        )
+    }
+
+    private func habitCellModel(for row: HomeHabitRow) -> LBHabitCell.Model {
+        let cells = Array((row.boardCellsCompact.isEmpty ? row.boardCellsExpanded : row.boardCellsCompact).suffix(7))
+        let doneCount = cells.filter { cell in
+            if case .done = cell.state { return true }
+            return false
+        }.count
+        return LBHabitCell.Model(
+            id: row.habitID.uuidString,
+            title: row.title,
+            systemImage: row.iconSymbolName,
+            color: Color(lifeboardHex: row.accentHex ?? HabitColorFamily.family(for: row.accentHex).canonicalHex),
+            completionRatio: cells.isEmpty ? 0 : Double(doneCount) / Double(cells.count),
+            dayLabels: Self.dayLabels(for: cells),
+            cells: cells.map(LBHabitCell.CellState.init),
+            allowsTwoLineTitle: true
+        )
     }
 
     private var permissionModel: (model: LBPermissionCard.Model, primaryAction: () -> Void, secondaryAction: (() -> Void)?)? {
@@ -1136,6 +1178,8 @@ struct SunriseHomeScreen: View {
     private func setScrolling(_ active: Bool) {
         guard isScrollActive != active else { return }
         isScrollActive = active
+        LifeBoardPerformanceTrace.event("HomeScrollActive", value: active ? 1 : 0)
+        LifeBoardPerformanceTrace.event("HomeFlattenedRenderMode", value: active ? 1 : 0)
     }
 
     private func scheduleScrollStop() {
@@ -1156,7 +1200,16 @@ struct SunriseHomeScreen: View {
     }
 
     private func handleScrollOffsetChange(_ offset: CGFloat) {
-        if let nextState = scrollChromeStateTracker.consume(offset: offset) {
+        guard offset.isFinite else { return }
+        let normalizedOffset = max(0, offset)
+        if let lastScrollOffsetY,
+           normalizedOffset >= 40,
+           abs(normalizedOffset - lastScrollOffsetY) < 4 {
+            return
+        }
+        lastScrollOffsetY = normalizedOffset
+
+        if let nextState = scrollChromeStateTracker.consume(offset: normalizedOffset) {
             handleScrollChromeState(nextState)
         }
     }
@@ -1177,6 +1230,8 @@ struct SunriseHomeScreen: View {
     }
 
     private func handleScrollChromeState(_ state: HomeScrollChromeState) {
+        guard lastEmittedScrollChromeState != state else { return }
+        lastEmittedScrollChromeState = state
         updateDaySunriseSwipeChromeVisibility(for: state)
         onScrollStateChange(state)
     }
@@ -1208,7 +1263,6 @@ struct SunriseHomeScreen: View {
 #if canImport(UIKit)
 private struct SunriseHomeScrollChromeObserver: UIViewRepresentable {
     let isEnabled: Bool
-    let onOffsetChange: (CGFloat) -> Void
     let onScrollIntent: (HomeScrollChromeState) -> Void
 
     func makeUIView(context: Context) -> HostView {
@@ -1291,12 +1345,10 @@ private struct SunriseHomeScrollChromeObserver: UIViewRepresentable {
             installView.addGestureRecognizer(recognizer)
             installedView = installView
             panRecognizer = recognizer
-            emitOffsetChange(from: scrollView)
         }
 
         @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
             guard parent.isEnabled, let scrollView else { return }
-            emitOffsetChange(from: scrollView)
 
             let translation = recognizer.translation(in: scrollView)
             let velocity = recognizer.velocity(in: scrollView)
@@ -1330,11 +1382,6 @@ private struct SunriseHomeScrollChromeObserver: UIViewRepresentable {
             guard gestureRecognizer === panRecognizer else { return false }
             guard let scrollView else { return false }
             return otherGestureRecognizer === scrollView.panGestureRecognizer
-        }
-
-        private func emitOffsetChange(from scrollView: UIScrollView) {
-            guard parent.isEnabled else { return }
-            parent.onOffsetChange(normalizedOffset(for: scrollView))
         }
 
         private func normalizedOffset(for scrollView: UIScrollView) -> CGFloat {
@@ -1499,13 +1546,5 @@ enum SunriseTimelineRow: Identifiable {
             }
             return gap.endDate <= now ? .past : .future
         }
-    }
-}
-
-private struct SunriseScrollOffsetPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
