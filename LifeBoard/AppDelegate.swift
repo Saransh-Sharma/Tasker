@@ -130,6 +130,10 @@ private final class LifeBoardMetricKitSubscriber: NSObject, MXMetricManagerSubsc
                 }
             }
 
+            if let memoryMetrics = payload.memoryMetrics {
+                Self.appendMemoryMetricFields(from: memoryMetrics, into: &fields)
+            }
+
             if let applicationExitMetrics = payload.applicationExitMetrics {
                 Self.appendExitMetricFields(from: applicationExitMetrics, into: &fields)
             }
@@ -147,43 +151,30 @@ private final class LifeBoardMetricKitSubscriber: NSObject, MXMetricManagerSubsc
         String(format: "%.4f", measurement.value)
     }
 
-    private static func appendExitMetricFields(from metrics: Any, into fields: inout [String: String]) {
-        flattenMirrorFields(prefix: "exit", value: metrics, into: &fields)
+    private static func appendMemoryMetricFields(from metrics: MXMemoryMetric, into fields: inout [String: String]) {
+        fields["memory_peak_mb"] = Self.formatMegabytes(metrics.peakMemoryUsage)
+        fields["memory_average_suspended_mb"] = Self.formatMegabytes(metrics.averageSuspendedMemory.averageMeasurement)
     }
 
-    private static func flattenMirrorFields(prefix: String, value: Any, into fields: inout [String: String]) {
-        let mirror = Mirror(reflecting: value)
-        guard mirror.children.isEmpty == false else {
-            fields[prefix] = String(describing: value)
-            return
-        }
-
-        for child in mirror.children {
-            guard let rawLabel = child.label, rawLabel.isEmpty == false else { continue }
-            let childPrefix = "\(prefix)_\(sanitizeKey(rawLabel))"
-            let childMirror = Mirror(reflecting: child.value)
-            if childMirror.displayStyle == .optional {
-                if let optionalChild = childMirror.children.first {
-                    flattenMirrorFields(prefix: childPrefix, value: optionalChild.value, into: &fields)
-                }
-                continue
-            }
-
-            if childMirror.children.isEmpty {
-                fields[childPrefix] = String(describing: child.value)
-            } else {
-                flattenMirrorFields(prefix: childPrefix, value: child.value, into: &fields)
-            }
-        }
+    private static func formatMegabytes(_ measurement: Measurement<UnitInformationStorage>) -> String {
+        String(format: "%.1f", measurement.converted(to: .megabytes).value)
     }
 
-    private static func sanitizeKey(_ key: String) -> String {
-        key
-            .unicodeScalars
-            .map { CharacterSet.alphanumerics.contains($0) ? String($0).lowercased() : "_" }
-            .joined()
-            .replacingOccurrences(of: "_+", with: "_", options: .regularExpression)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+    private static func appendExitMetricFields(from metrics: MXAppExitMetric, into fields: inout [String: String]) {
+        let foreground = metrics.foregroundExitData
+        fields["exit_foreground_normal_count"] = String(foreground.cumulativeNormalAppExitCount)
+        fields["exit_foreground_memory_resource_limit_count"] = String(foreground.cumulativeMemoryResourceLimitExitCount)
+        fields["exit_foreground_watchdog_count"] = String(foreground.cumulativeAppWatchdogExitCount)
+        fields["exit_foreground_bad_access_count"] = String(foreground.cumulativeBadAccessExitCount)
+        fields["exit_foreground_abnormal_count"] = String(foreground.cumulativeAbnormalExitCount)
+
+        let background = metrics.backgroundExitData
+        fields["exit_background_normal_count"] = String(background.cumulativeNormalAppExitCount)
+        fields["exit_background_memory_pressure_count"] = String(background.cumulativeMemoryPressureExitCount)
+        fields["exit_background_memory_resource_limit_count"] = String(background.cumulativeMemoryResourceLimitExitCount)
+        fields["exit_background_watchdog_count"] = String(background.cumulativeAppWatchdogExitCount)
+        fields["exit_background_bad_access_count"] = String(background.cumulativeBadAccessExitCount)
+        fields["exit_background_abnormal_count"] = String(background.cumulativeAbnormalExitCount)
     }
 }
 
@@ -607,7 +598,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     }
 
     private func persistSemanticIndexForBackgroundTransition(application: UIApplication) {
-        guard TaskSemanticRetrievalService.shared.shouldPersistOnBackgroundTransition else { return }
+        let semanticService = TaskSemanticRetrievalService.shared
+        let shouldPersist = semanticService.shouldPersistOnBackgroundTransition
+        let shouldRelease = semanticService.isActivated
+        guard shouldPersist || shouldRelease else { return }
 
         final class BackgroundTaskBox: @unchecked Sendable {
             private let lock = NSLock()
@@ -623,18 +617,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         }
 
         let backgroundTask = BackgroundTaskBox()
-        backgroundTask.identifier = application.beginBackgroundTask(withName: "PersistSemanticIndex") {
-            backgroundTask.end(in: application)
+        if shouldPersist {
+            backgroundTask.identifier = application.beginBackgroundTask(withName: "PersistSemanticIndex") {
+                backgroundTask.end(in: application)
+            }
         }
 
         deferredLaunchWarmupQueue.async {
             LifeBoardMemoryDiagnostics.checkpoint(
-                event: "semantic_persist_background_started",
-                message: "Persisting semantic index before background suspension",
-                counts: ["semantic_items": TaskSemanticRetrievalService.shared.itemCount]
+                event: "semantic_background_release_started",
+                message: "Releasing semantic retrieval resources before background suspension",
+                fields: ["will_persist": shouldPersist ? "true" : "false"],
+                counts: ["semantic_items": semanticService.itemCount]
             )
-            TaskSemanticRetrievalService.shared.persistIndex()
-            TaskSemanticRetrievalService.shared.releaseInMemoryResources()
+            if shouldPersist {
+                semanticService.persistIndex()
+            }
+            semanticService.releaseInMemoryResources()
+            LifeBoardMemoryDiagnostics.checkpoint(
+                event: "semantic_background_release_finished",
+                message: "Released semantic retrieval resources for background suspension",
+                fields: ["did_persist": shouldPersist ? "true" : "false"],
+                counts: ["semantic_items": 0]
+            )
             backgroundTask.end(in: application)
         }
     }

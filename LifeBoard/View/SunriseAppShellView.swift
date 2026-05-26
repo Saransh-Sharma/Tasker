@@ -3269,6 +3269,10 @@ struct SunriseAppShellView: View {
     private var isTodayTimelineVisible: Bool {
         activeFace == .tasks && tasksSnapshot.activeQuickView == .today
     }
+    private var isTaskFaceVisible: Bool { activeFace == .tasks }
+    private var isDaySwipeChromeAvailable: Bool {
+        isTaskFaceVisible || isScheduleFaceVisible
+    }
     private var isRescueEnabled: Bool { V2FeatureFlags.evaRescueEnabled }
     private var visibleAgendaTailItems: [HomeAgendaTailItem] {
         guard isRescueEnabled else { return [] }
@@ -3312,7 +3316,7 @@ struct SunriseAppShellView: View {
         )
     }
     private var isDaySwipeGestureEnabled: Bool {
-        guard isTodayTimelineVisible || isScheduleFaceVisible else { return false }
+        guard isTaskFaceVisible || isScheduleFaceVisible else { return false }
         guard showDatePicker == false, showAdvancedFilters == false else { return false }
         guard overlaySnapshot.replanState.isApplying == false else { return false }
         if case .placement = overlaySnapshot.replanState.phase {
@@ -3490,7 +3494,8 @@ struct SunriseAppShellView: View {
                         bottomInset: layoutMetrics.taskListBottomInset,
                         safeAreaTop: layoutMetrics.safeAreaTop,
                         isShellInteractive: shellPhase == .interactive,
-                        isDaySwipeEnabled: isDaySwipeGestureEnabled,
+                        isDaySwipeEnabled: isDaySwipeChromeAvailable,
+                        isDaySwipeInteractive: isDaySwipeGestureEnabled,
                         onSelectQuickView: { viewModel.setQuickView($0) },
                         onShowDatePicker: {
                             draftDate = chromeSnapshot.selectedDate
@@ -3519,6 +3524,7 @@ struct SunriseAppShellView: View {
                         onOpenHabitBoard: {
                             showHabitBoardPresented = true
                         },
+                        onAddHabit: presentHomeAddHabitComposer,
                         onAddTask: onAddTask,
                         onRequestCalendarPermission: onRequestCalendarPermission,
                         onOpenCalendarChooser: onOpenCalendarChooser,
@@ -3538,7 +3544,10 @@ struct SunriseAppShellView: View {
                             onToggleComplete(task)
                         },
                         onAnchorTap: onTimelineAnchorTap,
-                        onScrollStateChange: onTaskListScrollChromeStateChange
+                        onScrollStateChange: { state in
+                            updateDaySunriseSwipeChromeVisibility(for: state)
+                            onTaskListScrollChromeStateChange(state)
+                        }
                     )
                 } else if activeFace == .schedule {
                     sunriseScheduleSurface()
@@ -4373,6 +4382,7 @@ struct SunriseAppShellView: View {
                         trackTaskDragStarted(task, source: "task_list")
                     },
                     onScrollChromeStateChange: { state in
+                        updateDaySunriseSwipeChromeVisibility(for: state)
                         onTaskListScrollChromeStateChange(state)
                     },
                     onPullToSearch: {
@@ -5018,7 +5028,13 @@ struct SunriseAppShellView: View {
             restoresOnExpanded: false
         )
         guard nextVisibility != isDaySunriseSwipeChromeVisible else { return }
-        isDaySunriseSwipeChromeVisible = nextVisibility
+        if reduceMotion || isUITesting {
+            isDaySunriseSwipeChromeVisible = nextVisibility
+        } else {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                isDaySunriseSwipeChromeVisible = nextVisibility
+            }
+        }
         if nextVisibility == false {
             activeDaySunriseSwipeSide = nil
             cancelDaySwipeTraceIfNeeded()
@@ -5374,7 +5390,9 @@ struct SunriseAppShellView: View {
                     }
                 )
 
-                daySunriseSwipeOverlay
+                if activeFace != .tasks {
+                    daySunriseSwipeOverlay
+                }
             }
             .coordinateSpace(name: Self.daySunriseSwipeCoordinateSpaceName)
         }

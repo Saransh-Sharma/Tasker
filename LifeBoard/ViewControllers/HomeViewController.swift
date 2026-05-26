@@ -2415,7 +2415,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         bottomBarHostingController = hostingController
         addChild(hostingController)
         view.addSubview(hostingController.view)
-        let bottomConstraint = hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        let bottomConstraint = hostingController.view.bottomAnchor.constraint(
+            equalTo: view.bottomAnchor,
+            constant: resolvedBottomBarDownshift()
+        )
         let heightConstraint = hostingController.view.heightAnchor.constraint(equalToConstant: resolvedBottomBarHostHeight())
         bottomBarBottomConstraint = bottomConstraint
         bottomBarHeightConstraint = heightConstraint
@@ -2516,7 +2519,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         guard abs(bottomBarBottomConstraint.constant - downshift) > 0.5 else { return }
         bottomBarBottomConstraint.constant = downshift
         guard animated else {
-            view.setNeedsLayout()
+            view.layoutIfNeeded()
             return
         }
         UIView.animate(
