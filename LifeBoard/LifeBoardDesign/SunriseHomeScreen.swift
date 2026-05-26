@@ -13,6 +13,7 @@ struct SunriseHomeScreen: View {
     let safeAreaTop: CGFloat
     let isShellInteractive: Bool
     let isDaySwipeEnabled: Bool
+    let isDaySwipeInteractive: Bool
     let onSelectQuickView: (HomeQuickView) -> Void
     let onShowDatePicker: () -> Void
     let onShiftSelectedDay: (Int, HomeDateNavigationSource) -> Void
@@ -21,6 +22,7 @@ struct SunriseHomeScreen: View {
     let onOpenSearch: () -> Void
     let onOpenChat: () -> Void
     let onOpenHabitBoard: () -> Void
+    let onAddHabit: () -> Void
     let onAddTask: (Date?) -> Void
     let onRequestCalendarPermission: () -> Void
     let onOpenCalendarChooser: () -> Void
@@ -63,38 +65,46 @@ struct SunriseHomeScreen: View {
                     }
                     .contentShape(Rectangle())
                     .background {
-                        SunriseDaySwipeGestureSurface(
-                            isEnabled: isDaySwipeInteractionEnabled,
-                            containerSize: daySunriseSwipeContainerSize(proxy.size),
-                            restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
-                            resolver: .default,
-                            onInteractionStarted: {},
-                            onChanged: { side, translation, location in
-                                updateDaySunriseSwipe(
-                                    side: side,
-                                    translation: translation,
-                                    location: location,
-                                    size: daySunriseSwipeContainerSize(proxy.size),
-                                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
-                                )
-                            },
-                            onEnded: { side, translation, predictedEndTranslation, _ in
-                                endDaySunriseSwipe(
-                                    side: side,
-                                    translation: translation,
-                                    predictedEndTranslation: predictedEndTranslation,
-                                    size: daySunriseSwipeContainerSize(proxy.size),
-                                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
-                                )
-                            },
-                            onCancelled: { side in
-                                cancelDaySunriseSwipe(
-                                    side: side,
-                                    size: daySunriseSwipeContainerSize(proxy.size),
-                                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
-                                )
-                            }
-                        )
+                        ZStack {
+                            SunriseDaySwipeGestureSurface(
+                                isEnabled: isDaySwipeInteractionEnabled,
+                                containerSize: daySunriseSwipeContainerSize(proxy.size),
+                                restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
+                                resolver: .default,
+                                onInteractionStarted: {},
+                                onChanged: { side, translation, location in
+                                    updateDaySunriseSwipe(
+                                        side: side,
+                                        translation: translation,
+                                        location: location,
+                                        size: daySunriseSwipeContainerSize(proxy.size),
+                                        restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
+                                    )
+                                },
+                                onEnded: { side, translation, predictedEndTranslation, _ in
+                                    endDaySunriseSwipe(
+                                        side: side,
+                                        translation: translation,
+                                        predictedEndTranslation: predictedEndTranslation,
+                                        size: daySunriseSwipeContainerSize(proxy.size),
+                                        restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
+                                    )
+                                },
+                                onCancelled: { side in
+                                    cancelDaySunriseSwipe(
+                                        side: side,
+                                        size: daySunriseSwipeContainerSize(proxy.size),
+                                        restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
+                                    )
+                                }
+                            )
+
+                            SunriseHomeScrollChromeObserver(
+                                isEnabled: isDaySwipeChromeEnabled,
+                                onOffsetChange: handleScrollOffsetChange,
+                                onScrollIntent: handleScrollChromeState
+                            )
+                        }
                         .frame(width: 1, height: 1)
                         .accessibilityHidden(true)
                         .allowsHitTesting(false)
@@ -107,15 +117,21 @@ struct SunriseHomeScreen: View {
                 }
                 .coordinateSpace(name: "sunriseHomeScroll")
                 .scrollIndicators(.hidden)
+                .accessibilityIdentifier("home.view")
                 .ignoresSafeArea(edges: .top)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 2)
-                        .onChanged { _ in setScrolling(true) }
-                        .onEnded { _ in scheduleScrollStop() }
-                )
+                .simultaneousGesture(scrollIntentGesture)
                 .onPreferenceChange(SunriseScrollOffsetPreferenceKey.self) { offset in
                     handleScrollOffsetChange(Self.chromeOffset(forScrollMinY: offset))
                 }
+                .onScrollGeometryChange(
+                    for: CGFloat.self,
+                    of: { geometry in
+                        geometry.contentOffset.y + geometry.contentInsets.top
+                    },
+                    action: { _, newOffset in
+                        handleScrollOffsetChange(max(0, newOffset))
+                    }
+                )
 
                 daySunriseSwipeOverlay(safeAreaTop: proxy.safeAreaInsets.top)
                     .zIndex(10)
@@ -138,8 +154,9 @@ struct SunriseHomeScreen: View {
                     size: daySunriseSwipeContainerSize(proxy.size)
                 )
             }
+            .contentShape(Rectangle())
+            .simultaneousGesture(scrollIntentGesture)
         }
-        .accessibilityIdentifier("home.view")
         #if canImport(UIKit)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             refreshHeaderActivationID()
@@ -188,7 +205,7 @@ struct SunriseHomeScreen: View {
 
     private func daySunriseSwipeOverlay(safeAreaTop: CGFloat) -> some View {
         SunriseDaySwipeOverlay(
-            isEnabled: isDaySwipeGestureEnabled,
+            isEnabled: isDaySwipeChromeEnabled,
             isChromeVisible: isDaySunriseSwipeChromeVisible,
             reduceMotion: reduceMotion || isUITesting,
             restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: safeAreaTop),
@@ -240,12 +257,12 @@ struct SunriseHomeScreen: View {
             || ProcessInfo.processInfo.arguments.contains("-DISABLE_ANIMATIONS")
     }
 
-    private var isDaySwipeGestureEnabled: Bool {
-        isShellInteractive && isDaySwipeEnabled
+    private var isDaySwipeChromeEnabled: Bool {
+        isDaySwipeEnabled
     }
 
     private var isDaySwipeInteractionEnabled: Bool {
-        isDaySwipeGestureEnabled && isDaySunriseSwipeChromeVisible
+        isShellInteractive && isDaySwipeInteractive && isDaySunriseSwipeChromeVisible
     }
 
     private var daySwipeAnimation: Animation {
@@ -375,6 +392,7 @@ struct SunriseHomeScreen: View {
                                 ),
                                 onTap: { onAnchorTap(anchor) }
                             )
+                            .equatable()
                         }
                     case .item(let item):
                         let kind = cardKind(for: item)
@@ -394,6 +412,7 @@ struct SunriseHomeScreen: View {
                                 onTap: { onTimelineItemTap(item) },
                                 onToggleComplete: item.taskID == nil ? nil : { onTimelineItemToggleComplete(item) }
                             )
+                            .equatable()
                         }
                     case .meetingFlock(let model, let sourceItems):
                         LBTimelineItem(timeText: model.timeRange.components(separatedBy: " – ").first ?? model.timeRange, role: .meeting, temporalState: temporalState) {
@@ -419,6 +438,7 @@ struct SunriseHomeScreen: View {
                                 isToday: true
                             )
                         )
+                        .equatable()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     }
@@ -430,46 +450,76 @@ struct SunriseHomeScreen: View {
     @ViewBuilder
     private var habitContent: some View {
         let models = habitModels
-        if models.isEmpty, selectedContentScope == .habits {
-            LBEmptyState(
-                model: LBEmptyState.Model(
-                    title: "No habits here yet",
-                    message: "Nothing is due or tracked in Home right now. Open the Habit Board to review the full system.",
-                    actionTitle: "Open Habit Board",
-                    systemImage: "heart"
-                ),
-                action: onOpenHabitBoard
-            )
-            .padding(.top, LBSpacingTokens.xs)
-            .padding(.bottom, LBSpacingTokens.xxl)
-        } else if !models.isEmpty {
-            LBGlassCard(cornerRadius: LBRadiusTokens.largeCard) {
-                VStack(spacing: LBSpacingTokens.md) {
-                    HStack {
-                        LBSectionHeader(title: "Habits", systemImage: "chart.bar")
-                        Spacer()
-                        Button("View All Habits", action: onOpenHabitBoard)
-                            .font(LBTypographyTokens.meta)
+        LBGlassCard(cornerRadius: LBRadiusTokens.largeCard) {
+            VStack(spacing: LBSpacingTokens.md) {
+                HStack {
+                    LBSectionHeader(title: "Habits", systemImage: "chart.bar")
+                    Spacer()
+                    Button("View All Habits", action: onOpenHabitBoard)
+                        .font(LBTypographyTokens.meta)
+                        .foregroundStyle(LBColorTokens.violetDeep)
+                        .buttonStyle(.plain)
+                }
+                if models.isEmpty {
+                    HStack(spacing: LBSpacingTokens.sm) {
+                        Image(systemName: "heart")
+                            .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(LBColorTokens.violetDeep)
-                            .buttonStyle(.plain)
+                        Text("No habits here yet.")
+                            .font(LBTypographyTokens.body)
+                            .foregroundStyle(LBColorTokens.navy)
+                        Spacer(minLength: LBSpacingTokens.sm)
                     }
+                    .padding(.top, LBSpacingTokens.xs)
+                } else {
                     ForEach(models) { model in
                         LBHabitCell(model: model)
+                            .equatable()
                     }
-                    Divider().overlay(LBColorTokens.hairline)
-                    HStack {
-                        Image(systemName: "star")
-                        Text("Small steps, big changes.")
-                        Spacer()
-                    }
-                    .font(LBTypographyTokens.meta)
-                    .foregroundStyle(LBColorTokens.navyMuted)
                 }
-                .padding(LBSpacingTokens.lg)
+                Divider().overlay(LBColorTokens.hairline)
+                addHabitFooterButton
+                HStack {
+                    Image(systemName: "star")
+                    Text("Small steps, big changes.")
+                    Spacer()
+                }
+                .font(LBTypographyTokens.meta)
+                .foregroundStyle(LBColorTokens.navyMuted)
             }
-            .padding(.top, LBSpacingTokens.xs)
-            .padding(.bottom, LBSpacingTokens.xxl)
+            .padding(LBSpacingTokens.lg)
         }
+        .padding(.top, LBSpacingTokens.xs)
+        .padding(.bottom, LBSpacingTokens.xxl)
+    }
+
+    private var addHabitFooterButton: some View {
+        Button(action: onAddHabit) {
+            HStack(spacing: LBSpacingTokens.xs) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                Text("Add Habit")
+                    .font(LBTypographyTokens.chip)
+                Spacer(minLength: LBSpacingTokens.sm)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(LBColorTokens.violetDeep.opacity(0.7))
+            }
+            .foregroundStyle(LBColorTokens.violetDeep)
+            .padding(.horizontal, LBSpacingTokens.md)
+            .padding(.vertical, LBSpacingTokens.sm)
+            .background {
+                RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
+                    .fill(LBColorTokens.violetSoft.opacity(0.72))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
+                            .stroke(LBColorTokens.violet.opacity(0.22), lineWidth: 1)
+                    }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.habits.addHabit")
+        .accessibilityLabel("Add Habit")
     }
 
     private var filterChips: [SunriseFilterChip] {
@@ -670,7 +720,7 @@ struct SunriseHomeScreen: View {
     }
 
     private var habitModels: [LBHabitCell.Model] {
-        Array((habits.habitHomeSectionState.primaryRows + habits.habitHomeSectionState.recoveryRows).prefix(8)).map { row in
+        Array(habits.habitHomeSectionState.primaryRows.prefix(8)).map { row in
             let cells = Array((row.boardCellsCompact.isEmpty ? row.boardCellsExpanded : row.boardCellsCompact).suffix(7))
             let doneCount = cells.filter { cell in
                 if case .done = cell.state { return true }
@@ -975,7 +1025,7 @@ struct SunriseHomeScreen: View {
         size: CGSize,
         restingCenterY: CGFloat
     ) {
-        guard isDaySwipeGestureEnabled else { return }
+        guard isDaySwipeInteractionEnabled else { return }
         activeDaySunriseSwipeSide = side
         topDaySunriseSwipeSide = side
         setDaySunriseSwipeData(
@@ -993,7 +1043,7 @@ struct SunriseHomeScreen: View {
     ) {
         activeDaySunriseSwipeSide = nil
 
-        guard isDaySwipeGestureEnabled else {
+        guard isDaySwipeInteractionEnabled else {
             resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
             return
         }
@@ -1069,7 +1119,7 @@ struct SunriseHomeScreen: View {
     }
 
     private func commitHomeDaySwipe(_ direction: HomeDayNavigationDirection) {
-        guard isDaySwipeGestureEnabled else { return }
+        guard isDaySwipeInteractionEnabled else { return }
         committedDaySwipeDirection = direction
         let dayOffset = direction == .previous ? -1 : 1
         LifeBoardFeedback.selection()
@@ -1099,10 +1149,30 @@ struct SunriseHomeScreen: View {
         }
     }
 
+    private var scrollIntentGesture: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { value in handleScrollDragChange(value) }
+            .onEnded { _ in scheduleScrollStop() }
+    }
+
     private func handleScrollOffsetChange(_ offset: CGFloat) {
-        guard isShellInteractive else { return }
         if let nextState = scrollChromeStateTracker.consume(offset: offset) {
             handleScrollChromeState(nextState)
+        }
+    }
+
+    private func handleScrollDragChange(_ value: DragGesture.Value) {
+        setScrolling(true)
+
+        let verticalTranslation = value.translation.height
+        let horizontalTranslation = value.translation.width
+        guard abs(verticalTranslation) >= 8,
+              abs(verticalTranslation) > abs(horizontalTranslation) else { return }
+
+        if verticalTranslation < 0 {
+            handleScrollChromeState(.collapsed)
+        } else if scrollChromeStateTracker.lastOffsetY == nil {
+            handleScrollChromeState(.nearTop)
         }
     }
 
@@ -1118,7 +1188,13 @@ struct SunriseHomeScreen: View {
             restoresOnExpanded: false
         )
         guard nextVisibility != isDaySunriseSwipeChromeVisible else { return }
-        isDaySunriseSwipeChromeVisible = nextVisibility
+        if reduceMotion || isUITesting {
+            isDaySunriseSwipeChromeVisible = nextVisibility
+        } else {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                isDaySunriseSwipeChromeVisible = nextVisibility
+            }
+        }
         if nextVisibility == false {
             activeDaySunriseSwipeSide = nil
         }
@@ -1128,6 +1204,158 @@ struct SunriseHomeScreen: View {
         max(0, -minY)
     }
 }
+
+#if canImport(UIKit)
+private struct SunriseHomeScrollChromeObserver: UIViewRepresentable {
+    let isEnabled: Bool
+    let onOffsetChange: (CGFloat) -> Void
+    let onScrollIntent: (HomeScrollChromeState) -> Void
+
+    func makeUIView(context: Context) -> HostView {
+        let view = HostView()
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        return view
+    }
+
+    func updateUIView(_ uiView: HostView, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.installIfNeeded(from: uiView)
+    }
+
+    static func dismantleUIView(_ uiView: HostView, coordinator: Coordinator) {
+        coordinator.uninstall()
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    final class HostView: UIView {
+        override var intrinsicContentSize: CGSize {
+            CGSize(width: 1, height: 1)
+        }
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: SunriseHomeScrollChromeObserver
+
+        private weak var scrollView: UIScrollView?
+        private weak var installedView: UIView?
+        private weak var panRecognizer: UIPanGestureRecognizer?
+        private let nearTopOffset: CGFloat = 40
+
+        init(parent: SunriseHomeScrollChromeObserver) {
+            self.parent = parent
+        }
+
+        func installIfNeeded(from hostView: UIView) {
+            if let scrollView = hostView.nearestSunriseHomeSuperview(of: UIScrollView.self),
+               let installView = scrollView.window ?? scrollView.superview {
+                install(on: installView, observing: scrollView)
+                return
+            }
+
+            DispatchQueue.main.async { [weak self, weak hostView] in
+                guard let self, let hostView else { return }
+                guard let scrollView = hostView.nearestSunriseHomeSuperview(of: UIScrollView.self) else { return }
+                guard let installView = scrollView.window ?? scrollView.superview else { return }
+                self.install(on: installView, observing: scrollView)
+            }
+        }
+
+        func uninstall() {
+            if let panRecognizer, let installedView {
+                installedView.removeGestureRecognizer(panRecognizer)
+            }
+            installedView = nil
+            panRecognizer = nil
+            scrollView = nil
+        }
+
+        private func install(on installView: UIView, observing scrollView: UIScrollView) {
+            self.scrollView = scrollView
+
+            if installedView === installView, panRecognizer?.view === installView {
+                return
+            }
+
+            uninstall()
+            self.scrollView = scrollView
+            let recognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+            recognizer.delegate = self
+            recognizer.cancelsTouchesInView = false
+            recognizer.delaysTouchesBegan = false
+            recognizer.delaysTouchesEnded = false
+            installView.addGestureRecognizer(recognizer)
+            installedView = installView
+            panRecognizer = recognizer
+            emitOffsetChange(from: scrollView)
+        }
+
+        @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
+            guard parent.isEnabled, let scrollView else { return }
+            emitOffsetChange(from: scrollView)
+
+            let translation = recognizer.translation(in: scrollView)
+            let velocity = recognizer.velocity(in: scrollView)
+            let verticalMovement = abs(translation.y) > 8 ? translation.y : velocity.y
+            let horizontalMovement = abs(translation.x) > 8 ? translation.x : velocity.x
+            guard abs(verticalMovement) > abs(horizontalMovement) else { return }
+
+            if verticalMovement < 0 {
+                parent.onScrollIntent(.collapsed)
+            } else if normalizedOffset(for: scrollView) <= nearTopOffset {
+                parent.onScrollIntent(.nearTop)
+            }
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard parent.isEnabled else { return false }
+            guard let recognizer = gestureRecognizer as? UIPanGestureRecognizer else { return false }
+            guard let scrollView else { return false }
+
+            let location = recognizer.location(in: scrollView)
+            let visibleBounds = CGRect(origin: .zero, size: scrollView.bounds.size)
+            guard visibleBounds.contains(location) else { return false }
+
+            return true
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            guard gestureRecognizer === panRecognizer else { return false }
+            guard let scrollView else { return false }
+            return otherGestureRecognizer === scrollView.panGestureRecognizer
+        }
+
+        private func emitOffsetChange(from scrollView: UIScrollView) {
+            guard parent.isEnabled else { return }
+            parent.onOffsetChange(normalizedOffset(for: scrollView))
+        }
+
+        private func normalizedOffset(for scrollView: UIScrollView) -> CGFloat {
+            max(0, scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
+        }
+    }
+}
+
+private extension UIView {
+    func nearestSunriseHomeSuperview<T: UIView>(of type: T.Type) -> T? {
+        var view = superview
+        while let current = view {
+            if let match = current as? T {
+                return match
+            }
+            view = current.superview
+        }
+        return nil
+    }
+}
+#endif
 
 enum SunriseHomeContentScope: String, CaseIterable, Sendable {
     case all
