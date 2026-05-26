@@ -685,6 +685,32 @@ public struct HabitDetailCalendarWeekViewState: Identifiable, Equatable {
 public struct HabitDetailCalendarViewState: Equatable {
     public let helperText: String
     public let weeks: [HabitDetailCalendarWeekViewState]
+    public let summaryMetrics: HabitDetailCalendarSummaryMetrics
+}
+
+public struct HabitDetailCalendarSummaryMetrics: Equatable {
+    public let currentStreak: Int
+    public let bestStreak: Int
+    public let totalCount: Int
+    public let scheduledElapsedCount: Int
+    public let completionRate: Double
+
+    public var currentStreakDisplay: String {
+        "\(currentStreak)"
+    }
+
+    public var bestStreakDisplay: String {
+        "\(bestStreak)"
+    }
+
+    public var totalCountDisplay: String {
+        "\(totalCount)"
+    }
+
+    public var completionRateDisplay: String {
+        guard scheduledElapsedCount > 0 else { return "0%" }
+        return "\(Int((completionRate * 100).rounded()))%"
+    }
 }
 
 enum HabitDetailDayMutationRequest: Equatable {
@@ -818,7 +844,12 @@ enum HabitDetailCalendarBuilder {
                         )
                     }
                 )
-            }
+            },
+            summaryMetrics: summaryMetrics(
+                for: flattenedCells,
+                currentStreak: row.currentStreak,
+                bestStreak: row.bestStreak
+            )
         )
     }
 
@@ -958,6 +989,34 @@ enum HabitDetailCalendarBuilder {
         case .reset:
             return "Double-tap to clear this day."
         }
+    }
+
+    private static func summaryMetrics(
+        for cells: [HabitDetailDayCell],
+        currentStreak: Int,
+        bestStreak: Int
+    ) -> HabitDetailCalendarSummaryMetrics {
+        let elapsedScheduledCells = cells.filter { cell in
+            switch cell.state {
+            case .future, .notScheduled:
+                return false
+            case .empty, .success, .skipped, .lapsed:
+                return true
+            }
+        }
+        let totalCount = elapsedScheduledCells.filter { $0.state == .success }.count
+        let scheduledElapsedCount = elapsedScheduledCells.count
+        let completionRate = scheduledElapsedCount > 0
+            ? Double(totalCount) / Double(scheduledElapsedCount)
+            : 0
+
+        return HabitDetailCalendarSummaryMetrics(
+            currentStreak: currentStreak,
+            bestStreak: bestStreak,
+            totalCount: totalCount,
+            scheduledElapsedCount: scheduledElapsedCount,
+            completionRate: completionRate
+        )
     }
 
     private static func resolveState(

@@ -173,12 +173,14 @@ public final class WeeklyReviewViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         fetchReviewPayload { result in
-            self.isLoading = false
             switch result {
             case .failure(let error):
+                self.isLoading = false
                 self.errorMessage = self.presentationErrorMessage(for: error)
             case .success(let payload):
-                self.applyLoadedPayload(payload)
+                self.applyLoadedPayload(payload) {
+                    self.isLoading = false
+                }
             }
         }
     }
@@ -346,7 +348,10 @@ public final class WeeklyReviewViewModel: ObservableObject {
         }
     }
 
-    private func applyLoadedPayload(_ payload: LoadedReviewPayload) {
+    private func applyLoadedPayload(
+        _ payload: LoadedReviewPayload,
+        completion: (@MainActor @Sendable () -> Void)? = nil
+    ) {
         hasLoadedInitialData = true
         snapshot = payload.snapshot
         reflectionNotes = payload.snapshot.reflectionNotes
@@ -356,10 +361,13 @@ public final class WeeklyReviewViewModel: ObservableObject {
             .filter { selectedHabitIDs.contains($0.habitID) }
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
         refreshDerivedState()
-        loadLocalState(for: payload.snapshot)
+        loadLocalState(for: payload.snapshot, completion: completion)
     }
 
-    private func loadLocalState(for snapshot: WeeklyPlanSnapshot) {
+    private func loadLocalState(
+        for snapshot: WeeklyPlanSnapshot,
+        completion: (@MainActor @Sendable () -> Void)? = nil
+    ) {
         let fallbackTaskDecisions = Dictionary(
             uniqueKeysWithValues: snapshot.thisWeekTasks
                 .filter { !$0.isComplete }
@@ -389,6 +397,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
                 self.isHydratingLocalState = false
                 self.lastPersistedDraftPayload = self.currentDraftPayload()
                 self.refreshDerivedState()
+                completion?()
             }
         }
     }
@@ -409,8 +418,9 @@ public final class WeeklyReviewViewModel: ObservableObject {
                         )
                     ))
                 case .success(let payload):
-                    self.applyLoadedPayload(payload)
-                    completion(.success(()))
+                    self.applyLoadedPayload(payload) {
+                        completion(.success(()))
+                    }
                 }
             }
         }
