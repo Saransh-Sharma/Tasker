@@ -196,10 +196,19 @@ private struct LifeBoardLayoutClassKey: EnvironmentKey {
     static let defaultValue: LifeBoardLayoutClass = .phone
 }
 
+private struct LifeBoardScrollOptimizedRenderingKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 public extension EnvironmentValues {
     var lifeboardLayoutClass: LifeBoardLayoutClass {
         get { self[LifeBoardLayoutClassKey.self] }
         set { self[LifeBoardLayoutClassKey.self] = newValue }
+    }
+
+    var lifeboardScrollOptimizedRendering: Bool {
+        get { self[LifeBoardScrollOptimizedRenderingKey.self] }
+        set { self[LifeBoardScrollOptimizedRenderingKey.self] = newValue }
     }
 }
 
@@ -563,6 +572,10 @@ public extension View {
     /// Executes lifeboardLayoutClass.
     func lifeboardLayoutClass(_ layoutClass: LifeBoardLayoutClass) -> some View {
         environment(\.lifeboardLayoutClass, layoutClass)
+    }
+
+    func lifeboardScrollOptimizedRendering(_ enabled: Bool = true) -> some View {
+        environment(\.lifeboardScrollOptimizedRendering, enabled)
     }
 
     /// Keeps dense content readable on iPad and Designed for iPad on Mac.

@@ -158,6 +158,7 @@ public struct ActiveGlow: ViewModifier {
     let isActive: Bool
     let color: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     public init(isActive: Bool, color: Color) {
         self.isActive = isActive
@@ -167,10 +168,10 @@ public struct ActiveGlow: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .shadow(
-                color: isActive ? color.opacity(0.25) : .clear,
-                radius: isActive ? 8 : 0
+                color: isActive && scrollOptimizedRendering == false ? color.opacity(0.25) : .clear,
+                radius: isActive && scrollOptimizedRendering == false ? 8 : 0
             )
-            .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isActive)
+            .animation((reduceMotion || scrollOptimizedRendering) ? nil : LifeBoardAnimation.quick, value: isActive)
     }
 }
 

@@ -90,6 +90,7 @@ private struct HomeHabitRowInteractiveSurface: View {
     let accessibilityHint: String
     let onRowAction: (() -> Void)?
     let onLastCellAction: (() -> Void)?
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     var body: some View {
         GeometryReader { proxy in
@@ -111,13 +112,17 @@ private struct HomeHabitRowInteractiveSurface: View {
                         Color.black.opacity(0.001)
 
                         if metrics.visualLastCellWidth > 0 {
-                            Image(systemName: "circle.dotted.circle")
+                            let icon = Image(systemName: "circle.dotted.circle")
                                 .font(.system(size: min(metrics.visualLastCellWidth * 0.58, usesExpandedTitle ? 28 : 22), weight: .semibold))
                                 .symbolRenderingMode(.palette)
                                 .foregroundStyle(.white, .yellow)
-                                .symbolEffect(.breathe.pulse.byLayer, options: .repeat(.periodic(delay: 2.5)))
                                 .frame(width: metrics.visualLastCellWidth, height: metrics.visualLastCellWidth)
                                 .accessibilityHidden(true)
+                            if scrollOptimizedRendering {
+                                icon
+                            } else {
+                                icon.symbolEffect(.breathe.pulse.byLayer, options: .repeat(.periodic(delay: 2.5)))
+                            }
                         }
                     }
                 }
@@ -162,6 +167,7 @@ struct HomeHabitRowView: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
     @State private var measuredStreakWidth: CGFloat = 0
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
@@ -372,24 +378,23 @@ struct HomeHabitRowView: View {
     }
 
     private var titleReadabilityScrim: some View {
-        LinearGradient(
-            colors: [
-                Color.lifeboard.surfacePrimary.opacity(0.82),
-                Color.lifeboard.surfacePrimary.opacity(0.56),
-                Color.lifeboard.surfacePrimary.opacity(0.12),
-                .clear
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
+        Group {
+            if scrollOptimizedRendering {
+                Color.lifeboard.surfacePrimary.opacity(0.72)
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color.lifeboard.surfacePrimary.opacity(0.82),
+                        Color.lifeboard.surfacePrimary.opacity(0.56),
+                        Color.lifeboard.surfacePrimary.opacity(0.12),
+                        .clear
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            }
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .mask(
-            LinearGradient(
-                colors: [.white, .white, .black.opacity(0.65), .clear],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        )
         .allowsHitTesting(false)
     }
 

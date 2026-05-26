@@ -244,6 +244,7 @@ struct SunriseTaskListView: View {
     @State private var draggingCustomProjectID: UUID?
     @State private var isCompletedCollapsedBySection: [UUID: Bool] = [:]
     @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
+    @State private var lastScrollOffsetY: CGFloat?
     @State private var scrollTraceInterval: LifeBoardPerformanceInterval?
     @State private var pendingScrollTraceIdleTask: Task<Void, Never>?
     @State private var hasTriggeredPullToSearch = false
@@ -391,8 +392,10 @@ struct SunriseTaskListView: View {
                     Spacer()
                         .frame(height: bottomContentInset)
                 }
+                .lifeboardScrollOptimizedRendering()
             }
             .onAppear {
+                lastScrollOffsetY = nil
                 scrollToHighlightedTaskIfNeeded(proxy: proxy)
                 onScrollChromeStateChange?(.nearTop)
             }
@@ -403,6 +406,8 @@ struct SunriseTaskListView: View {
                 scrollToHighlightedTaskIfNeeded(proxy: proxy)
             }
             .onChange(of: scrollResetKey) { _, _ in
+                lastScrollOffsetY = nil
+                scrollChromeStateTracker = HomeScrollChromeStateTracker()
                 scrollToTop(proxy: proxy)
             }
             .onScrollGeometryChange(
@@ -420,11 +425,20 @@ struct SunriseTaskListView: View {
     }
 
     private func handleScrollOffsetChange(_ newOffset: CGFloat) {
+        guard newOffset.isFinite else { return }
+        let normalizedOffset = max(0, newOffset)
+        if let lastScrollOffsetY,
+           normalizedOffset >= 40,
+           abs(normalizedOffset - lastScrollOffsetY) < 4 {
+            return
+        }
+        lastScrollOffsetY = normalizedOffset
+
         let previousOffset = scrollChromeStateTracker.lastOffsetY
-        if previousOffset != nil || newOffset > 2 {
+        if previousOffset != nil || normalizedOffset > 2 {
             recordScrollActivity()
         }
-        if let nextState = scrollChromeStateTracker.consume(offset: newOffset) {
+        if let nextState = scrollChromeStateTracker.consume(offset: normalizedOffset) {
             onScrollChromeStateChange?(nextState)
         }
     }

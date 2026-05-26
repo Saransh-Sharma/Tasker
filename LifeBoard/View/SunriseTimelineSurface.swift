@@ -3922,6 +3922,7 @@ private struct TimelinePlacementPrompt: View {
 private struct TimelinePlacementDock: View {
     let candidate: TimelinePlacementCandidate
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
     @State private var isDragging = false
 
     var body: some View {
@@ -3947,7 +3948,12 @@ private struct TimelinePlacementDock: View {
                 .stroke(isDragging ? Color.lifeboard.accentPrimary.opacity(0.42) : Color.lifeboard.strokeHairline.opacity(0.7), lineWidth: 1)
         )
         .scaleEffect(isDragging && reduceMotion == false ? 1.018 : 1)
-        .shadow(color: Color.lifeboard.accentPrimary.opacity(isDragging ? 0.16 : 0), radius: isDragging ? 14 : 0, x: 0, y: 8)
+        .shadow(
+            color: Color.lifeboard.accentPrimary.opacity(isDragging && scrollOptimizedRendering == false ? 0.16 : 0),
+            radius: isDragging && scrollOptimizedRendering == false ? 14 : 0,
+            x: 0,
+            y: 8
+        )
         .draggable(candidate.taskID.uuidString)
         .simultaneousGesture(
             DragGesture(minimumDistance: 3)
@@ -4409,39 +4415,80 @@ struct TimelineStreamGlintPresentation: Equatable {
 private struct CurvingDayStreamView: View {
     let geometry: TimelineStreamGeometry
     let currentY: CGFloat?
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     var body: some View {
+        if scrollOptimizedRendering {
+            streamCanvas
+        } else {
+            streamCanvas
+                .drawingGroup()
+        }
+    }
+
+    private var streamCanvas: some View {
         Canvas { context, _ in
             let path = geometry.path()
             let fullOpacity = currentY == nil ? 0.88 : 0.94
-            let visibleGlintIDs = TimelineStreamGlintPresentation.visibleAnchorIDs(
-                anchors: geometry.anchors,
-                currentY: currentY
-            )
             let gradient = Gradient(colors: [
                 TimelineStreamPalette.color(progress: 0).opacity(0.78 * fullOpacity),
                 TimelineStreamPalette.color(progress: 0.38).opacity(0.80 * fullOpacity),
                 TimelineStreamPalette.color(progress: 0.72).opacity(0.78 * fullOpacity),
                 TimelineStreamPalette.color(progress: 1).opacity(0.76 * fullOpacity)
             ])
-            let glowGradient = Gradient(colors: [
-                TimelineStreamPalette.color(progress: 0).opacity(0.18),
-                TimelineStreamPalette.color(progress: 0.38).opacity(0.20),
-                TimelineStreamPalette.color(progress: 0.72).opacity(0.18),
-                TimelineStreamPalette.color(progress: 1).opacity(0.17)
-            ])
             let startPoint = CGPoint(x: geometry.baseX, y: geometry.startY)
             let endPoint = CGPoint(x: geometry.baseX, y: geometry.endY)
 
-            context.stroke(
-                path,
-                with: .linearGradient(glowGradient, startPoint: startPoint, endPoint: endPoint),
-                style: StrokeStyle(
-                    lineWidth: TimelineStreamGeometry.glowLineWidth,
-                    lineCap: .round,
-                    lineJoin: .round
+            if scrollOptimizedRendering == false {
+                let visibleGlintIDs = TimelineStreamGlintPresentation.visibleAnchorIDs(
+                    anchors: geometry.anchors,
+                    currentY: currentY
                 )
-            )
+                let glowGradient = Gradient(colors: [
+                    TimelineStreamPalette.color(progress: 0).opacity(0.18),
+                    TimelineStreamPalette.color(progress: 0.38).opacity(0.20),
+                    TimelineStreamPalette.color(progress: 0.72).opacity(0.18),
+                    TimelineStreamPalette.color(progress: 1).opacity(0.17)
+                ])
+                context.stroke(
+                    path,
+                    with: .linearGradient(glowGradient, startPoint: startPoint, endPoint: endPoint),
+                    style: StrokeStyle(
+                        lineWidth: TimelineStreamGeometry.glowLineWidth,
+                        lineCap: .round,
+                        lineJoin: .round
+                    )
+                )
+
+                for anchor in geometry.anchors where visibleGlintIDs.contains(anchor.id) {
+                    guard let glintPath = glintPath(centerY: anchor.y) else {
+                        continue
+                    }
+                    let glintColor = TimelineStreamPalette.color(progress: progress(for: anchor.y))
+                    context.drawLayer { layer in
+                        layer.addFilter(.blur(radius: TimelineStreamGlintPresentation.blurRadius))
+                        layer.stroke(
+                            glintPath,
+                            with: .color(glintColor.opacity(TimelineStreamGlintPresentation.opacity * 0.55)),
+                            style: StrokeStyle(
+                                lineWidth: TimelineStreamGeometry.baseLineWidth + TimelineStreamGlintPresentation.extraLineWidth + 1,
+                                lineCap: .round,
+                                lineJoin: .round
+                            )
+                        )
+                    }
+                    context.stroke(
+                        glintPath,
+                        with: .color(glintColor.opacity(TimelineStreamGlintPresentation.opacity)),
+                        style: StrokeStyle(
+                            lineWidth: TimelineStreamGeometry.baseLineWidth + TimelineStreamGlintPresentation.extraLineWidth,
+                            lineCap: .round,
+                            lineJoin: .round
+                        )
+                    )
+                }
+            }
+
             context.stroke(
                 path,
                 with: .linearGradient(gradient, startPoint: startPoint, endPoint: endPoint),
@@ -4460,36 +4507,7 @@ private struct CurvingDayStreamView: View {
                     lineJoin: .round
                 )
             )
-
-            for anchor in geometry.anchors where visibleGlintIDs.contains(anchor.id) {
-                guard let glintPath = glintPath(centerY: anchor.y) else {
-                    continue
-                }
-                let glintColor = TimelineStreamPalette.color(progress: progress(for: anchor.y))
-                context.drawLayer { layer in
-                    layer.addFilter(.blur(radius: TimelineStreamGlintPresentation.blurRadius))
-                    layer.stroke(
-                        glintPath,
-                        with: .color(glintColor.opacity(TimelineStreamGlintPresentation.opacity * 0.55)),
-                        style: StrokeStyle(
-                            lineWidth: TimelineStreamGeometry.baseLineWidth + TimelineStreamGlintPresentation.extraLineWidth + 1,
-                            lineCap: .round,
-                            lineJoin: .round
-                        )
-                    )
-                }
-                context.stroke(
-                    glintPath,
-                    with: .color(glintColor.opacity(TimelineStreamGlintPresentation.opacity)),
-                    style: StrokeStyle(
-                        lineWidth: TimelineStreamGeometry.baseLineWidth + TimelineStreamGlintPresentation.extraLineWidth,
-                        lineCap: .round,
-                        lineJoin: .round
-                    )
-                )
-            }
         }
-        .drawingGroup()
         .accessibilityHidden(true)
     }
 

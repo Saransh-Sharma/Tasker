@@ -428,6 +428,7 @@ struct SunriseTaskRowView: View, Equatable {
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
     @State private var highlightPulse = false
 
     /// Initializes a new instance.
@@ -771,7 +772,7 @@ struct SunriseTaskRowView: View, Equatable {
             .fill(stripeFill)
             .frame(width: 4)
 
-        if !task.isComplete && !task.isOverdue && task.priority == .max {
+        if !scrollOptimizedRendering && !task.isComplete && !task.isOverdue && task.priority == .max {
             stripe.breathingPulse(min: 0.75, max: 1.0)
         } else {
             stripe

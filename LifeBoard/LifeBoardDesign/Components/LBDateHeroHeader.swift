@@ -25,6 +25,7 @@ struct LBDateHeroHeader: View {
     let onSearch: () -> Void
     let onDateTap: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -153,7 +154,11 @@ struct LBDateHeroHeader: View {
     @ViewBuilder
     private func clearCircleSurface(fill: Color, stroke: Color) -> some View {
         let shape = Circle()
-        if #available(iOS 26.0, *) {
+        if scrollOptimizedRendering {
+            shape
+                .fill(fill.opacity(0.94))
+                .overlay { shape.stroke(stroke, lineWidth: 1) }
+        } else if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
                 .glassEffect(.clear, in: shape)
@@ -172,7 +177,11 @@ struct LBDateHeroHeader: View {
     @ViewBuilder
     private func clearCapsuleSurface(fill: Color, stroke: Color) -> some View {
         let shape = Capsule()
-        if #available(iOS 26.0, *) {
+        if scrollOptimizedRendering {
+            shape
+                .fill(fill.opacity(0.94))
+                .overlay { shape.stroke(stroke, lineWidth: 1) }
+        } else if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
                 .glassEffect(.clear, in: shape)
