@@ -6,7 +6,7 @@ enum LBTimelineTemporalState: String, Equatable {
     case future
 }
 
-struct LBTimelineCard: View {
+struct LBTimelineCard: View, Equatable {
     enum Kind: String, Equatable {
         case anchor
         case calendar
@@ -32,6 +32,10 @@ struct LBTimelineCard: View {
     let model: Model
     let onTap: () -> Void
     var onToggleComplete: (() -> Void)?
+
+    nonisolated static func == (lhs: LBTimelineCard, rhs: LBTimelineCard) -> Bool {
+        lhs.model == rhs.model
+    }
 
     var body: some View {
         let style = LBColorTokens.role(model.role)

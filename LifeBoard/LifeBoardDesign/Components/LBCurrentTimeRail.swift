@@ -1,12 +1,16 @@
 import SwiftUI
 
-struct LBCurrentTimeRail: View {
+struct LBCurrentTimeRail: View, Equatable {
     struct Model: Equatable {
         let now: Date
         let isToday: Bool
     }
 
     let model: Model
+
+    nonisolated static func == (lhs: LBCurrentTimeRail, rhs: LBCurrentTimeRail) -> Bool {
+        lhs.model == rhs.model
+    }
 
     var body: some View {
         if model.isToday {

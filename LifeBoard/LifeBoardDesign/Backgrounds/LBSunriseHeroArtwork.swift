@@ -15,6 +15,7 @@ struct LBSunriseHeroArtwork: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
     @State private var displayedAsset: TimeOfDayHeaderAsset?
+    @State private var displayedImage: UIImage?
     @State private var deferredAsset: TimeOfDayHeaderAsset?
 
     var body: some View {
@@ -59,18 +60,18 @@ struct LBSunriseHeroArtwork: View {
         .frame(height: height)
         .clipped()
         .onAppear {
-            displayedAsset = model.asset
+            setDisplayedAsset(model.asset)
         }
         .onChange(of: model.asset) { _, newValue in
             if model.isScrollActive {
                 deferredAsset = newValue
             } else {
-                displayedAsset = newValue
+                setDisplayedAsset(newValue)
             }
         }
         .onChange(of: model.isScrollActive) { _, isActive in
             guard !isActive, let deferredAsset else { return }
-            displayedAsset = deferredAsset
+            setDisplayedAsset(deferredAsset)
             self.deferredAsset = nil
         }
         .accessibilityHidden(true)
@@ -81,7 +82,15 @@ struct LBSunriseHeroArtwork: View {
     }
 
     private var resolvedImage: UIImage? {
-        TimeOfDayHeaderAsset.image(named: activeAsset.name)
+        if displayedAsset == activeAsset {
+            return displayedImage
+        }
+        return TimeOfDayHeaderAsset.image(named: activeAsset.name)
+    }
+
+    private func setDisplayedAsset(_ asset: TimeOfDayHeaderAsset) {
+        displayedAsset = asset
+        displayedImage = TimeOfDayHeaderAsset.image(named: asset.name)
     }
 
     private var fallbackGradient: some View {

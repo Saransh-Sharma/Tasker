@@ -47,6 +47,7 @@ struct TimeOfDayHeaderAsset: Equatable {
     private static let assetCount = 4
     static let defaultActivationID = "default"
     private static let cachedBySelectionKey = Mutex<[String: TimeOfDayHeaderAsset]>([:])
+    fileprivate static let luminanceCache = Mutex<[String: CGFloat]>([:])
 
     static func period(for date: Date, calendar: Calendar = .current) -> Period {
         let hour = calendar.component(.hour, from: date)
@@ -108,6 +109,9 @@ struct TimeOfDayHeaderAsset: Equatable {
 
     static func resetCacheForTests() {
         cachedBySelectionKey.withLock {
+            $0.removeAll()
+        }
+        luminanceCache.withLock {
             $0.removeAll()
         }
     }
@@ -309,11 +313,17 @@ struct LBHeaderTimeContext: Equatable {
 
     private static func foregroundStyle(for asset: TimeOfDayHeaderAsset) -> ForegroundStyle {
         #if canImport(UIKit)
+        if let cached = TimeOfDayHeaderAsset.luminanceCache.withLock({ $0[asset.name] }) {
+            return cached < 0.38 ? .light : .navy
+        }
         if let image = TimeOfDayHeaderAsset.image(named: asset.name) {
             let luminance = TimeOfDayHeaderAsset.averageLuminance(
                 in: image,
                 rect: CGRect(x: 0.12, y: 0.34, width: 0.76, height: 0.34)
             )
+            TimeOfDayHeaderAsset.luminanceCache.withLock {
+                $0[asset.name] = luminance
+            }
             return luminance < 0.38 ? .light : .navy
         }
         #endif

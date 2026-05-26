@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct LBHabitCell: View {
+struct LBHabitCell: View, Equatable {
     struct CellState: Equatable {
         let isFilled: Bool
         let isToday: Bool
@@ -37,6 +37,10 @@ struct LBHabitCell: View {
     }
 
     let model: Model
+
+    nonisolated static func == (lhs: LBHabitCell, rhs: LBHabitCell) -> Bool {
+        lhs.model == rhs.model
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: LBSpacingTokens.sm) {
