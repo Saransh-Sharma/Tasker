@@ -26,7 +26,7 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol, @unchec
                         NSSortDescriptor(key: "id", ascending: true)
                     ]
                 )
-                completion(.success(objects.map(SectionMapper.toDomain)))
+                completion(.success(try objects.map(SectionMapper.validatedDomain)))
             } catch {
                 completion(.failure(error))
             }
@@ -39,15 +39,46 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol, @unchec
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(section.id, field: "section.id")
                 _ = try V2CoreDataRepositorySupport.requireID(section.projectID, field: "section.projectID")
-                _ = try V2CoreDataRepositorySupport.requireNonEmpty(section.name, field: "section.name")
+                let normalizedName = try V2CoreDataRepositorySupport.requireNonEmpty(section.name, field: "section.name")
+                let normalizedIdentity = V2CoreDataRepositorySupport.normalizedIdentityString(normalizedName)
+                let duplicatePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    NSPredicate(format: "projectID == %@", section.projectID as CVarArg),
+                    NSPredicate(format: "name =[c] %@", normalizedName),
+                    NSPredicate(format: "id != %@", section.id as CVarArg)
+                ])
+                let exactDuplicate = try V2CoreDataRepositorySupport.fetchObject(
+                    in: self.backgroundContext,
+                    entityName: SectionMapper.entityName,
+                    predicate: duplicatePredicate
+                )
+                let normalizedDuplicate = try exactDuplicate ?? V2CoreDataRepositorySupport.fetchObjects(
+                    in: self.backgroundContext,
+                    entityName: SectionMapper.entityName,
+                    predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        NSPredicate(format: "projectID == %@", section.projectID as CVarArg),
+                        NSPredicate(format: "id != %@", section.id as CVarArg)
+                    ]),
+                    sort: [NSSortDescriptor(key: "id", ascending: true)]
+                ).first { object in
+                    V2CoreDataRepositorySupport.normalizedIdentityString(object.value(forKey: "name")) == normalizedIdentity
+                }
+                if normalizedDuplicate != nil {
+                    throw NSError(
+                        domain: "CoreDataSectionRepository",
+                        code: 409,
+                        userInfo: [NSLocalizedDescriptionKey: "Section names must be unique within a project"]
+                    )
+                }
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: SectionMapper.entityName,
                     id: section.id
                 )
-                _ = SectionMapper.apply(section, to: object)
+                var normalizedSection = section
+                normalizedSection.name = normalizedName
+                _ = SectionMapper.apply(normalizedSection, to: object)
                 try self.backgroundContext.save()
-                completion(.success(section))
+                completion(.success(normalizedSection))
             } catch {
                 completion(.failure(error))
             }

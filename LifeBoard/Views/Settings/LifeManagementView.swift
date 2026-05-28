@@ -25,7 +25,6 @@ struct LifeManagementView: View {
     @StateObject private var habitComposerViewModel = PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
     @State private var habitComposerPresented = false
     @State private var selectedHabitRow: HabitLibraryRow?
-    @State private var habitComposerSuccessFlash = false
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -223,7 +222,7 @@ struct LifeManagementView: View {
             habitComposerSheet
         }
         .sheet(item: $selectedHabitRow) { row in
-            HabitDetailSheetView(
+            SunriseHabitDetailScreen(
                 viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
                 onMutation: {
                     viewModel.reload()
@@ -804,35 +803,17 @@ struct LifeManagementView: View {
         habitComposerPresented = true
     }
 
-    private func createHabitAndDismiss() {
-        guard habitComposerViewModel.canSubmit, habitComposerViewModel.isSaving == false else { return }
-        habitComposerViewModel.createHabit { result in
-            Task { @MainActor in
-                guard case .success = result else { return }
+    private var habitComposerSheet: some View {
+        SunriseAddHabitSheetView(
+            viewModel: habitComposerViewModel,
+            onHabitCreated: { _ in
                 habitComposerPresented = false
                 viewModel.reload()
-            }
-        }
-    }
-
-    private var habitComposerSheet: some View {
-        AddHabitForedropView(
-            viewModel: habitComposerViewModel,
-            containerMode: .sheet,
-            showAddAnother: false,
-            successFlash: $habitComposerSuccessFlash,
-            onCancel: {
+            },
+            onDismissWithoutHabit: {
                 habitComposerPresented = false
-            },
-            onCreate: {
-                createHabitAndDismiss()
-            },
-            onAddAnother: {
-                createHabitAndDismiss()
-            },
-            onExpandToLarge: {}
+            }
         )
-        .background(Color.lifeboard(.bgCanvas))
     }
 
     private var mutationPill: some View {

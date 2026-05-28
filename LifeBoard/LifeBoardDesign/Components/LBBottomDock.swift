@@ -10,6 +10,7 @@ struct LBBottomDock: View {
     let onSearch: () -> Void
     let onChat: () -> Void
     let onCreate: () -> Void
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     private var items: [DockItem] {
         [
@@ -21,6 +22,8 @@ struct LBBottomDock: View {
     }
 
     var body: some View {
+        let isFlattened = scrollOptimizedRendering || state.isMinimized
+
         ZStack {
             HStack(spacing: 0) {
                 ForEach(items.prefix(2)) { item in
@@ -33,13 +36,13 @@ struct LBBottomDock: View {
             }
             .padding(.horizontal, LBSpacingTokens.sm)
             .frame(height: 68)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
-            .background(Color.white.opacity(0.36), in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
+            .modifier(LBBottomDockMaterialModifier(isEnabled: isFlattened == false))
+            .background(LBColorTokens.glassStrong.opacity(isFlattened ? 0.86 : 0.62), in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous)
-                    .stroke(Color.white.opacity(0.58), lineWidth: 1)
+                    .stroke(LBColorTokens.glassBorder, lineWidth: 1)
             }
-            .shadow(color: Color.black.opacity(0.06), radius: 14, x: 0, y: 6)
+            .shadow(color: LBColorTokens.dockShadow.opacity(isFlattened ? 0 : 1), radius: isFlattened ? 0 : 18, x: 0, y: isFlattened ? 0 : 8)
 
             LBFloatingAddButton(action: handleCreate)
                 .offset(y: -6)
@@ -47,7 +50,7 @@ struct LBBottomDock: View {
         .padding(.top, 14)
         .scaleEffect(state.isMinimized ? 0.96 : 1, anchor: .bottom)
         .offset(y: state.isMinimized ? 16 : 0)
-        .animation(shellPhase == .interactive ? .spring(response: 0.38, dampingFraction: 0.86) : .easeOut(duration: 0.14), value: state.isMinimized)
+        .animation(isFlattened ? nil : (shellPhase == .interactive ? .spring(response: 0.38, dampingFraction: 0.86) : .easeOut(duration: 0.14)), value: state.isMinimized)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.bottomBar")
         .accessibilityValue(state.isMinimized ? "minimized" : "expanded")
@@ -66,14 +69,14 @@ struct LBBottomDock: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
             }
-            .foregroundStyle(selected ? LBColorTokens.violetDeep : Color.gray.opacity(0.82))
+            .foregroundStyle(selected ? LBColorTokens.violetDeep : LBColorTokens.navyMuted)
             .frame(maxWidth: .infinity, minHeight: 54)
             .background {
                 if selected {
                     Capsule()
                         .fill(LBColorTokens.violetSoft)
                         .overlay {
-                            Capsule().stroke(LBColorTokens.violet.opacity(0.18), lineWidth: 1)
+                            Capsule().stroke(LBColorTokens.violet.opacity(0.30), lineWidth: 1)
                         }
                 }
             }
@@ -81,6 +84,7 @@ struct LBBottomDock: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(item.accessibilityID)
         .accessibilityLabel(item.title)
+        .accessibilityValue(selected ? "selected" : "not selected")
     }
 
     private func handleTap(_ item: HomeBottomBarItem) {
@@ -121,6 +125,18 @@ struct LBBottomDock: View {
                     state.restoreAfterMomentaryCreate()
                 }
             }
+        }
+    }
+}
+
+private struct LBBottomDockMaterialModifier: ViewModifier {
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
+        } else {
+            content
         }
     }
 }

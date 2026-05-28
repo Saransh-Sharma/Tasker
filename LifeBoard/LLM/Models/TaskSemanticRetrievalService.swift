@@ -11,20 +11,12 @@ struct TaskSemanticSearchResult: Sendable {
     let fallbackReason: String?
 }
 
-final class TaskSemanticRetrievalService: @unchecked Sendable {
+final class TaskSemanticRetrievalService: Sendable {
     static let shared = TaskSemanticRetrievalService()
 
     private let embeddingEngine: TaskEmbeddingEngine
     private let indexStore: TaskSemanticIndexStore
-    private let activationStateQueue = DispatchQueue(label: "TaskSemanticRetrievalService.activationState")
-    private var activationState: SemanticActivationState = .inactive
-    private var needsFullRebuild = false
-
-    private enum SemanticActivationState {
-        case inactive
-        case activating
-        case active
-    }
+    private let activationState = TaskSemanticActivationState()
 
     /// Initializes a new instance.
     init(
@@ -36,9 +28,7 @@ final class TaskSemanticRetrievalService: @unchecked Sendable {
     }
 
     var isActivated: Bool {
-        activationStateQueue.sync {
-            activationState == .active
-        }
+        activationState.isActive
     }
 
     var shouldPersistOnBackgroundTransition: Bool {
@@ -64,30 +54,16 @@ final class TaskSemanticRetrievalService: @unchecked Sendable {
     }
 
     func markIndexOutdated() {
-        activationStateQueue.sync {
-            needsFullRebuild = true
-        }
+        activationState.markIndexOutdated()
     }
 
     func releaseInMemoryResources() {
         indexStore.unloadFromMemory()
-        activationStateQueue.sync {
-            activationState = .inactive
-        }
+        activationState.deactivate()
     }
 
     func activateIfNeeded(rebuildIfMissing: @escaping @Sendable () async -> Void) async {
-        let activationDecision = activationStateQueue.sync { () -> (shouldLoadPersisted: Bool, shouldRebuild: Bool)? in
-            switch activationState {
-            case .activating, .active:
-                return nil
-            case .inactive:
-                activationState = .activating
-                let shouldLoadPersisted = indexStore.hasPersistedIndex
-                let shouldRebuild = needsFullRebuild || shouldLoadPersisted == false
-                return (shouldLoadPersisted, shouldRebuild)
-            }
-        }
+        let activationDecision = activationState.beginActivation(hasPersistedIndex: indexStore.hasPersistedIndex)
         guard let activationDecision else { return }
 
         LifeBoardMemoryDiagnostics.checkpoint(
@@ -106,10 +82,7 @@ final class TaskSemanticRetrievalService: @unchecked Sendable {
             indexStore.loadPersisted()
         }
 
-        activationStateQueue.sync {
-            activationState = .active
-            needsFullRebuild = false
-        }
+        activationState.finishActivation()
 
         LifeBoardMemoryDiagnostics.checkpoint(
             event: "semantic_activation_finished",
@@ -135,9 +108,7 @@ final class TaskSemanticRetrievalService: @unchecked Sendable {
             return (task.id, text, vector)
         }
         indexStore.replaceAll(items)
-        activationStateQueue.sync {
-            needsFullRebuild = false
-        }
+        activationState.markIndexCurrent()
     }
 
     /// Executes remove.
@@ -231,5 +202,64 @@ final class TaskSemanticRetrievalService: @unchecked Sendable {
             task.projectName ?? "",
             tags.joined(separator: " ")
         ].joined(separator: " ")
+    }
+}
+
+private final class TaskSemanticActivationState: @unchecked Sendable {
+    private enum State: Equatable {
+        case inactive
+        case activating
+        case active
+    }
+
+    private let lock = NSLock()
+    private var state: State = .inactive
+    private var needsFullRebuild = false
+
+    var isActive: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return state == .active
+    }
+
+    func beginActivation(hasPersistedIndex: Bool) -> (shouldLoadPersisted: Bool, shouldRebuild: Bool)? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        switch state {
+        case .activating, .active:
+            return nil
+        case .inactive:
+            state = .activating
+            return (
+                shouldLoadPersisted: hasPersistedIndex,
+                shouldRebuild: needsFullRebuild || hasPersistedIndex == false
+            )
+        }
+    }
+
+    func finishActivation() {
+        lock.lock()
+        state = .active
+        needsFullRebuild = false
+        lock.unlock()
+    }
+
+    func markIndexCurrent() {
+        lock.lock()
+        needsFullRebuild = false
+        lock.unlock()
+    }
+
+    func markIndexOutdated() {
+        lock.lock()
+        needsFullRebuild = true
+        lock.unlock()
+    }
+
+    func deactivate() {
+        lock.lock()
+        state = .inactive
+        lock.unlock()
     }
 }

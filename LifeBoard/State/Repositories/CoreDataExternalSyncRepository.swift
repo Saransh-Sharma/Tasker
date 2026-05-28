@@ -77,7 +77,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
                 let normalizedProvider = try V2CoreDataRepositorySupport.requireNonEmpty(provider, field: "provider")
                 _ = try V2CoreDataRepositorySupport.requireID(projectID, field: "projectID")
                 let predicate = NSPredicate(format: "provider == %@ AND projectID == %@", normalizedProvider, projectID as CVarArg)
-                let existingObject = try V2CoreDataRepositorySupport.canonicalObject(
+                let existingObject = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "ExternalContainerMap",
                     predicate: predicate,
@@ -165,7 +165,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
                     normalizedLocalEntityType,
                     localEntityID as CVarArg
                 )
-                let existingByLocal = try V2CoreDataRepositorySupport.canonicalObject(
+                let existingByLocal = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "ExternalItemMap",
                     predicate: localPredicate,
@@ -192,7 +192,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
                     normalizedProvider,
                     normalizedExternalItemID
                 )
-                let existingByExternal = try V2CoreDataRepositorySupport.canonicalObject(
+                let existingByExternal = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "ExternalItemMap",
                     predicate: externalPredicate,
@@ -258,7 +258,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
                     normalizedProvider,
                     normalizedExternalItemID
                 )
-                let existingObject = try V2CoreDataRepositorySupport.canonicalObject(
+                let existingObject = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "ExternalItemMap",
                     predicate: predicate,
@@ -276,7 +276,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
                     localEntityType,
                     proposed.localEntityID as CVarArg
                 )
-                let existingByLocal = try V2CoreDataRepositorySupport.canonicalObject(
+                let existingByLocal = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
                     in: self.backgroundContext,
                     entityName: "ExternalItemMap",
                     predicate: localPredicate,

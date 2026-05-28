@@ -29,6 +29,43 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         defaults.set(modelName, forKey: LLMPersistedModelSelection.currentModelKey)
     }
 
+    func testDefaultBackgroundUnloadDelayIs45Seconds() {
+        XCTAssertEqual(
+            LLMRuntimeCoordinator.defaultBackgroundUnloadDelayNanoseconds,
+            45 * 1_000_000_000
+        )
+    }
+
+    private func prewarmInput(
+        model: ModelConfiguration,
+        compatibilityCanActivate: Bool = true,
+        loadedModelName: String? = nil,
+        activeModelName: String? = nil,
+        activeSessionCount: Int = 0,
+        thermalState: ProcessInfo.ThermalState = .nominal,
+        physicalMemoryBytes: UInt64 = 16 * 1_073_741_824,
+        isLowPowerModeEnabled: Bool = false,
+        now: Date = Date(),
+        recentUsageAt: Date? = nil,
+        isCancelled: Bool = false,
+        deviceClass: LLMPrewarmEligibilityPolicy.DeviceClass = .phone
+    ) -> LLMPrewarmEligibilityPolicy.Input {
+        LLMPrewarmEligibilityPolicy.Input(
+            model: model,
+            compatibilityCanActivate: compatibilityCanActivate,
+            loadedModelName: loadedModelName,
+            activeModelName: activeModelName,
+            activeSessionCount: activeSessionCount,
+            thermalState: thermalState,
+            physicalMemoryBytes: physicalMemoryBytes,
+            isLowPowerModeEnabled: isLowPowerModeEnabled,
+            recentUsageAt: recentUsageAt,
+            now: now,
+            isCancelled: isCancelled,
+            deviceClass: deviceClass
+        )
+    }
+
     func testNoPrewarmWhenFeatureFlagDisabled() async {
         V2FeatureFlags.llmChatPrewarmMode = .disabled
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Disabled.\(UUID().uuidString)")!
@@ -46,6 +83,47 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
 
         await coordinator.prewarmIfEligibleCurrentModel()
         XCTAssertEqual(prepareCallCount, 0)
+    }
+
+    func testPrewarmEligibilityPolicyAllowsHealthyRecentRequest() {
+        let model = ModelConfiguration.getModelByName(qwenPointSixName)!
+        let policy = LLMPrewarmEligibilityPolicy(recentUsageWindow: 60)
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+
+        let decision = policy.decision(for: prewarmInput(
+            model: model,
+            now: now,
+            recentUsageAt: now.addingTimeInterval(-10)
+        ))
+
+        XCTAssertEqual(decision, .eligible)
+    }
+
+    func testPrewarmEligibilityPolicyBlocksThermalLowPowerStaleAndSessionPressure() {
+        let model = ModelConfiguration.getModelByName(qwenPointSixName)!
+        let policy = LLMPrewarmEligibilityPolicy(recentUsageWindow: 60)
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+
+        XCTAssertEqual(
+            policy.decision(for: prewarmInput(model: model, thermalState: .serious, now: now)),
+            .skipped(.thermalPressure)
+        )
+        XCTAssertEqual(
+            policy.decision(for: prewarmInput(model: model, isLowPowerModeEnabled: true, now: now)),
+            .skipped(.lowPowerMode)
+        )
+        XCTAssertEqual(
+            policy.decision(for: prewarmInput(model: model, activeSessionCount: 3, now: now)),
+            .skipped(.tooManyActiveSessions)
+        )
+        XCTAssertEqual(
+            policy.decision(for: prewarmInput(
+                model: model,
+                now: now,
+                recentUsageAt: now.addingTimeInterval(-120)
+            )),
+            .skipped(.staleRecentUsage)
+        )
     }
 
     func testRepeatedPrewarmSkipsAfterFirstActivation() async {

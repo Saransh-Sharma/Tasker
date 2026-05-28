@@ -76,6 +76,107 @@ final class TaskSemanticRetrievalServiceTests: XCTestCase {
         XCTAssertEqual(result.fallbackReason, "index_empty")
     }
 
+    func testConcurrentIndexAndSearchUseSynchronizedState() {
+        let service = makeService { text in
+            text.lowercased().contains("alpha") ? [1.0, 0.0] : [0.0, 1.0]
+        }
+
+        let tasks = (0..<50).map { index in
+            TaskDefinition(title: "Alpha task \(index)")
+        }
+
+        DispatchQueue.concurrentPerform(iterations: tasks.count) { index in
+            service.index(tasks: [tasks[index]])
+            _ = service.search(query: "alpha", topK: 5)
+        }
+
+        let hits = service.search(query: "alpha", topK: tasks.count)
+        XCTAssertEqual(Set(hits.map(\.taskID)), Set(tasks.map(\.id)))
+    }
+
+    func testCleanActiveSemanticIndexCanBeReleasedForBackgrounding() async {
+        let service = makeService { _ in [1.0, 0.0] }
+        service.rebuildIndex(tasks: [TaskDefinition(title: "Plan tomorrow")])
+        service.persistIndex()
+
+        await service.activateIfNeeded {}
+
+        XCTAssertTrue(service.isActivated)
+        XCTAssertFalse(service.shouldPersistOnBackgroundTransition)
+
+        service.releaseInMemoryResources()
+
+        XCTAssertFalse(service.isActivated)
+        XCTAssertFalse(service.shouldPersistOnBackgroundTransition)
+    }
+
+    func testPersistedSemanticIndexLoadsIntoFreshStore() {
+        let fileName = "task-semantic-persisted-\(UUID().uuidString).bin"
+        removeSemanticIndexFile(named: fileName)
+        defer { removeSemanticIndexFile(named: fileName) }
+
+        let taskID = UUID()
+        let writer = TaskSemanticIndexStore(fileName: fileName)
+        writer.upsert(taskID: taskID, text: "Book doctor", vector: [1.0, 0.0])
+        writer.persist()
+
+        let reader = TaskSemanticIndexStore(fileName: fileName)
+        let snapshot = reader.snapshot()
+
+        XCTAssertEqual(snapshot.map(\.taskID), [taskID])
+        XCTAssertEqual(snapshot.first?.text, "Book doctor")
+        XCTAssertEqual(snapshot.first?.vector, [1.0, 0.0])
+    }
+
+    func testFirstLoadConcurrentUpsertPreservesNewerWrite() {
+        let fileName = "task-semantic-upsert-race-\(UUID().uuidString).bin"
+        removeSemanticIndexFile(named: fileName)
+        defer { removeSemanticIndexFile(named: fileName) }
+
+        let persistedID = UUID()
+        let newID = UUID()
+        let writer = TaskSemanticIndexStore(fileName: fileName)
+        writer.upsert(taskID: persistedID, text: "Persisted", vector: [1.0, 0.0])
+        writer.persist()
+
+        let store = TaskSemanticIndexStore(fileName: fileName)
+        DispatchQueue.concurrentPerform(iterations: 2) { index in
+            if index == 0 {
+                _ = store.snapshot()
+            } else {
+                store.upsert(taskID: newID, text: "New", vector: [0.0, 1.0])
+            }
+        }
+
+        let taskIDs = Set(store.snapshot().map(\.taskID))
+        XCTAssertEqual(taskIDs, [persistedID, newID])
+    }
+
+    func testFirstLoadConcurrentRemoveDoesNotResurrectPersistedItem() {
+        let fileName = "task-semantic-remove-race-\(UUID().uuidString).bin"
+        removeSemanticIndexFile(named: fileName)
+        defer { removeSemanticIndexFile(named: fileName) }
+
+        let removedID = UUID()
+        let keptID = UUID()
+        let writer = TaskSemanticIndexStore(fileName: fileName)
+        writer.upsert(taskID: removedID, text: "Remove", vector: [1.0, 0.0])
+        writer.upsert(taskID: keptID, text: "Keep", vector: [0.0, 1.0])
+        writer.persist()
+
+        let store = TaskSemanticIndexStore(fileName: fileName)
+        DispatchQueue.concurrentPerform(iterations: 2) { index in
+            if index == 0 {
+                _ = store.snapshot()
+            } else {
+                store.remove(taskID: removedID)
+            }
+        }
+
+        let taskIDs = Set(store.snapshot().map(\.taskID))
+        XCTAssertEqual(taskIDs, [keptID])
+    }
+
     func testCosineSimilarityIsDeterministic() {
         let similarity = TaskEmbeddingEngine.cosineSimilarity([1, 2, 3], [1, 2, 3])
         let orthogonal = TaskEmbeddingEngine.cosineSimilarity([1, 0], [0, 1])
@@ -91,5 +192,11 @@ final class TaskSemanticRetrievalServiceTests: XCTestCase {
             embeddingEngine: TaskEmbeddingEngine(vectorProvider: vectorProvider),
             indexStore: TaskSemanticIndexStore(fileName: "task-semantic-test-\(UUID().uuidString).bin")
         )
+    }
+
+    private func removeSemanticIndexFile(named fileName: String) {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        try? FileManager.default.removeItem(at: appSupport.appendingPathComponent(fileName))
     }
 }

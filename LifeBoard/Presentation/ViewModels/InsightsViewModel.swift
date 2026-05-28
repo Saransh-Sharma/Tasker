@@ -11,29 +11,7 @@ extension XPCalculationEngine.Milestone: Equatable {
     }
 }
 
-private final class InsightsRefreshAccumulator<State>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var state: State
-
-    init(_ state: State) {
-        self.state = state
-    }
-
-    func update(_ body: (inout State) -> Void) {
-        lock.lock()
-        body(&state)
-        lock.unlock()
-    }
-
-    func snapshot() -> State {
-        lock.lock()
-        let state = state
-        lock.unlock()
-        return state
-    }
-}
-
-private struct InsightsTodayRefreshSnapshot {
+private struct InsightsTodayRefreshSnapshot: Sendable {
     var dailyXP: Int
     var level: Int
     var xpEvents: [XPEventDefinition] = []
@@ -43,7 +21,7 @@ private struct InsightsTodayRefreshSnapshot {
     var dailyAnalytics: DailyAnalytics?
 }
 
-private struct InsightsWeekRefreshSnapshot {
+private struct InsightsWeekRefreshSnapshot: Sendable {
     var currentAggregates: [DailyXPAggregateDefinition] = []
     var previousAggregates: [DailyXPAggregateDefinition] = []
     var currentWeekEvents: [XPEventDefinition] = []
@@ -56,7 +34,7 @@ private struct InsightsWeekRefreshSnapshot {
     var recoveryDecisions: [WeeklyReviewTaskDecision] = []
 }
 
-private struct InsightsSystemsRefreshSnapshot {
+private struct InsightsSystemsRefreshSnapshot: Sendable {
     var state: InsightsSystemsState
     var latestProfile: GamificationSnapshot?
     var unlocks: [AchievementUnlockDefinition] = []
@@ -552,15 +530,15 @@ public final class InsightsViewModel: ObservableObject {
     private var pendingMutationWorkItem: LifeBoardCancellableDispatchWorkItem?
     private var sessionDayKey: String
 
-    private static let dayLetters = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
-    private static let orderedBreakdownCategories = ["complete", "start", "focus", "reflection", "recoverReschedule", "decompose"]
-    private static let completionReasons = Set(["task_completion", "complete", "complete_on_time"])
+    nonisolated private static let dayLetters = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+    nonisolated private static let orderedBreakdownCategories = ["complete", "start", "focus", "reflection", "recoverReschedule", "decompose"]
+    nonisolated private static let completionReasons = Set(["task_completion", "complete", "complete_on_time"])
     private static let mutationDebounceInterval: TimeInterval = 0.22
     private static let cloudSyncNotification = Notification.Name("DataDidChangeFromCloudSync")
     private static let weekScaleModeDefaultsKey = "insights.week.scale.mode.v1"
     private static let tabSnapshotTTL: TimeInterval = 90
-    private static let staleDayThreshold = 14
-    private static let duePressureLongTaskThreshold: TimeInterval = 60 * 60
+    nonisolated private static let staleDayThreshold = 14
+    nonisolated private static let duePressureLongTaskThreshold: TimeInterval = 60 * 60
 
     public init(
         engine: GamificationEngine,
@@ -689,6 +667,14 @@ public final class InsightsViewModel: ObservableObject {
         case .systems:
             refreshSystems(version: requestedVersion)
         }
+    }
+
+    nonisolated private static func notifyRefreshCompletion(
+        group: DispatchGroup,
+        queue: DispatchQueue,
+        execute work: @escaping @Sendable () -> Void
+    ) {
+        group.notify(queue: queue, execute: work)
     }
 
     private func completeRefresh(for tab: InsightsTab, version: UInt64) {
@@ -981,7 +967,7 @@ public final class InsightsViewModel: ObservableObject {
         let startOfToday = calendar.startOfDay(for: now)
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
         let group = DispatchGroup()
-        let snapshot = InsightsRefreshAccumulator(InsightsTodayRefreshSnapshot(
+        let snapshot = LockedResultAccumulator(InsightsTodayRefreshSnapshot(
             dailyXP: todayState.dailyXP,
             level: todayState.level
         ))
@@ -1047,7 +1033,7 @@ public final class InsightsViewModel: ObservableObject {
             }
         }
 
-        group.notify(queue: refreshComputeQueue) { [weak self] in
+        Self.notifyRefreshCompletion(group: group, queue: refreshComputeQueue) { [weak self] in
             let snapshot = snapshot.snapshot()
             let nextState = Self.buildTodayState(
                 dailyXP: snapshot.dailyXP,
@@ -1088,7 +1074,7 @@ public final class InsightsViewModel: ObservableObject {
         let previousWeekEndKey = dateFormatter.string(from: previousWeekEnd)
 
         let group = DispatchGroup()
-        let snapshot = InsightsRefreshAccumulator(InsightsWeekRefreshSnapshot())
+        let snapshot = LockedResultAccumulator(InsightsWeekRefreshSnapshot())
 
         group.enter()
         repository.fetchDailyAggregates(from: currentWeekStartKey, to: currentWeekEndKey) { result in
@@ -1180,7 +1166,8 @@ public final class InsightsViewModel: ObservableObject {
             }
         }
 
-        group.notify(queue: refreshComputeQueue) { [weak self] in
+        let recoveryInsightsUseCase = buildRecoveryInsightsUseCase
+        Self.notifyRefreshCompletion(group: group, queue: refreshComputeQueue) { [weak self] in
             let snapshot = snapshot.snapshot()
             var nextState = Self.buildWeekState(
                 currentAggregates: snapshot.currentAggregates,
@@ -1199,11 +1186,11 @@ public final class InsightsViewModel: ObservableObject {
                 snapshot: snapshot.weeklySnapshot,
                 momentum: snapshot.weeklyMomentum,
                 recoveryInsights: {
-                    guard let buildRecoveryInsightsUseCase = self?.buildRecoveryInsightsUseCase,
+                    guard let recoveryInsightsUseCase,
                           snapshot.recoveryDecisions.isEmpty == false else {
                         return nil
                     }
-                    return buildRecoveryInsightsUseCase.execute(decisions: snapshot.recoveryDecisions)
+                    return recoveryInsightsUseCase.execute(decisions: snapshot.recoveryDecisions)
                 }()
             )
             Task { @MainActor in
@@ -1224,7 +1211,7 @@ public final class InsightsViewModel: ObservableObject {
         let lookbackStart = Calendar.current.date(byAdding: .day, value: -28, to: now) ?? now
         let achievementLookbackStart = Calendar.current.date(byAdding: .day, value: -365, to: now) ?? lookbackStart
 
-        let snapshot = InsightsRefreshAccumulator(InsightsSystemsRefreshSnapshot(state: systemsState))
+        let snapshot = LockedResultAccumulator(InsightsSystemsRefreshSnapshot(state: systemsState))
 
         group.enter()
         engine.fetchCurrentProfile { result in
@@ -1294,7 +1281,7 @@ public final class InsightsViewModel: ObservableObject {
             }
         }
 
-        group.notify(queue: refreshComputeQueue) { [weak self] in
+        Self.notifyRefreshCompletion(group: group, queue: refreshComputeQueue) { [weak self] in
             let snapshot = snapshot.snapshot()
             var state = snapshot.state
             state.achievementProgress = Self.buildAchievementProgress(
@@ -1340,7 +1327,7 @@ public final class InsightsViewModel: ObservableObject {
         }
     }
 
-    private static func buildTodayState(
+    nonisolated private static func buildTodayState(
         dailyXP: Int,
         level: Int,
         dailyAnalytics: DailyAnalytics?,
@@ -1620,7 +1607,7 @@ public final class InsightsViewModel: ObservableObject {
         )
     }
 
-    private static func buildWeekState(
+    nonisolated private static func buildWeekState(
         currentAggregates: [DailyXPAggregateDefinition],
         previousAggregates: [DailyXPAggregateDefinition],
         currentWeekEvents: [XPEventDefinition],
@@ -1774,7 +1761,7 @@ public final class InsightsViewModel: ObservableObject {
         )
     }
 
-    private static func applyWeeklyOperatingInsights(
+    nonisolated private static func applyWeeklyOperatingInsights(
         to state: inout InsightsWeekState,
         snapshot: WeeklyPlanSnapshot?,
         momentum: WeeklyMomentumSummary?,
@@ -1854,7 +1841,7 @@ public final class InsightsViewModel: ObservableObject {
         )
     }
 
-    private static func buildReminderResponseState(
+    nonisolated private static func buildReminderResponseState(
         aggregate: ReminderDeliveryResponseAggregate
     ) -> InsightsReminderResponseState {
         guard aggregate.totalDeliveries > 0 else {
@@ -1919,14 +1906,14 @@ public final class InsightsViewModel: ObservableObject {
         )
     }
 
-    private static func formattedWeeklyDriverValue(_ value: Double) -> String {
+    nonisolated private static func formattedWeeklyDriverValue(_ value: Double) -> String {
         if value.rounded() == value {
             return "\(Int(value))"
         }
         return String(format: "%.1f", value)
     }
 
-    private static func tone(for driver: WeeklyMomentumDriver) -> InsightsMetricTone {
+    nonisolated private static func tone(for driver: WeeklyMomentumDriver) -> InsightsMetricTone {
         switch driver.id {
         case "carry_pressure":
             return driver.value > 0 ? .warning : .success
@@ -1939,7 +1926,7 @@ public final class InsightsViewModel: ObservableObject {
         }
     }
 
-    private static func buildStreakMetrics(
+    nonisolated private static func buildStreakMetrics(
         profile: GamificationSnapshot,
         reminderResponse: InsightsReminderResponseState
     ) -> [InsightsMetricTile] {
@@ -1975,7 +1962,7 @@ public final class InsightsViewModel: ObservableObject {
         ]
     }
 
-    private static func buildAchievementVelocityMetrics(unlocks: [AchievementUnlockDefinition]) -> [InsightsMetricTile] {
+    nonisolated private static func buildAchievementVelocityMetrics(unlocks: [AchievementUnlockDefinition]) -> [InsightsMetricTile] {
         let now = Date()
         let lastWeek = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
         let lastMonth = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? now
@@ -2007,7 +1994,7 @@ public final class InsightsViewModel: ObservableObject {
         ]
     }
 
-    private static func buildFocusHealthMetrics(sessions: [FocusSessionDefinition]) -> [InsightsMetricTile] {
+    nonisolated private static func buildFocusHealthMetrics(sessions: [FocusSessionDefinition]) -> [InsightsMetricTile] {
         let sessionCount = sessions.count
         let completedCount = sessions.filter(\.wasCompleted).count
         let totalMinutes = sessions.reduce(0) { $0 + max(0, $1.durationSeconds / 60) }
@@ -2046,7 +2033,7 @@ public final class InsightsViewModel: ObservableObject {
         ]
     }
 
-    private static func buildRecoveryHealthMetrics(events: [XPEventDefinition], now: Date) -> [InsightsMetricTile] {
+    nonisolated private static func buildRecoveryHealthMetrics(events: [XPEventDefinition], now: Date) -> [InsightsMetricTile] {
         let lookback = Calendar.current.date(byAdding: .day, value: -14, to: now) ?? now
         let recentEvents = events.filter { $0.createdAt >= lookback }
         let recoveryCount = recentEvents.filter { $0.category == .recoverReschedule }.count
@@ -2088,7 +2075,7 @@ public final class InsightsViewModel: ObservableObject {
         ]
     }
 
-    private static func buildSystemsHeroSummary(
+    nonisolated private static func buildSystemsHeroSummary(
         profile: GamificationSnapshot,
         reminderResponse: InsightsReminderResponseState,
         focusSessions: [FocusSessionDefinition]
@@ -2102,7 +2089,7 @@ public final class InsightsViewModel: ObservableObject {
         return "System is running, but response or recovery is weak."
     }
 
-    private static func summarize(events: [XPEventDefinition]) -> (
+    nonisolated private static func summarize(events: [XPEventDefinition]) -> (
         tasksCompleted: Int,
         breakdown: [XPBreakdownItem],
         recoveryXP: Int,
@@ -2147,7 +2134,7 @@ public final class InsightsViewModel: ObservableObject {
         )
     }
 
-    private static func buildAchievementProgress(
+    nonisolated private static func buildAchievementProgress(
         profile: GamificationSnapshot?,
         unlocks: [AchievementUnlockDefinition],
         events: [XPEventDefinition]
@@ -2227,7 +2214,7 @@ public final class InsightsViewModel: ObservableObject {
         }
     }
 
-    private static func makeDateFormatter(calendar: Calendar) -> DateFormatter {
+    nonisolated private static func makeDateFormatter(calendar: Calendar) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -2235,17 +2222,17 @@ public final class InsightsViewModel: ObservableObject {
         return formatter
     }
 
-    private static func dateKey(for date: Date, calendar: Calendar) -> String {
+    nonisolated private static func dateKey(for date: Date, calendar: Calendar) -> String {
         let formatter = makeDateFormatter(calendar: calendar)
         return formatter.string(from: calendar.startOfDay(for: date))
     }
 
-    private static func dateFromKey(_ dateKey: String, calendar: Calendar) -> Date? {
+    nonisolated private static func dateFromKey(_ dateKey: String, calendar: Calendar) -> Date? {
         let formatter = makeDateFormatter(calendar: calendar)
         return formatter.date(from: dateKey)
     }
 
-    private static func completionCountsByDateKey(
+    nonisolated private static func completionCountsByDateKey(
         events: [XPEventDefinition],
         calendar: Calendar
     ) -> [String: Int] {
@@ -2258,7 +2245,7 @@ public final class InsightsViewModel: ObservableObject {
         return counts
     }
 
-    private static func applyingBreakdownDelta(
+    nonisolated private static func applyingBreakdownDelta(
         existing: [XPBreakdownItem],
         category: String,
         xpDelta: Int
@@ -2282,7 +2269,7 @@ public final class InsightsViewModel: ObservableObject {
         return items
     }
 
-    private static func buildDistributionSection<T: Hashable>(
+    nonisolated private static func buildDistributionSection<T: Hashable>(
         id: String,
         title: String,
         values: [T: Int],
@@ -2304,7 +2291,7 @@ public final class InsightsViewModel: ObservableObject {
         )
     }
 
-    private static func buildDistributionItems<T: Hashable>(
+    nonisolated private static func buildDistributionItems<T: Hashable>(
         values: [T: Int],
         orderedKeys: [T],
         label: (T) -> String,
@@ -2326,7 +2313,7 @@ public final class InsightsViewModel: ObservableObject {
         }
     }
 
-    private static func todayHeroSummary(
+    nonisolated private static func todayHeroSummary(
         completed: Int,
         scheduled: Int,
         dailyXP: Int,
@@ -2345,7 +2332,7 @@ public final class InsightsViewModel: ObservableObject {
         return "\(completed)/\(max(scheduled, completed)) planned tasks completed."
     }
 
-    private static func todayCoachingPrompt(
+    nonisolated private static func todayCoachingPrompt(
         dueTodayOpen: Int,
         overdueOpen: Int,
         blockedCount: Int,
@@ -2366,7 +2353,7 @@ public final class InsightsViewModel: ObservableObject {
         return "Next: finish one high-value task."
     }
 
-    private static func weekDeltaSummary(
+    nonisolated private static func weekDeltaSummary(
         currentXP: Int,
         previousXP: Int,
         currentCompletions: Int,
@@ -2385,7 +2372,7 @@ public final class InsightsViewModel: ObservableObject {
         return "\(signedDeltaLabel(xpDelta)) XP, \(signedDeltaLabel(completionDelta)) completions, \(signedDeltaLabel(goalHitDelta)) goal-hit days vs last week."
     }
 
-    private static func weekPatternSummary(
+    nonisolated private static func weekPatternSummary(
         bars: [WeeklyBarData],
         staleCarryOverCount: Int,
         highPriorityMix: Int
@@ -2399,12 +2386,12 @@ public final class InsightsViewModel: ObservableObject {
         return "Week is quiet so far. One strong day can reset the pattern."
     }
 
-    private static func signedDeltaLabel(_ value: Int) -> String {
+    nonisolated private static func signedDeltaLabel(_ value: Int) -> String {
         if value > 0 { return "+\(value)" }
         return "\(value)"
     }
 
-    private static func bestLabel(for bars: [WeeklyBarData], calendar: Calendar) -> String {
+    nonisolated private static func bestLabel(for bars: [WeeklyBarData], calendar: Calendar) -> String {
         guard let best = bars.max(by: { $0.xp < $1.xp }), best.xp > 0 else {
             return "No standout yet"
         }
@@ -2418,7 +2405,7 @@ public final class InsightsViewModel: ObservableObject {
         return best.label
     }
 
-    private static func recomputeWeekState(
+    nonisolated private static func recomputeWeekState(
         from bars: [WeeklyBarData],
         previousTotalXP: Int,
         projectLeaderboard: [InsightsLeaderboardRow],
@@ -2484,7 +2471,7 @@ public final class InsightsViewModel: ObservableObject {
         )
     }
 
-    private static func rebuiltWeeklySummaryMetrics(
+    nonisolated private static func rebuiltWeeklySummaryMetrics(
         existing: [InsightsMetricTile],
         bars: [WeeklyBarData]
     ) -> [InsightsMetricTile] {
@@ -2527,7 +2514,7 @@ public final class InsightsViewModel: ObservableObject {
         }
     }
 
-    private static func rebuiltTodayMomentumMetrics(from state: InsightsTodayState) -> [InsightsMetricTile] {
+    nonisolated private static func rebuiltTodayMomentumMetrics(from state: InsightsTodayState) -> [InsightsMetricTile] {
         let topSource = state.xpBreakdown.max(by: { $0.xp < $1.xp })?.displayName ?? "No XP source yet"
         let remaining = max(0, state.dailyCap - state.dailyXP)
 
@@ -2571,7 +2558,7 @@ public final class InsightsViewModel: ObservableObject {
         }
     }
 
-    private static func rebuiltTodayPaceMetrics(from state: InsightsTodayState) -> [InsightsMetricTile] {
+    nonisolated private static func rebuiltTodayPaceMetrics(from state: InsightsTodayState) -> [InsightsMetricTile] {
         let progressPercent = min(100, Int((Double(state.dailyXP) / Double(max(state.dailyCap, 1))) * 100))
 
         return state.paceMetrics.map { metric in
@@ -2590,7 +2577,7 @@ public final class InsightsViewModel: ObservableObject {
         }
     }
 
-    private static func rebuiltTodayRecoveryMetrics(
+    nonisolated private static func rebuiltTodayRecoveryMetrics(
         from state: InsightsTodayState,
         mutation: GamificationLedgerMutation
     ) -> [InsightsMetricTile] {

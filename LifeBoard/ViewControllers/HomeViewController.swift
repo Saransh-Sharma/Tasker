@@ -2,12 +2,12 @@
 //  HomeViewController.swift
 //  LifeBoard
 //
-//  SwiftUI host for Home screen with backdrop/foredrop shell.
+//  SwiftUI host for Home screen with backdrop/sunrise shell.
 //
 
 import UIKit
 import SwiftUI
-import Combine
+@preconcurrency import Combine
 import SwiftData
 
 public enum HomeShellPhase: String, Equatable {
@@ -45,7 +45,7 @@ struct HomeLayoutMetrics: Equatable {
     let backdropGradientHeight: CGFloat
     let taskListBottomInset: CGFloat
     let chatComposerBottomInset: CGFloat
-    let chartViewportHeight: CGFloat
+    let insightsViewportHeight: CGFloat
 
     static let zero = HomeLayoutMetrics(
         width: 0,
@@ -56,7 +56,7 @@ struct HomeLayoutMetrics: Equatable {
         backdropGradientHeight: 0,
         taskListBottomInset: 80,
         chatComposerBottomInset: 80,
-        chartViewportHeight: 560
+        insightsViewportHeight: 560
     )
 
     var isReady: Bool {
@@ -65,8 +65,15 @@ struct HomeLayoutMetrics: Equatable {
 }
 
 struct HomeBottomBarVisibilityPolicy {
+    static func restingDockDownshift(
+        safeAreaBottom: CGFloat,
+        verticalLift: CGFloat
+    ) -> CGFloat {
+        max(0, safeAreaBottom - 10) - verticalLift
+    }
+
     static func shouldConcealBottomBar(
-        activeFace: HomeForedropFace,
+        activeFace: HomeSunriseFace,
         isPromptFocused: Bool,
         keyboardOverlapHeight: CGFloat
     ) -> Bool {
@@ -102,11 +109,24 @@ typealias HomeTasksState = HomeTasksSnapshot
 typealias HomeCalendarState = HomeCalendarSnapshot
 typealias HomeOverlayState = HomeOverlaySnapshot
 
+struct HomeTimelineRenderState: Equatable {
+    let revision: UInt64
+
+    static var empty: HomeTimelineRenderState {
+        HomeTimelineRenderState(revision: 0)
+    }
+
+    func advanced() -> HomeTimelineRenderState {
+        HomeTimelineRenderState(revision: revision &+ 1)
+    }
+}
+
 struct HomeRenderTransaction: Equatable {
     let chrome: HomeChromeState
     let tasks: HomeTasksState
     let habits: HomeHabitsSnapshot
     let calendar: HomeCalendarState
+    let timeline: HomeTimelineRenderState
     let overlay: HomeOverlayState
 
     init(
@@ -114,12 +134,14 @@ struct HomeRenderTransaction: Equatable {
         tasks: HomeTasksState,
         habits: HomeHabitsSnapshot,
         calendar: HomeCalendarState = .empty,
+        timeline: HomeTimelineRenderState = .empty,
         overlay: HomeOverlayState
     ) {
         self.chrome = chrome
         self.tasks = tasks
         self.habits = habits
         self.calendar = calendar
+        self.timeline = timeline
         self.overlay = overlay
     }
 
@@ -129,6 +151,7 @@ struct HomeRenderTransaction: Equatable {
             tasks: .empty,
             habits: .empty,
             calendar: .empty,
+            timeline: .empty,
             overlay: .empty
         )
     }
@@ -145,6 +168,9 @@ struct HomeRenderTransaction: Equatable {
             count += 1
         }
         if calendar != previous.calendar {
+            count += 1
+        }
+        if timeline != previous.timeline {
             count += 1
         }
         if overlay != previous.overlay {
@@ -1054,7 +1080,7 @@ struct TimelineWeekSummary: Equatable {
 
 struct HomeTimelineSnapshot: Equatable {
     let selectedDate: Date
-    let foredropAnchor: ForedropAnchor
+    let sunriseAnchor: SunriseAnchor
     let day: TimelineDayProjection
     let week: TimelineWeekSummary
     let placementCandidate: TimelinePlacementCandidate?
@@ -1158,8 +1184,18 @@ final class HomeCalendarStore: ObservableObject {
 }
 
 @MainActor
+final class HomeTimelineStore: ObservableObject {
+    @Published private(set) var state: HomeTimelineRenderState = .empty
+
+    func apply(_ state: HomeTimelineRenderState) {
+        guard self.state != state else { return }
+        self.state = state
+    }
+}
+
+@MainActor
 final class HomeFaceCoordinator: ObservableObject {
-    @Published private(set) var activeFace: HomeForedropFace = .tasks
+    @Published private(set) var activeFace: HomeSunriseFace = .tasks
     @Published private(set) var shellPhase: HomeShellPhase = .startup
     @Published private(set) var layoutMetrics: HomeLayoutMetrics = .zero
     @Published private(set) var searchMutationRevision: UInt64 = 0
@@ -1170,7 +1206,7 @@ final class HomeFaceCoordinator: ObservableObject {
 
     let bottomBarState = HomeBottomBarState()
 
-    func setActiveFace(_ face: HomeForedropFace) {
+    func setActiveFace(_ face: HomeSunriseFace) {
         guard activeFace != face else { return }
         activeFace = face
         bottomBarState.select(face.selectedBottomBarItem)
@@ -1206,7 +1242,7 @@ final class HomeFaceCoordinator: ObservableObject {
 }
 
 private struct PhoneHomeRootContainer: View {
-    let root: HomeBackdropForedropRootView
+    let root: SunriseAppShellView
     let layoutClass: LifeBoardLayoutClass
 
     var body: some View {
@@ -1216,7 +1252,7 @@ private struct PhoneHomeRootContainer: View {
 
 private struct HomeHostRootView: View {
     let layoutClass: LifeBoardLayoutClass
-    let phoneRoot: HomeBackdropForedropRootView?
+    let phoneRoot: SunriseAppShellView?
     let iPadRoot: AnyView?
 
     @ViewBuilder
@@ -1245,7 +1281,7 @@ private struct HomeBottomBarContainer: View {
     let onHeightChange: (CGFloat) -> Void
 
     var body: some View {
-        HomeGlassBottomBar(
+        LBBottomDock(
             state: state,
             shellPhase: shellPhase,
             onHome: onHome,
@@ -1289,18 +1325,18 @@ private final class OnboardingTaskDetailDismissBridge: NSObject, UIAdaptivePrese
     }
 }
 
-final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware, UIAdaptivePresentationControllerDelegate {
+final class HomeViewController: UIViewController, HomeViewControllerProtocol, PresentationDependencyContainerAware, UIAdaptivePresentationControllerDelegate {
     private static var hasSeededUITestEstablishedWorkspace = false
     private static var hasSeededUITestRescueWorkspace = false
     private static var hasSeededUITestFocusWorkspace = false
     private static var hasSeededUITestHabitBoardWorkspace = false
     private static var hasSeededUITestQuietTrackingWorkspace = false
+    private static var hasSeededUITestFullTimelineWorkspace = false
+    private static let bottomBarVerticalLift: CGFloat = 6
 
     // MARK: - Dependencies
 
     var viewModel: HomeViewModel!
-    var chartCardViewModel: ChartCardViewModel!
-    var radarChartCardViewModel: RadarChartCardViewModel!
     var presentationDependencyContainer: PresentationDependencyContainer?
 
     // MARK: - UI
@@ -1318,11 +1354,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private let tasksStore = HomeTasksStore()
     private let habitsStore = HomeHabitsStore()
     private let calendarStore = HomeCalendarStore()
+    private let timelineStore = HomeTimelineStore()
     private let overlayStore = HomeOverlayStore()
     private let faceCoordinator = HomeFaceCoordinator()
     private let navigationCoordinator = HomeNavigationCoordinator()
     private let navigationEventAdapter = HomeNavigationEventAdapter()
     private let reloadCoordinator = HomeReloadCoordinator()
+    private let reloadEventAdapter = HomeReloadEventAdapter()
     private let launchHarnessService = HomeLaunchHarnessService()
 
     // MARK: - State
@@ -1343,6 +1381,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private let onboardingGuidanceModel = HomeOnboardingGuidanceModel()
     private var onboardingCoordinator: AppOnboardingCoordinator?
     private var isEmbeddedChatRuntimeEntered = false
+    private var embeddedChatRuntimeGeneration = 0
     private var pendingExitChatTask: Task<Void, Never>?
     private var pendingInsightsLaunchRequest: InsightsLaunchRequest?
     private var pendingInsightsPreparationTask: Task<Void, Never>?
@@ -1354,7 +1393,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private let surfacePrewarmPolicy = HomeSurfacePrewarmPolicy()
     private var pendingOnboardingEvaluationTask: Task<Void, Never>?
     private var awaitsAnalyticsFirstInteractiveFrame = false
-    private var retainedHomeSearchEngine: LGHomeSearchEngine?
+    private var retainedHomeSearchEngine: HomeSearchEngineAdapter?
     private var onboardingEvaluationSceneToken: Int = 1
     private var completedOnboardingEvaluationSceneToken: Int = 0
     private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
@@ -1373,12 +1412,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         navigationCoordinator.delegate = self
         navigationEventAdapter.delegate = self
         reloadCoordinator.delegate = self
+        reloadEventAdapter.delegate = self
         bindTheme()
         bindViewModel()
         bindRenderPipeline()
         mountHomeShell()
-        observeMutations()
         navigationEventAdapter.start()
+        reloadEventAdapter.start()
         observeTaskCreatedForSnackbar()
         observeIPadShellTelemetry()
         observeOnboardingRequests()
@@ -1416,11 +1456,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         navigationCoordinator.handle(.pendingWidgetActionCommand)
         navigationCoordinator.handle(.pendingIPadModalRequest)
         launchHarnessService.seedUITestWorkspacesIfNeeded(
-            establishedSeed: seedUITestEstablishedWorkspaceIfNeeded,
-            rescueSeed: seedUITestRescueWorkspaceIfNeeded,
-            focusSeed: seedUITestFocusWorkspaceIfNeeded,
-            habitBoardSeed: seedUITestHabitBoardWorkspaceIfNeeded,
-            quietTrackingSeed: seedUITestQuietTrackingWorkspaceIfNeeded
+            seeders: HomeLaunchHarnessWorkspaceSeeders(
+                establishedSeed: seedUITestEstablishedWorkspaceIfNeeded,
+                rescueSeed: seedUITestRescueWorkspaceIfNeeded,
+                focusSeed: seedUITestFocusWorkspaceIfNeeded,
+                habitBoardSeed: seedUITestHabitBoardWorkspaceIfNeeded,
+                quietTrackingSeed: seedUITestQuietTrackingWorkspaceIfNeeded,
+                fullTimelineSeed: seedUITestFullTimelineWorkspaceIfNeeded
+            )
         ) { [weak self] in
             self?.viewModel.loadTodayTasks()
             self?.scheduleOnboardingEvaluationIfNeeded()
@@ -1433,14 +1476,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         refreshLayoutClassIfNeeded()
         refreshLayoutMetrics()
         updateInteractivePhaseIfNeeded()
-        mountBottomBarOverlayIfNeeded()
-        updateBottomBarBottomConstraint()
+        mountBottomBarOverlayIfNeeded(animated: false)
+        updateBottomBarBottomConstraint(animated: false)
     }
 
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         refreshLayoutMetrics()
-        updateBottomBarBottomConstraint()
+        updateBottomBarBottomConstraint(animated: false)
     }
 
     /// Executes viewWillDisappear.
@@ -1458,8 +1501,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingBackgroundInsightsPrewarmTask?.cancel()
         pendingOnboardingEvaluationTask?.cancel()
         pendingExitChatTask?.cancel()
+        let navigationEventAdapter = navigationEventAdapter
+        let reloadEventAdapter = reloadEventAdapter
+        let reloadCoordinator = reloadCoordinator
+        Task { @MainActor in
+            navigationEventAdapter.stop()
+            reloadEventAdapter.stop()
+            reloadCoordinator.cancelPendingReloads()
+        }
+        cancellables.removeAll()
         retainedHomeSearchEngine = nil
-        notificationCenter.removeObserver(self)
     }
 
     // MARK: - Setup
@@ -1468,12 +1519,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func injectDependenciesIfNeeded() {
         guard viewModel != nil else {
             fatalError("HomeViewController requires injected HomeViewModel")
-        }
-        guard chartCardViewModel != nil else {
-            fatalError("HomeViewController requires injected ChartCardViewModel")
-        }
-        guard radarChartCardViewModel != nil else {
-            fatalError("HomeViewController requires injected RadarChartCardViewModel")
         }
         guard presentationDependencyContainer != nil else {
             fatalError("HomeViewController requires injected PresentationDependencyContainer")
@@ -1543,35 +1588,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.isEmbeddedChatPromptFocused = false
                 }
                 self?.refreshLayoutMetrics()
-                self?.mountBottomBarOverlayIfNeeded()
+                self?.mountBottomBarOverlayIfNeeded(animated: true)
             }
             .store(in: &cancellables)
 
         faceCoordinator.$shellPhase
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.mountBottomBarOverlayIfNeeded()
+                self?.mountBottomBarOverlayIfNeeded(animated: true)
                 self?.scheduleOnboardingEvaluationIfNeeded()
                 self?.scheduleBackgroundSurfacePrewarmIfNeeded()
-            }
-            .store(in: &cancellables)
-
-        notificationCenter.publisher(for: UIApplication.didBecomeActiveNotification)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                self.onboardingEvaluationSceneToken &+= 1
-                self.navigationCoordinator.handle(.pendingShortcutHandoff)
-                self.scheduleOnboardingEvaluationIfNeeded()
-                self.reloadCoordinator.handle(.appDidBecomeActive)
-            }
-            .store(in: &cancellables)
-
-        notificationCenter.publisher(for: UIApplication.significantTimeChangeNotification)
-            .merge(with: notificationCenter.publisher(for: LifeBoardWorkspacePreferencesStore.didChangeNotification))
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                self?.reloadCoordinator.handle(.fromTimeOrWorkspaceNotification(notification))
             }
             .store(in: &cancellables)
 
@@ -1678,7 +1704,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         insightsViewModel.highlightAchievement(request.highlightedAchievementKey)
     }
 
-    private func trackFaceSelection(_ activeFace: HomeForedropFace) {
+    private func trackFaceSelection(_ activeFace: HomeSunriseFace) {
         let faceName: String
         switch activeFace {
         case .tasks:
@@ -1696,21 +1722,30 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func setEmbeddedChatRuntimeVisible(_ isVisible: Bool, trigger: String) {
+        embeddedChatRuntimeGeneration &+= 1
+        let generation = embeddedChatRuntimeGeneration
+
         if isVisible {
+            let hadPendingExit = pendingExitChatTask != nil
             pendingExitChatTask?.cancel()
             pendingExitChatTask = nil
+            if isEmbeddedChatRuntimeEntered, hadPendingExit {
+                LLMRuntimeCoordinator.shared.enterChatScreen(trigger: trigger)
+                return
+            }
             guard isEmbeddedChatRuntimeEntered == false else { return }
             isEmbeddedChatRuntimeEntered = true
             LLMRuntimeCoordinator.shared.enterChatScreen(trigger: trigger)
         } else {
             guard isEmbeddedChatRuntimeEntered else { return }
-            isEmbeddedChatRuntimeEntered = false
             pendingExitChatTask?.cancel()
             pendingExitChatTask = Task { @MainActor [weak self] in
                 guard Task.isCancelled == false else { return }
                 await LLMRuntimeCoordinator.shared.exitChatScreen(reason: "home_chat_face_exit")
                 guard Task.isCancelled == false else { return }
-                self?.pendingExitChatTask = nil
+                guard let self, self.embeddedChatRuntimeGeneration == generation else { return }
+                self.isEmbeddedChatRuntimeEntered = false
+                self.pendingExitChatTask = nil
             }
         }
     }
@@ -1777,6 +1812,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         scheduleInsightsPreparationIfNeeded()
     }
 
+    private static func duration(nanoseconds: UInt64) -> Duration {
+        .nanoseconds(Int64(min(nanoseconds, UInt64(Int64.max))))
+    }
+
     @MainActor
     func runOnboardingEvaluationAfterDelay(
         sceneToken: Int,
@@ -1789,7 +1828,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         defer { clear() }
 
         do {
-            try await Task.sleep(nanoseconds: sleepNanoseconds)
+            try await Task.sleep(for: Self.duration(nanoseconds: sleepNanoseconds))
         } catch {
             return
         }
@@ -1955,6 +1994,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         if let presentationDependencyContainer {
             _ = presentationDependencyContainer.tryInject(into: chatHostVC)
         }
+        chatHostVC.onDismissToHome = { [weak self] in
+            self?.resetHomeSelectionAfterEvaChatDismissal()
+        }
         let navController = UINavigationController(rootViewController: chatHostVC)
         navController.modalPresentationStyle = .fullScreen
         navController.navigationBar.prefersLargeTitles = false
@@ -2069,7 +2111,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             pendingBackgroundSearchPrewarmTask = Task(priority: .utility) { @MainActor [weak self] in
                 defer { self?.pendingBackgroundSearchPrewarmTask = nil }
                 do {
-                    try await Task.sleep(nanoseconds: 800_000_000)
+                    try await Task.sleep(for: .milliseconds(800))
                 } catch {
                     return
                 }
@@ -2092,7 +2134,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             pendingBackgroundInsightsPrewarmTask = Task(priority: .utility) { @MainActor [weak self] in
                 defer { self?.pendingBackgroundInsightsPrewarmTask = nil }
                 do {
-                    try await Task.sleep(nanoseconds: 1_500_000_000)
+                    try await Task.sleep(for: .milliseconds(1_500))
                 } catch {
                     return
                 }
@@ -2133,11 +2175,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         return resolvedViewModel
     }
 
-    private func resolveHomeSearchEngine() -> LGHomeSearchEngine {
+    private func resolveHomeSearchEngine() -> HomeSearchEngineAdapter {
         if let retainedHomeSearchEngine {
             return retainedHomeSearchEngine
         }
-        let engine = LGHomeSearchEngine(viewModel: viewModel.makeHomeSearchViewModel())
+        let engine = HomeSearchEngineAdapter(viewModel: viewModel.makeHomeSearchViewModel())
         retainedHomeSearchEngine = engine
         return engine
     }
@@ -2147,7 +2189,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingSearchWarmupTask = Task { @MainActor [weak self] in
             defer { self?.pendingSearchWarmupTask = nil }
             do {
-                try await Task.sleep(nanoseconds: 300_000_000)
+                try await Task.sleep(for: .milliseconds(300))
             } catch {
                 return
             }
@@ -2166,7 +2208,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingSearchMutationRefreshTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await Task.sleep(nanoseconds: 250_000_000)
+                try await Task.sleep(for: .milliseconds(250))
             } catch {
                 return
             }
@@ -2206,7 +2248,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             keyboardSpacing: spacing.s16,
             regularSpacing: spacing.s24
         )
-        let chartViewportHeight = min(max(height * 0.66, 560), max(560, height - 150))
+        let insightsViewportHeight = min(max(height * 0.66, 560), max(560, height - 150))
 
         return HomeLayoutMetrics(
             width: width,
@@ -2217,7 +2259,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             backdropGradientHeight: height + safeAreaInsets.top + safeAreaInsets.bottom,
             taskListBottomInset: taskListBottomInset,
             chatComposerBottomInset: chatComposerBottomInset,
-            chartViewportHeight: chartViewportHeight
+            insightsViewportHeight: insightsViewportHeight
         )
     }
 
@@ -2266,8 +2308,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard abs(keyboardOverlapHeight - sanitizedValue) > 0.5 else { return }
         keyboardOverlapHeight = sanitizedValue
         refreshLayoutMetrics()
-        mountBottomBarOverlayIfNeeded()
-        updateBottomBarBottomConstraint()
+        mountBottomBarOverlayIfNeeded(animated: true)
+        updateBottomBarBottomConstraint(animated: true)
     }
 
     private var isBottomBarConcealedForChatInput: Bool {
@@ -2281,14 +2323,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func setEmbeddedChatPromptFocused(_ isFocused: Bool) {
         guard isEmbeddedChatPromptFocused != isFocused else {
             refreshLayoutMetrics()
-            mountBottomBarOverlayIfNeeded()
-            updateBottomBarBottomConstraint()
+            mountBottomBarOverlayIfNeeded(animated: true)
+            updateBottomBarBottomConstraint(animated: true)
             return
         }
         isEmbeddedChatPromptFocused = isFocused
         refreshLayoutMetrics()
-        mountBottomBarOverlayIfNeeded()
-        updateBottomBarBottomConstraint()
+        mountBottomBarOverlayIfNeeded(animated: true)
+        updateBottomBarBottomConstraint(animated: true)
     }
 
     private func updateInteractivePhaseIfNeeded() {
@@ -2327,6 +2369,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             calendarStore.apply(transaction.calendar)
             LifeBoardPerformanceTrace.event("home.render.calendarCommitted")
         }
+        if transaction.timeline != lastAppliedHomeRenderTransaction.timeline {
+            timelineStore.apply(transaction.timeline)
+            LifeBoardPerformanceTrace.event("home.render.timelineCommitted")
+        }
         if transaction.overlay != lastAppliedHomeRenderTransaction.overlay {
             applyOverlayState(transaction.overlay)
         }
@@ -2349,10 +2395,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 replanState: state.replanState
             )
         )
-        mountBottomBarOverlayIfNeeded()
+        mountBottomBarOverlayIfNeeded(animated: true)
     }
 
-    private func mountBottomBarOverlayIfNeeded() {
+    private func mountBottomBarOverlayIfNeeded(animated: Bool = true) {
         let shouldShowBottomBar = currentLayoutClass == .phone
             && faceCoordinator.shellPhase == .interactive
             && overlayStore.snapshot.replanState.suppressesBottomBar == false
@@ -2377,16 +2423,20 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             bottomBarHostingController.rootView = root
             applyBottomBarConcealmentState()
             updateBottomBarHeightConstraint()
-            updateBottomBarBottomConstraint()
+            updateBottomBarBottomConstraint(animated: animated)
             return
         }
 
         let hostingController = UIHostingController(rootView: root)
         hostingController.view.backgroundColor = .clear
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        bottomBarHostingController = hostingController
         addChild(hostingController)
         view.addSubview(hostingController.view)
-        let bottomConstraint = hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        let bottomConstraint = hostingController.view.bottomAnchor.constraint(
+            equalTo: view.bottomAnchor,
+            constant: resolvedBottomBarDownshift()
+        )
         let heightConstraint = hostingController.view.heightAnchor.constraint(equalToConstant: resolvedBottomBarHostHeight())
         bottomBarBottomConstraint = bottomConstraint
         bottomBarHeightConstraint = heightConstraint
@@ -2396,10 +2446,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             bottomConstraint,
             heightConstraint
         ])
-        updateBottomBarBottomConstraint()
         hostingController.didMove(toParent: self)
-        bottomBarHostingController = hostingController
         applyBottomBarConcealmentState()
+        updateBottomBarBottomConstraint(animated: false)
     }
 
     private func applyBottomBarConcealmentState() {
@@ -2467,23 +2516,30 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         measuredBottomBarHeight = sanitizedValue
         refreshLayoutMetrics()
         updateBottomBarHeightConstraint()
-        updateBottomBarBottomConstraint()
+        updateBottomBarBottomConstraint(animated: false)
     }
 
     private func resolvedBottomBarDownshift() -> CGFloat {
         guard currentLayoutClass == .phone else { return 0 }
-        let restingDownshift = max(0, view.safeAreaInsets.bottom - 10)
+        let restingDownshift = HomeBottomBarVisibilityPolicy.restingDockDownshift(
+            safeAreaBottom: view.safeAreaInsets.bottom,
+            verticalLift: Self.bottomBarVerticalLift
+        )
         guard isBottomBarConcealedForChatInput else { return restingDownshift }
 
         let tokens = LifeBoardThemeManager.shared.tokens(for: currentLayoutClass)
         return restingDownshift + resolvedBottomBarHostHeight() + tokens.spacing.s16
     }
 
-    private func updateBottomBarBottomConstraint() {
+    private func updateBottomBarBottomConstraint(animated: Bool = true) {
         guard let bottomBarBottomConstraint else { return }
         let downshift = resolvedBottomBarDownshift()
         guard abs(bottomBarBottomConstraint.constant - downshift) > 0.5 else { return }
         bottomBarBottomConstraint.constant = downshift
+        guard animated else {
+            view.layoutIfNeeded()
+            return
+        }
         UIView.animate(
             withDuration: 0.24,
             delay: 0,
@@ -2543,7 +2599,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             existingHostingController.rootView = root
             refreshLayoutMetrics()
             updateInteractivePhaseIfNeeded()
-            mountBottomBarOverlayIfNeeded()
+            mountBottomBarOverlayIfNeeded(animated: false)
             return
         }
 
@@ -2567,27 +2623,26 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         hostingController.didMove(toParent: self)
         refreshLayoutMetrics()
         updateInteractivePhaseIfNeeded()
-        mountBottomBarOverlayIfNeeded()
+        mountBottomBarOverlayIfNeeded(animated: false)
     }
 
     /// Executes makeHomeBackdropRoot.
     private func makeHomeBackdropRoot(
         layoutClass: LifeBoardLayoutClass,
-        forcedFace: Binding<HomeForedropFace>?
-    ) -> HomeBackdropForedropRootView {
-        HomeBackdropForedropRootView(
+        forcedFace: Binding<HomeSunriseFace>?
+    ) -> SunriseAppShellView {
+        SunriseAppShellView(
             viewModel: viewModel,
             chromeStore: chromeStore,
             tasksStore: tasksStore,
             habitsStore: habitsStore,
             calendarStore: calendarStore,
+            timelineStore: timelineStore,
             calendarIntegrationService: presentationDependencyContainer?.coordinator.calendarIntegrationService,
             chatAppManager: homeChatAppManager,
             overlayStore: overlayStore,
             faceCoordinator: faceCoordinator,
             searchState: searchState,
-            chartCardViewModel: chartCardViewModel,
-            radarChartCardViewModel: radarChartCardViewModel,
             layoutClass: layoutClass,
             forcedFace: forcedFace,
             onTaskTap: { [weak self] task in
@@ -2685,7 +2740,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes makeIPadSplitRoot.
     private func makeIPadSplitRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
-        let root = HomeiPadSplitShellView(
+        let root = SunriseiPadSplitShellView(
             layoutClass: layoutClass,
             shellState: iPadShellState,
             shellEpoch: iPadShellEpoch,
@@ -2731,15 +2786,19 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard let presentationDependencyContainer else {
             return AnyView(Text("Add Task unavailable").font(.lifeboard(.body)))
         }
+        let viewModel = presentationDependencyContainer.makeNewAddTaskViewModel()
         return AnyView(
-            AddTaskInspectorContainer(
-                viewModel: presentationDependencyContainer.makeNewAddTaskViewModel(),
-                habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
-                onClose: { [weak self] in
+            SunriseAddTaskSheetView(
+                viewModel: viewModel,
+                onTaskCreated: { [weak self] _ in
+                    self?.iPadShellState.destination = .tasks
+                },
+                onDismissWithoutTask: { [weak self] in
                     self?.iPadShellState.destination = .tasks
                 }
             )
             .lifeboardLayoutClass(layoutClass)
+            .accessibilityIdentifier("home.ipad.detail.addTask")
         )
     }
 
@@ -2802,7 +2861,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         let vm = presentationDependencyContainer.makeProjectManagementViewModel()
         return AnyView(
-            ProjectManagementView(viewModel: vm)
+            SunriseProjectManagementView(viewModel: vm)
                 .lifeboardLayoutClass(layoutClass)
         )
     }
@@ -2960,16 +3019,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
            presentationController.delegate === self {
             presentationController.delegate = nil
         }
-    }
-
-    /// Executes observeMutations.
-    private func observeMutations() {
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(homeTaskMutationReceived(_:)),
-            name: .homeTaskMutation,
-            object: nil
-        )
     }
 
     private func refreshPersistentSyncOutageBanner() {
@@ -3489,7 +3538,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func seedUITestQuietTrackingWorkspaceIfNeeded(completion: @escaping () -> Void) {
-        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE") else {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE")
+            || arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") else {
             completion()
             return
         }
@@ -3563,6 +3614,228 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
+    private func seedUITestFullTimelineWorkspaceIfNeeded(completion: @escaping () -> Void) {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") else {
+            completion()
+            return
+        }
+        guard Self.hasSeededUITestFullTimelineWorkspace == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededUITestFullTimelineWorkspace = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
+                let completeTaskDefinition = presentationDependencyContainer.coordinator.completeTaskDefinition
+                let createHabit = presentationDependencyContainer.coordinator.createHabit
+
+                let workArea = try await manageLifeAreas.createAsync(
+                    name: "Timeline Work",
+                    color: "#2F5B8A",
+                    icon: "briefcase.fill"
+                )
+                let healthArea = try await manageLifeAreas.createAsync(
+                    name: "Timeline Health",
+                    color: "#3B8A5D",
+                    icon: "heart.fill"
+                )
+                let recoveryArea = try await manageLifeAreas.createAsync(
+                    name: "Timeline Recovery",
+                    color: "#C46A54",
+                    icon: "moon.zzz.fill"
+                )
+
+                let launchProject = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Timeline Launch",
+                        description: "Full timeline UI test seed",
+                        lifeAreaID: workArea.id
+                    )
+                )
+                let opsProject = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Timeline Ops",
+                        description: "Full timeline UI test support seed",
+                        lifeAreaID: workArea.id
+                    )
+                )
+
+                let calendar = Calendar.current
+                let now = Date()
+                let startOfDay = calendar.startOfDay(for: now)
+                let designReviewStart = calendar.date(byAdding: .hour, value: 10, to: startOfDay) ?? now
+                let overlapStart = calendar.date(byAdding: .minute, value: 10, to: designReviewStart) ?? designReviewStart
+                let overlapEnd = calendar.date(byAdding: .minute, value: 45, to: overlapStart) ?? overlapStart
+                let deepWorkStart = calendar.date(byAdding: .hour, value: 12, to: startOfDay) ?? now
+                let deepWorkEnd = calendar.date(byAdding: .minute, value: 50, to: deepWorkStart) ?? deepWorkStart
+                let completedStart = calendar.date(byAdding: .hour, value: 8, to: startOfDay) ?? now
+                let completedEnd = calendar.date(byAdding: .minute, value: 25, to: completedStart) ?? completedStart
+                let overdueDate = calendar.date(byAdding: .day, value: -2, to: startOfDay) ?? now
+
+                let overlapTaskID = UUID(uuidString: "20000000-0000-0000-0000-000000000001") ?? UUID()
+                let deepWorkTaskID = UUID(uuidString: "20000000-0000-0000-0000-000000000002") ?? UUID()
+                let inboxTaskID = UUID(uuidString: "20000000-0000-0000-0000-000000000003") ?? UUID()
+                let overdueTaskID = UUID(uuidString: "20000000-0000-0000-0000-000000000004") ?? UUID()
+                let completedTaskID = UUID(uuidString: "20000000-0000-0000-0000-000000000005") ?? UUID()
+
+                let taskRequests = [
+                    CreateTaskDefinitionRequest(
+                        id: overlapTaskID,
+                        title: "Timeline overlap task",
+                        details: "Overlaps Design Review for conflict-block UI coverage",
+                        projectID: launchProject.id,
+                        projectName: launchProject.name,
+                        iconSymbolName: "rectangle.stack.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: overlapStart,
+                        scheduledStartAt: overlapStart,
+                        scheduledEndAt: overlapEnd,
+                        priority: .max,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: overlapEnd.timeIntervalSince(overlapStart),
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: deepWorkTaskID,
+                        title: "Timeline deep work block",
+                        details: "Standalone scheduled task for timeline detail coverage",
+                        projectID: launchProject.id,
+                        projectName: launchProject.name,
+                        iconSymbolName: "scope",
+                        lifeAreaID: workArea.id,
+                        dueDate: deepWorkStart,
+                        scheduledStartAt: deepWorkStart,
+                        scheduledEndAt: deepWorkEnd,
+                        priority: .high,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: deepWorkEnd.timeIntervalSince(deepWorkStart),
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: inboxTaskID,
+                        title: "Timeline inbox capture",
+                        details: "Unscheduled inbox task for fill-open-time coverage",
+                        projectID: ProjectConstants.inboxProjectID,
+                        projectName: ProjectConstants.inboxProjectName,
+                        iconSymbolName: "tray.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: nil,
+                        priority: .low,
+                        type: .morning,
+                        context: .anywhere,
+                        estimatedDuration: 20 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: overdueTaskID,
+                        title: "Timeline overdue rescue",
+                        details: "Overdue task for critical triage coverage",
+                        projectID: opsProject.id,
+                        projectName: opsProject.name,
+                        iconSymbolName: "exclamationmark.triangle.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: overdueDate,
+                        priority: .high,
+                        type: .morning,
+                        context: .office,
+                        estimatedDuration: 30 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: completedTaskID,
+                        title: "Timeline completed report",
+                        details: "Completed timeline task for persistence coverage",
+                        projectID: opsProject.id,
+                        projectName: opsProject.name,
+                        iconSymbolName: "checkmark.seal.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: completedStart,
+                        scheduledStartAt: completedStart,
+                        scheduledEndAt: completedEnd,
+                        priority: .low,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: completedEnd.timeIntervalSince(completedStart),
+                        createdAt: now
+                    )
+                ]
+
+                for request in taskRequests {
+                    _ = try await createTaskDefinition.executeAsync(request: request)
+                }
+                _ = try await completeTaskDefinition.setCompletionAsync(taskID: completedTaskID, to: true)
+
+                let habitRequests = [
+                    CreateHabitRequest(
+                        id: UUID(uuidString: "30000000-0000-0000-0000-000000000001") ?? UUID(),
+                        title: "Timeline hydrate",
+                        lifeAreaID: healthArea.id,
+                        projectID: launchProject.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+                        colorHex: HabitColorFamily.green.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: now
+                    ),
+                    CreateHabitRequest(
+                        id: UUID(uuidString: "30000000-0000-0000-0000-000000000002") ?? UUID(),
+                        title: "Timeline no phone in bed",
+                        lifeAreaID: recoveryArea.id,
+                        projectID: opsProject.id,
+                        kind: .negative,
+                        trackingMode: .lapseOnly,
+                        icon: HabitIconMetadata(symbolName: "bed.double.fill", categoryKey: "sleep"),
+                        colorHex: HabitColorFamily.coral.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: now
+                    ),
+                    CreateHabitRequest(
+                        id: UUID(uuidString: "30000000-0000-0000-0000-000000000003") ?? UUID(),
+                        title: "Timeline no doomscrolling after dinner",
+                        lifeAreaID: recoveryArea.id,
+                        projectID: opsProject.id,
+                        kind: .negative,
+                        trackingMode: .lapseOnly,
+                        icon: HabitIconMetadata(symbolName: "moon.zzz.fill", categoryKey: "recovery"),
+                        colorHex: HabitColorFamily.blue.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: now
+                    )
+                ]
+
+                for request in habitRequests {
+                    _ = try await createHabit.executeAsync(request: request)
+                }
+
+                UserDefaults.standard.removeObject(forKey: "home.eva.recentShuffleTaskIDs.v1")
+                viewModel.invalidateTaskCaches()
+            } catch {
+                logError(
+                    event: "ui_test_full_timeline_workspace_seed_failed",
+                    message: "Failed to seed full timeline workspace for Home UI tests",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
     var currentOnboardingLayoutClass: LifeBoardLayoutClass {
         currentLayoutClass
     }
@@ -3583,9 +3856,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         let viewModel = presentationDependencyContainer.makeNewAddTaskViewModel()
         viewModel.applyPrefill(prefill)
-        let sheet = AddTaskSheetView(
+        let sheet = SunriseAddTaskSheetView(
             viewModel: viewModel,
-            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
             onTaskCreated: onTaskCreated,
             onDismissWithoutTask: onDismissWithoutTask
         )
@@ -3607,19 +3879,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard let presentationDependencyContainer else {
             return nil
         }
-        let taskViewModel = presentationDependencyContainer.makeNewAddTaskViewModel()
         let habitViewModel = presentationDependencyContainer.makeNewAddHabitViewModel()
         habitViewModel.applyPrefill(prefill)
-        let sheet = AddTaskSheetView(
-            itemViewModel: AddItemViewModel(
-                taskViewModel: taskViewModel,
-                habitViewModel: habitViewModel,
-                allowedModes: [.habit],
-                selectedMode: .habit
-            ),
-            modePolicy: .habitOnly,
+        let sheet = SunriseAddHabitSheetView(
+            viewModel: habitViewModel,
             onHabitCreated: onHabitCreated,
-            onDismissWithoutTask: onDismissWithoutTask
+            onDismissWithoutHabit: onDismissWithoutTask
         )
         let hostingController = UIHostingController(rootView: AnyView(sheet.lifeboardLayoutClass(currentLayoutClass)))
         hostingController.modalPresentationStyle = .pageSheet
@@ -3711,11 +3976,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
         applyTimelineSuggestedDate(suggestedDate, to: vm)
-        let sheet = AddTaskSheetView(
-            viewModel: vm,
-            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
-            modePolicy: .unified(defaultMode: .task)
-        )
+        let sheet = SunriseAddTaskSheetView(viewModel: vm)
         let hostingVC = UIHostingController(rootView: sheet)
         hostingVC.modalPresentationStyle = .pageSheet
         if let sheetController = hostingVC.sheetPresentationController {
@@ -3739,11 +4000,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
         applyTimelineSuggestedDate(suggestedDate, to: vm)
-        let sheet = AddTaskSheetView(
-            viewModel: vm,
-            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
-            modePolicy: .unified(defaultMode: .task)
-        )
+        let sheet = SunriseAddTaskSheetView(viewModel: vm)
         let hostingVC = UIHostingController(rootView: sheet.lifeboardLayoutClass(currentLayoutClass))
         hostingVC.modalPresentationStyle = .formSheet
         hostingVC.preferredContentSize = CGSize(width: 540, height: 620)
@@ -3787,7 +4044,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
 
         let viewModel = presentationDependencyContainer.makeProjectManagementViewModel()
-        let rootView = ProjectManagementView(viewModel: viewModel)
+        let rootView = SunriseProjectManagementView(viewModel: viewModel)
             .lifeboardLayoutClass(currentLayoutClass)
         let controller = UIHostingController(rootView: rootView)
         controller.title = "Projects"
@@ -3813,7 +4070,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let referenceDate = weeklySummary?.weekStartDate ?? Date()
         let plannerPresentation = weeklySummary?.plannerPresentation ?? .thisWeek
 
-        let plannerView = WeeklyPlannerView(
+        let plannerView = SunriseWeeklyPlannerView(
             viewModel: presentationDependencyContainer.makeWeeklyPlannerViewModel(
                 referenceDate: referenceDate,
                 plannerPresentation: plannerPresentation
@@ -3842,7 +4099,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         let referenceDate = viewModel?.weeklySummary?.weekStartDate ?? Date()
 
-        let reviewView = WeeklyReviewView(
+        let reviewView = SunriseWeeklyReviewView(
             viewModel: presentationDependencyContainer.makeWeeklyReviewViewModel(referenceDate: referenceDate),
             onClose: { [weak self] in
                 self?.dismiss(animated: true)
@@ -3868,36 +4125,26 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes searchButtonTapped.
     @objc func searchButtonTapped() {
-        if isUsingIPadNativeShell {
-            let presentSearch = { [weak self] in
-                guard let self else { return }
-                self.openSearch(source: "navigation_search_button")
+        let presentSearch = { [weak self] in
+            guard let self else { return }
+            self.openSearch(source: "navigation_search_button")
+            if self.isUsingIPadNativeShell {
                 self.iPadShellState.destination = .search
             }
+        }
 
-            if presentedViewController != nil {
-                dismiss(animated: true) {
-                    presentSearch()
-                }
-            } else {
+        if presentedViewController != nil {
+            dismiss(animated: true) {
                 presentSearch()
             }
-            return
+        } else {
+            presentSearch()
         }
-
-        let searchVC = LGSearchViewController()
-        guard let presentationDependencyContainer else {
-            fatalError("HomeViewController missing PresentationDependencyContainer")
-        }
-        presentationDependencyContainer.inject(into: searchVC)
-        searchVC.modalPresentationStyle = .fullScreen
-        searchVC.modalTransitionStyle = .crossDissolve
-        present(searchVC, animated: true)
     }
 
     /// Executes chatButtonTapped.
     @objc func chatButtonTapped() {
-        presentEvaChatScreen(source: "legacy_chat_button")
+        presentEvaChatScreen(source: "sunrise_chat_button")
     }
 
     private func resetHomeSelectionAfterEvaChatDismissalIfNeeded() {
@@ -4035,23 +4282,40 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             return
         }
 
-        let alert = UIAlertController(
-            title: "Delete recurring task?",
-            message: "Choose whether to delete only this task or every task in the series.",
-            preferredStyle: .actionSheet
+        presentRecurringTaskDeleteConfirmation(
+            taskTitle: task.title,
+            onDeleteSingle: { [viewModel] in
+                viewModel.deleteTask(taskID: task.id, scope: .single) { _ in }
+            },
+            onDeleteSeries: { [viewModel] in
+                viewModel.deleteTask(taskID: task.id, scope: .series) { _ in }
+            }
         )
-        alert.addAction(UIAlertAction(title: "Delete This Task", style: .destructive) { _ in
-            viewModel.deleteTask(taskID: task.id, scope: .single) { _ in }
-        })
-        alert.addAction(UIAlertAction(title: "Delete Entire Series", style: .destructive) { _ in
-            viewModel.deleteTask(taskID: task.id, scope: .series) { _ in }
-        })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        if let popover = alert.popoverPresentationController {
-            popover.sourceView = view
-            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+    }
+
+    private func presentRecurringTaskDeleteConfirmation(
+        taskTitle: String,
+        onDeleteSingle: @escaping () -> Void,
+        onDeleteSeries: @escaping () -> Void
+    ) {
+        let confirmationView = SunriseRecurringTaskDeleteConfirmationView(
+            taskTitle: taskTitle,
+            onDeleteSingle: onDeleteSingle,
+            onDeleteSeries: onDeleteSeries
+        )
+        .lifeboardLayoutClass(currentLayoutClass)
+
+        let hostingController = UIHostingController(rootView: confirmationView)
+        hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        hostingController.modalPresentationStyle = .pageSheet
+
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
         }
-        present(alert, animated: true)
+
+        present(hostingController, animated: true)
     }
 
     private func presentTimelineAnchorDetail(for anchor: TimelineAnchorItem) {
@@ -4150,8 +4414,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func makeTaskDetailView(
         for task: TaskDefinition,
         containerMode: TaskDetailContainerMode
-    ) -> TaskDetailSheetView {
-        TaskDetailSheetView(
+    ) -> SunriseTaskDetailScreen {
+        SunriseTaskDetailScreen(
             task: task,
             projects: viewModel?.projects ?? [],
             todayXPSoFar: {
@@ -4786,7 +5050,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func presentFocusTimer(task: TaskDefinition?, session: FocusSessionDefinition, source: String) {
-        let timerView = FocusTimerView(
+        let timerView = SunriseFocusTimerView(
             taskTitle: task?.title,
             taskPriority: task?.priority.displayName,
             targetDurationSeconds: session.targetDurationSeconds,
@@ -4837,7 +5101,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func presentFocusSummary(_ result: FocusSessionResult) {
         guard let viewModel else { return }
-        let summaryView = FocusSessionSummaryView(
+        let summaryView = SunriseFocusSessionSummaryView(
             durationSeconds: result.session.durationSeconds,
             xpAwarded: result.xpResult?.awardedXP ?? result.session.xpAwarded,
             dailyXPSoFar: result.xpResult?.dailyXPSoFar ?? viewModel.dailyScore,
@@ -5075,7 +5339,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         )
 
         let hostingController = UIHostingController(
-            rootView: ReflectPlanScreen(
+            rootView: SunriseReflectPlanScreen(
                 viewModel: reflectPlanViewModel,
                 onClose: { [weak self] in
                     self?.dismiss(animated: true)
@@ -5156,24 +5420,20 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         return Calendar.current.date(from: components) ?? Date()
     }
 
-    // MARK: - Chart Refresh Contract
+    // MARK: - Insights Refresh Contract
 
-    /// Executes refreshChartsAfterTaskCompletion.
-    func refreshChartsAfterTaskCompletion() {
-        refreshChartsAfterTaskMutation(reason: .completed)
+    /// Executes refreshInsightsAfterTaskCompletion.
+    func refreshInsightsAfterTaskCompletion() {
+        refreshInsightsAfterTaskMutation(reason: .completed)
     }
 
-    /// Executes refreshChartsAfterTaskMutation.
-    func refreshChartsAfterTaskMutation(reason: HomeTaskMutationEvent? = nil) {
+    /// Executes refreshInsightsAfterTaskMutation.
+    func refreshInsightsAfterTaskMutation(reason: HomeTaskMutationEvent? = nil) {
         if let reason {
-            logDebug("🎯 HomeViewController chart refresh reason=\(reason.rawValue)")
+            logDebug("🎯 HomeViewController insights refresh reason=\(reason.rawValue)")
         }
-        chartCardViewModel?.load(referenceDate: nil, force: true)
-        radarChartCardViewModel?.load(referenceDate: nil, force: true)
-    }
-
-    @objc private func homeTaskMutationReceived(_ notification: Notification) {
-        reloadCoordinator.handle(.taskMutation(HomeTaskMutationReloadEvent(notification: notification)))
+        insightsViewModel?.refresh()
+        faceCoordinator.insightsViewModel?.refresh()
     }
 
     // MARK: - Theme
@@ -5274,10 +5534,6 @@ extension HomeViewController: HomeNavigationCoordinatorDelegate {
         processPendingWidgetActionCommand()
     }
 
-    func homeNavigationRefreshPersistentSyncMode() {
-        reloadCoordinator.handle(.persistentSyncModeChanged)
-    }
-
     func homeNavigationConsumePendingShortcutHandoff() {
         guard viewModel != nil else { return }
         consumePendingShortcutHandoffIfNeeded()
@@ -5321,7 +5577,19 @@ extension HomeViewController: HomeNavigationEventAdapterDelegate {
     }
 }
 
-extension HomeViewController: HomeReloadCoordinatorDelegate {
+extension HomeViewController: HomeReloadCoordinatorDelegate, HomeReloadEventAdapterDelegate {
+    func homeReloadEventAdapter(
+        _ adapter: HomeReloadEventAdapter,
+        didReceive event: HomeReloadEvent
+    ) {
+        if case .appDidBecomeActive = event {
+            onboardingEvaluationSceneToken &+= 1
+            navigationCoordinator.handle(.pendingShortcutHandoff)
+            scheduleOnboardingEvaluationIfNeeded()
+        }
+        reloadCoordinator.handle(event)
+    }
+
     func homeReloadCoordinatorDidReceiveTaskMutation(_ mutation: HomeTaskMutationReloadEvent) {
         LifeBoardPerformanceTrace.event("HomeTaskMutationReloadEvent")
         if let reason = mutation.reason {
@@ -5333,8 +5601,8 @@ extension HomeViewController: HomeReloadCoordinatorDelegate {
         faceCoordinator.recordSearchMutation()
     }
 
-    func homeReloadCoordinatorRefreshCharts(reason: HomeTaskMutationEvent?) {
-        refreshChartsAfterTaskMutation(reason: reason)
+    func homeReloadCoordinatorRefreshInsights(reason: HomeTaskMutationEvent?) {
+        refreshInsightsAfterTaskMutation(reason: reason)
     }
 
     func homeReloadCoordinatorRefreshPersistentSyncMode() {
@@ -6035,6 +6303,109 @@ private struct DailySummaryModalView: View {
         formatter.dateStyle = .full
         formatter.timeStyle = .none
         return formatter.string(from: date)
+    }
+}
+
+private struct SunriseRecurringTaskDeleteConfirmationView: View {
+    let taskTitle: String
+    let onDeleteSingle: () -> Void
+    let onDeleteSeries: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.lifeboard.bgCanvas.ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: LBSpacingTokens.lg) {
+                    header
+
+                    LBGlassCard(
+                        cornerRadius: LBRadiusTokens.largeCard,
+                        fill: reduceTransparency ? Color.lifeboard.surfacePrimary : LBColorTokens.glassStrong.opacity(0.86),
+                        usesMaterialBackground: reduceTransparency == false
+                    ) {
+                        VStack(spacing: LBSpacingTokens.sm) {
+                            destructiveAction(
+                                title: "Delete This Task",
+                                systemImage: "calendar.badge.minus",
+                                action: onDeleteSingle
+                            )
+
+                            Divider()
+                                .overlay(Color.lifeboard.strokeHairline.opacity(0.5))
+
+                            destructiveAction(
+                                title: "Delete Entire Series",
+                                systemImage: "repeat.circle",
+                                action: onDeleteSeries
+                            )
+                        }
+                        .padding(LBSpacingTokens.md)
+                    }
+
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .font(.lifeboard(.body))
+                    .foregroundColor(Color.lifeboard.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(Color.lifeboard.surfaceSecondary, in: Capsule())
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.recurringTaskDelete.cancel")
+                }
+                .padding(LBSpacingTokens.lg)
+                .frame(maxWidth: 560)
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("home.recurringTaskDelete.close")
+                }
+            }
+        }
+        .presentationDragIndicator(.visible)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+            Text("Delete recurring task?")
+                .font(.lifeboard(.title3))
+                .foregroundColor(Color.lifeboard.textPrimary)
+
+            Text("Choose whether to delete only \"\(taskTitle)\" or every task in the series.")
+                .font(.lifeboard(.body))
+                .foregroundColor(Color.lifeboard.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func destructiveAction(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button {
+            dismiss()
+            action()
+        } label: {
+            HStack(spacing: LBSpacingTokens.sm) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 28, height: 28)
+
+                Text(title)
+                    .font(.lifeboard(.body))
+
+                Spacer()
+            }
+            .foregroundColor(Color.lifeboard.statusDanger)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(title == "Delete This Task" ? "home.recurringTaskDelete.single" : "home.recurringTaskDelete.series")
     }
 }
 

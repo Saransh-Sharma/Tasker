@@ -100,9 +100,9 @@ enum OnboardingCopy {
     }
 
     enum EvaValue {
-        static let title = String(localized: "Pick your chief of staff")
+        static let title = String(localized: "Pick your guide")
         static let subtitle = String(localized: "Choose the mascot that will guide your day, habits, and priorities.")
-        static let cta = String(localized: "Choose chief")
+        static let cta = String(localized: "Choose guide")
     }
 
     enum LifeAreas {
@@ -126,14 +126,14 @@ enum OnboardingCopy {
 
     enum EvaStyle {
         static let title = String(localized: "How do you work best?")
-        static let subtitle = String(localized: "Pick the style your chief of staff should respect.")
+        static let subtitle = String(localized: "Pick the style Eva should respect.")
         static let blockerTitle = String(localized: "Work blockers")
         static let cta = String(localized: "Save style")
     }
 
     enum WorkBlockers {
         static let title = String(localized: "What blocks your work?")
-        static let subtitle = String(localized: "Choose the patterns your chief of staff should watch for.")
+        static let subtitle = String(localized: "Choose the patterns Eva should watch for.")
         static let cta = String(localized: "Save blockers")
     }
 
@@ -188,7 +188,7 @@ enum OnboardingCopy {
 
     enum Success {
         static let title = String(localized: "Setup is ready")
-        static let subtitle = String(localized: "Your chief of staff, habit, task, and day view are ready.")
+        static let subtitle = String(localized: "Your guide, habit, task, and day view are ready.")
         static let goHomeCTA = String(localized: "Go to Home")
         static let nextCTA = String(localized: "Ask assistant")
     }
@@ -476,7 +476,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .pain:
             return "Choose blockers"
         case .evaValue:
-            return "Choose chief of staff"
+            return "Choose guide"
         case .lifeAreas:
             return "Choose focus areas"
         case .habitSetup:
@@ -519,7 +519,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .pain:
             return "Select at least one blocker."
         case .evaValue:
-            return "Swipe the carousel and choose a chief of staff."
+            return "Swipe the carousel and choose a guide."
         case .lifeAreas:
             return "Pick up to 3 areas."
         case .habitSetup:
@@ -527,7 +527,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         case .streakPreview:
             return "Review your starter streak."
         case .evaStyle:
-            return "Choose how your chief of staff should work."
+            return "Choose how Eva should work."
         case .workBlockers:
             return "Choose blockers or add your own."
         case .weeklyOutcomes:
@@ -3523,7 +3523,7 @@ final class OnboardingFeedbackController {
 }
 
 @MainActor
-final class OnboardingFlowModel: ObservableObject, @unchecked Sendable {
+final class OnboardingFlowModel: ObservableObject {
     private let stateStore: AppOnboardingStateStore
     private let notificationService: NotificationServiceProtocol?
     private let calendarService: CalendarIntegrationService?
@@ -8729,7 +8729,7 @@ struct OnboardingHomeDemoSnapshotFactory {
         )
         return HomeTimelineSnapshot(
             selectedDate: day,
-            foredropAnchor: .collapsed,
+            sunriseAnchor: .collapsed,
             day: projection,
             week: weekSummary(selectedDate: day, timedItems: timedItems, calendar: calendar),
             placementCandidate: nil
@@ -8932,7 +8932,7 @@ struct OnboardingHomeDemoPreview: View {
                 }
             }
 
-            TimelineForedropView(
+            SunriseTimelineSurface(
                 snapshot: timelineSnapshot,
                 layoutClass: layoutClass,
                 showsRevealHandle: false,

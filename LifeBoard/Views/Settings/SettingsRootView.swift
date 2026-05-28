@@ -623,43 +623,6 @@ struct SettingsRootView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
                 .accessibilityIdentifier("settings.appearance.decorativeButtonEffects.card")
-
-                LifeBoardSettingsFieldCard(
-                    title: "Home Background Noise",
-                    subtitle: "Add film grain above the animated home gradient.",
-                    footer: "Use 0% to disable the grain overlay.",
-                    accessibilityIdentifier: "settings.appearance.homeBackgroundNoise.card"
-                ) {
-                    VStack(alignment: .leading, spacing: spacing.s12) {
-                        HStack(spacing: spacing.s12) {
-                            Text("Amount")
-                                .font(.lifeboard(.caption1))
-                                .foregroundStyle(Color.lifeboard(.textSecondary))
-
-                            Spacer()
-
-                            Text("\(viewModel.homeBackdropNoiseAmount)%")
-                                .font(.lifeboard(.bodyStrong))
-                                .foregroundStyle(Color.lifeboard(.textPrimary))
-                                .monospacedDigit()
-                        }
-
-                        Slider(
-                            value: homeBackdropNoiseSliderBinding,
-                            in: 0...100,
-                            step: 1
-                        )
-                        .tint(Color.lifeboard(.accentPrimary))
-                        .accessibilityIdentifier("settings.appearance.homeBackgroundNoise.slider")
-                        .accessibilityLabel("Home Background Noise")
-                        .accessibilityValue(Text("\(viewModel.homeBackdropNoiseAmount) percent"))
-                    }
-                }
-                .enhancedStaggeredAppearance(index: baseIndex + 1)
-                .accessibilityChildren {
-                    Text("\(viewModel.homeBackdropNoiseAmount)%")
-                        .accessibilityIdentifier("settings.appearance.homeBackgroundNoise.value")
-                }
             }
         }
     }
@@ -745,13 +708,6 @@ struct SettingsRootView: View {
 
     private var timelineWindDownDraftSummary: String {
         formattedTimelineSummary(for: .windDown)
-    }
-
-    private var homeBackdropNoiseSliderBinding: Binding<Double> {
-        Binding(
-            get: { Double(viewModel.homeBackdropNoiseAmount) },
-            set: { viewModel.setHomeBackdropNoiseAmount(Int($0.rounded())) }
-        )
     }
 
     private func formattedTimelineSummary(for selection: TimelineAnchorSelection) -> String {

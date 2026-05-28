@@ -144,7 +144,7 @@ class NavigationTests: BaseUITest {
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should be displayed")
         XCTAssertTrue(homePage.searchField.waitForExistence(timeout: 3), "Search field should appear on top backdrop")
         homePage.tapSearch()
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Search should collapse on second search tap")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Search should collapse on second search tap")
 
         homePage.tapChat()
         XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 3), "Chat screen should present")

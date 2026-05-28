@@ -24,9 +24,8 @@ struct LBDateHeroHeader: View {
     let onMenu: () -> Void
     let onSearch: () -> Void
     let onDateTap: () -> Void
-    let onPreviousDay: () -> Void
-    let onNextDay: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -84,38 +83,25 @@ struct LBDateHeroHeader: View {
     }
 
     private var navigatorRow: some View {
-        HStack(spacing: LBSpacingTokens.xs) {
-            dateStepButton(
-                systemName: "chevron.left",
-                accessibilityLabel: "Previous day",
-                accessibilityIdentifier: "home.sunrise.date.previous",
-                action: onPreviousDay
-            )
-            Button(action: onDateTap) {
-                HStack(spacing: LBSpacingTokens.sm) {
-                    Image(systemName: "calendar")
-                    Text(model.navigatorTitle)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .bold))
-                }
-                .font(LBTypographyTokens.chip)
-                .foregroundStyle(model.navigatorColor)
-                .frame(minHeight: 44)
-                .padding(.horizontal, LBSpacingTokens.md)
-                .background {
-                    clearCapsuleSurface(fill: model.navigatorGlassFill, stroke: model.navigatorGlassStroke)
-                }
+        Button(action: onDateTap) {
+            HStack(spacing: LBSpacingTokens.sm) {
+                Image(systemName: "calendar")
+                Text(model.navigatorTitle)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .bold))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Choose date")
-            .accessibilityIdentifier("home.sunrise.date.selector")
-            dateStepButton(
-                systemName: "chevron.right",
-                accessibilityLabel: "Next day",
-                accessibilityIdentifier: "home.sunrise.date.next",
-                action: onNextDay
-            )
+            .font(LBTypographyTokens.chip)
+            .foregroundStyle(model.navigatorColor)
+            .frame(minHeight: 44)
+            .padding(.horizontal, LBSpacingTokens.md)
+            .background {
+                clearCapsuleSurface(fill: model.navigatorGlassFill, stroke: model.navigatorGlassStroke)
+            }
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Choose date")
+        .accessibilityValue(model.navigatorTitle)
+        .accessibilityIdentifier("home.sunrise.date.selector")
         .padding(.horizontal, LBSpacingTokens.screenMargin)
         .frame(maxWidth: .infinity)
     }
@@ -129,9 +115,9 @@ struct LBDateHeroHeader: View {
 
     private var navigatorTop: CGFloat {
         if dynamicTypeSize.isAccessibilitySize {
-            return safeHeaderTop + 151
+            return safeHeaderTop + 159 + LBSpacingTokens.xs
         }
-        return safeHeaderTop + 109
+        return safeHeaderTop + 117 + LBSpacingTokens.xs
     }
 
     private var topChromeTop: CGFloat {
@@ -165,54 +151,25 @@ struct LBDateHeroHeader: View {
         .buttonStyle(.plain)
     }
 
-    private func dateStepButton(
-        systemName: String,
-        accessibilityLabel: String,
-        accessibilityIdentifier: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        navigatorIconButton(systemName: systemName, action: action)
-            .accessibilityLabel(accessibilityLabel)
-            .accessibilityIdentifier(accessibilityIdentifier)
-    }
-
-    private func navigatorIconButton(systemName: String, showsDot: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: systemName)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(model.navigatorColor)
-                    .frame(width: 44, height: 44)
-                    .background {
-                        clearCircleSurface(fill: model.navigatorGlassFill, stroke: model.navigatorGlassStroke)
-                    }
-                if showsDot {
-                    Circle()
-                        .fill(LBColorTokens.sunriseGold)
-                        .frame(width: 9, height: 9)
-                        .offset(x: -5, y: 5)
-                }
-            }
-            .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-    }
-
     @ViewBuilder
     private func clearCircleSurface(fill: Color, stroke: Color) -> some View {
         let shape = Circle()
-        if #available(iOS 26.0, *) {
+        if scrollOptimizedRendering {
+            shape
+                .fill(fill.opacity(0.94))
+                .overlay { shape.stroke(stroke, lineWidth: 1) }
+        } else if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
                 .glassEffect(.clear, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.06)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.04)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }
@@ -220,18 +177,22 @@ struct LBDateHeroHeader: View {
     @ViewBuilder
     private func clearCapsuleSurface(fill: Color, stroke: Color) -> some View {
         let shape = Capsule()
-        if #available(iOS 26.0, *) {
+        if scrollOptimizedRendering {
+            shape
+                .fill(fill.opacity(0.94))
+                .overlay { shape.stroke(stroke, lineWidth: 1) }
+        } else if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
                 .glassEffect(.clear, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.05)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(Color.black.opacity(0.04)) }
+                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }

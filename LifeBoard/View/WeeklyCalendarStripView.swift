@@ -3,7 +3,7 @@
 //  LifeBoard
 //
 //  Swipeable weekly calendar strip with expandable month grid.
-//  Sits on the backdrop, revealed when foredrop is pulled down.
+//  Sits on the backdrop, revealed when sunrise is pulled down.
 //
 
  import SwiftUI

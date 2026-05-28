@@ -479,7 +479,7 @@ public struct LifeBoardWorkspacePreferences: Codable, Equatable {
         includeCanceledCalendarEvents: Bool = false,
         includeAllDayInAgenda: Bool = true,
         includeAllDayInBusyStrip: Bool = false,
-        showCalendarEventsInTimeline: Bool = false,
+        showCalendarEventsInTimeline: Bool = true,
         timelineRiseAndShineHour: Int = 8,
         timelineRiseAndShineMinute: Int = 0,
         timelineWindDownHour: Int = 22,
@@ -525,7 +525,7 @@ public struct LifeBoardWorkspacePreferences: Codable, Equatable {
         includeCanceledCalendarEvents = try container.decodeIfPresent(Bool.self, forKey: .includeCanceledCalendarEvents) ?? false
         includeAllDayInAgenda = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInAgenda) ?? true
         includeAllDayInBusyStrip = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInBusyStrip) ?? false
-        showCalendarEventsInTimeline = try container.decodeIfPresent(Bool.self, forKey: .showCalendarEventsInTimeline) ?? false
+        showCalendarEventsInTimeline = try container.decodeIfPresent(Bool.self, forKey: .showCalendarEventsInTimeline) ?? true
         timelineRiseAndShineHour = Self.clampedHour(try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineHour) ?? 8)
         timelineRiseAndShineMinute = Self.clampedMinute(try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineMinute) ?? 0)
         timelineWindDownHour = Self.clampedHour(try container.decodeIfPresent(Int.self, forKey: .timelineWindDownHour) ?? 22)

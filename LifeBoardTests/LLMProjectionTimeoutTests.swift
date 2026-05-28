@@ -5,6 +5,25 @@ import MLXLMCommon
 @testable import LifeBoard
 
 final class LLMProjectionTimeoutTests: XCTestCase {
+    private static func spinFor(_ interval: TimeInterval) {
+        let deadline = Date().addingTimeInterval(interval)
+        while Date() < deadline {
+            _ = UUID()
+        }
+    }
+
+    private actor TimeoutCounter {
+        private var count = 0
+
+        func increment() {
+            count += 1
+        }
+
+        func value() -> Int {
+            count
+        }
+    }
+
     func testTimeoutReturnsFallbackPayload() async {
         let startedAt = Date()
         let result = await LLMProjectionTimeout.execute(timeoutMs: 25) {
@@ -29,6 +48,37 @@ final class LLMProjectionTimeoutTests: XCTestCase {
 
         XCTAssertEqual(result.payload, #"{"ok":true}"#)
         XCTAssertFalse(result.timedOut)
+    }
+
+    func testTimeoutDoesNotWaitForNonCooperativeOperation() async {
+        let startedAt = Date()
+        let result = await LLMProjectionTimeout.execute(timeoutMs: 25) {
+            Self.spinFor(0.25)
+            return #"{"late":true}"#
+        }
+
+        let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
+        XCTAssertEqual(result.payload, "{}")
+        XCTAssertTrue(result.timedOut)
+        XCTAssertLessThan(elapsedMs, 200)
+    }
+
+    func testTimeoutHookRunsExactlyOnce() async throws {
+        let counter = TimeoutCounter()
+
+        _ = await LLMProjectionTimeout.execute(
+            timeoutMs: 25,
+            onTimeout: {
+                await counter.increment()
+            }
+        ) {
+            Self.spinFor(0.20)
+            return #"{"late":true}"#
+        }
+
+        try await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
+        let timeoutHookCount = await counter.value()
+        XCTAssertEqual(timeoutHookCount, 1)
     }
 }
 
@@ -416,15 +466,12 @@ final class LLMContextProjectionServiceTests: XCTestCase {
     }
 
     func testContextEnvelopeBuilderShortCircuitsRemainingSlicesAfterTimeout() async throws {
-        let lock = NSLock()
-        var fetchCount = 0
+        let fetchCount = LockedTestState(0)
         let slowRepository = MockTaskReadModelRepository(
             tasks: [makeTask(title: "Slow", dueDate: Date(), isComplete: false)],
             fetchDelayMs: 150,
             onFetch: {
-                lock.lock()
-                fetchCount += 1
-                lock.unlock()
+                fetchCount.withValue { $0 += 1 }
             }
         )
         let service = LLMContextProjectionService(
@@ -435,10 +482,7 @@ final class LLMContextProjectionServiceTests: XCTestCase {
 
         let _ = await LLMChatContextEnvelopeBuilder.build(timeoutMs: 10, service: service)
         try? await _Concurrency.Task.sleep(nanoseconds: 300_000_000)
-        lock.lock()
-        let observedFetchCount = fetchCount
-        lock.unlock()
-        XCTAssertEqual(observedFetchCount, 1)
+        XCTAssertEqual(fetchCount.read(), 1)
     }
 
     private func makeTask(
@@ -1558,9 +1602,9 @@ final class ThreadContextAttachmentTests: XCTestCase {
 private final class MockTaskReadModelRepository: TaskReadModelRepositoryProtocol {
     private let tasks: [TaskDefinition]
     private let fetchDelayMs: Int
-    private let onFetch: (() -> Void)?
+    private let onFetch: (@Sendable () -> Void)?
 
-    init(tasks: [TaskDefinition], fetchDelayMs: Int = 0, onFetch: (() -> Void)? = nil) {
+    init(tasks: [TaskDefinition], fetchDelayMs: Int = 0, onFetch: (@Sendable () -> Void)? = nil) {
         self.tasks = tasks
         self.fetchDelayMs = fetchDelayMs
         self.onFetch = onFetch
@@ -1641,28 +1685,34 @@ private final class MockTagRepository: TagRepositoryProtocol {
 }
 
 private final class MockProjectRepository: ProjectRepositoryProtocol {
-    private var projects: [Project]
+    private let projectsState: LockedTestState<[Project]>
 
     init(projects: [Project] = [Project.createInbox()]) {
-        self.projects = projects
+        self.projectsState = LockedTestState(projects)
     }
 
-    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) { completion(.success(projects)) }
-    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) { completion(.success(projects.first { $0.id == id })) }
-    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) { completion(.success(projects.first { $0.name == name })) }
-    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(projects.first { $0.isInbox } ?? Project.createInbox())) }
-    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) { completion(.success(projects.filter { !$0.isInbox })) }
-    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { projects.append(project); completion(.success(project)) }
-    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(projects.first { $0.isInbox } ?? Project.createInbox())) }
+    func fetchAllProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) { completion(.success(projectsState.read())) }
+    func fetchProject(withId id: UUID, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) { completion(.success(projectsState.read().first { $0.id == id })) }
+    func fetchProject(withName name: String, completion: @escaping @Sendable (Result<Project?, Error>) -> Void) { completion(.success(projectsState.read().first { $0.name == name })) }
+    func fetchInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(projectsState.read().first { $0.isInbox } ?? Project.createInbox())) }
+    func fetchCustomProjects(completion: @escaping @Sendable (Result<[Project], Error>) -> Void) { completion(.success(projectsState.read().filter { !$0.isInbox })) }
+    func createProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { projectsState.withValue { $0.append(project) }; completion(.success(project)) }
+    func ensureInboxProject(completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(projectsState.read().first { $0.isInbox } ?? Project.createInbox())) }
     func repairProjectIdentityCollisions(completion: @escaping @Sendable (Result<ProjectRepairReport, Error>) -> Void) {
+        let projects = projectsState.read()
         completion(.success(ProjectRepairReport(scanned: projects.count, merged: 0, deleted: 0, inboxCandidates: projects.filter { $0.isInbox }.count, warnings: [])))
     }
     func updateProject(_ project: Project, completion: @escaping @Sendable (Result<Project, Error>) -> Void) { completion(.success(project)) }
     func renameProject(withId id: UUID, to newName: String, completion: @escaping @Sendable (Result<Project, Error>) -> Void) {
-        if let index = projects.firstIndex(where: { $0.id == id }) {
+        if let updated = projectsState.withValue({ projects -> Project? in
+            guard let index = projects.firstIndex(where: { $0.id == id }) else {
+                return nil
+            }
             var updated = projects[index]
             updated.name = newName
             projects[index] = updated
+            return updated
+        }) {
             completion(.success(updated))
             return
         }

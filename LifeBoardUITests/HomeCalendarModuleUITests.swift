@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 final class HomeCalendarModuleUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -8,6 +9,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testScheduleOpensFromBottomBarAcrossStubModes() throws {
         for mode in ["permission", "writeOnly", "denied", "deniedAfterAttempt", "noCalendars", "allDayOnly", "empty", "active", "error"] {
             let app = launchApp(calendarMode: mode)
+            addTeardownBlock { app.terminate() }
             XCTAssertFalse(
                 app.descendants(matching: .any)["home.calendar.card"].waitForExistence(timeout: 2),
                 "Inline Home calendar card should be hidden for mode \(mode)."
@@ -75,7 +77,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["schedule.list"].exists)
         XCTAssertFalse(
             app.sheets.firstMatch.waitForExistence(timeout: 1),
-            "The bottom-bar schedule should render on the Home foredrop instead of opening a top-level sheet."
+            "The bottom-bar schedule should render on the Home sunrise instead of opening a top-level sheet."
         )
     }
 
@@ -109,6 +111,33 @@ final class HomeCalendarModuleUITests: XCTestCase {
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
     }
 
+    func testHomeLiquidHandlesShiftDisplayedDay() throws {
+        let app = launchApp(calendarMode: "active")
+
+        let selector = app.descendants(matching: .any)["home.sunrise.date.selector"]
+        XCTAssertTrue(selector.waitForExistence(timeout: 8), "Expected Home date selector to be visible.")
+        let initialDateText = dateSelectorDisplayText(selector)
+
+        let nextDay = app.buttons[AccessibilityIdentifiers.Home.nextDayHandle].firstMatch
+        XCTAssertTrue(nextDay.waitForExistence(timeout: 8), "Expected Home to expose the next-day liquid handle.")
+        tapElement(nextDay, in: app)
+
+        XCTAssertTrue(
+            waitForDateSelector(selector, toDifferFrom: initialDateText, timeout: 6),
+            "Next-day liquid handle should shift the Home date selector."
+        )
+        let nextDateText = dateSelectorDisplayText(selector)
+
+        let previousDay = app.buttons[AccessibilityIdentifiers.Home.previousDayHandle].firstMatch
+        XCTAssertTrue(previousDay.waitForExistence(timeout: 8), "Expected Home to expose the previous-day liquid handle.")
+        tapElement(previousDay, in: app)
+
+        XCTAssertTrue(
+            waitForDateSelector(selector, toEqual: initialDateText, timeout: 6),
+            "Previous-day liquid handle should return Home to the original date. Next selector was \(nextDateText)."
+        )
+    }
+
     func testHomeTimelineEventOpensNativeEventDetailWithoutOpeningSchedule() throws {
         let app = launchApp(calendarMode: "active")
 
@@ -123,9 +152,20 @@ final class HomeCalendarModuleUITests: XCTestCase {
             app.descendants(matching: .any)["schedule.list"].waitForExistence(timeout: 1),
             "Tapping a Home timeline event should not open the full schedule behind the event detail."
         )
+
+        let closeButton = eventDetailButton(
+            in: app,
+            identifier: "schedule.detail.close",
+            label: "Close"
+        )
         XCTAssertTrue(
-            dismissEventDetailIfPresented(in: app),
-            "Expected Home timeline event tap to present the native event detail sheet."
+            closeButton.waitForExistence(timeout: 4),
+            "Expected Home timeline-origin event detail to expose a top Close button."
+        )
+        tapElement(closeButton, in: app)
+        XCTAssertFalse(
+            app.descendants(matching: .any)["schedule.detail.sheet"].waitForExistence(timeout: 2),
+            "Close should dismiss the Home timeline event detail sheet."
         )
     }
 
@@ -139,7 +179,11 @@ final class HomeCalendarModuleUITests: XCTestCase {
         )
         tapElement(eventCard, in: app)
 
-        let hideButton = app.descendants(matching: .any)["schedule.detail.hideFromTimeline"]
+        let hideButton = eventDetailButton(
+            in: app,
+            identifier: "schedule.detail.hideFromTimeline",
+            label: "Hide from Timeline"
+        )
         XCTAssertTrue(
             hideButton.waitForExistence(timeout: 4),
             "Expected Home timeline-origin event detail to expose Hide from Timeline."
@@ -468,6 +512,18 @@ final class HomeCalendarModuleUITests: XCTestCase {
         return app.descendants(matching: .any)[identifier]
     }
 
+    private func eventDetailButton(in app: XCUIApplication, identifier: String, label: String) -> XCUIElement {
+        let identifiedButton = app.buttons[identifier]
+        if identifiedButton.exists {
+            return identifiedButton
+        }
+        let identified = app.descendants(matching: .any)[identifier]
+        if identified.exists {
+            return identified
+        }
+        return app.buttons[label].firstMatch
+    }
+
     private func dismissScheduleEventDetailIfPresented(in app: XCUIApplication) -> Bool {
         let detailAppeared = dismissEventDetailIfPresented(in: app)
         return detailAppeared && scheduleSurfaceIsVisible(in: app, timeout: 8)
@@ -476,7 +532,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     private func dismissEventDetailIfPresented(in app: XCUIApplication) -> Bool {
         let sheet = app.sheets.firstMatch
         let detailSheet = app.descendants(matching: .any)["schedule.detail.sheet"]
-        let identifiedClose = app.descendants(matching: .any)["schedule.detail.close"]
+        let identifiedClose = eventDetailButton(in: app, identifier: "schedule.detail.close", label: "Close")
         let done = app.navigationBars.buttons["Done"].firstMatch
 
         let detailAppeared =
@@ -620,6 +676,35 @@ final class HomeCalendarModuleUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
         return header.exists && header.label == expectedLabel
+    }
+
+    private func waitForDateSelector(_ selector: XCUIElement, toDifferFrom originalText: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if selector.exists, dateSelectorDisplayText(selector) != originalText {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return selector.exists && dateSelectorDisplayText(selector) != originalText
+    }
+
+    private func waitForDateSelector(_ selector: XCUIElement, toEqual expectedText: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if selector.exists, dateSelectorDisplayText(selector) == expectedText {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return selector.exists && dateSelectorDisplayText(selector) == expectedText
+    }
+
+    private func dateSelectorDisplayText(_ selector: XCUIElement) -> String {
+        if let value = selector.value as? String, value.isEmpty == false {
+            return value
+        }
+        return selector.label
     }
 
     private func tapElement(_ element: XCUIElement, in app: XCUIApplication) {

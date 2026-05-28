@@ -33,9 +33,6 @@ public struct LifeBoardTypographyTokens: LifeBoardTokenGroup {
     public let buttonSmall: UIFont
     public let layoutScale: CGFloat
 
-    private static let cacheLock = NSLock()
-    nonisolated(unsafe) private static var cacheByLayoutClass: [LifeBoardLayoutClass: LifeBoardTypographyTokens] = [:]
-
     /// Executes font.
     public func font(for style: LifeBoardTextStyle) -> UIFont {
         switch style {
@@ -75,15 +72,8 @@ public struct LifeBoardTypographyTokens: LifeBoardTokenGroup {
 
     /// Executes make.
     public static func make(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTypographyTokens {
-        cacheLock.lock()
-        if let cached = cacheByLayoutClass[layoutClass] {
-            cacheLock.unlock()
-            return cached
-        }
-        cacheLock.unlock()
-
         let scale = scaleFactor(for: layoutClass)
-        let tokens = LifeBoardTypographyTokens(
+        return LifeBoardTypographyTokens(
             heroDisplay: font(for: spec(for: .heroDisplay, scale: scale), compatibleWith: nil),
             screenTitle: font(for: spec(for: .screenTitle, scale: scale), compatibleWith: nil),
             sectionTitle: font(for: spec(for: .sectionTitle, scale: scale), compatibleWith: nil),
@@ -107,22 +97,9 @@ public struct LifeBoardTypographyTokens: LifeBoardTokenGroup {
             buttonSmall: font(for: spec(for: .buttonSmall, scale: scale), compatibleWith: nil),
             layoutScale: scale
         )
-
-        cacheLock.lock()
-        if let cached = cacheByLayoutClass[layoutClass] {
-            cacheLock.unlock()
-            return cached
-        }
-        cacheByLayoutClass[layoutClass] = tokens
-        cacheLock.unlock()
-        return tokens
     }
 
-    static func resetCache() {
-        cacheLock.lock()
-        cacheByLayoutClass.removeAll(keepingCapacity: true)
-        cacheLock.unlock()
-    }
+    static func resetCache() {}
 
     /// Executes spec.
     private static func spec(for style: LifeBoardTextStyle, scale: CGFloat) -> Spec {

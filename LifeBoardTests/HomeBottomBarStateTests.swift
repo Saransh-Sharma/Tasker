@@ -117,10 +117,10 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertEqual(state.selectedItem, .home)
     }
 
-    func testChatForedropFaceMapsToChatBottomBarItemAndFullReveal() {
-        XCTAssertEqual(HomeForedropFace.chat.selectedBottomBarItem, .chat)
-        XCTAssertTrue(HomeForedropFace.chat.isBackFace)
-        XCTAssertEqual(HomeForedropFace.chat.surfaceAccessibilityValue, "fullReveal")
+    func testChatSunriseFaceMapsToChatBottomBarItemAndFullReveal() {
+        XCTAssertEqual(HomeSunriseFace.chat.selectedBottomBarItem, .chat)
+        XCTAssertTrue(HomeSunriseFace.chat.isBackFace)
+        XCTAssertEqual(HomeSunriseFace.chat.surfaceAccessibilityValue, "fullReveal")
     }
 
     func testIPadChatDestinationUsesHomeChatFace() {
@@ -225,6 +225,35 @@ final class HomeBottomBarStateTests: XCTestCase {
                 bottomOverlayObstruction: 72,
                 keyboardOverlapHeight: 0,
                 isBottomBarConcealed: true,
+                idleSpacing: 40,
+                idleExtraSpacing: 24,
+                keyboardSpacing: 12,
+                regularSpacing: 24
+            ),
+            136
+        )
+    }
+
+    func testRestingDockDownshiftAppliesSixPointHostLiftWithoutChangingObstructionMetrics() {
+        let safeAreaBottom: CGFloat = 34
+        let baselineDownshift = HomeBottomBarVisibilityPolicy.restingDockDownshift(
+            safeAreaBottom: safeAreaBottom,
+            verticalLift: 0
+        )
+        let liftedDownshift = HomeBottomBarVisibilityPolicy.restingDockDownshift(
+            safeAreaBottom: safeAreaBottom,
+            verticalLift: 6
+        )
+
+        XCTAssertEqual(baselineDownshift, 24, accuracy: 0.001)
+        XCTAssertEqual(liftedDownshift, 18, accuracy: 0.001)
+        XCTAssertEqual(baselineDownshift - liftedDownshift, 6, accuracy: 0.001)
+        XCTAssertEqual(
+            HomeBottomBarVisibilityPolicy.chatComposerClearance(
+                layoutClass: .phone,
+                bottomOverlayObstruction: 72,
+                keyboardOverlapHeight: 0,
+                isBottomBarConcealed: false,
                 idleSpacing: 40,
                 idleExtraSpacing: 24,
                 keyboardSpacing: 12,

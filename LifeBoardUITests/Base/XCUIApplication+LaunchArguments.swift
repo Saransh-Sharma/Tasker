@@ -30,6 +30,7 @@ extension XCUIApplication {
         case testSeedFocusWorkspace = "-LIFEBOARD_TEST_SEED_FOCUS_WORKSPACE"
         case testSeedHabitBoardWorkspace = "-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE"
         case testSeedQuietTrackingWorkspace = "-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE"
+        case testSeedFullTimelineWorkspace = "-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE"
         case testPresentHabitBoard = "-LIFEBOARD_TEST_PRESENT_HABIT_BOARD"
         case testCalendarStub = "-LIFEBOARD_TEST_CALENDAR_STUB"
         case testCalendarMode = "-LIFEBOARD_TEST_CALENDAR_MODE"
@@ -117,6 +118,24 @@ extension XCUIApplication {
             "\(LaunchArgumentKey.testRoute.rawValue):\(payload)"
         ]
         launchArguments.append(contentsOf: additionalArguments.map(\.rawValue))
+        launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        launch()
+    }
+
+    /// Launches a deterministic workspace that exercises Home timeline tasks, meetings, habits, projects, and life areas.
+    func launchSeededTimelineWorkspace(calendarMode: String = "active", skipOnboarding: Bool = true) {
+        launchArguments = [
+            LaunchArgumentKey.resetAppState.rawValue,
+            LaunchArgumentKey.uiTesting.rawValue,
+            LaunchArgumentKey.disableAnimations.rawValue,
+            LaunchArgumentKey.disableCloudSync.rawValue,
+            LaunchArgumentKey.testSeedFullTimelineWorkspace.rawValue,
+            LaunchArgumentKey.testCalendarStub.rawValue,
+            "\(LaunchArgumentKey.testCalendarMode.rawValue):\(calendarMode)"
+        ]
+        if skipOnboarding {
+            launchArguments.append(LaunchArgumentKey.skipOnboarding.rawValue)
+        }
         launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         launch()
     }

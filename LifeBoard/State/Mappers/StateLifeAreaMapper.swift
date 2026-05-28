@@ -20,6 +20,21 @@ enum StateLifeAreaMapper {
         )
     }
 
+    static func validatedDomain(from object: NSManagedObject) throws -> LifeArea {
+        LifeArea(
+            id: try V2CoreDataRepositorySupport.requireStoredID(object.value(forKey: "id"), field: "lifeArea.id"),
+            name: try V2CoreDataRepositorySupport.requireStoredNonEmpty(object.value(forKey: "name"), field: "lifeArea.name"),
+            color: object.value(forKey: "color") as? String,
+            icon: object.value(forKey: "icon") as? String,
+            sortOrder: Int(object.value(forKey: "sortOrder") as? Int32 ?? 0),
+            isArchived: object.value(forKey: "isArchived") as? Bool ?? false,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date(),
+            updatedByDeviceID: object.value(forKey: "updatedByDeviceID") as? String,
+            version: Int(object.value(forKey: "version") as? Int32 ?? 1)
+        )
+    }
+
     /// Executes apply.
     @discardableResult
     static func apply(_ model: LifeArea, to object: NSManagedObject) -> NSManagedObject {

@@ -40,19 +40,52 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol, @unch
                 if let occurrenceID = reminder.occurrenceID {
                     _ = try V2CoreDataRepositorySupport.requireID(occurrenceID, field: "reminder.occurrenceID")
                 }
-                _ = try V2CoreDataRepositorySupport.requireNonEmpty(reminder.policy, field: "reminder.policy")
-                let object = try V2CoreDataRepositorySupport.upsertByID(in: self.backgroundContext, entityName: "Reminder", id: reminder.id)
-                object.setValue(reminder.id, forKey: "id")
+                let normalizedPolicy = try V2CoreDataRepositorySupport.requireNonEmpty(reminder.policy, field: "reminder.policy")
+                let occurrencePredicate: NSPredicate = reminder.occurrenceID.map {
+                    NSPredicate(format: "occurrenceID == %@", $0 as CVarArg)
+                } ?? NSPredicate(format: "occurrenceID == nil")
+                let identityPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    NSPredicate(format: "sourceType == %@", reminder.sourceType.rawValue),
+                    NSPredicate(format: "sourceID == %@", reminder.sourceID as CVarArg),
+                    occurrencePredicate,
+                    NSPredicate(format: "policy == %@", normalizedPolicy)
+                ])
+                let existingByKey = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
+                    in: self.backgroundContext,
+                    entityName: "Reminder",
+                    predicate: identityPredicate,
+                    sort: [
+                        NSSortDescriptor(key: "updatedAt", ascending: false),
+                        NSSortDescriptor(key: "createdAt", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
+                )
+                let existingByID = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
+                    in: self.backgroundContext,
+                    entityName: "Reminder",
+                    predicate: NSPredicate(format: "id == %@", reminder.id as CVarArg)
+                )
+                if let existingByID, let existingByKey, existingByID != existingByKey {
+                    self.backgroundContext.delete(existingByID)
+                }
+                let object = existingByKey
+                    ?? existingByID
+                    ?? NSEntityDescription.insertNewObject(forEntityName: "Reminder", into: self.backgroundContext)
+                if object.value(forKey: "id") == nil {
+                    object.setValue(reminder.id, forKey: "id")
+                }
                 object.setValue(reminder.sourceType.rawValue, forKey: "sourceType")
                 object.setValue(reminder.sourceID, forKey: "sourceID")
                 object.setValue(reminder.occurrenceID, forKey: "occurrenceID")
-                object.setValue(reminder.policy, forKey: "policy")
+                object.setValue(normalizedPolicy, forKey: "policy")
                 object.setValue(Int32(reminder.channelMask), forKey: "channelMask")
                 object.setValue(reminder.isEnabled, forKey: "isEnabled")
                 object.setValue(reminder.createdAt, forKey: "createdAt")
                 object.setValue(reminder.updatedAt, forKey: "updatedAt")
                 try self.backgroundContext.save()
-                completion(.success(reminder))
+                var normalizedReminder = reminder
+                normalizedReminder.policy = normalizedPolicy
+                completion(.success(normalizedReminder))
             } catch {
                 completion(.failure(error))
             }

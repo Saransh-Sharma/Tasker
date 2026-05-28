@@ -197,7 +197,7 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
     }
 
     public func storeChangedPublisher() -> AnyPublisher<Void, Never> {
-        center.publisher(for: .EKEventStoreChanged, object: store)
+        center.publisher(for: .EKEventStoreChanged)
             .map { _ in () }
             .eraseToAnyPublisher()
     }

@@ -776,6 +776,34 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertTrue(state(.skippedReview).suppressesBottomBar)
     }
 
+    func testNeedsReplanCoordinatorBuildsSessionStateFromOwnedState() {
+        let start = Date()
+        let candidate = HomeReplanCandidate(
+            task: makeDefinition(title: "Coordinator", start: start),
+            kind: .scheduledCarryOver,
+            anchorDate: start,
+            anchorEndDate: start.addingTimeInterval(30 * 60),
+            projectName: "Home"
+        )
+        let coordinator = HomeNeedsReplanCoordinator()
+
+        coordinator.replacePassiveCandidates([candidate])
+        coordinator.beginSession(with: [candidate], scopedTo: nil)
+        coordinator.applyingAction = .reschedule
+        coordinator.errorMessage = "Working"
+
+        let state = coordinator.makeState(phase: .card(candidateIndex: 1))
+
+        XCTAssertEqual(state.currentCandidate?.id, candidate.id)
+        XCTAssertEqual(state.candidateIndex, 1)
+        XCTAssertEqual(state.candidateTotal, 1)
+        XCTAssertEqual(state.summary?.count, 1)
+        XCTAssertEqual(state.persistentSummary.count, 1)
+        XCTAssertTrue(state.isApplying)
+        XCTAssertEqual(state.applyingAction, .reschedule)
+        XCTAssertEqual(state.errorMessage, "Working")
+    }
+
     func testCancelCurrentReplanPlacementReturnsToSameCard() {
         let suiteName = "HomeViewModelPersistenceTests.ReplanCancel.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -2688,10 +2716,12 @@ final class HomeViewModelPersistenceTests: XCTestCase {
     }
 
     private func rescueTailState(from viewModel: HomeViewModel) -> RescueTailState? {
-        viewModel.agendaTailItems.compactMap { item in
-            guard case .rescue(let state) = item else { return nil }
-            return state
-        }.first
+        for item in viewModel.agendaTailItems {
+            if case .rescue(let state) = item {
+                return state
+            }
+        }
+        return nil
     }
 
     private func makeHabitMutationHarness(
@@ -2979,7 +3009,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
     }
 }
 
-private final class HomeViewModelMockLifeAreaRepository: LifeAreaRepositoryProtocol {
+private final class HomeViewModelMockLifeAreaRepository: LifeAreaRepositoryProtocol, @unchecked Sendable {
     private var areas: [LifeArea]
 
     init(areas: [LifeArea]) {
@@ -3008,7 +3038,7 @@ private final class HomeViewModelMockLifeAreaRepository: LifeAreaRepositoryProto
     }
 }
 
-private final class HomeViewModelMockProjectRepository: ProjectRepositoryProtocol {
+private final class HomeViewModelMockProjectRepository: ProjectRepositoryProtocol, @unchecked Sendable {
     private var projects: [Project]
 
     init(projects: [Project]) {
@@ -3169,7 +3199,7 @@ private struct HomeHabitMutationHarness {
     let schedulingEngine: HomeHabitDeferredResolveSchedulingEngine
 }
 
-private final class HomeHabitDeferredResolveSchedulingEngine: SchedulingEngineProtocol {
+private final class HomeHabitDeferredResolveSchedulingEngine: SchedulingEngineProtocol, @unchecked Sendable {
     var deferResolveCompletion = false
     var onResolve: ((UUID, OccurrenceResolutionType) -> Void)?
     private var pendingResolveCompletions: [(id: UUID, resolution: OccurrenceResolutionType, completion: (Result<Void, Error>) -> Void)] = []
@@ -3260,7 +3290,7 @@ private final class HomeHabitScheduleRepositoryStub: ScheduleRepositoryProtocol 
     func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping @Sendable (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
 }
 
-private final class HomeHabitOccurrenceRepositoryStub: OccurrenceRepositoryProtocol {
+private final class HomeHabitOccurrenceRepositoryStub: OccurrenceRepositoryProtocol, @unchecked Sendable {
     var onSave: (([OccurrenceDefinition]) -> Void)?
     private(set) var occurrences: [OccurrenceDefinition]
 
@@ -3293,7 +3323,7 @@ private final class HomeHabitOccurrenceRepositoryStub: OccurrenceRepositoryProto
     }
 }
 
-private final class HomeHabitTaskReadRepositorySpy: TaskReadModelRepositoryProtocol {
+private final class HomeHabitTaskReadRepositorySpy: TaskReadModelRepositoryProtocol, @unchecked Sendable {
     let tasks: [TaskDefinition]
     private(set) var fetchHomeProjectionCallCount = 0
 
@@ -3339,7 +3369,7 @@ private final class HomeHabitTaskReadRepositorySpy: TaskReadModelRepositoryProto
     }
 }
 
-private final class HomeHabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryProtocol {
+private final class HomeHabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryProtocol, @unchecked Sendable {
     private var agendaSummaries: [HabitOccurrenceSummary]
     private let historyWindows: [HabitHistoryWindow]
     private let libraryRows: [HabitLibraryRow]

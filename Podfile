@@ -1,4 +1,4 @@
-platform :ios, '16.0'
+platform :ios, '18.6'
 inhibit_all_warnings!
 require 'shellwords'
 
@@ -41,7 +41,7 @@ post_install do |installer|
 
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |c|
-      c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+      c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '18.6'
       c.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
       c.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
       c.build_settings['TOOLCHAIN_DIR'] = '$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain'

@@ -8,9 +8,9 @@ struct LBShadowToken {
 }
 
 enum LBShadowTokens {
-    static let card = LBShadowToken(color: LBColorTokens.navy.opacity(0.10), radius: 18, x: 0, y: 8)
-    static let floating = LBShadowToken(color: LBColorTokens.violet.opacity(0.28), radius: 22, x: 0, y: 12)
-    static let dock = LBShadowToken(color: LBColorTokens.navy.opacity(0.12), radius: 26, x: 0, y: -6)
+    static let card = LBShadowToken(color: LBColorTokens.elevationShadow, radius: 18, x: 0, y: 8)
+    static let floating = LBShadowToken(color: LBColorTokens.floatingShadow, radius: 22, x: 0, y: 12)
+    static let dock = LBShadowToken(color: LBColorTokens.dockShadow, radius: 26, x: 0, y: -6)
 }
 
 extension View {

@@ -354,6 +354,42 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         XCTAssertTrue(todayCell.accessibilityLabel.contains("Friday"))
     }
 
+    func testHabitDetailCalendarSummaryMetricsExcludeFutureAndNotScheduledDays() {
+        let row = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Hydrate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .weekly(daysOfWeek: [2, 4, 6]),
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 4,
+            bestStreak: 9
+        )
+
+        let viewState = HabitDetailCalendarBuilder.buildViewState(
+            row: row,
+            marks: [
+                HabitDayMark(date: date("2026-04-06"), state: .success),
+                HabitDayMark(date: date("2026-04-08"), state: .skipped),
+                HabitDayMark(date: date("2026-04-10"), state: .success),
+                HabitDayMark(date: date("2026-04-11"), state: .success),
+            ],
+            referenceDate: date("2026-04-10"),
+            dayCount: 7,
+            calendar: Self.calendar
+        )
+
+        XCTAssertEqual(viewState.summaryMetrics.currentStreak, 4)
+        XCTAssertEqual(viewState.summaryMetrics.bestStreak, 9)
+        XCTAssertEqual(viewState.summaryMetrics.totalCount, 2)
+        XCTAssertEqual(viewState.summaryMetrics.scheduledElapsedCount, 6)
+        XCTAssertEqual(viewState.summaryMetrics.completionRate, 2.0 / 6.0, accuracy: 0.0001)
+        XCTAssertEqual(viewState.summaryMetrics.completionRateDisplay, "33%")
+    }
+
     func testHabitDetailCalendarViewStateCarriesStreakDepthAcrossSkippedAndNotScheduledDays() {
         let row = HabitLibraryRow(
             habitID: UUID(),

@@ -9,7 +9,7 @@ struct LBLoadingSkeleton: View {
                 RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.72), Color.white.opacity(0.36), Color.white.opacity(0.72)],
+                            colors: [LBColorTokens.glassStrong.opacity(0.72), LBColorTokens.glass.opacity(0.36), LBColorTokens.glassStrong.opacity(0.72)],
                             startPoint: .leading,
                             endPoint: .trailing
                         )

@@ -23,12 +23,12 @@ public struct InsightsTabView: View {
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard.textTertiary)
 
-                    Text("Reflection without overload")
+                    Text("What needs attention")
                         .font(.lifeboard(.title3))
                         .fontWeight(.semibold)
                         .foregroundStyle(Color.lifeboard.textPrimary)
 
-                    Text("Today for execution, Week for patterns, Systems for reliability.")
+                    Text("One answer first. Details stay tucked away.")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard.textSecondary)
                 }
@@ -41,26 +41,16 @@ public struct InsightsTabView: View {
 
             ScrollView {
                 ZStack {
-                    switch viewModel.selectedTab {
-                    case .today:
-                        InsightsTodayView(
-                            viewModel: viewModel,
-                            homeProgress: homeProgress,
-                            homeCompletionRate: homeCompletionRate,
-                            reflectionEligible: reflectionEligible,
-                            dailyReflectionEntryState: dailyReflectionEntryState,
-                            momentumGuidanceText: momentumGuidanceText,
-                            animateMomentumCard: animateMomentumCard,
-                            onOpenReflection: onOpenReflection
-                        )
-                            .accessibilityIdentifier("home.insights.content.today")
-                    case .week:
-                        InsightsWeekView(viewModel: viewModel)
-                            .accessibilityIdentifier("home.insights.content.week")
-                    case .systems:
-                        InsightsSystemsView(viewModel: viewModel)
-                            .accessibilityIdentifier("home.insights.content.systems")
-                    }
+                    SunriseInsightsContentView(
+                        viewModel: viewModel,
+                        homeProgress: homeProgress,
+                        homeCompletionRate: homeCompletionRate,
+                        reflectionEligible: reflectionEligible,
+                        dailyReflectionEntryState: dailyReflectionEntryState,
+                        momentumGuidanceText: momentumGuidanceText,
+                        animateMomentumCard: animateMomentumCard,
+                        onOpenReflection: onOpenReflection
+                    )
                 }
                 .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
                 .padding(.bottom, spacing.s16)

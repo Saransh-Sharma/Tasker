@@ -1,7 +1,7 @@
 import Foundation
 import MLXLMCommon
 
-private func uniqueDictionary<Key: Hashable, Value>(
+private func uniqueDictionary<Key: Hashable & Sendable, Value>(
     _ pairs: [(Key, Value)],
     source: String,
     context: String,

@@ -2,8 +2,8 @@
 //  AnalyticsAndChartsTests.swift
 //  LifeBoardUITests
 //
-//  Secondary Tests: Analytics & Charts (4 tests)
-//  Tests analytics display and chart rendering
+//  Secondary Tests: Analytics & Insights
+//  Tests analytics display and Sunrise Insights rendering
 //
 
 import XCTest
@@ -22,29 +22,29 @@ class AnalyticsAndChartsTests: BaseUITest {
         homePage = HomePage(app: app)
     }
 
-    // MARK: - Test 57: Chart Renders After Completion
+    // MARK: - Test 57: Insights Updates After Completion
 
-    func testChartRendersAfterCompletion() throws {
+    func testInsightsUpdatesAfterCompletion() throws {
         // GIVEN: Tasks exist
         let addTaskPage = homePage.tapAddTask()
-        addTaskPage.createTask(title: "Task for Chart", priority: .max, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: "Task for Chart", timeout: 5)
+        addTaskPage.createTask(title: "Task for Insights", priority: .max, taskType: .morning)
+        _ = homePage.waitForTask(withTitle: "Task for Insights", timeout: 5)
 
         // WHEN: User completes a task
-        let taskIndex = findTaskIndex(withTitle: "Task for Chart")
+        let taskIndex = findTaskIndex(withTitle: "Task for Insights")
         homePage.completeTask(at: taskIndex)
         waitForAnimations(duration: 2.0)
 
-        // THEN: Chart should render/update
-        let chartExists = homePage.verifyChartIsVisible()
+        // THEN: Insights should render/update
+        let insightsExists = homePage.verifyInsightsContainerIsVisible()
 
-        if chartExists {
-            print("✅ Chart is visible")
+        if insightsExists {
+            print("✅ Insights container is visible")
         } else {
-            print("⚠️ Chart may be below fold or not visible in current view")
+            print("⚠️ Insights may be below fold or not visible in current view")
         }
 
-        takeScreenshot(named: "chart_renders_after_completion")
+        takeScreenshot(named: "insights_updates_after_completion")
     }
 
     // MARK: - Test 58: Nav XP Chart Is Visible And Toggles Analytics
@@ -52,9 +52,9 @@ class AnalyticsAndChartsTests: BaseUITest {
     func testNavXpPieChartVisibilityFollowsDailyXP() throws {
         // GIVEN: User is on home screen with fresh app state
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Foredrop should start collapsed")
-        guard homePage.foredropSurface.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Foredrop surface is not exposed in current runtime configuration")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Sunrise should start collapsed")
+        guard homePage.sunriseSurface.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Sunrise surface is not exposed in current runtime configuration")
         }
 
         // THEN: Nav chart should be visible and tappable from top navigation
@@ -93,31 +93,31 @@ class AnalyticsAndChartsTests: BaseUITest {
         )
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be the default selected bottom tool")
 
-        // Top nav controls should stay above the foredrop surface.
+        // Top nav controls should stay above the sunrise surface.
         XCTAssertTrue(homePage.dailyScoreLabel.waitForExistence(timeout: 3), "Top XP label should exist")
         XCTAssertLessThan(
             homePage.dailyScoreLabel.frame.maxY,
-            homePage.foredropSurface.frame.minY + 1,
-            "Top XP label should be above the foredrop surface"
+            homePage.sunriseSurface.frame.minY + 1,
+            "Top XP label should be above the sunrise surface"
         )
         XCTAssertLessThan(
             homePage.projectFilterButton.frame.maxY,
-            homePage.foredropSurface.frame.minY + 1,
-            "Quick view selector should be above the foredrop surface"
+            homePage.sunriseSurface.frame.minY + 1,
+            "Quick view selector should be above the sunrise surface"
         )
         XCTAssertLessThan(
             homePage.settingsButton.frame.maxY,
-            homePage.foredropSurface.frame.minY + 1,
-            "Settings button should be above the foredrop surface"
+            homePage.sunriseSurface.frame.minY + 1,
+            "Settings button should be above the sunrise surface"
         )
 
         // WHEN: User taps ring once
         homePage.tapNavXpPieChart()
         waitForAnimations(duration: 0.6)
 
-        // THEN: Analytics foredrop should expand.
-        XCTAssertTrue(homePage.waitForForedropState("fullReveal", timeout: 3), "Ring tap should expand analytics")
-        XCTAssertTrue(homePage.foredropCollapseHint.waitForExistence(timeout: 2), "Collapse hint should appear at full reveal")
+        // THEN: Analytics sunrise should expand.
+        XCTAssertTrue(homePage.waitForSunriseState("fullReveal", timeout: 3), "Ring tap should expand analytics")
+        XCTAssertTrue(homePage.sunriseCollapseHint.waitForExistence(timeout: 2), "Collapse hint should appear at full reveal")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.chartsButton), "Analytics should become selected while back face is visible")
         XCTAssertFalse(homePage.weeklyCalendar.isHittable, "Weekly calendar should be hidden while analytics back face is visible")
 
@@ -125,8 +125,8 @@ class AnalyticsAndChartsTests: BaseUITest {
         homePage.tapNavXpPieChart()
         waitForAnimations(duration: 0.6)
 
-        // THEN: Analytics foredrop should collapse.
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Second ring tap should collapse analytics")
+        // THEN: Analytics sunrise should collapse.
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Second ring tap should collapse analytics")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be re-selected after collapsing analytics")
 
         // WHEN: User completes a task and gains XP
@@ -183,17 +183,17 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "nav_xp_pie_chart_visibility_follows_score")
     }
 
-    // MARK: - Test 59: Radar Chart Display
+    // MARK: - Test 59: Insights Project Breakdown Display
 
-    func testRadarChartDisplay() throws {
+    func testInsightsProjectBreakdownDisplay() throws {
         // GIVEN: User has a custom project with completed tasks
-        let projectName = uniqueProjectName(prefix: "Radar Display")
+        let projectName = uniqueProjectName(prefix: "Insights Display")
         createCustomProject(named: projectName)
 
         let tasks = [
-            ("Chart Task 1", TestDataFactory.TaskPriority.max),
-            ("Chart Task 2", TestDataFactory.TaskPriority.high),
-            ("Chart Task 3", TestDataFactory.TaskPriority.medium)
+            ("Insights Task 1", TestDataFactory.TaskPriority.max),
+            ("Insights Task 2", TestDataFactory.TaskPriority.high),
+            ("Insights Task 3", TestDataFactory.TaskPriority.medium)
         ]
 
         for (title, priority) in tasks {
@@ -208,46 +208,46 @@ class AnalyticsAndChartsTests: BaseUITest {
 
         waitForAnimations(duration: 2.0)
 
-        // THEN: Radar/radial chart should be displayed
-        XCTAssertTrue(waitForRadarChartToAppear(timeout: 5), "Radar chart should be visible after custom project completions")
-        takeScreenshot(named: "radar_chart_display")
+        // THEN: Insights project breakdown should be displayed
+        XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 5), "Insights project breakdown should be visible after custom project completions")
+        takeScreenshot(named: "insights_project_breakdown_display")
     }
 
-    // MARK: - Test 59B: Radar Chart Entry Count Growth Crash Guard
+    // MARK: - Test 59B: Insights Project Breakdown Entry Count Growth Crash Guard
 
-    func testRadarChartDoesNotCrashWhenEntryCountIncreasesAfterTaskCompletion() throws {
+    func testInsightsProjectBreakdownDoesNotCrashWhenEntryCountIncreasesAfterTaskCompletion() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
 
-        let projectA = uniqueProjectName(prefix: "Radar A")
-        let projectB = uniqueProjectName(prefix: "Radar B")
+        let projectA = uniqueProjectName(prefix: "Insights A")
+        let projectB = uniqueProjectName(prefix: "Insights B")
         createCustomProject(named: projectA)
 
-        let projectATask = "Radar Task A"
+        let projectATask = "Insights Task A"
         createAndCompleteTask(title: projectATask, priority: .high, project: projectA)
-        XCTAssertTrue(waitForRadarChartToAppear(timeout: 5), "Radar chart should appear after first project completion")
+        XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 5), "Insights project breakdown should appear after first project completion")
 
         createCustomProject(named: projectB)
 
-        let projectBTask = "Radar Task B"
+        let projectBTask = "Insights Task B"
         createAndCompleteTask(title: projectBTask, priority: .max, project: projectB)
-        XCTAssertTrue(waitForRadarChartToAppear(timeout: 5), "Radar chart should stay visible after entry-count growth")
-        XCTAssertEqual(app.state, .runningForeground, "App should remain running after radar redraw with increased entries")
+        XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 5), "Insights project breakdown should stay visible after entry-count growth")
+        XCTAssertEqual(app.state, .runningForeground, "App should remain running after insights redraw with increased entries")
 
         for iteration in 1...3 {
             var toggleIndex = findTaskIndex(withTitle: projectBTask)
             homePage.uncompleteTask(at: toggleIndex)
             waitForAnimations(duration: 0.8)
             XCTAssertEqual(app.state, .runningForeground, "App should remain running after uncomplete iteration \(iteration)")
-            XCTAssertTrue(waitForRadarChartToAppear(timeout: 4), "Radar chart should remain visible after uncomplete iteration \(iteration)")
+            XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 4), "Insights project breakdown should remain visible after uncomplete iteration \(iteration)")
 
             toggleIndex = findTaskIndex(withTitle: projectBTask)
             homePage.completeTask(at: toggleIndex)
             waitForAnimations(duration: 0.8)
             XCTAssertEqual(app.state, .runningForeground, "App should remain running after complete iteration \(iteration)")
-            XCTAssertTrue(waitForRadarChartToAppear(timeout: 4), "Radar chart should remain visible after complete iteration \(iteration)")
+            XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 4), "Insights project breakdown should remain visible after complete iteration \(iteration)")
         }
 
-        takeScreenshot(named: "radar_chart_entry_count_growth_no_crash")
+        takeScreenshot(named: "insights_project_breakdown_entry_count_growth_no_crash")
     }
 
     // MARK: - Test 60: Analytics Score Display
@@ -474,12 +474,12 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "home_compact_row_regression")
     }
 
-    // MARK: - Test 60I: Foredrop Surface Extends Behind Bottom Bar
+    // MARK: - Test 60I: Sunrise Surface Extends Behind Bottom Bar
 
-    func testForedropSurfaceExtendsToBottomAndTaskListRemainsScrollable() throws {
+    func testSunriseSurfaceExtendsToBottomAndTaskListRemainsScrollable() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
-        guard homePage.foredropSurface.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Foredrop surface is not exposed in current runtime configuration")
+        guard homePage.sunriseSurface.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Sunrise surface is not exposed in current runtime configuration")
         }
         XCTAssertTrue(homePage.bottomBar.waitForExistence(timeout: 3), "Bottom bar should exist")
         XCTAssertTrue(homePage.taskListScrollView.waitForExistence(timeout: 3), "Task list should exist")
@@ -497,9 +497,9 @@ class AnalyticsAndChartsTests: BaseUITest {
             "Task list should extend behind the bottom bar when expanded"
         )
         XCTAssertGreaterThanOrEqual(
-            homePage.foredropSurface.frame.maxY,
+            homePage.sunriseSurface.frame.maxY,
             homePage.view.frame.maxY - 2,
-            "Foredrop surface should reach screen edge when expanded"
+            "Sunrise surface should reach screen edge when expanded"
         )
 
         let scrollView = homePage.taskListScrollView
@@ -515,9 +515,9 @@ class AnalyticsAndChartsTests: BaseUITest {
             "Task list should remain behind the bottom bar when minimized"
         )
         XCTAssertGreaterThanOrEqual(
-            homePage.foredropSurface.frame.maxY,
+            homePage.sunriseSurface.frame.maxY,
             homePage.view.frame.maxY - 2,
-            "Foredrop surface should reach screen edge when minimized"
+            "Sunrise surface should reach screen edge when minimized"
         )
 
         waitForAnimations(duration: 0.55)
@@ -527,56 +527,56 @@ class AnalyticsAndChartsTests: BaseUITest {
         waitForAnimations(duration: 0.5)
         XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 3), "Bottom bar should restore after reverse scroll")
         XCTAssertTrue(homePage.taskRow(containingTitle: "Backdrop Fill 1").waitForExistence(timeout: 3), "Task list should remain interactive")
-        takeScreenshot(named: "home_foredrop_bottom_extension")
+        takeScreenshot(named: "home_sunrise_bottom_extension")
     }
 
     // MARK: - Test 60J: Full Reveal Shows Collapse Hint And Collapses Back
 
-    func testForedropFullRevealShowsCollapseHintAndTapCollapsesToDefault() throws {
+    func testSunriseFullRevealShowsCollapseHintAndTapCollapsesToDefault() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
-        guard homePage.foredropSurface.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Foredrop surface is not exposed in current runtime configuration")
+        guard homePage.sunriseSurface.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Sunrise surface is not exposed in current runtime configuration")
         }
         XCTAssertTrue(homePage.chartsButton.waitForExistence(timeout: 3), "Charts button should exist")
 
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 2), "Foredrop should start collapsed")
-        XCTAssertFalse(homePage.foredropCollapseHint.exists, "Collapse hint should be hidden while collapsed")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 2), "Sunrise should start collapsed")
+        XCTAssertFalse(homePage.sunriseCollapseHint.exists, "Collapse hint should be hidden while collapsed")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected by default")
 
-        let collapsedMinY = homePage.foredropSurface.frame.minY
+        let collapsedMinY = homePage.sunriseSurface.frame.minY
 
         homePage.tapCharts()
         waitForAnimations(duration: 0.6)
 
-        XCTAssertTrue(homePage.waitForForedropState("fullReveal", timeout: 3), "Charts action should reach full reveal")
-        XCTAssertTrue(homePage.foredropCollapseHint.waitForExistence(timeout: 2), "Collapse hint should be visible at full reveal")
+        XCTAssertTrue(homePage.waitForSunriseState("fullReveal", timeout: 3), "Charts action should reach full reveal")
+        XCTAssertTrue(homePage.sunriseCollapseHint.waitForExistence(timeout: 2), "Collapse hint should be visible at full reveal")
 
-        let fullRevealMinY = homePage.foredropSurface.frame.minY
+        let fullRevealMinY = homePage.sunriseSurface.frame.minY
         XCTAssertLessThan(
             abs(fullRevealMinY - collapsedMinY),
             12,
-            "Foredrop surface should stay anchored while analytics flips in place"
+            "Sunrise surface should stay anchored while analytics flips in place"
         )
         XCTAssertTrue(homePage.waitForToolSelection(homePage.chartsButton), "Analytics button should be selected while analytics is open")
 
         XCTAssertTrue(homePage.homeButton.isHittable, "Home button should be tappable")
         homePage.tapHome()
         waitForAnimations(duration: 0.5)
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Home button should flip foredrop back to default state")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Home button should flip sunrise back to default state")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after closing analytics via home button")
 
         homePage.tapCharts()
         waitForAnimations(duration: 0.5)
-        XCTAssertTrue(homePage.waitForForedropState("fullReveal", timeout: 3), "Charts should reopen analytics")
+        XCTAssertTrue(homePage.waitForSunriseState("fullReveal", timeout: 3), "Charts should reopen analytics")
 
-        XCTAssertTrue(homePage.foredropCollapseHint.isHittable, "Collapse hint should be tappable")
-        homePage.foredropCollapseHint.tap()
+        XCTAssertTrue(homePage.sunriseCollapseHint.isHittable, "Collapse hint should be tappable")
+        homePage.sunriseCollapseHint.tap()
         waitForAnimations(duration: 0.5)
 
-        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Collapse hint should return foredrop to default state")
-        XCTAssertFalse(homePage.foredropCollapseHint.waitForExistence(timeout: 1), "Collapse hint should hide after collapsing")
+        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Collapse hint should return sunrise to default state")
+        XCTAssertFalse(homePage.sunriseCollapseHint.waitForExistence(timeout: 1), "Collapse hint should hide after collapsing")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after collapse hint returns to tasks")
-        takeScreenshot(named: "home_foredrop_full_reveal_collapse_hint")
+        takeScreenshot(named: "home_sunrise_full_reveal_collapse_hint")
     }
 
     // MARK: - Test 60K: FAB Remains Visible While Cluster Hides/Reveals
@@ -704,7 +704,7 @@ class AnalyticsAndChartsTests: BaseUITest {
         let newProjectPage = projectPage.tapAddProject()
         let updatedProjectPage = newProjectPage.createProject(
             name: name,
-            description: "Radar crash regression project"
+            description: "Insights regression project"
         )
         XCTAssertTrue(updatedProjectPage.waitForProject(named: name, timeout: 5), "Project '\(name)' should be created")
 
@@ -727,24 +727,24 @@ class AnalyticsAndChartsTests: BaseUITest {
         waitForAnimations(duration: 1.0)
     }
 
-    private func waitForRadarChartToAppear(timeout: TimeInterval) -> Bool {
-        if homePage.radarChartView.waitForExistence(timeout: timeout) {
+    private func waitForInsightsProjectBreakdownToAppear(timeout: TimeInterval) -> Bool {
+        if homePage.insightsContainer.waitForExistence(timeout: timeout) {
             return true
         }
 
         let scrollView = homePage.taskListScrollView
         guard scrollView.exists else {
-            return homePage.radarChartView.exists
+            return homePage.insightsContainer.exists
         }
 
         for _ in 0..<3 {
             scrollView.swipeUp()
-            if homePage.radarChartView.waitForExistence(timeout: 1.0) {
+            if homePage.insightsContainer.waitForExistence(timeout: 1.0) {
                 return true
             }
         }
 
-        return homePage.radarChartView.exists
+        return homePage.insightsContainer.exists
     }
 
     private func findTaskIndex(withTitle title: String) -> Int {

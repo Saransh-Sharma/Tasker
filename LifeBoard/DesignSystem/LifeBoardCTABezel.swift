@@ -699,7 +699,7 @@ enum LifeBoardBackdropNoise {
     private static let seed: UInt64 = 0xD1CE_BA5E_1234_5678
 
     static func opacity(for amount: Int) -> Double {
-        Double(V2FeatureFlags.clampedHomeBackdropNoiseAmount(amount)) / 1000.0
+        Double(min(max(amount, 0), 100)) / 1000.0
     }
 
     static let tileImage: UIImage? = makeTileImage(size: tileSize)
@@ -773,49 +773,5 @@ struct LifeBoardBackdropNoiseOverlay: UIViewRepresentable {
             tileImage: LifeBoardBackdropNoise.tileImage,
             opacity: LifeBoardBackdropNoise.opacity(for: amount)
         )
-    }
-}
-
-private struct LifeBoardNoisyGradientLayer: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private func noisyGradientFrame(time: Float) -> some View {
-        Color.black
-            .layerEffect(
-                Shader(
-                    function: ShaderFunction(library: .default, name: "LifeBoardNoisyGradient"),
-                    arguments: [
-                        .boundingRect,
-                        .float(time)
-                    ]
-                ),
-                maxSampleOffset: .zero
-            )
-    }
-
-    var body: some View {
-        if reduceMotion {
-            noisyGradientFrame(time: 0)
-        } else {
-            TimelineView(.animation) { context in
-                let time = Float(context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 100))
-                noisyGradientFrame(time: time)
-            }
-        }
-    }
-}
-
-struct LifeBoardNoisyGradientBackdrop: View {
-    let opacity: Double
-
-    init(opacity: Double = 1.0) {
-        self.opacity = opacity
-    }
-
-    var body: some View {
-        LifeBoardNoisyGradientLayer()
-            .opacity(opacity)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
     }
 }

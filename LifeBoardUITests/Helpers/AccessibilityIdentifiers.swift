@@ -14,8 +14,8 @@ enum AccessibilityIdentifiers {
 
     enum Home {
         static let view = "home.view"
-        static let foredropSurface = "home.foredrop.surface"
-        static let foredropCollapseHint = "home.foredrop.collapseHint"
+        static let sunriseSurface = "home.sunrise.surface"
+        static let sunriseCollapseHint = "home.sunrise.collapseHint"
         static let addTaskButton = "home.addTaskButton"
         static let morningTasksList = "home.morningTasksList"
         static let eveningTasksList = "home.eveningTasksList"
@@ -72,11 +72,13 @@ enum AccessibilityIdentifiers {
         static let rescueExpand = "home.rescue.expand"
         static let rescueSheet = "home.rescue.sheet"
         static let listDropZone = "home.list.dropzone"
-        static let chartView = "home.chartView"
-        static let radarChartView = "home.radarChartView"
         static let navXpPieChart = "home.navXpPieChart"
         static let weeklyCalendar = "home.weeklyCalendar"
         static let timelineSurface = "home.timeline.surface"
+        static let timelineContent = "home.timeline.content"
+        static let timelineOverlapCluster = "home.timeline.overlapCluster"
+        static let timelineConflictBlock = "home.timeline.conflictBlock"
+        static let timelineEndAdd = "home.timeline.endAdd"
         static let taskListScrollView = "home.taskList.scrollView"
         static let dailySummaryModal = "home.dailySummaryModal"
         static let dailySummaryHeroOpenCount = "home.dailySummary.hero.openCount"
@@ -98,6 +100,9 @@ enum AccessibilityIdentifiers {
         static let habitsRecoverySection = "home.habits.recovery"
         static let habitsSectionAction = "home.habits.section.action"
         static let habitsOpenBoard = "home.habits.openBoard"
+        static let habitsAddHabit = "home.habits.addHabit"
+        static let habitsHint = "home.habits.hint"
+        static let habitsGrid = "home.habits.grid"
         static let quietTrackingSummary = "home.quietTracking.summary"
         static let quietTrackingSheet = "home.quietTracking.sheet"
         static let quietTrackingSheetScroll = "home.quietTracking.sheet.scroll"
@@ -117,6 +122,10 @@ enum AccessibilityIdentifiers {
         static func habitRowTitle(_ id: String) -> String { "home.habitRow.title.\(id)" }
         static func habitRowStrip(_ id: String) -> String { "home.habitRow.strip.\(id)" }
         static func habitRowLastCell(_ id: String) -> String { "home.habitRow.lastCell.\(id)" }
+        static func sunriseHabitRow(_ id: String) -> String { "home.habits.row.\(id)" }
+        static func timelineTask(_ id: String) -> String { "home.timeline.task.\(id)" }
+        static func timelineEvent(_ id: String) -> String { "home.timeline.event.\(id)" }
+        static func sunriseFilter(_ id: String) -> String { "home.sunrise.filter.\(id)" }
 
         // Task Cell
         static func taskCell(index: Int) -> String { "home.taskCell.\(index)" }
@@ -151,6 +160,7 @@ enum AccessibilityIdentifiers {
         static let lifeAreaSelector = "addTask.lifeAreaSelector"
         static let projectSelector = "addTask.projectSelector"
         static let detailsDisclosure = "addTask.detailsDisclosure"
+        static let timelinePreview = "addTask.timelinePreview"
         static let scheduleEditor = "addTask.scheduleEditor"
         static let scheduleDateToday = "addTask.schedule.date.today"
         static let scheduleDateTomorrow = "addTask.schedule.date.tomorrow"
@@ -257,9 +267,6 @@ enum AccessibilityIdentifiers {
         static let appearanceInfo = "settings.appearance.info"
         static let decorativeButtonEffectsCard = "settings.appearance.decorativeButtonEffects.card"
         static let decorativeButtonEffectsToggle = "settings.appearance.decorativeButtonEffects.toggle"
-        static let homeBackgroundNoiseCard = "settings.appearance.homeBackgroundNoise.card"
-        static let homeBackgroundNoiseSlider = "settings.appearance.homeBackgroundNoise.slider"
-        static let homeBackgroundNoiseValue = "settings.appearance.homeBackgroundNoise.value"
         static let appVersionRow = "settings.appVersionRow"
         static let aboutSection = "settings.aboutSection"
         static let onboardingRestartButton = "settings.onboarding.restartButton"
@@ -382,6 +389,10 @@ enum AccessibilityIdentifiers {
         static let helperText = "habitDetail.helperText"
         static let editButton = "habitDetail.editButton"
         static let saveButton = "habitDetail.saveButton"
+        static let currentStreakMetric = "habitDetail.metric.currentStreak"
+        static let bestStreakMetric = "habitDetail.metric.bestStreak"
+        static let totalCountMetric = "habitDetail.metric.totalCount"
+        static let completionRateMetric = "habitDetail.metric.completionRate"
         static func dayCell(_ dateStamp: String) -> String { "habitDetail.cell.\(dateStamp)" }
     }
 
@@ -411,7 +422,6 @@ enum AccessibilityIdentifiers {
 
     enum Analytics {
         static let view = "analytics.view"
-        static let radarChart = "analytics.radarChart"
         static let dailyScoreLabel = "analytics.dailyScoreLabel"
         static let weeklyScoreLabel = "analytics.weeklyScoreLabel"
         static let monthlyScoreLabel = "analytics.monthlyScoreLabel"

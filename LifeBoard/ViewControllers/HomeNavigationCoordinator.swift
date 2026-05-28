@@ -20,7 +20,6 @@ protocol HomeNavigationCoordinatorDelegate: AnyObject {
     func homeNavigationOpenWeeklyPlanner()
     func homeNavigationOpenWeeklyReview()
     func homeNavigationProcessWidgetActionCommand()
-    func homeNavigationRefreshPersistentSyncMode()
     func homeNavigationConsumePendingShortcutHandoff()
     func homeNavigationConsumeUITestInjectedRoute()
     func homeNavigationConsumeUITestOpenSettings()
@@ -72,8 +71,6 @@ final class HomeNavigationCoordinator {
             delegate?.homeNavigationOpenWeeklyReview()
         case .widgetActionCommand, .pendingWidgetActionCommand:
             delegate?.homeNavigationProcessWidgetActionCommand()
-        case .persistentSyncModeChanged:
-            delegate?.homeNavigationRefreshPersistentSyncMode()
         case .pendingShortcutHandoff:
             delegate?.homeNavigationConsumePendingShortcutHandoff()
         case .uiTestInjectedRoute:

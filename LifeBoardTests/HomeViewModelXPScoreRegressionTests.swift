@@ -214,7 +214,7 @@ final class HomeViewModelXPScoreRegressionTests: XCTestCase {
     }
 }
 
-private final class XPRegressionMockProjectRepository: ProjectRepositoryProtocol {
+private final class XPRegressionMockProjectRepository: ProjectRepositoryProtocol, @unchecked Sendable {
     private var projects: [Project]
 
     init(projects: [Project]) {
@@ -312,7 +312,7 @@ private final class XPRegressionMockProjectRepository: ProjectRepositoryProtocol
     }
 }
 
-private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
+private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim, @unchecked Sendable {
     private var tasksByID: [UUID: Task]
     private let calendar = Calendar.current
 

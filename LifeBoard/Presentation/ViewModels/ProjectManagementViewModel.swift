@@ -8,42 +8,6 @@
 import Foundation
 import Combine
 
-private final class LockedProjectManagementAccumulator<State: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var state: State
-    private var firstError: Error?
-
-    init(_ state: State) {
-        self.state = state
-    }
-
-    func update(_ body: (inout State) -> Void) {
-        lock.lock()
-        body(&state)
-        lock.unlock()
-    }
-
-    func record(_ error: Error) {
-        lock.lock()
-        if firstError == nil {
-            firstError = error
-        }
-        lock.unlock()
-    }
-
-    func result() -> Result<State, Error> {
-        lock.lock()
-        let state = state
-        let firstError = firstError
-        lock.unlock()
-
-        if let firstError {
-            return .failure(firstError)
-        }
-        return .success(state)
-    }
-}
-
 private struct ProjectDetailsLoadState: Sendable {
     var tasks: [TaskDefinition] = []
     var stats = ProjectWeeklyContributionStats()
@@ -476,7 +440,7 @@ public final class ProjectManagementViewModel: ObservableObject {
 
     private func loadSelectedProjectDetails(projectID: UUID) {
         let group = DispatchGroup()
-        let accumulator = LockedProjectManagementAccumulator(ProjectDetailsLoadState())
+        let accumulator = LockedResultAccumulator(ProjectDetailsLoadState())
 
         group.enter()
         getTasksUseCase.getTasksForProject(projectID) { result in
@@ -556,7 +520,7 @@ public final class ProjectManagementViewModel: ObservableObject {
         errorMessage = nil
 
         let group = DispatchGroup()
-        let accumulator = LockedProjectManagementAccumulator(ProjectTaskUpdateState())
+        let accumulator = LockedResultAccumulator(ProjectTaskUpdateState())
 
         for task in tasks {
             guard task.planningBucket != bucket || (bucket != .thisWeek && task.weeklyOutcomeID != nil) else {

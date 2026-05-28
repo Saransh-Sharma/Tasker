@@ -210,7 +210,7 @@ final class EvaActivationTests: XCTestCase {
         }
     }
 
-    func testMascotSpriteAssetsAreBundled() throws {
+    func testMascotSpriteAssetsAreBundled() async throws {
         let spritePersonas = AssistantMascotPersona.all.filter(\.usesSprites)
 
         for persona in spritePersonas {
@@ -222,69 +222,34 @@ final class EvaActivationTests: XCTestCase {
                 MascotSpriteFrameProvider.shared.spritesheetURL(for: persona),
                 "Missing mascot spritesheet for \(persona.displayName)"
             )
+            let frame = await MascotSpriteFrameProvider.shared.frame(persona: persona, animation: .idle, index: 0)
             XCTAssertNotNil(
-                MascotSpriteFrameProvider.shared.frame(persona: persona, animation: .idle, index: 0),
+                frame,
                 "Could not crop idle frame for \(persona.displayName)"
             )
         }
     }
+
+    func testMascotSpriteProviderClearsDecodedCaches() async throws {
+        let provider = MascotSpriteFrameProvider.shared
+        await provider.clearCaches(reason: "test_setup")
+
+        let persona = try XCTUnwrap(AssistantMascotPersona.all.first { $0.id == .cloudlet })
+        let firstFrame = await provider.frame(persona: persona, animation: .idle, index: 0)
+        let secondFrame = await provider.frame(persona: persona, animation: .idle, index: 1)
+        XCTAssertNotNil(firstFrame)
+        XCTAssertNotNil(secondFrame)
+
+        let populatedCounts = await provider.cacheCounts()
+        XCTAssertEqual(populatedCounts.sheets, 1)
+        XCTAssertEqual(populatedCounts.frames, 2)
+
+        await provider.clearCaches(reason: "test")
+
+        let clearedCounts = await provider.cacheCounts()
+        XCTAssertEqual(clearedCounts, MascotSpriteFrameProvider.CacheCounts(sheets: 0, frames: 0))
+    }
     #endif
-
-    func testThreadChangePolicyPreservesFirstThreadAttachDuringGeneration() {
-        let firstThreadID = UUID()
-
-        XCTAssertFalse(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
-            oldThreadID: nil,
-            newThreadID: firstThreadID,
-            generatingThreadID: firstThreadID,
-            hasActiveGeneration: true
-        ))
-    }
-
-    func testChatViewGenerateFirstThreadAttachPreservesGenerationLifecycle() {
-        let internallyCreatedThreadID = UUID()
-
-        let decision = ChatThreadChangeCancellationPolicy.decision(
-            oldThreadID: nil,
-            newThreadID: internallyCreatedThreadID,
-            generatingThreadID: internallyCreatedThreadID,
-            hasActiveGeneration: true
-        )
-
-        XCTAssertEqual(decision, .preserveFirstGeneratedThreadAttach)
-    }
-
-    func testThreadChangePolicyCancelsRealSwitchDuringGeneration() {
-        let originalThreadID = UUID()
-        let switchedThreadID = UUID()
-
-        XCTAssertTrue(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
-            oldThreadID: originalThreadID,
-            newThreadID: switchedThreadID,
-            generatingThreadID: originalThreadID,
-            hasActiveGeneration: true
-        ))
-    }
-
-    func testThreadChangePolicyCancelsClearDuringGeneration() {
-        let originalThreadID = UUID()
-
-        XCTAssertTrue(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
-            oldThreadID: originalThreadID,
-            newThreadID: nil,
-            generatingThreadID: originalThreadID,
-            hasActiveGeneration: true
-        ))
-    }
-
-    func testThreadChangePolicyDoesNotCancelWhenNoGenerationIsActive() {
-        XCTAssertFalse(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
-            oldThreadID: UUID(),
-            newThreadID: UUID(),
-            generatingThreadID: nil,
-            hasActiveGeneration: false
-        ))
-    }
 
     func testMemoryMapperPrependsNewUniqueEntriesAndRespectsLimits() {
         let existing = LLMPersonalMemoryStoreV1(

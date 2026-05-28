@@ -5,6 +5,7 @@ import Combine
 import EventKit
 #endif
 
+@MainActor
 final class CalendarIntegrationServiceTests: XCTestCase {
     private var cancellables: Set<AnyCancellable> = []
     private var suiteName: String!
@@ -133,8 +134,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertFalse(LifeBoardWorkspacePreferences().includeCanceledCalendarEvents)
     }
 
-    func testWorkspacePreferencesDefaultTimelineCalendarSettingIsFalse() {
-        XCTAssertFalse(LifeBoardWorkspacePreferences().showCalendarEventsInTimeline)
+    func testWorkspacePreferencesDefaultTimelineCalendarSettingIsTrue() {
+        XCTAssertTrue(LifeBoardWorkspacePreferences().showCalendarEventsInTimeline)
     }
 
     func testWorkspacePreferencesDefaultTimelineAnchorTimes() {
@@ -163,7 +164,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertFalse(decoded.includeCanceledCalendarEvents)
     }
 
-    func testWorkspacePreferencesDecodeMissingTimelineCalendarFieldDefaultsToFalse() throws {
+    func testWorkspacePreferencesDecodeMissingTimelineCalendarFieldDefaultsToTrue() throws {
         let legacyJSON = """
         {
           "weekStartsOn": "monday",
@@ -176,6 +177,25 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         """.data(using: .utf8)!
 
         let decoded = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: legacyJSON)
+
+        XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
+        XCTAssertTrue(decoded.showCalendarEventsInTimeline)
+    }
+
+    func testWorkspacePreferencesDecodeExplicitTimelineCalendarFalsePreservesUserChoice() throws {
+        let json = """
+        {
+          "weekStartsOn": "monday",
+          "selectedCalendarIDs": ["work"],
+          "includeDeclinedCalendarEvents": true,
+          "includeCanceledCalendarEvents": false,
+          "includeAllDayInAgenda": true,
+          "includeAllDayInBusyStrip": false,
+          "showCalendarEventsInTimeline": false
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: json)
 
         XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
         XCTAssertFalse(decoded.showCalendarEventsInTimeline)
@@ -264,20 +284,20 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         let baseline = LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"])
         store.save(baseline)
 
-        var notificationCount = 0
+        let notificationCount = LockedTestState(0)
         let observer = NotificationCenter.default.addObserver(
             forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
             object: nil,
             queue: .main
         ) { _ in
-            notificationCount += 1
+            notificationCount.withValue { $0 += 1 }
         }
         defer { NotificationCenter.default.removeObserver(observer) }
 
         store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work", "work"]))
         waitForMainQueue(seconds: 0.05)
 
-        XCTAssertEqual(notificationCount, 0)
+        XCTAssertEqual(notificationCount.read(), 0)
         XCTAssertEqual(store.load().selectedCalendarIDs, ["work"])
     }
 
@@ -823,10 +843,10 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
         let diagnosticsRecorded = expectation(description: "Calendar load diagnostics recorded")
         diagnosticsRecorded.assertForOverFulfill = false
-        var didRecordDiagnostics = false
+        let didRecordDiagnostics = LockedTestState(false)
         service.$snapshot
             .sink { snapshot in
-                guard didRecordDiagnostics == false,
+                guard didRecordDiagnostics.read() == false,
                       snapshot.isLoading == false,
                       snapshot.eventsInRange.count == 1 else {
                     return
@@ -834,7 +854,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
                 DispatchQueue.main.async {
                     let diagnostics = CalendarDiagnosticsStore.shared.recentEntriesText(limit: 20)
                     guard diagnostics.contains("calendar_context_loaded") else { return }
-                    didRecordDiagnostics = true
+                    didRecordDiagnostics.write(true)
                     diagnosticsRecorded.fulfill()
                 }
             }
@@ -1069,7 +1089,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 }
 
-private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtocol {
+private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtocol, @unchecked Sendable {
     var authorizationStatusValue: LifeBoardCalendarAuthorizationStatus = .authorized
     var calendars: [LifeBoardCalendarSourceSnapshot] = []
     private var calendarCompletions: [(Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void] = []
@@ -1120,7 +1140,7 @@ private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtoc
     }
 }
 
-private final class CalendarAccessAttemptStoreStub: CalendarAccessAttemptStore {
+private final class CalendarAccessAttemptStoreStub: CalendarAccessAttemptStore, @unchecked Sendable {
     private(set) var lastFullAccessAttempt: CalendarAccessAttemptRecord?
 
     var hasAttemptedFullAccessRequest: Bool {

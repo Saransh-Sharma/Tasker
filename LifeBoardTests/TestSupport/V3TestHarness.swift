@@ -1,9 +1,40 @@
 import Foundation
 @testable import LifeBoard
 
+// Test doubles conform to Sendable through repository protocols. This wrapper
+// keeps their mutable fixture state synchronized without changing test APIs.
+final class LockedTestState<Value>: @unchecked Sendable {
+    private var value: Value
+    private let lock = NSLock()
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func read() -> Value {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func write(_ newValue: Value) {
+        lock.lock()
+        value = newValue
+        lock.unlock()
+    }
+
+    @discardableResult
+    func withValue<Result>(_ body: (inout Value) throws -> Result) rethrows -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return try body(&value)
+    }
+}
+
 // Shared V3-focused test harness utilities for building coordinators/mocks without
 // relying on legacy task shim protocols.
 enum V3TestHarness {
+    @MainActor
     static func makeCoordinator(
         taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
@@ -63,17 +94,22 @@ enum V3TestHarness {
 }
 
 final class InMemoryTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtocol {
-    var byID: [UUID: TaskDefinition]
+    private let byIDState: LockedTestState<[UUID: TaskDefinition]>
+    var byID: [UUID: TaskDefinition] {
+        get { byIDState.read() }
+        set { byIDState.write(newValue) }
+    }
 
     init(seed: [TaskDefinition] = []) {
-        self.byID = Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
+        self.byIDState = LockedTestState(Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) }))
     }
 
     func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
-        completion(.success(Array(byID.values)))
+        completion(.success(Array(byIDState.read().values)))
     }
 
     func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
+        let byID = byIDState.read()
         guard let query else {
             completion(.success(Array(byID.values)))
             return
@@ -104,117 +140,128 @@ final class InMemoryTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtoc
     }
 
     func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) {
-        completion(.success(byID[id]))
+        completion(.success(byIDState.read()[id]))
     }
 
     func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
-        byID[task.id] = task
+        byIDState.withValue { $0[task.id] = task }
         completion(.success(task))
     }
 
     func create(request: CreateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         let task = request.toTaskDefinition(projectName: request.projectName)
-        byID[task.id] = task
+        byIDState.withValue { $0[task.id] = task }
         completion(.success(task))
     }
 
     func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
-        byID[task.id] = task
+        byIDState.withValue { $0[task.id] = task }
         completion(.success(task))
     }
 
     func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
-        guard var current = byID[request.id] else {
-            completion(.failure(NSError(domain: "InMemoryTaskDefinitionRepositoryStub", code: 404)))
-            return
-        }
+        do {
+            let updated = try byIDState.withValue { byID -> TaskDefinition in
+                guard var current = byID[request.id] else {
+                    throw NSError(domain: "InMemoryTaskDefinitionRepositoryStub", code: 404)
+                }
 
-        if let title = request.title { current.title = title }
-        if let details = request.details { current.details = details }
-        if let projectID = request.projectID { current.projectID = projectID }
-        if request.clearLifeArea {
-            current.lifeAreaID = nil
-        } else if let lifeAreaID = request.lifeAreaID {
-            current.lifeAreaID = lifeAreaID
-        }
-        if request.clearSection {
-            current.sectionID = nil
-        } else if let sectionID = request.sectionID {
-            current.sectionID = sectionID
-        }
-        if request.clearDueDate {
-            current.dueDate = nil
-        } else if let dueDate = request.dueDate {
-            current.dueDate = dueDate
-        }
-        if let parentTaskID = request.parentTaskID { current.parentTaskID = parentTaskID }
-        if request.clearParentTaskLink { current.parentTaskID = nil }
-        if let tagIDs = request.tagIDs { current.tagIDs = tagIDs }
-        if let dependencies = request.dependencies { current.dependencies = dependencies }
-        if let priority = request.priority { current.priority = priority }
-        if let type = request.type { current.type = type }
-        if let energy = request.energy { current.energy = energy }
-        if let category = request.category { current.category = category }
-        if let context = request.context { current.context = context }
-        if let isComplete = request.isComplete {
-            current.isComplete = isComplete
-            if isComplete == false { current.dateCompleted = nil }
-        }
-        if let dateCompleted = request.dateCompleted { current.dateCompleted = dateCompleted }
-        if request.clearReminderTime {
-            current.alertReminderTime = nil
-        } else if let alertReminderTime = request.alertReminderTime {
-            current.alertReminderTime = alertReminderTime
-        }
-        if request.clearEstimatedDuration {
-            current.estimatedDuration = nil
-        } else if let estimatedDuration = request.estimatedDuration {
-            current.estimatedDuration = estimatedDuration
-        }
-        if let actualDuration = request.actualDuration { current.actualDuration = actualDuration }
-        if let planningBucket = request.planningBucket { current.planningBucket = planningBucket }
-        if request.clearWeeklyOutcomeLink {
-            current.weeklyOutcomeID = nil
-        } else if let weeklyOutcomeID = request.weeklyOutcomeID {
-            current.weeklyOutcomeID = weeklyOutcomeID
-        }
-        if request.clearDeferredFromWeekStart {
-            current.deferredFromWeekStart = nil
-        } else if let deferredFromWeekStart = request.deferredFromWeekStart {
-            current.deferredFromWeekStart = deferredFromWeekStart
-        }
-        if let deferredCount = request.deferredCount {
-            current.deferredCount = deferredCount
-        }
-        if request.clearRepeatPattern {
-            current.repeatPattern = nil
-        } else if let repeatPattern = request.repeatPattern {
-            current.repeatPattern = repeatPattern
-        }
-        current.updatedAt = request.updatedAt
+                if let title = request.title { current.title = title }
+                if let details = request.details { current.details = details }
+                if let projectID = request.projectID { current.projectID = projectID }
+                if request.clearLifeArea {
+                    current.lifeAreaID = nil
+                } else if let lifeAreaID = request.lifeAreaID {
+                    current.lifeAreaID = lifeAreaID
+                }
+                if request.clearSection {
+                    current.sectionID = nil
+                } else if let sectionID = request.sectionID {
+                    current.sectionID = sectionID
+                }
+                if request.clearDueDate {
+                    current.dueDate = nil
+                } else if let dueDate = request.dueDate {
+                    current.dueDate = dueDate
+                }
+                if let parentTaskID = request.parentTaskID { current.parentTaskID = parentTaskID }
+                if request.clearParentTaskLink { current.parentTaskID = nil }
+                if let tagIDs = request.tagIDs { current.tagIDs = tagIDs }
+                if let dependencies = request.dependencies { current.dependencies = dependencies }
+                if let priority = request.priority { current.priority = priority }
+                if let type = request.type { current.type = type }
+                if let energy = request.energy { current.energy = energy }
+                if let category = request.category { current.category = category }
+                if let context = request.context { current.context = context }
+                if let isComplete = request.isComplete {
+                    current.isComplete = isComplete
+                    if isComplete == false { current.dateCompleted = nil }
+                }
+                if let dateCompleted = request.dateCompleted { current.dateCompleted = dateCompleted }
+                if request.clearReminderTime {
+                    current.alertReminderTime = nil
+                } else if let alertReminderTime = request.alertReminderTime {
+                    current.alertReminderTime = alertReminderTime
+                }
+                if request.clearEstimatedDuration {
+                    current.estimatedDuration = nil
+                } else if let estimatedDuration = request.estimatedDuration {
+                    current.estimatedDuration = estimatedDuration
+                }
+                if let actualDuration = request.actualDuration { current.actualDuration = actualDuration }
+                if let planningBucket = request.planningBucket { current.planningBucket = planningBucket }
+                if request.clearWeeklyOutcomeLink {
+                    current.weeklyOutcomeID = nil
+                } else if let weeklyOutcomeID = request.weeklyOutcomeID {
+                    current.weeklyOutcomeID = weeklyOutcomeID
+                }
+                if request.clearDeferredFromWeekStart {
+                    current.deferredFromWeekStart = nil
+                } else if let deferredFromWeekStart = request.deferredFromWeekStart {
+                    current.deferredFromWeekStart = deferredFromWeekStart
+                }
+                if let deferredCount = request.deferredCount {
+                    current.deferredCount = deferredCount
+                }
+                if request.clearRepeatPattern {
+                    current.repeatPattern = nil
+                } else if let repeatPattern = request.repeatPattern {
+                    current.repeatPattern = repeatPattern
+                }
+                current.updatedAt = request.updatedAt
 
-        byID[current.id] = current
-        completion(.success(current))
+                byID[current.id] = current
+                return current
+            }
+            completion(.success(updated))
+        } catch {
+            completion(.failure(error))
+        }
     }
 
     func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
-        completion(.success(Array(byID.values.filter { $0.parentTaskID == parentTaskID })))
+        completion(.success(Array(byIDState.read().values.filter { $0.parentTaskID == parentTaskID })))
     }
 
     func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        byID.removeValue(forKey: id)
+        byIDState.withValue { $0.removeValue(forKey: id) }
         completion(.success(()))
     }
 }
 
 final class InMemoryTaskReadModelRepositoryStub: TaskReadModelRepositoryProtocol {
-    var tasks: [TaskDefinition]
+    private let tasksState: LockedTestState<[TaskDefinition]>
+    var tasks: [TaskDefinition] {
+        get { tasksState.read() }
+        set { tasksState.write(newValue) }
+    }
 
     init(tasks: [TaskDefinition] = []) {
-        self.tasks = tasks
+        self.tasksState = LockedTestState(tasks)
     }
 
     func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        let tasks = tasksState.read()
         let filtered = tasks.filter { task in
             if let projectID = query.projectID, task.projectID != projectID { return false }
             if !query.includeCompleted && task.isComplete { return false }
@@ -247,6 +294,7 @@ final class InMemoryTaskReadModelRepositoryStub: TaskReadModelRepositoryProtocol
     }
 
     func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        let tasks = tasksState.read()
         let needle = query.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let filtered = tasks.filter { task in
             if let projectID = query.projectID, task.projectID != projectID { return false }

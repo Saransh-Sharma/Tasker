@@ -101,7 +101,7 @@ struct WeeklyScoreboardWidgetView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    TaskWidgetSectionHeader(eyebrow: "Week", title: "Scoreboard", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Week", title: "Rhythm", detail: nil, accent: WidgetBrand.textPrimary)
                     HStack(alignment: .bottom, spacing: 8) {
                         ForEach(0..<7, id: \.self) { index in
                             let xp = index < entry.snapshot.weeklyXP.count ? entry.snapshot.weeklyXP[index] : 0
@@ -133,7 +133,11 @@ struct WeeklyScoreboardWidgetView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(12)
-                .background(WidgetBrand.canvasSecondary.opacity(0.72), in: RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous))
+                .background(WidgetBrand.glass.opacity(0.82), in: RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+                        .stroke(WidgetBrand.glassBorder.opacity(0.72), lineWidth: 1)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
@@ -143,8 +147,8 @@ struct WeeklyScoreboardWidgetView: View {
     }
 
     private func barColor(index: Int) -> Color {
-        if index == todayIndex { return WidgetBrand.magenta }
+        if index == todayIndex { return WidgetBrand.violet }
         if index > todayIndex { return WidgetBrand.line }
-        return WidgetBrand.marigold.opacity(0.55)
+        return WidgetBrand.sunriseGold.opacity(0.68)
     }
 }

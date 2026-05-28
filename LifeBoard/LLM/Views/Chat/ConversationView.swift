@@ -25,7 +25,7 @@ struct TypingIndicator: View {
         HStack(spacing: 4) {
             ForEach(0..<3) { index in
                 Circle()
-                    .fill(Color.lifeboard(.accentPrimary))
+                    .fill(EvaChatSunriseGlass.primary)
                     .frame(width: 6, height: 6)
                     .scaleEffect(animating ? 1.0 : 0.5)
                     .opacity(animating ? 1.0 : 0.3)
@@ -134,7 +134,7 @@ private struct EvaLiveWorkingStatusView: View {
         .padding(.vertical, LifeBoardTheme.Spacing.xs)
         .lifeboardChromeSurface(
             cornerRadius: 16,
-            accentColor: Color.lifeboard(.accentSecondary),
+            accentColor: EvaChatSunriseGlass.primary,
             level: .e1
         )
         .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: statusIndex)
@@ -189,7 +189,7 @@ private struct EvaDayStatusChipsView: View {
     }
 }
 
-private struct EvaDayTaskRowView: View {
+private struct EvaDaySunriseTaskRowView: View {
     let card: EvaDayTaskCard
     let overlay: EvaDayTaskOverlayState
     let chipColorProvider: (String) -> Color
@@ -760,11 +760,12 @@ struct MessageView: View {
             assistantCardView(payload: payload)
                 .padding(LifeBoardTheme.Spacing.lg)
                 .lifeboardPremiumSurface(
-                    cornerRadius: LifeBoardTheme.CornerRadius.lg,
-                    fillColor: Color.lifeboard(.surfacePrimary),
-                    strokeColor: Color.lifeboard(.strokeHairline),
-                    accentColor: Color.lifeboard(.accentSecondary),
-                    level: .e2
+                    cornerRadius: 24,
+                    fillColor: EvaChatSunriseGlass.glassFill,
+                    strokeColor: EvaChatSunriseGlass.assistantBorder.opacity(0.72),
+                    accentColor: EvaChatSunriseGlass.primary,
+                    level: .e2,
+                    useNativeGlass: false
                 )
                 .frame(maxWidth: messageMaxWidth, alignment: .leading)
                 .padding(.trailing, oppositeSideInset)
@@ -814,11 +815,12 @@ struct MessageView: View {
             }
             .padding(LifeBoardTheme.Spacing.lg)
             .lifeboardPremiumSurface(
-                cornerRadius: LifeBoardTheme.CornerRadius.lg,
-                fillColor: Color.lifeboard(.surfacePrimary),
-                strokeColor: Color.lifeboard(.strokeHairline),
-                accentColor: Color.lifeboard(.accentSecondary),
-                level: .e2
+                cornerRadius: 24,
+                fillColor: EvaChatSunriseGlass.glassFill,
+                strokeColor: EvaChatSunriseGlass.assistantBorder.opacity(0.72),
+                accentColor: EvaChatSunriseGlass.primary,
+                level: .e2,
+                useNativeGlass: false
             )
             .frame(maxWidth: messageMaxWidth, alignment: .leading)
             .padding(.trailing, oppositeSideInset)
@@ -838,7 +840,13 @@ struct MessageView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
         #endif
-            .background(Color.lifeboard(.accentPrimary))
+            .background(
+                LinearGradient(
+                    colors: [EvaChatSunriseGlass.primary, EvaChatSunriseGlass.primaryDeep],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
         #if os(iOS) || os(visionOS)
             .clipShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous))
         #elseif os(macOS)
@@ -846,8 +854,9 @@ struct MessageView: View {
         #endif
             .overlay(
                 RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
-                    .stroke(Color.lifeboard(.accentPrimary).opacity(0.18), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.32), lineWidth: 1)
             )
+            .shadow(color: EvaChatSunriseGlass.primary.opacity(0.16), radius: 12, x: 0, y: 6)
             .frame(maxWidth: messageMaxWidth, alignment: .trailing)
             .padding(.leading, oppositeSideInset)
     }
@@ -1302,7 +1311,7 @@ struct MessageView: View {
 
     private func dayTaskRow(_ card: EvaDayTaskCard) -> some View {
         let overlay = dayTaskOverlayStates[card.taskID] ?? EvaDayTaskOverlayState()
-        return EvaDayTaskRowView(
+        return EvaDaySunriseTaskRowView(
             card: card,
             overlay: overlay,
             chipColorProvider: dayChipColor,
@@ -2107,7 +2116,7 @@ struct ConversationView: View {
                 }
                 .scrollTargetLayout()
             }
-            .background(Color.lifeboard(.bgCanvas))
+            .background(Color.clear)
             .scrollPosition(id: $scrollID, anchor: .bottom)
             .onAppear {
                 if !scrollInterrupted {

@@ -15,7 +15,6 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     @Published var currentModelDisplayName: String
     @Published var decorativeButtonEffectsEnabled: Bool
-    @Published var homeBackdropNoiseAmount: Int
     @Published var calendarAuthorizationStatus: LifeBoardCalendarAuthorizationStatus = .notDetermined
     @Published var selectedCalendarIDs: [String] = []
     @Published var availableCalendarCount: Int = 0
@@ -23,7 +22,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     @Published var includeCanceledCalendarEvents: Bool = false
     @Published var includeAllDayInAgenda: Bool = true
     @Published var includeAllDayInBusyStrip: Bool = false
-    @Published var showCalendarEventsInTimeline: Bool = false
+    @Published var showCalendarEventsInTimeline: Bool = true
 
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
@@ -43,7 +42,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     private let appManager: AppManager
     private var cancellables: Set<AnyCancellable> = []
     private var hasCustomizedAppearance: Bool {
-        decorativeButtonEffectsEnabled || homeBackdropNoiseAmount != V2FeatureFlags.defaultHomeBackdropNoiseAmount
+        decorativeButtonEffectsEnabled
     }
 
     // MARK: - Morning / Nightly times as Date for DatePicker binding
@@ -354,7 +353,6 @@ final class SettingsViewModel: ObservableObject, Sendable {
         self.workspacePreferences = loadedWorkspacePreferences
         self.currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
         self.decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
-        self.homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
         self.showCalendarEventsInTimeline = loadedWorkspacePreferences.showCalendarEventsInTimeline
         bindCalendarService()
     }
@@ -384,12 +382,6 @@ final class SettingsViewModel: ObservableObject, Sendable {
         decorativeButtonEffectsEnabled = isEnabled
         V2FeatureFlags.userDecorativeCTAEffectsEnabled = isEnabled
         LifeBoardFeedback.selection()
-    }
-
-    func setHomeBackdropNoiseAmount(_ amount: Int) {
-        let clampedAmount = V2FeatureFlags.clampedHomeBackdropNoiseAmount(amount)
-        homeBackdropNoiseAmount = clampedAmount
-        V2FeatureFlags.homeBackdropNoiseAmount = clampedAmount
     }
 
     // MARK: - Permission
@@ -442,7 +434,6 @@ final class SettingsViewModel: ObservableObject, Sendable {
         workspacePreferences = workspacePreferencesStore.load()
         currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
         decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
-        homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
         refreshPermissionStatus()
         refreshCalendarState()
     }

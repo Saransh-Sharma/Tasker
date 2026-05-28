@@ -10,42 +10,6 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-private final class LockedMetadataAccumulator<Value>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value: Value
-    private var firstError: Error?
-
-    init(_ value: Value) {
-        self.value = value
-    }
-
-    func update(_ body: (inout Value) -> Void) {
-        lock.lock()
-        body(&value)
-        lock.unlock()
-    }
-
-    func record(_ error: Error) {
-        lock.lock()
-        if firstError == nil {
-            firstError = error
-        }
-        lock.unlock()
-    }
-
-    func result() -> Result<Value, Error> {
-        lock.lock()
-        let resolvedValue = value
-        let resolvedError = firstError
-        lock.unlock()
-
-        if let resolvedError {
-            return .failure(resolvedError)
-        }
-        return .success(resolvedValue)
-    }
-}
-
 private struct ChatTaskDetailMetadataState: Sendable {
     var projects: [Project]
     var sections: [LifeBoardProjectSection]
@@ -68,6 +32,7 @@ extension Notification.Name {
 class ChatHostViewController: UIViewController, PresentationDependencyContainerAware, UseCaseCoordinatorInjectable {
     var presentationDependencyContainer: PresentationDependencyContainer?
     var useCaseCoordinator: UseCaseCoordinator!
+    var onDismissToHome: (() -> Void)?
 
     private let appManager = AppManager()
     private let llmEvaluator = LLMRuntimeCoordinator.shared.evaluator
@@ -254,35 +219,44 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     /// Executes setupNavigationBar.
     private func setupNavigationBar() {
-        let themeColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
-        let onAccent = themeColors.accentOnPrimary
-
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = themeColors.accentPrimary
-        appearance.titleTextAttributes = [.foregroundColor: onAccent]
-        appearance.largeTitleTextAttributes = [.foregroundColor: onAccent]
-
-        navigationController?.navigationBar.standardAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
-        navigationController?.navigationBar.compactAppearance = appearance
+        applyActivationNavigationAppearance()
         navigationController?.navigationBar.prefersLargeTitles = false
         navigationItem.largeTitleDisplayMode = .never
-        leadingBarButtonItem.tintColor = onAccent
-        historyBarButtonItem.tintColor = onAccent
         historyBarButtonItem.accessibilityLabel = "History"
         historyBarButtonItem.accessibilityIdentifier = "chat.header.history"
-        settingsBarButtonItem.tintColor = onAccent
         settingsBarButtonItem.accessibilityLabel = "Settings"
         settingsBarButtonItem.accessibilityIdentifier = "chat.header.settings"
-        newChatBarButtonItem.tintColor = onAccent
         newChatBarButtonItem.accessibilityLabel = "New chat"
         newChatBarButtonItem.accessibilityIdentifier = "chat.header.new_chat"
     }
 
     @objc private func onBackTapped() {
         activationCoordinator.handleLeadingNavigation { [weak self] in
-            self?.dismiss(animated: true)
+            self?.dismissToHome()
+        }
+    }
+
+    private func dismissToHome() {
+        if let navigationController,
+           navigationController.presentingViewController != nil {
+            let onDismissToHome = onDismissToHome
+            navigationController.dismiss(animated: true) {
+                onDismissToHome?()
+            }
+            return
+        }
+
+        if presentingViewController != nil {
+            let onDismissToHome = onDismissToHome
+            dismiss(animated: true) {
+                onDismissToHome?()
+            }
+            return
+        }
+
+        if let navigationController,
+           navigationController.viewControllers.first !== self {
+            navigationController.popViewController(animated: true)
         }
     }
 
@@ -315,7 +289,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         loadProjectsIfNeeded(coordinator: coordinator) { [weak self] projects in
             guard let self else { return }
             self.resolveTodayXPSoFar(coordinator: coordinator) { todayXPSoFar in
-                let detailView = TaskDetailSheetView(
+                let detailView = SunriseTaskDetailScreen(
                     task: task,
                     projects: projects,
                     todayXPSoFar: todayXPSoFar,
@@ -466,13 +440,10 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     private func showTaskDetailUnavailableAlert() {
-        let alert = UIAlertController(
+        presentSunriseUnavailableSheet(
             title: "Task details unavailable",
-            message: "Could not open task details from chat right now. Please try again from Home.",
-            preferredStyle: .alert
+            message: "Could not open task details from chat right now. Please try again from Home."
         )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
     }
 
     private func presentHabitDetailSheet(for habitID: UUID) {
@@ -499,7 +470,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                         return
                     }
 
-                    let detailView = HabitDetailSheetView(
+                    let detailView = SunriseHabitDetailScreen(
                         viewModel: presentationDependencyContainer.makeHabitDetailViewModel(row: row),
                         onMutation: {}
                     )
@@ -521,13 +492,26 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     private func showHabitDetailUnavailableAlert() {
-        let alert = UIAlertController(
+        presentSunriseUnavailableSheet(
             title: "Habit details unavailable",
-            message: "Could not open habit details from chat right now. Please try again from Home.",
-            preferredStyle: .alert
+            message: "Could not open habit details from chat right now. Please try again from Home."
         )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+    }
+
+    private func presentSunriseUnavailableSheet(title: String, message: String) {
+        let sheetView = SunriseChatUnavailableSheet(title: title, message: message)
+            .lifeboardLayoutClass(currentLayoutClass)
+        let hostingController = UIHostingController(rootView: sheetView)
+        hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        hostingController.modalPresentationStyle = .pageSheet
+
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
+        }
+
+        present(hostingController, animated: true)
     }
 
     private func performDayTaskAction(
@@ -673,7 +657,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         }
 
         let group = DispatchGroup()
-        let accumulator = LockedMetadataAccumulator(ChatTaskDetailMetadataState(
+        let accumulator = LockedResultAccumulator(ChatTaskDetailMetadataState(
             projects: cachedProjects,
             sections: []
         ))
@@ -711,7 +695,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                     sections: state.sections
                 )
             }
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 completion(result)
             }
         }
@@ -731,7 +715,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         }
 
         let group = DispatchGroup()
-        let accumulator = LockedMetadataAccumulator(ChatTaskDetailRelationshipMetadataState(
+        let accumulator = LockedResultAccumulator(ChatTaskDetailRelationshipMetadataState(
             lifeAreas: [],
             tags: [],
             availableTasks: []
@@ -784,7 +768,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                     availableTasks: state.availableTasks
                 )
             }
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 completion(result)
             }
         }
@@ -796,6 +780,11 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     private func applyTheme() {
         let themeColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         view.backgroundColor = themeColors.bgCanvas
+        updateNavigationBarChrome()
+    }
+
+    private func applyActivationNavigationAppearance() {
+        let themeColors = LifeBoardThemeManager.shared.currentTheme.tokens.color
         let onAccent = themeColors.accentOnPrimary
 
         let appearance = UINavigationBarAppearance()
@@ -811,7 +800,29 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         historyBarButtonItem.tintColor = onAccent
         settingsBarButtonItem.tintColor = onAccent
         newChatBarButtonItem.tintColor = onAccent
-        updateNavigationBarChrome()
+    }
+
+    private func applyCompletedChatNavigationAppearance() {
+        let navBackground = UIColor(lifeboardHex: "#FFFDFC").withAlphaComponent(0.82)
+        let navText = UIColor(lifeboardHex: "#071B52")
+        let navMuted = UIColor(lifeboardHex: "#48607F")
+        let navAccent = UIColor(lifeboardHex: "#6842FF")
+
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundEffect = UIBlurEffect(style: .systemThinMaterial)
+        appearance.backgroundColor = navBackground
+        appearance.shadowColor = UIColor(lifeboardHex: "#DDE3EE").withAlphaComponent(0.58)
+        appearance.titleTextAttributes = [.foregroundColor: navText]
+        appearance.largeTitleTextAttributes = [.foregroundColor: navText]
+
+        navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.compactAppearance = appearance
+        leadingBarButtonItem.tintColor = navMuted
+        historyBarButtonItem.tintColor = navMuted
+        settingsBarButtonItem.tintColor = navMuted
+        newChatBarButtonItem.tintColor = navAccent
     }
 
     private func bindActivationCoordinator() {
@@ -832,13 +843,14 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         navigationItem.leftBarButtonItem = leadingBarButtonItem
 
         if activationCoordinator.state.stage == .completed {
+            applyCompletedChatNavigationAppearance()
             navigationItem.title = nil
             chatTitleView.preferredWidth = navigationTitleWidth
             chatTitleView.configure(
                 title: chatNavigationChromeState.title,
                 subtitle: chatNavigationChromeState.subtitle,
-                titleColor: themeColors.accentOnPrimary,
-                subtitleColor: themeColors.accentOnPrimary.withAlphaComponent(0.78)
+                titleColor: UIColor(lifeboardHex: "#071B52"),
+                subtitleColor: UIColor(lifeboardHex: "#48607F")
             )
             chatTitleView.frame = CGRect(
                 x: 0,
@@ -851,6 +863,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             return
         }
 
+        applyActivationNavigationAppearance()
         navigationItem.title = nil
         activationTitleView.preferredWidth = navigationTitleWidth
         activationTitleView.configure(
@@ -895,10 +908,82 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     deinit {
+        // Deinit is synchronous; these main-actor-owned UIKit subscriptions cannot be hopped.
         MainActor.assumeIsolated {
             themeCancellable?.cancel()
             activationCoordinatorCancellable?.cancel()
         }
+    }
+}
+
+private struct SunriseChatUnavailableSheet: View {
+    let title: String
+    let message: String
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.lifeboard.bgCanvas.ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: LBSpacingTokens.lg) {
+                    LBGlassCard(
+                        cornerRadius: LBRadiusTokens.largeCard,
+                        fill: reduceTransparency ? Color.lifeboard.surfacePrimary : LBColorTokens.glassStrong.opacity(0.86),
+                        usesMaterialBackground: reduceTransparency == false
+                    ) {
+                        VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 28, weight: .semibold))
+                                .foregroundColor(Color.lifeboard.statusWarning)
+                                .accessibilityHidden(true)
+
+                            VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+                                Text(title)
+                                    .font(.lifeboard(.title3))
+                                    .foregroundColor(Color.lifeboard.textPrimary)
+
+                                Text(message)
+                                    .font(.lifeboard(.body))
+                                    .foregroundColor(Color.lifeboard.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(LBSpacingTokens.lg)
+                    }
+
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .font(.lifeboard(.body))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(
+                        LinearGradient(
+                            colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: Capsule()
+                    )
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("chat.unavailable.done")
+                }
+                .padding(LBSpacingTokens.lg)
+                .frame(maxWidth: 560)
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("chat.unavailable.close")
+                }
+            }
+        }
+        .presentationDragIndicator(.visible)
     }
 }
 

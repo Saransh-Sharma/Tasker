@@ -54,6 +54,19 @@ final class ChatPlanApplyUndoTests: BaseUITest {
         XCTAssertTrue(intro.waitForExistence(timeout: 4), "Activation intro should return after dismissing without completing")
     }
 
+    func testEvaActivationIntroCloseReturnsToHome() throws {
+        try openChatSurface()
+
+        let intro = app.otherElements["eva.activation.intro"]
+        XCTAssertTrue(intro.waitForExistence(timeout: 4), "EVA activation intro should appear for a fresh chat entry")
+
+        tapNativeChatBackOrCloseButton()
+
+        let homePage = HomePage(app: app)
+        XCTAssertTrue(homePage.verifyIsDisplayed(timeout: 4), "Closing activation intro should return to Home")
+        XCTAssertFalse(intro.waitForExistence(timeout: 1), "Activation intro should be dismissed after tapping Close")
+    }
+
     func testEvaActivationModeSelectionUpdatesInstallCTA() throws {
         try openChatSurface()
 
@@ -150,6 +163,21 @@ final class ChatPlanApplyUndoTests: BaseUITest {
 
         throw XCTSkip("Chat entry point is not reachable with current accessibility identifiers")
     }
+
+    private func tapNativeChatBackOrCloseButton() {
+        let navigationBar = app.navigationBars.firstMatch
+        let closeButton = navigationBar.buttons["Close"]
+        let backButton = navigationBar.buttons["Back"]
+        let button = closeButton.exists ? closeButton : backButton
+
+        XCTAssertTrue(button.waitForExistence(timeout: 3), "Native chat back or close button should exist")
+
+        if button.isHittable {
+            button.tap()
+        } else {
+            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+    }
 }
 
 final class ChatCompletedChromeUITests: BaseUITest {
@@ -200,6 +228,25 @@ final class ChatCompletedChromeUITests: BaseUITest {
         textField.typeText("Plan my focus block")
     }
 
+    func testCompletedChatBackButtonReturnsToHome() throws {
+        try openCompletedChatSurface()
+
+        let composer = app.descendants(matching: .any)["chat.composer.container"]
+        let emptyState = app.descendants(matching: .any)["chat.emptyState.container"]
+        let navTitle = app.descendants(matching: .any)["chat.nav.title"]
+        XCTAssertTrue(
+            composer.exists || emptyState.exists || navTitle.exists,
+            "Completed chat should be visible before tapping Back"
+        )
+
+        tapNativeChatBackOrCloseButton()
+
+        let homePage = HomePage(app: app)
+        XCTAssertTrue(homePage.verifyIsDisplayed(timeout: 4), "Back from completed chat should return to Home")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton, timeout: 4), "Home should be selected after dismissing completed chat")
+        XCTAssertFalse(navTitle.waitForExistence(timeout: 1), "Completed chat navigation title should disappear after dismissal")
+    }
+
     @discardableResult
     private func openCompletedChatSurface() throws -> XCUIApplication {
         let homePage = HomePage(app: app)
@@ -244,5 +291,20 @@ final class ChatCompletedChromeUITests: BaseUITest {
         let composer = app.descendants(matching: .any)["chat.composer.container"]
         _ = composer.waitForExistence(timeout: timeout)
         return composer
+    }
+
+    private func tapNativeChatBackOrCloseButton() {
+        let navigationBar = app.navigationBars.firstMatch
+        let backButton = navigationBar.buttons["Back"]
+        let closeButton = navigationBar.buttons["Close"]
+        let button = backButton.exists ? backButton : closeButton
+
+        XCTAssertTrue(button.waitForExistence(timeout: 3), "Native chat back or close button should exist")
+
+        if button.isHittable {
+            button.tap()
+        } else {
+            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
     }
 }

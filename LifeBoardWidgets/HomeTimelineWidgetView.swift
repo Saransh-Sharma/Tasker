@@ -138,18 +138,30 @@ private struct HomeTimelineWidgetChrome<Content: View>: View {
 }
 
 private struct HomeTimelineAddTaskButton: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         Link(destination: TaskWidgetRoutes.quickAdd) {
             ZStack {
                 Circle()
-                    .fill(WidgetBrand.actionPrimary)
+                    .fill(
+                        LinearGradient(
+                            colors: reduceTransparency ? [WidgetBrand.actionPrimary, WidgetBrand.actionPrimary] : [WidgetBrand.actionPrimary, WidgetBrand.violetDeep],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay {
+                        Circle()
+                            .stroke(WidgetBrand.glassBorder.opacity(0.58), lineWidth: 1)
+                    }
                 Image(systemName: "plus")
                     .font(TaskWidgetTypography.bodyStrong)
                     .foregroundStyle(WidgetBrand.textInverse)
                     .accessibilityHidden(true)
             }
             .frame(width: 44, height: 44)
-            .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
+            .shadow(color: WidgetBrand.floatingShadow.opacity(reduceTransparency ? 0.12 : 0.26), radius: reduceTransparency ? 4 : 10, x: 0, y: 5)
         }
         .accessibilityLabel("Add Task")
     }
@@ -174,7 +186,7 @@ private struct HomeTimelineHeroItem: View {
 
     var body: some View {
         Link(destination: HomeTimelineFormatter.destination(for: item)) {
-            VStack(alignment: .leading, spacing: 5) {
+            TaskWidgetPanel(accent: HomeTimelineFormatter.tint(for: item), style: .accentWash, padding: 10) {
                 Label {
                     Text(item.isCurrent ? "Now" : "Next")
                         .font(TaskWidgetTypography.eyebrow)
@@ -223,6 +235,8 @@ private struct HomeTimelineItemRow: View {
     let item: TaskListWidgetTimelineItem
 
     var body: some View {
+        let roleStyle = WidgetBrand.role(WidgetBrand.timelineRole(source: item.source))
+
         Link(destination: HomeTimelineFormatter.destination(for: item)) {
             HStack(alignment: .top, spacing: 8) {
                 VStack(spacing: 3) {
@@ -256,6 +270,13 @@ private struct HomeTimelineItemRow: View {
 
                 Spacer(minLength: 0)
             }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 7)
+            .background(roleStyle.soft.opacity(item.isCurrent ? 0.82 : 0.58), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(roleStyle.border.opacity(item.isCurrent ? 0.86 : 0.52), lineWidth: 1)
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(HomeTimelineFormatter.itemAccessibilityText(item))
@@ -270,7 +291,7 @@ private struct HomeTimelineAllDayStrip: View {
             HStack(spacing: 6) {
                 Label("All Day", systemImage: "sun.max")
                     .font(TaskWidgetTypography.captionStrong)
-                    .foregroundStyle(WidgetBrand.textSecondary)
+                    .foregroundStyle(WidgetBrand.sunriseGoldDeep)
                     .lineLimit(1)
 
                 ForEach(Array(items.prefix(2))) { item in
@@ -281,7 +302,11 @@ private struct HomeTimelineAllDayStrip: View {
                             .lineLimit(1)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 4)
-                            .background(HomeTimelineFormatter.tint(for: item).opacity(0.14), in: Capsule())
+                            .background(WidgetBrand.role(.routine).soft, in: Capsule())
+                            .overlay {
+                                Capsule()
+                                    .stroke(WidgetBrand.role(.routine).border.opacity(0.72), lineWidth: 1)
+                            }
                     }
                     .buttonStyle(.plain)
                 }
@@ -303,7 +328,7 @@ private struct HomeTimelineGapPanel: View {
 
     var body: some View {
         if let gap {
-            TaskWidgetPanel(accent: WidgetBrand.emerald, style: .accentWash, padding: 9) {
+            TaskWidgetPanel(accent: WidgetBrand.role(.focus).base, style: .accentWash, padding: 9) {
                 Label {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(gap.headline)
@@ -317,7 +342,7 @@ private struct HomeTimelineGapPanel: View {
                     }
                 } icon: {
                     Image(systemName: "plus.circle")
-                        .foregroundStyle(WidgetBrand.emerald)
+                        .foregroundStyle(WidgetBrand.role(.focus).base)
                         .widgetAccentable()
                 }
                 .accessibilityElement(children: .combine)
@@ -343,10 +368,10 @@ private struct HomeTimelineWeekStrip: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
-                .background(HomeTimelineFormatter.tint(for: day).opacity(day.timedCount + day.allDayCount > 0 ? 0.12 : 0.04), in: RoundedRectangle(cornerRadius: 8))
+                .background(WidgetBrand.glass.opacity(day.timedCount + day.allDayCount > 0 ? 0.86 : 0.42), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(WidgetBrand.line.opacity(day.timedCount + day.allDayCount > 0 ? 0.5 : 0.28), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(WidgetBrand.glassBorder.opacity(day.timedCount + day.allDayCount > 0 ? 0.78 : 0.42), lineWidth: 1)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(HomeTimelineFormatter.fullDateText(day.date)), \(day.timedCount) timed, \(day.allDayCount) all-day")
@@ -416,9 +441,9 @@ private struct HomeTimelineStatusFooter: View {
         HStack(spacing: 6) {
             Image(systemName: isStale ? "arrow.clockwise.circle" : "arrow.up.right")
                 .font(TaskWidgetTypography.caption)
-                .foregroundStyle(WidgetBrand.textSecondary)
+                .foregroundStyle(isStale ? WidgetBrand.sunriseGoldDeep : WidgetBrand.violet)
                 .accessibilityHidden(true)
-            Text(isStale ? "Open to refresh" : "Open timeline")
+            Text(isStale ? "Refresh day" : "Open day")
                 .font(TaskWidgetTypography.captionStrong)
                 .foregroundStyle(WidgetBrand.textSecondary)
                 .lineLimit(1)
@@ -450,7 +475,7 @@ private struct HomeTimelineEmptyState: View {
             }
         } icon: {
             Image(systemName: isStale ? "arrow.clockwise.circle" : "calendar.badge.plus")
-                .foregroundStyle(WidgetBrand.actionPrimary)
+                .foregroundStyle(isStale ? WidgetBrand.sunriseGoldDeep : WidgetBrand.actionPrimary)
                 .widgetAccentable()
         }
         .accessibilityElement(children: .combine)
@@ -555,17 +580,17 @@ private enum HomeTimelineFormatter {
         if let hex = item.tintHex, let color = Color(widgetHex: hex) {
             return color
         }
-        return item.source == .calendarEvent ? WidgetBrand.actionPrimary : WidgetBrand.sandstone
+        return WidgetBrand.role(WidgetBrand.timelineRole(source: item.source)).base
     }
 
     static func tint(for day: TaskListWidgetTimelineWeekDay) -> Color {
         switch day.loadLevel {
         case .light:
-            return day.timedCount + day.allDayCount > 0 ? WidgetBrand.emerald : WidgetBrand.textTertiary
+            return day.timedCount + day.allDayCount > 0 ? WidgetBrand.leaf : WidgetBrand.textTertiary
         case .balanced:
-            return WidgetBrand.actionPrimary
+            return WidgetBrand.sky
         case .busy:
-            return WidgetBrand.marigold
+            return WidgetBrand.sunriseGoldDeep
         }
     }
 }

@@ -751,8 +751,17 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
         }
         let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
         request.returnsObjectsAsFaults = false
-        let projects = try context.fetch(request)
-        return projects.first { project in
+        request.fetchLimit = 2
+        request.predicate = NSPredicate(format: "name ==[c] %@", normalized)
+        let exactMatches = try context.fetch(request)
+        if let match = exactMatches.first(where: { $0.id != excludingId }) {
+            return match
+        }
+
+        request.fetchLimit = 0
+        request.predicate = nil
+        let fallbackProjects = try context.fetch(request)
+        return fallbackProjects.first { project in
             guard project.id != excludingId,
                   let candidate = normalizedName(project.name) else {
                 return false

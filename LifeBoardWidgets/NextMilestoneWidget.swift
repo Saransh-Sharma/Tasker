@@ -50,7 +50,7 @@ struct NextMilestoneWidgetView: View {
                     TaskWidgetRing(
                         progress: CGFloat(entry.snapshot.milestoneProgress),
                         lineWidth: 7,
-                        accent: WidgetBrand.magenta,
+                        accent: WidgetBrand.violet,
                         track: WidgetBrand.line,
                         centerText: "\(Int(entry.snapshot.milestoneProgress * 100))%",
                         numericValue: context.reduceMotion ? nil : entry.snapshot.milestoneProgress * 100

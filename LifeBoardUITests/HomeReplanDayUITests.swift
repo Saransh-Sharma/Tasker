@@ -40,11 +40,11 @@ final class HomeReplanDayUITests: BaseUITest {
             homePage.waitForBottomBarState("expanded", timeout: 3),
             "Bottom bar should restore before checking Replan Day clearance"
         )
-        XCTAssertTrue(homePage.foredropSurface.waitForExistence(timeout: 3), "Foredrop surface should exist for edge-to-edge regression")
+        XCTAssertTrue(homePage.sunriseSurface.waitForExistence(timeout: 3), "Sunrise surface should exist for edge-to-edge regression")
         XCTAssertGreaterThanOrEqual(
-            homePage.foredropSurface.frame.maxY,
+            homePage.sunriseSurface.frame.maxY,
             homePage.view.frame.maxY - 2,
-            "Foredrop surface should remain edge-to-edge behind the bottom chrome"
+            "Sunrise surface should remain edge-to-edge behind the bottom chrome"
         )
         XCTAssertTrue(persistentEntry.isHittable, "Replan Day entry should remain tappable after the bottom bar restores")
         let bottomChromeTop = bottomChromeTopEdge()

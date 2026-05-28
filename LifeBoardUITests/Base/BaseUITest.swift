@@ -7,6 +7,7 @@
 
 import XCTest
 
+@MainActor
 class BaseUITest: XCTestCase {
 
     // MARK: - Properties
@@ -26,9 +27,10 @@ class BaseUITest: XCTestCase {
         // Initialize app with fresh state
         app = XCUIApplication()
         app.launchArguments = [
-            "-RESET_APP_STATE",  // Reset all data
-            "-UI_TESTING",       // Flag for UI testing mode
-            "-DISABLE_ANIMATIONS" // Speed up tests
+            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
+            XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue
         ]
         app.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         if shouldSkipOnboarding {
@@ -83,6 +85,76 @@ class BaseUITest: XCTestCase {
         )
     }
 
+    // MARK: - Seeded Timeline Launch
+
+    func launchSeededTimelineWorkspace(calendarMode: String = "active", skipOnboarding: Bool = true) {
+        app?.terminate()
+        app = XCUIApplication()
+        app.launchSeededTimelineWorkspace(calendarMode: calendarMode, skipOnboarding: skipOnboarding)
+        ensureHomeTimelineReady()
+    }
+
+    @discardableResult
+    func ensureHomeTimelineReady(
+        timeout: TimeInterval = 14,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> Bool {
+        dismissOnboardingIfNeeded()
+
+        let home = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
+        let allFilter = app.buttons[AccessibilityIdentifiers.Home.sunriseFilter("all")]
+        let bottomBarHome = app.buttons[AccessibilityIdentifiers.Home.bottomBarHome]
+        let bottomBarCalendar = app.buttons["home.bottomBar.calendar"]
+        let timelineSurface = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.timelineSurface]
+        let timelineContent = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.timelineContent]
+        let timelineCards = app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "identifier BEGINSWITH %@ OR identifier BEGINSWITH %@",
+                "home.timeline.task.",
+                "home.timeline.event."
+            )
+        )
+
+        let predicate = NSPredicate { _, _ in
+            let hasHomeSignal = home.exists || allFilter.exists || bottomBarHome.exists || bottomBarCalendar.exists
+            let hasTimelineSignal = timelineSurface.exists || timelineContent.exists || timelineCards.firstMatch.exists
+            return hasHomeSignal && hasTimelineSignal
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+        if result != .completed {
+            XCTFail("Home timeline did not become ready for seeded UI test", file: file, line: line)
+            return false
+        }
+        return true
+    }
+
+    private func dismissOnboardingIfNeeded() {
+        let prompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
+        if prompt.waitForExistence(timeout: 1.5) {
+            let dismissCandidates = [
+                app.buttons[AccessibilityIdentifiers.Onboarding.promptDismiss],
+                app.buttons["Not now"],
+                app.buttons["Skip for now"]
+            ]
+            if let dismiss = dismissCandidates.first(where: { $0.exists && $0.isHittable }) {
+                dismiss.tap()
+            }
+        }
+
+        let successHome = app.buttons[AccessibilityIdentifiers.Onboarding.goHome]
+        if successHome.waitForExistence(timeout: 1), successHome.isHittable {
+            successHome.tap()
+            return
+        }
+
+        let skip = app.buttons[AccessibilityIdentifiers.Onboarding.skipButton]
+        if skip.waitForExistence(timeout: 1), skip.isHittable {
+            skip.tap()
+        }
+    }
+
     // MARK: - Wait Helpers
 
     /// Wait for element to exist with timeout
@@ -90,7 +162,7 @@ class BaseUITest: XCTestCase {
     func waitForElement(
         _ element: XCUIElement,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let exists = element.waitForExistence(timeout: timeout)
@@ -109,7 +181,7 @@ class BaseUITest: XCTestCase {
     func waitForElementToDisappear(
         _ element: XCUIElement,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let expectation = XCTNSPredicateExpectation(
@@ -135,7 +207,7 @@ class BaseUITest: XCTestCase {
     func waitForElementToBeHittable(
         _ element: XCUIElement,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let expectation = XCTNSPredicateExpectation(
@@ -162,7 +234,7 @@ class BaseUITest: XCTestCase {
     func tapAndWait(
         _ element: XCUIElement,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         guard waitForElementToBeHittable(element, timeout: timeout, file: file, line: line) else {
@@ -176,7 +248,7 @@ class BaseUITest: XCTestCase {
         _ element: XCUIElement,
         text: String,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         guard waitForElementToBeHittable(element, timeout: timeout, file: file, line: line) else {
@@ -191,7 +263,7 @@ class BaseUITest: XCTestCase {
         _ element: XCUIElement,
         text: String,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         guard waitForElementToBeHittable(element, timeout: timeout, file: file, line: line) else {
@@ -231,7 +303,7 @@ class BaseUITest: XCTestCase {
     /// Swipe to delete element in table view
     func swipeToDelete(
         _ element: XCUIElement,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         guard waitForElement(element, file: file, line: line) else {
@@ -253,7 +325,7 @@ class BaseUITest: XCTestCase {
     func verifyTextExists(
         _ text: String,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         let element = app.staticTexts[text]
@@ -269,7 +341,7 @@ class BaseUITest: XCTestCase {
     func verifyElementExists(
         _ element: XCUIElement,
         timeout: TimeInterval = 5,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         XCTAssertTrue(
@@ -283,7 +355,7 @@ class BaseUITest: XCTestCase {
     /// Verify element does not exist
     func verifyElementDoesNotExist(
         _ element: XCUIElement,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         XCTAssertFalse(
@@ -297,7 +369,7 @@ class BaseUITest: XCTestCase {
     /// Verify element is hittable (visible and enabled)
     func verifyElementIsHittable(
         _ element: XCUIElement,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) {
         XCTAssertTrue(

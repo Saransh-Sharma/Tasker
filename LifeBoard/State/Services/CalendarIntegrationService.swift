@@ -83,7 +83,7 @@ public final class UserDefaultsCalendarAccessAttemptStore: CalendarAccessAttempt
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
-    public init(
+    public nonisolated init(
         defaults: UserDefaults = .standard,
         appVersionProvider: @escaping () -> String = UserDefaultsCalendarAccessAttemptStore.defaultAppVersion
     ) {
@@ -209,7 +209,8 @@ public enum CalendarAccessDiagnostics {
 
 /// Observable calendar state service. Mutable state is owned by the main actor; provider callbacks
 /// are allowed to arrive on arbitrary queues and hop to `MainActor` before mutating `snapshot`.
-public final class CalendarIntegrationService: ObservableObject, @unchecked Sendable {
+@MainActor
+public final class CalendarIntegrationService: ObservableObject {
     private struct DayProjectionKey: Hashable {
         let revision: UInt64
         let startOfDay: Date
@@ -240,7 +241,7 @@ public final class CalendarIntegrationService: ObservableObject, @unchecked Send
     private var weekProjectionCache: [WeekProjectionKey: [LifeBoardCalendarDayAgenda]] = [:]
     private var cancellables: Set<AnyCancellable> = []
 
-    public nonisolated init(
+    public init(
         provider: CalendarEventsProviderProtocol?,
         workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
         accessAttemptStore: CalendarAccessAttemptStore = UserDefaultsCalendarAccessAttemptStore.shared

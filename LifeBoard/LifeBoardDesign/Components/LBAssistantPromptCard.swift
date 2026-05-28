@@ -10,7 +10,7 @@ struct LBAssistantPromptCard: View {
             LBGlassCard(
                 cornerRadius: 20,
                 borderColor: LBColorTokens.violetSoft.opacity(0.88),
-                fill: Color.white.opacity(0.76),
+                fill: LBColorTokens.glassStrong.opacity(0.76),
                 shadow: nil,
                 usesMaterialBackground: false
             ) {

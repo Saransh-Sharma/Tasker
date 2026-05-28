@@ -7,6 +7,7 @@
 
 import XCTest
 
+@MainActor
 class ProjectManagementPage {
 
     // MARK: - Properties
@@ -17,32 +18,18 @@ class ProjectManagementPage {
         app.otherElements["settings.lifeManagement.view"]
     }
 
-    private var legacyView: XCUIElement {
-        app.otherElements[AccessibilityIdentifiers.ProjectManagement.view]
-    }
-
     private var unifiedNavigationBar: XCUIElement {
         app.navigationBars["Life Management"]
-    }
-
-    private var legacyNavigationBar: XCUIElement {
-        app.navigationBars[AccessibilityIdentifiers.ProjectManagement.navigationBar]
     }
 
     // MARK: - Elements
 
     var view: XCUIElement {
-        if unifiedView.exists {
-            return unifiedView
-        }
-        return legacyView
+        unifiedView
     }
 
     var navigationBar: XCUIElement {
-        if unifiedNavigationBar.exists {
-            return unifiedNavigationBar
-        }
-        return legacyNavigationBar
+        unifiedNavigationBar
     }
 
     var backButton: XCUIElement {
@@ -55,23 +42,7 @@ class ProjectManagementPage {
             return unifiedAddMenu
         }
 
-        // Try accessibility identifier first
-        var button = app.buttons[AccessibilityIdentifiers.ProjectManagement.addProjectButton]
-
-        // Fallback: top-right navigation button
-        if !button.exists {
-            let navButtons = navigationBar.buttons
-            if navButtons.count > 0 {
-                button = navButtons.element(boundBy: navButtons.count - 1)
-            }
-        }
-
-        // Fallback: find by label
-        if !button.exists {
-            button = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'add' OR label CONTAINS[c] '+'")).firstMatch
-        }
-
-        return button
+        return app.buttons["Add Project"]
     }
 
     var addAreaButton: XCUIElement {
@@ -94,19 +65,17 @@ class ProjectManagementPage {
     }
 
     var projectsList: XCUIElement {
-        let identifiedTable = app.tables[AccessibilityIdentifiers.ProjectManagement.projectsList]
-        if identifiedTable.exists {
-            return identifiedTable
-        }
         let unifiedScrollView = view.scrollViews.firstMatch
         if unifiedScrollView.exists {
             return unifiedScrollView
         }
-        return app.tables.firstMatch
+        return view
     }
 
     var emptyStateLabel: XCUIElement {
-        return app.staticTexts[AccessibilityIdentifiers.ProjectManagement.emptyStateLabel]
+        app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS[c] 'No projects' OR label CONTAINS[c] 'Create a new area'")
+        ).firstMatch
     }
 
     // MARK: - Initialization
@@ -166,14 +135,6 @@ class ProjectManagementPage {
 
     /// Get project name at index
     func projectName(at index: Int) -> String {
-        let identifier = AccessibilityIdentifiers.ProjectManagement.projectName(index: index)
-        let nameElement = app.staticTexts[identifier]
-
-        if nameElement.exists {
-            return nameElement.label
-        }
-
-        // Fallback: get first static text in cell
         let cell = projectCell(at: index)
         return cell.staticTexts.element(boundBy: 0).label
     }
@@ -224,13 +185,7 @@ class ProjectManagementPage {
         if unifiedView.waitForExistence(timeout: timeout) {
             return true
         }
-        if legacyView.waitForExistence(timeout: timeout) {
-            return true
-        }
-        if unifiedNavigationBar.waitForExistence(timeout: timeout) {
-            return true
-        }
-        return legacyNavigationBar.waitForExistence(timeout: timeout)
+        return unifiedNavigationBar.waitForExistence(timeout: timeout)
     }
 
     /// Verify project exists with name
@@ -266,14 +221,11 @@ class ProjectManagementPage {
             return unifiedProjectNodes.count
         }
 
-        if projectsList.exists {
-            return projectsList.cells.count
-        }
-        return app.tables.firstMatch.cells.count
+        return projectsList.cells.count
     }
 
     /// Verify project count
-    func verifyProjectCount(_ expectedCount: Int, file: StaticString = #file, line: UInt = #line) {
+    func verifyProjectCount(_ expectedCount: Int, file: StaticString = #filePath, line: UInt = #line) {
         let actualCount = getProjectCount()
         XCTAssertEqual(
             actualCount,

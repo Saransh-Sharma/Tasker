@@ -92,7 +92,7 @@ public struct AddTaskPrefillTemplate: Equatable {
 /// ViewModel for the Add Task screen
 /// Manages task creation state and validation
 @MainActor
-public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
+public final class AddTaskViewModel: ObservableObject {
     public static let defaultEstimatedDuration: TimeInterval = 15 * 60
 
     private struct TaskIconSearchCacheKey: Equatable {
@@ -939,6 +939,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
     /// Executes setupGamificationXPObservation.
     private func setupGamificationXPObservation() {
         NotificationCenter.default.publisher(for: .gamificationLedgerDidMutate)
+            .receive(on: RunLoop.main)
             .compactMap { $0.gamificationLedgerMutation?.dailyXPSoFar }
             .sink { [weak self] dailyXP in
                 self?.todayXPSoFar = max(0, dailyXP)
@@ -1130,8 +1131,7 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
         taskIconResolutionToken += 1
         let token = taskIconResolutionToken
 
-        taskIconResolutionQueue.async { [weak self] in
-            guard let self else { return }
+        taskIconResolutionQueue.async { [taskIconResolver] in
             let interval = LifeBoardPerformanceTrace.begin("AddTaskIconResolve")
             let resolution = taskIconResolver.resolve(
                 title: taskName,
@@ -1144,7 +1144,8 @@ public final class AddTaskViewModel: ObservableObject, @unchecked Sendable {
             )
             LifeBoardPerformanceTrace.end(interval)
 
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 guard self.taskIconResolutionToken == token else { return }
                 self.autoSuggestedTaskIconSymbolName = resolution.autoSuggestedSymbolName
                 self.suggestedTaskIcons = resolution.rankedSuggestions

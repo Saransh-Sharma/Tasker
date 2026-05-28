@@ -68,7 +68,7 @@ private extension GamificationRemoteKillSwitchService {
 
     func apply(remoteConfig: RemoteConfig, reason: String, status: RemoteConfigFetchAndActivateStatus) {
         let killSwitchOn = boolValue(for: Keys.killSwitch, remoteConfig: remoteConfig) ?? false
-        let v2Enabled = boolValue(for: Keys.gamificationV2Enabled, remoteConfig: remoteConfig) ?? V2FeatureFlags.gamificationV2Enabled
+        let gamificationFeatureEnabled = boolValue(for: Keys.gamificationV2Enabled, remoteConfig: remoteConfig) ?? V2FeatureFlags.gamificationV2Enabled
         let widgetsEnabled = boolValue(for: Keys.gamificationWidgetsEnabled, remoteConfig: remoteConfig) ?? V2FeatureFlags.gamificationWidgetsEnabled
         let focusEnabled = boolValue(for: Keys.gamificationFocusSessionsEnabled, remoteConfig: remoteConfig) ?? V2FeatureFlags.gamificationFocusSessionsEnabled
         let taskListWidgetsEnabled = boolValue(for: Keys.taskListWidgetsEnabled, remoteConfig: remoteConfig) ?? V2FeatureFlags.taskListWidgetsEnabled
@@ -79,7 +79,7 @@ private extension GamificationRemoteKillSwitchService {
             V2FeatureFlags.gamificationWidgetsEnabled = false
             V2FeatureFlags.gamificationFocusSessionsEnabled = false
         } else {
-            V2FeatureFlags.gamificationV2Enabled = v2Enabled
+            V2FeatureFlags.gamificationV2Enabled = gamificationFeatureEnabled
             V2FeatureFlags.gamificationWidgetsEnabled = widgetsEnabled
             V2FeatureFlags.gamificationFocusSessionsEnabled = focusEnabled
         }

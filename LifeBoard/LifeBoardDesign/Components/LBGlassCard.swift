@@ -7,19 +7,23 @@ struct LBGlassCard<Content: View>: View {
     var shadow: LBShadowToken? = LBShadowTokens.card
     var usesMaterialBackground = true
     @ViewBuilder let content: Content
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     var body: some View {
+        let useMaterialBackground = usesMaterialBackground && scrollOptimizedRendering == false
+        let effectiveShadow = scrollOptimizedRendering ? nil : shadow
+
         content
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(fill)
-                    .modifier(LBOptionalMaterialBackgroundModifier(cornerRadius: cornerRadius, isEnabled: usesMaterialBackground))
+                    .modifier(LBOptionalMaterialBackgroundModifier(cornerRadius: cornerRadius, isEnabled: useMaterialBackground))
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .stroke(borderColor, lineWidth: 1)
                     }
             }
-            .modifier(LBOptionalShadowModifier(token: shadow))
+            .modifier(LBOptionalShadowModifier(token: effectiveShadow))
     }
 }
 

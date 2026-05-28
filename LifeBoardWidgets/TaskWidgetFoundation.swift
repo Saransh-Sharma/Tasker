@@ -237,6 +237,8 @@ struct TaskWidgetScene<Content: View>: View {
 }
 
 struct TaskWidgetContainerBackgroundModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     let enabled: Bool
 
     @ViewBuilder
@@ -245,7 +247,30 @@ struct TaskWidgetContainerBackgroundModifier: ViewModifier {
             content
                 .tint(WidgetBrand.actionPrimary)
                 .containerBackground(for: .widget) {
-                    WidgetBrand.canvas
+                    if reduceTransparency {
+                        WidgetBrand.canvasWarm
+                    } else {
+                        LinearGradient(
+                            colors: [
+                                WidgetBrand.canvasCool,
+                                WidgetBrand.canvasWarm,
+                                WidgetBrand.canvas
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .overlay {
+                            LinearGradient(
+                                colors: [
+                                    WidgetBrand.sunriseGold.opacity(0.20),
+                                    WidgetBrand.violet.opacity(0.08),
+                                    .clear
+                                ],
+                                startPoint: .bottomLeading,
+                                endPoint: .topTrailing
+                            )
+                        }
+                    }
                 }
         } else {
             content
@@ -253,7 +278,7 @@ struct TaskWidgetContainerBackgroundModifier: ViewModifier {
     }
 }
 
-enum TaskWidgetPanelStyle {
+enum TaskWidgetPanelStyle: Equatable {
     case flush
     case softSection
     case accentWash
@@ -268,6 +293,7 @@ struct TaskWidgetPanel<Content: View>: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     @Environment(\.showsWidgetContainerBackground) private var showsContainerBackground
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var accent: Color? = nil
     var style: TaskWidgetPanelStyle = .flush
@@ -302,11 +328,11 @@ struct TaskWidgetPanel<Content: View>: View {
         case .flush:
             return nil
         case .softSection:
-            return WidgetBrand.lineStrong.opacity(contrast == .increased ? 0.44 : 0.22)
+            return WidgetBrand.glassBorder.opacity(contrast == .increased ? 0.90 : 0.62)
         case .accentWash:
-            return effectiveAccent.opacity(contrast == .increased ? 0.26 : 0.18)
+            return effectiveAccent.opacity(contrast == .increased ? 0.42 : 0.24)
         case .contained:
-            return WidgetBrand.lineStrong.opacity(contrast == .increased ? 0.68 : 0.34)
+            return WidgetBrand.lineStrong.opacity(contrast == .increased ? 0.78 : 0.42)
         default:
             return nil
         }
@@ -332,33 +358,65 @@ struct TaskWidgetPanel<Content: View>: View {
         case .flush:
             return nil
         case .softSection:
-            return WidgetBrand.canvasSecondary.opacity(showsContainerBackground ? 0.78 : 0.94)
+            return reduceTransparency ? WidgetBrand.canvasElevated : WidgetBrand.glass
         case .accentWash:
-            return effectiveAccent.opacity(contrast == .increased ? 0.12 : 0.09)
+            return reduceTransparency ? WidgetBrand.canvasElevated : effectiveAccent.opacity(contrast == .increased ? 0.16 : 0.11)
         case .contained:
-            return showsContainerBackground ? WidgetBrand.canvasElevated : WidgetBrand.canvasSecondary
+            return reduceTransparency ? WidgetBrand.canvasElevated : WidgetBrand.glassStrong
         default:
             return nil
         }
     }
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: resolvedCornerRadius, style: .continuous)
+
         VStack(alignment: .leading, spacing: 6) {
             content()
         }
         .padding(padding)
         .background {
             if let fillColor {
-                RoundedRectangle(cornerRadius: resolvedCornerRadius, style: .continuous)
+                shape
                     .fill(fillColor)
+                    .background {
+                        if reduceTransparency == false,
+                           showsContainerBackground,
+                           renderingMode != .accented,
+                           resolvedStyle != .flush {
+                            shape.fill(.ultraThinMaterial)
+                        }
+                    }
+                    .overlay(alignment: .top) {
+                        if reduceTransparency == false,
+                           resolvedStyle != .flush {
+                            shape
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            WidgetBrand.sunriseHighlight,
+                                            WidgetBrand.sunriseHighlight.opacity(0.05)
+                                        ],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                        }
+                    }
             }
         }
         .overlay {
             if let strokeColor {
-                RoundedRectangle(cornerRadius: resolvedCornerRadius, style: .continuous)
+                shape
                     .stroke(strokeColor, lineWidth: contrast == .increased ? 1.2 : 1)
             }
         }
+        .shadow(
+            color: resolvedStyle == .flush ? .clear : WidgetBrand.warmShadow.opacity(reduceTransparency ? 0.06 : 0.12),
+            radius: reduceTransparency ? 4 : 12,
+            x: 0,
+            y: reduceTransparency ? 2 : 7
+        )
     }
 }
 
@@ -387,8 +445,11 @@ struct TaskWidgetSectionHeader: View {
             if let detail {
                 Text(detail)
                     .font(TaskWidgetTypography.meta)
-                    .foregroundStyle(WidgetBrand.textSecondary)
+                    .foregroundStyle(WidgetBrand.violetDeep)
                     .lineLimit(1)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(WidgetBrand.violetSoft, in: Capsule())
             }
         }
         .accessibilityElement(children: .combine)
@@ -518,10 +579,14 @@ struct TaskWidgetEditorialDivider: View {
 }
 
 struct TaskWidgetActionBandLabel: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     let title: String
     var accent: Color = WidgetBrand.actionPrimary
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+
         HStack {
             Spacer(minLength: 0)
             Text(title)
@@ -531,7 +596,20 @@ struct TaskWidgetActionBandLabel: View {
         }
         .frame(maxWidth: .infinity, minHeight: 40)
         .padding(.horizontal, 14)
-        .background(accent, in: RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous))
+        .background {
+            shape
+                .fill(
+                    LinearGradient(
+                        colors: reduceTransparency ? [accent, accent] : [accent, WidgetBrand.violetDeep],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay {
+                    shape.stroke(WidgetBrand.glassBorder.opacity(0.42), lineWidth: 1)
+                }
+        }
+        .shadow(color: WidgetBrand.floatingShadow.opacity(reduceTransparency ? 0.10 : 0.22), radius: reduceTransparency ? 4 : 10, x: 0, y: 5)
     }
 }
 
@@ -660,6 +738,8 @@ struct TaskWidgetEmptyState: View {
                 .widgetAccentedRenderingMode(.accented)
                 .foregroundStyle(accent)
                 .accessibilityHidden(true)
+                .frame(width: 24, height: 24)
+                .background(WidgetBrand.glassStrong, in: Circle())
             Text(title)
                 .font(TaskWidgetTypography.support)
                 .foregroundStyle(WidgetBrand.textSecondary)
@@ -679,9 +759,19 @@ struct TaskWidgetProgressBar: View {
             let width = max(8, geometry.size.width * max(0, min(progress, 1)))
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(WidgetBrand.line.opacity(0.42))
+                    .fill(WidgetBrand.glassStrong)
+                    .overlay {
+                        Capsule()
+                            .stroke(WidgetBrand.glassBorder.opacity(0.7), lineWidth: 1)
+                    }
                 Capsule()
-                    .fill(tint)
+                    .fill(
+                        LinearGradient(
+                            colors: [tint, WidgetBrand.sunriseGold.opacity(0.78)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
                     .frame(width: width)
                     .widgetAccentable()
             }
@@ -704,11 +794,18 @@ struct TaskWidgetRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(track, lineWidth: lineWidth)
+                .stroke(track.opacity(0.46), lineWidth: lineWidth)
                 .accessibilityHidden(true)
             Circle()
                 .trim(from: 0, to: max(0, min(progress, 1)))
-                .stroke(accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(
+                    LinearGradient(
+                        colors: [accent, WidgetBrand.sunriseGold],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+                )
                 .rotationEffect(.degrees(-90))
                 .widgetAccentable()
                 .accessibilityHidden(true)
@@ -717,6 +814,12 @@ struct TaskWidgetRing: View {
                 .font(TaskWidgetTypography.metric)
                 .foregroundStyle(WidgetBrand.textPrimary)
                 .taskWidgetNumericTransition(numericValue, reduceMotion: reduceMotion)
+        }
+        .padding(lineWidth / 2)
+        .background(WidgetBrand.glass.opacity(0.55), in: Circle())
+        .overlay {
+            Circle()
+                .stroke(WidgetBrand.glassBorder.opacity(0.58), lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(centerText)

@@ -7,6 +7,7 @@
 
 import XCTest
 
+@MainActor
 class AddTaskPage {
 
     // MARK: - Properties
@@ -93,6 +94,10 @@ class AddTaskPage {
 
     var detailsDisclosure: XCUIElement {
         app.buttons[AccessibilityIdentifiers.AddTask.detailsDisclosure]
+    }
+
+    var timelinePreview: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.timelinePreview]
     }
 
     var lifeAreaSelector: XCUIElement {

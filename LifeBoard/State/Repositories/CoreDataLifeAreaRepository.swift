@@ -24,7 +24,7 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol, @unch
                         NSSortDescriptor(key: "id", ascending: true)
                     ]
                 )
-                completion(.success(objects.map(LifeAreaMapper.toDomain)))
+                completion(.success(try objects.map(LifeAreaMapper.validatedDomain)))
             } catch {
                 completion(.failure(error))
             }
@@ -36,15 +36,48 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol, @unch
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(area.id, field: "lifeArea.id")
-                _ = try V2CoreDataRepositorySupport.requireNonEmpty(area.name, field: "lifeArea.name")
+                let normalizedName = try V2CoreDataRepositorySupport.requireNonEmpty(area.name, field: "lifeArea.name")
+                if area.isArchived == false {
+                    let normalizedIdentity = V2CoreDataRepositorySupport.normalizedIdentityString(normalizedName)
+                    let duplicatePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        NSPredicate(format: "name =[c] %@", normalizedName),
+                        NSPredicate(format: "isArchived == NO"),
+                        NSPredicate(format: "id != %@", area.id as CVarArg)
+                    ])
+                    let exactDuplicate = try V2CoreDataRepositorySupport.fetchObject(
+                        in: self.backgroundContext,
+                        entityName: LifeAreaMapper.entityName,
+                        predicate: duplicatePredicate
+                    )
+                    let normalizedDuplicate = try exactDuplicate ?? V2CoreDataRepositorySupport.fetchObjects(
+                        in: self.backgroundContext,
+                        entityName: LifeAreaMapper.entityName,
+                        predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                            NSPredicate(format: "isArchived == NO"),
+                            NSPredicate(format: "id != %@", area.id as CVarArg)
+                        ]),
+                        sort: [NSSortDescriptor(key: "id", ascending: true)]
+                    ).first { object in
+                        V2CoreDataRepositorySupport.normalizedIdentityString(object.value(forKey: "name")) == normalizedIdentity
+                    }
+                    if normalizedDuplicate != nil {
+                        throw NSError(
+                            domain: "CoreDataLifeAreaRepository",
+                            code: 409,
+                            userInfo: [NSLocalizedDescriptionKey: "Active life area names must be unique"]
+                        )
+                    }
+                }
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: LifeAreaMapper.entityName,
                     id: area.id
                 )
-                _ = LifeAreaMapper.apply(area, to: object)
+                var normalizedArea = area
+                normalizedArea.name = normalizedName
+                _ = LifeAreaMapper.apply(normalizedArea, to: object)
                 try self.backgroundContext.save()
-                completion(.success(area))
+                completion(.success(normalizedArea))
             } catch {
                 completion(.failure(error))
             }

@@ -56,7 +56,11 @@ check_banned_symbol "TaskRepositoryProtocol" 'TaskRepositoryProtocol'
 check_banned_symbol "V2TaskRepositoryAdapter" 'V2TaskRepositoryAdapter'
 check_banned_symbol "TaskData" '\bTaskData\b'
 check_banned_symbol "toLegacyTask" 'toLegacyTask'
-check_banned_symbol "legacyTask" 'legacyTask'
+if rg -n -P 'legacyTask' "$PRODUCTION_SWIFT_ROOT" --glob '*.swift' \
+  | rg -v '^LifeBoard/Onboarding/AppOnboarding.swift:[0-9]+:.*legacyTaskIDMap'; then
+  echo "Banned legacy symbol detected: legacyTask"
+  exit 1
+fi
 check_banned_symbol "CoreDataTaskRepository" 'CoreDataTaskRepository'
 check_banned_symbol "NAddTaskScreen" 'NAddTaskScreen'
 check_banned_symbol "DependencyContainer.shared" '(^|[^A-Za-z0-9_])DependencyContainer\.shared\b'

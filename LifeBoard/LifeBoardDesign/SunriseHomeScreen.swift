@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct SunriseHomeScreen: View {
     let chrome: HomeChromeSnapshot
@@ -9,14 +12,18 @@ struct SunriseHomeScreen: View {
     let bottomInset: CGFloat
     let safeAreaTop: CGFloat
     let isShellInteractive: Bool
+    let isDaySwipeEnabled: Bool
+    let isDaySwipeInteractive: Bool
     let onSelectQuickView: (HomeQuickView) -> Void
     let onShowDatePicker: () -> Void
-    let onShiftSelectedDay: (Int) -> Void
+    let onShiftSelectedDay: (Int, HomeDateNavigationSource) -> Void
     let onShowAdvancedFilters: () -> Void
     let onOpenSettings: () -> Void
     let onOpenSearch: () -> Void
     let onOpenChat: () -> Void
     let onOpenHabitBoard: () -> Void
+    let onCycleHabit: (HomeHabitRow) -> Void
+    let onAddHabit: () -> Void
     let onAddTask: (Date?) -> Void
     let onRequestCalendarPermission: () -> Void
     let onOpenCalendarChooser: () -> Void
@@ -29,45 +36,141 @@ struct SunriseHomeScreen: View {
     @State private var isScrollActive = false
     @State private var scrollStopTask: Task<Void, Never>?
     @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
-    @State private var selectedFilterID = "all"
+    @State private var lastScrollOffsetY: CGFloat?
+    @State private var lastEmittedScrollChromeState: HomeScrollChromeState?
+    @State private var selectedContentScope: SunriseHomeContentScope = .all
+    @State private var headerActivationID = TimeOfDayHeaderAsset.makeActivationID()
+    @State private var leadingDaySunriseSwipeData = SunriseDaySwipeData(side: .leading)
+    @State private var trailingDaySunriseSwipeData = SunriseDaySwipeData(side: .trailing)
+    @State private var topDaySunriseSwipeSide: SunriseDaySwipeSide = .trailing
+    @State private var activeDaySunriseSwipeSide: SunriseDaySwipeSide?
+    @State private var isDaySunriseSwipeChromeVisible = true
+    @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ZStack(alignment: .top) {
-            LBColorTokens.canvas
-                .ignoresSafeArea()
+        GeometryReader { proxy in
+            ZStack(alignment: .top) {
+                Color.lifeboard.bgCanvas
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
 
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    header
-                    content
-                        .padding(.top, -headerContentOverlap)
-                        .padding(.bottom, bottomInset + LBSpacingTokens.bottomDockClearance)
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        header
+                        content
+                            .id(selectedDayKey)
+                            .transition(daySwipeTransition)
+                            .animation(daySwipeAnimation, value: selectedDayKey)
+                            .padding(.top, -headerContentOverlap)
+                            .padding(.bottom, bottomInset + LBSpacingTokens.bottomDockClearance)
+                    }
+                    .contentShape(Rectangle())
+                    .background {
+                        ZStack {
+                            SunriseDaySwipeGestureSurface(
+                                isEnabled: isDaySwipeInteractionEnabled,
+                                containerSize: daySunriseSwipeContainerSize(proxy.size),
+                                restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
+                                resolver: .default,
+                                onInteractionStarted: {},
+                                onChanged: { side, translation, location in
+                                    updateDaySunriseSwipe(
+                                        side: side,
+                                        translation: translation,
+                                        location: location,
+                                        size: daySunriseSwipeContainerSize(proxy.size),
+                                        restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
+                                    )
+                                },
+                                onEnded: { side, translation, predictedEndTranslation, _ in
+                                    endDaySunriseSwipe(
+                                        side: side,
+                                        translation: translation,
+                                        predictedEndTranslation: predictedEndTranslation,
+                                        size: daySunriseSwipeContainerSize(proxy.size),
+                                        restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
+                                    )
+                                },
+                                onCancelled: { side in
+                                    cancelDaySunriseSwipe(
+                                        side: side,
+                                        size: daySunriseSwipeContainerSize(proxy.size),
+                                        restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top)
+                                    )
+                                }
+                            )
+
+                            SunriseHomeScrollChromeObserver(
+                                isEnabled: isDaySwipeChromeEnabled,
+                                onScrollIntent: handleScrollChromeState
+                            )
+                        }
+                        .frame(width: 1, height: 1)
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
+                    }
+                    .lifeboardScrollOptimizedRendering(isScrollActive)
+                    .transaction { transaction in
+                        if isScrollActive {
+                            transaction.animation = nil
+                        }
+                    }
                 }
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(key: SunriseScrollOffsetPreferenceKey.self, value: proxy.frame(in: .named("sunriseHomeScroll")).minY)
+                .coordinateSpace(name: "sunriseHomeScroll")
+                .scrollIndicators(.hidden)
+                .accessibilityIdentifier("home.view")
+                .ignoresSafeArea(edges: .top)
+                .simultaneousGesture(scrollIntentGesture)
+                .onScrollGeometryChange(
+                    for: CGFloat.self,
+                    of: { geometry in
+                        geometry.contentOffset.y + geometry.contentInsets.top
+                    },
+                    action: { _, newOffset in
+                        handleScrollOffsetChange(max(0, newOffset))
                     }
                 )
+
+                daySunriseSwipeOverlay(safeAreaTop: proxy.safeAreaInsets.top)
+                    .zIndex(10)
             }
-            .coordinateSpace(name: "sunriseHomeScroll")
-            .scrollIndicators(.hidden)
-            .ignoresSafeArea(edges: .top)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 2)
-                    .onChanged { _ in setScrolling(true) }
-                    .onEnded { _ in scheduleScrollStop() }
-            )
-            .onPreferenceChange(SunriseScrollOffsetPreferenceKey.self) { offset in
-                handleScrollOffsetChange(Self.chromeOffset(forScrollMinY: offset))
+            .onAppear {
+                resetIdleDaySunriseSwipeHandles(
+                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
+                    size: daySunriseSwipeContainerSize(proxy.size)
+                )
             }
+            .onChange(of: proxy.size) { _, newSize in
+                resetIdleDaySunriseSwipeHandles(
+                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: proxy.safeAreaInsets.top),
+                    size: daySunriseSwipeContainerSize(newSize)
+                )
+            }
+            .onChange(of: proxy.safeAreaInsets.top) { _, newSafeAreaTop in
+                resetIdleDaySunriseSwipeHandles(
+                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: newSafeAreaTop),
+                    size: daySunriseSwipeContainerSize(proxy.size)
+                )
+            }
+            .contentShape(Rectangle())
+            .simultaneousGesture(scrollIntentGesture)
         }
-        .accessibilityIdentifier("home.view")
+        #if canImport(UIKit)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            refreshHeaderActivationID()
+        }
+        #endif
     }
 
     private var header: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
-            let context = LBHeaderTimeContext.resolve(selectedDate: chrome.selectedDate, now: timeline.date)
+            let context = LBHeaderTimeContext.resolve(
+                selectedDate: chrome.selectedDate,
+                now: timeline.date,
+                activationID: headerActivationID
+            )
             SunriseHeaderView(
                 context: context,
                 isScrollActive: isScrollActive,
@@ -81,12 +184,12 @@ struct SunriseHomeScreen: View {
                         heroTitleColor: context.foregroundStyle.titleColor,
                         heroSubtitleColor: context.foregroundStyle.controlColor,
                         chromeControlColor: context.foregroundStyle.controlColor,
-                        chromeGlassFill: Color.white.opacity(0.12),
+                        chromeGlassFill: context.foregroundStyle.glassFill.opacity(0.72),
                         chromeGlassStroke: context.foregroundStyle.glassStroke.opacity(0.72),
-                        navigatorColor: LBColorTokens.navy,
+                        navigatorColor: context.foregroundStyle.controlColor,
                         navigatorTitle: LBHeaderTimeContext.navigatorTitle(selectedDate: chrome.selectedDate, now: timeline.date),
-                        navigatorGlassFill: Color.white.opacity(0.16),
-                        navigatorGlassStroke: Color.white.opacity(0.58),
+                        navigatorGlassFill: context.foregroundStyle.glassFill,
+                        navigatorGlassStroke: context.foregroundStyle.glassStroke,
                         hasNotifications: false,
                         hasActiveFilters: chrome.activeFilterState.hasActiveFilters
                     ),
@@ -94,12 +197,47 @@ struct SunriseHomeScreen: View {
                     safeAreaTop: safeAreaTop,
                     onMenu: onOpenSettings,
                     onSearch: onOpenSearch,
-                    onDateTap: onShowDatePicker,
-                    onPreviousDay: { onShiftSelectedDay(-1) },
-                    onNextDay: { onShiftSelectedDay(1) }
+                    onDateTap: onShowDatePicker
                 )
             }
         }
+    }
+
+    private func daySunriseSwipeOverlay(safeAreaTop: CGFloat) -> some View {
+        SunriseDaySwipeOverlay(
+            isEnabled: isDaySwipeChromeEnabled,
+            isChromeVisible: isDaySunriseSwipeChromeVisible,
+            reduceMotion: reduceMotion || isUITesting,
+            restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: safeAreaTop),
+            onInteractionStarted: {},
+            onInteractionCancelled: {},
+            onCommit: commitHomeDaySwipe,
+            onHandleDragChanged: { side, translation, location, size in
+                updateDaySunriseSwipe(
+                    side: side,
+                    translation: translation,
+                    location: location,
+                    size: size,
+                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: safeAreaTop)
+                )
+            },
+            onHandleDragEnded: { side, translation, predictedEndTranslation, _, size in
+                endDaySunriseSwipe(
+                    side: side,
+                    translation: translation,
+                    predictedEndTranslation: predictedEndTranslation,
+                    size: size,
+                    restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: safeAreaTop)
+                )
+            },
+            leadingData: $leadingDaySunriseSwipeData,
+            trailingData: $trailingDaySunriseSwipeData,
+            topSide: $topDaySunriseSwipeSide
+        )
+    }
+
+    private func refreshHeaderActivationID() {
+        headerActivationID = TimeOfDayHeaderAsset.makeActivationID()
     }
 
     private var headerHeight: CGFloat {
@@ -110,15 +248,68 @@ struct SunriseHomeScreen: View {
         dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.sunriseHeaderAccessibilityContentOverlap : LBSpacingTokens.sunriseHeaderContentOverlap
     }
 
+    private var selectedDayKey: Int {
+        Int(Calendar.current.startOfDay(for: chrome.selectedDate).timeIntervalSince1970)
+    }
+
+    private var isUITesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("-UI_TESTING")
+            || ProcessInfo.processInfo.arguments.contains("-DISABLE_ANIMATIONS")
+    }
+
+    private var isDaySwipeChromeEnabled: Bool {
+        isDaySwipeEnabled
+    }
+
+    private var isDaySwipeInteractionEnabled: Bool {
+        isShellInteractive && isDaySwipeInteractive && isDaySunriseSwipeChromeVisible
+    }
+
+    private var daySwipeAnimation: Animation {
+        if reduceMotion || isUITesting {
+            return .easeOut(duration: 0.12)
+        }
+        return .snappy(duration: 0.22)
+    }
+
+    private var daySwipeTransition: AnyTransition {
+        guard reduceMotion == false, isUITesting == false else {
+            return .opacity
+        }
+
+        switch committedDaySwipeDirection {
+        case .previous:
+            return .asymmetric(
+                insertion: .move(edge: .leading).combined(with: .opacity),
+                removal: .move(edge: .trailing).combined(with: .opacity)
+            )
+        case .next:
+            return .asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .move(edge: .leading).combined(with: .opacity)
+            )
+        case nil:
+            return .opacity
+        }
+    }
+
+    private var filterRowTopPadding: CGFloat {
+        headerContentOverlap + LBSpacingTokens.xs
+    }
+
     private var content: some View {
         VStack(spacing: LBSpacingTokens.xxs) {
             filterRow
 
             stateCards
 
-            timelineContent
+            if selectedContentScope.showsTimeline {
+                timelineContent
+            }
 
-            habitPreview
+            if selectedContentScope.showsHabits {
+                habitContent
+            }
         }
         .padding(.horizontal, LBSpacingTokens.screenMargin)
     }
@@ -135,16 +326,18 @@ struct SunriseHomeScreen: View {
             .padding(.horizontal, LBSpacingTokens.screenMargin)
         }
         .padding(.horizontal, -LBSpacingTokens.screenMargin)
-        .padding(.top, LBSpacingTokens.xs + 10)
+        .padding(.top, filterRowTopPadding)
     }
 
     @ViewBuilder
     private var stateCards: some View {
-        if calendar.isLoading && timeline.day.plottedTimelineItems.isEmpty {
+        if selectedContentScope.showsCalendarState,
+           calendar.isLoading && timeline.day.plottedTimelineItems.isEmpty {
             LBLoadingSkeleton(lineCount: 3)
         }
 
-        if let permission = permissionModel {
+        if selectedContentScope.showsCalendarState,
+           let permission = permissionModel {
             LBPermissionCard(
                 model: permission.model,
                 primaryAction: permission.primaryAction,
@@ -152,7 +345,8 @@ struct SunriseHomeScreen: View {
             )
         }
 
-        if let error = syncErrorModel {
+        if selectedContentScope.showsHabitState,
+           let error = syncErrorModel {
             LBPermissionCard(
                 model: error.model,
                 primaryAction: error.primaryAction,
@@ -165,15 +359,12 @@ struct SunriseHomeScreen: View {
     private var timelineContent: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             let rows = timelineRows(now: context.date)
+            let nextUpcomingCalendarItemID = Self.nextUpcomingCalendarItemID(in: rows, now: context.date)
             if rows.isEmpty {
+                let emptyState = timelineEmptyStateModel
                 LBEmptyState(
-                    model: LBEmptyState.Model(
-                        title: "A quiet day",
-                        message: "Nothing fixed is on the board yet. Add one meaningful next step when you are ready.",
-                        actionTitle: "Add to today",
-                        systemImage: "sun.max"
-                    ),
-                    action: { onAddTask(chrome.selectedDate) }
+                    model: emptyState.model,
+                    action: emptyState.action
                 )
             } else {
                 LazyVStack(spacing: LBSpacingTokens.sm) {
@@ -192,6 +383,7 @@ struct SunriseHomeScreen: View {
                                     role: anchorRole,
                                     kind: .anchor,
                                     systemImage: anchorSystemImage(for: anchor),
+                                    tintHex: nil,
                                     accessoryText: nil,
                                     temporalState: temporalState,
                                     isCompleted: false,
@@ -200,14 +392,27 @@ struct SunriseHomeScreen: View {
                                 ),
                                 onTap: { onAnchorTap(anchor) }
                             )
+                            .equatable()
                         }
                     case .item(let item):
-                        LBTimelineItem(timeText: timeText(item.startDate), role: role(for: item), temporalState: temporalState) {
+                        let kind = cardKind(for: item)
+                        LBTimelineItem(
+                            timeText: timeText(item.startDate),
+                            role: role(for: item),
+                            tintHex: kind == .task ? item.tintHex : nil,
+                            temporalState: temporalState
+                        ) {
                             LBTimelineCard(
-                                model: timelineCardModel(for: item, temporalState: temporalState),
+                                model: timelineCardModel(
+                                    for: item,
+                                    temporalState: temporalState,
+                                    now: context.date,
+                                    nextUpcomingCalendarItemID: nextUpcomingCalendarItemID
+                                ),
                                 onTap: { onTimelineItemTap(item) },
                                 onToggleComplete: item.taskID == nil ? nil : { onTimelineItemToggleComplete(item) }
                             )
+                            .equatable()
                         }
                     case .meetingFlock(let model, let sourceItems):
                         LBTimelineItem(timeText: model.timeRange.components(separatedBy: " – ").first ?? model.timeRange, role: .meeting, temporalState: temporalState) {
@@ -233,6 +438,7 @@ struct SunriseHomeScreen: View {
                                 isToday: true
                             )
                         )
+                        .equatable()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     }
@@ -242,41 +448,26 @@ struct SunriseHomeScreen: View {
     }
 
     @ViewBuilder
-    private var habitPreview: some View {
-        let models = habitModels
-        if !models.isEmpty {
-            LBGlassCard(cornerRadius: LBRadiusTokens.largeCard) {
-                VStack(spacing: LBSpacingTokens.md) {
-                    HStack {
-                        LBSectionHeader(title: "Habits", systemImage: "chart.bar")
-                        Spacer()
-                        Button("View All Habits", action: onOpenHabitBoard)
-                            .font(LBTypographyTokens.meta)
-                            .foregroundStyle(LBColorTokens.violetDeep)
-                            .buttonStyle(.plain)
-                    }
-                    ForEach(models) { model in
-                        LBHabitCell(model: model)
-                    }
-                    Divider().overlay(LBColorTokens.hairline)
-                    HStack {
-                        Image(systemName: "star")
-                        Text("Small steps, big changes.")
-                        Spacer()
-                    }
-                    .font(LBTypographyTokens.meta)
-                    .foregroundStyle(LBColorTokens.navyMuted)
-                }
-                .padding(LBSpacingTokens.lg)
-            }
-            .padding(.top, LBSpacingTokens.xs)
-            .padding(.bottom, LBSpacingTokens.xxl)
+    private var habitContent: some View {
+        SunriseHabitGridCard(
+            rows: habitRowModels,
+            onOpenHabitBoard: onOpenHabitBoard,
+            onCycleHabit: { model in
+                onCycleHabit(model.sourceRow)
+            },
+            onAddHabit: onAddHabit
+        )
+        .equatable()
+        .padding(.top, LBSpacingTokens.xs)
+        .padding(.bottom, LBSpacingTokens.xxl)
+        .transaction { transaction in
+            transaction.animation = nil
         }
     }
 
     private var filterChips: [SunriseFilterChip] {
         Self.filterChipModels(
-            selectedFilterID: selectedFilterID,
+            selectedContentScope: selectedContentScope,
             hasActiveFilters: chrome.activeFilterState.hasActiveFilters
         ).map { model in
             switch model.id {
@@ -284,32 +475,28 @@ struct SunriseHomeScreen: View {
                 return SunriseFilterChip(
                     model: model,
                     action: {
-                        selectedFilterID = "all"
-                        onSelectQuickView(.today)
+                        selectedContentScope = .all
                     }
                 )
             case "meetings":
                 return SunriseFilterChip(
                     model: model,
                     action: {
-                        selectedFilterID = "meetings"
-                        onOpenCalendarChooser()
+                        selectedContentScope = .meetings
                     }
                 )
             case "tasks":
                 return SunriseFilterChip(
                     model: model,
                     action: {
-                        selectedFilterID = "tasks"
-                        onSelectQuickView(.today)
+                        selectedContentScope = .tasks
                     }
                 )
             case "habits":
                 return SunriseFilterChip(
                     model: model,
                     action: {
-                        selectedFilterID = "habits"
-                        onOpenHabitBoard()
+                        selectedContentScope = .habits
                     }
                 )
             case "filters":
@@ -326,34 +513,79 @@ struct SunriseHomeScreen: View {
         }
     }
 
-    nonisolated static func filterChipModels(selectedFilterID: String, hasActiveFilters: Bool = false) -> [LBFilterChip.Model] {
+    private var timelineEmptyStateModel: (model: LBEmptyState.Model, action: () -> Void) {
+        switch selectedContentScope {
+        case .all:
+            return (
+                LBEmptyState.Model(
+                    title: "A quiet day",
+                    message: "Nothing fixed is on the board yet. Add one meaningful next step when you are ready.",
+                    actionTitle: "Add to today",
+                    systemImage: "sun.max"
+                ),
+                { onAddTask(chrome.selectedDate) }
+            )
+        case .meetings:
+            return (
+                LBEmptyState.Model(
+                    title: "No meetings on this day",
+                    message: "Your calendar has nothing meeting-like in this Home view.",
+                    actionTitle: "Choose calendars",
+                    systemImage: "calendar"
+                ),
+                onOpenCalendarChooser
+            )
+        case .tasks:
+            return (
+                LBEmptyState.Model(
+                    title: "No tasks in this view",
+                    message: "No task cards match the current day and focus filters.",
+                    actionTitle: "Add to today",
+                    systemImage: "checkmark.square"
+                ),
+                { onAddTask(chrome.selectedDate) }
+            )
+        case .habits:
+            return (
+                LBEmptyState.Model(
+                    title: "No habits here yet",
+                    message: "Nothing is due or tracked in Home right now. Open the Habit Board to review the full system.",
+                    actionTitle: "Open Habit Board",
+                    systemImage: "heart"
+                ),
+                onOpenHabitBoard
+            )
+        }
+    }
+
+    nonisolated static func filterChipModels(selectedContentScope: SunriseHomeContentScope, hasActiveFilters: Bool = false) -> [LBFilterChip.Model] {
         [
             LBFilterChip.Model(
                 id: "all",
                 title: "All",
                 systemImage: "square.grid.2x2",
-                isSelected: selectedFilterID == "all",
+                isSelected: selectedContentScope == .all,
                 accessibilityID: "home.sunrise.filter.all"
             ),
             LBFilterChip.Model(
                 id: "meetings",
                 title: "Meetings",
                 systemImage: "calendar",
-                isSelected: selectedFilterID == "meetings",
+                isSelected: selectedContentScope == .meetings,
                 accessibilityID: "home.sunrise.filter.meetings"
             ),
             LBFilterChip.Model(
                 id: "tasks",
                 title: "Tasks",
                 systemImage: "checkmark.square",
-                isSelected: selectedFilterID == "tasks",
+                isSelected: selectedContentScope == .tasks,
                 accessibilityID: "home.sunrise.filter.tasks"
             ),
             LBFilterChip.Model(
                 id: "habits",
                 title: "Habits",
                 systemImage: "heart",
-                isSelected: selectedFilterID == "habits",
+                isSelected: selectedContentScope == .habits,
                 accessibilityID: "home.sunrise.filter.habits"
             ),
             LBFilterChip.Model(
@@ -369,13 +601,16 @@ struct SunriseHomeScreen: View {
     }
 
     func timelineRows(now: Date) -> [SunriseTimelineRow] {
-        Self.buildTimelineRows(
+        let interval = LifeBoardPerformanceTrace.begin("HomeTimelineRowsBuild")
+        defer { LifeBoardPerformanceTrace.end(interval) }
+        return Self.buildTimelineRows(
             wakeAnchor: timeline.day.wakeAnchor,
             sleepAnchor: timeline.day.sleepAnchor,
             plottedItems: timeline.day.plottedTimelineItems,
             gaps: timeline.day.actionableGaps,
             now: now,
             isToday: Calendar.current.isDate(chrome.selectedDate, inSameDayAs: now),
+            contentScope: selectedContentScope,
             meetingFlockModel: meetingFlockModel(for:)
         )
     }
@@ -387,12 +622,17 @@ struct SunriseHomeScreen: View {
         gaps: [TimelineGap],
         now: Date,
         isToday: Bool,
+        contentScope: SunriseHomeContentScope = .all,
         meetingFlockModel: ([TimelinePlanItem]) -> LBMeetingFlockCard.Model
     ) -> [SunriseTimelineRow] {
-        var rows: [SunriseTimelineRow] = []
-        rows.append(.anchor(wakeAnchor))
+        guard contentScope.showsTimeline else { return [] }
 
-        let plotted = plottedItems
+        var rows: [SunriseTimelineRow] = []
+        if contentScope.includesStructuralTimelineRows {
+            rows.append(.anchor(wakeAnchor))
+        }
+
+        let plotted = plottedItems.filter { contentScope.includesTimelineItem($0) }
         var index = 0
         while index < plotted.count {
             let item = plotted[index]
@@ -408,37 +648,65 @@ struct SunriseHomeScreen: View {
             index += 1
         }
 
-        if isToday {
+        if contentScope.includesStructuralTimelineRows, isToday {
             rows.append(.now(now))
         }
 
-        if let gap = gaps.first(where: { Self.assistantDisplayDate(for: $0, now: now) != nil }) {
+        if contentScope.includesAssistantGaps,
+           let gap = gaps.first(where: { Self.assistantDisplayDate(for: $0, now: now) != nil }) {
             rows.append(.gap(gap))
         }
 
-        rows.append(.anchor(sleepAnchor))
+        if contentScope.includesStructuralTimelineRows {
+            rows.append(.anchor(sleepAnchor))
+        }
 
         return Self.sortedRows(rows, now: now)
     }
 
-    private var habitModels: [LBHabitCell.Model] {
-        Array((habits.habitHomeSectionState.primaryRows + habits.habitHomeSectionState.recoveryRows).prefix(8)).map { row in
-            let cells = Array((row.boardCellsCompact.isEmpty ? row.boardCellsExpanded : row.boardCellsCompact).suffix(7))
-            let doneCount = cells.filter { cell in
-                if case .done = cell.state { return true }
-                return false
-            }.count
-            return LBHabitCell.Model(
-                id: row.id,
-                title: row.title,
-                systemImage: row.iconSymbolName,
-                color: Color(lifeboardHex: row.accentHex ?? HabitColorFamily.family(for: row.accentHex).canonicalHex),
-                completionRatio: cells.isEmpty ? 0 : Double(doneCount) / Double(cells.count),
-                dayLabels: Self.dayLabels(for: cells),
-                cells: cells.map(LBHabitCell.CellState.init),
-                allowsTwoLineTitle: true
-            )
-        }
+    private var visibleHabitRows: [HomeHabitRow] {
+        let interval = LifeBoardPerformanceTrace.begin("HomeHabitModelsBuild")
+        defer { LifeBoardPerformanceTrace.end(interval) }
+        return Array(
+            (
+                habits.habitHomeSectionState.primaryRows
+                + habits.habitHomeSectionState.recoveryRows
+            ).prefix(8)
+        )
+    }
+
+    private var habitRowModels: [SunriseHabitGridRowModel] {
+        visibleHabitRows.map(habitRowModel(for:))
+    }
+
+    private func habitRowModel(for row: HomeHabitRow) -> SunriseHabitGridRowModel {
+        let interaction = HomeHabitLastCellInteraction.resolve(for: row)
+        return SunriseHabitGridRowModel(
+            habitID: row.habitID,
+            sourceRow: row,
+            title: row.title,
+            cellModel: habitCellModel(for: row),
+            currentStateText: interaction.currentStateText,
+            nextActionText: interaction.nextActionText
+        )
+    }
+
+    private func habitCellModel(for row: HomeHabitRow) -> LBHabitCell.Model {
+        let cells = Array((row.boardCellsCompact.isEmpty ? row.boardCellsExpanded : row.boardCellsCompact).suffix(7))
+        let doneCount = cells.filter { cell in
+            if case .done = cell.state { return true }
+            return false
+        }.count
+        return LBHabitCell.Model(
+            id: row.habitID.uuidString,
+            title: row.title,
+            systemImage: row.iconSymbolName,
+            color: Color(lifeboardHex: row.accentHex ?? HabitColorFamily.family(for: row.accentHex).canonicalHex),
+            completionRatio: cells.isEmpty ? 0 : Double(doneCount) / Double(cells.count),
+            dayLabels: Self.dayLabels(for: cells),
+            cells: cells.map(LBHabitCell.CellState.init),
+            allowsTwoLineTitle: true
+        )
     }
 
     private var permissionModel: (model: LBPermissionCard.Model, primaryAction: () -> Void, secondaryAction: (() -> Void)?)? {
@@ -532,17 +800,27 @@ struct SunriseHomeScreen: View {
         )
     }
 
-    private func timelineCardModel(for item: TimelinePlanItem, temporalState: LBTimelineTemporalState) -> LBTimelineCard.Model {
+    private func timelineCardModel(
+        for item: TimelinePlanItem,
+        temporalState: LBTimelineTemporalState,
+        now: Date,
+        nextUpcomingCalendarItemID: String?
+    ) -> LBTimelineCard.Model {
         let kind = cardKind(for: item)
         return LBTimelineCard.Model(
             id: item.id,
             title: item.title,
-            subtitle: item.subtitle ?? (item.source == .calendarEvent ? "Calendar" : ""),
+            subtitle: Self.timelineCardSubtitle(
+                for: item,
+                now: now,
+                nextUpcomingCalendarItemID: nextUpcomingCalendarItemID
+            ),
             timeText: "\(timeText(item.startDate))\(item.endDate == nil ? "" : " – \(timeText(item.endDate))")",
             role: role(for: item),
             kind: kind,
             systemImage: kind == .calendar ? "calendar" : item.systemImageName,
-            accessoryText: item.source == .task ? "Task" : nil,
+            tintHex: kind == .task ? item.tintHex : nil,
+            accessoryText: nil,
             temporalState: temporalState,
             isCompleted: item.isComplete,
             isToggleable: item.taskID != nil,
@@ -624,6 +902,53 @@ struct SunriseHomeScreen: View {
         return gap.startDate
     }
 
+    nonisolated static func nextUpcomingCalendarItemID(in rows: [SunriseTimelineRow], now: Date) -> String? {
+        rows.compactMap { row -> TimelinePlanItem? in
+            guard case .item(let item) = row,
+                  item.source == .calendarEvent,
+                  let startDate = item.startDate,
+                  startDate > now else {
+                return nil
+            }
+            return item
+        }
+        .sorted { lhs, rhs in
+            guard let leftStart = lhs.startDate, let rightStart = rhs.startDate else {
+                return lhs.id < rhs.id
+            }
+            if leftStart == rightStart {
+                return lhs.id < rhs.id
+            }
+            return leftStart < rightStart
+        }
+        .first?
+        .id
+    }
+
+    nonisolated static func timelineCardSubtitle(
+        for item: TimelinePlanItem,
+        now: Date,
+        nextUpcomingCalendarItemID: String?
+    ) -> String {
+        guard item.source == .calendarEvent else {
+            return item.subtitle ?? ""
+        }
+        guard item.id == nextUpcomingCalendarItemID,
+              let startDate = item.startDate else {
+            return ""
+        }
+        return calendarCountdownSubtitle(until: startDate, now: now) ?? ""
+    }
+
+    nonisolated static func calendarCountdownSubtitle(until startDate: Date, now: Date) -> String? {
+        guard startDate > now else { return nil }
+        let minutes = max(1, Int(ceil(startDate.timeIntervalSince(now) / 60)))
+        if minutes < 60 {
+            return "in \(minutes)m"
+        }
+        return "in \(Int(ceil(Double(minutes) / 60.0)))h"
+    }
+
     private static func dayLabels(for cells: [HabitBoardCell]) -> [String] {
         cells.map { cell in
             String(cell.date.formatted(.dateTime.weekday(.narrow)).prefix(1))
@@ -635,9 +960,154 @@ struct SunriseHomeScreen: View {
         return date.formatted(date: .omitted, time: .shortened)
     }
 
+    private func daySunriseSwipeContainerSize(_ size: CGSize) -> CGSize {
+        CGSize(width: max(size.width, 1), height: max(size.height, 1))
+    }
+
+    private func daySunriseSwipeRestingCenterY(safeAreaTop: CGFloat) -> CGFloat {
+        max(safeAreaTop, 0) + SunriseDaySwipeData.timelineHandleCenterY
+    }
+
+    private func daySunriseSwipeData(
+        for side: SunriseDaySwipeSide,
+        size: CGSize,
+        restingCenterY: CGFloat
+    ) -> SunriseDaySwipeData {
+        let data = side == .leading ? leadingDaySunriseSwipeData : trailingDaySunriseSwipeData
+        return data
+            .resting(at: restingCenterY)
+            .sized(to: daySunriseSwipeContainerSize(size))
+    }
+
+    private func setDaySunriseSwipeData(_ data: SunriseDaySwipeData) {
+        switch data.side {
+        case .leading:
+            leadingDaySunriseSwipeData = data
+        case .trailing:
+            trailingDaySunriseSwipeData = data
+        }
+    }
+
+    private func updateDaySunriseSwipe(
+        side: SunriseDaySwipeSide,
+        translation: CGSize,
+        location: CGPoint,
+        size: CGSize,
+        restingCenterY: CGFloat
+    ) {
+        guard isDaySwipeInteractionEnabled else { return }
+        activeDaySunriseSwipeSide = side
+        topDaySunriseSwipeSide = side
+        setDaySunriseSwipeData(
+            daySunriseSwipeData(for: side, size: size, restingCenterY: restingCenterY)
+                .drag(translation: translation, location: location)
+        )
+    }
+
+    private func endDaySunriseSwipe(
+        side: SunriseDaySwipeSide,
+        translation: CGSize,
+        predictedEndTranslation: CGSize,
+        size: CGSize,
+        restingCenterY: CGFloat
+    ) {
+        activeDaySunriseSwipeSide = nil
+
+        guard isDaySwipeInteractionEnabled else {
+            resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
+            return
+        }
+
+        guard let direction = HomeDaySwipeResolver.default.resolvedDirection(
+            translation: translation,
+            predictedEndTranslation: predictedEndTranslation
+        ), direction == side.direction else {
+            resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
+            return
+        }
+
+        commitDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
+    }
+
+    private func cancelDaySunriseSwipe(
+        side: SunriseDaySwipeSide,
+        size: CGSize,
+        restingCenterY: CGFloat
+    ) {
+        activeDaySunriseSwipeSide = nil
+        resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
+    }
+
+    private func resetDaySunriseSwipe(
+        _ side: SunriseDaySwipeSide,
+        size: CGSize,
+        restingCenterY: CGFloat
+    ) {
+        let data = daySunriseSwipeData(for: side, size: size, restingCenterY: restingCenterY).initial()
+        if reduceMotion || isUITesting {
+            setDaySunriseSwipeData(data)
+        } else {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                setDaySunriseSwipeData(data)
+            }
+        }
+    }
+
+    private func resetIdleDaySunriseSwipeHandles(restingCenterY: CGFloat, size: CGSize) {
+        guard activeDaySunriseSwipeSide == nil else { return }
+        let containerSize = daySunriseSwipeContainerSize(size)
+        leadingDaySunriseSwipeData = leadingDaySunriseSwipeData
+            .resting(at: restingCenterY)
+            .sized(to: containerSize)
+            .initial()
+        trailingDaySunriseSwipeData = trailingDaySunriseSwipeData
+            .resting(at: restingCenterY)
+            .sized(to: containerSize)
+            .initial()
+    }
+
+    private func commitDaySunriseSwipe(
+        _ side: SunriseDaySwipeSide,
+        size: CGSize,
+        restingCenterY: CGFloat
+    ) {
+        topDaySunriseSwipeSide = side
+        if reduceMotion || isUITesting {
+            commitHomeDaySwipe(side.direction)
+            resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
+            return
+        }
+
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+            setDaySunriseSwipeData(
+                daySunriseSwipeData(for: side, size: size, restingCenterY: restingCenterY).final()
+            )
+        } completion: {
+            commitHomeDaySwipe(side.direction)
+            resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
+        }
+    }
+
+    private func commitHomeDaySwipe(_ direction: HomeDayNavigationDirection) {
+        guard isDaySwipeInteractionEnabled else { return }
+        committedDaySwipeDirection = direction
+        let dayOffset = direction == .previous ? -1 : 1
+        LifeBoardFeedback.selection()
+        withAnimation(daySwipeAnimation) {
+            onShiftSelectedDay(dayOffset, .swipe)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            if committedDaySwipeDirection == direction {
+                committedDaySwipeDirection = nil
+            }
+        }
+    }
+
     private func setScrolling(_ active: Bool) {
         guard isScrollActive != active else { return }
         isScrollActive = active
+        LifeBoardPerformanceTrace.event("HomeScrollActive", value: active ? 1 : 0)
+        LifeBoardPerformanceTrace.event("HomeFlattenedRenderMode", value: active ? 1 : 0)
     }
 
     private func scheduleScrollStop() {
@@ -646,15 +1116,70 @@ struct SunriseHomeScreen: View {
             try? await Task.sleep(nanoseconds: 220_000_000)
             setScrolling(false)
             if let idleState = scrollChromeStateTracker.emitIdleIfNeeded() {
-                onScrollStateChange(idleState)
+                handleScrollChromeState(idleState)
             }
         }
     }
 
+    private var scrollIntentGesture: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { value in handleScrollDragChange(value) }
+            .onEnded { _ in scheduleScrollStop() }
+    }
+
     private func handleScrollOffsetChange(_ offset: CGFloat) {
-        guard isShellInteractive else { return }
-        if let nextState = scrollChromeStateTracker.consume(offset: offset) {
-            onScrollStateChange(nextState)
+        guard offset.isFinite else { return }
+        let normalizedOffset = max(0, offset)
+        if let lastScrollOffsetY,
+           normalizedOffset >= 40,
+           abs(normalizedOffset - lastScrollOffsetY) < 4 {
+            return
+        }
+        lastScrollOffsetY = normalizedOffset
+
+        if let nextState = scrollChromeStateTracker.consume(offset: normalizedOffset) {
+            handleScrollChromeState(nextState)
+        }
+    }
+
+    private func handleScrollDragChange(_ value: DragGesture.Value) {
+        setScrolling(true)
+
+        let verticalTranslation = value.translation.height
+        let horizontalTranslation = value.translation.width
+        guard abs(verticalTranslation) >= 8,
+              abs(verticalTranslation) > abs(horizontalTranslation) else { return }
+
+        if verticalTranslation < 0 {
+            handleScrollChromeState(.collapsed)
+        } else if scrollChromeStateTracker.lastOffsetY == nil {
+            handleScrollChromeState(.nearTop)
+        }
+    }
+
+    private func handleScrollChromeState(_ state: HomeScrollChromeState) {
+        guard lastEmittedScrollChromeState != state else { return }
+        lastEmittedScrollChromeState = state
+        updateDaySunriseSwipeChromeVisibility(for: state)
+        onScrollStateChange(state)
+    }
+
+    private func updateDaySunriseSwipeChromeVisibility(for state: HomeScrollChromeState) {
+        let nextVisibility = SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            currentVisibility: isDaySunriseSwipeChromeVisible,
+            for: state,
+            restoresOnExpanded: false
+        )
+        guard nextVisibility != isDaySunriseSwipeChromeVisible else { return }
+        if reduceMotion || isUITesting {
+            isDaySunriseSwipeChromeVisible = nextVisibility
+        } else {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                isDaySunriseSwipeChromeVisible = nextVisibility
+            }
+        }
+        if nextVisibility == false {
+            activeDaySunriseSwipeSide = nil
         }
     }
 
@@ -663,10 +1188,355 @@ struct SunriseHomeScreen: View {
     }
 }
 
+#if canImport(UIKit)
+private struct SunriseHomeScrollChromeObserver: UIViewRepresentable {
+    let isEnabled: Bool
+    let onScrollIntent: (HomeScrollChromeState) -> Void
+
+    func makeUIView(context: Context) -> HostView {
+        let view = HostView()
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        return view
+    }
+
+    func updateUIView(_ uiView: HostView, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.installIfNeeded(from: uiView)
+    }
+
+    static func dismantleUIView(_ uiView: HostView, coordinator: Coordinator) {
+        coordinator.uninstall()
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    final class HostView: UIView {
+        override var intrinsicContentSize: CGSize {
+            CGSize(width: 1, height: 1)
+        }
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: SunriseHomeScrollChromeObserver
+
+        private weak var scrollView: UIScrollView?
+        private weak var installedView: UIView?
+        private weak var panRecognizer: UIPanGestureRecognizer?
+        private let nearTopOffset: CGFloat = 40
+
+        init(parent: SunriseHomeScrollChromeObserver) {
+            self.parent = parent
+        }
+
+        func installIfNeeded(from hostView: UIView) {
+            if let scrollView = hostView.nearestSunriseHomeSuperview(of: UIScrollView.self),
+               let installView = scrollView.window ?? scrollView.superview {
+                install(on: installView, observing: scrollView)
+                return
+            }
+
+            DispatchQueue.main.async { [weak self, weak hostView] in
+                guard let self, let hostView else { return }
+                guard let scrollView = hostView.nearestSunriseHomeSuperview(of: UIScrollView.self) else { return }
+                guard let installView = scrollView.window ?? scrollView.superview else { return }
+                self.install(on: installView, observing: scrollView)
+            }
+        }
+
+        func uninstall() {
+            if let panRecognizer, let installedView {
+                installedView.removeGestureRecognizer(panRecognizer)
+            }
+            installedView = nil
+            panRecognizer = nil
+            scrollView = nil
+        }
+
+        private func install(on installView: UIView, observing scrollView: UIScrollView) {
+            self.scrollView = scrollView
+
+            if installedView === installView, panRecognizer?.view === installView {
+                return
+            }
+
+            uninstall()
+            self.scrollView = scrollView
+            let recognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+            recognizer.delegate = self
+            recognizer.cancelsTouchesInView = false
+            recognizer.delaysTouchesBegan = false
+            recognizer.delaysTouchesEnded = false
+            installView.addGestureRecognizer(recognizer)
+            installedView = installView
+            panRecognizer = recognizer
+        }
+
+        @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
+            guard parent.isEnabled, let scrollView else { return }
+
+            let translation = recognizer.translation(in: scrollView)
+            let velocity = recognizer.velocity(in: scrollView)
+            let verticalMovement = abs(translation.y) > 8 ? translation.y : velocity.y
+            let horizontalMovement = abs(translation.x) > 8 ? translation.x : velocity.x
+            guard abs(verticalMovement) > abs(horizontalMovement) else { return }
+
+            if verticalMovement < 0 {
+                parent.onScrollIntent(.collapsed)
+            } else if normalizedOffset(for: scrollView) <= nearTopOffset {
+                parent.onScrollIntent(.nearTop)
+            }
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard parent.isEnabled else { return false }
+            guard let recognizer = gestureRecognizer as? UIPanGestureRecognizer else { return false }
+            guard let scrollView else { return false }
+
+            let location = recognizer.location(in: scrollView)
+            let visibleBounds = CGRect(origin: .zero, size: scrollView.bounds.size)
+            guard visibleBounds.contains(location) else { return false }
+
+            return true
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            guard gestureRecognizer === panRecognizer else { return false }
+            guard let scrollView else { return false }
+            return otherGestureRecognizer === scrollView.panGestureRecognizer
+        }
+
+        private func normalizedOffset(for scrollView: UIScrollView) -> CGFloat {
+            max(0, scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
+        }
+    }
+}
+
+private extension UIView {
+    func nearestSunriseHomeSuperview<T: UIView>(of type: T.Type) -> T? {
+        var view = superview
+        while let current = view {
+            if let match = current as? T {
+                return match
+            }
+            view = current.superview
+        }
+        return nil
+    }
+}
+#endif
+
+enum SunriseHomeContentScope: String, CaseIterable, Sendable {
+    case all
+    case meetings
+    case tasks
+    case habits
+
+    var showsTimeline: Bool {
+        self != .habits
+    }
+
+    var showsHabits: Bool {
+        self == .all || self == .habits
+    }
+
+    var showsCalendarState: Bool {
+        self == .all || self == .meetings
+    }
+
+    var showsHabitState: Bool {
+        self == .all || self == .habits
+    }
+
+    var includesStructuralTimelineRows: Bool {
+        self == .all
+    }
+
+    var includesAssistantGaps: Bool {
+        self == .all
+    }
+
+    func includesTimelineItem(_ item: TimelinePlanItem) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .meetings:
+            return item.source == .calendarEvent || item.isMeetingLike
+        case .tasks:
+            return item.source == .task && item.isMeetingLike == false
+        case .habits:
+            return false
+        }
+    }
+}
+
 private struct SunriseFilterChip: Identifiable {
     let model: LBFilterChip.Model
     let action: () -> Void
     var id: String { model.id }
+}
+
+private struct SunriseHabitGridRowModel: Identifiable, Equatable {
+    let habitID: UUID
+    let sourceRow: HomeHabitRow
+    let title: String
+    let cellModel: LBHabitCell.Model
+    let currentStateText: String
+    let nextActionText: String
+
+    var id: UUID { habitID }
+    var accessibilityIdentifier: String { "home.habits.row.\(habitID.uuidString)" }
+    var accessibilityValue: String { "\(currentStateText). Next: \(nextActionText)." }
+    var accessibilityHint: String { "Double-tap to \(nextActionText.lowercased())." }
+}
+
+private struct SunriseHabitGridCard: View, Equatable {
+    let rows: [SunriseHabitGridRowModel]
+    let onOpenHabitBoard: () -> Void
+    let onCycleHabit: (SunriseHabitGridRowModel) -> Void
+    let onAddHabit: () -> Void
+
+    nonisolated static func == (lhs: SunriseHabitGridCard, rhs: SunriseHabitGridCard) -> Bool {
+        lhs.rows == rhs.rows
+    }
+
+    var body: some View {
+        ZStack {
+            LBGlassCard(cornerRadius: LBRadiusTokens.largeCard) {
+                VStack(spacing: LBSpacingTokens.md) {
+                    HStack {
+                        LBSectionHeader(title: "Habits", systemImage: "chart.bar")
+                        Spacer()
+                        Button("View All Habits", action: onOpenHabitBoard)
+                            .font(LBTypographyTokens.meta)
+                            .foregroundStyle(LBColorTokens.violetDeep)
+                            .buttonStyle(.plain)
+                    }
+
+                    if rows.isEmpty {
+                        emptyState
+                    } else {
+                        updateHint
+
+                        ForEach(rows) { row in
+                            SunriseHabitGridRow(model: row, onCycleHabit: onCycleHabit)
+                                .equatable()
+                        }
+                    }
+
+                    Divider().overlay(LBColorTokens.hairline)
+                    addHabitFooterButton
+                    footerNote
+                }
+                .padding(LBSpacingTokens.lg)
+            }
+
+            Color.clear
+                .allowsHitTesting(false)
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier("home.habits.grid")
+                .accessibilityLabel("Habits grid")
+        }
+        .transaction { transaction in
+            transaction.animation = nil
+        }
+    }
+
+    private var emptyState: some View {
+        HStack(spacing: LBSpacingTokens.sm) {
+            Image(systemName: "heart")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(LBColorTokens.violetDeep)
+            Text("No habits here yet.")
+                .font(LBTypographyTokens.body)
+                .foregroundStyle(LBColorTokens.navy)
+            Spacer(minLength: LBSpacingTokens.sm)
+        }
+        .padding(.top, LBSpacingTokens.xs)
+    }
+
+    private var updateHint: some View {
+        HStack(spacing: LBSpacingTokens.xs) {
+            Image(systemName: "hand.tap")
+                .font(.system(size: 13, weight: .semibold))
+            Text("Tap a habit to update today")
+                .font(LBTypographyTokens.meta)
+        }
+        .foregroundStyle(LBColorTokens.navyMuted)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("home.habits.hint")
+    }
+
+    private var addHabitFooterButton: some View {
+        Button(action: onAddHabit) {
+            HStack(spacing: LBSpacingTokens.xs) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                Text("Add Habit")
+                    .font(LBTypographyTokens.chip)
+                Spacer(minLength: LBSpacingTokens.sm)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(LBColorTokens.violetDeep.opacity(0.7))
+            }
+            .foregroundStyle(LBColorTokens.violetDeep)
+            .padding(.horizontal, LBSpacingTokens.md)
+            .padding(.vertical, LBSpacingTokens.sm)
+            .background {
+                RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
+                    .fill(LBColorTokens.violetSoft.opacity(0.72))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
+                            .stroke(LBColorTokens.violet.opacity(0.22), lineWidth: 1)
+                    }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.habits.addHabit")
+        .accessibilityLabel("Add Habit")
+    }
+
+    private var footerNote: some View {
+        HStack {
+            Image(systemName: "star")
+            Text("Small steps, big changes.")
+            Spacer()
+        }
+        .font(LBTypographyTokens.meta)
+        .foregroundStyle(LBColorTokens.navyMuted)
+    }
+}
+
+private struct SunriseHabitGridRow: View, Equatable {
+    let model: SunriseHabitGridRowModel
+    let onCycleHabit: (SunriseHabitGridRowModel) -> Void
+
+    nonisolated static func == (lhs: SunriseHabitGridRow, rhs: SunriseHabitGridRow) -> Bool {
+        lhs.model == rhs.model
+    }
+
+    var body: some View {
+        Button {
+            onCycleHabit(model)
+        } label: {
+            LBHabitCell(model: model.cellModel)
+                .equatable()
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier(model.accessibilityIdentifier)
+        .accessibilityLabel(model.title)
+        .accessibilityValue(model.accessibilityValue)
+        .accessibilityHint(model.accessibilityHint)
+    }
 }
 
 enum SunriseTimelineRow: Identifiable {
@@ -761,13 +1631,5 @@ enum SunriseTimelineRow: Identifiable {
             }
             return gap.endDate <= now ? .past : .future
         }
-    }
-}
-
-private struct SunriseScrollOffsetPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }

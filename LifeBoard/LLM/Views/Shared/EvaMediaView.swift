@@ -544,14 +544,21 @@ struct MascotSpriteAnimationView: View {
     let animation: MascotAnimation
     let animate: Bool
 
+    @State private var frames: [Int: UIImage] = [:]
+
     @ViewBuilder
     var body: some View {
-        if animate {
-            TimelineView(.periodic(from: .now, by: 0.13)) { timeline in
-                frameView(index: frameIndex(for: timeline.date))
+        Group {
+            if animate {
+                TimelineView(.periodic(from: .now, by: 0.13)) { timeline in
+                    frameView(index: frameIndex(for: timeline.date))
+                }
+            } else {
+                frameView(index: 0)
             }
-        } else {
-            frameView(index: 0)
+        }
+        .task(id: "\(persona.id.rawValue)-\(animation.rawValue)") {
+            frames = await MascotSpriteFrameProvider.shared.frames(persona: persona, animation: animation)
         }
     }
 
@@ -562,7 +569,7 @@ struct MascotSpriteAnimationView: View {
 
     @ViewBuilder
     private func frameView(index: Int) -> some View {
-        if let image = MascotSpriteFrameProvider.shared.frame(persona: persona, animation: animation, index: index) {
+        if let image = frames[index] {
             Image(uiImage: image)
                 .resizable()
                 .interpolation(.none)
@@ -581,42 +588,78 @@ struct MascotSpriteAnimationView: View {
 final class MascotSpriteFrameProvider {
     static let shared = MascotSpriteFrameProvider()
 
-    static let sheetPixelWidth = 1536
-    static let sheetPixelHeight = 1872
-    static let columns = 8
-    static let rows = 9
-    static let cellWidth = 192
-    static let cellHeight = 208
+    struct CacheCounts: Equatable {
+        let sheets: Int
+        let frames: Int
+    }
 
-    private var sheetCache: [AssistantMascotID: CGImage] = [:]
-    private var frameCache: [String: UIImage] = [:]
-    private let lock = NSLock()
+    nonisolated static let sheetPixelWidth = 1536
+    nonisolated static let sheetPixelHeight = 1872
+    nonisolated static let columns = 8
+    nonisolated static let rows = 9
+    nonisolated static let cellWidth = 192
+    nonisolated static let cellHeight = 208
 
-    func frame(persona: AssistantMascotPersona, animation: MascotAnimation, index: Int) -> UIImage? {
-        guard let sheet = sheet(for: persona) else { return nil }
-        let clampedIndex = max(0, min(index, animation.frameCount - 1))
-        let cacheKey = "\(persona.id.rawValue)-\(animation.rawValue)-\(clampedIndex)"
+    private let decoder = MascotSpriteFrameDecoder()
+    private var observers: [NSObjectProtocol] = []
 
-        lock.lock()
-        if let cached = frameCache[cacheKey] {
-            lock.unlock()
-            return cached
-        }
-        lock.unlock()
-
-        let rect = CGRect(
-            x: clampedIndex * Self.cellWidth,
-            y: animation.rowIndex * Self.cellHeight,
-            width: Self.cellWidth,
-            height: Self.cellHeight
+    private init(notificationCenter: NotificationCenter = .default) {
+        observers.append(
+            notificationCenter.addObserver(
+                forName: UIApplication.didReceiveMemoryWarningNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    await self?.clearCaches(reason: "memory_warning")
+                }
+            }
         )
-        guard let cropped = sheet.cropping(to: rect) else { return nil }
-        let image = UIImage(cgImage: cropped, scale: UIScreen.main.scale, orientation: .up)
+        observers.append(
+            notificationCenter.addObserver(
+                forName: UIApplication.didEnterBackgroundNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    await self?.clearCaches(reason: "app_backgrounded")
+                }
+            }
+        )
+    }
 
-        lock.lock()
-        frameCache[cacheKey] = image
-        lock.unlock()
-        return image
+    deinit {
+        MainActor.assumeIsolated {
+            for observer in observers {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+    }
+
+    func frame(persona: AssistantMascotPersona, animation: MascotAnimation, index: Int) async -> UIImage? {
+        let clampedIndex = max(0, min(index, animation.frameCount - 1))
+        return await frames(persona: persona, animation: animation, indices: [clampedIndex])[clampedIndex]
+    }
+
+    func frames(persona: AssistantMascotPersona, animation: MascotAnimation) async -> [Int: UIImage] {
+        await frames(persona: persona, animation: animation, indices: Array(0..<animation.frameCount))
+    }
+
+    private func frames(
+        persona: AssistantMascotPersona,
+        animation: MascotAnimation,
+        indices: [Int]
+    ) async -> [Int: UIImage] {
+        guard let url = spritesheetURL(for: persona) else { return [:] }
+        let decoded = await decoder.frames(
+            personaID: persona.id,
+            animation: animation,
+            indices: indices,
+            spritesheetURL: url
+        )
+        return decoded.mapValues { frame in
+            UIImage(cgImage: frame.image, scale: UIScreen.main.scale, orientation: .up)
+        }
     }
 
     func metadataURL(for persona: AssistantMascotPersona) -> URL? {
@@ -631,24 +674,83 @@ final class MascotSpriteFrameProvider {
             ?? Bundle.main.url(forResource: "spritesheet", withExtension: "webp", subdirectory: "LLM/MascotSprites/\(folder)")
     }
 
-    private func sheet(for persona: AssistantMascotPersona) -> CGImage? {
-        lock.lock()
-        if let cached = sheetCache[persona.id] {
-            lock.unlock()
+    func clearCaches(reason: String) async {
+        let previousCounts = await decoder.clearCaches()
+        LifeBoardMemoryDiagnostics.checkpoint(
+            event: "mascot_sprite_cache_cleared",
+            message: "Cleared decoded mascot sprite caches",
+            fields: ["reason": reason],
+            counts: [
+                "previous_sheet_count": previousCounts.sheets,
+                "previous_frame_count": previousCounts.frames
+            ]
+        )
+    }
+
+    func cacheCounts() async -> CacheCounts {
+        await decoder.cacheCounts()
+    }
+}
+
+private struct MascotSpriteDecodedFrame: @unchecked Sendable {
+    let image: CGImage
+}
+
+private actor MascotSpriteFrameDecoder {
+    private var sheetCache: [AssistantMascotID: MascotSpriteDecodedFrame] = [:]
+    private var frameCache: [String: MascotSpriteDecodedFrame] = [:]
+
+    func frames(
+        personaID: AssistantMascotID,
+        animation: MascotAnimation,
+        indices: [Int],
+        spritesheetURL: URL
+    ) -> [Int: MascotSpriteDecodedFrame] {
+        guard let sheet = sheet(personaID: personaID, url: spritesheetURL) else { return [:] }
+        var result: [Int: MascotSpriteDecodedFrame] = [:]
+        for rawIndex in indices {
+            let clampedIndex = max(0, min(rawIndex, animation.frameCount - 1))
+            let cacheKey = "\(personaID.rawValue)-\(animation.rawValue)-\(clampedIndex)"
+            if let cached = frameCache[cacheKey] {
+                result[clampedIndex] = cached
+                continue
+            }
+            let rect = CGRect(
+                x: clampedIndex * MascotSpriteFrameProvider.cellWidth,
+                y: animation.rowIndex * MascotSpriteFrameProvider.cellHeight,
+                width: MascotSpriteFrameProvider.cellWidth,
+                height: MascotSpriteFrameProvider.cellHeight
+            )
+            guard let cropped = sheet.image.cropping(to: rect) else { continue }
+            let decoded = MascotSpriteDecodedFrame(image: cropped)
+            frameCache[cacheKey] = decoded
+            result[clampedIndex] = decoded
+        }
+        return result
+    }
+
+    func clearCaches() -> MascotSpriteFrameProvider.CacheCounts {
+        let previousCounts = cacheCounts()
+        sheetCache.removeAll()
+        frameCache.removeAll()
+        return previousCounts
+    }
+
+    func cacheCounts() -> MascotSpriteFrameProvider.CacheCounts {
+        MascotSpriteFrameProvider.CacheCounts(sheets: sheetCache.count, frames: frameCache.count)
+    }
+
+    private func sheet(personaID: AssistantMascotID, url: URL) -> MascotSpriteDecodedFrame? {
+        if let cached = sheetCache[personaID] {
             return cached
         }
-        lock.unlock()
-
-        guard let url = spritesheetURL(for: persona),
-              let data = try? Data(contentsOf: url),
+        guard let data = try? Data(contentsOf: url),
               let image = UIImage(data: data)?.cgImage else {
             return nil
         }
-
-        lock.lock()
-        sheetCache[persona.id] = image
-        lock.unlock()
-        return image
+        let decoded = MascotSpriteDecodedFrame(image: image)
+        sheetCache[personaID] = decoded
+        return decoded
     }
 }
 #else

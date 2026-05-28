@@ -44,7 +44,7 @@ class TaskCompletionTests: BaseUITest {
         XCTAssertTrue(homePage.waitForTaskCount(4, timeout: 10), "All 4 test tasks should be created")
     }
 
-    private func assertScoreLabelVisible(file: StaticString = #file, line: UInt = #line) {
+    private func assertScoreLabelVisible(file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(
             homePage.dailyScoreLabel.waitForExistence(timeout: 5),
             "Daily score label should exist",

@@ -23,8 +23,7 @@ struct ChatsListView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.lifeboard(.bgCanvas)
-                    .ignoresSafeArea()
+                EvaChatSunriseBackground()
 
                 if filteredThreads.isEmpty {
                     emptyState
@@ -37,11 +36,12 @@ struct ChatsListView: View {
                             HStack(spacing: LifeBoardTheme.Spacing.md) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.lifeboard(.accentWash))
+                                        .fill(EvaChatSunriseGlass.assistantSurface)
                                         .frame(width: 40, height: 40)
+                                        .overlay(Circle().stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.78), lineWidth: 1))
                                     Image(systemName: "bubble.left.fill")
                                         .font(.system(size: 16))
-                                        .foregroundColor(Color.lifeboard(.accentPrimary))
+                                        .foregroundStyle(EvaChatSunriseGlass.primary)
                                 }
 
                                 VStack(alignment: .leading, spacing: 2) {
@@ -49,16 +49,16 @@ struct ChatsListView: View {
                                         Text(firstMessage.content)
                                             .lineLimit(1)
                                             .font(.lifeboard(.bodyEmphasis))
-                                            .foregroundColor(Color.lifeboard(.textPrimary))
+                                            .foregroundStyle(EvaChatSunriseGlass.navy)
                                     } else {
                                         Text("untitled")
                                             .font(.lifeboard(.bodyEmphasis))
-                                            .foregroundColor(Color.lifeboard(.textPrimary))
+                                            .foregroundStyle(EvaChatSunriseGlass.navy)
                                     }
 
                                     Text(thread.timestamp.formatted())
                                         .font(.lifeboard(.caption1))
-                                        .foregroundColor(Color.lifeboard(.textTertiary))
+                                        .foregroundStyle(EvaChatSunriseGlass.navyMuted)
                                 }
 
                                 Spacer()
@@ -66,10 +66,10 @@ struct ChatsListView: View {
                             .padding(.horizontal, LifeBoardTheme.Spacing.sm)
                             .padding(.vertical, LifeBoardTheme.Spacing.sm)
                             .lifeboardPremiumSurface(
-                                cornerRadius: 20,
-                                fillColor: Color.lifeboard(.surfacePrimary),
-                                strokeColor: Color.lifeboard(.strokeHairline),
-                                accentColor: Color.lifeboard(.accentSecondary),
+                                cornerRadius: 22,
+                                fillColor: EvaChatSunriseGlass.glassFill,
+                                strokeColor: EvaChatSunriseGlass.glassBorder,
+                                accentColor: EvaChatSunriseGlass.primary,
                                 level: .e1
                             )
                             .staggeredAppearance(index: index)
@@ -99,7 +99,7 @@ struct ChatsListView: View {
                         setCurrentThread(selection)
                     }
                     .scrollContentBackground(.hidden)
-                    .background(Color.lifeboard(.bgCanvas))
+                    .background(Color.clear)
                     #if os(iOS)
                     .listStyle(.plain)
                     #elseif os(macOS) || os(visionOS)
@@ -158,29 +158,39 @@ struct ChatsListView: View {
                     #endif
                 }
         }
-        .tint(Color.lifeboard(.accentPrimary))
+        .tint(EvaChatSunriseGlass.primary)
     }
 
     private var emptyState: some View {
         VStack(spacing: LifeBoardTheme.Spacing.lg) {
             ZStack {
                 Circle()
-                    .fill(Color.lifeboard(.accentWash))
+                    .fill(EvaChatSunriseGlass.assistantSurface)
                     .frame(width: 80, height: 80)
+                    .overlay(Circle().stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.78), lineWidth: 1))
                 Image(systemName: "message")
                     .font(.system(size: 32, weight: .medium))
-                    .foregroundColor(Color.lifeboard(.accentPrimary))
+                    .foregroundStyle(EvaChatSunriseGlass.primary)
             }
 
             VStack(spacing: LifeBoardTheme.Spacing.xs) {
                 Text(threads.isEmpty ? "No chats yet" : "No results")
                     .font(.lifeboard(.headline))
-                    .foregroundColor(Color.lifeboard(.textPrimary))
+                    .foregroundStyle(EvaChatSunriseGlass.navy)
                 Text(threads.isEmpty ? "Start a conversation with \(AssistantIdentityText.currentSnapshot().displayName)" : "Try a different search term")
                     .font(.lifeboard(.callout))
-                    .foregroundColor(Color.lifeboard(.textSecondary))
+                    .foregroundStyle(EvaChatSunriseGlass.navyMuted)
             }
         }
+        .padding(LifeBoardTheme.Spacing.xl)
+        .lifeboardPremiumSurface(
+            cornerRadius: 28,
+            fillColor: EvaChatSunriseGlass.glassFill,
+            strokeColor: EvaChatSunriseGlass.glassBorder,
+            accentColor: EvaChatSunriseGlass.primary,
+            level: .e1
+        )
+        .padding(.horizontal, LifeBoardTheme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -218,12 +228,19 @@ struct ChatsListView: View {
             }
 
             Task { @MainActor in
-                await MainActor.run {
-                    selection = nil
-                }
+                selection = nil
                 await Task.yield()
                 await ThreadContextAttachmentStore.shared.clear(threadID: threadID)
                 modelContext.delete(targetThread)
+                do {
+                    try modelContext.save()
+                } catch {
+                    logError(
+                        event: "chat_thread_delete_save_failed",
+                        message: "Failed to save chat thread deletion",
+                        fields: ["thread_id": threadID.uuidString, "error": error.localizedDescription]
+                    )
+                }
             }
         }
     }
@@ -239,6 +256,15 @@ struct ChatsListView: View {
         Task { @MainActor in
             await ThreadContextAttachmentStore.shared.clear(threadID: threadID)
             modelContext.delete(thread)
+            do {
+                try modelContext.save()
+            } catch {
+                logError(
+                    event: "chat_thread_delete_save_failed",
+                    message: "Failed to save chat thread deletion",
+                    fields: ["thread_id": threadID.uuidString, "error": error.localizedDescription]
+                )
+            }
         }
     }
 

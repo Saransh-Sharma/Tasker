@@ -241,15 +241,40 @@ final class HabitBoardViewModelTests: XCTestCase {
 }
 
 private final class HabitBoardReadRepositoryStub: HabitRuntimeReadRepositoryProtocol {
-    var libraryRows: [HabitLibraryRow] = []
-    var historyWindows: [HabitHistoryWindow] = []
-    var queuedHistoryResults: [Result<[HabitHistoryWindow], Error>] = []
-    var deferLibraryCompletion = false
-    var deferHistoryCompletion = false
-    private var pendingLibraryResponses: [() -> Void] = []
-    private var pendingHistoryResponses: [() -> Void] = []
-    var pendingLibraryCount: Int { pendingLibraryResponses.count }
-    var pendingHistoryCount: Int { pendingHistoryResponses.count }
+    private struct State {
+        var libraryRows: [HabitLibraryRow] = []
+        var historyWindows: [HabitHistoryWindow] = []
+        var queuedHistoryResults: [Result<[HabitHistoryWindow], Error>] = []
+        var deferLibraryCompletion = false
+        var deferHistoryCompletion = false
+        var pendingLibraryResponses: [@Sendable () -> Void] = []
+        var pendingHistoryResponses: [@Sendable () -> Void] = []
+    }
+
+    private let state = LockedTestState(State())
+
+    var libraryRows: [HabitLibraryRow] {
+        get { state.read().libraryRows }
+        set { state.withValue { $0.libraryRows = newValue } }
+    }
+    var historyWindows: [HabitHistoryWindow] {
+        get { state.read().historyWindows }
+        set { state.withValue { $0.historyWindows = newValue } }
+    }
+    var queuedHistoryResults: [Result<[HabitHistoryWindow], Error>] {
+        get { state.read().queuedHistoryResults }
+        set { state.withValue { $0.queuedHistoryResults = newValue } }
+    }
+    var deferLibraryCompletion: Bool {
+        get { state.read().deferLibraryCompletion }
+        set { state.withValue { $0.deferLibraryCompletion = newValue } }
+    }
+    var deferHistoryCompletion: Bool {
+        get { state.read().deferHistoryCompletion }
+        set { state.withValue { $0.deferHistoryCompletion = newValue } }
+    }
+    var pendingLibraryCount: Int { state.read().pendingLibraryResponses.count }
+    var pendingHistoryCount: Int { state.read().pendingHistoryResponses.count }
 
     func fetchAgendaHabits(for date: Date, completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void) {
         completion(.success([]))
@@ -261,13 +286,18 @@ private final class HabitBoardReadRepositoryStub: HabitRuntimeReadRepositoryProt
         dayCount: Int,
         completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
-        let result = queuedHistoryResults.isEmpty ? Result.success(historyWindows) : queuedHistoryResults.removeFirst()
-        let response = { completion(result) }
-        if deferHistoryCompletion {
-            pendingHistoryResponses.append(response)
-        } else {
-            response()
+        let immediateResponse = state.withValue { state -> (@Sendable () -> Void)? in
+            let result = state.queuedHistoryResults.isEmpty
+                ? Result.success(state.historyWindows)
+                : state.queuedHistoryResults.removeFirst()
+            let response: @Sendable () -> Void = { completion(result) }
+            if state.deferHistoryCompletion {
+                state.pendingHistoryResponses.append(response)
+                return nil
+            }
+            return response
         }
+        immediateResponse?()
     }
 
     func fetchSignals(start: Date, end: Date, completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void) {
@@ -275,21 +305,25 @@ private final class HabitBoardReadRepositoryStub: HabitRuntimeReadRepositoryProt
     }
 
     func fetchHabitLibrary(includeArchived: Bool, completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void) {
-        let response = { completion(.success(self.libraryRows)) }
-        if deferLibraryCompletion {
-            pendingLibraryResponses.append(response)
-        } else {
-            response()
+        let immediateResponse = state.withValue { state -> (@Sendable () -> Void)? in
+            let rows = state.libraryRows
+            let response: @Sendable () -> Void = { completion(.success(rows)) }
+            if state.deferLibraryCompletion {
+                state.pendingLibraryResponses.append(response)
+                return nil
+            }
+            return response
         }
+        immediateResponse?()
     }
 
     func completePendingLibrary(at index: Int) {
-        let response = pendingLibraryResponses.remove(at: index)
+        let response = state.withValue { $0.pendingLibraryResponses.remove(at: index) }
         response()
     }
 
     func completePendingHistory(at index: Int) {
-        let response = pendingHistoryResponses.remove(at: index)
+        let response = state.withValue { $0.pendingHistoryResponses.remove(at: index) }
         response()
     }
 }

@@ -109,16 +109,18 @@ struct CloudKitRuntimeContext {
 extension Notification.Name {
     static let lifeboardPersistentSyncModeDidChange = Notification.Name("LifeBoardPersistentSyncModeDidChange")
     static let lifeboardPersistentBootstrapStateDidChange = Notification.Name("LifeBoardPersistentBootstrapStateDidChange")
+    static let taskCreated = Notification.Name("TaskCreated")
+    static let taskUpdated = Notification.Name("TaskUpdated")
+    static let taskDeleted = Notification.Name("TaskDeleted")
+    static let taskCompletionChanged = Notification.Name("TaskCompletionChanged")
 }
 
 private final class LifeBoardMetricKitSubscriber: NSObject, MXMetricManagerSubscriber {
-    private let isoFormatter = ISO8601DateFormatter()
-
     func didReceive(_ payloads: [MXMetricPayload]) {
         for payload in payloads {
             var fields: [String: String] = [
-                "time_start": isoFormatter.string(from: payload.timeStampBegin),
-                "time_end": isoFormatter.string(from: payload.timeStampEnd),
+                "time_start": Self.iso8601String(from: payload.timeStampBegin),
+                "time_end": Self.iso8601String(from: payload.timeStampEnd),
                 "includes_multiple_versions": payload.includesMultipleApplicationVersions ? "true" : "false",
                 "latest_application_version": payload.latestApplicationVersion
             ]
@@ -128,6 +130,10 @@ private final class LifeBoardMetricKitSubscriber: NSObject, MXMetricManagerSubsc
                 if #available(iOS 26.0, *) {
                     fields["hitch_time_ratio"] = Self.format(animationMetrics.hitchTimeRatio)
                 }
+            }
+
+            if let memoryMetrics = payload.memoryMetrics {
+                Self.appendMemoryMetricFields(from: memoryMetrics, into: &fields)
             }
 
             if let applicationExitMetrics = payload.applicationExitMetrics {
@@ -143,51 +149,42 @@ private final class LifeBoardMetricKitSubscriber: NSObject, MXMetricManagerSubsc
         }
     }
 
+    private static func iso8601String(from date: Date) -> String {
+        ISO8601DateFormatter().string(from: date)
+    }
+
     private static func format(_ measurement: Measurement<Unit>) -> String {
         String(format: "%.4f", measurement.value)
     }
 
-    private static func appendExitMetricFields(from metrics: Any, into fields: inout [String: String]) {
-        flattenMirrorFields(prefix: "exit", value: metrics, into: &fields)
+    private static func appendMemoryMetricFields(from metrics: MXMemoryMetric, into fields: inout [String: String]) {
+        fields["memory_peak_mb"] = Self.formatMegabytes(metrics.peakMemoryUsage)
+        fields["memory_average_suspended_mb"] = Self.formatMegabytes(metrics.averageSuspendedMemory.averageMeasurement)
     }
 
-    private static func flattenMirrorFields(prefix: String, value: Any, into fields: inout [String: String]) {
-        let mirror = Mirror(reflecting: value)
-        guard mirror.children.isEmpty == false else {
-            fields[prefix] = String(describing: value)
-            return
-        }
-
-        for child in mirror.children {
-            guard let rawLabel = child.label, rawLabel.isEmpty == false else { continue }
-            let childPrefix = "\(prefix)_\(sanitizeKey(rawLabel))"
-            let childMirror = Mirror(reflecting: child.value)
-            if childMirror.displayStyle == .optional {
-                if let optionalChild = childMirror.children.first {
-                    flattenMirrorFields(prefix: childPrefix, value: optionalChild.value, into: &fields)
-                }
-                continue
-            }
-
-            if childMirror.children.isEmpty {
-                fields[childPrefix] = String(describing: child.value)
-            } else {
-                flattenMirrorFields(prefix: childPrefix, value: child.value, into: &fields)
-            }
-        }
+    private static func formatMegabytes(_ measurement: Measurement<UnitInformationStorage>) -> String {
+        String(format: "%.1f", measurement.converted(to: .megabytes).value)
     }
 
-    private static func sanitizeKey(_ key: String) -> String {
-        key
-            .unicodeScalars
-            .map { CharacterSet.alphanumerics.contains($0) ? String($0).lowercased() : "_" }
-            .joined()
-            .replacingOccurrences(of: "_+", with: "_", options: .regularExpression)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+    private static func appendExitMetricFields(from metrics: MXAppExitMetric, into fields: inout [String: String]) {
+        let foreground = metrics.foregroundExitData
+        fields["exit_foreground_normal_count"] = String(foreground.cumulativeNormalAppExitCount)
+        fields["exit_foreground_memory_resource_limit_count"] = String(foreground.cumulativeMemoryResourceLimitExitCount)
+        fields["exit_foreground_watchdog_count"] = String(foreground.cumulativeAppWatchdogExitCount)
+        fields["exit_foreground_bad_access_count"] = String(foreground.cumulativeBadAccessExitCount)
+        fields["exit_foreground_abnormal_count"] = String(foreground.cumulativeAbnormalExitCount)
+
+        let background = metrics.backgroundExitData
+        fields["exit_background_normal_count"] = String(background.cumulativeNormalAppExitCount)
+        fields["exit_background_memory_pressure_count"] = String(background.cumulativeMemoryPressureExitCount)
+        fields["exit_background_memory_resource_limit_count"] = String(background.cumulativeMemoryResourceLimitExitCount)
+        fields["exit_background_watchdog_count"] = String(background.cumulativeAppWatchdogExitCount)
+        fields["exit_background_bad_access_count"] = String(background.cumulativeBadAccessExitCount)
+        fields["exit_background_abnormal_count"] = String(background.cumulativeAbnormalExitCount)
     }
 }
 
-@UIApplicationMain
+@main
 @MainActor
 class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotificationCenterDelegate {
 
@@ -206,6 +203,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     private var notificationOrchestrator: TaskNotificationOrchestrator?
     private var notificationActionHandler: LifeBoardNotificationActionHandler?
     private var gamificationRemoteChangeCoordinator: GamificationRemoteChangeCoordinator?
+    private var persistentStoreRemoteChangeObserver: NSObjectProtocol?
     private var cloudKitEventObserver: NSObjectProtocol?
     private var semanticTaskObservers: [NSObjectProtocol] = []
     private var semanticStateContainer: EnhancedDependencyContainer?
@@ -330,10 +328,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(700)) { [weak self] in
             guard let self else { return }
             self.runDeferredLaunchPostFirstFrameMain(application: application)
-            self.deferredLaunchWarmupQueue.async { [weak self] in
-                Task { @MainActor [weak self] in
-                    self?.runDeferredLaunchBackgroundWarmup(shouldConfigureFirebase: shouldConfigureFirebase)
-                }
+            Task { @MainActor [weak self] in
+                self?.runDeferredLaunchBackgroundWarmup(shouldConfigureFirebase: shouldConfigureFirebase)
             }
         }
     }
@@ -407,6 +403,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         guard case .ready = persistentBootstrapState else {
             return
         }
+        saveContext()
         if AppDelegate.isWriteClosed == false {
             scheduleOccurrenceRefresh()
             if V2FeatureFlags.remindersBackgroundRefreshEnabled {
@@ -415,6 +412,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         }
         reconcileNotifications(reason: "app_did_enter_background")
         persistSemanticIndexForBackgroundTransition(application: application)
+    }
+
+    func applicationWillTerminate(_ application: UIApplication) {
+        saveContext()
     }
 
     /// Executes applicationWillEnterForeground.
@@ -558,11 +559,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             AppDelegate.persistentBootstrapFailureMessage = message
             persistentContainer = nil
             gamificationRemoteChangeCoordinator = nil
-            NotificationCenter.default.removeObserver(
-                self,
-                name: .NSPersistentStoreRemoteChange,
-                object: nil
-            )
+            if let persistentStoreRemoteChangeObserver {
+                NotificationCenter.default.removeObserver(persistentStoreRemoteChangeObserver)
+                self.persistentStoreRemoteChangeObserver = nil
+            }
             if let cloudKitEventObserver {
                 NotificationCenter.default.removeObserver(cloudKitEventObserver)
                 self.cloudKitEventObserver = nil
@@ -607,7 +607,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     }
 
     private func persistSemanticIndexForBackgroundTransition(application: UIApplication) {
-        guard TaskSemanticRetrievalService.shared.shouldPersistOnBackgroundTransition else { return }
+        let semanticService = TaskSemanticRetrievalService.shared
+        let shouldPersist = semanticService.shouldPersistOnBackgroundTransition
+        let shouldRelease = semanticService.isActivated
+        guard shouldPersist || shouldRelease else { return }
 
         final class BackgroundTaskBox: @unchecked Sendable {
             private let lock = NSLock()
@@ -623,18 +626,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         }
 
         let backgroundTask = BackgroundTaskBox()
-        backgroundTask.identifier = application.beginBackgroundTask(withName: "PersistSemanticIndex") {
-            backgroundTask.end(in: application)
+        if shouldPersist {
+            backgroundTask.identifier = application.beginBackgroundTask(withName: "PersistSemanticIndex") {
+                backgroundTask.end(in: application)
+            }
         }
 
         deferredLaunchWarmupQueue.async {
             LifeBoardMemoryDiagnostics.checkpoint(
-                event: "semantic_persist_background_started",
-                message: "Persisting semantic index before background suspension",
-                counts: ["semantic_items": TaskSemanticRetrievalService.shared.itemCount]
+                event: "semantic_background_release_started",
+                message: "Releasing semantic retrieval resources before background suspension",
+                fields: ["will_persist": shouldPersist ? "true" : "false"],
+                counts: ["semantic_items": semanticService.itemCount]
             )
-            TaskSemanticRetrievalService.shared.persistIndex()
-            TaskSemanticRetrievalService.shared.releaseInMemoryResources()
+            if shouldPersist {
+                semanticService.persistIndex()
+            }
+            semanticService.releaseInMemoryResources()
+            LifeBoardMemoryDiagnostics.checkpoint(
+                event: "semantic_background_release_finished",
+                message: "Released semantic retrieval resources for background suspension",
+                fields: ["did_persist": shouldPersist ? "true" : "false"],
+                counts: ["semantic_items": 0]
+            )
             backgroundTask.end(in: application)
         }
     }
@@ -647,22 +661,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     }
 
     private func registerPerformanceTelemetryIfNeeded() {
-        guard #available(iOS 13.0, *) else { return }
         MXMetricManager.shared.add(self.metricKitSubscriber)
     }
 
     private func installPersistentStoreObservers(container: NSPersistentCloudKitContainer) {
-        NotificationCenter.default.removeObserver(
-            self,
-            name: .NSPersistentStoreRemoteChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handlePersistentStoreRemoteChange),
-            name: .NSPersistentStoreRemoteChange,
-            object: container.persistentStoreCoordinator
-        )
+        if let persistentStoreRemoteChangeObserver {
+            NotificationCenter.default.removeObserver(persistentStoreRemoteChangeObserver)
+            self.persistentStoreRemoteChangeObserver = nil
+        }
+
+        let remoteChangeCoordinator = gamificationRemoteChangeCoordinator
+        persistentStoreRemoteChangeObserver = NotificationCenter.default.addObserver(
+            forName: .NSPersistentStoreRemoteChange,
+            object: container.persistentStoreCoordinator,
+            queue: nil
+        ) { [weak remoteChangeCoordinator] _ in
+            remoteChangeCoordinator?.handleRemoteChange()
+        }
 
         if let cloudKitEventObserver {
             NotificationCenter.default.removeObserver(cloudKitEventObserver)
@@ -674,13 +689,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             object: container,
             queue: .main
         ) { note in
-            guard
-              let userInfo = note.userInfo,
-              let events = userInfo[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
-                            as? [NSPersistentCloudKitContainer.Event]
-            else { return }
-
-            for event in events where event.error != nil {
+            for event in Self.cloudKitEvents(from: note) where event.error != nil {
                 let errorDescription = event.error?.localizedDescription ?? "unknown"
                 logError(
                     event: "cloudkit_event_error",
@@ -692,6 +701,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                 )
             }
         }
+    }
+
+    nonisolated static func cloudKitEvents(from notification: Notification) -> [NSPersistentCloudKitContainer.Event] {
+        guard let value = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey] else {
+            return []
+        }
+        if let event = value as? NSPersistentCloudKitContainer.Event {
+            return [event]
+        }
+        if let events = value as? [NSPersistentCloudKitContainer.Event] {
+            return events
+        }
+        return []
     }
 
     func retryPersistentStoreBootstrap() -> LaunchRootMode {
@@ -772,13 +794,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     /// Reset app state for UI testing
     /// This clears UserDefaults and Core Data to ensure clean test runs
     private func resetAppState() {
-
         // Clear UserDefaults
-        let domain = Bundle.main.bundleIdentifier!
+        guard let domain = Bundle.main.bundleIdentifier else {
+            logError(
+                event: "ui_test_reset_missing_bundle_identifier",
+                message: "Could not reset UserDefaults because the bundle identifier is unavailable"
+            )
+            return
+        }
         UserDefaults.standard.removePersistentDomain(forName: domain)
         UserDefaults.standard.synchronize()
 
-        // Clear Core Data
+        // UI tests launch before the persistent container is bootstrapped, so remove
+        // store files only from this explicit test reset path.
+        wipeV3StoreFiles()
+
+        // Clear Core Data if a container has already been installed.
         clearCoreData()
     }
 
@@ -789,18 +820,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         }
         let context = container.viewContext
 
-        // Get all entity names
-        guard let entities = container.managedObjectModel.entities.map({ $0.name }) as? [String] else {
-            return
-        }
+        let entities = container.managedObjectModel.entities.compactMap(\.name)
 
         // Delete all objects for each entity
         for entityName in entities {
             let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+            deleteRequest.resultType = .resultTypeObjectIDs
 
             do {
-                try context.execute(deleteRequest)
+                let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
+                if let deletedObjectIDs = result?.result as? [NSManagedObjectID],
+                   deletedObjectIDs.isEmpty == false {
+                    NSManagedObjectContext.mergeChanges(
+                        fromRemoteContextSave: [NSDeletedObjectsKey: deletedObjectIDs],
+                        into: [context]
+                    )
+                }
             } catch {
                 logError(
                     event: "coredata_clear_entity_failed",
@@ -812,10 +848,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                 )
             }
         }
+        context.reset()
 
         // Save context
         do {
-            try context.save()
+            if context.hasChanges {
+                try context.save()
+            }
         } catch {
             logError(
                 event: "coredata_clear_save_failed",
@@ -870,15 +909,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     
     // MARK: - Push Notification Handling
     
-    /// Executes handlePersistentStoreRemoteChange.
-    @objc
-    func handlePersistentStoreRemoteChange(_ notification: Notification) {
-        gamificationRemoteChangeCoordinator?.handleRemoteChange(notification)
-    }
-    
     // Remote notification registration success/failure callbacks
     /// Executes application.
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
+        // Token forwarding is intentionally deferred until a push provider is configured.
     }
     
     /// Executes application.
@@ -981,7 +1015,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
     // MARK: - V3 Bootstrap
 
-    /// Executes performV3BootstrapCutoverIfNeeded.
+    /// Records V3 epoch changes without deleting production stores.
     private func performV3BootstrapCutoverIfNeeded() {
         let defaults = UserDefaults.standard
         let epochKey = "lifeboard.v3.store.epoch"
@@ -990,7 +1024,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             return
         }
 
-        wipeV3StoreFiles()
+        logWarning(
+            event: "v3_store_epoch_mismatch_observed",
+            message: "Observed V3 store epoch mismatch; preserving active store files for bootstrap migration/recovery",
+            fields: [
+                "applied_epoch": String(appliedEpoch),
+                "expected_epoch": String(v3StoreEpoch)
+            ]
+        )
         clearLegacyV1PreferenceKeys(defaults: defaults)
     }
 
@@ -1137,19 +1178,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     /// Executes isIncompatibleStoreError.
     private func isIncompatibleStoreError(_ error: NSError) -> Bool {
         let code = error.code
+        let migrationMissingSourceModel = 134000
+        let migrationCancelled = 134010
+        let migrationMissingMappingModel = 134020
+        let persistentStoreSaveConflicts = 134060
+        let persistentStoreIncompleteSave = 134080
+        let persistentStoreSaveConflictsDuringMigration = 134081
+        let persistentStoreOperationError = 134100
         let incompatibleCodes: Set<Int> = [
             NSPersistentStoreInvalidTypeError,
             NSPersistentStoreTypeMismatchError,
             NSPersistentStoreIncompatibleSchemaError,
             NSPersistentStoreOpenError,
             NSPersistentStoreIncompatibleVersionHashError,
-            134000,
-            134010,
-            134020,
-            134060,
-            134080,
-            134081,
-            134100
+            // Core Data can surface these migration/persistent-store failures
+            // without public symbolic constants on older SDK overlays.
+            migrationMissingSourceModel,
+            migrationCancelled,
+            migrationMissingMappingModel,
+            persistentStoreSaveConflicts,
+            persistentStoreIncompleteSave,
+            persistentStoreSaveConflictsDuringMigration,
+            persistentStoreOperationError
         ]
 
         if error.domain == NSCocoaErrorDomain, incompatibleCodes.contains(code) {
@@ -1471,6 +1521,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
     /// Setup Clean Architecture with modern components only
     @discardableResult
+    @MainActor
     func setupCleanArchitecture() -> Bool {
         guard let persistentContainer else {
             logError(
@@ -1584,9 +1635,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
         let center = NotificationCenter.default
         let upsertNames: [Notification.Name] = [
-            NSNotification.Name("TaskCreated"),
-            NSNotification.Name("TaskUpdated"),
-            NSNotification.Name("TaskCompletionChanged")
+            .taskCreated,
+            .taskUpdated,
+            .taskCompletionChanged
         ]
         for name in upsertNames {
             let observer = center.addObserver(forName: name, object: nil, queue: .main) { notification in
@@ -1609,7 +1660,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             semanticTaskObservers.append(observer)
         }
 
-        let deleteObserver = center.addObserver(forName: NSNotification.Name("TaskDeleted"), object: nil, queue: .main) { notification in
+        let deleteObserver = center.addObserver(forName: .taskDeleted, object: nil, queue: .main) { notification in
             let deletedTaskIDs = Self.deletedSemanticTaskIDs(from: notification)
             guard deletedTaskIDs.isEmpty == false else { return }
             guard TaskSemanticRetrievalService.shared.isActivated else {
@@ -1848,8 +1899,7 @@ final class GamificationRemoteChangeCoordinator: @unchecked Sendable {
         self.historyToken = Self.loadPersistedToken(defaults: defaults)
     }
 
-    func handleRemoteChange(_ notification: Notification) {
-        _ = notification
+    func handleRemoteChange() {
         workQueue.async { [weak self] in
             guard let self else { return }
             self.pendingReplay = true

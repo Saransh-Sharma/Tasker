@@ -199,7 +199,7 @@ class EdgeCaseTests: BaseUITest {
         // GIVEN: User creates tasks with same title
         let duplicateTitle = "Duplicate Task"
 
-        for i in 1...3 {
+        for _ in 1...3 {
             let addTaskPage = homePage.tapAddTask()
             addTaskPage.enterTitle(duplicateTitle)
             addTaskPage.tapSave()

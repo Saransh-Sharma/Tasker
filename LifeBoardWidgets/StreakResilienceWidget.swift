@@ -55,7 +55,7 @@ struct StreakResilienceWidgetView: View {
                     Image(systemName: "flame.fill")
                         .widgetAccentedRenderingMode(.accented)
                         .font(.system(size: 54, weight: .semibold, design: .rounded))
-                        .foregroundStyle(entry.snapshot.streakDays > 0 ? WidgetBrand.marigold : WidgetBrand.line)
+                        .foregroundStyle(entry.snapshot.streakDays > 0 ? WidgetBrand.sunriseGold : WidgetBrand.line)
                         .widgetAccentable()
 
                     VStack(alignment: .leading, spacing: 5) {
@@ -66,11 +66,11 @@ struct StreakResilienceWidgetView: View {
                         Text("days active")
                             .font(TaskWidgetTypography.support)
                             .foregroundStyle(WidgetBrand.textSecondary)
-                        TaskWidgetInlineMetadata(items: ["Best \(entry.snapshot.bestStreak)", "Keep it alive"])
+                        TaskWidgetInlineMetadata(items: ["Best \(entry.snapshot.bestStreak)", "Keep the rhythm"])
                     }
                 }
 
-                TaskWidgetProgressBar(progress: Double(streakProgress), tint: WidgetBrand.magenta)
+                TaskWidgetProgressBar(progress: Double(streakProgress), tint: WidgetBrand.sunriseGold)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }

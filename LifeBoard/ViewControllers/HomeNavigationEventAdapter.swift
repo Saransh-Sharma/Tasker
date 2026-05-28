@@ -29,8 +29,8 @@ final class HomeNavigationEventAdapter {
                 guard let self else { return }
                 guard let payload = notification.userInfo?["payload"] as? String else { return }
                 let route = LifeBoardNotificationRoute.from(payload: payload, fallbackTaskID: nil)
-                delegate?.homeNavigationEventAdapter(self, didReceive: .notificationRoute(route))
                 _ = LifeBoardNotificationRouteBus.shared.consumePendingRoute()
+                delegate?.homeNavigationEventAdapter(self, didReceive: .notificationRoute(route))
             }
             .store(in: &cancellables)
 
@@ -151,12 +151,6 @@ final class HomeNavigationEventAdapter {
             }
             .store(in: &cancellables)
 
-        notificationCenter.publisher(for: .lifeboardPersistentSyncModeDidChange)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.emit(.persistentSyncModeChanged)
-            }
-            .store(in: &cancellables)
     }
 
     func stop() {

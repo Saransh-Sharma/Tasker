@@ -7,6 +7,7 @@
 
 import XCTest
 
+@MainActor
 class HomePage {
 
     // MARK: - Properties
@@ -23,28 +24,32 @@ class HomePage {
         return app.otherElements[AccessibilityIdentifiers.Home.view]
     }
 
-    var foredropSurface: XCUIElement {
+    var sunriseSurface: XCUIElement {
         let predicate = NSPredicate(
             format: "identifier == %@ OR identifier == %@ OR identifier == %@",
-            AccessibilityIdentifiers.Home.foredropSurface,
-            "home.foredropSurface",
-            "homeForedropSurface"
+            AccessibilityIdentifiers.Home.sunriseSurface,
+            "home.sunriseSurface",
+            "homeSunriseSurface"
         )
         return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
-    var foredropCollapseHint: XCUIElement {
-        let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.foredropCollapseHint]
+    var sunriseCollapseHint: XCUIElement {
+        let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.sunriseCollapseHint]
         if byIdentifier.exists {
             return byIdentifier
         }
-        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.foredropCollapseHint]
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.sunriseCollapseHint]
     }
 
     var timelineSurface: XCUIElement {
         let byIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.timelineSurface]
         if byIdentifier.exists {
             return byIdentifier
+        }
+        let byContentIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.timelineContent]
+        if byContentIdentifier.exists {
+            return byContentIdentifier
         }
         return app.descendants(matching: .any)["home.timeline.surface"]
     }
@@ -150,6 +155,11 @@ class HomePage {
     }
 
     var headerDateLabel: XCUIElement {
+        let sunriseDateSelector = app.descendants(matching: .any)["home.sunrise.date.selector"]
+        if sunriseDateSelector.exists {
+            return sunriseDateSelector
+        }
+
         let byText = app.staticTexts["home.topChrome.date"]
         if byText.exists {
             return byText
@@ -170,11 +180,6 @@ class HomePage {
     }
 
     var searchButton: XCUIElement {
-        let legacyIdentifier = app.buttons[AccessibilityIdentifiers.Home.searchButton]
-        if legacyIdentifier.exists {
-            return legacyIdentifier
-        }
-
         let bottomSearchByLabel = bottomBar.buttons.matching(
             NSPredicate(
                 format: "label == 'Search' OR identifier == %@",
@@ -286,16 +291,6 @@ class HomePage {
         let quickMenuAny = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.quickFilterMenuButton]
         if quickMenuAny.exists {
             return quickMenuAny
-        }
-
-        let legacyProjectFilter = app.buttons["home.projectFilterButton"]
-        if legacyProjectFilter.exists {
-            return legacyProjectFilter
-        }
-
-        let legacyProjectFilterAny = app.descendants(matching: .any)["home.projectFilterButton"]
-        if legacyProjectFilterAny.exists {
-            return legacyProjectFilterAny
         }
 
         let navMenuButton = app.buttons["home.focus.menu.button.nav"]
@@ -684,14 +679,6 @@ class HomePage {
         return app.staticTexts[AccessibilityIdentifiers.Home.completionRateLabel]
     }
 
-    var chartView: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.chartView]
-    }
-
-    var radarChartView: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.radarChartView]
-    }
-
     var weeklyCalendar: XCUIElement {
         return app.otherElements[AccessibilityIdentifiers.Home.weeklyCalendar]
     }
@@ -912,7 +899,7 @@ class HomePage {
 
     @discardableResult
     func waitForSearchFaceOpen(timeout: TimeInterval = 3) -> Bool {
-        guard waitForForedropState("fullReveal", timeout: timeout) else { return false }
+        guard waitForSunriseState("fullReveal", timeout: timeout) else { return false }
         return searchView.waitForExistence(timeout: timeout)
     }
 
@@ -1494,9 +1481,9 @@ class HomePage {
     }
 
     @discardableResult
-    func waitForForedropState(_ expectedState: String, timeout: TimeInterval = 3) -> Bool {
+    func waitForSunriseState(_ expectedState: String, timeout: TimeInterval = 3) -> Bool {
         let predicate = NSPredicate(format: "value == %@", expectedState)
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: foredropSurface)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: sunriseSurface)
         let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
         return result == .completed
     }
@@ -1526,7 +1513,7 @@ class HomePage {
     }
 
     /// Verify task count
-    func verifyTaskCount(_ expectedCount: Int, file: StaticString = #file, line: UInt = #line) {
+    func verifyTaskCount(_ expectedCount: Int, file: StaticString = #filePath, line: UInt = #line) {
         let actualCount = getTaskCount()
         XCTAssertEqual(
             actualCount,
@@ -1538,7 +1525,7 @@ class HomePage {
     }
 
     /// Verify daily score
-    func verifyDailyScore(_ expectedScore: Int, file: StaticString = #file, line: UInt = #line) -> Bool {
+    func verifyDailyScore(_ expectedScore: Int, file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let scoreText = dailyScoreLabel.label
 
         // Score might be displayed as "Score: 10" or just "10"
@@ -1556,7 +1543,7 @@ class HomePage {
     }
 
     /// Verify streak
-    func verifyStreak(_ expectedStreak: Int, file: StaticString = #file, line: UInt = #line) -> Bool {
+    func verifyStreak(_ expectedStreak: Int, file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let streakText = streakLabel.label
 
         // Streak might be displayed as "Streak: 5" or "5 days"
@@ -1574,7 +1561,7 @@ class HomePage {
     }
 
     /// Verify completion rate
-    func verifyCompletionRate(_ expectedRate: Int, file: StaticString = #file, line: UInt = #line) -> Bool {
+    func verifyCompletionRate(_ expectedRate: Int, file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let rateText = completionRateLabel.label
 
         // Rate might be displayed as "60%" or "Completion: 60%"
@@ -1591,9 +1578,9 @@ class HomePage {
         return containsRate
     }
 
-    /// Verify chart is visible
-    func verifyChartIsVisible() -> Bool {
-        return chartView.exists
+    /// Verify Sunrise Insights is visible.
+    func verifyInsightsContainerIsVisible() -> Bool {
+        return insightsContainer.exists
     }
 
     /// Verify floating nav XP pie chart is visible.
@@ -1608,7 +1595,7 @@ class HomePage {
 
     /// Verify floating nav XP pie chart can be interacted with.
     @discardableResult
-    func verifyNavXpPieChartIsHittable(file: StaticString = #file, line: UInt = #line) -> Bool {
+    func verifyNavXpPieChartIsHittable(file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let chartButton = navXpPieChartButton
         let isHittable = chartButton.exists ? chartButton.isHittable : navXpPieChart.isHittable
         if !isHittable {
@@ -1622,7 +1609,7 @@ class HomePage {
     func verifyNavXpPieChartSize(
         expected: CGFloat = 44,
         tolerance: CGFloat = 8,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let frame = navXpPieChart.frame
@@ -1643,7 +1630,7 @@ class HomePage {
 
     /// Verify floating nav XP pie chart frame is fully within the visible app window.
     @discardableResult
-    func verifyNavXpPieChartIsFullyVisibleInWindow(file: StaticString = #file, line: UInt = #line) -> Bool {
+    func verifyNavXpPieChartIsFullyVisibleInWindow(file: StaticString = #filePath, line: UInt = #line) -> Bool {
         verifyElementIsFullyVisibleInWindow(
             navXpPieChart,
             description: "Navigation XP pie chart",
@@ -1657,7 +1644,7 @@ class HomePage {
     func verifyElementIsFullyVisibleInWindow(
         _ element: XCUIElement,
         description: String,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let elementFrame = element.frame
@@ -1679,7 +1666,7 @@ class HomePage {
     @discardableResult
     func verifyNavXpPieChartAlignedWithSettingsButton(
         horizontalTolerance: CGFloat = 16,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let chartExists = navXpPieChart.waitForExistence(timeout: 5)
@@ -1709,7 +1696,7 @@ class HomePage {
     @discardableResult
     func verifyWeeklyCalendarStartsAfterTopNav(
         tolerance: CGFloat = 4,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         let calendarExists = weeklyCalendar.waitForExistence(timeout: 5)
@@ -1738,7 +1725,7 @@ class HomePage {
     @discardableResult
     func verifyWeeklyCalendarBelowTopNav(
         tolerance: CGFloat = 4,
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
         verifyWeeklyCalendarStartsAfterTopNav(tolerance: tolerance, file: file, line: line)
@@ -1746,7 +1733,7 @@ class HomePage {
 
     /// Verify nav XP pie chart button/container is absent.
     @discardableResult
-    func verifyNavXpPieChartButtonIsAbsent(file: StaticString = #file, line: UInt = #line) -> Bool {
+    func verifyNavXpPieChartButtonIsAbsent(file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let isAbsent = !navXpPieChartButton.exists
         if !isAbsent {
             XCTFail("Navigation XP pie chart button should be absent", file: file, line: line)
@@ -1756,7 +1743,7 @@ class HomePage {
 
     /// Verify nav XP pie chart button/container is present.
     @discardableResult
-    func verifyNavXpPieChartButtonIsPresent(timeout: TimeInterval = 3, file: StaticString = #file, line: UInt = #line) -> Bool {
+    func verifyNavXpPieChartButtonIsPresent(timeout: TimeInterval = 3, file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let isPresent = navXpPieChartButton.waitForExistence(timeout: timeout)
         if !isPresent {
             XCTFail("Navigation XP pie chart button should be present", file: file, line: line)

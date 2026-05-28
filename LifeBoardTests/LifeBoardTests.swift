@@ -192,7 +192,6 @@ final class HomeNavigationCoordinatorTests: XCTestCase {
         coordinator.handle(.weeklyPlannerDeepLink)
         coordinator.handle(.weeklyReviewDeepLink)
         coordinator.handle(.widgetActionCommand)
-        coordinator.handle(.persistentSyncModeChanged)
         coordinator.handle(.pendingShortcutHandoff)
         coordinator.handle(.uiTestInjectedRoute)
         coordinator.handle(.uiTestOpenSettings)
@@ -214,7 +213,6 @@ final class HomeNavigationCoordinatorTests: XCTestCase {
         XCTAssertEqual(spy.didOpenWeeklyPlannerCount, 1)
         XCTAssertEqual(spy.didOpenWeeklyReviewCount, 1)
         XCTAssertEqual(spy.didProcessWidgetActionCommandCount, 2)
-        XCTAssertEqual(spy.didRefreshPersistentSyncModeCount, 1)
         XCTAssertEqual(spy.didConsumePendingShortcutHandoffCount, 1)
         XCTAssertEqual(spy.didConsumeUITestInjectedRouteCount, 1)
         XCTAssertEqual(spy.didConsumeUITestOpenSettingsCount, 1)
@@ -224,9 +222,9 @@ final class HomeNavigationCoordinatorTests: XCTestCase {
 
 @MainActor
 final class HomeReloadCoordinatorTests: XCTestCase {
-    func testHomeTaskMutationCoalescesChartRefreshAndInvalidatesSearch() async throws {
+    func testHomeTaskMutationCoalescesInsightsRefreshAndInvalidatesSearch() async throws {
         let spy = HomeReloadCoordinatorSpy()
-        let coordinator = HomeReloadCoordinator(delegate: spy, chartRefreshDebounceSeconds: 0.01)
+        let coordinator = HomeReloadCoordinator(delegate: spy, insightsRefreshDebounceSeconds: 0.01)
 
         coordinator.handleHomeTaskMutation(
             Notification(
@@ -254,13 +252,13 @@ final class HomeReloadCoordinatorTests: XCTestCase {
         )
 
         let deadline = Date().addingTimeInterval(1)
-        while spy.chartRefreshReasons.isEmpty, Date() < deadline {
+        while spy.insightsRefreshReasons.isEmpty, Date() < deadline {
             try await _Concurrency.Task.sleep(nanoseconds: 20_000_000)
         }
         withExtendedLifetime(coordinator) {}
 
         XCTAssertEqual(spy.searchMutationCount, 2)
-        XCTAssertEqual(spy.chartRefreshReasons, [.created])
+        XCTAssertEqual(spy.insightsRefreshReasons, [.created])
     }
 
     func testAppActiveEventRefreshesWeeklySummaryAndCalendarContext() {
@@ -276,7 +274,7 @@ final class HomeReloadCoordinatorTests: XCTestCase {
 
     func testTaskMutationNotificationIsInterpretedOnce() async throws {
         let spy = HomeReloadCoordinatorSpy()
-        let coordinator = HomeReloadCoordinator(delegate: spy, chartRefreshDebounceSeconds: 0)
+        let coordinator = HomeReloadCoordinator(delegate: spy, insightsRefreshDebounceSeconds: 0)
         let taskID = UUID()
         let payload = HomeTaskMutationPayload(
             reason: .deleted,
@@ -291,14 +289,14 @@ final class HomeReloadCoordinatorTests: XCTestCase {
         ))))
 
         let deadline = Date().addingTimeInterval(1)
-        while spy.chartRefreshReasons.isEmpty, Date() < deadline {
+        while spy.insightsRefreshReasons.isEmpty, Date() < deadline {
             try await _Concurrency.Task.sleep(nanoseconds: 20_000_000)
         }
 
         XCTAssertEqual(spy.receivedMutations.map(\.reason), [.deleted])
         XCTAssertEqual(spy.receivedMutations.map(\.taskID), [taskID])
         XCTAssertEqual(spy.searchMutationCount, 1)
-        XCTAssertEqual(spy.chartRefreshReasons, [.deleted])
+        XCTAssertEqual(spy.insightsRefreshReasons, [.deleted])
     }
 }
 
@@ -350,13 +348,64 @@ final class BuildNeedsReplanCandidatesUseCaseTests: XCTestCase {
 
         XCTAssertEqual(candidates.map(\.task.id), [scoped.id])
     }
+
+    func testOldestOverdueCandidateSortsFirstAndInvalidScheduledEndIsDropped() {
+        let projectID = UUID()
+        let calendar = Calendar.current
+        let now = Date(timeIntervalSince1970: 1_724_457_600)
+        let today = calendar.startOfDay(for: now)
+        let oldestStart = calendar.date(byAdding: .day, value: -5, to: today)!
+        let newerStart = calendar.date(byAdding: .day, value: -1, to: today)!
+        let oldest = TaskDefinition(
+            projectID: projectID,
+            title: "Oldest",
+            scheduledStartAt: oldestStart,
+            scheduledEndAt: calendar.date(byAdding: .hour, value: -1, to: oldestStart)
+        )
+        let newer = TaskDefinition(
+            projectID: projectID,
+            title: "Newer",
+            scheduledStartAt: newerStart,
+            scheduledEndAt: calendar.date(byAdding: .hour, value: 1, to: newerStart)
+        )
+
+        let candidates = BuildNeedsReplanCandidatesUseCase().execute(
+            tasks: [newer, oldest],
+            projectsByID: [projectID: Project(id: projectID, name: "Active")],
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(candidates.map(\.task.id), [oldest.id, newer.id])
+        XCTAssertNil(candidates.first?.anchorEndDate)
+    }
+}
+
+final class InMemoryCacheServiceTests: XCTestCase {
+    func testStatisticsReturnsWithoutDeadlockAndReportsStoredSize() {
+        let cache = InMemoryCacheService()
+        cache.set("abc", forKey: "letters", expiration: .never)
+        XCTAssertEqual(cache.get(String.self, forKey: "letters"), "abc")
+
+        let expectation = expectation(description: "statistics")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let stats = cache.getCacheStatistics()
+            XCTAssertEqual(stats.itemCount, 1)
+            XCTAssertGreaterThan(stats.cacheSize, 0)
+            XCTAssertEqual(stats.totalRequests, 1)
+            XCTAssertEqual(stats.cacheHits, 1)
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1)
+    }
 }
 
 @MainActor
 private final class HomeReloadCoordinatorSpy: HomeReloadCoordinatorDelegate {
     private(set) var receivedMutations: [HomeTaskMutationReloadEvent] = []
     private(set) var searchMutationCount = 0
-    private(set) var chartRefreshReasons: [HomeTaskMutationEvent?] = []
+    private(set) var insightsRefreshReasons: [HomeTaskMutationEvent?] = []
     private(set) var persistentSyncRefreshCount = 0
     private(set) var weeklySummaryRefreshCount = 0
     private(set) var calendarRefreshReasons: [String] = []
@@ -369,8 +418,8 @@ private final class HomeReloadCoordinatorSpy: HomeReloadCoordinatorDelegate {
         searchMutationCount += 1
     }
 
-    func homeReloadCoordinatorRefreshCharts(reason: HomeTaskMutationEvent?) {
-        chartRefreshReasons.append(reason)
+    func homeReloadCoordinatorRefreshInsights(reason: HomeTaskMutationEvent?) {
+        insightsRefreshReasons.append(reason)
     }
 
     func homeReloadCoordinatorRefreshPersistentSyncMode() {
@@ -406,7 +455,6 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
     private(set) var didOpenCalendarScheduleCount = 0
     private(set) var didOpenCalendarChooserCount = 0
     private(set) var didProcessWidgetActionCommandCount = 0
-    private(set) var didRefreshPersistentSyncModeCount = 0
     private(set) var didConsumePendingShortcutHandoffCount = 0
     private(set) var didConsumeUITestInjectedRouteCount = 0
     private(set) var didConsumeUITestOpenSettingsCount = 0
@@ -485,10 +533,6 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
 
     func homeNavigationProcessWidgetActionCommand() {
         didProcessWidgetActionCommandCount += 1
-    }
-
-    func homeNavigationRefreshPersistentSyncMode() {
-        didRefreshPersistentSyncModeCount += 1
     }
 
     func homeNavigationConsumePendingShortcutHandoff() {
@@ -1730,7 +1774,7 @@ extension TaskDefinition {
     }
 }
 
-protocol LegacyTaskRepositoryShim {
+protocol LegacyTaskRepositoryShim: Sendable {
     func fetchAllTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
     func fetchTasks(for date: Date, completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
     func fetchTodayTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void)
@@ -1779,10 +1823,22 @@ struct LegacyTaskUpdatePayload {
     }
 }
 
-final class LocalTaskUpdateUseCase {
+private final class SendableNotificationServiceBox: @unchecked Sendable {
+    private let service: NotificationServiceProtocol
+
+    init(_ service: NotificationServiceProtocol) {
+        self.service = service
+    }
+
+    func cancelTaskReminder(taskId: UUID) {
+        service.cancelTaskReminder(taskId: taskId)
+    }
+}
+
+final class LocalTaskUpdateUseCase: @unchecked Sendable {
     private let taskRepository: LegacyTaskRepositoryShim
     private let projectRepository: ProjectRepositoryProtocol
-    private let notificationService: NotificationServiceProtocol?
+    private let notificationService: SendableNotificationServiceBox?
 
     init(
         taskRepository: LegacyTaskRepositoryShim,
@@ -1791,7 +1847,7 @@ final class LocalTaskUpdateUseCase {
     ) {
         self.taskRepository = taskRepository
         self.projectRepository = projectRepository
-        self.notificationService = notificationService
+        self.notificationService = notificationService.map(SendableNotificationServiceBox.init)
     }
 
     func execute(
@@ -1814,14 +1870,14 @@ final class LocalTaskUpdateUseCase {
                 task.dueDate = request.dueDate ?? task.dueDate
                 task.type = request.type ?? task.type
 
-                let persist: (Task) -> Void = { updated in
-                    self.taskRepository.updateTask(updated) { updateResult in
+                let persist: @Sendable (Task) -> Void = { [taskRepository, notificationService] updated in
+                    taskRepository.updateTask(updated) { updateResult in
                         if case .success(let savedTask) = updateResult {
                             NotificationCenter.default.post(
                                 name: NSNotification.Name("TaskUpdated"),
                                 object: savedTask
                             )
-                            self.notificationService?.cancelTaskReminder(taskId: savedTask.id)
+                            notificationService?.cancelTaskReminder(taskId: savedTask.id)
                         }
                         completion(updateResult)
                     }
@@ -1829,11 +1885,13 @@ final class LocalTaskUpdateUseCase {
 
                 if let projectID = request.projectID {
                     task.projectID = projectID
+                    let taskToPersist = task
                     projectRepository.fetchProject(withId: projectID) { projectResult in
+                        var resolvedTask = taskToPersist
                         if case .success(let project) = projectResult {
-                            task.projectName = project?.name
+                            resolvedTask.projectName = project?.name
                         }
-                        persist(task)
+                        persist(resolvedTask)
                     }
                 } else {
                     persist(task)
@@ -2346,6 +2404,7 @@ extension GetHomeFilteredTasksUseCase {
 }
 
 extension UseCaseCoordinator {
+    @MainActor
     convenience init(
         taskRepository: LegacyTaskRepositoryShim,
         projectRepository: ProjectRepositoryProtocol,
@@ -2361,6 +2420,7 @@ extension UseCaseCoordinator {
         )
     }
 
+    @MainActor
     convenience init(
         taskRepository: LegacyTaskRepositoryShim,
         projectRepository: ProjectRepositoryProtocol,
@@ -2581,10 +2641,8 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testTargetedViewsDoNotAccessEnhancedDependencyContainerSingleton() throws {
         let files = [
-            "LifeBoard/Views/Cards/ChartCard.swift",
-            "LifeBoard/Views/Cards/RadarChartCard.swift",
             "LifeBoard/Views/ProjectSelectionSheet.swift",
-            "LifeBoard/View/AddTaskForedropView.swift"
+            "LifeBoard/View/AddTaskSunriseView.swift"
         ]
 
         for relativePath in files {
@@ -2690,7 +2748,6 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testChartAndProjectSelectionViewsDoNotPublishDirectShowProjectManagementNotifications() throws {
         let files = [
-            "LifeBoard/Views/Cards/ChartCardsScrollView.swift",
             "LifeBoard/Views/ProjectSelectionSheet.swift"
         ]
 
@@ -2709,8 +2766,6 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testViewsDirectoryDoesNotDeclarePresentationViewModelTypes() throws {
         let forbiddenDeclarations = [
-            "class ChartCardViewModel",
-            "class RadarChartCardViewModel",
             "class ProjectSelectionViewModel"
         ]
 
@@ -2933,7 +2988,7 @@ final class DeterministicFetchTests: XCTestCase {
 
         var seedError: Error?
         context.performAndWait {
-            seedTaskDefinitionRow(
+            Self.seedTaskDefinitionRow(
                 in: context,
                 rowID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 taskID: taskID,
@@ -2941,7 +2996,7 @@ final class DeterministicFetchTests: XCTestCase {
                 title: "Canonical Alpha",
                 createdAt: now
             )
-            seedTaskDefinitionRow(
+            Self.seedTaskDefinitionRow(
                 in: context,
                 rowID: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
                 taskID: taskID,
@@ -2980,7 +3035,7 @@ final class DeterministicFetchTests: XCTestCase {
 
         var seedError: Error?
         context.performAndWait {
-            seedTaskDefinitionRow(
+            Self.seedTaskDefinitionRow(
                 in: context,
                 rowID: UUID(uuidString: "00000000-0000-0000-0000-000000000101")!,
                 taskID: taskID,
@@ -3135,7 +3190,7 @@ final class DeterministicFetchTests: XCTestCase {
         XCTAssertEqual(secondRead?.externalContainerID, "first-container")
     }
 
-    private func seedTaskDefinitionRow(
+    nonisolated private static func seedTaskDefinitionRow(
         in context: NSManagedObjectContext,
         rowID: UUID,
         taskID: UUID,
@@ -3447,11 +3502,11 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
     }
 
     func testWeeklyPlanningScreensRenderLoadingAndRetryContracts() throws {
-        let plannerSource = try loadWorkspaceFile("LifeBoard/View/WeeklyPlannerView.swift")
+        let plannerSource = try loadWorkspaceFile("LifeBoard/View/SunriseWeeklyPlannerView.swift")
         XCTAssertTrue(plannerSource.contains("WeeklyBlockingStateCard("))
         XCTAssertTrue(plannerSource.contains("primaryActionTitle: \"Retry\""))
 
-        let reviewSource = try loadWorkspaceFile("LifeBoard/View/WeeklyReviewView.swift")
+        let reviewSource = try loadWorkspaceFile("LifeBoard/View/SunriseWeeklyReviewView.swift")
         XCTAssertTrue(reviewSource.contains("WeeklyReviewBlockingStateCard("))
         XCTAssertTrue(reviewSource.contains("primaryActionTitle: \"Retry\""))
 
@@ -3515,11 +3570,17 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertTrue(project.contains("LifeBoardAnimations.swift in Sources"))
     }
 
-    func testWidgetBrandBridgesToLifeBoardThemeRoles() throws {
+    func testWidgetBrandDefinesSunriseGlassTokens() throws {
         let source = try loadWorkspaceFile("LifeBoardWidgets/WidgetBrand.swift")
 
-        XCTAssertTrue(source.contains("LifeBoardTheme.Colors"))
-        XCTAssertTrue(source.contains("Color.lifeboard("))
+        XCTAssertTrue(source.contains("static let navy"))
+        XCTAssertTrue(source.contains("static let sunriseGold"))
+        XCTAssertTrue(source.contains("static let glassStrong"))
+        XCTAssertTrue(source.contains("enum WidgetBrandRole"))
+        XCTAssertTrue(source.contains("WidgetBrandRoleStyle"))
+        XCTAssertTrue(source.contains("adaptive(light:"))
+        XCTAssertFalse(source.contains("LifeBoardTheme.Colors"))
+        XCTAssertFalse(source.contains("Color.lifeboard("))
         XCTAssertFalse(source.contains("dynamic(light:"))
         XCTAssertFalse(source.contains("Color(hex:"))
     }
@@ -3537,6 +3598,33 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertTrue(source.contains("compactWidthThreshold"))
         XCTAssertTrue(source.contains("taskWidgetAccentable(if:"))
         XCTAssertTrue(source.contains("accessibilityHidden(true)"))
+        XCTAssertTrue(source.contains("accessibilityReduceTransparency"))
+        XCTAssertTrue(source.contains("containerBackground(for: .widget)"))
+        XCTAssertTrue(source.contains("LinearGradient"))
+        XCTAssertTrue(source.contains("WidgetBrand.glassBorder"))
+        XCTAssertTrue(source.contains("ultraThinMaterial"))
+    }
+
+    func testWidgetViewsDoNotReintroduceLegacyBrandLiterals() throws {
+        let widgetFiles = [
+            "LifeBoardWidgets/WidgetBrand.swift",
+            "LifeBoardWidgets/TaskWidgetFoundation.swift",
+            "LifeBoardWidgets/TaskWidgetHomeViews.swift",
+            "LifeBoardWidgets/TaskWidgetAccessoryViews.swift",
+            "LifeBoardWidgets/HomeCalendarWidgetView.swift",
+            "LifeBoardWidgets/HomeTimelineWidgetView.swift",
+            "LifeBoardWidgets/TodayXPWidget.swift",
+            "LifeBoardWidgets/WeeklyScoreboardWidget.swift",
+            "LifeBoardWidgets/NextMilestoneWidget.swift",
+            "LifeBoardWidgets/StreakResilienceWidget.swift",
+            "LifeBoardWidgets/FocusSeedWidget.swift"
+        ]
+        let combinedSource = try widgetFiles.map(loadWorkspaceFile).joined(separator: "\n")
+
+        XCTAssertFalse(combinedSource.contains("#293A18"), "Widgets should not use the old forest brand color.")
+        XCTAssertFalse(combinedSource.contains("#B1205F"), "Widgets should not use the old magenta brand color.")
+        XCTAssertFalse(combinedSource.contains("#9E5F0A"), "Widgets should not use the old sandstone brand color.")
+        XCTAssertFalse(combinedSource.contains("#FEBF2B"), "Widgets should use Sunrise gold instead of the previous marigold.")
     }
 
     func testInteractiveWidgetAffordancesRespectFeatureFlagAtRenderTime() throws {
@@ -4133,38 +4221,46 @@ private final class NoopExternalSyncRepository: ExternalSyncRepositoryProtocol {
 }
 
 private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelRepositoryProtocol {
-    private var storedTask: Task
-    private let lock = NSLock()
+    private struct State {
+        var storedTask: Task
+        var fetchAllTasksCallCount = 0
+        var readModelFetchCallCount = 0
+        var readModelSearchCallCount = 0
+    }
+
+    private let state: LockedTestState<State>
 
     var currentTask: Task { readStoredTask() }
-    private(set) var fetchAllTasksCallCount = 0
-    private(set) var readModelFetchCallCount = 0
-    private(set) var readModelSearchCallCount = 0
+    var fetchAllTasksCallCount: Int { state.read().fetchAllTasksCallCount }
+    var readModelFetchCallCount: Int { state.read().readModelFetchCallCount }
+    var readModelSearchCallCount: Int { state.read().readModelSearchCallCount }
 
     init(seed: Task) {
-        self.storedTask = seed
+        self.state = LockedTestState(State(storedTask: seed))
     }
 
     private func readStoredTask() -> Task {
-        lock.lock()
-        defer { lock.unlock() }
-        return storedTask
+        state.read().storedTask
     }
 
     private func replaceStoredTask(with task: Task) {
-        lock.lock()
-        storedTask = task
-        lock.unlock()
+        state.withValue { $0.storedTask = task }
     }
 
     func fetchAllTasks(completion: @escaping @Sendable (Result<[Task], Error>) -> Void) {
-        fetchAllTasksCallCount += 1
-        completion(.success([readStoredTask()]))
+        let task = state.withValue { state -> Task in
+            state.fetchAllTasksCallCount += 1
+            return state.storedTask
+        }
+        completion(.success([task]))
     }
 
     func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
-        readModelFetchCallCount += 1
-        let base = [readStoredTask()].filter { task in
+        let task = state.withValue { state -> Task in
+            state.readModelFetchCallCount += 1
+            return state.storedTask
+        }
+        let base = [task].filter { task in
             if let projectID = query.projectID, task.projectID != projectID { return false }
             if query.includeCompleted == false, task.isComplete { return false }
             if let start = query.dueDateStart, let dueDate = task.dueDate, dueDate < start { return false }
@@ -4183,9 +4279,12 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelR
     }
 
     func searchTasks(query: TaskSearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
-        readModelSearchCallCount += 1
+        let task = state.withValue { state -> Task in
+            state.readModelSearchCallCount += 1
+            return state.storedTask
+        }
         let normalized = query.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let base = [readStoredTask()].filter { task in
+        let base = [task].filter { task in
             if let projectID = query.projectID, task.projectID != projectID { return false }
             if query.includeCompleted == false, task.isComplete { return false }
             if normalized.isEmpty { return true }
@@ -4422,13 +4521,37 @@ private final class MockProjectRepository: ProjectRepositoryProtocol {
 }
 
 private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol {
-    var agendaSummaries: [HabitOccurrenceSummary]
-    var historyWindows: [HabitHistoryWindow]
-    var signalSummaries: [HabitOccurrenceSummary]
-    var libraryRows: [HabitLibraryRow]
-    private(set) var fetchAgendaCallCount = 0
-    private(set) var fetchSignalsCallCount = 0
-    private(set) var fetchLibraryCallCount = 0
+    private struct State {
+        var agendaSummaries: [HabitOccurrenceSummary]
+        var historyWindows: [HabitHistoryWindow]
+        var signalSummaries: [HabitOccurrenceSummary]
+        var libraryRows: [HabitLibraryRow]
+        var fetchAgendaCallCount = 0
+        var fetchSignalsCallCount = 0
+        var fetchLibraryCallCount = 0
+    }
+
+    private let state: LockedTestState<State>
+
+    var agendaSummaries: [HabitOccurrenceSummary] {
+        get { state.read().agendaSummaries }
+        set { state.withValue { $0.agendaSummaries = newValue } }
+    }
+    var historyWindows: [HabitHistoryWindow] {
+        get { state.read().historyWindows }
+        set { state.withValue { $0.historyWindows = newValue } }
+    }
+    var signalSummaries: [HabitOccurrenceSummary] {
+        get { state.read().signalSummaries }
+        set { state.withValue { $0.signalSummaries = newValue } }
+    }
+    var libraryRows: [HabitLibraryRow] {
+        get { state.read().libraryRows }
+        set { state.withValue { $0.libraryRows = newValue } }
+    }
+    var fetchAgendaCallCount: Int { state.read().fetchAgendaCallCount }
+    var fetchSignalsCallCount: Int { state.read().fetchSignalsCallCount }
+    var fetchLibraryCallCount: Int { state.read().fetchLibraryCallCount }
 
     init(
         agendaSummaries: [HabitOccurrenceSummary] = [],
@@ -4436,18 +4559,23 @@ private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadReposit
         signalSummaries: [HabitOccurrenceSummary] = [],
         libraryRows: [HabitLibraryRow] = []
     ) {
-        self.agendaSummaries = agendaSummaries
-        self.historyWindows = historyWindows
-        self.signalSummaries = signalSummaries
-        self.libraryRows = libraryRows
+        self.state = LockedTestState(State(
+            agendaSummaries: agendaSummaries,
+            historyWindows: historyWindows,
+            signalSummaries: signalSummaries,
+            libraryRows: libraryRows
+        ))
     }
 
     func fetchAgendaHabits(
         for date: Date,
         completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
-        fetchAgendaCallCount += 1
-        completion(.success(agendaSummaries))
+        let summaries = state.withValue { state -> [HabitOccurrenceSummary] in
+            state.fetchAgendaCallCount += 1
+            return state.agendaSummaries
+        }
+        completion(.success(summaries))
     }
 
     func fetchHistory(
@@ -4456,7 +4584,7 @@ private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadReposit
         dayCount: Int,
         completion: @escaping @Sendable (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
-        completion(.success(historyWindows))
+        completion(.success(state.read().historyWindows))
     }
 
     func fetchSignals(
@@ -4464,16 +4592,22 @@ private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadReposit
         end: Date,
         completion: @escaping @Sendable (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
-        fetchSignalsCallCount += 1
-        completion(.success(signalSummaries))
+        let summaries = state.withValue { state -> [HabitOccurrenceSummary] in
+            state.fetchSignalsCallCount += 1
+            return state.signalSummaries
+        }
+        completion(.success(summaries))
     }
 
     func fetchHabitLibrary(
         includeArchived: Bool,
         completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
     ) {
-        fetchLibraryCallCount += 1
-        completion(.success(libraryRows))
+        let rows = state.withValue { state -> [HabitLibraryRow] in
+            state.fetchLibraryCallCount += 1
+            return state.libraryRows
+        }
+        completion(.success(rows))
     }
 }
 
@@ -4676,6 +4810,171 @@ final class TombstoneRetentionTests: XCTestCase {
 }
 
 @MainActor
+final class CoreDataModelCompatibilityTests: XCTestCase {
+    func testFreshInstallLoadsCurrentTaskModelV3TaskIconsModel() throws {
+        let model = try currentTaskModelV3Model()
+        let storeURL = temporaryStoreURL(name: "fresh-current-taskmodelv3")
+        defer { removeSQLiteArtifacts(at: storeURL) }
+
+        let container = try makeSQLiteContainer(name: "TaskModelV3", model: model, url: storeURL)
+        defer { unloadPersistentStores(from: container) }
+
+        XCTAssertNotNil(model.entitiesByName["TaskDefinition"])
+        XCTAssertNotNil(model.entitiesByName["LifeArea"])
+        XCTAssertEqual(container.persistentStoreCoordinator.persistentStores.count, 1)
+    }
+
+    func testHistoricalTaskModelV3VersionsMigrateToCurrentWithoutLifeAreaRowLoss() throws {
+        let currentModel = try currentTaskModelV3Model()
+        let versionModels = try historicalTaskModelV3Models()
+        XCTAssertFalse(versionModels.isEmpty)
+
+        for (versionName, sourceModel) in versionModels {
+            guard sourceModel.entitiesByName["LifeArea"] != nil else { continue }
+            let storeURL = temporaryStoreURL(name: "migrate-\(versionName)")
+            defer { removeSQLiteArtifacts(at: storeURL) }
+
+            let sourceContainer = try makeSQLiteContainer(name: versionName, model: sourceModel, url: storeURL)
+            seedLifeAreaRow(in: sourceContainer.viewContext, model: sourceModel, name: "Migrated \(versionName)")
+            try sourceContainer.viewContext.save()
+            unloadPersistentStores(from: sourceContainer)
+
+            let migratedContainer = try makeSQLiteContainer(name: "TaskModelV3", model: currentModel, url: storeURL)
+            defer { unloadPersistentStores(from: migratedContainer) }
+
+            let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+            let migratedRows = try migratedContainer.viewContext.fetch(request)
+            XCTAssertEqual(migratedRows.count, 1, "Expected LifeArea row to survive migration from \(versionName)")
+            XCTAssertEqual(migratedRows.first?.value(forKey: "name") as? String, "Migrated \(versionName)")
+        }
+    }
+
+    func testCloudKitBackedEntitiesDoNotUseCoreDataUniquenessConstraints() throws {
+        let model = try currentTaskModelV3Model()
+        let cloudBackedEntityNames: Set<String> = [
+            "LifeArea", "Project", "ProjectSection", "Tag", "TaskDefinition",
+            "TaskDependency", "TaskTagLink", "WeeklyPlan", "WeeklyOutcome",
+            "WeeklyReview", "ReflectionNote", "HabitDefinition", "ScheduleTemplate",
+            "ScheduleRule", "ScheduleException", "Occurrence", "OccurrenceResolution",
+            "Reminder", "ReminderTrigger", "GamificationProfile", "XPEvent",
+            "AchievementUnlock", "DailyXPAggregate", "FocusSession",
+            "ExternalContainerMap", "ExternalItemMap", "Tombstone", "AssistantActionRun"
+        ]
+
+        for entityName in cloudBackedEntityNames.sorted() {
+            let entity = try XCTUnwrap(model.entitiesByName[entityName], "Missing CloudKit entity \(entityName)")
+            XCTAssertTrue(
+                entity.uniquenessConstraints.isEmpty,
+                "\(entityName) must use app-level canonicalization, not Core Data uniqueness constraints"
+            )
+        }
+    }
+
+    private func currentTaskModelV3Model() throws -> NSManagedObjectModel {
+        let momdURL = try taskModelV3MomdURL()
+        let currentURL = momdURL.appendingPathComponent("TaskModelV3_TaskIcons.mom")
+        guard let model = NSManagedObjectModel(contentsOf: currentURL) else {
+            throw NSError(domain: "CoreDataModelCompatibilityTests", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: "Unable to load current TaskModelV3_TaskIcons model"
+            ])
+        }
+        return model
+    }
+
+    private func historicalTaskModelV3Models() throws -> [(String, NSManagedObjectModel)] {
+        let momdURL = try taskModelV3MomdURL()
+        let versionURLs = try FileManager.default.contentsOfDirectory(
+            at: momdURL,
+            includingPropertiesForKeys: nil
+        )
+        .filter { $0.pathExtension == "mom" }
+        .filter { $0.deletingPathExtension().lastPathComponent != "TaskModelV3_TaskIcons" }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+
+        return versionURLs.compactMap { url in
+            guard let model = NSManagedObjectModel(contentsOf: url) else { return nil }
+            return (url.deletingPathExtension().lastPathComponent, model)
+        }
+    }
+
+    private func taskModelV3MomdURL() throws -> URL {
+        for bundle in [Bundle.main, Bundle(for: type(of: self))] {
+            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") {
+                return url
+            }
+        }
+        throw NSError(domain: "CoreDataModelCompatibilityTests", code: 1, userInfo: [
+            NSLocalizedDescriptionKey: "Unable to locate TaskModelV3.momd in test bundles"
+        ])
+    }
+
+    private func makeSQLiteContainer(
+        name: String,
+        model: NSManagedObjectModel,
+        url: URL
+    ) throws -> NSPersistentContainer {
+        let container = NSPersistentContainer(name: name, managedObjectModel: model)
+        let description = NSPersistentStoreDescription(url: url)
+        description.type = NSSQLiteStoreType
+        description.shouldAddStoreAsynchronously = false
+        description.shouldMigrateStoreAutomatically = true
+        description.shouldInferMappingModelAutomatically = true
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
+    }
+
+    private func seedLifeAreaRow(in context: NSManagedObjectContext, model: NSManagedObjectModel, name: String) {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
+        let attributes = model.entitiesByName["LifeArea"]?.attributesByName ?? [:]
+        set(UUID(), forKey: "id", on: object, attributes: attributes)
+        set(name, forKey: "name", on: object, attributes: attributes)
+        set("#4F7DF3", forKey: "color", on: object, attributes: attributes)
+        set("circle.grid.2x2", forKey: "icon", on: object, attributes: attributes)
+        set(Int32(0), forKey: "sortOrder", on: object, attributes: attributes)
+        set(false, forKey: "isArchived", on: object, attributes: attributes)
+        set(Date(timeIntervalSince1970: 1_700_000_000), forKey: "createdAt", on: object, attributes: attributes)
+        set(Date(timeIntervalSince1970: 1_700_000_000), forKey: "updatedAt", on: object, attributes: attributes)
+        set(Int32(1), forKey: "version", on: object, attributes: attributes)
+    }
+
+    private func set(_ value: Any, forKey key: String, on object: NSManagedObject, attributes: [String: NSAttributeDescription]) {
+        guard attributes[key] != nil else { return }
+        object.setValue(value, forKey: key)
+    }
+
+    private func temporaryStoreURL(name: String) -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(name)-\(UUID().uuidString).sqlite")
+    }
+
+    private func removeSQLiteArtifacts(at url: URL) {
+        let fileManager = FileManager.default
+        let sidecars = [
+            url,
+            URL(fileURLWithPath: url.path + "-wal"),
+            URL(fileURLWithPath: url.path + "-shm")
+        ]
+        for fileURL in sidecars where fileManager.fileExists(atPath: fileURL.path) {
+            try? fileManager.removeItem(at: fileURL)
+        }
+    }
+
+    private func unloadPersistentStores(from container: NSPersistentContainer) {
+        for store in container.persistentStoreCoordinator.persistentStores {
+            try? container.persistentStoreCoordinator.remove(store)
+        }
+    }
+}
+
+@MainActor
 final class V2RepositoryInvariantTests: XCTestCase {
     func testTaskDefinitionUpsertRepairsDuplicateIDsDeterministically() throws {
         let container = try makeInMemoryV2Container()
@@ -4686,7 +4985,7 @@ final class V2RepositoryInvariantTests: XCTestCase {
         let newerDate = olderDate.addingTimeInterval(60)
 
         container.viewContext.performAndWait {
-            insertTaskDefinitionObject(
+            Self.insertTaskDefinitionObject(
                 in: container.viewContext,
                 id: taskID,
                 projectID: projectID,
@@ -4694,7 +4993,7 @@ final class V2RepositoryInvariantTests: XCTestCase {
                 createdAt: olderDate,
                 updatedAt: olderDate
             )
-            insertTaskDefinitionObject(
+            Self.insertTaskDefinitionObject(
                 in: container.viewContext,
                 id: taskID,
                 projectID: projectID,
@@ -4874,6 +5173,533 @@ final class V2RepositoryInvariantTests: XCTestCase {
         XCTAssertEqual(byLocal?.id, byExternal?.id)
     }
 
+    func testTagRepositoryCanonicalizesNormalizedNamesGlobally() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTagRepository(container: container)
+
+        let first = try awaitResult { completion in
+            repository.create(
+                TagDefinition(name: " Work ", color: "#111111", icon: "briefcase", sortOrder: 4),
+                completion: completion
+            )
+        }
+        let second = try awaitResult { completion in
+            repository.create(
+                TagDefinition(name: "work", color: "#222222", icon: "folder", sortOrder: 9),
+                completion: completion
+            )
+        }
+
+        let fetched = try awaitResult { completion in
+            repository.fetchAll(completion: completion)
+        }
+
+        XCTAssertEqual(first.id, second.id)
+        XCTAssertEqual(fetched.filter { $0.name.localizedCaseInsensitiveCompare("work") == .orderedSame }.count, 1)
+        XCTAssertEqual(fetched.first?.name, "Work")
+        XCTAssertEqual(fetched.first?.color, "#111111")
+        XCTAssertEqual(fetched.first?.icon, "briefcase")
+        XCTAssertEqual(fetched.first?.sortOrder, 4)
+    }
+
+    func testCanonicalObjectObservesDuplicatesWithoutDeletingOnReadPath() throws {
+        let container = try makeInMemoryV2Container()
+        insertTagObject(in: container.viewContext, id: UUID(), name: "Work")
+        insertTagObject(in: container.viewContext, id: UUID(), name: "Work")
+        try container.viewContext.save()
+
+        let predicate = NSPredicate(format: "name == %@", "Work")
+        let canonical = try V2CoreDataRepositorySupport.canonicalReadObject(
+            in: container.viewContext,
+            entityName: "Tag",
+            predicate: predicate
+        )
+        let remaining = try V2CoreDataRepositorySupport.fetchObjects(
+            in: container.viewContext,
+            entityName: "Tag",
+            predicate: predicate
+        )
+
+        XCTAssertNotNil(canonical)
+        XCTAssertEqual(remaining.count, 2)
+    }
+
+    func testUpsertByPredicateRepairsDuplicatesAtWriteBoundary() throws {
+        let container = try makeInMemoryV2Container()
+        insertTagObject(in: container.viewContext, id: UUID(), name: "Work")
+        insertTagObject(in: container.viewContext, id: UUID(), name: "Work")
+        try container.viewContext.save()
+
+        let predicate = NSPredicate(format: "name == %@", "Work")
+        let canonical = try V2CoreDataRepositorySupport.upsertByPredicate(
+            in: container.viewContext,
+            entityName: "Tag",
+            predicate: predicate
+        )
+        try container.viewContext.save()
+        let remaining = try V2CoreDataRepositorySupport.fetchObjects(
+            in: container.viewContext,
+            entityName: "Tag",
+            predicate: predicate
+        )
+
+        XCTAssertNotNil(canonical.value(forKey: "id") as? UUID)
+        XCTAssertEqual(remaining.count, 1)
+    }
+
+    func testReminderRepositoryRepairsHistoricalDuplicateRowsAtWriteBoundary() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataReminderRepository(container: container)
+        let sourceID = UUID()
+        let occurrenceID = UUID()
+        let now = Date(timeIntervalSince1970: 1_750_560_000)
+        insertReminderObject(
+            in: container.viewContext,
+            id: UUID(),
+            sourceType: .occurrence,
+            sourceID: sourceID,
+            occurrenceID: occurrenceID,
+            policy: "default",
+            channelMask: 1,
+            isEnabled: true,
+            createdAt: now,
+            updatedAt: now
+        )
+        insertReminderObject(
+            in: container.viewContext,
+            id: UUID(),
+            sourceType: .occurrence,
+            sourceID: sourceID,
+            occurrenceID: occurrenceID,
+            policy: "default",
+            channelMask: 2,
+            isEnabled: false,
+            createdAt: now.addingTimeInterval(1),
+            updatedAt: now.addingTimeInterval(1)
+        )
+        try container.viewContext.save()
+
+        _ = try awaitResult { completion in
+            repository.saveReminder(
+                ReminderDefinition(
+                    id: UUID(),
+                    sourceType: .occurrence,
+                    sourceID: sourceID,
+                    occurrenceID: occurrenceID,
+                    policy: "default",
+                    channelMask: 4,
+                    isEnabled: true,
+                    createdAt: now,
+                    updatedAt: now.addingTimeInterval(2)
+                ),
+                completion: completion
+            )
+        }
+
+        let stored = try awaitResult { completion in
+            repository.fetchReminders(completion: completion)
+        }
+        XCTAssertEqual(stored.filter { $0.sourceID == sourceID && $0.occurrenceID == occurrenceID && $0.policy == "default" }.count, 1)
+    }
+
+    func testWeeklyPlanFetchObservesHistoricalDuplicatesWithoutDeleting() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataWeeklyPlanRepository(container: container)
+        let weekStart = Date(timeIntervalSince1970: 1_750_600_000)
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let canonicalWeekStart = XPCalculationEngine.startOfWeek(
+            for: weekStart,
+            startingOn: .monday,
+            calendar: calendar
+        )
+        insertWeeklyPlanObject(in: container.viewContext, id: UUID(), weekStartDate: canonicalWeekStart)
+        insertWeeklyPlanObject(in: container.viewContext, id: UUID(), weekStartDate: canonicalWeekStart)
+        try container.viewContext.save()
+
+        let fetched = try awaitResult { completion in
+            repository.fetchPlan(forWeekStarting: canonicalWeekStart, completion: completion)
+        }
+        let storedCount = try countObjects(
+            in: container.viewContext,
+            entityName: "WeeklyPlan",
+            predicate: NSPredicate(format: "weekStartDate == %@", canonicalWeekStart as NSDate)
+        )
+
+        XCTAssertNotNil(fetched)
+        XCTAssertEqual(storedCount, 2)
+    }
+
+    func testMalformedLifeAreaRowsFailFetchValidation() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataLifeAreaRepository(container: container)
+        let malformed = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: container.viewContext)
+        malformed.setValue(UUID(uuidString: "00000000-0000-0000-0000-000000000000"), forKey: "id")
+        malformed.setValue("Malformed", forKey: "name")
+        try container.viewContext.save()
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.fetchAll(completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "V2CoreDataRepositorySupport")
+            XCTAssertEqual((error as NSError).code, 422)
+        }
+    }
+
+    func testMalformedTagRowsFailFetchValidation() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTagRepository(container: container)
+        let malformed = NSEntityDescription.insertNewObject(forEntityName: "Tag", into: container.viewContext)
+        malformed.setValue(UUID(), forKey: "id")
+        malformed.setValue("   ", forKey: "name")
+        try container.viewContext.save()
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.fetchAll(completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "V2CoreDataRepositorySupport")
+            XCTAssertEqual((error as NSError).code, 422)
+        }
+    }
+
+    func testMalformedSectionRowsFailFetchValidation() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataSectionRepository(container: container)
+        let projectID = UUID()
+        let malformed = NSEntityDescription.insertNewObject(forEntityName: "ProjectSection", into: container.viewContext)
+        malformed.setValue(UUID(), forKey: "id")
+        malformed.setValue(projectID, forKey: "projectID")
+        malformed.setValue("", forKey: "name")
+        try container.viewContext.save()
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.fetchSections(projectID: projectID, completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "V2CoreDataRepositorySupport")
+            XCTAssertEqual((error as NSError).code, 422)
+        }
+    }
+
+    func testBlankOccurrenceKeyFailsWriteValidation() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataOccurrenceRepository(container: container)
+        let now = Date(timeIntervalSince1970: 1_750_300_000)
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.saveOccurrences([
+                OccurrenceDefinition(
+                    id: UUID(),
+                    occurrenceKey: "   ",
+                    scheduleTemplateID: UUID(),
+                    sourceType: .habit,
+                    sourceID: UUID(),
+                    scheduledAt: now,
+                    dueAt: nil,
+                    state: .pending,
+                    isGenerated: true,
+                    generationWindow: nil,
+                    createdAt: now,
+                    updatedAt: now
+                )
+            ], completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "V2CoreDataRepositorySupport")
+            XCTAssertEqual((error as NSError).code, 422)
+        }
+    }
+
+    func testBlankReminderPolicyFailsWriteValidation() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataReminderRepository(container: container)
+        let now = Date(timeIntervalSince1970: 1_750_400_000)
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.saveReminder(
+                ReminderDefinition(
+                    id: UUID(),
+                    sourceType: .task,
+                    sourceID: UUID(),
+                    occurrenceID: nil,
+                    policy: "  ",
+                    channelMask: 1,
+                    isEnabled: true,
+                    createdAt: now,
+                    updatedAt: now
+                ),
+                completion: completion
+            )
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "V2CoreDataRepositorySupport")
+            XCTAssertEqual((error as NSError).code, 422)
+        }
+    }
+
+    func testLifeAreaRepositoryRejectsDuplicateActiveNamesAtWriteBoundary() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataLifeAreaRepository(container: container)
+
+        _ = try awaitResult { completion in
+            repository.create(LifeArea(name: "Health"), completion: completion)
+        }
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.create(LifeArea(name: " health "), completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "CoreDataLifeAreaRepository")
+            XCTAssertEqual((error as NSError).code, 409)
+        }
+    }
+
+    func testLifeAreaRepositoryRejectsHistoricalWhitespaceCaseDuplicateNames() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataLifeAreaRepository(container: container)
+        Self.insertLifeAreaObject(in: container.viewContext, id: UUID(), name: "  Health  ", isArchived: false)
+        try container.viewContext.save()
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.create(LifeArea(name: "health"), completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "CoreDataLifeAreaRepository")
+            XCTAssertEqual((error as NSError).code, 409)
+        }
+    }
+
+    func testSectionRepositoryRejectsDuplicateNamesWithinProject() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataSectionRepository(container: container)
+        let projectID = UUID()
+
+        _ = try awaitResult { completion in
+            repository.create(
+                LifeBoardProjectSection(projectID: projectID, name: "Backlog"),
+                completion: completion
+            )
+        }
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.create(
+                LifeBoardProjectSection(projectID: projectID, name: " backlog "),
+                completion: completion
+            )
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "CoreDataSectionRepository")
+            XCTAssertEqual((error as NSError).code, 409)
+        }
+    }
+
+    func testSectionRepositoryRejectsHistoricalWhitespaceCaseDuplicateNamesWithinProject() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataSectionRepository(container: container)
+        let projectID = UUID()
+        insertSectionObject(in: container.viewContext, id: UUID(), projectID: projectID, name: "  Backlog  ")
+        try container.viewContext.save()
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            repository.create(
+                LifeBoardProjectSection(projectID: projectID, name: "backlog"),
+                completion: completion
+            )
+        }) { error in
+            XCTAssertEqual((error as NSError).domain, "CoreDataSectionRepository")
+            XCTAssertEqual((error as NSError).code, 409)
+        }
+    }
+
+    func testTagRepositoryCanonicalizesHistoricalWhitespaceCaseDuplicateNames() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTagRepository(container: container)
+        let historicalID = UUID()
+        insertTagObject(in: container.viewContext, id: historicalID, name: "  Work  ")
+        try container.viewContext.save()
+
+        let result = try awaitResult { completion in
+            repository.create(
+                TagDefinition(name: "work", color: "#222222", icon: "folder", sortOrder: 9),
+                completion: completion
+            )
+        }
+        let fetched = try awaitResult { completion in
+            repository.fetchAll(completion: completion)
+        }
+
+        XCTAssertEqual(result.id, historicalID)
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.id, historicalID)
+    }
+
+    func testOccurrenceRepositoryCanonicalizesDuplicateOccurrenceKeys() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataOccurrenceRepository(container: container)
+        let templateID = UUID()
+        let sourceID = UUID()
+        let scheduledAt = Date(timeIntervalSince1970: 1_750_000_000)
+        let key = OccurrenceKeyCodec.encode(
+            scheduleTemplateID: templateID,
+            scheduledAt: scheduledAt,
+            sourceID: sourceID
+        )
+
+        _ = try awaitResult { completion in
+            repository.saveOccurrences([
+                OccurrenceDefinition(
+                    id: UUID(),
+                    occurrenceKey: key,
+                    scheduleTemplateID: templateID,
+                    sourceType: .habit,
+                    sourceID: sourceID,
+                    scheduledAt: scheduledAt,
+                    dueAt: scheduledAt.addingTimeInterval(3_600),
+                    state: .pending,
+                    isGenerated: true,
+                    generationWindow: "test",
+                    createdAt: scheduledAt,
+                    updatedAt: scheduledAt
+                )
+            ], completion: completion)
+        }
+
+        _ = try awaitResult { completion in
+            repository.saveOccurrences([
+                OccurrenceDefinition(
+                    id: UUID(),
+                    occurrenceKey: key,
+                    scheduleTemplateID: templateID,
+                    sourceType: .habit,
+                    sourceID: sourceID,
+                    scheduledAt: scheduledAt,
+                    dueAt: scheduledAt.addingTimeInterval(7_200),
+                    state: .completed,
+                    isGenerated: true,
+                    generationWindow: "test",
+                    createdAt: scheduledAt.addingTimeInterval(60),
+                    updatedAt: scheduledAt.addingTimeInterval(60)
+                )
+            ], completion: completion)
+        }
+
+        let occurrences = try awaitResult { completion in
+            repository.fetchInRange(
+                start: scheduledAt.addingTimeInterval(-60),
+                end: scheduledAt.addingTimeInterval(60),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(occurrences.filter { $0.occurrenceKey == key }.count, 1)
+        XCTAssertEqual(occurrences.first?.state, .completed)
+        XCTAssertEqual(occurrences.first?.dueAt, scheduledAt.addingTimeInterval(7_200))
+    }
+
+    func testScheduleExceptionRepositoryCanonicalizesTemplateOccurrenceKey() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataScheduleRepository(container: container)
+        let templateID = UUID()
+        let sourceID = UUID()
+        let scheduledAt = Date(timeIntervalSince1970: 1_750_100_000)
+        let key = OccurrenceKeyCodec.encode(
+            scheduleTemplateID: templateID,
+            scheduledAt: scheduledAt,
+            sourceID: sourceID
+        )
+
+        _ = try awaitResult { completion in
+            repository.saveTemplate(
+                ScheduleTemplateDefinition(
+                    id: templateID,
+                    sourceType: .habit,
+                    sourceID: sourceID,
+                    createdAt: scheduledAt,
+                    updatedAt: scheduledAt
+                ),
+                completion: completion
+            )
+        }
+
+        _ = try awaitResult { completion in
+            repository.saveException(
+                ScheduleExceptionDefinition(
+                    id: UUID(),
+                    scheduleTemplateID: templateID,
+                    occurrenceKey: key,
+                    action: .skip,
+                    createdAt: scheduledAt
+                ),
+                completion: completion
+            )
+        }
+        _ = try awaitResult { completion in
+            repository.saveException(
+                ScheduleExceptionDefinition(
+                    id: UUID(),
+                    scheduleTemplateID: templateID,
+                    occurrenceKey: key,
+                    action: .move,
+                    movedToAt: scheduledAt.addingTimeInterval(3_600),
+                    createdAt: scheduledAt.addingTimeInterval(60)
+                ),
+                completion: completion
+            )
+        }
+
+        let exceptions = try awaitResult { completion in
+            repository.fetchExceptions(templateID: templateID, completion: completion)
+        }
+
+        XCTAssertEqual(exceptions.filter { $0.occurrenceKey == key }.count, 1)
+        XCTAssertEqual(exceptions.first?.action, .move)
+        XCTAssertEqual(exceptions.first?.movedToAt, scheduledAt.addingTimeInterval(3_600))
+    }
+
+    func testReminderRepositoryCanonicalizesSourceOccurrencePolicyIdentity() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataReminderRepository(container: container)
+        let sourceID = UUID()
+        let occurrenceID = UUID()
+        let createdAt = Date(timeIntervalSince1970: 1_750_200_000)
+
+        _ = try awaitResult { completion in
+            repository.saveReminder(
+                ReminderDefinition(
+                    id: UUID(),
+                    sourceType: .occurrence,
+                    sourceID: sourceID,
+                    occurrenceID: occurrenceID,
+                    policy: "default",
+                    channelMask: 1,
+                    isEnabled: true,
+                    createdAt: createdAt,
+                    updatedAt: createdAt
+                ),
+                completion: completion
+            )
+        }
+        _ = try awaitResult { completion in
+            repository.saveReminder(
+                ReminderDefinition(
+                    id: UUID(),
+                    sourceType: .occurrence,
+                    sourceID: sourceID,
+                    occurrenceID: occurrenceID,
+                    policy: " default ",
+                    channelMask: 3,
+                    isEnabled: false,
+                    createdAt: createdAt.addingTimeInterval(60),
+                    updatedAt: createdAt.addingTimeInterval(60)
+                ),
+                completion: completion
+            )
+        }
+
+        let reminders = try awaitResult { completion in
+            repository.fetchReminders(completion: completion)
+        }
+
+        XCTAssertEqual(reminders.count, 1)
+        XCTAssertEqual(reminders.first?.policy, "default")
+        XCTAssertEqual(reminders.first?.channelMask, 3)
+        XCTAssertEqual(reminders.first?.isEnabled, false)
+    }
+
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
         let bundles = [Bundle.main, Bundle(for: type(of: self))]
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
@@ -4898,7 +5724,7 @@ final class V2RepositoryInvariantTests: XCTestCase {
         return container
     }
 
-    private func insertTaskDefinitionObject(
+    nonisolated private static func insertTaskDefinitionObject(
         in context: NSManagedObjectContext,
         id: UUID,
         projectID: UUID,
@@ -4919,6 +5745,104 @@ final class V2RepositoryInvariantTests: XCTestCase {
         task.setValue(createdAt, forKey: "createdAt")
         task.setValue(updatedAt, forKey: "updatedAt")
         task.setValue("pending", forKey: "status")
+    }
+
+    nonisolated private static func insertLifeAreaObject(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        name: String,
+        isArchived: Bool
+    ) {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(name, forKey: "name")
+        object.setValue("#4F7DF3", forKey: "color")
+        object.setValue("circle.grid.2x2", forKey: "icon")
+        object.setValue(Int32(0), forKey: "sortOrder")
+        object.setValue(isArchived, forKey: "isArchived")
+        object.setValue(Date(timeIntervalSince1970: 1_750_500_000), forKey: "createdAt")
+        object.setValue(Date(timeIntervalSince1970: 1_750_500_000), forKey: "updatedAt")
+        object.setValue(Int32(1), forKey: "version")
+    }
+
+    private func insertSectionObject(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        projectID: UUID,
+        name: String
+    ) {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "ProjectSection", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(projectID, forKey: "projectID")
+        object.setValue(name, forKey: "name")
+        object.setValue(Int32(0), forKey: "sortOrder")
+        object.setValue(false, forKey: "isCollapsed")
+        object.setValue(Date(timeIntervalSince1970: 1_750_500_000), forKey: "createdAt")
+        object.setValue(Date(timeIntervalSince1970: 1_750_500_000), forKey: "updatedAt")
+    }
+
+    private func insertTagObject(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        name: String
+    ) {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "Tag", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(name, forKey: "name")
+        object.setValue("#111111", forKey: "color")
+        object.setValue("briefcase", forKey: "icon")
+        object.setValue(Int32(4), forKey: "sortOrder")
+        object.setValue(Date(timeIntervalSince1970: 1_750_500_000), forKey: "createdAt")
+    }
+
+    private func insertReminderObject(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        sourceType: ReminderSourceType,
+        sourceID: UUID,
+        occurrenceID: UUID?,
+        policy: String,
+        channelMask: Int,
+        isEnabled: Bool,
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "Reminder", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(sourceType.rawValue, forKey: "sourceType")
+        object.setValue(sourceID, forKey: "sourceID")
+        object.setValue(occurrenceID, forKey: "occurrenceID")
+        object.setValue(policy, forKey: "policy")
+        object.setValue(Int32(channelMask), forKey: "channelMask")
+        object.setValue(isEnabled, forKey: "isEnabled")
+        object.setValue(createdAt, forKey: "createdAt")
+        object.setValue(updatedAt, forKey: "updatedAt")
+    }
+
+    private func insertWeeklyPlanObject(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        weekStartDate: Date
+    ) {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "WeeklyPlan", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(weekStartDate, forKey: "weekStartDate")
+        object.setValue(weekStartDate.addingTimeInterval(6 * 24 * 60 * 60), forKey: "weekEndDate")
+        object.setValue([] as NSArray, forKey: "selectedHabitIDs")
+        object.setValue(false, forKey: "minimumViableWeekEnabled")
+        object.setValue(WeeklyPlanReviewStatus.notStarted.rawValue, forKey: "reviewStatus")
+        object.setValue(weekStartDate, forKey: "createdAt")
+        object.setValue(weekStartDate, forKey: "updatedAt")
+    }
+
+    private func countObjects(
+        in context: NSManagedObjectContext,
+        entityName: String,
+        predicate: NSPredicate
+    ) throws -> Int {
+        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+        request.predicate = predicate
+        return try context.count(for: request)
     }
 }
 
@@ -5180,26 +6104,25 @@ final class ConcurrencyRaceTests: XCTestCase {
         let repository = CoreDataTagRepository(container: container)
         let candidateNames = ["Work", "work", " WORK ", "WoRk"]
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
+        let firstError = LockedTestState<Error?>(nil)
 
         for index in 0..<24 {
             group.enter()
             let name = candidateNames[index % candidateNames.count]
             repository.create(TagDefinition(id: UUID(), name: name)) { result in
                 if case .failure(let error) = result {
-                    lock.lock()
-                    if firstError == nil {
-                        firstError = error
+                    firstError.withValue {
+                        if $0 == nil {
+                            $0 = error
+                        }
                     }
-                    lock.unlock()
                 }
                 group.leave()
             }
         }
 
         XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
-        if let firstError {
+        if let firstError = firstError.read() {
             throw firstError
         }
 
@@ -5219,8 +6142,7 @@ final class ConcurrencyRaceTests: XCTestCase {
         let localEntityID = UUID()
         let externalItemID = "race-item-\(UUID().uuidString)"
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
+        let firstError = LockedTestState<Error?>(nil)
 
         for index in 0..<24 {
             group.enter()
@@ -5244,11 +6166,11 @@ final class ConcurrencyRaceTests: XCTestCase {
                     },
                     completion: { result in
                         if case .failure(let error) = result {
-                            lock.lock()
-                            if firstError == nil {
-                                firstError = error
+                            firstError.withValue {
+                                if $0 == nil {
+                                    $0 = error
+                                }
                             }
-                            lock.unlock()
                         }
                         group.leave()
                     }
@@ -5272,11 +6194,11 @@ final class ConcurrencyRaceTests: XCTestCase {
                     },
                     completion: { result in
                         if case .failure(let error) = result {
-                            lock.lock()
-                            if firstError == nil {
-                                firstError = error
+                            firstError.withValue {
+                                if $0 == nil {
+                                    $0 = error
+                                }
                             }
-                            lock.unlock()
                         }
                         group.leave()
                     }
@@ -5285,7 +6207,7 @@ final class ConcurrencyRaceTests: XCTestCase {
         }
 
         XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
-        if let firstError {
+        if let firstError = firstError.read() {
             throw firstError
         }
 
@@ -5313,8 +6235,7 @@ final class ConcurrencyRaceTests: XCTestCase {
         let repository = CoreDataGamificationRepository(container: container)
         let idempotencyKey = "xp-race-\(UUID().uuidString)"
         let group = DispatchGroup()
-        let lock = NSLock()
-        var firstError: Error?
+        let firstError = LockedTestState<Error?>(nil)
 
         for index in 0..<20 {
             group.enter()
@@ -5333,18 +6254,18 @@ final class ConcurrencyRaceTests: XCTestCase {
                         group.leave()
                         return
                     }
-                    lock.lock()
-                    if firstError == nil {
-                        firstError = error
+                    firstError.withValue {
+                        if $0 == nil {
+                            $0 = error
+                        }
                     }
-                    lock.unlock()
                 }
                 group.leave()
             }
         }
 
         XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
-        if let firstError {
+        if let firstError = firstError.read() {
             throw firstError
         }
 
@@ -5384,14 +6305,14 @@ final class ConcurrencyRaceTests: XCTestCase {
         }
 
         let duplicateExpectation = expectation(description: "duplicate save result")
-        var duplicateResult: Result<Void, Error>?
+        let duplicateResult = LockedTestState<Result<Void, Error>?>(nil)
         repository.saveXPEvent(second) { result in
-            duplicateResult = result
+            duplicateResult.write(result)
             duplicateExpectation.fulfill()
         }
         wait(for: [duplicateExpectation], timeout: 2.0)
 
-        switch duplicateResult {
+        switch duplicateResult.read() {
         case .success?:
             XCTFail("Expected duplicate save to return idempotent replay error")
         case .failure(let error)?:
@@ -5545,11 +6466,11 @@ final class ConcurrencyRaceTests: XCTestCase {
 final class FocusSessionUseCaseTests: XCTestCase {
     override func setUp() {
         super.setUp()
-        clearPersistedFocusSessionKeys()
+        Self.clearPersistedFocusSessionKeys()
     }
 
     override func tearDown() {
-        clearPersistedFocusSessionKeys()
+        Self.clearPersistedFocusSessionKeys()
         super.tearDown()
     }
 
@@ -5616,7 +6537,7 @@ final class FocusSessionUseCaseTests: XCTestCase {
         XCTAssertEqual(repository.createdSessions.first?.targetDurationSeconds, 20 * 60)
     }
 
-    private func clearPersistedFocusSessionKeys() {
+    nonisolated private static func clearPersistedFocusSessionKeys() {
         UserDefaults.standard.removeObject(forKey: "focusSessionActiveID")
         UserDefaults.standard.removeObject(forKey: "focusSessionStartedAt")
         UserDefaults.standard.removeObject(forKey: "focusSessionTaskID")
@@ -5625,9 +6546,20 @@ final class FocusSessionUseCaseTests: XCTestCase {
 }
 
 private final class FocusSessionRepositorySpy: GamificationRepositoryProtocol {
-    var focusSessions: [FocusSessionDefinition] = []
-    private(set) var createFocusSessionCallCount = 0
-    private(set) var createdSessions: [FocusSessionDefinition] = []
+    private struct State {
+        var focusSessions: [FocusSessionDefinition] = []
+        var createFocusSessionCallCount = 0
+        var createdSessions: [FocusSessionDefinition] = []
+    }
+
+    private let state = LockedTestState(State())
+
+    var focusSessions: [FocusSessionDefinition] {
+        get { state.read().focusSessions }
+        set { state.withValue { $0.focusSessions = newValue } }
+    }
+    var createFocusSessionCallCount: Int { state.read().createFocusSessionCallCount }
+    var createdSessions: [FocusSessionDefinition] { state.read().createdSessions }
 
     func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
     func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
@@ -5642,23 +6574,27 @@ private final class FocusSessionRepositorySpy: GamificationRepositoryProtocol {
     func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
 
     func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        createFocusSessionCallCount += 1
-        createdSessions.append(session)
-        focusSessions.append(session)
+        state.withValue {
+            $0.createFocusSessionCallCount += 1
+            $0.createdSessions.append(session)
+            $0.focusSessions.append(session)
+        }
         completion(.success(()))
     }
 
     func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        if let index = focusSessions.firstIndex(where: { $0.id == session.id }) {
-            focusSessions[index] = session
-        } else {
-            focusSessions.append(session)
+        state.withValue { state in
+            if let index = state.focusSessions.firstIndex(where: { $0.id == session.id }) {
+                state.focusSessions[index] = session
+            } else {
+                state.focusSessions.append(session)
+            }
         }
         completion(.success(()))
     }
 
     func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
-        let filtered = focusSessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }
+        let filtered = state.read().focusSessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }
         completion(.success(filtered))
     }
 }
@@ -5694,9 +6630,9 @@ final class HomeViewModelFocusSessionThreadingTests: XCTestCase {
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
 
         let completionExpectation = expectation(description: "focus session completion")
-        var completionOnMainThread = false
+        let completionOnMainThread = LockedTestState(false)
         viewModel.startFocusSession(taskID: nil, targetDurationSeconds: 60) { result in
-            completionOnMainThread = Thread.isMainThread
+            completionOnMainThread.write(Thread.isMainThread)
             if case .failure(let error) = result {
                 XCTFail("Expected successful start session, got \(error)")
             }
@@ -5704,7 +6640,7 @@ final class HomeViewModelFocusSessionThreadingTests: XCTestCase {
         }
 
         waitForExpectations(timeout: 2.0)
-        XCTAssertTrue(completionOnMainThread)
+        XCTAssertTrue(completionOnMainThread.read())
     }
 }
 
@@ -5795,7 +6731,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         var observedMutation: GamificationLedgerMutation?
         let mutationExpectation = expectation(description: "ledger mutation")
         let completionExpectation = expectation(description: "record completion")
-        var capturedResult: Result<XPEventResult, Error>?
+        let capturedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
         let token = NotificationCenter.default.addObserver(
             forName: .gamificationLedgerDidMutate,
             object: nil,
@@ -5819,12 +6755,12 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
                 priority: 2
             )
         ) { result in
-            capturedResult = result
+            capturedResult.write(result)
             completionExpectation.fulfill()
         }
 
         wait(for: [mutationExpectation, completionExpectation], timeout: 2.0)
-        let result = try XCTUnwrap(capturedResult).get()
+        let result = try XCTUnwrap(capturedResult.read()).get()
         XCTAssertEqual(result.currentStreak, 1)
         XCTAssertEqual(observedMutation?.streakDays, 1)
         XCTAssertEqual(observedMutation?.didChange, true)
@@ -5838,7 +6774,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         let completedAt = Date()
         let dateKey = XPCalculationEngine.periodKey(for: completedAt)
         var observedMutation: GamificationLedgerMutation?
-        var capturedResult: Result<XPEventResult, Error>?
+        let capturedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
         let mutationExpectation = expectation(description: "recovery mutation")
         let completionExpectation = expectation(description: "record completion")
 
@@ -5865,13 +6801,13 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
                 priority: 2
             )
         ) { result in
-            capturedResult = result
+            capturedResult.write(result)
             completionExpectation.fulfill()
         }
 
         wait(for: [mutationExpectation, completionExpectation], timeout: 3.0)
 
-        let result = try XCTUnwrap(capturedResult).get()
+        let result = try XCTUnwrap(capturedResult.read()).get()
         XCTAssertGreaterThan(result.awardedXP, 0)
         XCTAssertTrue(observedMutation?.didChange ?? false)
 
@@ -5961,7 +6897,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         let engine = GamificationEngine(repository: repository)
         let completionExpectation = expectation(description: "record completion")
         let mutationExpectation = expectation(description: "ledger mutation")
-        var capturedResult: Result<XPEventResult, Error>?
+        let capturedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
         var observedMutation: GamificationLedgerMutation?
 
         let token = NotificationCenter.default.addObserver(
@@ -5985,12 +6921,12 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
                 priority: 2
             )
         ) { result in
-            capturedResult = result
+            capturedResult.write(result)
             completionExpectation.fulfill()
         }
 
         wait(for: [mutationExpectation, completionExpectation], timeout: 2.0)
-        let result = try? XCTUnwrap(capturedResult).get()
+        let result = try? XCTUnwrap(capturedResult.read()).get()
 
         XCTAssertEqual(result?.awardedXP, 0)
         XCTAssertEqual(result?.totalXP, seededProfile.xpTotal)
@@ -6017,7 +6953,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         )
         let engine = GamificationEngine(repository: repository)
         let completionExpectation = expectation(description: "record completion")
-        var capturedResult: Result<XPEventResult, Error>?
+        let capturedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
 
         engine.recordEvent(
             context: XPEventContext(
@@ -6028,19 +6964,19 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
                 priority: 2
             )
         ) { result in
-            capturedResult = result
+            capturedResult.write(result)
             completionExpectation.fulfill()
         }
 
         wait(for: [completionExpectation], timeout: 2.0)
-        let result = try XCTUnwrap(capturedResult).get()
+        let result = try XCTUnwrap(capturedResult.read()).get()
         let unlocked = Set(result.unlockedAchievements.map(\.achievementKey))
         XCTAssertTrue(unlocked.contains("first_step"))
         XCTAssertTrue(unlocked.contains("xp_100"))
     }
 }
 
-private final class InMemoryGamificationEngineRepository: GamificationRepositoryProtocol {
+private final class InMemoryGamificationEngineRepository: GamificationRepositoryProtocol, @unchecked Sendable {
     private let lock = NSLock()
     var profile: GamificationSnapshot?
     private var events: [XPEventDefinition] = []
@@ -6268,7 +7204,7 @@ final class TaskDefinitionCreationMetadataTests: XCTestCase {
     }
 }
 
-private final class InMemoryScheduleRepository: ScheduleRepositoryProtocol {
+private final class InMemoryScheduleRepository: ScheduleRepositoryProtocol, @unchecked Sendable {
     var templates: [ScheduleTemplateDefinition] = []
     var rulesByTemplateID: [UUID: [ScheduleRuleDefinition]] = [:]
     var exceptionsByTemplateID: [UUID: [ScheduleExceptionDefinition]] = [:]
@@ -6320,7 +7256,7 @@ private final class InMemoryScheduleRepository: ScheduleRepositoryProtocol {
     }
 }
 
-private final class MetadataCapturingTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
+private final class MetadataCapturingTaskDefinitionRepository: TaskDefinitionRepositoryProtocol, @unchecked Sendable {
     var lastCreateRequest: CreateTaskDefinitionRequest?
     var byID: [UUID: TaskDefinition] = [:]
 
@@ -6382,7 +7318,7 @@ private final class MetadataCapturingTaskDefinitionRepository: TaskDefinitionRep
     }
 }
 
-private final class MetadataCapturingTaskTagLinkRepository: TaskTagLinkRepositoryProtocol {
+private final class MetadataCapturingTaskTagLinkRepository: TaskTagLinkRepositoryProtocol, @unchecked Sendable {
     var lastTaskID: UUID?
     var lastTagIDs: [UUID]?
 
@@ -6397,7 +7333,7 @@ private final class MetadataCapturingTaskTagLinkRepository: TaskTagLinkRepositor
     }
 }
 
-private final class MetadataCapturingTaskDependencyRepository: TaskDependencyRepositoryProtocol {
+private final class MetadataCapturingTaskDependencyRepository: TaskDependencyRepositoryProtocol, @unchecked Sendable {
     var lastTaskID: UUID?
     var lastDependencies: [TaskDependencyLinkDefinition]?
 
@@ -6416,7 +7352,7 @@ private final class MetadataCapturingTaskDependencyRepository: TaskDependencyRep
     }
 }
 
-private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol {
+private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol, @unchecked Sendable {
     var occurrences: [OccurrenceDefinition] = []
     var resolutions: [OccurrenceResolutionDefinition] = []
     var deletedOccurrenceIDs: [UUID] = []
@@ -6464,7 +7400,7 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol {
     }
 }
 
-private final class InMemoryTombstoneRepository: TombstoneRepositoryProtocol {
+private final class InMemoryTombstoneRepository: TombstoneRepositoryProtocol, @unchecked Sendable {
     var tombstones: [TombstoneDefinition] = []
     var deletedIDs: [UUID] = []
 
@@ -7422,6 +8358,10 @@ final class V2PerformanceGateTests: XCTestCase {
 #if !os(macOS)
         throw XCTSkip("Shell command perf harness is only supported on macOS host tests")
 #endif
+        try XCTSkipUnless(
+            ProcessInfo.processInfo.environment["LIFEBOARD_RUN_PERF_GATE_TESTS"] == "1",
+            "Set LIFEBOARD_RUN_PERF_GATE_TESTS=1 to run repo-local performance gate tests."
+        )
         let root = workspaceRootURLForTests()
         let outputURL = root.appendingPathComponent("build/benchmarks/v2_readmodel.test.json")
         let status = try runProcess(
@@ -7455,6 +8395,10 @@ final class FlowctlToolingTests: XCTestCase {
 #if !os(macOS)
         throw XCTSkip("flowctl shell checks are only supported on macOS host tests")
 #endif
+        try XCTSkipUnless(
+            ProcessInfo.processInfo.environment["LIFEBOARD_RUN_HOST_TOOLING_TESTS"] == "1",
+            "Set LIFEBOARD_RUN_HOST_TOOLING_TESTS=1 to run repo-local tooling checks."
+        )
         let root = workspaceRootURLForTests()
         XCTAssertEqual(try runShellCommand("FLOWCTL_ALLOW_SHIM=1 bash scripts/install_flowctl.sh", in: root), 0)
         XCTAssertEqual(try runShellCommand("FLOWCTL_ALLOW_SHIM=1 bash scripts/verify_flowctl.sh", in: root), 0)
@@ -7499,38 +8443,51 @@ final class AssistantPipelineImplementationTests: XCTestCase {
 }
 
 private final class InMemoryAssistantActionRepository: AssistantActionRepositoryProtocol {
-    private var byID: [UUID: AssistantActionRunDefinition] = [:]
+    private let byIDState = LockedTestState<[UUID: AssistantActionRunDefinition]>([:])
 
     func createRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
-        byID[run.id] = run
+        byIDState.withValue { $0[run.id] = run }
         completion(.success(run))
     }
 
     func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) {
-        byID[run.id] = run
+        byIDState.withValue { $0[run.id] = run }
         completion(.success(run))
     }
 
     func fetchRun(id: UUID, completion: @escaping @Sendable (Result<AssistantActionRunDefinition?, Error>) -> Void) {
-        completion(.success(byID[id]))
+        completion(.success(byIDState.read()[id]))
     }
 }
 
 private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
-    private(set) var byID: [UUID: TaskDefinition]
-    private(set) var updateCallCount = 0
-    var failUpdateOnCall: Int?
+    private struct State {
+        var byID: [UUID: TaskDefinition]
+        var updateCallCount = 0
+        var failUpdateOnCall: Int?
+    }
+
+    private let state: LockedTestState<State>
+
+    var byID: [UUID: TaskDefinition] { state.read().byID }
+    var updateCallCount: Int { state.read().updateCallCount }
+    var failUpdateOnCall: Int? {
+        get { state.read().failUpdateOnCall }
+        set { state.withValue { $0.failUpdateOnCall = newValue } }
+    }
 
     init(seed: [TaskDefinition]) {
-        byID = Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
+        self.state = LockedTestState(State(
+            byID: Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
+        ))
     }
 
     func fetchAll(completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
-        completion(.success(Array(byID.values)))
+        completion(.success(Array(state.read().byID.values)))
     }
 
     func fetchAll(query: TaskDefinitionQuery?, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
-        let filtered = Array(byID.values).filter { task in
+        let filtered = Array(state.read().byID.values).filter { task in
             guard let query else { return true }
             if let projectID = query.projectID, task.projectID != projectID { return false }
             if query.includeCompleted == false, task.isComplete { return false }
@@ -7548,11 +8505,11 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
     }
 
     func fetchTaskDefinition(id: UUID, completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void) {
-        completion(.success(byID[id]))
+        completion(.success(state.read().byID[id]))
     }
 
     func create(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
-        byID[task.id] = task
+        state.withValue { $0.byID[task.id] = task }
         completion(.success(task))
     }
 
@@ -7581,51 +8538,60 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
             createdAt: request.createdAt,
             updatedAt: request.createdAt
         )
-        byID[task.id] = task
+        state.withValue { $0.byID[task.id] = task }
         completion(.success(task))
     }
 
     func update(_ task: TaskDefinition, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
-        updateCallCount += 1
-        if failUpdateOnCall == updateCallCount {
+        let shouldFail = state.withValue { state -> Bool in
+            state.updateCallCount += 1
+            return state.failUpdateOnCall == state.updateCallCount
+        }
+        if shouldFail {
             completion(.failure(NSError(domain: "InMemoryTaskDefinitionRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Injected update failure"])))
             return
         }
-        byID[task.id] = task
+        state.withValue { $0.byID[task.id] = task }
         completion(.success(task))
     }
 
     func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
-        guard var current = byID[request.id] else {
-            completion(.failure(NSError(domain: "InMemoryTaskDefinitionRepository", code: 404)))
-            return
+        do {
+            let updated = try state.withValue { state -> TaskDefinition in
+                guard var current = state.byID[request.id] else {
+                    throw NSError(domain: "InMemoryTaskDefinitionRepository", code: 404)
+                }
+                if let title = request.title { current.title = title }
+                if let details = request.details { current.details = details }
+                if let projectID = request.projectID { current.projectID = projectID }
+                if request.clearDueDate {
+                    current.dueDate = nil
+                } else if let dueDate = request.dueDate {
+                    current.dueDate = dueDate
+                }
+                if let isComplete = request.isComplete { current.isComplete = isComplete }
+                if request.dateCompleted != nil || request.isComplete == false { current.dateCompleted = request.dateCompleted }
+                current.updatedAt = Date()
+                state.byID[current.id] = current
+                return current
+            }
+            completion(.success(updated))
+        } catch {
+            completion(.failure(error))
         }
-        if let title = request.title { current.title = title }
-        if let details = request.details { current.details = details }
-        if let projectID = request.projectID { current.projectID = projectID }
-        if request.clearDueDate {
-            current.dueDate = nil
-        } else if let dueDate = request.dueDate {
-            current.dueDate = dueDate
-        }
-        if let isComplete = request.isComplete { current.isComplete = isComplete }
-        if request.dateCompleted != nil || request.isComplete == false { current.dateCompleted = request.dateCompleted }
-        current.updatedAt = Date()
-        byID[current.id] = current
-        completion(.success(current))
     }
 
     func fetchChildren(parentTaskID: UUID, completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) {
-        completion(.success(Array(byID.values.filter { $0.parentTaskID == parentTaskID })))
+        completion(.success(Array(state.read().byID.values.filter { $0.parentTaskID == parentTaskID })))
     }
 
     func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        byID.removeValue(forKey: id)
+        state.withValue { $0.byID.removeValue(forKey: id) }
         completion(.success(()))
     }
 }
 
-private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtocol {
+private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtocol, @unchecked Sendable {
     var containerMappings: [ExternalContainerMapDefinition] = []
     var itemMappings: [ExternalItemMapDefinition] = []
 
@@ -7735,7 +8701,7 @@ private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtoc
     }
 }
 
-private final class InMemoryAppleRemindersProvider: AppleRemindersProviderProtocol {
+private final class InMemoryAppleRemindersProvider: AppleRemindersProviderProtocol, @unchecked Sendable {
     var requestAccessGranted = true
     var lists: [AppleReminderListSnapshot] = []
     var remindersByListID: [String: [AppleReminderItemSnapshot]] = [:]
@@ -7789,7 +8755,7 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
         let duplicateID = UUID()
 
         context.performAndWait {
-            _ = makeLifeArea(
+            Self.makeLifeArea(
                 in: context,
                 id: canonicalID,
                 name: "General",
@@ -7798,7 +8764,7 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
                 isArchived: false,
                 createdAt: Date(timeIntervalSince1970: 1_000)
             )
-            _ = makeLifeArea(
+            Self.makeLifeArea(
                 in: context,
                 id: duplicateID,
                 name: " general ",
@@ -7807,9 +8773,9 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
                 isArchived: true,
                 createdAt: Date(timeIntervalSince1970: 2_000)
             )
-            _ = makeProject(in: context, lifeAreaID: duplicateID)
-            _ = makeTaskDefinition(in: context, lifeAreaID: duplicateID)
-            _ = makeHabitDefinition(in: context, lifeAreaID: duplicateID)
+            Self.makeProject(in: context, lifeAreaID: duplicateID)
+            Self.makeTaskDefinition(in: context, lifeAreaID: duplicateID)
+            Self.makeHabitDefinition(in: context, lifeAreaID: duplicateID)
             try? context.save()
         }
 
@@ -7847,7 +8813,7 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
         let secondID = UUID()
 
         context.performAndWait {
-            _ = makeLifeArea(
+            Self.makeLifeArea(
                 in: context,
                 id: firstID,
                 name: "Work",
@@ -7856,7 +8822,7 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
                 isArchived: false,
                 createdAt: Date(timeIntervalSince1970: 1_500)
             )
-            _ = makeLifeArea(
+            Self.makeLifeArea(
                 in: context,
                 id: secondID,
                 name: " work ",
@@ -7865,8 +8831,8 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
                 isArchived: false,
                 createdAt: Date(timeIntervalSince1970: 2_000)
             )
-            _ = makeProject(in: context, lifeAreaID: secondID)
-            _ = makeTaskDefinition(in: context, lifeAreaID: secondID)
+            Self.makeProject(in: context, lifeAreaID: secondID)
+            Self.makeTaskDefinition(in: context, lifeAreaID: secondID)
             try? context.save()
         }
 
@@ -7892,7 +8858,7 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
         let canonicalGeneralID = UUID()
 
         context.performAndWait {
-            _ = makeLifeArea(
+            Self.makeLifeArea(
                 in: context,
                 id: canonicalGeneralID,
                 name: "General",
@@ -7901,7 +8867,7 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
                 isArchived: false,
                 createdAt: Date(timeIntervalSince1970: 1_000)
             )
-            _ = makeLifeArea(
+            Self.makeLifeArea(
                 in: context,
                 id: UUID(),
                 name: nil,
@@ -7910,7 +8876,7 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
                 isArchived: false,
                 createdAt: Date(timeIntervalSince1970: 2_000)
             )
-            _ = makeLifeArea(
+            Self.makeLifeArea(
                 in: context,
                 id: UUID(),
                 name: "   ",
@@ -7961,8 +8927,7 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
         return container
     }
 
-    @discardableResult
-    private func makeLifeArea(
+    nonisolated private static func makeLifeArea(
         in context: NSManagedObjectContext,
         id: UUID,
         name: String?,
@@ -7970,7 +8935,7 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
         icon: String?,
         isArchived: Bool,
         createdAt: Date
-    ) -> NSManagedObject {
+    ) {
         let object = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
         object.setValue(id, forKey: "id")
         object.setValue(name, forKey: "name")
@@ -7980,33 +8945,27 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
         object.setValue(isArchived, forKey: "isArchived")
         object.setValue(createdAt, forKey: "createdAt")
         object.setValue(createdAt, forKey: "updatedAt")
-        return object
     }
 
-    @discardableResult
-    private func makeProject(in context: NSManagedObjectContext, lifeAreaID: UUID) -> NSManagedObject {
+    nonisolated private static func makeProject(in context: NSManagedObjectContext, lifeAreaID: UUID) {
         let object = NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
         object.setValue(UUID(), forKey: "id")
         object.setValue("Test Project", forKey: "name")
         object.setValue(lifeAreaID, forKey: "lifeAreaID")
         object.setValue(Date(), forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
-        return object
     }
 
-    @discardableResult
-    private func makeTaskDefinition(in context: NSManagedObjectContext, lifeAreaID: UUID) -> NSManagedObject {
+    nonisolated private static func makeTaskDefinition(in context: NSManagedObjectContext, lifeAreaID: UUID) {
         let object = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
         object.setValue(UUID(), forKey: "id")
         object.setValue("Repair Task", forKey: "title")
         object.setValue(lifeAreaID, forKey: "lifeAreaID")
         object.setValue(Date(), forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
-        return object
     }
 
-    @discardableResult
-    private func makeHabitDefinition(in context: NSManagedObjectContext, lifeAreaID: UUID) -> NSManagedObject {
+    nonisolated private static func makeHabitDefinition(in context: NSManagedObjectContext, lifeAreaID: UUID) {
         let object = NSEntityDescription.insertNewObject(forEntityName: "HabitDefinition", into: context)
         object.setValue(UUID(), forKey: "id")
         object.setValue("Repair Habit", forKey: "title")
@@ -8014,7 +8973,6 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
         object.setValue(lifeAreaID, forKey: "lifeAreaID")
         object.setValue(Date(), forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
-        return object
     }
 
     private func fetchObjects(
@@ -8052,7 +9010,7 @@ final class ManageLifeAreasUseCaseValidationTests: XCTestCase {
     }
 }
 
-private final class CapturingAddTaskRepository: TaskDefinitionRepositoryProtocol {
+private final class CapturingAddTaskRepository: TaskDefinitionRepositoryProtocol, @unchecked Sendable {
     var lastCreateRequest: CreateTaskDefinitionRequest?
     var onCreateRequest: ((CreateTaskDefinitionRequest) -> Void)?
 
@@ -8099,7 +9057,7 @@ private func makeAddTaskScheduleViewModel(
     )
 }
 
-private final class StubTaskIconResolver: TaskIconResolver {
+private final class StubTaskIconResolver: TaskIconResolver, @unchecked Sendable {
     var nextResolution = TaskIconResolution(
         selectedSymbolName: "checklist",
         autoSuggestedSymbolName: "checklist",
@@ -8962,7 +9920,7 @@ final class DeleteTaskDefinitionUseCaseSeriesScopeTests: XCTestCase {
     }
 }
 
-private final class InMemoryTagRepositoryForAddTaskTests: TagRepositoryProtocol {
+private final class InMemoryTagRepositoryForAddTaskTests: TagRepositoryProtocol, @unchecked Sendable {
     private(set) var tags: [TagDefinition] = []
 
     func fetchAll(completion: @escaping @Sendable (Result<[TagDefinition], Error>) -> Void) {
@@ -8981,7 +9939,7 @@ private final class InMemoryTagRepositoryForAddTaskTests: TagRepositoryProtocol 
     }
 }
 
-private final class CapturingTaskTagLinkRepositoryForRecurrenceTests: TaskTagLinkRepositoryProtocol {
+private final class CapturingTaskTagLinkRepositoryForRecurrenceTests: TaskTagLinkRepositoryProtocol, @unchecked Sendable {
     private var linksByTaskID: [UUID: Set<UUID>] = [:]
 
     func fetchTagIDs(taskID: UUID, completion: @escaping @Sendable (Result<[UUID], Error>) -> Void) {
@@ -8994,7 +9952,7 @@ private final class CapturingTaskTagLinkRepositoryForRecurrenceTests: TaskTagLin
     }
 }
 
-private final class CapturingLifeAreaRepository: LifeAreaRepositoryProtocol {
+private final class CapturingLifeAreaRepository: LifeAreaRepositoryProtocol, @unchecked Sendable {
     private(set) var storedAreas: [LifeArea]
     private(set) var createCallCount = 0
 
@@ -9021,7 +9979,7 @@ private final class CapturingLifeAreaRepository: LifeAreaRepositoryProtocol {
     }
 }
 
-private final class DeferredLifeAreaRepository: LifeAreaRepositoryProtocol {
+private final class DeferredLifeAreaRepository: LifeAreaRepositoryProtocol, @unchecked Sendable {
     private let storedAreas: [LifeArea]
     private var pendingFetchCompletion: ((Result<[LifeArea], Error>) -> Void)?
 
@@ -9365,15 +10323,15 @@ final class HabitRuntimeRemediationTests: XCTestCase {
         let useCase = ComputeEvaHomeInsightsUseCase(habitRuntimeReadRepository: habitReadRepository)
 
         let expectation = expectation(description: "eva")
-        var captured: EvaHomeInsights?
+        let captured = LockedTestState<EvaHomeInsights?>(nil)
         useCase.execute(openTasks: [task], focusTasks: [task], anchorDate: date, now: date) { result in
-            captured = try? result.get()
+            captured.write(try? result.get())
             expectation.fulfill()
         }
         waitForExpectations(timeout: 2.0)
 
         XCTAssertEqual(habitReadRepository.fetchSignalsCallCount, 1)
-        XCTAssertTrue(captured?.focus.summaryLine?.contains("Habits: 1 due") ?? false)
+        XCTAssertTrue(captured.read()?.focus.summaryLine?.contains("Habits: 1 due") ?? false)
     }
 
     func testLLMContextProjectionBuildTodayJSONFetchesHabitsByDefault() async {
@@ -9628,16 +10586,16 @@ private extension XCTestCase {
     @MainActor
     func awaitResult<T>(
         timeout: TimeInterval = 2.0,
-        _ execute: (@escaping (Result<T, Error>) -> Void) -> Void
+        _ execute: (@escaping @Sendable (Result<T, Error>) -> Void) -> Void
     ) throws -> T {
         let expectation = expectation(description: "awaitResult")
-        var captured: Result<T, Error>?
+        let captured = LockedTestState<Result<T, Error>?>(nil)
         execute { result in
-            captured = result
+            captured.write(result)
             expectation.fulfill()
         }
         waitForExpectations(timeout: timeout)
-        return try XCTUnwrap(captured).get()
+        return try XCTUnwrap(captured.read()).get()
     }
 }
 
@@ -9726,7 +10684,7 @@ final class TaskDefinitionClearFlagPersistenceTests: XCTestCase {
     }
 }
 
-private final class CountingTaskDefinitionRepositorySpy: TaskDefinitionRepositoryProtocol {
+private final class CountingTaskDefinitionRepositorySpy: TaskDefinitionRepositoryProtocol, @unchecked Sendable {
     private let base: InMemoryTaskDefinitionRepositoryStub
     private(set) var fetchAllInvocationCount = 0
 
@@ -10277,7 +11235,7 @@ final class LifeBoardNotificationRouteTests: XCTestCase {
 @MainActor
 final class SceneDelegateNotificationRoutingTests: XCTestCase {
     override func tearDown() {
-        clearRouteBus()
+        Self.clearRouteBus()
         LifeBoardNotificationRuntime.actionHandler = nil
         super.tearDown()
     }
@@ -10319,7 +11277,7 @@ final class SceneDelegateNotificationRoutingTests: XCTestCase {
         XCTAssertEqual(LifeBoardNotificationRouteBus.shared.consumePendingRoute(), .homeDone)
     }
 
-    private func clearRouteBus() {
+    nonisolated private static func clearRouteBus() {
         while LifeBoardNotificationRouteBus.shared.consumePendingRoute() != nil {}
     }
 }
@@ -10787,7 +11745,7 @@ final class LifeBoardNotificationActionHandlerTests: XCTestCase {
         )
 
         let completionExpectation = expectation(description: "action completion")
-        var completionCount = 0
+        let completionCount = LockedTestState(0)
 
         handler.handleAction(
             identifier: LifeBoardNotificationActionID.complete.rawValue,
@@ -10798,13 +11756,13 @@ final class LifeBoardNotificationActionHandlerTests: XCTestCase {
                 taskID: taskID
             ),
             completion: {
-                completionCount += 1
+                completionCount.withValue { $0 += 1 }
                 completionExpectation.fulfill()
             }
         )
 
         wait(for: [completionExpectation], timeout: 1.0)
-        XCTAssertEqual(completionCount, 1)
+        XCTAssertEqual(completionCount.read(), 1)
     }
 
     func testOpenTodayActionRoutesToHomeTodayNotTaskDetail() {
@@ -11333,6 +12291,48 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
         XCTAssertTrue(viewModel.todayState.recoveryMetrics.contains(where: { $0.id == "reflection" && $0.value == "Claimed" }))
     }
 
+    func testTodayRefreshLoadsWhenAnalyticsCompletesFromComputeQueue() {
+        let repository = InsightsRepositorySpy()
+        let calendar = XPCalculationEngine.mondayCalendar()
+        let today = calendar.startOfDay(for: Date())
+        let completedAt = calendar.date(byAdding: .hour, value: 9, to: today) ?? today
+
+        repository.dailyAggregatesByDateKey[XPCalculationEngine.periodKey(for: today)] = DailyXPAggregateDefinition(
+            dateKey: XPCalculationEngine.periodKey(for: today),
+            totalXP: 20,
+            eventCount: 1
+        )
+        repository.todayEvents = [
+            XPEventDefinition(delta: 20, reason: "task_completion", idempotencyKey: "analytics-compute", createdAt: completedAt, category: .complete)
+        ]
+
+        let tasks = [
+            TaskDefinition(
+                title: "Analytics compute completion",
+                priority: .high,
+                type: .morning,
+                dueDate: completedAt,
+                isComplete: true,
+                dateCompleted: completedAt
+            )
+        ]
+        let readModel = InMemoryTaskReadModelRepositoryStub(tasks: tasks)
+        let viewModel = makeInsightsViewModel(
+            repository: repository,
+            taskReadModelRepository: readModel,
+            analyticsUseCase: CalculateAnalyticsUseCase(taskReadModelRepository: readModel)
+        )
+
+        viewModel.onAppear()
+        waitUntil(timeout: 2.0) {
+            viewModel.refreshState(for: .today).isLoaded
+                && viewModel.todayState.tasksCompletedToday == 1
+        }
+
+        XCTAssertEqual(viewModel.todayState.tasksCompletedToday, 1)
+        XCTAssertEqual(viewModel.todayState.totalTasksToday, 1)
+    }
+
     func testWeekProjectionBuildsLeaderboardAndMix() {
         let repository = InsightsRepositorySpy()
         let calendar = XPCalculationEngine.mondayCalendar()
@@ -11460,6 +12460,7 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
     private func makeInsightsViewModel(
         repository: InsightsRepositorySpy,
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
+        analyticsUseCase: CalculateAnalyticsUseCase? = nil,
         reminderRepository: ReminderRepositoryProtocol? = nil,
         notificationCenter: NotificationCenter = NotificationCenter()
     ) -> InsightsViewModel {
@@ -11469,6 +12470,7 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
             repository: repository,
             taskReadModelRepository: taskReadModelRepository,
             reminderRepository: reminderRepository,
+            analyticsUseCase: analyticsUseCase,
             notificationCenter: notificationCenter
         )
     }
@@ -11658,7 +12660,7 @@ final class XPExactPreviewParityTests: XCTestCase {
             isGamificationV2Enabled: true
         )
 
-        var recordedResult: Result<XPEventResult, Error>?
+        let recordedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
         let completionExpectation = expectation(description: "record completion")
         engine.recordEvent(
             context: XPEventContext(
@@ -11671,12 +12673,12 @@ final class XPExactPreviewParityTests: XCTestCase {
                 estimatedDuration: 60 * 60
             )
         ) { result in
-            recordedResult = result
+            recordedResult.write(result)
             completionExpectation.fulfill()
         }
 
         wait(for: [completionExpectation], timeout: 2.0)
-        let awarded = try XCTUnwrap(recordedResult).get().awardedXP
+        let awarded = try XCTUnwrap(recordedResult.read()).get().awardedXP
         XCTAssertEqual(preview.awardedXP, awarded)
     }
 
@@ -11706,7 +12708,7 @@ final class XPExactPreviewParityTests: XCTestCase {
             isGamificationV2Enabled: true
         )
 
-        var recordedResult: Result<XPEventResult, Error>?
+        let recordedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
         let completionExpectation = expectation(description: "record near-cap completion")
         engine.recordEvent(
             context: XPEventContext(
@@ -11719,12 +12721,12 @@ final class XPExactPreviewParityTests: XCTestCase {
                 estimatedDuration: nil
             )
         ) { result in
-            recordedResult = result
+            recordedResult.write(result)
             completionExpectation.fulfill()
         }
 
         wait(for: [completionExpectation], timeout: 2.0)
-        let result = try XCTUnwrap(recordedResult).get()
+        let result = try XCTUnwrap(recordedResult.read()).get()
         XCTAssertEqual(preview.awardedXP, result.awardedXP)
         XCTAssertTrue(preview.isCapped)
         XCTAssertEqual(result.dailyXPSoFar, 245 + preview.awardedXP)
@@ -11735,8 +12737,8 @@ final class XPExactPreviewParityTests: XCTestCase {
 final class XPRewardPreviewCopyRegressionTests: XCTestCase {
     func testCompletionRewardSurfacesUseExactPreviewAPI() throws {
         let rewardSurfaceFiles = [
-            "LifeBoard/View/TaskRowView.swift",
-            "LifeBoard/View/TaskDetailSheetView.swift",
+            "LifeBoard/View/SunriseTaskRowView.swift",
+            "LifeBoard/View/SunriseTaskDetailScreen.swift",
             "LifeBoard/View/AddTaskXPPreview.swift"
         ]
 
@@ -11755,7 +12757,7 @@ final class XPRewardPreviewCopyRegressionTests: XCTestCase {
 
     func testCompletionRewardSurfacesDoNotUseApproximateCopy() throws {
         let rewardCopyFiles = [
-            "LifeBoard/View/TaskRowView.swift",
+            "LifeBoard/View/SunriseTaskRowView.swift",
             "LifeBoard/View/TaskDetailComponents.swift",
             "LifeBoard/View/AddTaskXPPreview.swift"
         ]
@@ -11776,7 +12778,7 @@ final class XPRewardPreviewCopyRegressionTests: XCTestCase {
     }
 }
 
-private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
+private final class InsightsRepositorySpy: GamificationRepositoryProtocol, @unchecked Sendable {
     private let lock = NSLock()
 
     var profile = GamificationSnapshot(
@@ -11899,7 +12901,7 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
     }
 }
 
-private final class InsightsReminderRepositorySpy: ReminderRepositoryProtocol {
+private final class InsightsReminderRepositorySpy: ReminderRepositoryProtocol, @unchecked Sendable {
     var reminders: [ReminderDefinition] = []
     var deliveriesByReminderID: [UUID: [ReminderDeliveryDefinition]] = [:]
 
@@ -12191,16 +13193,16 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
         let useCase = ComputeEvaHomeInsightsUseCase(habitRuntimeReadRepository: habitReadRepository)
 
         let expectation = expectation(description: "eva-insights")
-        var captured: EvaHomeInsights?
+        let captured = LockedTestState<EvaHomeInsights?>(nil)
         useCase.execute(openTasks: [], focusTasks: [], anchorDate: anchorDate, now: anchorDate) { result in
-            captured = try? result.get()
+            captured.write(try? result.get())
             expectation.fulfill()
         }
         waitForExpectations(timeout: 1.0)
 
         XCTAssertEqual(habitReadRepository.fetchSignalsCallCount, 1)
         XCTAssertEqual(
-            captured?.focus.summaryLine,
+            captured.read()?.focus.summaryLine,
             "Habits: 1 due, 1 at risk, 1 lapsed"
         )
     }
@@ -12427,6 +13429,60 @@ final class WeeklyReviewDraftStoreTests: XCTestCase {
             store.fetchDraft(weekStartDate: weekStart, completion: completion)
         }
         XCTAssertNil(clearedDraft)
+    }
+
+    func testConcurrentDraftAndDecisionWritesPreserveBothUpdates() throws {
+        let suiteName = "WeeklyReviewDraftStoreTests.concurrent.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let storageKey = "lifeboard.weekly.review.localstate.concurrent.tests"
+        let store = UserDefaultsWeeklyReviewDraftStore(defaults: defaults, storageKey: storageKey)
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let draftTaskID = UUID()
+        let completedTaskID = UUID()
+        let draft = WeeklyReviewDraft(
+            weekStartDate: weekStart,
+            wins: "Concurrent draft",
+            blockers: nil,
+            lessons: nil,
+            nextWeekPrepNotes: nil,
+            perceivedWeekRating: 4,
+            taskDecisions: [draftTaskID: .carry],
+            outcomeStatuses: [:],
+            updatedAt: weekStart
+        )
+        let decisions = [WeeklyReviewTaskDecision(taskID: completedTaskID, disposition: .later)]
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let startGate = DispatchSemaphore(value: 0)
+        let done = DispatchGroup()
+        done.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            startGate.wait()
+            store.saveDraft(draft) { _ in done.leave() }
+        }
+        done.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            startGate.wait()
+            store.saveCompletedTaskDecisions(decisions, weekStartDate: weekStart) { _ in done.leave() }
+        }
+        startGate.signal()
+        startGate.signal()
+        XCTAssertEqual(done.wait(timeout: .now() + 2), .success)
+
+        let fetchedDraft = try awaitResult { completion in
+            store.fetchDraft(weekStartDate: weekStart, completion: completion)
+        }
+        let fetchedDecisions = try awaitResult { completion in
+            store.fetchCompletedTaskDecisions(weekStartDate: weekStart, completion: completion)
+        }
+
+        XCTAssertEqual(fetchedDraft?.taskDecisions[draftTaskID], .carry)
+        XCTAssertEqual(fetchedDecisions, decisions)
     }
 
     func testFetchDraftMigratesLegacyAliasKeyToCanonicalWeekIdentity() throws {
@@ -12974,7 +14030,7 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
     }
 }
 
-private final class InMemoryWeeklyPlanRepositoryStub: WeeklyPlanRepositoryProtocol {
+private final class InMemoryWeeklyPlanRepositoryStub: WeeklyPlanRepositoryProtocol, @unchecked Sendable {
     private(set) var plansByID: [UUID: WeeklyPlan]
 
     init(seed: [WeeklyPlan] = []) {
@@ -12999,7 +14055,7 @@ private final class InMemoryWeeklyPlanRepositoryStub: WeeklyPlanRepositoryProtoc
     }
 }
 
-private final class InMemoryWeeklyOutcomeRepositoryStub: WeeklyOutcomeRepositoryProtocol {
+private final class InMemoryWeeklyOutcomeRepositoryStub: WeeklyOutcomeRepositoryProtocol, @unchecked Sendable {
     fileprivate(set) var outcomesByPlanID: [UUID: [WeeklyOutcome]]
 
     init(seed: [UUID: [WeeklyOutcome]] = [:]) {
@@ -13569,7 +14625,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         let occurrenceRepository: InMemoryOccurrenceRepository
     }
 
-    private final class DetailReadRepositorySpy: HabitRuntimeReadRepositoryProtocol {
+    private final class DetailReadRepositorySpy: HabitRuntimeReadRepositoryProtocol, @unchecked Sendable {
         var libraryRows: [HabitLibraryRow]
         var historyWindows: [HabitHistoryWindow]
         private(set) var fetchAllLibraryCallCount = 0
@@ -13640,7 +14696,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         }
     }
 
-    private final class CountingLifeAreaRepository: LifeAreaRepositoryProtocol {
+    private final class CountingLifeAreaRepository: LifeAreaRepositoryProtocol, @unchecked Sendable {
         let storedAreas: [LifeArea]
         private(set) var fetchAllCallCount = 0
 
@@ -13666,7 +14722,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         }
     }
 
-    private final class CountingProjectRepository: ProjectRepositoryProtocol {
+    private final class CountingProjectRepository: ProjectRepositoryProtocol, @unchecked Sendable {
         private let projectsByID: [UUID: Project]
         private(set) var fetchAllProjectsCallCount = 0
         private(set) var getTaskCountCallCount = 0
@@ -14187,6 +15243,180 @@ final class BuildHomeAgendaUseCaseOrderingTests: XCTestCase {
         XCTAssertEqual(result.rows[2], .task(dueTask))
         XCTAssertEqual(result.rows[3], .habit(skippedHabit))
     }
+
+    func testCompletedAndSkippedHabitsSortAfterActiveTrackingHabitsInMergedRows() {
+        let calendar = Calendar.current
+        let anchorDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_711_209_600))
+        let trackingHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Track water",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            iconSymbolName: "drop",
+            dueAt: calendar.date(byAdding: .hour, value: 7, to: anchorDate),
+            state: .tracking
+        )
+        let completedHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Read",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Mind",
+            iconSymbolName: "book",
+            dueAt: calendar.date(byAdding: .hour, value: 6, to: anchorDate),
+            state: .completedToday
+        )
+        let skippedHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Skip sugar",
+            kind: .negative,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            iconSymbolName: "nosign",
+            dueAt: calendar.date(byAdding: .hour, value: 5, to: anchorDate),
+            state: .skippedToday
+        )
+
+        let result = BuildHomeAgendaUseCase().execute(
+            date: anchorDate,
+            taskRows: [],
+            habitRows: [skippedHabit, completedHabit, trackingHabit]
+        )
+
+        XCTAssertEqual(result.rows, [
+            .habit(trackingHabit),
+            .habit(completedHabit),
+            .habit(skippedHabit)
+        ])
+    }
+}
+
+@MainActor
+final class HomeTimelineProjectionBuilderRegressionTests: XCTestCase {
+    func testMidnightDueTaskStaysTimedUnlessExplicitlyAllDay() {
+        let calendar = Calendar(identifier: .gregorian)
+        let selectedDay = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
+        let midnightTask = TaskDefinition(
+            title: "Midnight deadline",
+            dueDate: selectedDay,
+            isAllDay: false
+        )
+
+        let snapshot = buildSnapshot(
+            selectedDay: selectedDay,
+            now: calendar.date(byAdding: .hour, value: 9, to: selectedDay)!,
+            calendar: calendar,
+            tasks: [midnightTask]
+        )
+
+        XCTAssertEqual(snapshot.day.allTimedItems.map(\.taskID), [midnightTask.id])
+        XCTAssertTrue(snapshot.day.allDayItems.isEmpty)
+    }
+
+    func testUnscheduledInboxTasksOnlyAppearForToday() {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+        let inboxTask = TaskDefinition(title: "Backlog")
+
+        let todaySnapshot = buildSnapshot(
+            selectedDay: today,
+            now: calendar.date(byAdding: .hour, value: 9, to: today)!,
+            calendar: calendar,
+            tasks: [inboxTask]
+        )
+        let tomorrowSnapshot = buildSnapshot(
+            selectedDay: tomorrow,
+            now: calendar.date(byAdding: .hour, value: 9, to: today)!,
+            calendar: calendar,
+            tasks: [inboxTask]
+        )
+
+        XCTAssertEqual(todaySnapshot.day.inboxItems.map(\.taskID), [inboxTask.id])
+        XCTAssertTrue(tomorrowSnapshot.day.inboxItems.isEmpty)
+    }
+
+    func testMeetingKeywordsDetectTeamsWithoutBroadMeetSubstring() {
+        let calendar = Calendar(identifier: .gregorian)
+        let selectedDay = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
+        let teamsEvent = LifeBoardCalendarEventSnapshot(
+            id: "teams-call",
+            calendarID: "work",
+            calendarTitle: "Microsoft Teams",
+            title: "Product sync",
+            startDate: calendar.date(byAdding: .hour, value: 10, to: selectedDay)!,
+            endDate: calendar.date(byAdding: .hour, value: 11, to: selectedDay)!,
+            isAllDay: false
+        )
+        let thermometerEvent = LifeBoardCalendarEventSnapshot(
+            id: "thermometer",
+            calendarID: "work",
+            calendarTitle: "Work",
+            title: "Thermometer calibration",
+            startDate: calendar.date(byAdding: .hour, value: 12, to: selectedDay)!,
+            endDate: calendar.date(byAdding: .hour, value: 13, to: selectedDay)!,
+            isAllDay: false
+        )
+
+        let snapshot = buildSnapshot(
+            selectedDay: selectedDay,
+            now: calendar.date(byAdding: .hour, value: 9, to: selectedDay)!,
+            calendar: calendar,
+            events: [teamsEvent, thermometerEvent]
+        )
+
+        let itemsByID = Dictionary(uniqueKeysWithValues: snapshot.day.timedItems.map { ($0.eventID, $0) })
+        XCTAssertEqual(itemsByID["teams-call"]?.isMeetingLike, true)
+        XCTAssertEqual(itemsByID["thermometer"]?.isMeetingLike, false)
+    }
+
+    private func buildSnapshot(
+        selectedDay: Date,
+        now: Date,
+        calendar: Calendar,
+        tasks: [TaskDefinition] = [],
+        events: [LifeBoardCalendarEventSnapshot] = []
+    ) -> HomeTimelineSnapshot {
+        let input = HomeTimelineSnapshotProjectionInput(
+            dataRevision: .zero,
+            selectedDay: selectedDay,
+            now: now,
+            calendar: calendar,
+            currentMinuteStamp: Int(now.timeIntervalSinceReferenceDate / 60),
+            sunriseAnchor: .collapsed,
+            calendarSnapshot: HomeCalendarSnapshot(
+                moduleState: .active,
+                selectedDate: selectedDay,
+                authorizationStatus: .authorized,
+                accessAction: .noneNeeded,
+                selectedCalendarCount: 1,
+                availableCalendarCount: 1,
+                nextMeeting: nil,
+                busyBlocks: [],
+                freeUntil: nil,
+                selectedDayEvents: events,
+                selectedDayTimelineEvents: events,
+                eventsTodayCount: events.count,
+                isLoading: false,
+                errorMessage: nil
+            ),
+            workspacePreferences: LifeBoardWorkspacePreferences(showCalendarEventsInTimeline: true),
+            hiddenCalendarEvents: [],
+            pinnedFocusTaskIDs: [],
+            needsReplanCandidates: [],
+            replanState: .hidden,
+            taskCandidates: tasks,
+            taskIndexByID: Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) }),
+            projects: [],
+            lifeAreas: [],
+            calendarWeekAgenda: []
+        )
+
+        return HomeTimelineProjectionBuilder()
+            .build(input: input, cached: nil)
+            .snapshot
+    }
 }
 
 @MainActor
@@ -14235,7 +15465,7 @@ private func makeHabitSummary(
     )
 }
 
-private final class InMemoryHabitRepository: HabitRepositoryProtocol {
+private final class InMemoryHabitRepository: HabitRepositoryProtocol, @unchecked Sendable {
     private(set) var habitsByID: [UUID: HabitDefinitionRecord]
     private(set) var createCallCount = 0
     var deferCreateCompletion = false
@@ -14279,7 +15509,7 @@ private final class InMemoryHabitRepository: HabitRepositoryProtocol {
     }
 }
 
-private final class RecordingSchedulingEngine: SchedulingEngineProtocol {
+private final class RecordingSchedulingEngine: SchedulingEngineProtocol, @unchecked Sendable {
     struct ResolveCall: Equatable {
         let id: UUID
         let resolution: OccurrenceResolutionType
@@ -14360,7 +15590,7 @@ private final class RecordingSchedulingEngine: SchedulingEngineProtocol {
     }
 }
 
-private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryProtocol {
+private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryProtocol, @unchecked Sendable {
     var agendaSummaries: [HabitOccurrenceSummary]
     var historyWindows: [HabitHistoryWindow]
     var signalSummaries: [HabitOccurrenceSummary]
@@ -14480,6 +15710,62 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         let store = UserDefaultsDailyReflectionStore(defaults: defaults)
 
         XCTAssertTrue(store.completedDateStamps().contains("20260418"))
+    }
+
+    func testConcurrentPayloadAndPlanDraftWritesPreserveBothUpdates() throws {
+        let suiteName = "DailyReflectionUseCasesTests.concurrent.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let store = UserDefaultsDailyReflectionStore(defaults: defaults)
+        let calendar = Calendar.autoupdatingCurrent
+        let reflectionDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
+        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
+        let payload = ReflectionPayload(
+            reflectionDate: reflectionDate,
+            planningDate: planningDate,
+            mode: .sameDay,
+            mood: nil,
+            energy: nil,
+            frictionTags: [],
+            note: "Concurrent reflection"
+        )
+        let taskID = UUID()
+        let draft = DailyPlanDraft(
+            date: planningDate,
+            topTasks: [
+                DailyPlanTaskOption(
+                    id: taskID,
+                    title: "Concurrent plan",
+                    priority: .high
+                )
+            ],
+            source: .manual,
+            updatedAt: planningDate
+        )
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let startGate = DispatchSemaphore(value: 0)
+        let done = DispatchGroup()
+        done.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            startGate.wait()
+            _ = try? store.saveReflectionPayload(payload)
+            done.leave()
+        }
+        done.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            startGate.wait()
+            _ = try? store.savePlanDraft(draft, replaceExisting: true)
+            done.leave()
+        }
+        startGate.signal()
+        startGate.signal()
+        XCTAssertEqual(done.wait(timeout: .now() + 2), .success)
+
+        XCTAssertEqual(store.fetchReflectionPayload(on: reflectionDate)?.note, "Concurrent reflection")
+        XCTAssertEqual(store.fetchPlanDraft(on: planningDate)?.topTasks.map(\.id), [taskID])
     }
 
     func testPlanSuggestionPrefersCarryoverAndAvoidsDuplicates() {
@@ -14854,7 +16140,7 @@ final class DailyReflectionUseCasesTests: XCTestCase {
                 )
             ]
         )
-        var now = Date()
+        let now = Date()
         let useCase = BuildNextDayPlanSuggestionUseCase(
             calendarEventsProvider: provider,
             calendar: calendar,
@@ -14891,17 +16177,17 @@ final class DailyReflectionUseCasesTests: XCTestCase {
                 )
             ]
         )
-        var now = Date()
+        let now = LockedTestState(Date())
         let useCase = BuildNextDayPlanSuggestionUseCase(
             calendarEventsProvider: provider,
             calendar: calendar,
-            nowProvider: { now }
+            nowProvider: { now.read() }
         )
 
         _ = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
         XCTAssertEqual(provider.fetchEventsCallCount, 1)
 
-        now = now.addingTimeInterval(31 * 60)
+        now.write(now.read().addingTimeInterval(31 * 60))
         let lookup = await useCase.loadCachedOrStaleCalendarContext(for: planningDate)
         switch lookup {
         case .stale(let context):
@@ -15152,7 +16438,7 @@ private func makeReflectionMarks(
     }
 }
 
-private final class InMemoryGamificationRepositoryStub: GamificationRepositoryProtocol {
+private final class InMemoryGamificationRepositoryStub: GamificationRepositoryProtocol, @unchecked Sendable {
     private var profile = GamificationSnapshot()
     private var xpEvents: [XPEventDefinition] = []
     private var dailyAggregates: [String: DailyXPAggregateDefinition] = [:]
@@ -15217,7 +16503,7 @@ private final class InMemoryGamificationRepositoryStub: GamificationRepositoryPr
     }
 }
 
-private final class DelayedCalendarEventsProviderStub: CalendarEventsProviderProtocol {
+private final class DelayedCalendarEventsProviderStub: CalendarEventsProviderProtocol, @unchecked Sendable {
     private let events: [LifeBoardCalendarEventSnapshot]
     private let delayNanoseconds: UInt64
     private let lock = NSLock()

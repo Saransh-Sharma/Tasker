@@ -490,7 +490,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         wait(for: [todayAward], timeout: 2)
 
         let compensation = expectation(description: "historical compensation")
-        var resultPayload: XPEventResult?
+        let resultPayload = LockedTestState<XPEventResult?>(nil)
         engine.recordCompensationEvent(
             context: XPEventContext(
                 category: .habitPositiveCompleteUndo,
@@ -503,16 +503,17 @@ final class HabitLastCellRuntimeTests: XCTestCase {
             case .failure(let error):
                 XCTFail("Expected historical compensation to succeed: \(error)")
             case .success(let payload):
-                resultPayload = payload
+                resultPayload.write(payload)
             }
             compensation.fulfill()
         }
         wait(for: [compensation], timeout: 2)
 
-        XCTAssertEqual(resultPayload?.dailyXPSoFar, 0)
+        let payload = resultPayload.read()
+        XCTAssertEqual(payload?.dailyXPSoFar, 0)
         XCTAssertEqual(
             repository.dailyAggregates[XPCalculationEngine.periodKey(for: historicalDate)]?.totalXP,
-            resultPayload?.dailyXPSoFar
+            payload?.dailyXPSoFar
         )
     }
 
@@ -608,64 +609,102 @@ final class HabitLastCellRuntimeTests: XCTestCase {
 }
 
 private final class HabitRepositoryStub: HabitRepositoryProtocol {
-    var habits: [HabitDefinitionRecord]
-    private(set) var fetchAllCallCount = 0
-    private(set) var fetchByIDCallCount = 0
+    private struct State {
+        var habits: [HabitDefinitionRecord]
+        var fetchAllCallCount = 0
+        var fetchByIDCallCount = 0
+    }
+
+    private let state: LockedTestState<State>
+
+    var habits: [HabitDefinitionRecord] {
+        get { state.read().habits }
+        set { state.withValue { $0.habits = newValue } }
+    }
+    var fetchAllCallCount: Int { state.read().fetchAllCallCount }
+    var fetchByIDCallCount: Int { state.read().fetchByIDCallCount }
 
     init(habits: [HabitDefinitionRecord]) {
-        self.habits = habits
+        self.state = LockedTestState(State(habits: habits))
     }
 
     func fetchAll(completion: @escaping @Sendable (Result<[HabitDefinitionRecord], Error>) -> Void) {
-        fetchAllCallCount += 1
+        let habits = state.withValue { state -> [HabitDefinitionRecord] in
+            state.fetchAllCallCount += 1
+            return state.habits
+        }
         completion(.success(habits))
     }
 
     func fetchByID(id: UUID, completion: @escaping @Sendable (Result<HabitDefinitionRecord?, Error>) -> Void) {
-        fetchByIDCallCount += 1
-        completion(.success(habits.first(where: { $0.id == id })))
+        let habit = state.withValue { state -> HabitDefinitionRecord? in
+            state.fetchByIDCallCount += 1
+            return state.habits.first(where: { $0.id == id })
+        }
+        completion(.success(habit))
     }
 
     func create(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
-        habits.removeAll { $0.id == habit.id }
-        habits.append(habit)
+        state.withValue {
+            $0.habits.removeAll { $0.id == habit.id }
+            $0.habits.append(habit)
+        }
         completion(.success(habit))
     }
 
     func update(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
-        habits.removeAll { $0.id == habit.id }
-        habits.append(habit)
+        state.withValue {
+            $0.habits.removeAll { $0.id == habit.id }
+            $0.habits.append(habit)
+        }
         completion(.success(habit))
     }
 
     func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        habits.removeAll { $0.id == id }
+        state.withValue { $0.habits.removeAll { $0.id == id } }
         completion(.success(()))
     }
 }
 
 private final class OccurrenceRepositoryStub: OccurrenceRepositoryProtocol {
-    var occurrences: [OccurrenceDefinition]
-    private(set) var fetchInRangeCallCount = 0
-    private(set) var fetchByIDCallCount = 0
-    private(set) var fetchLatestForHabitCallCount = 0
+    private struct State {
+        var occurrences: [OccurrenceDefinition]
+        var fetchInRangeCallCount = 0
+        var fetchByIDCallCount = 0
+        var fetchLatestForHabitCallCount = 0
+    }
+
+    private let state: LockedTestState<State>
+
+    var occurrences: [OccurrenceDefinition] {
+        get { state.read().occurrences }
+        set { state.withValue { $0.occurrences = newValue } }
+    }
+    var fetchInRangeCallCount: Int { state.read().fetchInRangeCallCount }
+    var fetchByIDCallCount: Int { state.read().fetchByIDCallCount }
+    var fetchLatestForHabitCallCount: Int { state.read().fetchLatestForHabitCallCount }
 
     init(occurrences: [OccurrenceDefinition]) {
-        self.occurrences = occurrences
+        self.state = LockedTestState(State(occurrences: occurrences))
     }
 
     func fetchInRange(start: Date, end: Date, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) {
-        fetchInRangeCallCount += 1
-        let filtered = occurrences.filter { occurrence in
-            let occurrenceDate = occurrence.dueAt ?? occurrence.scheduledAt
-            return occurrenceDate >= start && occurrenceDate <= end
+        let filtered = state.withValue { state -> [OccurrenceDefinition] in
+            state.fetchInRangeCallCount += 1
+            return state.occurrences.filter { occurrence in
+                let occurrenceDate = occurrence.dueAt ?? occurrence.scheduledAt
+                return occurrenceDate >= start && occurrenceDate <= end
+            }
         }
         completion(.success(filtered))
     }
 
     func fetchByID(id: UUID, completion: @escaping @Sendable (Result<OccurrenceDefinition?, Error>) -> Void) {
-        fetchByIDCallCount += 1
-        completion(.success(occurrences.first(where: { $0.id == id })))
+        let occurrence = state.withValue { state -> OccurrenceDefinition? in
+            state.fetchByIDCallCount += 1
+            return state.occurrences.first(where: { $0.id == id })
+        }
+        completion(.success(occurrence))
     }
 
     func fetchLatestForHabit(
@@ -673,27 +712,31 @@ private final class OccurrenceRepositoryStub: OccurrenceRepositoryProtocol {
         on date: Date,
         completion: @escaping @Sendable (Result<OccurrenceDefinition?, Error>) -> Void
     ) {
-        fetchLatestForHabitCallCount += 1
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
         calendar.locale = Locale(identifier: "en_US_POSIX")
         let dayStart = calendar.startOfDay(for: date)
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? date
-        let latest = occurrences
-            .filter { occurrence in
-                guard occurrence.sourceType == .habit, occurrence.sourceID == habitID else { return false }
-                let occurrenceDate = occurrence.dueAt ?? occurrence.scheduledAt
-                return occurrenceDate >= dayStart && occurrenceDate < dayEnd
-            }
-            .sorted { ($0.dueAt ?? $0.scheduledAt) < ($1.dueAt ?? $1.scheduledAt) }
-            .last
+        let latest = state.withValue { state -> OccurrenceDefinition? in
+            state.fetchLatestForHabitCallCount += 1
+            return state.occurrences
+                .filter { occurrence in
+                    guard occurrence.sourceType == .habit, occurrence.sourceID == habitID else { return false }
+                    let occurrenceDate = occurrence.dueAt ?? occurrence.scheduledAt
+                    return occurrenceDate >= dayStart && occurrenceDate < dayEnd
+                }
+                .sorted { ($0.dueAt ?? $0.scheduledAt) < ($1.dueAt ?? $1.scheduledAt) }
+                .last
+        }
         completion(.success(latest))
     }
 
     func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        for occurrence in occurrences {
-            self.occurrences.removeAll { $0.id == occurrence.id }
-            self.occurrences.append(occurrence)
+        state.withValue { state in
+            for occurrence in occurrences {
+                state.occurrences.removeAll { $0.id == occurrence.id }
+                state.occurrences.append(occurrence)
+            }
         }
         completion(.success(()))
     }
@@ -703,21 +746,34 @@ private final class OccurrenceRepositoryStub: OccurrenceRepositoryProtocol {
     }
 
     func deleteOccurrences(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        occurrences.removeAll { ids.contains($0.id) }
+        state.withValue { $0.occurrences.removeAll { ids.contains($0.id) } }
         completion(.success(()))
     }
 }
 
 private final class ScheduleRepositoryStub: ScheduleRepositoryProtocol {
-    var templates: [ScheduleTemplateDefinition] = []
-    var rulesByTemplateID: [UUID: [ScheduleRuleDefinition]] = [:]
+    private struct State {
+        var templates: [ScheduleTemplateDefinition] = []
+        var rulesByTemplateID: [UUID: [ScheduleRuleDefinition]] = [:]
+    }
+
+    private let state = LockedTestState(State())
+
+    var templates: [ScheduleTemplateDefinition] {
+        get { state.read().templates }
+        set { state.withValue { $0.templates = newValue } }
+    }
+    var rulesByTemplateID: [UUID: [ScheduleRuleDefinition]] {
+        get { state.read().rulesByTemplateID }
+        set { state.withValue { $0.rulesByTemplateID = newValue } }
+    }
 
     func fetchTemplates(completion: @escaping @Sendable (Result<[ScheduleTemplateDefinition], Error>) -> Void) {
-        completion(.success(templates))
+        completion(.success(state.read().templates))
     }
 
     func fetchRules(templateID: UUID, completion: @escaping @Sendable (Result<[ScheduleRuleDefinition], Error>) -> Void) {
-        completion(.success(rulesByTemplateID[templateID] ?? []))
+        completion(.success(state.read().rulesByTemplateID[templateID] ?? []))
     }
 
     func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping @Sendable (Result<ScheduleTemplateDefinition, Error>) -> Void) {
@@ -742,14 +798,19 @@ private final class ScheduleRepositoryStub: ScheduleRepositoryProtocol {
 }
 
 private final class SchedulingEngineStub: SchedulingEngineProtocol {
-    var resolveError: Error?
+    private let resolveErrorState = LockedTestState<Error?>(nil)
+
+    var resolveError: Error? {
+        get { resolveErrorState.read() }
+        set { resolveErrorState.write(newValue) }
+    }
 
     func generateOccurrences(windowStart: Date, windowEnd: Date, sourceFilter: ScheduleSourceType?, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) {
         completion(.success([]))
     }
 
     func resolveOccurrence(id: UUID, resolution: OccurrenceResolutionType, actor: OccurrenceActor, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        if let resolveError {
+        if let resolveError = resolveErrorState.read() {
             completion(.failure(resolveError))
             return
         }
@@ -773,7 +834,8 @@ private final class ResolvingSchedulingEngineStub: SchedulingEngineProtocol {
     }
 
     private let occurrenceRepository: OccurrenceRepositoryStub
-    private(set) var resolvedCalls: [ResolveCall] = []
+    private let resolvedCallsState = LockedTestState<[ResolveCall]>([])
+    var resolvedCalls: [ResolveCall] { resolvedCallsState.read() }
 
     init(occurrenceRepository: OccurrenceRepositoryStub) {
         self.occurrenceRepository = occurrenceRepository
@@ -794,23 +856,25 @@ private final class ResolvingSchedulingEngineStub: SchedulingEngineProtocol {
         actor: OccurrenceActor,
         completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
-        resolvedCalls.append(ResolveCall(id: id, resolution: resolution, actor: actor))
-        guard let index = occurrenceRepository.occurrences.firstIndex(where: { $0.id == id }) else {
+        resolvedCallsState.withValue { $0.append(ResolveCall(id: id, resolution: resolution, actor: actor)) }
+        var occurrences = occurrenceRepository.occurrences
+        guard let index = occurrences.firstIndex(where: { $0.id == id }) else {
             completion(.failure(NSError(domain: "ResolvingSchedulingEngineStub", code: 404)))
             return
         }
 
         switch resolution {
         case .completed:
-            occurrenceRepository.occurrences[index].state = .completed
+            occurrences[index].state = .completed
         case .skipped, .deferred:
-            occurrenceRepository.occurrences[index].state = .skipped
+            occurrences[index].state = .skipped
         case .missed:
-            occurrenceRepository.occurrences[index].state = .missed
+            occurrences[index].state = .missed
         case .lapsed:
-            occurrenceRepository.occurrences[index].state = .failed
+            occurrences[index].state = .failed
         }
-        occurrenceRepository.occurrences[index].updatedAt = Date()
+        occurrences[index].updatedAt = Date()
+        occurrenceRepository.occurrences = occurrences
         completion(.success(()))
     }
 
@@ -829,39 +893,58 @@ private final class ResolvingSchedulingEngineStub: SchedulingEngineProtocol {
 }
 
 private final class InMemoryGamificationRepositoryStub: GamificationRepositoryProtocol {
-    var profile: GamificationSnapshot?
-    var events: [XPEventDefinition] = []
-    var dailyAggregates: [String: DailyXPAggregateDefinition] = [:]
+    private struct State {
+        var profile: GamificationSnapshot?
+        var events: [XPEventDefinition] = []
+        var dailyAggregates: [String: DailyXPAggregateDefinition] = [:]
+    }
+
+    private let state = LockedTestState(State())
+
+    var profile: GamificationSnapshot? {
+        get { state.read().profile }
+        set { state.withValue { $0.profile = newValue } }
+    }
+    var events: [XPEventDefinition] {
+        get { state.read().events }
+        set { state.withValue { $0.events = newValue } }
+    }
+    var dailyAggregates: [String: DailyXPAggregateDefinition] {
+        get { state.read().dailyAggregates }
+        set { state.withValue { $0.dailyAggregates = newValue } }
+    }
 
     func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) {
-        completion(.success(profile))
+        completion(.success(state.read().profile))
     }
 
     func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        self.profile = profile
+        state.withValue { $0.profile = profile }
         completion(.success(()))
     }
 
     func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
-        completion(.success(events))
+        completion(.success(state.read().events))
     }
 
     func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
-        let filtered = events.filter { $0.createdAt >= startDate && $0.createdAt <= endDate }
+        let filtered = state.read().events.filter { $0.createdAt >= startDate && $0.createdAt <= endDate }
         completion(.success(filtered))
     }
 
     func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        if events.contains(where: { $0.idempotencyKey == event.idempotencyKey }) {
-            completion(.failure(GamificationRepositoryWriteError.idempotentReplay(idempotencyKey: event.idempotencyKey)))
-            return
+        let result = state.withValue { state -> Result<Void, Error> in
+            if state.events.contains(where: { $0.idempotencyKey == event.idempotencyKey }) {
+                return .failure(GamificationRepositoryWriteError.idempotentReplay(idempotencyKey: event.idempotencyKey))
+            }
+            state.events.append(event)
+            return .success(())
         }
-        events.append(event)
-        completion(.success(()))
+        completion(result)
     }
 
     func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
-        completion(.success(events.contains { $0.idempotencyKey == idempotencyKey }))
+        completion(.success(state.read().events.contains { $0.idempotencyKey == idempotencyKey }))
     }
 
     func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) {
@@ -873,16 +956,16 @@ private final class InMemoryGamificationRepositoryStub: GamificationRepositoryPr
     }
 
     func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
-        completion(.success(dailyAggregates[dateKey]))
+        completion(.success(state.read().dailyAggregates[dateKey]))
     }
 
     func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        dailyAggregates[aggregate.dateKey] = aggregate
+        state.withValue { $0.dailyAggregates[aggregate.dateKey] = aggregate }
         completion(.success(()))
     }
 
     func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
-        completion(.success(Array(dailyAggregates.values)))
+        completion(.success(Array(state.read().dailyAggregates.values)))
     }
 
     func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {

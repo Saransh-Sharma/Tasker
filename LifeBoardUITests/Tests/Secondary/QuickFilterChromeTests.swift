@@ -118,6 +118,69 @@ final class QuickFilterChromeTests: BaseUITest {
         resetButton.tap()
     }
 
+    @MainActor
+    func testSunriseContentFilterChipsHideNonmatchingTimelineCards() throws {
+        relaunchWithSunriseTimelineSeed()
+
+        func chip(_ id: String) -> XCUIElement {
+            app.buttons["home.sunrise.filter.\(id)"]
+        }
+
+        guard chip("all").waitForExistence(timeout: 5),
+              chip("meetings").waitForExistence(timeout: 2),
+              chip("tasks").waitForExistence(timeout: 2),
+              chip("habits").waitForExistence(timeout: 2) else {
+            throw XCTSkip("Sunrise content filter chips are not reachable in the current launch state")
+        }
+
+        chip("all").tap()
+        let initialTaskIDs = timelineIdentifiers(withPrefix: "home.timeline.task.")
+        let initialEventIDs = timelineIdentifiers(withPrefix: "home.timeline.event.")
+        guard initialTaskIDs.isEmpty == false || initialEventIDs.isEmpty == false else {
+            throw XCTSkip("No visible Sunrise timeline cards are available for content-filter verification")
+        }
+
+        if initialEventIDs.isEmpty == false {
+            chip("tasks").tap()
+            XCTAssertTrue(
+                waitForTimelineIdentifiers(withPrefix: "home.timeline.event.", toBeEmpty: true, timeout: 3),
+                "Tasks scope should hide calendar timeline cards"
+            )
+        }
+
+        if initialTaskIDs.isEmpty == false {
+            chip("meetings").tap()
+            XCTAssertTrue(
+                waitForTimelineIdentifiers(withPrefix: "home.timeline.task.", toBeEmpty: true, timeout: 3),
+                "Meetings scope should hide task timeline cards"
+            )
+        }
+
+        chip("habits").tap()
+        XCTAssertTrue(
+            waitForTimelineIdentifiers(withPrefix: "home.timeline.task.", toBeEmpty: true, timeout: 3),
+            "Habits scope should hide task timeline cards"
+        )
+        XCTAssertTrue(
+            waitForTimelineIdentifiers(withPrefix: "home.timeline.event.", toBeEmpty: true, timeout: 3),
+            "Habits scope should hide calendar timeline cards"
+        )
+
+        chip("all").tap()
+        if initialTaskIDs.isEmpty == false {
+            XCTAssertTrue(
+                waitForTimelineIdentifiers(withPrefix: "home.timeline.task.", toBeEmpty: false, timeout: 3),
+                "All scope should restore task timeline cards"
+            )
+        }
+        if initialEventIDs.isEmpty == false {
+            XCTAssertTrue(
+                waitForTimelineIdentifiers(withPrefix: "home.timeline.event.", toBeEmpty: false, timeout: 3),
+                "All scope should restore calendar timeline cards"
+            )
+        }
+    }
+
     func testSwitchingAwayFromTodayShowsBackToTodayAffordance() throws {
         let homePage = HomePage(app: app)
         let quickFilterButton = homePage.projectFilterButton
@@ -209,7 +272,9 @@ final class QuickFilterChromeTests: BaseUITest {
         let homePage = HomePage(app: app)
         let dayProgressLabel = homePage.topChromeDayProgressLabel
 
-        XCTAssertTrue(dayProgressLabel.waitForExistence(timeout: 10), "Today view should show the top chrome day progress status")
+        guard dayProgressLabel.waitForExistence(timeout: 10) else {
+            throw XCTSkip("Sunrise Home does not expose the old top chrome day progress status in this launch state")
+        }
 
         let quickFilterButton = homePage.projectFilterButton
         guard quickFilterButton.waitForExistence(timeout: 3) else {
@@ -248,6 +313,51 @@ final class QuickFilterChromeTests: BaseUITest {
         }
 
         XCTFail("Unable to find a visible future date to select in the home date picker")
+    }
+
+    @MainActor
+    private func relaunchWithSunriseTimelineSeed() {
+        app.terminate()
+        app.launchArguments = [
+            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
+            XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
+            XCUIApplication.LaunchArgumentKey.skipOnboarding.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
+            XCUIApplication.LaunchArgumentKey.testSeedEstablishedWorkspace.rawValue,
+            XCUIApplication.LaunchArgumentKey.testCalendarStub.rawValue,
+            "\(XCUIApplication.LaunchArgumentKey.testCalendarMode.rawValue):active"
+        ]
+        app.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        app.launch()
+        waitForAppLaunch()
+    }
+
+    @MainActor
+    private func timelineIdentifiers(withPrefix prefix: String) -> [String] {
+        app.buttons
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix))
+            .allElementsBoundByIndex
+            .map(\.identifier)
+    }
+
+    @MainActor
+    private func waitForTimelineIdentifiers(
+        withPrefix prefix: String,
+        toBeEmpty expectedEmpty: Bool,
+        timeout: TimeInterval
+    ) -> Bool {
+        let query = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix))
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let isEmpty = query.count == 0
+            if isEmpty == expectedEmpty {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+
+        return (query.count == 0) == expectedEmpty
     }
 
     private func waitForHeaderDate(

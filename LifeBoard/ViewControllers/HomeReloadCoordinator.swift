@@ -1,10 +1,12 @@
+import Combine
 import Foundation
+import UIKit
 
 @MainActor
 protocol HomeReloadCoordinatorDelegate: AnyObject {
     func homeReloadCoordinatorDidReceiveTaskMutation(_ mutation: HomeTaskMutationReloadEvent)
     func homeReloadCoordinatorRecordSearchMutation()
-    func homeReloadCoordinatorRefreshCharts(reason: HomeTaskMutationEvent?)
+    func homeReloadCoordinatorRefreshInsights(reason: HomeTaskMutationEvent?)
     func homeReloadCoordinatorRefreshPersistentSyncMode()
     func homeReloadCoordinatorRefreshWeeklySummary()
     func homeReloadCoordinatorRefreshCalendarContext(reason: String)
@@ -16,6 +18,89 @@ enum HomeReloadEvent {
     case appDidBecomeActive
     case significantTimeChanged
     case workspacePreferencesChanged
+    case homeHabitMutation
+    case gamificationLedgerMutation
+}
+
+@MainActor
+protocol HomeReloadEventAdapterDelegate: AnyObject {
+    func homeReloadEventAdapter(
+        _ adapter: HomeReloadEventAdapter,
+        didReceive event: HomeReloadEvent
+    )
+}
+
+@MainActor
+final class HomeReloadEventAdapter {
+    weak var delegate: HomeReloadEventAdapterDelegate?
+
+    private let notificationCenter: NotificationCenter
+    private var cancellables = Set<AnyCancellable>()
+
+    init(notificationCenter: NotificationCenter = .default) {
+        self.notificationCenter = notificationCenter
+    }
+
+    func start() {
+        stop()
+
+        notificationCenter.publisher(for: .homeTaskMutation)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                self?.emit(.taskMutation(HomeTaskMutationReloadEvent(notification: notification)))
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: .lifeboardPersistentSyncModeDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.persistentSyncModeChanged)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: UIApplication.didBecomeActiveNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.appDidBecomeActive)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: UIApplication.significantTimeChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.significantTimeChanged)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: LifeBoardWorkspacePreferencesStore.didChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.workspacePreferencesChanged)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: .homeHabitMutation)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.homeHabitMutation)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: .gamificationLedgerDidMutate)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.gamificationLedgerMutation)
+            }
+            .store(in: &cancellables)
+    }
+
+    func stop() {
+        cancellables.removeAll()
+    }
+
+    private func emit(_ event: HomeReloadEvent) {
+        delegate?.homeReloadEventAdapter(self, didReceive: event)
+    }
 }
 
 struct HomeTaskMutationReloadEvent: Equatable {
@@ -54,18 +139,18 @@ final class HomeReloadCoordinator {
     weak var delegate: HomeReloadCoordinatorDelegate?
 
     private let debounceNanoseconds: UInt64
-    private var pendingChartRefreshTask: Task<Void, Never>?
+    private var pendingInsightsRefreshTask: Task<Void, Never>?
 
     init(
         delegate: HomeReloadCoordinatorDelegate? = nil,
-        chartRefreshDebounceSeconds: TimeInterval = 0.12
+        insightsRefreshDebounceSeconds: TimeInterval = 0.12
     ) {
         self.delegate = delegate
-        self.debounceNanoseconds = UInt64(max(0, chartRefreshDebounceSeconds) * 1_000_000_000)
+        self.debounceNanoseconds = UInt64(max(0, insightsRefreshDebounceSeconds) * 1_000_000_000)
     }
 
     deinit {
-        pendingChartRefreshTask?.cancel()
+        pendingInsightsRefreshTask?.cancel()
     }
 
     func handle(_ event: HomeReloadEvent) {
@@ -83,6 +168,11 @@ final class HomeReloadCoordinator {
         case .workspacePreferencesChanged:
             delegate?.homeReloadCoordinatorRefreshWeeklySummary()
             delegate?.homeReloadCoordinatorRefreshCalendarContext(reason: "workspace_preferences_changed")
+        case .homeHabitMutation:
+            delegate?.homeReloadCoordinatorRefreshWeeklySummary()
+            delegate?.homeReloadCoordinatorRefreshCalendarContext(reason: "home_habit_mutation")
+        case .gamificationLedgerMutation:
+            delegate?.homeReloadCoordinatorRefreshWeeklySummary()
         }
     }
 
@@ -97,32 +187,34 @@ final class HomeReloadCoordinator {
             delegate?.homeReloadCoordinatorRecordSearchMutation()
         }
 
-        scheduleChartRefresh(reason: mutation.reason)
+        // HomeViewModel still owns task-list reload batching. The coordinator owns
+        // shell/search/insights side effects until those paths are consolidated.
+        scheduleInsightsRefresh(reason: mutation.reason)
     }
 
-    func refreshChartsImmediately(reason: HomeTaskMutationEvent?) {
-        pendingChartRefreshTask?.cancel()
-        pendingChartRefreshTask = nil
-        delegate?.homeReloadCoordinatorRefreshCharts(reason: reason)
+    func refreshInsightsImmediately(reason: HomeTaskMutationEvent?) {
+        pendingInsightsRefreshTask?.cancel()
+        pendingInsightsRefreshTask = nil
+        delegate?.homeReloadCoordinatorRefreshInsights(reason: reason)
     }
 
     func cancelPendingReloads() {
-        pendingChartRefreshTask?.cancel()
-        pendingChartRefreshTask = nil
+        pendingInsightsRefreshTask?.cancel()
+        pendingInsightsRefreshTask = nil
     }
 
-    private func scheduleChartRefresh(reason: HomeTaskMutationEvent?) {
-        pendingChartRefreshTask?.cancel()
-        pendingChartRefreshTask = Task { @MainActor in
+    private func scheduleInsightsRefresh(reason: HomeTaskMutationEvent?) {
+        pendingInsightsRefreshTask?.cancel()
+        pendingInsightsRefreshTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: debounceNanoseconds)
             } catch {
                 return
             }
             guard Task.isCancelled == false else { return }
-            LifeBoardPerformanceTrace.event("HomeTaskMutationChartRefreshDebounced")
-            delegate?.homeReloadCoordinatorRefreshCharts(reason: reason)
-            pendingChartRefreshTask = nil
+            LifeBoardPerformanceTrace.event("HomeTaskMutationInsightsRefreshDebounced")
+            delegate?.homeReloadCoordinatorRefreshInsights(reason: reason)
+            pendingInsightsRefreshTask = nil
         }
     }
 }

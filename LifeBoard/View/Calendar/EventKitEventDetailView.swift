@@ -9,10 +9,16 @@ import EventKitUI
 struct EventKitEventDetailView: UIViewControllerRepresentable {
     let eventID: String
     let onDismiss: () -> Void
+    var showsCloseButton = true
     var onHideFromTimeline: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(eventID: eventID, onDismiss: onDismiss, onHideFromTimeline: onHideFromTimeline)
+        Coordinator(
+            eventID: eventID,
+            onDismiss: onDismiss,
+            showsCloseButton: showsCloseButton,
+            onHideFromTimeline: onHideFromTimeline
+        )
     }
 
     func makeUIViewController(context: Context) -> UINavigationController {
@@ -20,13 +26,18 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UINavigationController, context: Context) {
-        context.coordinator.update(eventID: eventID, onHideFromTimeline: onHideFromTimeline)
+        context.coordinator.update(
+            eventID: eventID,
+            showsCloseButton: showsCloseButton,
+            onHideFromTimeline: onHideFromTimeline
+        )
     }
 
     @MainActor
     final class Coordinator: NSObject, @preconcurrency EKEventViewDelegate {
         private let store = EKEventStore()
         private let onDismiss: () -> Void
+        private var showsCloseButton: Bool
         private var onHideFromTimeline: (() -> Void)?
         private var eventID: String
         private weak var eventViewController: EKEventViewController?
@@ -35,10 +46,12 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
         init(
             eventID: String,
             onDismiss: @escaping () -> Void,
+            showsCloseButton: Bool,
             onHideFromTimeline: (() -> Void)?
         ) {
             self.eventID = eventID
             self.onDismiss = onDismiss
+            self.showsCloseButton = showsCloseButton
             self.onHideFromTimeline = onHideFromTimeline
         }
 
@@ -46,15 +59,6 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             let eventViewController = EKEventViewController()
             eventViewController.allowsEditing = false
             eventViewController.delegate = self
-
-            let closeControl = UIButton(type: .system)
-            closeControl.setTitle(String(localized: "Close"), for: .normal)
-            closeControl.titleLabel?.font = UIFont.preferredFont(forTextStyle: .body)
-            closeControl.isAccessibilityElement = true
-            closeControl.accessibilityLabel = String(localized: "Close")
-            closeControl.accessibilityIdentifier = "schedule.detail.close"
-            closeControl.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
-            eventViewController.navigationItem.leftBarButtonItem = UIBarButtonItem(customView: closeControl)
 
             let unavailableLabel = UILabel()
             unavailableLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -76,6 +80,7 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             self.eventViewController = eventViewController
             self.unavailableLabel = unavailableLabel
             applyCurrentEvent()
+            applyCloseButtonIfNeeded()
             applyHideButtonIfNeeded()
 
             let navigationController = UINavigationController(rootViewController: eventViewController)
@@ -83,10 +88,16 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             return navigationController
         }
 
-        func update(eventID: String, onHideFromTimeline: (() -> Void)?) {
+        func update(
+            eventID: String,
+            showsCloseButton: Bool,
+            onHideFromTimeline: (() -> Void)?
+        ) {
             self.eventID = eventID
+            self.showsCloseButton = showsCloseButton
             self.onHideFromTimeline = onHideFromTimeline
             applyCurrentEvent()
+            applyCloseButtonIfNeeded()
             applyHideButtonIfNeeded()
         }
 
@@ -107,6 +118,22 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
 
         @objc private func closeTapped() {
             onDismiss()
+        }
+
+        private func applyCloseButtonIfNeeded() {
+            guard showsCloseButton else {
+                eventViewController?.navigationItem.leftBarButtonItem = nil
+                return
+            }
+            let closeItem = UIBarButtonItem(
+                title: String(localized: "Close"),
+                style: .plain,
+                target: self,
+                action: #selector(closeTapped)
+            )
+            closeItem.accessibilityLabel = String(localized: "Close")
+            closeItem.accessibilityIdentifier = "schedule.detail.close"
+            eventViewController?.navigationItem.leftBarButtonItem = closeItem
         }
 
         private func applyHideButtonIfNeeded() {
@@ -140,6 +167,7 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
 struct EventKitEventDetailView: View {
     let eventID: String
     let onDismiss: () -> Void
+    var showsCloseButton = true
     var onHideFromTimeline: (() -> Void)? = nil
 
     var body: some View {
@@ -149,7 +177,10 @@ struct EventKitEventDetailView: View {
             Text(eventID)
                 .font(.lifeboard(.caption2))
                 .foregroundStyle(Color.lifeboard.textSecondary)
-            Button(String(localized: "Close"), action: onDismiss)
+            if showsCloseButton {
+                Button(String(localized: "Close"), action: onDismiss)
+                    .accessibilityIdentifier("schedule.detail.close")
+            }
             if let onHideFromTimeline {
                 Button(action: onHideFromTimeline) {
                     Label(String(localized: "Hide from Timeline"), systemImage: "eye.slash")

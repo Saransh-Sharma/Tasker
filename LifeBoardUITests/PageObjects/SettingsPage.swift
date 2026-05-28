@@ -7,6 +7,7 @@
 
 import XCTest
 
+@MainActor
 class SettingsPage {
 
     // MARK: - Properties
@@ -154,9 +155,6 @@ class SettingsPage {
     @discardableResult
     func waitForProjectManagement(timeout: TimeInterval = 5) -> Bool {
         let lifeManagementView = app.descendants(matching: .any)["settings.lifeManagement.view"]
-        if lifeManagementView.waitForExistence(timeout: timeout) {
-            return true
-        }
-        return app.otherElements[AccessibilityIdentifiers.ProjectManagement.view].waitForExistence(timeout: timeout)
+        return lifeManagementView.waitForExistence(timeout: timeout)
     }
 }

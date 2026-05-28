@@ -158,6 +158,7 @@ private enum HabitBoardAccessibilityID {
     static let retryButton = "habitBoard.state.retry"
     static let createButton = "habitBoard.state.create"
     static let homeOpenBoard = "home.habits.openBoard"
+    static let homeAddHabit = "home.habits.addHabit"
     static func row(_ habitID: UUID) -> String { "habitBoard.row.\(habitID.uuidString)" }
     static func pinnedTitle(_ habitID: UUID) -> String { "habitBoard.pinnedTitle.\(habitID.uuidString)" }
     static func dayHeader(_ date: Date) -> String { "habitBoard.dayHeader.\(date.habitBoardAccessibilityStamp)" }
@@ -227,7 +228,7 @@ struct HabitBoardStripView: View {
 
     var body: some View {
         HStack(spacing: mode.spacing) {
-            ForEach(Array(cells.enumerated()), id: \.offset) { _, cell in
+            ForEach(cells, id: \.date) { cell in
                 HabitBoardCellView(
                     cell: cell,
                     family: family,
@@ -275,6 +276,7 @@ struct HabitHomeSectionCard: View {
     let onRowAction: (HomeHabitRow) -> Void
     let onLastCellAction: (HomeHabitRow) -> Void
     let onOpenHabit: ((HomeHabitRow) -> Void)?
+    let onAddHabit: (() -> Void)?
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
@@ -289,7 +291,8 @@ struct HabitHomeSectionCard: View {
         onSecondaryAction: @escaping (HomeHabitRow) -> Void,
         onRowAction: @escaping (HomeHabitRow) -> Void,
         onLastCellAction: @escaping (HomeHabitRow) -> Void,
-        onOpenHabit: ((HomeHabitRow) -> Void)? = nil
+        onOpenHabit: ((HomeHabitRow) -> Void)? = nil,
+        onAddHabit: (() -> Void)? = nil
     ) {
         self.title = title
         self.summaryLine = summaryLine
@@ -300,6 +303,7 @@ struct HabitHomeSectionCard: View {
         self.onRowAction = onRowAction
         self.onLastCellAction = onLastCellAction
         self.onOpenHabit = onOpenHabit
+        self.onAddHabit = onAddHabit
     }
 
     var body: some View {
@@ -365,6 +369,47 @@ struct HabitHomeSectionCard: View {
                         Divider()
                             .padding(.leading, spacing.s16)
                     }
+                }
+
+                if let onAddHabit {
+                    if rows.isEmpty == false {
+                        Divider()
+                            .padding(.leading, spacing.s16)
+                    }
+
+                    Button {
+                        onAddHabit()
+                    } label: {
+                        HStack(spacing: spacing.s8) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(Color.lifeboard.accentPrimary)
+
+                            Text("Add Habit")
+                                .font(.lifeboard(.bodyStrong))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
+
+                            Spacer(minLength: spacing.s8)
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.lifeboard.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .padding(.horizontal, spacing.s16)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .scaleOnPress()
+                    .background(Color.lifeboard.surfaceSecondary.opacity(0.42))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 0, style: .continuous)
+                            .stroke(Color.lifeboard.strokeHairline.opacity(0.28), lineWidth: 1)
+                    )
+                    .accessibilityIdentifier(HabitBoardAccessibilityID.homeAddHabit)
+                    .accessibilityLabel("Add Habit")
+                    .accessibilityHint("Opens the habit composer")
                 }
             }
         }
@@ -450,7 +495,7 @@ struct HabitBoardScreen: View {
                 viewModel.loadIfNeeded()
             }
             .sheet(item: $selectedHabitRow) { row in
-                HabitDetailSheetView(
+                SunriseHabitDetailScreen(
                     viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
                     onMutation: { viewModel.refresh() }
                 )
@@ -1121,7 +1166,7 @@ private struct HabitBoardCellView: View {
     private var doneGrainOverlay: some View {
         switch cell.state {
         case .done:
-            if mode.isMatrixLike {
+            if mode.isMatrixLike || mode == .homeList {
                 EmptyView()
             } else {
                 Canvas { context, size in
