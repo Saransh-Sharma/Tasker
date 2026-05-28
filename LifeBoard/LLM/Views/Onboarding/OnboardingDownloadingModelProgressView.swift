@@ -180,9 +180,9 @@ struct OnboardingDownloadingModelProgressView: View {
         .task {
             await installSelectedModelsIfNeeded()
         }
-        .onChange(of: canContinue) {
+        .onChange(of: isInstallInFlight) { _, inFlight in
             #if os(iOS)
-            UIApplication.shared.isIdleTimerDisabled = false
+            UIApplication.shared.isIdleTimerDisabled = inFlight
             #endif
         }
         .interactiveDismissDisabled(!canContinue)
@@ -190,7 +190,7 @@ struct OnboardingDownloadingModelProgressView: View {
         .sensoryFeedback(.success, trigger: canContinue)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            UIApplication.shared.isIdleTimerDisabled = true
+            UIApplication.shared.isIdleTimerDisabled = isInstallInFlight
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
