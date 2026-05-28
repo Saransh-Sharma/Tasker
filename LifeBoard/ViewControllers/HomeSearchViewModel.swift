@@ -18,7 +18,8 @@ private struct SearchTaskDetailRelationshipMetadataState: Sendable {
     var availableTasks: [TaskDefinition]
 }
 
-final class HomeSearchViewModel: @unchecked Sendable {
+@MainActor
+final class HomeSearchViewModel {
 
     enum StatusFilterType: Hashable, Sendable {
         case all
@@ -56,7 +57,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
             cacheKey: SearchCacheKey,
             filter: @escaping @Sendable ([PreparedTask], SearchCacheKey) -> [PreparedTask],
             group: @escaping @Sendable ([PreparedTask]) -> [(project: String, tasks: [TaskDefinition])],
-            completion: @escaping @Sendable ([PreparedTask], [(project: String, tasks: [TaskDefinition])]) -> Void
+            completion: @escaping @MainActor @Sendable ([PreparedTask], [(project: String, tasks: [TaskDefinition])]) -> Void
         ) {
             queue.async {
                 let filteredPreparedTasks = filter(preparedTasks, cacheKey)
@@ -112,7 +113,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
         let cacheKey = makeSearchCacheKey(query: query)
 
         if let cachedResults = filteredResultsCache[cacheKey] {
-            let groupedResults = groupedResultsCache[cacheKey] ?? groupPreparedTasksByProject(prepareTasks(cachedResults))
+            let groupedResults = groupedResultsCache[cacheKey] ?? Self.groupPreparedTasksByProject(Self.prepareTasks(cachedResults))
             commitSearchResultsIfCurrent(
                 cachedResults,
                 groupedResults: groupedResults,
@@ -137,25 +138,27 @@ final class HomeSearchViewModel: @unchecked Sendable {
                 offset: 0
             )
             readModelRepository.searchTasks(query: repositoryQuery) { [weak self] result in
-                guard let self else { return }
-                switch result {
-                case .failure(let error):
-                    logError(
-                        event: "search_task_fetch_failed",
-                        message: "Failed to fetch tasks for search",
-                        fields: ["error": error.localizedDescription]
-                    )
-                    self.clearSearchResultsIfCurrent(revision: revision, requestID: requestID)
-                case .success(let slice):
-                    let filteredTasks = slice.tasks
-                    let groupedResults = self.groupPreparedTasksByProject(self.prepareTasks(filteredTasks))
-                    self.commitSearchResultsIfCurrent(
-                        filteredTasks,
-                        groupedResults: groupedResults,
-                        cacheKey: cacheKey,
-                        revision: revision,
-                        requestID: requestID
-                    )
+                Task { @MainActor in
+                    guard let self else { return }
+                    switch result {
+                    case .failure(let error):
+                        logError(
+                            event: "search_task_fetch_failed",
+                            message: "Failed to fetch tasks for search",
+                            fields: ["error": error.localizedDescription]
+                        )
+                        self.clearSearchResultsIfCurrent(revision: revision, requestID: requestID)
+                    case .success(let slice):
+                        let filteredTasks = slice.tasks
+                        let groupedResults = Self.groupPreparedTasksByProject(Self.prepareTasks(filteredTasks))
+                        self.commitSearchResultsIfCurrent(
+                            filteredTasks,
+                            groupedResults: groupedResults,
+                            cacheKey: cacheKey,
+                            revision: revision,
+                            requestID: requestID
+                        )
+                    }
                 }
             }
             return
@@ -167,10 +170,10 @@ final class HomeSearchViewModel: @unchecked Sendable {
                 preparedTasks: preparedTasks,
                 cacheKey: cacheKey,
                 filter: { tasks, key in
-                    self.applyInMemoryFilters(tasks: tasks, cacheKey: key)
+                    Self.applyInMemoryFilters(tasks: tasks, cacheKey: key)
                 },
                 group: { tasks in
-                    self.groupPreparedTasksByProject(tasks)
+                    Self.groupPreparedTasksByProject(tasks)
                 }
             ) { [weak self] filteredPreparedTasks, groupedResults in
                 guard let self else { return }
@@ -572,7 +575,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
     }
 
     private func clearSearchResultsIfCurrent(revision: Int, requestID: Int) {
-        OperationQueue.main.addOperation { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
             guard requestID == self.latestSearchRequestID else { return }
             self.searchResults = []
@@ -587,7 +590,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
         revision: Int,
         requestID: Int
     ) {
-        OperationQueue.main.addOperation { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
             guard requestID == self.latestSearchRequestID else { return }
             self.searchResults = filteredTasks
@@ -645,21 +648,19 @@ final class HomeSearchViewModel: @unchecked Sendable {
         }
 
         let handler: @Sendable (Result<[TaskDefinition], Error>) -> Void = { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success(let tasks):
-                let preparedTasks = self.prepareTasks(tasks)
-                Task { @MainActor in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success(let tasks):
+                    let preparedTasks = Self.prepareTasks(tasks)
                     self.corpusCache[cacheKey] = preparedTasks
                     completion(preparedTasks)
-                }
-            case .failure(let error):
-                logError(
-                    event: "search_task_fetch_failed",
-                    message: "Failed to fetch tasks for search",
-                    fields: ["error": error.localizedDescription]
-                )
-                Task { @MainActor in
+                case .failure(let error):
+                    logError(
+                        event: "search_task_fetch_failed",
+                        message: "Failed to fetch tasks for search",
+                        fields: ["error": error.localizedDescription]
+                    )
                     completion([])
                 }
             }
@@ -692,7 +693,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
         }
     }
 
-    private func prepareTasks(_ tasks: [TaskDefinition]) -> [PreparedTask] {
+    nonisolated private static func prepareTasks(_ tasks: [TaskDefinition]) -> [PreparedTask] {
         tasks.map { task in
             PreparedTask(
                 task: task,
@@ -704,7 +705,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
         }
     }
 
-    private func groupPreparedTasksByProject(_ preparedTasks: [PreparedTask]) -> [(project: String, tasks: [TaskDefinition])] {
+    nonisolated private static func groupPreparedTasksByProject(_ preparedTasks: [PreparedTask]) -> [(project: String, tasks: [TaskDefinition])] {
         let grouped = Dictionary(grouping: preparedTasks) {
             $0.task.projectName ?? ProjectConstants.inboxProjectName
         }
@@ -724,7 +725,7 @@ final class HomeSearchViewModel: @unchecked Sendable {
     }
 
     /// Executes applyInMemoryFilters.
-    private func applyInMemoryFilters(
+    nonisolated private static func applyInMemoryFilters(
         tasks: [PreparedTask],
         cacheKey: SearchCacheKey
     ) -> [PreparedTask] {

@@ -7,7 +7,7 @@
 
 import UIKit
 import SwiftUI
-import Combine
+@preconcurrency import Combine
 import SwiftData
 
 public enum HomeShellPhase: String, Equatable {
@@ -1381,6 +1381,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
     private let onboardingGuidanceModel = HomeOnboardingGuidanceModel()
     private var onboardingCoordinator: AppOnboardingCoordinator?
     private var isEmbeddedChatRuntimeEntered = false
+    private var embeddedChatRuntimeGeneration = 0
     private var pendingExitChatTask: Task<Void, Never>?
     private var pendingInsightsLaunchRequest: InsightsLaunchRequest?
     private var pendingInsightsPreparationTask: Task<Void, Never>?
@@ -1500,8 +1501,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         pendingBackgroundInsightsPrewarmTask?.cancel()
         pendingOnboardingEvaluationTask?.cancel()
         pendingExitChatTask?.cancel()
+        let navigationEventAdapter = navigationEventAdapter
+        let reloadEventAdapter = reloadEventAdapter
+        let reloadCoordinator = reloadCoordinator
+        Task { @MainActor in
+            navigationEventAdapter.stop()
+            reloadEventAdapter.stop()
+            reloadCoordinator.cancelPendingReloads()
+        }
+        cancellables.removeAll()
         retainedHomeSearchEngine = nil
-        notificationCenter.removeObserver(self)
     }
 
     // MARK: - Setup
@@ -1713,21 +1722,30 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
     }
 
     private func setEmbeddedChatRuntimeVisible(_ isVisible: Bool, trigger: String) {
+        embeddedChatRuntimeGeneration &+= 1
+        let generation = embeddedChatRuntimeGeneration
+
         if isVisible {
+            let hadPendingExit = pendingExitChatTask != nil
             pendingExitChatTask?.cancel()
             pendingExitChatTask = nil
+            if isEmbeddedChatRuntimeEntered, hadPendingExit {
+                LLMRuntimeCoordinator.shared.enterChatScreen(trigger: trigger)
+                return
+            }
             guard isEmbeddedChatRuntimeEntered == false else { return }
             isEmbeddedChatRuntimeEntered = true
             LLMRuntimeCoordinator.shared.enterChatScreen(trigger: trigger)
         } else {
             guard isEmbeddedChatRuntimeEntered else { return }
-            isEmbeddedChatRuntimeEntered = false
             pendingExitChatTask?.cancel()
             pendingExitChatTask = Task { @MainActor [weak self] in
                 guard Task.isCancelled == false else { return }
                 await LLMRuntimeCoordinator.shared.exitChatScreen(reason: "home_chat_face_exit")
                 guard Task.isCancelled == false else { return }
-                self?.pendingExitChatTask = nil
+                guard let self, self.embeddedChatRuntimeGeneration == generation else { return }
+                self.isEmbeddedChatRuntimeEntered = false
+                self.pendingExitChatTask = nil
             }
         }
     }
