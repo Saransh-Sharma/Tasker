@@ -5,6 +5,25 @@ import MLXLMCommon
 @testable import LifeBoard
 
 final class LLMProjectionTimeoutTests: XCTestCase {
+    private static func spinFor(_ interval: TimeInterval) {
+        let deadline = Date().addingTimeInterval(interval)
+        while Date() < deadline {
+            _ = UUID()
+        }
+    }
+
+    private actor TimeoutCounter {
+        private var count = 0
+
+        func increment() {
+            count += 1
+        }
+
+        func value() -> Int {
+            count
+        }
+    }
+
     func testTimeoutReturnsFallbackPayload() async {
         let startedAt = Date()
         let result = await LLMProjectionTimeout.execute(timeoutMs: 25) {
@@ -29,6 +48,37 @@ final class LLMProjectionTimeoutTests: XCTestCase {
 
         XCTAssertEqual(result.payload, #"{"ok":true}"#)
         XCTAssertFalse(result.timedOut)
+    }
+
+    func testTimeoutDoesNotWaitForNonCooperativeOperation() async {
+        let startedAt = Date()
+        let result = await LLMProjectionTimeout.execute(timeoutMs: 25) {
+            Self.spinFor(0.25)
+            return #"{"late":true}"#
+        }
+
+        let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
+        XCTAssertEqual(result.payload, "{}")
+        XCTAssertTrue(result.timedOut)
+        XCTAssertLessThan(elapsedMs, 200)
+    }
+
+    func testTimeoutHookRunsExactlyOnce() async throws {
+        let counter = TimeoutCounter()
+
+        _ = await LLMProjectionTimeout.execute(
+            timeoutMs: 25,
+            onTimeout: {
+                await counter.increment()
+            }
+        ) {
+            Self.spinFor(0.20)
+            return #"{"late":true}"#
+        }
+
+        try await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
+        let timeoutHookCount = await counter.value()
+        XCTAssertEqual(timeoutHookCount, 1)
     }
 }
 
