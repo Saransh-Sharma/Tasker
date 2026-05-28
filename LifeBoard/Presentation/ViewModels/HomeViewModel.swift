@@ -436,6 +436,16 @@ private struct HomeHabitRowPlacement {
     let index: Int
 }
 
+private struct HomeTaskReloadNotificationEvent {
+    let source: String
+    let reason: HomeTaskMutationEvent
+    let notificationSource: String?
+    let includeAnalytics: Bool
+    let repostEvent: Bool
+    let isCompletionChange: Bool
+    let isStructured: Bool
+}
+
 public enum FocusPinResult: Equatable {
     case pinned
     case alreadyPinned
@@ -3518,76 +3528,104 @@ public final class HomeViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.enqueueReload(
-                    source: "notification_task_created",
-                    reason: .created,
-                    invalidateCaches: true,
-                    includeAnalytics: false,
-                    repostEvent: true
-                )
-            }
-            .store(in: &cancellables)
+        let legacyTaskMutationPublishers: [AnyPublisher<HomeTaskReloadNotificationEvent, Never>] = [
+            NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
+                .map { _ in
+                    HomeTaskReloadNotificationEvent(
+                        source: "notification_task_created",
+                        reason: .created,
+                        notificationSource: nil,
+                        includeAnalytics: false,
+                        repostEvent: true,
+                        isCompletionChange: false,
+                        isStructured: false
+                    )
+                }
+                .eraseToAnyPublisher(),
+            NotificationCenter.default.publisher(for: NSNotification.Name("TaskUpdated"))
+                .map { _ in
+                    HomeTaskReloadNotificationEvent(
+                        source: "notification_task_updated",
+                        reason: .updated,
+                        notificationSource: nil,
+                        includeAnalytics: false,
+                        repostEvent: true,
+                        isCompletionChange: false,
+                        isStructured: false
+                    )
+                }
+                .eraseToAnyPublisher(),
+            NotificationCenter.default.publisher(for: NSNotification.Name("TaskDeleted"))
+                .map { _ in
+                    HomeTaskReloadNotificationEvent(
+                        source: "notification_task_deleted",
+                        reason: .deleted,
+                        notificationSource: nil,
+                        includeAnalytics: false,
+                        repostEvent: true,
+                        isCompletionChange: false,
+                        isStructured: false
+                    )
+                }
+                .eraseToAnyPublisher(),
+            NotificationCenter.default.publisher(for: NSNotification.Name("TaskCompletionChanged"))
+                .map { _ in
+                    HomeTaskReloadNotificationEvent(
+                        source: "notification_task_completion_changed",
+                        reason: .bulkChanged,
+                        notificationSource: nil,
+                        includeAnalytics: true,
+                        repostEvent: true,
+                        isCompletionChange: true,
+                        isStructured: false
+                    )
+                }
+                .eraseToAnyPublisher(),
+            NotificationCenter.default.publisher(for: .homeTaskMutation)
+                .map { notification in
+                    let payload = HomeTaskMutationPayload(notification: notification)
+                    let reasonRaw = notification.userInfo?["reason"] as? String
+                    return HomeTaskReloadNotificationEvent(
+                        source: "notification_home_task_mutation",
+                        reason: payload?.reason ?? reasonRaw.flatMap(HomeTaskMutationEvent.init(rawValue:)) ?? .updated,
+                        notificationSource: payload?.source ?? notification.userInfo?["source"] as? String,
+                        includeAnalytics: true,
+                        repostEvent: false,
+                        isCompletionChange: false,
+                        isStructured: true
+                    )
+                }
+                .eraseToAnyPublisher()
+        ]
 
-        NotificationCenter.default.publisher(for: NSNotification.Name("TaskUpdated"))
+        // HomeViewModel remains the task-list reload owner for now. Legacy task
+        // notifications are bridged into the structured reload window until all
+        // producers emit only HomeTaskMutationEvent.
+        Publishers.MergeMany(legacyTaskMutationPublishers)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.enqueueReload(
-                    source: "notification_task_updated",
-                    reason: .updated,
-                    invalidateCaches: true,
-                    includeAnalytics: false,
-                    repostEvent: true
-                )
-            }
-            .store(in: &cancellables)
-
-        NotificationCenter.default.publisher(for: NSNotification.Name("TaskDeleted"))
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.enqueueReload(
-                    source: "notification_task_deleted",
-                    reason: .deleted,
-                    invalidateCaches: true,
-                    includeAnalytics: false,
-                    repostEvent: true
-                )
-            }
-            .store(in: &cancellables)
-
-        NotificationCenter.default.publisher(for: NSNotification.Name("TaskCompletionChanged"))
-            .receive(on: RunLoop.main)
-            .debounce(for: .milliseconds(completionNotificationDebounceMS), scheduler: RunLoop.main)
-            .sink { [weak self] _ in
+            .collect(.byTime(RunLoop.main, .milliseconds(max(completionNotificationDebounceMS, mutationNotificationDebounceMS))))
+            .sink { [weak self] events in
                 guard let self else { return }
-                if let suppressUntil = self.suppressCompletionReloadUntil, Date() <= suppressUntil {
-                    logDebug("HOME_ROW_STATE vm.notification_suppressed source=TaskCompletionChanged")
+                let eligibleEvents = events.filter { event in
+                    guard event.notificationSource != Self.mutationNotificationSource else { return false }
+                    if event.isCompletionChange,
+                       let suppressUntil = self.suppressCompletionReloadUntil,
+                       Date() <= suppressUntil {
+                        logDebug("HOME_ROW_STATE vm.notification_suppressed source=TaskCompletionChanged")
+                        return false
+                    }
+                    return true
+                }
+                guard let selectedEvent = eligibleEvents.last(where: \.isStructured) ?? eligibleEvents.last else {
                     return
                 }
                 self.enqueueReload(
-                    source: "notification_task_completion_changed",
-                    reason: .bulkChanged,
+                    source: selectedEvent.source,
+                    reason: selectedEvent.reason,
                     invalidateCaches: true,
-                    includeAnalytics: true,
-                    repostEvent: true
+                    includeAnalytics: eligibleEvents.contains(where: \.includeAnalytics),
+                    repostEvent: selectedEvent.repostEvent
                 )
-            }
-            .store(in: &cancellables)
-
-        NotificationCenter.default.publisher(for: .homeTaskMutation)
-            .receive(on: RunLoop.main)
-            .debounce(for: .milliseconds(mutationNotificationDebounceMS), scheduler: RunLoop.main)
-            .sink { [weak self] notification in
-                guard let self else { return }
-
-                let source = notification.userInfo?["source"] as? String
-                guard source != Self.mutationNotificationSource else { return }
-
-                let reasonRaw = notification.userInfo?["reason"] as? String
-                let reason = reasonRaw.flatMap(HomeTaskMutationEvent.init(rawValue:)) ?? .updated
-                self.handleExternalMutation(reason: reason, repostEvent: false)
             }
             .store(in: &cancellables)
 
@@ -9482,23 +9520,26 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
                     fields: ["reason": reason],
                     counts: ["task_count": tasks.count]
                 )
-                let calendarSnapshot = TaskListWidgetCalendarProjection.make(
-                    from: coordinator.calendarIntegrationService.snapshot,
-                    weekStartsOn: coordinator.calendarIntegrationService.weekStartsOn
-                )
-                let workspacePreferences = LifeBoardWorkspacePreferencesStore.shared.load()
-                let now = Date()
-                self.loadHabitRows(coordinator: coordinator, on: now) { [weak self] habitRows in
+                Task { @MainActor [weak self] in
                     guard let self else { return }
-                    let snapshot = self.buildSnapshot(
-                        tasks: tasks,
-                        now: now,
-                        habitRows: habitRows,
-                        calendarSnapshot: calendarSnapshot,
-                        workspacePreferences: workspacePreferences
+                    let calendarSnapshot = TaskListWidgetCalendarProjection.make(
+                        from: coordinator.calendarIntegrationService.snapshot,
+                        weekStartsOn: coordinator.calendarIntegrationService.weekStartsOn
                     )
-                    self.persistIfChanged(snapshot: snapshot, reason: reason)
-                    self.finishRefresh()
+                    let workspacePreferences = LifeBoardWorkspacePreferencesStore.shared.load()
+                    let now = Date()
+                    self.loadHabitRows(coordinator: coordinator, on: now) { [weak self] habitRows in
+                        guard let self else { return }
+                        let snapshot = self.buildSnapshot(
+                            tasks: tasks,
+                            now: now,
+                            habitRows: habitRows,
+                            calendarSnapshot: calendarSnapshot,
+                            workspacePreferences: workspacePreferences
+                        )
+                        self.persistIfChanged(snapshot: snapshot, reason: reason)
+                        self.finishRefresh()
+                    }
                 }
             }
         }
