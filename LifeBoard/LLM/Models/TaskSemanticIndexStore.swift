@@ -116,7 +116,18 @@ final class TaskSemanticIndexStore: @unchecked Sendable {
 
     /// Executes loadPersisted.
     func loadPersisted() {
-        loadPersistedIfAvailable(forceReload: true)
+        lock.lock()
+        defer { lock.unlock() }
+        guard isDirty == false else {
+            didAttemptLoadPersisted = true
+            logWarning(
+                event: "assistant_semantic_index_reload_skipped",
+                message: "Skipped semantic index reload because in-memory changes are dirty"
+            )
+            return
+        }
+        applyPersistedPayloadIfAvailable()
+        didAttemptLoadPersisted = true
     }
 
     func unloadFromMemory() {
@@ -131,26 +142,19 @@ final class TaskSemanticIndexStore: @unchecked Sendable {
 
     private func ensureLoadedIfNeeded() {
         lock.lock()
-        let shouldLoad = didAttemptLoadPersisted == false
-        if shouldLoad {
-            didAttemptLoadPersisted = true
+        guard didAttemptLoadPersisted == false else {
+            lock.unlock()
+            return
         }
+        applyPersistedPayloadIfAvailable()
+        didAttemptLoadPersisted = true
         lock.unlock()
-
-        guard shouldLoad else { return }
-        loadPersistedIfAvailable(forceReload: false)
     }
 
-    private func loadPersistedIfAvailable(forceReload: Bool) {
-        if forceReload {
-            lock.lock()
-            didAttemptLoadPersisted = true
-            lock.unlock()
-        }
+    private func applyPersistedPayloadIfAvailable() {
         guard let data = try? Data(contentsOf: fileURL) else { return }
         guard let payload = try? JSONDecoder().decode(PersistedIndex.self, from: data) else { return }
 
-        lock.lock()
         vectorsByTaskID = payload.vectorsByTaskID.reduce(into: [:]) { partial, pair in
             if let id = UUID(uuidString: pair.key) {
                 partial[id] = pair.value
@@ -163,6 +167,5 @@ final class TaskSemanticIndexStore: @unchecked Sendable {
         }
         isDirty = false
         dirtyGeneration = 0
-        lock.unlock()
     }
 }
