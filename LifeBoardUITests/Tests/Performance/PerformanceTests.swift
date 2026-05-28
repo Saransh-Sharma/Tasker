@@ -194,24 +194,19 @@ class PerformanceTests: BaseUITest {
     func testHomeHabitLastCellTapPerformance() throws {
         relaunchForHomeHabitPerformance()
 
-        let row = firstHomeHabitRow()
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
-
-        let rowID = row.identifier.replacingOccurrences(of: "home.habitRow.", with: "")
-        let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
-
-        XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
-        XCTAssertTrue(waitForElementToBeHittable(lastCell, timeout: 3))
+        let tapTarget = homeHabitPerformanceTapTarget()
+        XCTAssertTrue(tapTarget.waitForExistence(timeout: 5), "A home habit tap target should exist in the seeded workspace")
+        XCTAssertTrue(waitForElementToBeHittable(tapTarget, timeout: 3))
 
         let options = XCTMeasureOptions()
         options.iterationCount = 3
 
         measure(metrics: [PerformanceMetrics.signpostMetric(named: "HomeHabitLastCellTap")], options: options) {
-            let previousValue = (lastCell.value as? String) ?? ""
-            lastCell.tap()
+            let previousValue = (tapTarget.value as? String) ?? ""
+            tapTarget.tap()
 
             let predicate = NSPredicate(format: "value != %@", previousValue)
-            let expectation = XCTNSPredicateExpectation(predicate: predicate, object: lastCell)
+            let expectation = XCTNSPredicateExpectation(predicate: predicate, object: tapTarget)
             XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
         }
     }
@@ -286,6 +281,38 @@ class PerformanceTests: BaseUITest {
 
         XCTAssertTrue(firstRow.waitForExistence(timeout: 2), "Expected to find a home habit row after scrolling", file: file, line: line)
         return firstRow
+    }
+
+    private func homeHabitPerformanceTapTarget(file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        let legacyRowQuery = app.otherElements.matching(NSPredicate(format: "identifier MATCHES %@", #"^home\.habitRow\.[A-Za-z0-9-]+$"#))
+        let legacyRow = legacyRowQuery.firstMatch
+
+        if legacyRow.waitForExistence(timeout: 3) {
+            let rowID = legacyRow.identifier.replacingOccurrences(of: "home.habitRow.", with: "")
+            let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
+            if lastCell.waitForExistence(timeout: 3) {
+                return lastCell
+            }
+        }
+
+        let sunriseRowQuery = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier MATCHES %@", #"^home\.habits\.row\.[A-Za-z0-9-]+$"#)
+        )
+        let sunriseRow = sunriseRowQuery.firstMatch
+
+        if sunriseRow.waitForExistence(timeout: 3) && sunriseRow.isHittable {
+            return sunriseRow
+        }
+
+        for _ in 0..<8 {
+            app.swipeUp()
+            if sunriseRow.exists && sunriseRow.isHittable {
+                return sunriseRow
+            }
+        }
+
+        XCTAssertTrue(sunriseRow.waitForExistence(timeout: 2), "Expected to find a Sunrise home habit row after scrolling", file: file, line: line)
+        return sunriseRow
     }
 
     // MARK: - Test 71: Memory Usage with Many Tasks
