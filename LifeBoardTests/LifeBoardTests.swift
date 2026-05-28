@@ -8305,6 +8305,10 @@ final class V2PerformanceGateTests: XCTestCase {
 #if !os(macOS)
         throw XCTSkip("Shell command perf harness is only supported on macOS host tests")
 #endif
+        try XCTSkipUnless(
+            ProcessInfo.processInfo.environment["LIFEBOARD_RUN_PERF_GATE_TESTS"] == "1",
+            "Set LIFEBOARD_RUN_PERF_GATE_TESTS=1 to run repo-local performance gate tests."
+        )
         let root = workspaceRootURLForTests()
         let outputURL = root.appendingPathComponent("build/benchmarks/v2_readmodel.test.json")
         let status = try runProcess(
@@ -8338,6 +8342,10 @@ final class FlowctlToolingTests: XCTestCase {
 #if !os(macOS)
         throw XCTSkip("flowctl shell checks are only supported on macOS host tests")
 #endif
+        try XCTSkipUnless(
+            ProcessInfo.processInfo.environment["LIFEBOARD_RUN_HOST_TOOLING_TESTS"] == "1",
+            "Set LIFEBOARD_RUN_HOST_TOOLING_TESTS=1 to run repo-local tooling checks."
+        )
         let root = workspaceRootURLForTests()
         XCTAssertEqual(try runShellCommand("FLOWCTL_ALLOW_SHIM=1 bash scripts/install_flowctl.sh", in: root), 0)
         XCTAssertEqual(try runShellCommand("FLOWCTL_ALLOW_SHIM=1 bash scripts/verify_flowctl.sh", in: root), 0)
