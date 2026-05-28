@@ -85,6 +85,7 @@ public final class EnhancedDependencyContainer: @unchecked Sendable {
     // MARK: - Configuration
     
     /// Configure the container with Core Data
+    @MainActor
     func configure(with container: NSPersistentContainer) {
         logDebug("🔧 EnhancedDependencyContainer: Starting configuration...")
 

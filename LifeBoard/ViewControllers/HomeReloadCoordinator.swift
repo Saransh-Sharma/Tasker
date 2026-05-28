@@ -187,6 +187,8 @@ final class HomeReloadCoordinator {
             delegate?.homeReloadCoordinatorRecordSearchMutation()
         }
 
+        // HomeViewModel still owns task-list reload batching. The coordinator owns
+        // shell/search/insights side effects until those paths are consolidated.
         scheduleInsightsRefresh(reason: mutation.reason)
     }
 

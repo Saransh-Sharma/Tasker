@@ -16,7 +16,10 @@ struct SyncWriteGate: Sendable {
         case .fullSync:
             perform()
         case .writeClosed(let reason):
-            completion(.failure(SyncWriteClosedError(operation: operation, reason: reason)))
+            let error = SyncWriteClosedError(operation: operation, reason: reason)
+            DispatchQueue.main.async {
+                completion(.failure(error))
+            }
         }
     }
 }

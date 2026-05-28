@@ -231,6 +231,7 @@ public final class UseCaseCoordinator: @unchecked Sendable {
     // MARK: - Initialization
 
     /// Initializes a new instance.
+    @MainActor
     public init(
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         projectRepository: ProjectRepositoryProtocol,
