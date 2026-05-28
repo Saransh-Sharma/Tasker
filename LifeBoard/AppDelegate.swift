@@ -109,16 +109,18 @@ struct CloudKitRuntimeContext {
 extension Notification.Name {
     static let lifeboardPersistentSyncModeDidChange = Notification.Name("LifeBoardPersistentSyncModeDidChange")
     static let lifeboardPersistentBootstrapStateDidChange = Notification.Name("LifeBoardPersistentBootstrapStateDidChange")
+    static let taskCreated = Notification.Name("TaskCreated")
+    static let taskUpdated = Notification.Name("TaskUpdated")
+    static let taskDeleted = Notification.Name("TaskDeleted")
+    static let taskCompletionChanged = Notification.Name("TaskCompletionChanged")
 }
 
 private final class LifeBoardMetricKitSubscriber: NSObject, MXMetricManagerSubscriber {
-    private let isoFormatter = ISO8601DateFormatter()
-
     func didReceive(_ payloads: [MXMetricPayload]) {
         for payload in payloads {
             var fields: [String: String] = [
-                "time_start": isoFormatter.string(from: payload.timeStampBegin),
-                "time_end": isoFormatter.string(from: payload.timeStampEnd),
+                "time_start": Self.iso8601String(from: payload.timeStampBegin),
+                "time_end": Self.iso8601String(from: payload.timeStampEnd),
                 "includes_multiple_versions": payload.includesMultipleApplicationVersions ? "true" : "false",
                 "latest_application_version": payload.latestApplicationVersion
             ]
@@ -145,6 +147,10 @@ private final class LifeBoardMetricKitSubscriber: NSObject, MXMetricManagerSubsc
                 fields: fields
             )
         }
+    }
+
+    private static func iso8601String(from date: Date) -> String {
+        ISO8601DateFormatter().string(from: date)
     }
 
     private static func format(_ measurement: Measurement<Unit>) -> String {
@@ -322,10 +328,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(700)) { [weak self] in
             guard let self else { return }
             self.runDeferredLaunchPostFirstFrameMain(application: application)
-            self.deferredLaunchWarmupQueue.async { [weak self] in
-                Task { @MainActor [weak self] in
-                    self?.runDeferredLaunchBackgroundWarmup(shouldConfigureFirebase: shouldConfigureFirebase)
-                }
+            Task { @MainActor [weak self] in
+                self?.runDeferredLaunchBackgroundWarmup(shouldConfigureFirebase: shouldConfigureFirebase)
             }
         }
     }
@@ -399,6 +403,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         guard case .ready = persistentBootstrapState else {
             return
         }
+        saveContext()
         if AppDelegate.isWriteClosed == false {
             scheduleOccurrenceRefresh()
             if V2FeatureFlags.remindersBackgroundRefreshEnabled {
@@ -407,6 +412,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         }
         reconcileNotifications(reason: "app_did_enter_background")
         persistSemanticIndexForBackgroundTransition(application: application)
+    }
+
+    func applicationWillTerminate(_ application: UIApplication) {
+        saveContext()
     }
 
     /// Executes applicationWillEnterForeground.
@@ -652,7 +661,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     }
 
     private func registerPerformanceTelemetryIfNeeded() {
-        guard #available(iOS 13.0, *) else { return }
         MXMetricManager.shared.add(self.metricKitSubscriber)
     }
 
@@ -681,13 +689,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             object: container,
             queue: .main
         ) { note in
-            guard
-              let userInfo = note.userInfo,
-              let events = userInfo[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
-                            as? [NSPersistentCloudKitContainer.Event]
-            else { return }
-
-            for event in events where event.error != nil {
+            for event in Self.cloudKitEvents(from: note) where event.error != nil {
                 let errorDescription = event.error?.localizedDescription ?? "unknown"
                 logError(
                     event: "cloudkit_event_error",
@@ -699,6 +701,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                 )
             }
         }
+    }
+
+    nonisolated static func cloudKitEvents(from notification: Notification) -> [NSPersistentCloudKitContainer.Event] {
+        guard let value = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey] else {
+            return []
+        }
+        if let event = value as? NSPersistentCloudKitContainer.Event {
+            return [event]
+        }
+        if let events = value as? [NSPersistentCloudKitContainer.Event] {
+            return events
+        }
+        return []
     }
 
     func retryPersistentStoreBootstrap() -> LaunchRootMode {
@@ -780,7 +795,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     /// This clears UserDefaults and Core Data to ensure clean test runs
     private func resetAppState() {
         // Clear UserDefaults
-        let domain = Bundle.main.bundleIdentifier!
+        guard let domain = Bundle.main.bundleIdentifier else {
+            logError(
+                event: "ui_test_reset_missing_bundle_identifier",
+                message: "Could not reset UserDefaults because the bundle identifier is unavailable"
+            )
+            return
+        }
         UserDefaults.standard.removePersistentDomain(forName: domain)
         UserDefaults.standard.synchronize()
 
@@ -799,18 +820,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         }
         let context = container.viewContext
 
-        // Get all entity names
-        guard let entities = container.managedObjectModel.entities.map({ $0.name }) as? [String] else {
-            return
-        }
+        let entities = container.managedObjectModel.entities.compactMap(\.name)
 
         // Delete all objects for each entity
         for entityName in entities {
             let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+            deleteRequest.resultType = .resultTypeObjectIDs
 
             do {
-                try context.execute(deleteRequest)
+                let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
+                if let deletedObjectIDs = result?.result as? [NSManagedObjectID],
+                   deletedObjectIDs.isEmpty == false {
+                    NSManagedObjectContext.mergeChanges(
+                        fromRemoteContextSave: [NSDeletedObjectsKey: deletedObjectIDs],
+                        into: [context]
+                    )
+                }
             } catch {
                 logError(
                     event: "coredata_clear_entity_failed",
@@ -822,10 +848,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                 )
             }
         }
+        context.reset()
 
         // Save context
         do {
-            try context.save()
+            if context.hasChanges {
+                try context.save()
+            }
         } catch {
             logError(
                 event: "coredata_clear_save_failed",
@@ -883,6 +912,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     // Remote notification registration success/failure callbacks
     /// Executes application.
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
+        // Token forwarding is intentionally deferred until a push provider is configured.
     }
     
     /// Executes application.
@@ -1148,19 +1178,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     /// Executes isIncompatibleStoreError.
     private func isIncompatibleStoreError(_ error: NSError) -> Bool {
         let code = error.code
+        let migrationMissingSourceModel = 134000
+        let migrationCancelled = 134010
+        let migrationMissingMappingModel = 134020
+        let persistentStoreSaveConflicts = 134060
+        let persistentStoreIncompleteSave = 134080
+        let persistentStoreSaveConflictsDuringMigration = 134081
+        let persistentStoreOperationError = 134100
         let incompatibleCodes: Set<Int> = [
             NSPersistentStoreInvalidTypeError,
             NSPersistentStoreTypeMismatchError,
             NSPersistentStoreIncompatibleSchemaError,
             NSPersistentStoreOpenError,
             NSPersistentStoreIncompatibleVersionHashError,
-            134000,
-            134010,
-            134020,
-            134060,
-            134080,
-            134081,
-            134100
+            // Core Data can surface these migration/persistent-store failures
+            // without public symbolic constants on older SDK overlays.
+            migrationMissingSourceModel,
+            migrationCancelled,
+            migrationMissingMappingModel,
+            persistentStoreSaveConflicts,
+            persistentStoreIncompleteSave,
+            persistentStoreSaveConflictsDuringMigration,
+            persistentStoreOperationError
         ]
 
         if error.domain == NSCocoaErrorDomain, incompatibleCodes.contains(code) {
@@ -1482,6 +1521,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
     /// Setup Clean Architecture with modern components only
     @discardableResult
+    @MainActor
     func setupCleanArchitecture() -> Bool {
         guard let persistentContainer else {
             logError(
@@ -1595,9 +1635,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
         let center = NotificationCenter.default
         let upsertNames: [Notification.Name] = [
-            NSNotification.Name("TaskCreated"),
-            NSNotification.Name("TaskUpdated"),
-            NSNotification.Name("TaskCompletionChanged")
+            .taskCreated,
+            .taskUpdated,
+            .taskCompletionChanged
         ]
         for name in upsertNames {
             let observer = center.addObserver(forName: name, object: nil, queue: .main) { notification in
@@ -1620,7 +1660,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             semanticTaskObservers.append(observer)
         }
 
-        let deleteObserver = center.addObserver(forName: NSNotification.Name("TaskDeleted"), object: nil, queue: .main) { notification in
+        let deleteObserver = center.addObserver(forName: .taskDeleted, object: nil, queue: .main) { notification in
             let deletedTaskIDs = Self.deletedSemanticTaskIDs(from: notification)
             guard deletedTaskIDs.isEmpty == false else { return }
             guard TaskSemanticRetrievalService.shared.isActivated else {
