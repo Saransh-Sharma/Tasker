@@ -929,6 +929,7 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
 
     private let defaults: UserDefaults
     private let storageKey: String
+    private let lock = NSLock()
 
     public init(
         defaults: UserDefaults = .standard,
@@ -944,28 +945,28 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
         completion: @escaping @Sendable (Result<WeeklyReviewDraft?, Error>) -> Void
     ) {
         let callback = WeeklyRepositoryCompletion(completion)
+        let result: Result<WeeklyReviewDraft?, Error>
+        lock.lock()
         do {
             var file = normalizeAndPrune(try loadState())
             let canonicalKey = Self.weekKey(for: weekStartDate)
             if let draft = file.draftsByWeekKey[canonicalKey] {
-                callback.deliver(.success(draft))
-                return
-            }
-
-            let legacyKey = Self.legacyWeekKeys(for: weekStartDate).first { file.draftsByWeekKey[$0] != nil }
-            if let legacyKey, let legacyDraft = file.draftsByWeekKey[legacyKey] {
+                result = .success(draft)
+            } else if let legacyKey = Self.legacyWeekKeys(for: weekStartDate).first(where: { file.draftsByWeekKey[$0] != nil }),
+                      let legacyDraft = file.draftsByWeekKey[legacyKey] {
                 let normalizedDraft = Self.normalizeDraft(legacyDraft)
                 file.draftsByWeekKey[legacyKey] = nil
                 file.draftsByWeekKey[canonicalKey] = normalizedDraft
                 try persist(file)
-                callback.deliver(.success(normalizedDraft))
-                return
+                result = .success(normalizedDraft)
+            } else {
+                result = .success(nil)
             }
-
-            callback.deliver(.success(nil))
         } catch {
-            callback.deliver(.failure(error))
+            result = .failure(error)
         }
+        lock.unlock()
+        callback.deliver(result)
     }
 
     public func saveDraft(
@@ -973,15 +974,19 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
         completion: @escaping @Sendable (Result<WeeklyReviewDraft, Error>) -> Void
     ) {
         let callback = WeeklyRepositoryCompletion(completion)
+        let result: Result<WeeklyReviewDraft, Error>
+        lock.lock()
         do {
             var file = normalizeAndPrune(try loadState())
             let normalizedDraft = Self.normalizeDraft(draft)
             file.draftsByWeekKey[Self.weekKey(for: normalizedDraft.weekStartDate)] = normalizedDraft
             try persist(file)
-            callback.deliver(.success(normalizedDraft))
+            result = .success(normalizedDraft)
         } catch {
-            callback.deliver(.failure(error))
+            result = .failure(error)
         }
+        lock.unlock()
+        callback.deliver(result)
     }
 
     public func clearDraft(
@@ -989,16 +994,20 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
         completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let callback = WeeklyRepositoryCompletion(completion)
+        let result: Result<Void, Error>
+        lock.lock()
         do {
             var file = normalizeAndPrune(try loadState())
             for key in Self.allWeekKeys(for: weekStartDate) {
                 file.draftsByWeekKey.removeValue(forKey: key)
             }
             try persist(file)
-            callback.deliver(.success(()))
+            result = .success(())
         } catch {
-            callback.deliver(.failure(error))
+            result = .failure(error)
         }
+        lock.unlock()
+        callback.deliver(result)
     }
 
     public func fetchCompletedTaskDecisions(
@@ -1006,27 +1015,27 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
         completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         let callback = WeeklyRepositoryCompletion(completion)
+        let result: Result<[WeeklyReviewTaskDecision], Error>
+        lock.lock()
         do {
             var file = normalizeAndPrune(try loadState())
             let canonicalKey = Self.weekKey(for: weekStartDate)
             if let decisions = file.completedTaskDecisionsByWeekKey[canonicalKey] {
-                callback.deliver(.success(decisions))
-                return
-            }
-
-            let legacyKey = Self.legacyWeekKeys(for: weekStartDate).first { file.completedTaskDecisionsByWeekKey[$0] != nil }
-            if let legacyKey, let decisions = file.completedTaskDecisionsByWeekKey[legacyKey] {
+                result = .success(decisions)
+            } else if let legacyKey = Self.legacyWeekKeys(for: weekStartDate).first(where: { file.completedTaskDecisionsByWeekKey[$0] != nil }),
+                      let decisions = file.completedTaskDecisionsByWeekKey[legacyKey] {
                 file.completedTaskDecisionsByWeekKey[legacyKey] = nil
                 file.completedTaskDecisionsByWeekKey[canonicalKey] = decisions
                 try persist(file)
-                callback.deliver(.success(decisions))
-                return
+                result = .success(decisions)
+            } else {
+                result = .success([])
             }
-
-            callback.deliver(.success([]))
         } catch {
-            callback.deliver(.failure(error))
+            result = .failure(error)
         }
+        lock.unlock()
+        callback.deliver(result)
     }
 
     public func saveCompletedTaskDecisions(
@@ -1035,15 +1044,19 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
         completion: @escaping @Sendable (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         let callback = WeeklyRepositoryCompletion(completion)
+        let result: Result<[WeeklyReviewTaskDecision], Error>
+        lock.lock()
         do {
             var file = normalizeAndPrune(try loadState())
             let normalized = decisions.sorted { $0.taskID.uuidString < $1.taskID.uuidString }
             file.completedTaskDecisionsByWeekKey[Self.weekKey(for: weekStartDate)] = normalized
             try persist(file)
-            callback.deliver(.success(normalized))
+            result = .success(normalized)
         } catch {
-            callback.deliver(.failure(error))
+            result = .failure(error)
         }
+        lock.unlock()
+        callback.deliver(result)
     }
 
     private func loadState() throws -> WeeklyReviewLocalStateFile {
@@ -1138,6 +1151,8 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
     }
 
     private func normalizePersistedStateIfNeeded() {
+        lock.lock()
+        defer { lock.unlock() }
         do {
             let loaded = try loadState()
             let normalized = normalizeAndPrune(loaded)
@@ -1186,17 +1201,11 @@ public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtoco
 
     private let defaults: UserDefaults
     private let calendar: Calendar
-    private let stampFormatter: DateFormatter
+    private let lock = NSLock()
 
     public init(defaults: UserDefaults = .standard, calendar: Calendar = .autoupdatingCurrent) {
         self.defaults = defaults
         self.calendar = calendar
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = calendar.timeZone
-        self.stampFormatter = formatter
 
         normalizePersistedStateIfNeeded()
     }
@@ -1207,6 +1216,8 @@ public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtoco
     }
 
     public func completedDateStamps() -> Set<String> {
+        lock.lock()
+        defer { lock.unlock() }
         let file = (try? loadState()).map(normalizeAndPrune) ?? LocalStateFile(
             completionDateKeys: [],
             payloadsByDateKey: [:],
@@ -1217,12 +1228,16 @@ public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtoco
 
     public func fetchReflectionPayload(on date: Date) -> ReflectionPayload? {
         let key = dateKey(for: date)
+        lock.lock()
+        defer { lock.unlock() }
         guard let file = try? loadState() else { return nil }
         return normalizeAndPrune(file).payloadsByDateKey[key]
     }
 
     @discardableResult
     public func saveReflectionPayload(_ payload: ReflectionPayload) throws -> ReflectionPayload {
+        lock.lock()
+        defer { lock.unlock() }
         var file = normalizeAndPrune(try loadState())
         let normalized = Self.normalizePayload(payload, calendar: calendar)
         file.payloadsByDateKey[dateKey(for: normalized.reflectionDate)] = normalized
@@ -1236,6 +1251,8 @@ public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtoco
         completedAt: Date,
         payload: ReflectionPayload?
     ) throws -> ReflectionPayload? {
+        lock.lock()
+        defer { lock.unlock() }
         var file = normalizeAndPrune(try loadState())
         let key = dateKey(for: reflectionDate)
         if file.completionDateKeys.contains(key) == false {
@@ -1270,12 +1287,16 @@ public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtoco
 
     public func fetchPlanDraft(on date: Date) -> DailyPlanDraft? {
         let key = dateKey(for: date)
+        lock.lock()
+        defer { lock.unlock() }
         guard let file = try? loadState() else { return nil }
         return normalizeAndPrune(file).planDraftsByDateKey[key]
     }
 
     @discardableResult
     public func savePlanDraft(_ draft: DailyPlanDraft, replaceExisting: Bool) throws -> DailyPlanDraft {
+        lock.lock()
+        defer { lock.unlock() }
         var file = normalizeAndPrune(try loadState())
         let normalized = Self.normalizeDraft(draft, calendar: calendar)
         let key = dateKey(for: normalized.date)
@@ -1288,6 +1309,8 @@ public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtoco
     }
 
     public func clearPlanDraft(on date: Date) throws {
+        lock.lock()
+        defer { lock.unlock() }
         var file = normalizeAndPrune(try loadState())
         file.planDraftsByDateKey.removeValue(forKey: dateKey(for: date))
         try persist(file)
@@ -1370,6 +1393,8 @@ public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtoco
     }
 
     private func normalizePersistedStateIfNeeded() {
+        lock.lock()
+        defer { lock.unlock() }
         do {
             let loaded = try loadState()
             let normalized = normalizeAndPrune(loaded)
@@ -1388,7 +1413,11 @@ public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtoco
     }
 
     private func dateKey(for date: Date) -> String {
-        stampFormatter.string(from: calendar.startOfDay(for: date))
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        return formatter.string(from: calendar.startOfDay(for: date))
     }
 
     private static func normalizePayload(_ payload: ReflectionPayload, calendar: Calendar) -> ReflectionPayload {
