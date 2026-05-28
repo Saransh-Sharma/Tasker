@@ -12230,6 +12230,48 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
         XCTAssertTrue(viewModel.todayState.recoveryMetrics.contains(where: { $0.id == "reflection" && $0.value == "Claimed" }))
     }
 
+    func testTodayRefreshLoadsWhenAnalyticsCompletesFromComputeQueue() {
+        let repository = InsightsRepositorySpy()
+        let calendar = XPCalculationEngine.mondayCalendar()
+        let today = calendar.startOfDay(for: Date())
+        let completedAt = calendar.date(byAdding: .hour, value: 9, to: today) ?? today
+
+        repository.dailyAggregatesByDateKey[XPCalculationEngine.periodKey(for: today)] = DailyXPAggregateDefinition(
+            dateKey: XPCalculationEngine.periodKey(for: today),
+            totalXP: 20,
+            eventCount: 1
+        )
+        repository.todayEvents = [
+            XPEventDefinition(delta: 20, reason: "task_completion", idempotencyKey: "analytics-compute", createdAt: completedAt, category: .complete)
+        ]
+
+        let tasks = [
+            TaskDefinition(
+                title: "Analytics compute completion",
+                priority: .high,
+                type: .morning,
+                dueDate: completedAt,
+                isComplete: true,
+                dateCompleted: completedAt
+            )
+        ]
+        let readModel = InMemoryTaskReadModelRepositoryStub(tasks: tasks)
+        let viewModel = makeInsightsViewModel(
+            repository: repository,
+            taskReadModelRepository: readModel,
+            analyticsUseCase: CalculateAnalyticsUseCase(taskReadModelRepository: readModel)
+        )
+
+        viewModel.onAppear()
+        waitUntil(timeout: 2.0) {
+            viewModel.refreshState(for: .today).isLoaded
+                && viewModel.todayState.tasksCompletedToday == 1
+        }
+
+        XCTAssertEqual(viewModel.todayState.tasksCompletedToday, 1)
+        XCTAssertEqual(viewModel.todayState.totalTasksToday, 1)
+    }
+
     func testWeekProjectionBuildsLeaderboardAndMix() {
         let repository = InsightsRepositorySpy()
         let calendar = XPCalculationEngine.mondayCalendar()
@@ -12357,6 +12399,7 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
     private func makeInsightsViewModel(
         repository: InsightsRepositorySpy,
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
+        analyticsUseCase: CalculateAnalyticsUseCase? = nil,
         reminderRepository: ReminderRepositoryProtocol? = nil,
         notificationCenter: NotificationCenter = NotificationCenter()
     ) -> InsightsViewModel {
@@ -12366,6 +12409,7 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
             repository: repository,
             taskReadModelRepository: taskReadModelRepository,
             reminderRepository: reminderRepository,
+            analyticsUseCase: analyticsUseCase,
             notificationCenter: notificationCenter
         )
     }
