@@ -102,6 +102,7 @@ enum AccessibilityIdentifiers {
         static let habitsOpenBoard = "home.habits.openBoard"
         static let habitsAddHabit = "home.habits.addHabit"
         static let habitsHint = "home.habits.hint"
+        static let habitsGrid = "home.habits.grid"
         static let quietTrackingSummary = "home.quietTracking.summary"
         static let quietTrackingSheet = "home.quietTracking.sheet"
         static let quietTrackingSheetScroll = "home.quietTracking.sheet.scroll"

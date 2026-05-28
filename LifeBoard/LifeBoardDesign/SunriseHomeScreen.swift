@@ -449,108 +449,20 @@ struct SunriseHomeScreen: View {
 
     @ViewBuilder
     private var habitContent: some View {
-        let rows = visibleHabitRows
-        LBGlassCard(cornerRadius: LBRadiusTokens.largeCard) {
-            VStack(spacing: LBSpacingTokens.md) {
-                HStack {
-                    LBSectionHeader(title: "Habits", systemImage: "chart.bar")
-                    Spacer()
-                    Button("View All Habits", action: onOpenHabitBoard)
-                        .font(LBTypographyTokens.meta)
-                        .foregroundStyle(LBColorTokens.violetDeep)
-                        .buttonStyle(.plain)
-                }
-                if rows.isEmpty {
-                    HStack(spacing: LBSpacingTokens.sm) {
-                        Image(systemName: "heart")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(LBColorTokens.violetDeep)
-                        Text("No habits here yet.")
-                            .font(LBTypographyTokens.body)
-                            .foregroundStyle(LBColorTokens.navy)
-                        Spacer(minLength: LBSpacingTokens.sm)
-                    }
-                    .padding(.top, LBSpacingTokens.xs)
-                } else {
-                    habitUpdateHint
-
-                    ForEach(rows, id: \.habitID) { row in
-                        habitRowButton(row)
-                    }
-                }
-                Divider().overlay(LBColorTokens.hairline)
-                addHabitFooterButton
-                HStack {
-                    Image(systemName: "star")
-                    Text("Small steps, big changes.")
-                    Spacer()
-                }
-                .font(LBTypographyTokens.meta)
-                .foregroundStyle(LBColorTokens.navyMuted)
-            }
-            .padding(LBSpacingTokens.lg)
-        }
+        SunriseHabitGridCard(
+            rows: habitRowModels,
+            onOpenHabitBoard: onOpenHabitBoard,
+            onCycleHabit: { model in
+                onCycleHabit(model.sourceRow)
+            },
+            onAddHabit: onAddHabit
+        )
+        .equatable()
         .padding(.top, LBSpacingTokens.xs)
         .padding(.bottom, LBSpacingTokens.xxl)
-    }
-
-    private var habitUpdateHint: some View {
-        HStack(spacing: LBSpacingTokens.xs) {
-            Image(systemName: "hand.tap")
-                .font(.system(size: 13, weight: .semibold))
-            Text("Tap a habit to update today")
-                .font(LBTypographyTokens.meta)
+        .transaction { transaction in
+            transaction.animation = nil
         }
-        .foregroundStyle(LBColorTokens.navyMuted)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityIdentifier("home.habits.hint")
-    }
-
-    private func habitRowButton(_ row: HomeHabitRow) -> some View {
-        let interaction = HomeHabitLastCellInteraction.resolve(for: row)
-        return Button {
-            onCycleHabit(row)
-        } label: {
-            LBHabitCell(model: habitCellModel(for: row))
-                .equatable()
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier("home.habits.row.\(row.habitID.uuidString)")
-        .accessibilityLabel(row.title)
-        .accessibilityValue("\(interaction.currentStateText). Next: \(interaction.nextActionText).")
-        .accessibilityHint("Double-tap to \(interaction.nextActionText.lowercased()).")
-    }
-
-    private var addHabitFooterButton: some View {
-        Button(action: onAddHabit) {
-            HStack(spacing: LBSpacingTokens.xs) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                Text("Add Habit")
-                    .font(LBTypographyTokens.chip)
-                Spacer(minLength: LBSpacingTokens.sm)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(LBColorTokens.violetDeep.opacity(0.7))
-            }
-            .foregroundStyle(LBColorTokens.violetDeep)
-            .padding(.horizontal, LBSpacingTokens.md)
-            .padding(.vertical, LBSpacingTokens.sm)
-            .background {
-                RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
-                    .fill(LBColorTokens.violetSoft.opacity(0.72))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
-                            .stroke(LBColorTokens.violet.opacity(0.22), lineWidth: 1)
-                    }
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("home.habits.addHabit")
-        .accessibilityLabel("Add Habit")
     }
 
     private var filterChips: [SunriseFilterChip] {
@@ -760,6 +672,22 @@ struct SunriseHomeScreen: View {
                 habits.habitHomeSectionState.primaryRows
                 + habits.habitHomeSectionState.recoveryRows
             ).prefix(8)
+        )
+    }
+
+    private var habitRowModels: [SunriseHabitGridRowModel] {
+        visibleHabitRows.map(habitRowModel(for:))
+    }
+
+    private func habitRowModel(for row: HomeHabitRow) -> SunriseHabitGridRowModel {
+        let interaction = HomeHabitLastCellInteraction.resolve(for: row)
+        return SunriseHabitGridRowModel(
+            habitID: row.habitID,
+            sourceRow: row,
+            title: row.title,
+            cellModel: habitCellModel(for: row),
+            currentStateText: interaction.currentStateText,
+            nextActionText: interaction.nextActionText
         )
     }
 
@@ -1452,6 +1380,163 @@ private struct SunriseFilterChip: Identifiable {
     let model: LBFilterChip.Model
     let action: () -> Void
     var id: String { model.id }
+}
+
+private struct SunriseHabitGridRowModel: Identifiable, Equatable {
+    let habitID: UUID
+    let sourceRow: HomeHabitRow
+    let title: String
+    let cellModel: LBHabitCell.Model
+    let currentStateText: String
+    let nextActionText: String
+
+    var id: UUID { habitID }
+    var accessibilityIdentifier: String { "home.habits.row.\(habitID.uuidString)" }
+    var accessibilityValue: String { "\(currentStateText). Next: \(nextActionText)." }
+    var accessibilityHint: String { "Double-tap to \(nextActionText.lowercased())." }
+}
+
+private struct SunriseHabitGridCard: View, Equatable {
+    let rows: [SunriseHabitGridRowModel]
+    let onOpenHabitBoard: () -> Void
+    let onCycleHabit: (SunriseHabitGridRowModel) -> Void
+    let onAddHabit: () -> Void
+
+    nonisolated static func == (lhs: SunriseHabitGridCard, rhs: SunriseHabitGridCard) -> Bool {
+        lhs.rows == rhs.rows
+    }
+
+    var body: some View {
+        ZStack {
+            LBGlassCard(cornerRadius: LBRadiusTokens.largeCard) {
+                VStack(spacing: LBSpacingTokens.md) {
+                    HStack {
+                        LBSectionHeader(title: "Habits", systemImage: "chart.bar")
+                        Spacer()
+                        Button("View All Habits", action: onOpenHabitBoard)
+                            .font(LBTypographyTokens.meta)
+                            .foregroundStyle(LBColorTokens.violetDeep)
+                            .buttonStyle(.plain)
+                    }
+
+                    if rows.isEmpty {
+                        emptyState
+                    } else {
+                        updateHint
+
+                        ForEach(rows) { row in
+                            SunriseHabitGridRow(model: row, onCycleHabit: onCycleHabit)
+                                .equatable()
+                        }
+                    }
+
+                    Divider().overlay(LBColorTokens.hairline)
+                    addHabitFooterButton
+                    footerNote
+                }
+                .padding(LBSpacingTokens.lg)
+            }
+
+            Color.clear
+                .allowsHitTesting(false)
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier("home.habits.grid")
+                .accessibilityLabel("Habits grid")
+        }
+        .transaction { transaction in
+            transaction.animation = nil
+        }
+    }
+
+    private var emptyState: some View {
+        HStack(spacing: LBSpacingTokens.sm) {
+            Image(systemName: "heart")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(LBColorTokens.violetDeep)
+            Text("No habits here yet.")
+                .font(LBTypographyTokens.body)
+                .foregroundStyle(LBColorTokens.navy)
+            Spacer(minLength: LBSpacingTokens.sm)
+        }
+        .padding(.top, LBSpacingTokens.xs)
+    }
+
+    private var updateHint: some View {
+        HStack(spacing: LBSpacingTokens.xs) {
+            Image(systemName: "hand.tap")
+                .font(.system(size: 13, weight: .semibold))
+            Text("Tap a habit to update today")
+                .font(LBTypographyTokens.meta)
+        }
+        .foregroundStyle(LBColorTokens.navyMuted)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("home.habits.hint")
+    }
+
+    private var addHabitFooterButton: some View {
+        Button(action: onAddHabit) {
+            HStack(spacing: LBSpacingTokens.xs) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                Text("Add Habit")
+                    .font(LBTypographyTokens.chip)
+                Spacer(minLength: LBSpacingTokens.sm)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(LBColorTokens.violetDeep.opacity(0.7))
+            }
+            .foregroundStyle(LBColorTokens.violetDeep)
+            .padding(.horizontal, LBSpacingTokens.md)
+            .padding(.vertical, LBSpacingTokens.sm)
+            .background {
+                RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
+                    .fill(LBColorTokens.violetSoft.opacity(0.72))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
+                            .stroke(LBColorTokens.violet.opacity(0.22), lineWidth: 1)
+                    }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.habits.addHabit")
+        .accessibilityLabel("Add Habit")
+    }
+
+    private var footerNote: some View {
+        HStack {
+            Image(systemName: "star")
+            Text("Small steps, big changes.")
+            Spacer()
+        }
+        .font(LBTypographyTokens.meta)
+        .foregroundStyle(LBColorTokens.navyMuted)
+    }
+}
+
+private struct SunriseHabitGridRow: View, Equatable {
+    let model: SunriseHabitGridRowModel
+    let onCycleHabit: (SunriseHabitGridRowModel) -> Void
+
+    nonisolated static func == (lhs: SunriseHabitGridRow, rhs: SunriseHabitGridRow) -> Bool {
+        lhs.model == rhs.model
+    }
+
+    var body: some View {
+        Button {
+            onCycleHabit(model)
+        } label: {
+            LBHabitCell(model: model.cellModel)
+                .equatable()
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier(model.accessibilityIdentifier)
+        .accessibilityLabel(model.title)
+        .accessibilityValue(model.accessibilityValue)
+        .accessibilityHint(model.accessibilityHint)
+    }
 }
 
 enum SunriseTimelineRow: Identifiable {
