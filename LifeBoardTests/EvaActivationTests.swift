@@ -210,7 +210,7 @@ final class EvaActivationTests: XCTestCase {
         }
     }
 
-    func testMascotSpriteAssetsAreBundled() throws {
+    func testMascotSpriteAssetsAreBundled() async throws {
         let spritePersonas = AssistantMascotPersona.all.filter(\.usesSprites)
 
         for persona in spritePersonas {
@@ -222,28 +222,32 @@ final class EvaActivationTests: XCTestCase {
                 MascotSpriteFrameProvider.shared.spritesheetURL(for: persona),
                 "Missing mascot spritesheet for \(persona.displayName)"
             )
+            let frame = await MascotSpriteFrameProvider.shared.frame(persona: persona, animation: .idle, index: 0)
             XCTAssertNotNil(
-                MascotSpriteFrameProvider.shared.frame(persona: persona, animation: .idle, index: 0),
+                frame,
                 "Could not crop idle frame for \(persona.displayName)"
             )
         }
     }
 
-    func testMascotSpriteProviderClearsDecodedCaches() throws {
+    func testMascotSpriteProviderClearsDecodedCaches() async throws {
         let provider = MascotSpriteFrameProvider.shared
-        provider.clearCaches(reason: "test_setup")
+        await provider.clearCaches(reason: "test_setup")
 
         let persona = try XCTUnwrap(AssistantMascotPersona.all.first { $0.id == .cloudlet })
-        XCTAssertNotNil(provider.frame(persona: persona, animation: .idle, index: 0))
-        XCTAssertNotNil(provider.frame(persona: persona, animation: .idle, index: 1))
+        let firstFrame = await provider.frame(persona: persona, animation: .idle, index: 0)
+        let secondFrame = await provider.frame(persona: persona, animation: .idle, index: 1)
+        XCTAssertNotNil(firstFrame)
+        XCTAssertNotNil(secondFrame)
 
-        let populatedCounts = provider.cacheCounts()
+        let populatedCounts = await provider.cacheCounts()
         XCTAssertEqual(populatedCounts.sheets, 1)
         XCTAssertEqual(populatedCounts.frames, 2)
 
-        provider.clearCaches(reason: "test")
+        await provider.clearCaches(reason: "test")
 
-        XCTAssertEqual(provider.cacheCounts(), MascotSpriteFrameProvider.CacheCounts(sheets: 0, frames: 0))
+        let clearedCounts = await provider.cacheCounts()
+        XCTAssertEqual(clearedCounts, MascotSpriteFrameProvider.CacheCounts(sheets: 0, frames: 0))
     }
     #endif
 
