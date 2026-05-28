@@ -20,9 +20,32 @@ struct HomeTimelineSnapshotProjectionInput {
     let calendarWeekAgenda: [LifeBoardCalendarDayAgenda]
 }
 
+// Compatibility alias retained while older Home call sites migrate to the
+// canonical HomeTimelineSnapshotProjectionInput name.
 typealias HomeTimelineProjectionInput = HomeTimelineSnapshotProjectionInput
 
 struct HomeTimelineProjectionBuilder {
+    private static let defaultTaskDuration: TimeInterval = 30 * 60
+    private static let minimumTaskDuration: TimeInterval = 15 * 60
+    private static let minimumOperationalGapDuration: TimeInterval = 20 * 60
+    private static let shortPrepGapThreshold: TimeInterval = 45 * 60
+    private static let actionableHorizonDuration: TimeInterval = 4 * 60 * 60
+    private static let minimumFutureGapDuration: TimeInterval = 45 * 60
+    private static let minimumQuietGapDuration: TimeInterval = 90 * 60
+    private static let minimumPromptSpacing: TimeInterval = 90 * 60
+    private static let expandedLayoutGapThreshold: TimeInterval = 4 * 60 * 60
+    private static let compactTimedCoverageRatio = 0.22
+
+    private struct LookupContext {
+        let projectsByID: [UUID: Project]
+        let lifeAreasByID: [UUID: LifeArea]
+
+        init(input: HomeTimelineProjectionInput) {
+            self.projectsByID = Dictionary(input.projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            self.lifeAreasByID = Dictionary(input.lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        }
+    }
+
     func cacheKey(for input: HomeTimelineProjectionInput) -> HomeTimelineSnapshotCacheKey {
         HomeTimelineSnapshotCacheKey(
             dataRevision: input.dataRevision,
@@ -63,6 +86,7 @@ struct HomeTimelineProjectionBuilder {
     }
 
     private func makeSnapshot(_ input: HomeTimelineProjectionInput) -> HomeTimelineSnapshot {
+        let lookupContext = LookupContext(input: input)
         let showCalendarEventsInTimeline = input.workspacePreferences.showCalendarEventsInTimeline
         let anchorWindow = resolvedTimelineAnchorWindow(
             on: input.selectedDay,
@@ -86,7 +110,7 @@ struct HomeTimelineProjectionBuilder {
 
         let dayTasks = timelineTasksForSelectedDay(input.taskCandidates, input: input)
         let allDayTasks = dayTasks.filter { task in
-            task.isAllDay || timelineIsDateOnlyDueDate(task.dueDate, calendar: input.calendar)
+            task.isAllDay
         }
         let inboxTasks = dayTasks.filter { task in
             task.isComplete == false
@@ -97,7 +121,7 @@ struct HomeTimelineProjectionBuilder {
                 && task.dueDate == nil
         }
         let timedTaskItems = dayTasks.compactMap { task -> TimelinePlanItem? in
-            let item = timelinePlanItem(from: task, input: input)
+            let item = timelinePlanItem(from: task, input: input, lookupContext: lookupContext)
             guard item.isAllDay == false, item.startDate != nil else { return nil }
             return item
         }
@@ -114,8 +138,8 @@ struct HomeTimelineProjectionBuilder {
                 .sorted(by: timelinePlanItemSort)
             : []
 
-        let allDayItems = allDayTasks.map { timelinePlanItem(from: $0, input: input) } + calendarAllDayItems
-        let inboxItems = inboxTasks.map { timelinePlanItem(from: $0, input: input) }
+        let allDayItems = allDayTasks.map { timelinePlanItem(from: $0, input: input, lookupContext: lookupContext) } + calendarAllDayItems
+        let inboxItems = inboxTasks.map { timelinePlanItem(from: $0, input: input, lookupContext: lookupContext) }
         let baseTimedItems = (timedTaskItems + calendarTimedItems).sorted(by: timelinePlanItemSort)
         let timedBuckets = partitionTimelineItems(
             baseTimedItems,
@@ -167,7 +191,8 @@ struct HomeTimelineProjectionBuilder {
             week: timelineWeekSummary(
                 weekStartsOn: input.workspacePreferences.weekStartsOn,
                 includeCalendarEvents: showCalendarEventsInTimeline,
-                input: input
+                input: input,
+                lookupContext: lookupContext
             ),
             placementCandidate: input.replanState.placementCandidate
         )
@@ -193,7 +218,10 @@ struct HomeTimelineProjectionBuilder {
             } ?? false
             let isAllDayForDay = timelineAllDayDate(for: task, calendar: input.calendar)
                 .map { input.calendar.isDate($0, inSameDayAs: input.selectedDay) } ?? false
-            let isUnscheduledInbox = task.scheduledStartAt == nil && task.dueDate == nil && task.isComplete == false
+            let isUnscheduledInbox = input.calendar.isDate(input.selectedDay, inSameDayAs: input.now)
+                && task.scheduledStartAt == nil
+                && task.dueDate == nil
+                && task.isComplete == false
             return isScheduledForDay || isPreviousNightContext || isAllDayForDay || isUnscheduledInbox
         }
 
@@ -232,9 +260,10 @@ struct HomeTimelineProjectionBuilder {
     private func timelineWeekSummary(
         weekStartsOn: Weekday,
         includeCalendarEvents: Bool,
-        input: HomeTimelineProjectionInput
+        input: HomeTimelineProjectionInput,
+        lookupContext: LookupContext
     ) -> TimelineWeekSummary {
-        let weekStart = XPCalculationEngine.startOfWeek(
+        let weekStart = timelineWeekStart(
             for: input.selectedDay,
             startingOn: weekStartsOn,
             calendar: input.calendar
@@ -273,7 +302,7 @@ struct HomeTimelineProjectionBuilder {
                 ? (agenda?.events.filter { !isCalendarEventHiddenFromHomeTimeline(eventID: $0.id, on: normalizedDay, hiddenEvents: input.hiddenCalendarEvents) } ?? [])
                 : []
             let eventMarkers = visibleEvents.filter { !$0.isAllDay }.map(\.startDate)
-            let tints = tasks.compactMap { timelineTintHex(for: $0, input: input) } + visibleEvents.compactMap(\.calendarColorHex)
+            let tints = tasks.compactMap { timelineTintHex(for: $0, lookupContext: lookupContext) } + visibleEvents.compactMap(\.calendarColorHex)
             let allDayCount = tasks.filter { timelineAllDayDate(for: $0, calendar: input.calendar) != nil }.count + visibleEvents.filter(\.isAllDay).count
             let timedCount = taskMarkers.count + eventMarkers.count
             let totalCount = allDayCount + timedCount
@@ -301,13 +330,17 @@ struct HomeTimelineProjectionBuilder {
         )
     }
 
-    private func timelinePlanItem(from task: TaskDefinition, input: HomeTimelineProjectionInput) -> TimelinePlanItem {
+    private func timelinePlanItem(
+        from task: TaskDefinition,
+        input: HomeTimelineProjectionInput,
+        lookupContext: LookupContext
+    ) -> TimelinePlanItem {
         let startDate = timelinePlacementDate(for: task, calendar: input.calendar)
         let resolvedDuration = task.scheduledEndAt?.timeIntervalSince(startDate ?? task.createdAt)
             ?? task.estimatedDuration
-            ?? (30 * 60)
+            ?? Self.defaultTaskDuration
         let endDate = startDate.map { start in
-            task.scheduledEndAt ?? start.addingTimeInterval(max(resolvedDuration, 15 * 60))
+            task.scheduledEndAt ?? start.addingTimeInterval(max(resolvedDuration, Self.minimumTaskDuration))
         }
         let checklistSummary = timelineChecklistSummary(for: task, taskIndexByID: input.taskIndexByID)
         let hasProjectUtility = {
@@ -326,7 +359,7 @@ struct HomeTimelineProjectionBuilder {
             endDate: endDate,
             isAllDay: timelineAllDayDate(for: task, calendar: input.calendar) != nil,
             isComplete: task.isComplete,
-            tintHex: timelineTintHex(for: task, input: input),
+            tintHex: timelineTintHex(for: task, lookupContext: lookupContext),
             systemImageName: timelineSystemImageName(for: task, projects: input.projects),
             accessoryText: timelineAccessoryText(for: task, now: input.now, calendar: input.calendar),
             taskPriority: task.priority,
@@ -478,10 +511,10 @@ struct HomeTimelineProjectionBuilder {
         from gaps: [TimelineGap],
         selectedDate: Date,
         now: Date,
-        actionableHorizon: TimeInterval = 4 * 60 * 60,
-        minimumFutureDuration: TimeInterval = 45 * 60,
-        minimumQuietDuration: TimeInterval = 90 * 60,
-        minimumPromptSpacing: TimeInterval = 90 * 60,
+        actionableHorizon: TimeInterval = Self.actionableHorizonDuration,
+        minimumFutureDuration: TimeInterval = Self.minimumFutureGapDuration,
+        minimumQuietDuration: TimeInterval = Self.minimumQuietGapDuration,
+        minimumPromptSpacing: TimeInterval = Self.minimumPromptSpacing,
         calendar: Calendar
     ) -> [TimelineGap] {
         let selectedDay = calendar.startOfDay(for: selectedDate)
@@ -490,11 +523,11 @@ struct HomeTimelineProjectionBuilder {
             return []
         }
 
-        func spaced(_ candidates: [TimelineGap], limit: Int) -> [TimelineGap] {
+        func spaced(_ candidates: [TimelineGap], limit: Int, existing: [TimelineGap] = []) -> [TimelineGap] {
             var selected: [TimelineGap] = []
             for gap in candidates.sorted(by: { $0.startDate < $1.startDate }) {
                 guard selected.count < limit else { break }
-                guard selected.allSatisfy({ abs(gap.startDate.timeIntervalSince($0.startDate)) >= minimumPromptSpacing }) else {
+                guard (existing + selected).allSatisfy({ abs(gap.startDate.timeIntervalSince($0.startDate)) >= minimumPromptSpacing }) else {
                     continue
                 }
                 selected.append(gap)
@@ -518,7 +551,7 @@ struct HomeTimelineProjectionBuilder {
         let activeGap = gaps.first { gap in
             gap.startDate <= now
                 && now < gap.endDate
-                && gap.endDate.timeIntervalSince(now) >= 20 * 60
+                && gap.endDate.timeIntervalSince(now) >= Self.minimumOperationalGapDuration
         }
         let upcoming = preferredFutureCandidates(
             from: gaps.filter { gap in
@@ -527,17 +560,8 @@ struct HomeTimelineProjectionBuilder {
         )
 
         var selected = activeGap.map { [$0] } ?? []
-        for gap in upcoming.sorted(by: { $0.startDate < $1.startDate }) {
-            guard selected.count < 2 else { break }
-            guard activeGap == nil || selected.count < 2 else { break }
-            guard selected.allSatisfy({ abs(gap.startDate.timeIntervalSince($0.startDate)) >= minimumPromptSpacing }) else {
-                continue
-            }
-            selected.append(gap)
-            if activeGap != nil || selected.count >= 1 {
-                break
-            }
-        }
+        let upcomingLimit = activeGap == nil ? 2 : 1
+        selected.append(contentsOf: spaced(upcoming, limit: upcomingLimit, existing: selected))
 
         return selected
     }
@@ -587,12 +611,12 @@ struct HomeTimelineProjectionBuilder {
             let currentEnd = boundaries[index].end
             let nextStart = boundaries[index + 1].start
             let gapDuration = nextStart.timeIntervalSince(currentEnd)
-            guard gapDuration >= 20 * 60 else { continue }
+            guard gapDuration >= Self.minimumOperationalGapDuration else { continue }
             let isFinalGap = boundaries[index + 1].isSleepAnchor
             let emphasis: TimelineGapEmphasis
             if isFinalGap {
                 emphasis = .quietWindow
-            } else if gapDuration <= 45 * 60 {
+            } else if gapDuration <= Self.shortPrepGapThreshold {
                 emphasis = .prepWindow
             } else {
                 emphasis = .openTime
@@ -628,9 +652,9 @@ struct HomeTimelineProjectionBuilder {
         guard timedItems.isEmpty == false else { return .compact }
         let daySpan = max(sleepAnchor.time.timeIntervalSince(wakeAnchor.time), 1)
         let largestGap = gaps.map(\.duration).max() ?? 0
-        guard largestGap >= 4 * 60 * 60 else { return .expanded }
+        guard largestGap >= Self.expandedLayoutGapThreshold else { return .expanded }
         let timedCoverage = timelineCoveredDuration(for: timedItems)
-        return (timedCoverage / daySpan) <= 0.22 ? .compact : .expanded
+        return (timedCoverage / daySpan) <= Self.compactTimedCoverageRatio ? .compact : .expanded
     }
 
     private func timelineCoveredDuration(for timedItems: [TimelinePlanItem]) -> TimeInterval {
@@ -664,18 +688,16 @@ struct HomeTimelineProjectionBuilder {
         return total
     }
 
-    private func timelineTintHex(for task: TaskDefinition, input: HomeTimelineProjectionInput) -> String? {
-        let projectsByID = Dictionary(input.projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let lifeAreasByID = Dictionary(input.lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    private func timelineTintHex(for task: TaskDefinition, lookupContext: LookupContext) -> String? {
         if let owningTint = HomeTaskTintResolver.owningSectionAccentHex(
             for: task,
-            projectsByID: projectsByID,
-            lifeAreasByID: lifeAreasByID
+            projectsByID: lookupContext.projectsByID,
+            lifeAreasByID: lookupContext.lifeAreasByID
         ) {
             return owningTint
         }
 
-        return projectsByID[task.projectID]?.color.hexString ?? task.priority.colorHex
+        return lookupContext.projectsByID[task.projectID]?.color.hexString ?? task.priority.colorHex
     }
 
     private func timelineChecklistSummary(
@@ -719,7 +741,7 @@ struct HomeTimelineProjectionBuilder {
         guard let start = timelinePlacementDate(for: task, calendar: calendar) else {
             return task.estimatedDuration.map(Self.timelineDurationText)
         }
-        let end = task.scheduledEndAt ?? start.addingTimeInterval(max(task.estimatedDuration ?? 30 * 60, 15 * 60))
+        let end = task.scheduledEndAt ?? start.addingTimeInterval(max(task.estimatedDuration ?? Self.defaultTaskDuration, Self.minimumTaskDuration))
         guard start <= now, end > now else {
             return task.estimatedDuration.map(Self.timelineDurationText)
         }
@@ -729,10 +751,21 @@ struct HomeTimelineProjectionBuilder {
 
     private func timelineIsMeetingLikeEvent(_ event: LifeBoardCalendarEventSnapshot) -> Bool {
         let normalized = "\(event.title) \(event.calendarTitle)".lowercased()
-        return normalized.contains("meet")
-            || normalized.contains("zoom")
-            || normalized.contains("call")
-            || normalized.contains("video")
+        if normalized.contains("google meet") || normalized.contains("slack huddle") {
+            return true
+        }
+        let tokens = Set(normalized.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { $0.isEmpty == false })
+        let meetingTokens: Set<String> = [
+            "meeting",
+            "zoom",
+            "call",
+            "video",
+            "teams",
+            "webex",
+            "skype",
+            "facetime"
+        ]
+        return tokens.isDisjoint(with: meetingTokens) == false
     }
 
     private func timelineGapCopy(
@@ -786,31 +819,33 @@ struct HomeTimelineProjectionBuilder {
     }
 
     private func timelinePlacementDate(for task: TaskDefinition, calendar: Calendar) -> Date? {
-        task.scheduledStartAt ?? (timelineIsDateOnlyDueDate(task.dueDate, calendar: calendar) ? nil : task.dueDate)
+        task.scheduledStartAt ?? task.dueDate
     }
 
     private func timelineAllDayDate(for task: TaskDefinition, calendar: Calendar) -> Date? {
         if task.isAllDay {
             return task.dueDate ?? task.scheduledStartAt
         }
-        if timelineIsDateOnlyDueDate(task.dueDate, calendar: calendar) {
-            return task.dueDate
-        }
         return nil
     }
 
-    private func timelineIsDateOnlyDueDate(_ date: Date?, calendar: Calendar) -> Bool {
-        guard let date else { return false }
-        let components = calendar.dateComponents([.hour, .minute, .second], from: date)
-        return (components.hour ?? 0) == 0 && (components.minute ?? 0) == 0 && (components.second ?? 0) == 0
+    private func timelineDayKey(for date: Date, calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        return formatter.string(from: date)
     }
 
-    private func timelineDayKey(for date: Date, calendar: Calendar) -> String {
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        let year = components.year ?? 0
-        let month = components.month ?? 0
-        let day = components.day ?? 0
-        return String(format: "%04d-%02d-%02d", year, month, day)
+    private func timelineWeekStart(
+        for date: Date,
+        startingOn weekStartsOn: Weekday,
+        calendar: Calendar
+    ) -> Date {
+        var calendar = calendar
+        calendar.firstWeekday = weekStartsOn.number
+        return calendar.dateInterval(of: .weekOfYear, for: date)?.start
+            ?? calendar.startOfDay(for: date)
     }
 
     private func timelineLoadLevel(for totalCount: Int) -> TimelineDayLoadLevel {
@@ -860,4 +895,6 @@ struct HomeTimelineProjectionBuilder {
     }
 }
 
+// Compatibility alias retained while older call sites migrate to the canonical
+// HomeTimelineProjectionBuilder name.
 typealias HomeTimelineSnapshotProjectionBuilder = HomeTimelineProjectionBuilder
