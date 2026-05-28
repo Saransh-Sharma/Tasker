@@ -228,12 +228,19 @@ struct ChatsListView: View {
             }
 
             Task { @MainActor in
-                await MainActor.run {
-                    selection = nil
-                }
+                selection = nil
                 await Task.yield()
                 await ThreadContextAttachmentStore.shared.clear(threadID: threadID)
                 modelContext.delete(targetThread)
+                do {
+                    try modelContext.save()
+                } catch {
+                    logError(
+                        event: "chat_thread_delete_save_failed",
+                        message: "Failed to save chat thread deletion",
+                        fields: ["thread_id": threadID.uuidString, "error": error.localizedDescription]
+                    )
+                }
             }
         }
     }
@@ -249,6 +256,15 @@ struct ChatsListView: View {
         Task { @MainActor in
             await ThreadContextAttachmentStore.shared.clear(threadID: threadID)
             modelContext.delete(thread)
+            do {
+                try modelContext.save()
+            } catch {
+                logError(
+                    event: "chat_thread_delete_save_failed",
+                    message: "Failed to save chat thread deletion",
+                    fields: ["thread_id": threadID.uuidString, "error": error.localizedDescription]
+                )
+            }
         }
     }
 

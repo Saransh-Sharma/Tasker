@@ -242,6 +242,9 @@ struct ChatView: View {
             NotificationCenter.default.publisher(for: NSNotification.Name("TaskCompletionChanged")).eraseToAnyPublisher(),
             NotificationCenter.default.publisher(for: Notification.Name("HomeTaskMutationEvent")).eraseToAnyPublisher()
         )
+        // Legacy task notifications are still emitted alongside HomeTaskMutationEvent.
+        // Debounce the merged bridge until all producers emit only the structured event.
+        .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
         .eraseToAnyPublisher()
     }
 
@@ -698,6 +701,79 @@ struct ChatView: View {
         return currentThread
     }
 
+    @MainActor
+    private func thread(matching threadID: UUID) -> Thread? {
+        if currentThread?.id == threadID {
+            return currentThread
+        }
+        var descriptor = FetchDescriptor<Thread>(
+            predicate: #Predicate<Thread> { thread in
+                thread.id == threadID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try? modelContext.fetch(descriptor).first
+    }
+
+    @MainActor
+    @discardableResult
+    private func sendMessage(
+        role: Role,
+        content: String,
+        threadID: UUID,
+        generatingTime: TimeInterval? = nil,
+        sourceModelName: String? = nil
+    ) -> ChatMessageSendOutcome {
+        guard let thread = thread(matching: threadID) else {
+            logWarning(
+                event: "chat_thread_resolve_failed",
+                message: "Could not resolve chat thread for message persistence",
+                fields: ["thread_id": threadID.uuidString]
+            )
+            return ChatMessageSendOutcome(
+                status: .saveFailed,
+                messageID: UUID(),
+                role: String(describing: role),
+                contentType: AssistantCardCodec.isCard(content) ? "card" : "text",
+                preSanitizeLength: content.count,
+                postSanitizeLength: content.count,
+                threadID: threadID,
+                errorDescription: "Could not resolve chat thread"
+            )
+        }
+        return sendMessage(
+            Message(
+                role: role,
+                content: content,
+                thread: thread,
+                generatingTime: generatingTime,
+                sourceModelName: sourceModelName
+            )
+        )
+    }
+
+    @MainActor
+    private func promptSnapshot(
+        threadID: UUID,
+        model: MLXLMCommon.ModelConfiguration,
+        systemPrompt: String
+    ) -> LLMChatPromptSnapshot? {
+        guard let thread = thread(matching: threadID) else {
+            logWarning(
+                event: "chat_thread_resolve_failed",
+                message: "Could not resolve chat thread for prompt snapshot",
+                fields: ["thread_id": threadID.uuidString]
+            )
+            return nil
+        }
+        let startedAt = Date()
+        return LLMChatPromptSnapshot(
+            messages: model.getChatMessages(thread: thread, systemPrompt: systemPrompt),
+            systemPromptCharacterCount: systemPrompt.count,
+            buildDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000)
+        )
+    }
+
     private func pickerQuery(fromPrompt promptText: String) -> String {
         let trimmed = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/") else { return "" }
@@ -788,7 +864,8 @@ struct ChatView: View {
         }
 
         guard let thread = ensureCurrentThread() else { return }
-        generatingThreadID = thread.id
+        let threadID = thread.id
+        generatingThreadID = threadID
 
         let message = prompt
         activationFocusTask?.cancel()
@@ -807,7 +884,7 @@ struct ChatView: View {
         }
         generationTask = _Concurrency.Task {
             if let route = evaRoute {
-                let traceContext = EvaTurnTraceContext(runID: runID, threadID: thread.id, route: route)
+                let traceContext = EvaTurnTraceContext(runID: runID, threadID: threadID, route: route)
                 logWarning(
                     event: "eva_turn_routed",
                     message: "Routed EVA chat turn",
@@ -817,18 +894,17 @@ struct ChatView: View {
                 )
                 switch route {
                 case .chatAnswer:
-                    await runStandardGeneration(message: message, thread: thread, runID: runID)
+                    await runStandardGeneration(message: message, threadID: threadID, runID: runID)
                 case .readOnlyReview, .taskMutation, .habitMutation, .dayPlanning, .weeklyPlanning, .clarification:
-                    await runEvaPlanGeneration(message: message, thread: thread, traceContext: traceContext)
+                    await runEvaPlanGeneration(message: message, threadID: threadID, traceContext: traceContext)
                 }
             } else {
-                await runStandardGeneration(message: message, thread: thread, runID: runID)
+                await runStandardGeneration(message: message, threadID: threadID, runID: runID)
             }
         }
     }
 
-    private func runEvaPlanGeneration(message: String, thread: Thread, traceContext: EvaTurnTraceContext) async {
-        let threadID = thread.id
+    private func runEvaPlanGeneration(message: String, threadID: UUID, traceContext: EvaTurnTraceContext) async {
         let runID = traceContext.runID
         let route = traceContext.route
         await MainActor.run {
@@ -854,7 +930,7 @@ struct ChatView: View {
             updatePendingResponsePhase(.buildingContext, for: runID)
             prompt = ""
             appManager.playHaptic()
-            sendMessage(Message(role: .user, content: message, thread: thread))
+            _ = sendMessage(role: .user, content: message, threadID: threadID)
             llm.isThinking = true
         }
 
@@ -888,7 +964,7 @@ struct ChatView: View {
                         content: "I couldn't load enough planning context right now, so I won't invent a plan. Try again once your task context finishes loading.",
                         sourceModelName: nil
                     ),
-                    thread: thread,
+                    threadID: threadID,
                     traceContext: traceContext,
                     usesModelGenerationForDeliveryGate: false
                 )
@@ -909,7 +985,7 @@ struct ChatView: View {
         )
         let planResult = await service.generatePlan(
             userPrompt: message,
-            thread: thread,
+            thread: Thread(),
             contextPayload: contextPayload.payload,
             taskTitleByID: [:],
             projectNameByID: [:],
@@ -922,11 +998,11 @@ struct ChatView: View {
         case .failure(let error):
             await MainActor.run {
                 _ = deliverEvaPlanPayload(
-                    .text(
-                            content: "\(AssistantIdentityText.currentSnapshot().displayName) could not finish this plan. Your prompt is saved; try again or create tasks manually. \(error.localizedDescription)",
-                        sourceModelName: nil
-                    ),
-                    thread: thread,
+                        .text(
+                                content: "\(AssistantIdentityText.currentSnapshot().displayName) could not finish this plan. Your prompt is saved; try again or create tasks manually. \(error.localizedDescription)",
+                            sourceModelName: nil
+                        ),
+                    threadID: threadID,
                     traceContext: traceContext,
                     usesModelGenerationForDeliveryGate: true
                 )
@@ -937,11 +1013,11 @@ struct ChatView: View {
                 await MainActor.run {
                     let payload = EvaPlanResponseDelivery.dayOverviewPayload(
                         for: plan,
-                        threadID: thread.id.uuidString
+                        threadID: threadID.uuidString
                     ) ?? EvaPlanResponseDelivery.textPayload(for: plan)
                     let result = deliverEvaPlanPayload(
                         payload,
-                        thread: thread,
+                        threadID: threadID,
                         traceContext: traceContext,
                         usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
                     )
@@ -964,7 +1040,7 @@ struct ChatView: View {
                             content: "\(AssistantIdentityText.currentSnapshot().displayName) can preview this plan, but the apply pipeline is unavailable.",
                             sourceModelName: plan.modelName
                         ),
-                        thread: thread,
+                        threadID: threadID,
                         traceContext: traceContext,
                         usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
                     )
@@ -980,7 +1056,7 @@ struct ChatView: View {
                     "command_count": String(plan.envelope.commands.count)
                 ]) { _, new in new }
             )
-            let proposalThreadID = thread.id.uuidString
+            let proposalThreadID = threadID.uuidString
             let proposalResult = await EvaPlanProposalPersistence.awaitResult { completion in
                 pipeline.propose(threadID: proposalThreadID, envelope: plan.envelope) { result in
                     completion(result)
@@ -1009,7 +1085,7 @@ struct ChatView: View {
                             content: "\(AssistantIdentityText.currentSnapshot().displayName) could not save this plan for review. \(error.localizedDescription)",
                             sourceModelName: plan.modelName
                         ),
-                        thread: thread,
+                        threadID: threadID,
                         traceContext: traceContext,
                         usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
                     )
@@ -1028,26 +1104,26 @@ struct ChatView: View {
                         contextReceipt: plan.contextReceipt,
                         cards: cards
                     )
-                    let cardPayload = AssistantCardPayload(
-                        cardType: .proposal,
-                        runID: run.id,
-                        threadID: thread.id.uuidString,
-                        status: .pending,
+                        let cardPayload = AssistantCardPayload(
+                            cardType: .proposal,
+                            runID: run.id,
+                            threadID: threadID.uuidString,
+                            status: .pending,
                         rationale: plan.rationale,
                         diffLines: plan.diffLines,
                         destructiveCount: AssistantDiffPreviewBuilder.destructiveCount(for: plan.envelope.commands),
                         affectedTaskCount: AssistantDiffPreviewBuilder.affectedTaskCount(for: plan.envelope.commands),
                         evaProposal: review
                     )
-                    let result = deliverEvaPlanPayload(
-                        .proposalCard(
-                            content: AssistantCardCodec.encode(cardPayload),
-                            sourceModelName: plan.modelName
-                        ),
-                        thread: thread,
-                        traceContext: traceContext,
-                        usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
-                    )
+                        let result = deliverEvaPlanPayload(
+                            .proposalCard(
+                                content: AssistantCardCodec.encode(cardPayload),
+                                sourceModelName: plan.modelName
+                            ),
+                            threadID: threadID,
+                            traceContext: traceContext,
+                            usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
+                        )
                     if case .persisted = result {
                         clearEvaSubmittedDraft(runID: runID, reason: "proposal_card_persisted")
                     }
@@ -1160,8 +1236,7 @@ struct ChatView: View {
         }
     }
 
-    private func runStandardGeneration(message: String, thread: Thread, runID: UUID) async {
-        let threadID = thread.id
+    private func runStandardGeneration(message: String, threadID: UUID, runID: UUID) async {
         await MainActor.run {
             LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_generation_started")
             LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_generation")
@@ -1192,7 +1267,7 @@ struct ChatView: View {
             updatePendingResponsePhase(.buildingContext, for: runID)
             prompt = ""
             appManager.playHaptic()
-            sendMessage(Message(role: .user, content: message, thread: thread))
+            _ = sendMessage(role: .user, content: message, threadID: threadID)
             llm.isThinking = true
         }
 
@@ -1280,7 +1355,7 @@ struct ChatView: View {
 
         guard let modelName = appManager.currentModelName else {
             await MainActor.run {
-                sendMessage(Message(role: .assistant, content: "No model selected", thread: thread))
+                _ = sendMessage(role: .assistant, content: "No model selected", threadID: threadID)
                 llm.isThinking = false
             }
             return
@@ -1315,11 +1390,9 @@ struct ChatView: View {
         guard prepareResult.ready else {
             await MainActor.run {
                 sendMessage(
-                    Message(
-                        role: .assistant,
-                        content: prepareResult.failureMessage ?? "Model failed to prepare. Please switch models or retry.",
-                        thread: thread
-                    )
+                    role: .assistant,
+                    content: prepareResult.failureMessage ?? "Model failed to prepare. Please switch models or retry.",
+                    threadID: threadID
                 )
                 llm.isThinking = false
             }
@@ -1343,10 +1416,28 @@ struct ChatView: View {
         await MainActor.run {
             updatePendingResponsePhase(.generating, for: runID)
         }
+        guard let promptSnapshot = await MainActor.run(
+            body: {
+                self.promptSnapshot(
+                    threadID: threadID,
+                    model: runtimeModelConfiguration,
+                    systemPrompt: dynamicSystemPrompt
+                )
+            }
+        ) else {
+            await MainActor.run {
+                _ = sendMessage(
+                    role: .assistant,
+                    content: "I couldn't prepare this chat thread for generation. Please try again.",
+                    threadID: threadID
+                )
+                llm.isThinking = false
+            }
+            return
+        }
         let output = await llm.generate(
             modelName: prepareResult.resolvedModelName,
-            thread: thread,
-            systemPrompt: dynamicSystemPrompt,
+            promptSnapshot: promptSnapshot,
             profile: chatProfile,
             requestOptions: chatRequestOptions
         )
@@ -1457,10 +1548,18 @@ struct ChatView: View {
                 for: runtimeModelConfiguration,
                 requestOptions: retryRequestOptions
             )
+            let retryPromptStartedAt = Date()
+            let retryPromptSnapshot = LLMChatPromptSnapshot(
+                messages: runtimeModelConfiguration.getChatMessages(
+                    thread: retryThread,
+                    systemPrompt: retrySystemPrompt
+                ),
+                systemPromptCharacterCount: retrySystemPrompt.count,
+                buildDurationMs: Int(Date().timeIntervalSince(retryPromptStartedAt) * 1_000)
+            )
             let retryOutput = await llm.generate(
                 modelName: prepareResult.resolvedModelName,
-                thread: retryThread,
-                systemPrompt: retrySystemPrompt,
+                promptSnapshot: retryPromptSnapshot,
                 profile: retryProfile,
                 requestOptions: retryRequestOptions
             )
@@ -1526,15 +1625,13 @@ struct ChatView: View {
                     guard generationRunID == runID else { return }
                     guard llm.cancelled == false else { return }
                     sendMessage(
-                        Message(
-                            role: .assistant,
-                            content: """
-                            [template_mismatch]
-                            Model: \(prepareResult.resolvedModelName)
-                            Raw preview: \(LoggingService.previewText(finalRawOutput, maxLength: 128))
-                            """,
-                            thread: thread
-                        )
+                        role: .assistant,
+                        content: """
+                        [template_mismatch]
+                        Model: \(prepareResult.resolvedModelName)
+                        Raw preview: \(LoggingService.previewText(finalRawOutput, maxLength: 128))
+                        """,
+                        threadID: threadID
                     )
                 }
                 return
@@ -1545,13 +1642,11 @@ struct ChatView: View {
                     guard generationRunID == runID else { return }
                     guard llm.cancelled == false else { return }
                     sendMessage(
-                        Message(
-                            role: .assistant,
-                            content: salvageOutput,
-                            thread: thread,
-                            generatingTime: llm.thinkingTime,
-                            sourceModelName: prepareResult.resolvedModelName
-                        )
+                        role: .assistant,
+                        content: salvageOutput,
+                        threadID: threadID,
+                        generatingTime: llm.thinkingTime,
+                        sourceModelName: prepareResult.resolvedModelName
                     )
                 }
                 return
@@ -1577,11 +1672,9 @@ struct ChatView: View {
                 guard generationRunID == runID else { return }
                 guard llm.cancelled == false else { return }
                 sendMessage(
-                    Message(
-                        role: .assistant,
-                        content: "I couldn't turn that into a clear answer yet. Try `/today` for structured help or ask in a shorter, more specific way.",
-                        thread: thread
-                    )
+                    role: .assistant,
+                    content: "I couldn't turn that into a clear answer yet. Try `/today` for structured help or ask in a shorter, more specific way.",
+                    threadID: threadID
                 )
             }
             return
@@ -1591,13 +1684,11 @@ struct ChatView: View {
             guard generationRunID == runID else { return }
             guard llm.cancelled == false else { return }
             sendMessage(
-                Message(
-                    role: .assistant,
-                    content: finalOutput,
-                    thread: thread,
-                    generatingTime: llm.thinkingTime,
-                    sourceModelName: prepareResult.resolvedModelName
-                )
+                role: .assistant,
+                content: finalOutput,
+                threadID: threadID,
+                generatingTime: llm.thinkingTime,
+                sourceModelName: prepareResult.resolvedModelName
             )
         }
     }
@@ -1854,7 +1945,7 @@ struct ChatView: View {
     @discardableResult
     private func deliverEvaPlanPayload(
         _ payload: EvaPlanResponsePayload,
-        thread: Thread,
+        threadID: UUID,
         traceContext: EvaTurnTraceContext,
         usesModelGenerationForDeliveryGate: Bool
     ) -> EvaPlanResponseDeliveryResult {
@@ -1869,13 +1960,11 @@ struct ChatView: View {
             usesModelGenerationForDeliveryGate: usesModelGenerationForDeliveryGate,
             send: { payload in
                 sendMessage(
-                    Message(
-                        role: .assistant,
-                        content: payload.content,
-                        thread: thread,
-                        generatingTime: llm.thinkingTime,
-                        sourceModelName: payload.sourceModelName
-                    )
+                    role: .assistant,
+                    content: payload.content,
+                    threadID: threadID,
+                    generatingTime: llm.thinkingTime,
+                    sourceModelName: payload.sourceModelName
                 )
             }
         )
