@@ -19,7 +19,7 @@ public struct HomeAgendaResult: Equatable {
     }
 }
 
-public final class BuildHomeAgendaUseCase: @unchecked Sendable {
+public struct BuildHomeAgendaUseCase: Sendable {
     private let calendar: Calendar
 
     public init(calendar: Calendar = .current) {
@@ -41,13 +41,11 @@ public final class BuildHomeAgendaUseCase: @unchecked Sendable {
             guard let dueAt = habit.dueAt else { return false }
             return dueAt < cutoff
         }
-        let sortedTasks = filteredTasks.sorted { compareTasks($0, $1, anchorDate: anchorDate) }
-        let sortedHabits = filteredHabits.sorted(by: compareHabits(_:_:))
 
         var agendaRows: [HomeTodayRow] = []
-        agendaRows.reserveCapacity(sortedTasks.count + sortedHabits.count)
-        agendaRows.append(contentsOf: sortedTasks.map(HomeTodayRow.task))
-        agendaRows.append(contentsOf: sortedHabits.map(HomeTodayRow.habit))
+        agendaRows.reserveCapacity(filteredTasks.count + filteredHabits.count)
+        agendaRows.append(contentsOf: filteredTasks.map(HomeTodayRow.task))
+        agendaRows.append(contentsOf: filteredHabits.map(HomeTodayRow.habit))
 
         let rows = agendaRows.sorted { lhs, rhs in
             compareRows(lhs, rhs, anchorDate: anchorDate)
@@ -55,8 +53,8 @@ public final class BuildHomeAgendaUseCase: @unchecked Sendable {
 
         return HomeAgendaResult(
             rows: rows,
-            taskCount: sortedTasks.count,
-            habitCount: sortedHabits.count
+            taskCount: filteredTasks.count,
+            habitCount: filteredHabits.count
         )
     }
 
@@ -92,65 +90,18 @@ public final class BuildHomeAgendaUseCase: @unchecked Sendable {
                 return 1
             case .tracking:
                 return 2
-            case .completedToday, .lapsedToday, .skippedToday:
-                return 2
+            case .completedToday:
+                return 3
+            case .lapsedToday:
+                return 4
+            case .skippedToday:
+                return 5
             }
-        }
-    }
-
-    private func compareTasks(_ lhs: TaskDefinition, _ rhs: TaskDefinition, anchorDate: Date) -> Bool {
-        let lhsOverdue = isTaskOverdue(lhs, anchorDate: anchorDate)
-        let rhsOverdue = isTaskOverdue(rhs, anchorDate: anchorDate)
-        if lhsOverdue != rhsOverdue {
-            return lhsOverdue
-        }
-
-        let lhsDue = lhs.dueDate ?? .distantFuture
-        let rhsDue = rhs.dueDate ?? .distantFuture
-        if lhsDue != rhsDue {
-            return lhsDue < rhsDue
-        }
-
-        if lhs.priority.scorePoints != rhs.priority.scorePoints {
-            return lhs.priority.scorePoints > rhs.priority.scorePoints
-        }
-
-        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-    }
-
-    private func compareHabits(_ lhs: HomeHabitRow, _ rhs: HomeHabitRow) -> Bool {
-        if lhs.state != rhs.state {
-            return rank(lhs.state) < rank(rhs.state)
-        }
-
-        let lhsDue = lhs.dueAt ?? .distantFuture
-        let rhsDue = rhs.dueAt ?? .distantFuture
-        if lhsDue != rhsDue {
-            return lhsDue < rhsDue
-        }
-
-        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-    }
-
-    private func rank(_ state: HomeHabitRowState) -> Int {
-        switch state {
-        case .overdue:
-            return 0
-        case .due:
-            return 1
-        case .tracking:
-            return 2
-        case .completedToday:
-            return 3
-        case .lapsedToday:
-            return 4
-        case .skippedToday:
-            return 5
         }
     }
 
     private func isTaskOverdue(_ task: TaskDefinition, anchorDate: Date) -> Bool {
         guard let dueDate = task.dueDate else { return false }
-        return dueDate < calendar.startOfDay(for: anchorDate)
+        return dueDate < anchorDate
     }
 }

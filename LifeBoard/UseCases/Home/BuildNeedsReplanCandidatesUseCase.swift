@@ -6,6 +6,8 @@ struct BuildNeedsReplanCandidatesUseCase {
         projectsByID: [UUID: Project],
         now: Date = Date(),
         calendar: Calendar = .current,
+        // When scoped, only dated carry-over items for that day are returned;
+        // unscheduled backlog remains a global replan source and is excluded.
         scopedTo scopedDate: Date? = nil
     ) -> [HomeReplanCandidate] {
         let todayStart = calendar.startOfDay(for: now)
@@ -33,7 +35,7 @@ struct BuildNeedsReplanCandidatesUseCase {
                     task: task,
                     kind: .pastDue,
                     anchorDate: dueDate,
-                    anchorEndDate: task.scheduledEndAt,
+                    anchorEndDate: Self.validScheduledEnd(for: task),
                     projectName: task.projectName
                 )
             }
@@ -48,7 +50,7 @@ struct BuildNeedsReplanCandidatesUseCase {
                     task: task,
                     kind: .scheduledCarryOver,
                     anchorDate: scheduledStartAt,
-                    anchorEndDate: task.scheduledEndAt,
+                    anchorEndDate: Self.validScheduledEnd(for: task),
                     projectName: task.projectName
                 )
             }
@@ -75,10 +77,10 @@ struct BuildNeedsReplanCandidatesUseCase {
         let rhsIsDated = rhs.anchorDate != nil
         if lhsIsDated != rhsIsDated { return lhsIsDated }
         if let lhsDay = lhs.anchorDay, let rhsDay = rhs.anchorDay, lhsDay != rhsDay {
-            return lhsDay > rhsDay
+            return lhsDay < rhsDay
         }
         if let lhsAnchor = lhs.anchorDate, let rhsAnchor = rhs.anchorDate, lhsAnchor != rhsAnchor {
-            return lhsAnchor > rhsAnchor
+            return lhsAnchor < rhsAnchor
         }
         if lhs.task.priority.scorePoints != rhs.task.priority.scorePoints {
             return lhs.task.priority.scorePoints > rhs.task.priority.scorePoints
@@ -87,5 +89,19 @@ struct BuildNeedsReplanCandidatesUseCase {
             return lhs.task.updatedAt < rhs.task.updatedAt
         }
         return lhs.task.title.localizedStandardCompare(rhs.task.title) == .orderedAscending
+    }
+
+    private static func validScheduledEnd(for task: TaskDefinition) -> Date? {
+        guard let end = task.scheduledEndAt else { return nil }
+        guard let start = task.scheduledStartAt else { return end }
+        guard end > start else {
+            logWarning(
+                event: "needs_replan_invalid_scheduled_range",
+                message: "Skipped invalid scheduled end while building replan candidate",
+                fields: ["task_id": task.id.uuidString]
+            )
+            return nil
+        }
+        return end
     }
 }
