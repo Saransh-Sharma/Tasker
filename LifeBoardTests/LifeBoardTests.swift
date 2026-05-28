@@ -348,6 +348,57 @@ final class BuildNeedsReplanCandidatesUseCaseTests: XCTestCase {
 
         XCTAssertEqual(candidates.map(\.task.id), [scoped.id])
     }
+
+    func testOldestOverdueCandidateSortsFirstAndInvalidScheduledEndIsDropped() {
+        let projectID = UUID()
+        let calendar = Calendar.current
+        let now = Date(timeIntervalSince1970: 1_724_457_600)
+        let today = calendar.startOfDay(for: now)
+        let oldestStart = calendar.date(byAdding: .day, value: -5, to: today)!
+        let newerStart = calendar.date(byAdding: .day, value: -1, to: today)!
+        let oldest = TaskDefinition(
+            projectID: projectID,
+            title: "Oldest",
+            scheduledStartAt: oldestStart,
+            scheduledEndAt: calendar.date(byAdding: .hour, value: -1, to: oldestStart)
+        )
+        let newer = TaskDefinition(
+            projectID: projectID,
+            title: "Newer",
+            scheduledStartAt: newerStart,
+            scheduledEndAt: calendar.date(byAdding: .hour, value: 1, to: newerStart)
+        )
+
+        let candidates = BuildNeedsReplanCandidatesUseCase().execute(
+            tasks: [newer, oldest],
+            projectsByID: [projectID: Project(id: projectID, name: "Active")],
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(candidates.map(\.task.id), [oldest.id, newer.id])
+        XCTAssertNil(candidates.first?.anchorEndDate)
+    }
+}
+
+final class InMemoryCacheServiceTests: XCTestCase {
+    func testStatisticsReturnsWithoutDeadlockAndReportsStoredSize() {
+        let cache = InMemoryCacheService()
+        cache.set("abc", forKey: "letters", expiration: .never)
+        XCTAssertEqual(cache.get(String.self, forKey: "letters"), "abc")
+
+        let expectation = expectation(description: "statistics")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let stats = cache.getCacheStatistics()
+            XCTAssertEqual(stats.itemCount, 1)
+            XCTAssertGreaterThan(stats.cacheSize, 0)
+            XCTAssertEqual(stats.totalRequests, 1)
+            XCTAssertEqual(stats.cacheHits, 1)
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1)
+    }
 }
 
 @MainActor
@@ -2353,6 +2404,7 @@ extension GetHomeFilteredTasksUseCase {
 }
 
 extension UseCaseCoordinator {
+    @MainActor
     convenience init(
         taskRepository: LegacyTaskRepositoryShim,
         projectRepository: ProjectRepositoryProtocol,
@@ -2368,6 +2420,7 @@ extension UseCaseCoordinator {
         )
     }
 
+    @MainActor
     convenience init(
         taskRepository: LegacyTaskRepositoryShim,
         projectRepository: ProjectRepositoryProtocol,
@@ -13378,6 +13431,60 @@ final class WeeklyReviewDraftStoreTests: XCTestCase {
         XCTAssertNil(clearedDraft)
     }
 
+    func testConcurrentDraftAndDecisionWritesPreserveBothUpdates() throws {
+        let suiteName = "WeeklyReviewDraftStoreTests.concurrent.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let storageKey = "lifeboard.weekly.review.localstate.concurrent.tests"
+        let store = UserDefaultsWeeklyReviewDraftStore(defaults: defaults, storageKey: storageKey)
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let draftTaskID = UUID()
+        let completedTaskID = UUID()
+        let draft = WeeklyReviewDraft(
+            weekStartDate: weekStart,
+            wins: "Concurrent draft",
+            blockers: nil,
+            lessons: nil,
+            nextWeekPrepNotes: nil,
+            perceivedWeekRating: 4,
+            taskDecisions: [draftTaskID: .carry],
+            outcomeStatuses: [:],
+            updatedAt: weekStart
+        )
+        let decisions = [WeeklyReviewTaskDecision(taskID: completedTaskID, disposition: .later)]
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let startGate = DispatchSemaphore(value: 0)
+        let done = DispatchGroup()
+        done.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            startGate.wait()
+            store.saveDraft(draft) { _ in done.leave() }
+        }
+        done.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            startGate.wait()
+            store.saveCompletedTaskDecisions(decisions, weekStartDate: weekStart) { _ in done.leave() }
+        }
+        startGate.signal()
+        startGate.signal()
+        XCTAssertEqual(done.wait(timeout: .now() + 2), .success)
+
+        let fetchedDraft = try awaitResult { completion in
+            store.fetchDraft(weekStartDate: weekStart, completion: completion)
+        }
+        let fetchedDecisions = try awaitResult { completion in
+            store.fetchCompletedTaskDecisions(weekStartDate: weekStart, completion: completion)
+        }
+
+        XCTAssertEqual(fetchedDraft?.taskDecisions[draftTaskID], .carry)
+        XCTAssertEqual(fetchedDecisions, decisions)
+    }
+
     func testFetchDraftMigratesLegacyAliasKeyToCanonicalWeekIdentity() throws {
         let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -15136,6 +15243,180 @@ final class BuildHomeAgendaUseCaseOrderingTests: XCTestCase {
         XCTAssertEqual(result.rows[2], .task(dueTask))
         XCTAssertEqual(result.rows[3], .habit(skippedHabit))
     }
+
+    func testCompletedAndSkippedHabitsSortAfterActiveTrackingHabitsInMergedRows() {
+        let calendar = Calendar.current
+        let anchorDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_711_209_600))
+        let trackingHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Track water",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            iconSymbolName: "drop",
+            dueAt: calendar.date(byAdding: .hour, value: 7, to: anchorDate),
+            state: .tracking
+        )
+        let completedHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Read",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Mind",
+            iconSymbolName: "book",
+            dueAt: calendar.date(byAdding: .hour, value: 6, to: anchorDate),
+            state: .completedToday
+        )
+        let skippedHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Skip sugar",
+            kind: .negative,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            iconSymbolName: "nosign",
+            dueAt: calendar.date(byAdding: .hour, value: 5, to: anchorDate),
+            state: .skippedToday
+        )
+
+        let result = BuildHomeAgendaUseCase().execute(
+            date: anchorDate,
+            taskRows: [],
+            habitRows: [skippedHabit, completedHabit, trackingHabit]
+        )
+
+        XCTAssertEqual(result.rows, [
+            .habit(trackingHabit),
+            .habit(completedHabit),
+            .habit(skippedHabit)
+        ])
+    }
+}
+
+@MainActor
+final class HomeTimelineProjectionBuilderRegressionTests: XCTestCase {
+    func testMidnightDueTaskStaysTimedUnlessExplicitlyAllDay() {
+        let calendar = Calendar(identifier: .gregorian)
+        let selectedDay = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
+        let midnightTask = TaskDefinition(
+            title: "Midnight deadline",
+            dueDate: selectedDay,
+            isAllDay: false
+        )
+
+        let snapshot = buildSnapshot(
+            selectedDay: selectedDay,
+            now: calendar.date(byAdding: .hour, value: 9, to: selectedDay)!,
+            calendar: calendar,
+            tasks: [midnightTask]
+        )
+
+        XCTAssertEqual(snapshot.day.allTimedItems.map(\.taskID), [midnightTask.id])
+        XCTAssertTrue(snapshot.day.allDayItems.isEmpty)
+    }
+
+    func testUnscheduledInboxTasksOnlyAppearForToday() {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+        let inboxTask = TaskDefinition(title: "Backlog")
+
+        let todaySnapshot = buildSnapshot(
+            selectedDay: today,
+            now: calendar.date(byAdding: .hour, value: 9, to: today)!,
+            calendar: calendar,
+            tasks: [inboxTask]
+        )
+        let tomorrowSnapshot = buildSnapshot(
+            selectedDay: tomorrow,
+            now: calendar.date(byAdding: .hour, value: 9, to: today)!,
+            calendar: calendar,
+            tasks: [inboxTask]
+        )
+
+        XCTAssertEqual(todaySnapshot.day.inboxItems.map(\.taskID), [inboxTask.id])
+        XCTAssertTrue(tomorrowSnapshot.day.inboxItems.isEmpty)
+    }
+
+    func testMeetingKeywordsDetectTeamsWithoutBroadMeetSubstring() {
+        let calendar = Calendar(identifier: .gregorian)
+        let selectedDay = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
+        let teamsEvent = LifeBoardCalendarEventSnapshot(
+            id: "teams-call",
+            calendarID: "work",
+            calendarTitle: "Microsoft Teams",
+            title: "Product sync",
+            startDate: calendar.date(byAdding: .hour, value: 10, to: selectedDay)!,
+            endDate: calendar.date(byAdding: .hour, value: 11, to: selectedDay)!,
+            isAllDay: false
+        )
+        let thermometerEvent = LifeBoardCalendarEventSnapshot(
+            id: "thermometer",
+            calendarID: "work",
+            calendarTitle: "Work",
+            title: "Thermometer calibration",
+            startDate: calendar.date(byAdding: .hour, value: 12, to: selectedDay)!,
+            endDate: calendar.date(byAdding: .hour, value: 13, to: selectedDay)!,
+            isAllDay: false
+        )
+
+        let snapshot = buildSnapshot(
+            selectedDay: selectedDay,
+            now: calendar.date(byAdding: .hour, value: 9, to: selectedDay)!,
+            calendar: calendar,
+            events: [teamsEvent, thermometerEvent]
+        )
+
+        let itemsByID = Dictionary(uniqueKeysWithValues: snapshot.day.timedItems.map { ($0.eventID, $0) })
+        XCTAssertEqual(itemsByID["teams-call"]?.isMeetingLike, true)
+        XCTAssertEqual(itemsByID["thermometer"]?.isMeetingLike, false)
+    }
+
+    private func buildSnapshot(
+        selectedDay: Date,
+        now: Date,
+        calendar: Calendar,
+        tasks: [TaskDefinition] = [],
+        events: [LifeBoardCalendarEventSnapshot] = []
+    ) -> HomeTimelineSnapshot {
+        let input = HomeTimelineSnapshotProjectionInput(
+            dataRevision: .zero,
+            selectedDay: selectedDay,
+            now: now,
+            calendar: calendar,
+            currentMinuteStamp: Int(now.timeIntervalSinceReferenceDate / 60),
+            sunriseAnchor: .collapsed,
+            calendarSnapshot: HomeCalendarSnapshot(
+                moduleState: .active,
+                selectedDate: selectedDay,
+                authorizationStatus: .authorized,
+                accessAction: .noneNeeded,
+                selectedCalendarCount: 1,
+                availableCalendarCount: 1,
+                nextMeeting: nil,
+                busyBlocks: [],
+                freeUntil: nil,
+                selectedDayEvents: events,
+                selectedDayTimelineEvents: events,
+                eventsTodayCount: events.count,
+                isLoading: false,
+                errorMessage: nil
+            ),
+            workspacePreferences: LifeBoardWorkspacePreferences(showCalendarEventsInTimeline: true),
+            hiddenCalendarEvents: [],
+            pinnedFocusTaskIDs: [],
+            needsReplanCandidates: [],
+            replanState: .hidden,
+            taskCandidates: tasks,
+            taskIndexByID: Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) }),
+            projects: [],
+            lifeAreas: [],
+            calendarWeekAgenda: []
+        )
+
+        return HomeTimelineProjectionBuilder()
+            .build(input: input, cached: nil)
+            .snapshot
+    }
 }
 
 @MainActor
@@ -15429,6 +15710,62 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         let store = UserDefaultsDailyReflectionStore(defaults: defaults)
 
         XCTAssertTrue(store.completedDateStamps().contains("20260418"))
+    }
+
+    func testConcurrentPayloadAndPlanDraftWritesPreserveBothUpdates() throws {
+        let suiteName = "DailyReflectionUseCasesTests.concurrent.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let store = UserDefaultsDailyReflectionStore(defaults: defaults)
+        let calendar = Calendar.autoupdatingCurrent
+        let reflectionDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
+        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
+        let payload = ReflectionPayload(
+            reflectionDate: reflectionDate,
+            planningDate: planningDate,
+            mode: .sameDay,
+            mood: nil,
+            energy: nil,
+            frictionTags: [],
+            note: "Concurrent reflection"
+        )
+        let taskID = UUID()
+        let draft = DailyPlanDraft(
+            date: planningDate,
+            topTasks: [
+                DailyPlanTaskOption(
+                    id: taskID,
+                    title: "Concurrent plan",
+                    priority: .high
+                )
+            ],
+            source: .manual,
+            updatedAt: planningDate
+        )
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let startGate = DispatchSemaphore(value: 0)
+        let done = DispatchGroup()
+        done.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            startGate.wait()
+            _ = try? store.saveReflectionPayload(payload)
+            done.leave()
+        }
+        done.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            startGate.wait()
+            _ = try? store.savePlanDraft(draft, replaceExisting: true)
+            done.leave()
+        }
+        startGate.signal()
+        startGate.signal()
+        XCTAssertEqual(done.wait(timeout: .now() + 2), .success)
+
+        XCTAssertEqual(store.fetchReflectionPayload(on: reflectionDate)?.note, "Concurrent reflection")
+        XCTAssertEqual(store.fetchPlanDraft(on: planningDate)?.topTasks.map(\.id), [taskID])
     }
 
     func testPlanSuggestionPrefersCarryoverAndAvoidsDuplicates() {

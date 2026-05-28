@@ -34,6 +34,7 @@ final class LockedTestState<Value>: @unchecked Sendable {
 // Shared V3-focused test harness utilities for building coordinators/mocks without
 // relying on legacy task shim protocols.
 enum V3TestHarness {
+    @MainActor
     static func makeCoordinator(
         taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,

@@ -5,6 +5,7 @@ import Combine
 import EventKit
 #endif
 
+@MainActor
 final class CalendarIntegrationServiceTests: XCTestCase {
     private var cancellables: Set<AnyCancellable> = []
     private var suiteName: String!
