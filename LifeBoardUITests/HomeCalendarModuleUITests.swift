@@ -9,6 +9,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testScheduleOpensFromBottomBarAcrossStubModes() throws {
         for mode in ["permission", "writeOnly", "denied", "deniedAfterAttempt", "noCalendars", "allDayOnly", "empty", "active", "error"] {
             let app = launchApp(calendarMode: mode)
+            addTeardownBlock { app.terminate() }
             XCTAssertFalse(
                 app.descendants(matching: .any)["home.calendar.card"].waitForExistence(timeout: 2),
                 "Inline Home calendar card should be hidden for mode \(mode)."

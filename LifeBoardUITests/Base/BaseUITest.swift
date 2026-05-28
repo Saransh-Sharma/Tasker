@@ -27,9 +27,10 @@ class BaseUITest: XCTestCase {
         // Initialize app with fresh state
         app = XCUIApplication()
         app.launchArguments = [
-            "-RESET_APP_STATE",  // Reset all data
-            "-UI_TESTING",       // Flag for UI testing mode
-            "-DISABLE_ANIMATIONS" // Speed up tests
+            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
+            XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue
         ]
         app.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         if shouldSkipOnboarding {
