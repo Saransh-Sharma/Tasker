@@ -1,34 +1,53 @@
 import Foundation
 
 #if canImport(EventKit)
-import EventKit
+@preconcurrency import EventKit
 
-/// EventKit reminders wrapper; `EKEventStore` access stays inside EventKit calls and this immutable service.
+private final class EventKitReminderStoreBox: @unchecked Sendable {
+    let store: EKEventStore
+
+    init(store: EKEventStore) {
+        self.store = store
+    }
+}
+
+/// EventKit reminders wrapper; `EKEventStore` access is confined to the worker queue or EventKit callbacks.
 public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtocol, @unchecked Sendable {
-    private let store: EKEventStore
+    private let storeBox: EventKitReminderStoreBox
+    private let workerQueue: DispatchQueue
     private let mergeEngine = ReminderMergeEngine()
 
     /// Initializes a new instance.
-    public init(store: EKEventStore = EKEventStore()) {
-        self.store = store
+    public init(
+        store: EKEventStore = EKEventStore(),
+        workerQueue: DispatchQueue = DispatchQueue(
+            label: "com.tasker.reminders.eventkit-provider",
+            qos: .userInitiated
+        )
+    ) {
+        self.storeBox = EventKitReminderStoreBox(store: store)
+        self.workerQueue = workerQueue
     }
 
     /// Executes requestAccess.
     public func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
-        if #available(iOS 17.0, macOS 14.0, *) {
-            store.requestFullAccessToReminders { granted, error in
-                if let error {
-                    completion(.failure(error))
-                } else {
-                    completion(.success(granted))
+        workerQueue.async { [storeBox] in
+            let store = storeBox.store
+            if #available(iOS 17.0, macOS 14.0, *) {
+                store.requestFullAccessToReminders { granted, error in
+                    if let error {
+                        completion(.failure(error))
+                    } else {
+                        completion(.success(granted))
+                    }
                 }
-            }
-        } else {
-            store.requestAccess(to: .reminder) { granted, error in
-                if let error {
-                    completion(.failure(error))
-                } else {
-                    completion(.success(granted))
+            } else {
+                store.requestAccess(to: .reminder) { granted, error in
+                    if let error {
+                        completion(.failure(error))
+                    } else {
+                        completion(.success(granted))
+                    }
                 }
             }
         }
@@ -36,113 +55,124 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
 
     /// Executes fetchLists.
     public func fetchLists(completion: @escaping @Sendable (Result<[AppleReminderListSnapshot], Error>) -> Void) {
-        let calendars = store.calendars(for: .reminder)
-        let lists = calendars.map { AppleReminderListSnapshot(listID: $0.calendarIdentifier, title: $0.title) }
-        completion(.success(lists))
+        workerQueue.async { [storeBox] in
+            let calendars = storeBox.store.calendars(for: .reminder)
+            let lists = calendars.map { AppleReminderListSnapshot(listID: $0.calendarIdentifier, title: $0.title) }
+            completion(.success(lists))
+        }
     }
 
     /// Executes fetchReminders.
     public func fetchReminders(listID: String, completion: @escaping @Sendable (Result<[AppleReminderItemSnapshot], Error>) -> Void) {
-        guard let calendar = reminderCalendar(id: listID) else {
-            completion(.success([]))
-            return
-        }
+        workerQueue.async { [storeBox, self] in
+            let store = storeBox.store
+            guard let calendar = Self.reminderCalendar(id: listID, store: store) else {
+                completion(.success([]))
+                return
+            }
 
-        let predicate = store.predicateForReminders(in: [calendar])
-        store.fetchReminders(matching: predicate) { reminders in
-            let mapped = (reminders ?? []).map { self.map(reminder: $0) }
-            completion(.success(mapped))
+            let predicate = store.predicateForReminders(in: [calendar])
+            store.fetchReminders(matching: predicate) { reminders in
+                let mapped = (reminders ?? []).map { self.map(reminder: $0) }
+                completion(.success(mapped))
+            }
         }
     }
 
     /// Executes upsertReminder.
     public func upsertReminder(listID: String, snapshot: AppleReminderItemSnapshot, completion: @escaping @Sendable (Result<AppleReminderItemSnapshot, Error>) -> Void) {
-        guard let calendar = reminderCalendar(id: listID) else {
-            let error = NSError(
-                domain: "EventKitAppleRemindersProvider",
-                code: 404,
-                userInfo: [NSLocalizedDescriptionKey: "Reminder list not found: \(listID)"]
+        workerQueue.async { [storeBox, self] in
+            let store = storeBox.store
+            guard let calendar = Self.reminderCalendar(id: listID, store: store) else {
+                let error = NSError(
+                    domain: "EventKitAppleRemindersProvider",
+                    code: 404,
+                    userInfo: [NSLocalizedDescriptionKey: "Reminder list not found: \(listID)"]
+                )
+                completion(.failure(error))
+                return
+            }
+
+            let targetReminder: EKReminder
+            if let existing = Self.reminder(withItemID: snapshot.itemID, store: store) {
+                targetReminder = existing
+            } else {
+                targetReminder = EKReminder(eventStore: store)
+                targetReminder.calendar = calendar
+            }
+
+            let payloadEnvelope = decodeMergeEnvelope(snapshot.payloadData)
+            let mergedKnownFields = ReminderMergeEnvelope.KnownFields(
+                title: snapshot.title,
+                notes: snapshot.notes,
+                dueDate: snapshot.dueDate,
+                completionDate: snapshot.completionDate,
+                isCompleted: snapshot.isCompleted,
+                priority: snapshot.priority,
+                urlString: snapshot.urlString ?? payloadEnvelope?.known.urlString,
+                alarmDates: snapshot.alarmDates.isEmpty ? (payloadEnvelope?.known.alarmDates ?? []) : snapshot.alarmDates
             )
-            completion(.failure(error))
-            return
-        }
 
-        let targetReminder: EKReminder
-        if let existing = reminder(withItemID: snapshot.itemID) {
-            targetReminder = existing
-        } else {
-            targetReminder = EKReminder(eventStore: store)
+            targetReminder.title = mergedKnownFields.title
+            targetReminder.notes = mergedKnownFields.notes
+            targetReminder.priority = mergedKnownFields.priority
+            targetReminder.url = mergedKnownFields.urlString.flatMap(URL.init(string:))
             targetReminder.calendar = calendar
-        }
+            targetReminder.dueDateComponents = mergedKnownFields.dueDate.map {
+                Calendar.current.dateComponents(in: TimeZone.current, from: $0)
+            }
 
-        let payloadEnvelope = decodeMergeEnvelope(snapshot.payloadData)
-        let mergedKnownFields = ReminderMergeEnvelope.KnownFields(
-            title: snapshot.title,
-            notes: snapshot.notes,
-            dueDate: snapshot.dueDate,
-            completionDate: snapshot.completionDate,
-            isCompleted: snapshot.isCompleted,
-            priority: snapshot.priority,
-            urlString: snapshot.urlString ?? payloadEnvelope?.known.urlString,
-            alarmDates: snapshot.alarmDates.isEmpty ? (payloadEnvelope?.known.alarmDates ?? []) : snapshot.alarmDates
-        )
+            if mergedKnownFields.isCompleted {
+                targetReminder.isCompleted = true
+                targetReminder.completionDate = mergedKnownFields.completionDate ?? Date()
+            } else {
+                targetReminder.isCompleted = false
+                targetReminder.completionDate = nil
+            }
 
-        targetReminder.title = mergedKnownFields.title
-        targetReminder.notes = mergedKnownFields.notes
-        targetReminder.priority = mergedKnownFields.priority
-        targetReminder.url = mergedKnownFields.urlString.flatMap(URL.init(string:))
-        targetReminder.calendar = calendar
-        targetReminder.dueDateComponents = mergedKnownFields.dueDate.map {
-            Calendar.current.dateComponents(in: TimeZone.current, from: $0)
-        }
+            if mergedKnownFields.alarmDates.isEmpty {
+                targetReminder.alarms = nil
+            } else {
+                targetReminder.alarms = mergedKnownFields.alarmDates.map(EKAlarm.init(absoluteDate:))
+            }
 
-        if mergedKnownFields.isCompleted {
-            targetReminder.isCompleted = true
-            targetReminder.completionDate = mergedKnownFields.completionDate ?? Date()
-        } else {
-            targetReminder.isCompleted = false
-            targetReminder.completionDate = nil
-        }
-
-        if mergedKnownFields.alarmDates.isEmpty {
-            targetReminder.alarms = nil
-        } else {
-            targetReminder.alarms = mergedKnownFields.alarmDates.map(EKAlarm.init(absoluteDate:))
-        }
-
-        do {
-            try store.save(targetReminder, commit: true)
-            completion(.success(map(
-                reminder: targetReminder,
-                passthroughData: payloadEnvelope?.passthroughData
-            )))
-        } catch {
-            completion(.failure(error))
+            do {
+                try store.save(targetReminder, commit: true)
+                completion(.success(map(
+                    reminder: targetReminder,
+                    passthroughData: payloadEnvelope?.passthroughData
+                )))
+            } catch {
+                completion(.failure(error))
+            }
         }
     }
 
     /// Executes deleteReminder.
     public func deleteReminder(itemID: String, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        guard let reminder = reminder(withItemID: itemID) else {
-            completion(.success(()))
-            return
-        }
+        workerQueue.async { [storeBox] in
+            let store = storeBox.store
+            guard let reminder = Self.reminder(withItemID: itemID, store: store) else {
+                completion(.success(()))
+                return
+            }
 
-        do {
-            try store.remove(reminder, commit: true)
-            completion(.success(()))
-        } catch {
-            completion(.failure(error))
+            do {
+                try store.remove(reminder, commit: true)
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
         }
     }
 
     /// Executes reminderCalendar.
-    private func reminderCalendar(id: String) -> EKCalendar? {
+    private static func reminderCalendar(id: String, store: EKEventStore) -> EKCalendar? {
         store.calendars(for: .reminder).first { $0.calendarIdentifier == id }
     }
 
     /// Executes reminder.
-    private func reminder(withItemID itemID: String) -> EKReminder? {
+    private static func reminder(withItemID itemID: String, store: EKEventStore) -> EKReminder? {
         store.calendarItem(withIdentifier: itemID) as? EKReminder
     }
 
