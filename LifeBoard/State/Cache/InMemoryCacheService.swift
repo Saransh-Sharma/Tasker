@@ -15,10 +15,6 @@ public final class InMemoryCacheService: CacheServiceProtocol, @unchecked Sendab
     private var cache: [String: CacheEntry] = [:]
     private let queue = DispatchQueue(label: "com.lifeboard.cache", attributes: .concurrent)
     private var _statistics = CacheStatistics()
-    private var statistics: CacheStatistics {
-        get { queue.sync { _statistics } }
-        set { queue.async(flags: .barrier) { self._statistics = newValue } }
-    }
     
     // MARK: - Cache Entry
     
@@ -213,12 +209,13 @@ public final class InMemoryCacheService: CacheServiceProtocol, @unchecked Sendab
         var stats: CacheStatistics!
 
         queue.sync {
+            let cacheSize = cache.values.reduce(0) { $0 + $1.data.count }
             stats = CacheStatistics(
                 totalRequests: _statistics.totalRequests,
                 cacheHits: _statistics.cacheHits,
                 cacheMisses: _statistics.cacheMisses,
                 averageResponseTime: 0.001, // In-memory is very fast
-                cacheSize: getCacheSize(),
+                cacheSize: cacheSize,
                 itemCount: cache.count
             )
         }
