@@ -17,6 +17,28 @@ enum LLMEvaluatorError: Error {
     case unsupportedRuntime(String, String)
 }
 
+struct LLMChatPromptSnapshot: Sendable {
+    let messages: [Chat.Message]
+    let systemPromptCharacterCount: Int
+    let buildDurationMs: Int
+
+    var messageCount: Int {
+        messages.count
+    }
+
+    var promptCharacterCount: Int {
+        messages.reduce(0) { partial, item in
+            partial + item.content.count
+        }
+    }
+
+    var promptHistoryCharacterCount: Int {
+        messages.dropFirst().reduce(0) { partial, item in
+            partial + item.content.count
+        }
+    }
+}
+
 enum LLMChatRuntimePhase: String {
     case idle
     case preparing
@@ -268,7 +290,6 @@ class LLMEvaluator {
         lastVisibleCharacterCount = 0
         lastSanitizedTemplateArtifacts = false
 
-        let timeoutMs = UInt64(max(profile.timeoutSeconds, 0) * 1_000)
         guard let model = ModelConfiguration.getModelByName(modelName) else {
             runtimePhase = .failed
             output = "Failed: model not found"
@@ -277,41 +298,75 @@ class LLMEvaluator {
 
         let promptBuildStartedAt = Date()
         let chatMessages = model.getChatMessages(thread: thread, systemPrompt: systemPrompt)
-        let promptBuildMs = Int(Date().timeIntervalSince(promptBuildStartedAt) * 1_000)
-        let promptChars = chatMessages.reduce(0) { partial, item in
-            partial + item.content.count
+        let promptSnapshot = LLMChatPromptSnapshot(
+            messages: chatMessages,
+            systemPromptCharacterCount: systemPrompt.count,
+            buildDurationMs: Int(Date().timeIntervalSince(promptBuildStartedAt) * 1_000)
+        )
+
+        return await generate(
+            modelName: modelName,
+            promptSnapshot: promptSnapshot,
+            profile: profile,
+            requestOptions: requestOptions,
+            onFirstToken: onFirstToken
+        )
+    }
+
+    func generate(
+        modelName: String,
+        promptSnapshot: LLMChatPromptSnapshot,
+        profile: LLMGenerationProfile = .chat,
+        requestOptions: LLMGenerationRequestOptions? = nil,
+        onFirstToken: (@MainActor @Sendable () -> Void)? = nil
+    ) async -> String {
+        lastGenerationTimedOut = false
+        lastTerminationReason = nil
+        lastRawOutput = ""
+        lastGeneratedTokenCount = 0
+        lastVisibleCharacterCount = 0
+        lastSanitizedTemplateArtifacts = false
+
+        let timeoutMs = UInt64(max(profile.timeoutSeconds, 0) * 1_000)
+        guard ModelConfiguration.getModelByName(modelName) != nil else {
+            runtimePhase = .failed
+            output = "Failed: model not found"
+            return output
         }
-        let promptHistoryChars = chatMessages.dropFirst().reduce(0) { partial, item in
-            partial + item.content.count
-        }
+
         logWarning(
             event: "chat_prompt_build_ms",
             message: "Built prompt history for generation",
             fields: [
                 "model_name": modelName,
-                "duration_ms": String(promptBuildMs),
-                "message_count": String(chatMessages.count),
-                "system_prompt_chars": String(systemPrompt.count),
-                "prompt_history_chars": String(promptHistoryChars),
-                "final_prompt_chars": String(promptChars)
+                "duration_ms": String(promptSnapshot.buildDurationMs),
+                "message_count": String(promptSnapshot.messageCount),
+                "system_prompt_chars": String(promptSnapshot.systemPromptCharacterCount),
+                "prompt_history_chars": String(promptSnapshot.promptHistoryCharacterCount),
+                "final_prompt_chars": String(promptSnapshot.promptCharacterCount)
             ]
         )
 
         guard timeoutMs > 0 else {
             return await runGeneration(
                 modelName: modelName,
-                chatMessages: chatMessages,
+                chatMessages: promptSnapshot.messages,
                 profile: profile,
                 requestOptions: requestOptions,
                 onFirstToken: onFirstToken
             )
         }
 
-        let (result, timedOut) = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) { [weak self] in
+        let (result, timedOut) = await LLMProjectionTimeout.execute(
+            timeoutMs: timeoutMs,
+            onTimeout: { [weak self] in
+                await self?.cancelGeneration(reason: "generation_timeout")
+            }
+        ) { [weak self] in
             guard let self else { return "{}" }
             return await self.runGeneration(
                 modelName: modelName,
-                chatMessages: chatMessages,
+                chatMessages: promptSnapshot.messages,
                 profile: profile,
                 requestOptions: requestOptions,
                 onFirstToken: onFirstToken
@@ -319,9 +374,6 @@ class LLMEvaluator {
         }
 
         lastGenerationTimedOut = timedOut
-        if timedOut {
-            cancelGeneration(reason: "generation_timeout")
-        }
         return result
     }
 
