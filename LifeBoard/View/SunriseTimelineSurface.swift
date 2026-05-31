@@ -5138,7 +5138,10 @@ struct DailyTimelineCanvas: View {
                 .init(anchor: model.anchor, y: positioned.y + (positioned.height / 2)),
                 row: presentation.row(for: model.anchor),
                 streamGeometry: streamGeometry,
-                totalWidth: totalWidth
+                totalWidth: totalWidth,
+                contentX: contentX,
+                contentWidth: contentWidth,
+                cardHeight: positioned.height
             )
             .zIndex(3)
         case .meetingCard(let model):
@@ -5228,57 +5231,89 @@ struct DailyTimelineCanvas: View {
         _ anchor: TimelineCanvasLayoutPlan.PositionedAnchor,
         row: TimelineRenderableRow,
         streamGeometry: TimelineStreamGeometry,
-        totalWidth: CGFloat
+        totalWidth: CGFloat,
+        contentX: CGFloat,
+        contentWidth: CGFloat,
+        cardHeight: CGFloat
     ) -> some View {
         let iconSize = metrics.expandedAnchorCircleSize
         let anchorCenterY = anchor.y
-        let iconTop = max(anchorCenterY - (iconSize / 2), 0)
         let railMetrics = TimelineRailMetrics.make(for: layoutClass, surfaceMetrics: metrics, totalWidth: totalWidth)
         let mountedSpineX = TimelineSpineMounting.centerX(for: streamGeometry, atY: anchorCenterY)
 
-        Circle()
-            .fill(TimelineVisualTokens.anchorCapsuleFill)
-            .frame(width: iconSize, height: iconSize)
-            .overlay {
-                Image(systemName: anchor.anchor.systemImageName)
-                    .font(.system(size: metrics.expandedAnchorIconSize, weight: .semibold))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
-                    .accessibilityHidden(true)
+        if let style = TimelineRoutineAnchorVisualStyle.resolve(anchorID: anchor.anchor.id, title: anchor.anchor.title, subtitle: row.subtitle) {
+            let resolvedHeight = min(cardHeight, max(84, contentWidth / 3))
+            let dotSize: CGFloat = 12
+            let timeText = TimelineRailTimeFormatter.railText(for: anchor.anchor.time, kind: .exact)
+
+            Circle()
+                .fill(style.borderColor)
+                .frame(width: dotSize, height: dotSize)
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(0.72), lineWidth: 2)
+                }
+                .offset(x: mountedSpineX - (dotSize / 2), y: anchorCenterY - (dotSize / 2))
+                .accessibilityHidden(true)
+
+            TimelineRoutineAnchorCard(
+                style: style,
+                timeText: timeText,
+                onTap: { onAnchorTap(anchor.anchor) },
+                minimumHeight: resolvedHeight,
+                leadingArtworkReserve: min(max(contentWidth * 0.38, 56), 104),
+                accessibilityHint: TimelineAnchorSelection(anchorID: anchor.anchor.id)?.accessibilityHint
+            )
+            .frame(width: contentWidth, height: resolvedHeight, alignment: .leading)
+            .offset(x: contentX, y: max(anchorCenterY - (resolvedHeight / 2), 0))
+            .accessibilityIdentifier("home.timeline.anchor.\(anchor.anchor.id)")
+        } else {
+            let iconTop = max(anchorCenterY - (iconSize / 2), 0)
+
+            Circle()
+                .fill(TimelineVisualTokens.anchorCapsuleFill)
+                .frame(width: iconSize, height: iconSize)
+                .overlay {
+                    Image(systemName: anchor.anchor.systemImageName)
+                        .font(.system(size: metrics.expandedAnchorIconSize, weight: .semibold))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .accessibilityHidden(true)
+                }
+                .offset(x: mountedSpineX - (iconSize / 2), y: iconTop)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(anchor.anchor.title)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.86)
+                Text(TimelineRoutineTextFormatter.subtitle(for: anchor.anchor, subtitle: row.subtitle))
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(TimelineVisualTokens.utilityText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.86)
             }
-            .offset(x: mountedSpineX - (iconSize / 2), y: iconTop)
+            .offset(
+                x: railMetrics.routineTextLeadingX(iconSize: iconSize, mountedSpineX: mountedSpineX),
+                y: max(anchorCenterY - 22, 0)
+            )
             .accessibilityHidden(true)
 
-        VStack(alignment: .leading, spacing: 5) {
-            Text(anchor.anchor.title)
-                .font(.lifeboard(.headline))
-                .foregroundStyle(Color.lifeboard.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.86)
-            Text(TimelineRoutineTextFormatter.subtitle(for: anchor.anchor, subtitle: row.subtitle))
-                .font(.lifeboard(.caption1))
-                .foregroundStyle(TimelineVisualTokens.utilityText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.86)
+            Button {
+                onAnchorTap(anchor.anchor)
+            } label: {
+                Color.clear
+                    .frame(width: totalWidth, height: max(iconSize, 52))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .offset(x: 0, y: max(anchorCenterY - max(iconSize, 52) / 2, 0))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(anchor.anchor.title), \(anchor.anchor.time.formatted(date: .omitted, time: .shortened))")
+            .accessibilityValue(anchor.anchor.id == "wake" ? "Timeline start" : "Timeline end")
+            .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
         }
-        .offset(
-            x: railMetrics.routineTextLeadingX(iconSize: iconSize, mountedSpineX: mountedSpineX),
-            y: max(anchorCenterY - 22, 0)
-        )
-        .accessibilityHidden(true)
-
-        Button {
-            onAnchorTap(anchor.anchor)
-        } label: {
-            Color.clear
-                .frame(width: totalWidth, height: max(iconSize, 52))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .offset(x: 0, y: max(anchorCenterY - max(iconSize, 52) / 2, 0))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(anchor.anchor.title), \(anchor.anchor.time.formatted(date: .omitted, time: .shortened))")
-        .accessibilityValue(anchor.anchor.id == "wake" ? "Timeline start" : "Timeline end")
-        .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
     }
 
     private func timelineStem(
@@ -5708,63 +5743,101 @@ private struct TimelineCompactAnchorRow: View {
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     var body: some View {
-        Button(action: onTap) {
+        if let style = TimelineRoutineAnchorVisualStyle.resolve(anchorID: anchor.id, title: anchor.title, subtitle: row.subtitle) {
             HStack(alignment: .center, spacing: 0) {
                 Text(anchor.time.formatted(date: .omitted, time: .shortened))
                     .font(.lifeboard(.meta))
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(width: metrics.compactTimeGutter, alignment: .trailing)
+                    .accessibilityHidden(true)
 
                 Color.clear
                     .frame(width: metrics.compactTimeToLaneGap)
 
                 Circle()
-                    .fill(TimelineVisualTokens.anchorCapsuleFill)
-                    .frame(width: metrics.compactAnchorCircleSize, height: metrics.compactAnchorCircleSize)
+                    .fill(style.borderColor)
+                    .frame(width: 10, height: 10)
                     .overlay {
-                        Image(systemName: anchor.systemImageName)
-                            .font(.system(size: metrics.compactAnchorIconSize, weight: .semibold))
-                            .foregroundStyle(Color.lifeboard.textSecondary)
-                            .accessibilityHidden(true)
+                        Circle()
+                            .stroke(Color.white.opacity(0.72), lineWidth: 2)
                     }
                     .frame(width: metrics.compactLaneWidth)
                     .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(anchor.title)
-                        .font(.lifeboard(.headline))
-                        .foregroundStyle(Color.lifeboard.textPrimary)
-                    if let subtitle = row.subtitle, subtitle.isEmpty == false {
-                        Text(subtitle)
-                            .font(.lifeboard(.caption1))
-                            .foregroundStyle(TimelineVisualTokens.utilityText)
-                            .lineLimit(1)
-                    }
-                }
+                TimelineRoutineAnchorCard(
+                    style: style,
+                    timeText: TimelineRailTimeFormatter.railText(for: anchor.time, kind: .exact),
+                    onTap: onTap,
+                    minimumHeight: 92,
+                    leadingArtworkReserve: 76,
+                    accessibilityHint: TimelineAnchorSelection(anchorID: anchor.id)?.accessibilityHint
+                )
+                .accessibilityIdentifier("home.timeline.anchor.\(anchor.id)")
 
                 Spacer(minLength: 12)
 
-                if anchor.isActionable {
-                    TimelineCompletionRing(
-                        color: Color.lifeboard.accentPrimary,
-                        isCompleted: false,
-                        isInteractive: false,
-                        label: anchor.title,
-                        action: {}
-                    )
-                    .frame(width: metrics.compactTrailingLaneWidth, alignment: .center)
-                } else {
-                    Color.clear
-                        .frame(width: metrics.compactTrailingLaneWidth, height: 1)
-                }
+                Color.clear
+                    .frame(width: metrics.compactTrailingLaneWidth, height: 1)
             }
-            .contentShape(Rectangle())
+        } else {
+            Button(action: onTap) {
+                HStack(alignment: .center, spacing: 0) {
+                    Text(anchor.time.formatted(date: .omitted, time: .shortened))
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .frame(width: metrics.compactTimeGutter, alignment: .trailing)
+
+                    Color.clear
+                        .frame(width: metrics.compactTimeToLaneGap)
+
+                    Circle()
+                        .fill(TimelineVisualTokens.anchorCapsuleFill)
+                        .frame(width: metrics.compactAnchorCircleSize, height: metrics.compactAnchorCircleSize)
+                        .overlay {
+                            Image(systemName: anchor.systemImageName)
+                                .font(.system(size: metrics.compactAnchorIconSize, weight: .semibold))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(width: metrics.compactLaneWidth)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(anchor.title)
+                            .font(.lifeboard(.headline))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
+                        if let subtitle = row.subtitle, subtitle.isEmpty == false {
+                            Text(subtitle)
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(TimelineVisualTokens.utilityText)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Spacer(minLength: 12)
+
+                    if anchor.isActionable {
+                        TimelineCompletionRing(
+                            color: Color.lifeboard.accentPrimary,
+                            isCompleted: false,
+                            isInteractive: false,
+                            label: anchor.title,
+                            action: {}
+                        )
+                        .frame(width: metrics.compactTrailingLaneWidth, alignment: .center)
+                    } else {
+                        Color.clear
+                            .frame(width: metrics.compactTrailingLaneWidth, height: 1)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(anchor.title), \(anchor.time.formatted(date: .omitted, time: .shortened))")
+            .accessibilityValue(anchor.id == "wake" ? "Timeline start" : "Timeline end")
+            .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(anchor.title), \(anchor.time.formatted(date: .omitted, time: .shortened))")
-        .accessibilityValue(anchor.id == "wake" ? "Timeline start" : "Timeline end")
-        .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
     }
 }
 
@@ -6082,37 +6155,49 @@ private struct TimelineAgendaAnchorRow: View {
     private var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(alignment: .top, spacing: 14) {
-                Circle()
-                    .fill(TimelineVisualTokens.anchorCapsuleFill)
-                    .frame(width: metrics.agendaAnchorCircleSize, height: metrics.agendaAnchorCircleSize)
-                    .overlay {
-                        Image(systemName: anchor.systemImageName)
-                            .font(.system(size: metrics.agendaAnchorIconSize, weight: .semibold))
+        if let style = TimelineRoutineAnchorVisualStyle.resolve(anchorID: anchor.id, title: anchor.title, subtitle: row.subtitle) {
+            TimelineRoutineAnchorCard(
+                style: style,
+                timeText: TimelineRailTimeFormatter.railText(for: anchor.time, kind: .exact),
+                onTap: onTap,
+                minimumHeight: 112,
+                leadingArtworkReserve: 112,
+                accessibilityHint: TimelineAnchorSelection(anchorID: anchor.id)?.accessibilityHint
+            )
+            .accessibilityIdentifier("home.timeline.anchor.\(anchor.id)")
+        } else {
+            Button(action: onTap) {
+                HStack(alignment: .top, spacing: 14) {
+                    Circle()
+                        .fill(TimelineVisualTokens.anchorCapsuleFill)
+                        .frame(width: metrics.agendaAnchorCircleSize, height: metrics.agendaAnchorCircleSize)
+                        .overlay {
+                            Image(systemName: anchor.systemImageName)
+                                .font(.system(size: metrics.agendaAnchorIconSize, weight: .semibold))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
+                                .accessibilityHidden(true)
+                        }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(anchor.time.formatted(date: .omitted, time: .shortened))
+                            .font(.lifeboard(.meta))
                             .foregroundStyle(Color.lifeboard.textSecondary)
-                            .accessibilityHidden(true)
-                    }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(anchor.time.formatted(date: .omitted, time: .shortened))
-                        .font(.lifeboard(.meta))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                    Text(anchor.title)
-                        .font(.lifeboard(.title3))
-                        .foregroundStyle(Color.lifeboard.textPrimary)
-                    if let subtitle = row.subtitle, subtitle.isEmpty == false {
-                        Text(subtitle)
-                            .font(.lifeboard(.caption1))
-                            .foregroundStyle(TimelineVisualTokens.utilityText)
+                        Text(anchor.title)
+                            .font(.lifeboard(.title3))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
+                        if let subtitle = row.subtitle, subtitle.isEmpty == false {
+                            Text(subtitle)
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(TimelineVisualTokens.utilityText)
+                        }
                     }
                 }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(anchor.title), \(anchor.time.formatted(date: .omitted, time: .shortened))")
+            .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(anchor.title), \(anchor.time.formatted(date: .omitted, time: .shortened))")
-        .accessibilityHint(TimelineAnchorSelection(anchorID: anchor.id)?.accessibilityHint ?? "Edit timeline anchor time")
     }
 }
 

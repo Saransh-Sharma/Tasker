@@ -38,47 +38,67 @@ struct LBTimelineCard: View, Equatable {
     }
 
     var body: some View {
-        let style = LBColorTokens.role(model.role)
-        Button(action: onTap) {
-            LBGlassCard(
-                cornerRadius: cornerRadius,
-                borderColor: borderColor(style),
-                fill: fillColor(style),
-                shadow: nil,
-                usesMaterialBackground: false
-            ) {
-                HStack(spacing: LBSpacingTokens.sm) {
-                    leadingControl(style: style)
+        if let routineStyle {
+            TimelineRoutineAnchorCard(
+                style: routineStyle,
+                timeText: model.timeText,
+                onTap: onTap,
+                minimumHeight: 96,
+                leadingArtworkReserve: 96
+            )
+            .accessibilityIdentifier(accessibilityIdentifier)
+        } else {
+            let style = LBColorTokens.role(model.role)
+            Button(action: onTap) {
+                LBGlassCard(
+                    cornerRadius: cornerRadius,
+                    borderColor: borderColor(style),
+                    fill: fillColor(style),
+                    shadow: nil,
+                    usesMaterialBackground: false
+                ) {
+                    HStack(spacing: LBSpacingTokens.sm) {
+                        leadingControl(style: style)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(model.title)
-                            .font(LBTypographyTokens.cardTitle)
-                            .foregroundStyle(titleColor)
-                            .lineLimit(2)
-                            .strikethrough(model.isCompleted && model.kind == .task, color: LBColorTokens.navyMuted.opacity(0.65))
-                        Text(model.subtitle.isEmpty ? model.timeText : "\(model.timeText)  •  \(model.subtitle)")
-                            .font(LBTypographyTokens.meta)
-                            .foregroundStyle(metaColor)
-                            .lineLimit(2)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(model.title)
+                                .font(LBTypographyTokens.cardTitle)
+                                .foregroundStyle(titleColor)
+                                .lineLimit(2)
+                                .strikethrough(model.isCompleted && model.kind == .task, color: LBColorTokens.navyMuted.opacity(0.65))
+                            Text(model.subtitle.isEmpty ? model.timeText : "\(model.timeText)  •  \(model.subtitle)")
+                                .font(LBTypographyTokens.meta)
+                                .foregroundStyle(metaColor)
+                                .lineLimit(2)
+                        }
+                        .layoutPriority(1)
+                        Spacer(minLength: LBSpacingTokens.xs)
+                        if let accessoryText = model.accessoryText {
+                            Text(accessoryText)
+                                .font(LBTypographyTokens.meta)
+                                .foregroundStyle(accessoryColor(style))
+                                .padding(.horizontal, LBSpacingTokens.sm)
+                                .padding(.vertical, LBSpacingTokens.xs)
+                                .background(accessoryFill(style), in: Capsule())
+                        }
                     }
-                    .layoutPriority(1)
-                    Spacer(minLength: LBSpacingTokens.xs)
-                    if let accessoryText = model.accessoryText {
-                        Text(accessoryText)
-                            .font(LBTypographyTokens.meta)
-                            .foregroundStyle(accessoryColor(style))
-                            .padding(.horizontal, LBSpacingTokens.sm)
-                            .padding(.vertical, LBSpacingTokens.xs)
-                            .background(accessoryFill(style), in: Capsule())
-                    }
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.vertical, verticalPadding)
                 }
-                .padding(.horizontal, horizontalPadding)
-                .padding(.vertical, verticalPadding)
             }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(accessibilityIdentifier)
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    private var routineStyle: TimelineRoutineAnchorVisualStyle? {
+        guard model.kind == .anchor else { return nil }
+        return TimelineRoutineAnchorVisualStyle.resolve(
+            anchorID: model.id,
+            title: model.title,
+            subtitle: model.subtitle
+        )
     }
 
     private var accessibilityIdentifier: String {
