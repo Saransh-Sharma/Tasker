@@ -26,38 +26,38 @@ final class LifeBoardCancellableDispatchWorkItem: @unchecked Sendable {
     }
 }
 
-private struct HomeTaskDetailMetadataState: Sendable {
+struct HomeTaskDetailMetadataState: Sendable {
     var projects: [Project]
     var sections: [LifeBoardProjectSection] = []
     var weeklyOutcomes: [WeeklyOutcome] = []
 }
 
-private struct HomeTaskDetailRelationshipMetadataState: Sendable {
+struct HomeTaskDetailRelationshipMetadataState: Sendable {
     var lifeAreas: [LifeArea] = []
     var tags: [TagDefinition] = []
     var availableTasks: [TaskDefinition] = []
     var recentReflectionNotes: [ReflectionNote] = []
 }
 
-private struct HomeDueTodayAgendaLoadState: Sendable {
+struct HomeDueTodayAgendaLoadState: Sendable {
     var agendaHabitRows: [HomeHabitRow] = []
     var trackingHabitRows: [HomeHabitRow] = []
     var historyByHabitID: [UUID: [HabitDayMark]] = [:]
     var libraryRowsByID: [UUID: HabitLibraryRow] = [:]
 }
 
-private struct HomeCanonicalHabitMutationLoadState: Sendable {
+struct HomeCanonicalHabitMutationLoadState: Sendable {
     var projectionRow: HomeHabitRow?
     var libraryRow: HabitLibraryRow?
     var historyByHabitID: [UUID: [HabitDayMark]] = [:]
 }
 
-private struct HomeHabitWidgetRowsState: Sendable {
+struct HomeHabitWidgetRowsState: Sendable {
     var agendaRows: [HomeHabitRow] = []
     var trackingRows: [HomeHabitRow] = []
 }
 
-private struct DailySummaryLoadState: Sendable {
+struct DailySummaryLoadState: Sendable {
     var allTasksResult: Result<[TaskDefinition], GetTasksError>?
     var analytics: DailyAnalytics?
     var streakCount: Int?
@@ -114,7 +114,7 @@ public struct HomeDataRevision: Equatable, Hashable, Sendable {
     }
 }
 
-private struct HomeRenderInvalidation: OptionSet {
+struct HomeRenderInvalidation: OptionSet {
     let rawValue: Int
 
     static let chrome = HomeRenderInvalidation(rawValue: 1 << 0)
@@ -323,12 +323,12 @@ public struct HomeHabitMutationFeedback: Equatable, Identifiable {
     }
 }
 
-private final class HomeReloadBatchTracker: @unchecked Sendable {
-    private let lock = NSLock()
-    private let onComplete: @Sendable () -> Void
-    private var pendingOperations: Int = 0
-    private var finishedScheduling = false
-    private var completed = false
+final class HomeReloadBatchTracker: @unchecked Sendable {
+    let lock = NSLock()
+    let onComplete: @Sendable () -> Void
+    var pendingOperations: Int = 0
+    var finishedScheduling = false
+    var completed = false
 
     init(onComplete: @escaping @Sendable () -> Void) {
         self.onComplete = onComplete
@@ -360,7 +360,7 @@ private final class HomeReloadBatchTracker: @unchecked Sendable {
         }
     }
 
-    private func finish() {
+    func finish() {
         let shouldRun: Bool = lock.withLock {
             guard completed == false else { return false }
             completed = true
@@ -372,7 +372,7 @@ private final class HomeReloadBatchTracker: @unchecked Sendable {
     }
 }
 
-private extension NSLock {
+extension NSLock {
     func withLock<T>(_ work: () -> T) -> T {
         lock()
         defer { unlock() }
@@ -380,17 +380,17 @@ private extension NSLock {
     }
 }
 
-private enum HomeHabitMutationRequest {
+enum HomeHabitMutationRequest {
     case resolve(HabitOccurrenceAction)
     case reset
 }
 
-private struct HomeHabitMutationKey: Hashable {
+struct HomeHabitMutationKey: Hashable {
     let habitID: UUID
     let day: Date
 }
 
-private struct HomeHabitMutationSnapshot {
+struct HomeHabitMutationSnapshot {
     let dueTodayRows: [HomeTodayRow]
     let dueTodaySection: HomeListSection?
     let todayAgendaSectionState: TodayAgendaSectionState
@@ -401,18 +401,18 @@ private struct HomeHabitMutationSnapshot {
     let currentHabitSignals: [LifeBoardHabitSignal]
 }
 
-private struct HomeDerivedTaskRowsCache {
+struct HomeDerivedTaskRowsCache {
     let revision: UInt64
     let quickView: HomeQuickView
     let rows: [TaskDefinition]
 }
 
-private struct HomeDerivedHabitRowsCache {
+struct HomeDerivedHabitRowsCache {
     let revision: UInt64
     let rows: [HomeHabitRow]
 }
 
-private struct HomeHabitMutationSectionPatch {
+struct HomeHabitMutationSectionPatch {
     let allHabitRows: [HomeHabitRow]
     let dueTodayRows: [HomeTodayRow]
     let dueTodaySection: HomeListSection?
@@ -425,18 +425,18 @@ private struct HomeHabitMutationSectionPatch {
     let affectedSectionCount: Int
 }
 
-private enum HomeHabitRowPlacementBucket {
+enum HomeHabitRowPlacementBucket {
     case primary
     case recovery
     case quiet
 }
 
-private struct HomeHabitRowPlacement {
+struct HomeHabitRowPlacement {
     let bucket: HomeHabitRowPlacementBucket
     let index: Int
 }
 
-private struct HomeTaskReloadNotificationEvent {
+struct HomeTaskReloadNotificationEvent {
     let source: String
     let reason: HomeTaskMutationEvent
     let notificationSource: String?
@@ -542,10 +542,10 @@ public protocol CelebrationRouter: AnyObject {
 }
 
 public final class DefaultCelebrationRouter: CelebrationRouter {
-    private var lastShownAtByKind: [CelebrationKind: Date] = [:]
-    private var lastSignature: String?
+    var lastShownAtByKind: [CelebrationKind: Date] = [:]
+    var lastSignature: String?
 
-    private let cooldownByKind: [CelebrationKind: TimeInterval] = [
+    let cooldownByKind: [CelebrationKind: TimeInterval] = [
         .milestone: 0,
         .levelUp: 0.4,
         .achievementUnlock: 1.0,
@@ -731,7 +731,7 @@ public final class HomeViewModel: ObservableObject {
     @Published private(set) var homeCalendarSnapshot: HomeCalendarSnapshot = .empty {
         didSet { scheduleHomeRenderStateRefresh([.calendar, .timeline]) }
     }
-    @Published private var hiddenHomeTimelineCalendarEvents: Set<HomeTimelineHiddenCalendarEventKey> = [] {
+    @Published var hiddenHomeTimelineCalendarEvents: Set<HomeTimelineHiddenCalendarEventKey> = [] {
         didSet { scheduleHomeRenderStateRefresh(.timeline) }
     }
     @Published private(set) var catchUpDailyReflectionEntryPreview: DailyReflectionEntryState? {
@@ -764,122 +764,122 @@ public final class HomeViewModel: ObservableObject {
 
     // MARK: - Dependencies
 
-    private let useCaseCoordinator: UseCaseCoordinator
-    private let homeFilteredTasksUseCase: GetHomeFilteredTasksUseCase
-    private let computeEvaHomeInsightsUseCase: ComputeEvaHomeInsightsUseCase
-    private let getInboxTriageQueueUseCase: GetInboxTriageQueueUseCase
-    private let getOverdueRescuePlanUseCase: GetOverdueRescuePlanUseCase
-    private let buildEvaBatchProposalUseCase: BuildEvaBatchProposalUseCase
-    private let getDailySummaryModalUseCase: GetDailySummaryModalUseCase
-    private let buildHomeAgendaUseCase: BuildHomeAgendaUseCase
-    private let buildHabitHomeProjectionUseCase: BuildHabitHomeProjectionUseCase
-    private let resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase
-    private let calendarIntegrationService: CalendarIntegrationService
-    private let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
-    private let analyticsService: AnalyticsServiceProtocol?
-    private let aiSuggestionService: AISuggestionService?
-    private let userDefaults: UserDefaults
-    private let workspacePreferencesProvider: () -> LifeBoardWorkspacePreferences
-    private let hiddenCalendarEventStore: HomeTimelineHiddenCalendarEventStore
-    private let timelineProjectionBuilder = HomeTimelineProjectionBuilder()
-    private let needsReplanViewModel: HomeNeedsReplanViewModel
-    private var cancellables = Set<AnyCancellable>()
-    private var retainedInsightsViewModel: InsightsViewModel?
-    private var retainedHomeSearchViewModel: HomeSearchViewModel?
-    private var needsReplanCandidates: [HomeReplanCandidate] {
+    let useCaseCoordinator: UseCaseCoordinator
+    let homeFilteredTasksUseCase: GetHomeFilteredTasksUseCase
+    let computeEvaHomeInsightsUseCase: ComputeEvaHomeInsightsUseCase
+    let getInboxTriageQueueUseCase: GetInboxTriageQueueUseCase
+    let getOverdueRescuePlanUseCase: GetOverdueRescuePlanUseCase
+    let buildEvaBatchProposalUseCase: BuildEvaBatchProposalUseCase
+    let getDailySummaryModalUseCase: GetDailySummaryModalUseCase
+    let buildHomeAgendaUseCase: BuildHomeAgendaUseCase
+    let buildHabitHomeProjectionUseCase: BuildHabitHomeProjectionUseCase
+    let resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase
+    let calendarIntegrationService: CalendarIntegrationService
+    let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
+    let analyticsService: AnalyticsServiceProtocol?
+    let aiSuggestionService: AISuggestionService?
+    let userDefaults: UserDefaults
+    let workspacePreferencesProvider: () -> LifeBoardWorkspacePreferences
+    let hiddenCalendarEventStore: HomeTimelineHiddenCalendarEventStore
+    let timelineProjectionBuilder = HomeTimelineProjectionBuilder()
+    let needsReplanViewModel: HomeNeedsReplanViewModel
+    var cancellables = Set<AnyCancellable>()
+    var retainedInsightsViewModel: InsightsViewModel?
+    var retainedHomeSearchViewModel: HomeSearchViewModel?
+    var needsReplanCandidates: [HomeReplanCandidate] {
         get { needsReplanViewModel.passiveCandidates }
         set { needsReplanViewModel.passiveCandidates = newValue }
     }
-    private var activeReplanCandidates: [HomeReplanCandidate] {
+    var activeReplanCandidates: [HomeReplanCandidate] {
         get { needsReplanViewModel.activeCandidates }
         set { needsReplanViewModel.activeCandidates = newValue }
     }
-    private var replanUndoStack: [HomeReplanUndoEntry] {
+    var replanUndoStack: [HomeReplanUndoEntry] {
         get { needsReplanViewModel.undoStack }
         set { needsReplanViewModel.undoStack = newValue }
     }
-    private var replanApplyingAction: HomeReplanApplyingAction? {
+    var replanApplyingAction: HomeReplanApplyingAction? {
         get { needsReplanViewModel.applyingAction }
         set { needsReplanViewModel.applyingAction = newValue }
     }
-    private var cachedGlobalReplanRevision: HomeDataRevision?
-    private var activeGlobalReplanFetchToken: UUID?
-    private var activeGlobalReplanFetchRevision: HomeDataRevision?
-    private var pendingGlobalReplanRefreshRevision: HomeDataRevision?
+    var cachedGlobalReplanRevision: HomeDataRevision?
+    var activeGlobalReplanFetchToken: UUID?
+    var activeGlobalReplanFetchRevision: HomeDataRevision?
+    var pendingGlobalReplanRefreshRevision: HomeDataRevision?
 
     // MARK: - Persistence Keys
 
-    private static let lastFilterStateKey = "home.focus.lastFilterState.v2"
-    private static let pinnedFocusTaskIDsKey = "home.focus.pinnedTaskIDs.v2"
-    private static let recentShuffleTaskIDsKey = "home.eva.recentShuffleTaskIDs.v1"
-    private static let maxPinnedFocusTasks = 3
-    private static let maxShuffleHistorySize = 10
-    private static let defaultShuffleExclusionWindow = 3
-    private static let maxInlineCompletedRetention = 24
+    static let lastFilterStateKey = "home.focus.lastFilterState.v2"
+    static let pinnedFocusTaskIDsKey = "home.focus.pinnedTaskIDs.v2"
+    static let recentShuffleTaskIDsKey = "home.eva.recentShuffleTaskIDs.v1"
+    static let maxPinnedFocusTasks = 3
+    static let maxShuffleHistorySize = 10
+    static let defaultShuffleExclusionWindow = 3
+    static let maxInlineCompletedRetention = 24
 
     // MARK: - Session State
 
-    private var homeOpenedAt: Date = Date()
-    private var didTrackFirstCompletionLatency = false
-    private var completionOverrides: [UUID: Bool] = [:]
-    private var pendingHabitMutationKeys: Set<HomeHabitMutationKey> = []
-    private var pendingHabitMutationSnapshots: [HomeHabitMutationKey: HomeHabitMutationSnapshot] = [:]
-    private var pendingHabitMutationIntervals: [HomeHabitMutationKey: LifeBoardPerformanceInterval] = [:]
-    private var selfOriginatedHabitMutationContextIDs: Set<UUID> = []
-    private var reloadGeneration: Int = 0
-    private var dataRevision: HomeDataRevision = .zero
-    private var timelineSnapshotCache: (key: HomeTimelineSnapshotCacheKey, snapshot: HomeTimelineSnapshot)?
-    private var suppressCompletionReloadUntil: Date?
-    private var lastRecurringTopUpAt: Date?
-    private var pendingRecurringTopUpTask: Task<Void, Never>?
-    private var pendingAdjacentDayPrefetchTask: Task<Void, Never>?
-    private var recentShuffledFocusTaskIDs: [UUID] = []
+    var homeOpenedAt: Date = Date()
+    var didTrackFirstCompletionLatency = false
+    var completionOverrides: [UUID: Bool] = [:]
+    var pendingHabitMutationKeys: Set<HomeHabitMutationKey> = []
+    var pendingHabitMutationSnapshots: [HomeHabitMutationKey: HomeHabitMutationSnapshot] = [:]
+    var pendingHabitMutationIntervals: [HomeHabitMutationKey: LifeBoardPerformanceInterval] = [:]
+    var selfOriginatedHabitMutationContextIDs: Set<UUID> = []
+    var reloadGeneration: Int = 0
+    var dataRevision: HomeDataRevision = .zero
+    var timelineSnapshotCache: (key: HomeTimelineSnapshotCacheKey, snapshot: HomeTimelineSnapshot)?
+    var suppressCompletionReloadUntil: Date?
+    var lastRecurringTopUpAt: Date?
+    var pendingRecurringTopUpTask: Task<Void, Never>?
+    var pendingAdjacentDayPrefetchTask: Task<Void, Never>?
+    var recentShuffledFocusTaskIDs: [UUID] = []
 
-    private let completionNotificationDebounceMS = 120
-    private let completionReloadSuppressionSeconds: TimeInterval = 0.35
-    private let mutationNotificationDebounceMS = 90
-    private let reloadDebounceMS = 120
-    private let analyticsDebounceMS = 120
-    private static let recurringTopUpDelay: Duration = .seconds(5)
-    private let recurringTopUpThrottleSeconds: TimeInterval = 90
-    private let ledgerMutationWatchdogDelaySeconds: TimeInterval = 1.0
-    private static let mutationNotificationSource = "homeViewModel"
-    private var pendingLedgerMutationWatchdog: DispatchWorkItem?
-    private var lastLedgerMutationObservedAt: Date = .distantPast
-    private var pendingReloadWorkItem: DispatchWorkItem?
-    private var pendingReloadSources: Set<String> = []
-    private var pendingReloadReasons: Set<HomeTaskMutationEvent> = []
-    private var pendingReloadScopes: Set<HomeReloadScope> = []
-    private var pendingReloadTaskIDs: Set<UUID> = []
-    private var pendingReloadInvalidateCaches = false
-    private var pendingReloadIncludeAnalytics = false
-    private var pendingReloadRepostEvent = false
-    private var isApplyingReloadBatch = false
-    private var queuedReloadAfterCurrentBatch = false
-    private var pendingAnalyticsWorkItem: DispatchWorkItem?
-    private var pendingDeferredAnalyticsRefreshWorkItem: DispatchWorkItem?
-    private var pendingAnalyticsIncludeGamificationRefresh = false
-    private var pendingAnalyticsCompletions: [() -> Void] = []
-    private var analyticsGeneration: Int = 0
-    private var weeklySummaryGeneration: Int = 0
-    private var pendingHomeRenderStateWorkItem: DispatchWorkItem?
-    private var homeRenderStateRefreshBatchDepth: Int = 0
-    private var needsHomeRenderStateRefresh = false
-    private var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
-    private var currentHabitSignals: [LifeBoardHabitSignal] = []
-    private var habitLibraryRowsByID: [UUID: HabitLibraryRow] = [:]
-    private var taskRowsDerivationRevision: UInt64 = 0
-    private var habitRowsDerivationRevision: UInt64 = 0
-    private var cachedOpenTaskRowsForHabitMutation: HomeDerivedTaskRowsCache?
-    private var cachedMergedHabitRows: HomeDerivedHabitRowsCache?
-    private var evaInsightsGeneration: Int = 0
-    private var lastTaskListSnapshotRevision: HomeDataRevision?
-    private var catchUpReflectionPreviewTask: Task<Void, Never>?
-    private var catchUpReflectionPreviewKey: String?
-    private var reflectionContextPrefetchTask: Task<Void, Never>?
-    private var reflectionContextPrefetchKey: String?
-    private static let reflectionContextPrefetchDelay: Duration = .milliseconds(250)
-    private static let reflectionContextPrefetchTimeoutSeconds: TimeInterval = 0.8
+    let completionNotificationDebounceMS = 120
+    let completionReloadSuppressionSeconds: TimeInterval = 0.35
+    let mutationNotificationDebounceMS = 90
+    let reloadDebounceMS = 120
+    let analyticsDebounceMS = 120
+    static let recurringTopUpDelay: Duration = .seconds(5)
+    let recurringTopUpThrottleSeconds: TimeInterval = 90
+    let ledgerMutationWatchdogDelaySeconds: TimeInterval = 1.0
+    static let mutationNotificationSource = "homeViewModel"
+    var pendingLedgerMutationWatchdog: DispatchWorkItem?
+    var lastLedgerMutationObservedAt: Date = .distantPast
+    var pendingReloadWorkItem: DispatchWorkItem?
+    var pendingReloadSources: Set<String> = []
+    var pendingReloadReasons: Set<HomeTaskMutationEvent> = []
+    var pendingReloadScopes: Set<HomeReloadScope> = []
+    var pendingReloadTaskIDs: Set<UUID> = []
+    var pendingReloadInvalidateCaches = false
+    var pendingReloadIncludeAnalytics = false
+    var pendingReloadRepostEvent = false
+    var isApplyingReloadBatch = false
+    var queuedReloadAfterCurrentBatch = false
+    var pendingAnalyticsWorkItem: DispatchWorkItem?
+    var pendingDeferredAnalyticsRefreshWorkItem: DispatchWorkItem?
+    var pendingAnalyticsIncludeGamificationRefresh = false
+    var pendingAnalyticsCompletions: [() -> Void] = []
+    var analyticsGeneration: Int = 0
+    var weeklySummaryGeneration: Int = 0
+    var pendingHomeRenderStateWorkItem: DispatchWorkItem?
+    var homeRenderStateRefreshBatchDepth: Int = 0
+    var needsHomeRenderStateRefresh = false
+    var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
+    var currentHabitSignals: [LifeBoardHabitSignal] = []
+    var habitLibraryRowsByID: [UUID: HabitLibraryRow] = [:]
+    var taskRowsDerivationRevision: UInt64 = 0
+    var habitRowsDerivationRevision: UInt64 = 0
+    var cachedOpenTaskRowsForHabitMutation: HomeDerivedTaskRowsCache?
+    var cachedMergedHabitRows: HomeDerivedHabitRowsCache?
+    var evaInsightsGeneration: Int = 0
+    var lastTaskListSnapshotRevision: HomeDataRevision?
+    var catchUpReflectionPreviewTask: Task<Void, Never>?
+    var catchUpReflectionPreviewKey: String?
+    var reflectionContextPrefetchTask: Task<Void, Never>?
+    var reflectionContextPrefetchKey: String?
+    static let reflectionContextPrefetchDelay: Duration = .milliseconds(250)
+    static let reflectionContextPrefetchTimeoutSeconds: TimeInterval = 0.8
 
     deinit {
         pendingRecurringTopUpTask?.cancel()
@@ -896,23 +896,23 @@ public final class HomeViewModel: ObservableObject {
         habitLibraryRowsByID[habitID]
     }
 
-    private func habitMutationKey(for row: HomeHabitRow, on date: Date) -> HomeHabitMutationKey {
+    func habitMutationKey(for row: HomeHabitRow, on date: Date) -> HomeHabitMutationKey {
         HomeHabitMutationKey(
             habitID: row.habitID,
             day: normalizedDay(date)
         )
     }
 
-    private func normalizedDay(_ date: Date) -> Date {
+    func normalizedDay(_ date: Date) -> Date {
         Calendar.current.startOfDay(for: date)
     }
 
-    private func selectedDayMatches(_ targetDay: Date, scope: HomeListScope) -> Bool {
+    func selectedDayMatches(_ targetDay: Date, scope: HomeListScope) -> Bool {
         guard scope.quickView == .today else { return true }
         return Calendar.current.isDate(selectedDate, inSameDayAs: targetDay)
     }
 
-    private func captureHabitMutationSnapshot() -> HomeHabitMutationSnapshot {
+    func captureHabitMutationSnapshot() -> HomeHabitMutationSnapshot {
         HomeHabitMutationSnapshot(
             dueTodayRows: dueTodayRows,
             dueTodaySection: dueTodaySection,
@@ -925,7 +925,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func restoreHabitMutationSnapshot(_ snapshot: HomeHabitMutationSnapshot) {
+    func restoreHabitMutationSnapshot(_ snapshot: HomeHabitMutationSnapshot) {
         performHomeRenderStateBatch {
             assignIfChanged(\.dueTodayRows, snapshot.dueTodayRows)
             assignIfChanged(\.dueTodaySection, snapshot.dueTodaySection)
@@ -938,19 +938,19 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func isHabitMutationPending(for key: HomeHabitMutationKey) -> Bool {
+    func isHabitMutationPending(for key: HomeHabitMutationKey) -> Bool {
         pendingHabitMutationKeys.contains(key)
     }
 
-    private func registerSelfOriginatedHabitMutationContext(_ context: HabitMutationContext) {
+    func registerSelfOriginatedHabitMutationContext(_ context: HabitMutationContext) {
         selfOriginatedHabitMutationContextIDs.insert(context.mutationID)
     }
 
-    private func removeSelfOriginatedHabitMutationContext(_ context: HabitMutationContext) {
+    func removeSelfOriginatedHabitMutationContext(_ context: HabitMutationContext) {
         selfOriginatedHabitMutationContextIDs.remove(context.mutationID)
     }
 
-    private func consumeSelfOriginatedHabitMutationContext(_ context: HabitMutationContext?) -> Bool {
+    func consumeSelfOriginatedHabitMutationContext(_ context: HabitMutationContext?) -> Bool {
         guard let context else {
             return false
         }
@@ -962,7 +962,7 @@ public final class HomeViewModel: ObservableObject {
         return false
     }
 
-    private func habitMutationNotification(from notificationObject: Any?) -> HomeHabitMutationNotification? {
+    func habitMutationNotification(from notificationObject: Any?) -> HomeHabitMutationNotification? {
         if let notification = notificationObject as? HomeHabitMutationNotification {
             return notification
         }
@@ -975,7 +975,7 @@ public final class HomeViewModel: ObservableObject {
         return nil
     }
 
-    private func scheduleHomeRenderStateRefresh(_ invalidation: HomeRenderInvalidation = .all) {
+    func scheduleHomeRenderStateRefresh(_ invalidation: HomeRenderInvalidation = .all) {
         if Foundation.Thread.isMainThread == false {
             Task { @MainActor [weak self] in
                 self?.scheduleHomeRenderStateRefresh(invalidation)
@@ -996,7 +996,7 @@ public final class HomeViewModel: ObservableObject {
         DispatchQueue.main.async(execute: workItem)
     }
 
-    private func performHomeRenderStateBatch(_ work: () -> Void) {
+    func performHomeRenderStateBatch(_ work: () -> Void) {
         guard Foundation.Thread.isMainThread else {
             work()
             return
@@ -1011,7 +1011,7 @@ public final class HomeViewModel: ObservableObject {
         scheduleHomeRenderStateRefresh(pendingHomeRenderInvalidation)
     }
 
-    private func refreshHomeRenderStates() {
+    func refreshHomeRenderStates() {
         let interval = LifeBoardPerformanceTrace.begin("HomeRenderStateBuild")
         defer { LifeBoardPerformanceTrace.end(interval) }
         let invalidation = pendingHomeRenderInvalidation.isEmpty ? .all : pendingHomeRenderInvalidation
@@ -1033,7 +1033,7 @@ public final class HomeViewModel: ObservableObject {
         homeRenderTransaction = transaction
     }
 
-    private func buildHomeChromeState() -> HomeChromeState {
+    func buildHomeChromeState() -> HomeChromeState {
         let reflectionEntryState = makeDailyReflectionEntryState()
         return HomeChromeState(
             selectedDate: selectedDate,
@@ -1054,7 +1054,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func buildHomeTasksState() -> HomeTasksState {
+    func buildHomeTasksState() -> HomeTasksState {
         let projectByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
         let tagNameByID = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
         let todayXPSoFar: Int? = progressState.earnedXP
@@ -1089,7 +1089,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func buildHomeHabitsState() -> HomeHabitsSnapshot {
+    func buildHomeHabitsState() -> HomeHabitsSnapshot {
         HomeHabitsSnapshot(
             habitHomeSectionState: habitHomeSectionState,
             quietTrackingSummaryState: quietTrackingSummaryState,
@@ -1101,11 +1101,11 @@ public final class HomeViewModel: ObservableObject {
         habitMutationErrorMessage = nil
     }
 
-    private func buildHomeCalendarState() -> HomeCalendarSnapshot {
+    func buildHomeCalendarState() -> HomeCalendarSnapshot {
         homeCalendarSnapshot
     }
 
-    private func buildHomeOverlayState() -> HomeOverlayState {
+    func buildHomeOverlayState() -> HomeOverlayState {
         HomeOverlayState(
             guidanceState: nil,
             focusWhyPresented: evaFocusWhySheetPresented,
@@ -1122,7 +1122,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func makeMomentumGuidanceText() -> String {
+    func makeMomentumGuidanceText() -> String {
         if progressState.earnedXP > 0 {
             return "Momentum secured. Protect the streak with one clean finish."
         }
@@ -1132,7 +1132,7 @@ public final class HomeViewModel: ObservableObject {
         return "Your surface is clear. Add one intentional task for today."
     }
 
-    private func makeDailyReflectionEntryState() -> DailyReflectionEntryState? {
+    func makeDailyReflectionEntryState() -> DailyReflectionEntryState? {
         guard activeScope == .today,
               let target = useCaseCoordinator.resolveDailyReflectionTarget.execute() else {
             return nil
@@ -1152,7 +1152,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func refreshDailyReflectionEntryPreviewIfNeeded() {
+    func refreshDailyReflectionEntryPreviewIfNeeded() {
         guard activeScope == .today,
               let target = useCaseCoordinator.resolveDailyReflectionTarget.execute() else {
             clearCatchUpReflectionPreview()
@@ -1194,7 +1194,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func clearCatchUpReflectionPreview() {
+    func clearCatchUpReflectionPreview() {
         catchUpReflectionPreviewTask?.cancel()
         catchUpReflectionPreviewTask = nil
         catchUpReflectionPreviewKey = nil
@@ -1203,13 +1203,13 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func clearReflectionContextPrefetch() {
+    func clearReflectionContextPrefetch() {
         reflectionContextPrefetchTask?.cancel()
         reflectionContextPrefetchTask = nil
         reflectionContextPrefetchKey = nil
     }
 
-    private func scheduleReflectionContextPrefetchIfNeeded(target: DailyReflectionTarget) {
+    func scheduleReflectionContextPrefetchIfNeeded(target: DailyReflectionTarget) {
         let prefetchKey = "\(target.mode.rawValue):\(target.planningDate.timeIntervalSince1970)"
         guard reflectionContextPrefetchKey != prefetchKey else { return }
         reflectionContextPrefetchTask?.cancel()
@@ -1228,7 +1228,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func makeSameDayReflectionEntryState(target: DailyReflectionTarget) -> DailyReflectionEntryState {
+    func makeSameDayReflectionEntryState(target: DailyReflectionTarget) -> DailyReflectionEntryState {
         let closedTasks = reflectionClosedTasks(from: completedTasks)
         let habitRows = currentAllHabitRows()
         let habitGrid = reflectionHabitGrid(from: habitRows)
@@ -1254,7 +1254,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func makeLoadedReflectionEntryState(
+    func makeLoadedReflectionEntryState(
         target: DailyReflectionTarget,
         coreSnapshot: DailyReflectionCoreSnapshot
     ) -> DailyReflectionEntryState {
@@ -1273,7 +1273,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func makeBaseDailyReflectionEntryState(target: DailyReflectionTarget) -> DailyReflectionEntryState {
+    func makeBaseDailyReflectionEntryState(target: DailyReflectionTarget) -> DailyReflectionEntryState {
         switch target.mode {
         case .sameDay:
             return DailyReflectionEntryState(
@@ -1298,7 +1298,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func reflectionClosedTasks(from tasks: [TaskDefinition]) -> [ReflectionTaskMiniRow] {
+    func reflectionClosedTasks(from tasks: [TaskDefinition]) -> [ReflectionTaskMiniRow] {
         tasks
             .sorted { lhs, rhs in
                 if lhs.priority.scorePoints != rhs.priority.scorePoints {
@@ -1312,7 +1312,7 @@ public final class HomeViewModel: ObservableObject {
             }
     }
 
-    private func reflectionHabitGrid(from rows: [HomeHabitRow]) -> [ReflectionHabitMiniRow] {
+    func reflectionHabitGrid(from rows: [HomeHabitRow]) -> [ReflectionHabitMiniRow] {
         rows
             .sorted { lhs, rhs in
                 let lhsRisk = reflectionHabitRiskRank(lhs.riskState)
@@ -1337,7 +1337,7 @@ public final class HomeViewModel: ObservableObject {
             }
     }
 
-    private func reflectionHabitRiskRank(_ risk: HabitRiskState) -> Int {
+    func reflectionHabitRiskRank(_ risk: HabitRiskState) -> Int {
         switch risk {
         case .broken:
             return 2
@@ -1348,21 +1348,21 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func dailyPlanDraftForSelectedDate() -> DailyPlanDraft? {
+    func dailyPlanDraftForSelectedDate() -> DailyPlanDraft? {
         useCaseCoordinator.dailyReflectionStore.fetchPlanDraft(on: selectedDate)
     }
 
-    private func bumpTaskRowsDerivationRevision() {
+    func bumpTaskRowsDerivationRevision() {
         taskRowsDerivationRevision &+= 1
         cachedOpenTaskRowsForHabitMutation = nil
     }
 
-    private func bumpHabitRowsDerivationRevision() {
+    func bumpHabitRowsDerivationRevision() {
         habitRowsDerivationRevision &+= 1
         cachedMergedHabitRows = nil
     }
 
-    private func invalidateDerivedRowCaches(for keyPath: AnyKeyPath) {
+    func invalidateDerivedRowCaches(for keyPath: AnyKeyPath) {
         switch keyPath {
         case \HomeViewModel.morningTasks,
              \HomeViewModel.eveningTasks,
@@ -1377,7 +1377,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func keyPathTriggersHomeRenderRefreshViaDidSet(_ keyPath: AnyKeyPath) -> Bool {
+    func keyPathTriggersHomeRenderRefreshViaDidSet(_ keyPath: AnyKeyPath) -> Bool {
         switch keyPath {
         case \HomeViewModel.selectedDate,
              \HomeViewModel.weeklySummary,
@@ -1413,7 +1413,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func homeRenderInvalidation(forAssignedKeyPath keyPath: AnyKeyPath) -> HomeRenderInvalidation {
+    func homeRenderInvalidation(forAssignedKeyPath keyPath: AnyKeyPath) -> HomeRenderInvalidation {
         switch keyPath {
         case \HomeViewModel.projects,
              \HomeViewModel.lifeAreas:
@@ -1443,7 +1443,6 @@ public final class HomeViewModel: ObservableObject {
             return .all
         }
     }
-
     // MARK: - Initialization
 
     /// Initializes a new instance.
@@ -1498,7 +1497,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes loadTasksForSelectedDate.
-    private func loadTasksForSelectedDate(generation: Int) {
+    func loadTasksForSelectedDate(generation: Int) {
         applySelectedDay(
             selectedDate,
             source: .datePicker,
@@ -1545,7 +1544,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes loadTodayTasks.
-    private func loadTodayTasks(generation: Int) {
+    func loadTodayTasks(generation: Int) {
         applySelectedDay(
             Date(),
             source: .backToToday,
@@ -1556,7 +1555,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes scheduleRecurringTopUpIfNeeded.
-    private func scheduleRecurringTopUpIfNeeded() {
+    func scheduleRecurringTopUpIfNeeded() {
         let now = Date()
         if let lastRecurringTopUpAt,
            now.timeIntervalSince(lastRecurringTopUpAt) < recurringTopUpThrottleSeconds {
@@ -2138,7 +2137,7 @@ public final class HomeViewModel: ObservableObject {
         applySelectedDay(Date(), source: source, trackAnalytics: source == .backToToday, forceReload: true)
     }
 
-    private func applySelectedDay(
+    func applySelectedDay(
         _ day: Date,
         source: HomeDateNavigationSource,
         trackAnalytics: Bool,
@@ -2153,7 +2152,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func applySelectedDay(
+    func applySelectedDay(
         _ day: Date,
         source: HomeDateNavigationSource,
         trackAnalytics: Bool,
@@ -2548,7 +2547,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes loadProjects.
-    private func loadProjects(generation: Int) {
+    func loadProjects(generation: Int) {
         let interval = LifeBoardPerformanceTrace.begin("HomeLoadProjects")
         useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
             let preparedResult = result.map { projectsWithStats in
@@ -2575,7 +2574,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes loadLifeAreas.
-    private func loadLifeAreas(generation: Int) {
+    func loadLifeAreas(generation: Int) {
         useCaseCoordinator.manageLifeAreas.list { [weak self] result in
             let preparedResult = result.map { loadedLifeAreas in
                 loadedLifeAreas
@@ -2602,7 +2601,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes loadTags.
-    private func loadTags(generation: Int) {
+    func loadTags(generation: Int) {
         let interval = LifeBoardPerformanceTrace.begin("HomeLoadTags")
         useCaseCoordinator.manageTags.list { [weak self] result in
             let preparedResult = result.map { loadedTags in
@@ -2725,7 +2724,7 @@ public final class HomeViewModel: ObservableObject {
         return candidates
     }
 
-    private func refreshFocusWhyCandidatesIfPresented() {
+    func refreshFocusWhyCandidatesIfPresented() {
         guard evaFocusWhySheetPresented else { return }
         assignIfChanged(\.focusWhyShuffleCandidates, computeFocusWhyShuffleCandidates())
     }
@@ -3491,7 +3490,7 @@ public final class HomeViewModel: ObservableObject {
     // MARK: - Private Methods
 
     /// Executes setupBindings.
-    private func setupBindings() {
+    func setupBindings() {
         calendarIntegrationService.$snapshot
             .receive(on: RunLoop.main)
             .sink { [weak self] snapshot in
@@ -3650,7 +3649,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes setTaskCompletion.
-    private func setTaskCompletion(
+    func setTaskCompletion(
         taskID: UUID,
         to requestedCompletion: Bool,
         taskSnapshot: TaskDefinition?,
@@ -3716,7 +3715,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes currentTaskSnapshot.
-    private func currentTaskSnapshot(for id: UUID) -> TaskDefinition? {
+    func currentTaskSnapshot(for id: UUID) -> TaskDefinition? {
         if let task = morningTasks.first(where: { $0.id == id }) { return task }
         if let task = eveningTasks.first(where: { $0.id == id }) { return task }
         if let task = overdueTasks.first(where: { $0.id == id }) { return task }
@@ -3727,12 +3726,12 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes mutationReason.
-    private func mutationReason(for request: UpdateTaskDefinitionRequest) -> HomeTaskMutationEvent {
+    func mutationReason(for request: UpdateTaskDefinitionRequest) -> HomeTaskMutationEvent {
         HomeTaskMutationReasonResolver.reason(for: request)
     }
 
     /// Executes loadInitialData.
-    private func loadInitialData() {
+    func loadInitialData() {
         let interval = LifeBoardPerformanceTrace.begin("HomeInitialLoad")
         defer { LifeBoardPerformanceTrace.end(interval) }
 
@@ -3776,7 +3775,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func scheduleInitialDeferredAnalyticsRefreshIfNeeded() {
+    func scheduleInitialDeferredAnalyticsRefreshIfNeeded() {
         guard activeScope.quickView == .today else { return }
         scheduleDeferredAnalyticsRefresh(
             reason: "initial_load",
@@ -3786,7 +3785,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes loadDailyAnalytics.
-    private func loadDailyAnalytics(
+    func loadDailyAnalytics(
         includeGamificationRefresh: Bool = true,
         completion: (@Sendable () -> Void)? = nil
     ) {
@@ -3815,7 +3814,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func scheduleDeferredAnalyticsRefresh(
+    func scheduleDeferredAnalyticsRefresh(
         reason: String,
         includeGamificationRefresh: Bool,
         delayMilliseconds: Int = 450
@@ -3843,7 +3842,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func performDailyAnalyticsRefresh(
+    func performDailyAnalyticsRefresh(
         includeGamificationRefresh: Bool,
         completions: [() -> Void]
     ) {
@@ -3930,8 +3929,7 @@ public final class HomeViewModel: ObservableObject {
             completions.forEach { $0() }
         }
     }
-
-    private func openTaskRowsForHabitReconciliation() -> [TaskDefinition] {
+    func openTaskRowsForHabitReconciliation() -> [TaskDefinition] {
         if let cachedOpenTaskRowsForHabitMutation,
            cachedOpenTaskRowsForHabitMutation.revision == taskRowsDerivationRevision,
            cachedOpenTaskRowsForHabitMutation.quickView == activeScope.quickView {
@@ -3962,7 +3960,7 @@ public final class HomeViewModel: ObservableObject {
         return rows
     }
 
-    private func refreshDueTodayAgenda(
+    func refreshDueTodayAgenda(
         openTaskRows: [TaskDefinition],
         generation: Int,
         targetDay: Date,
@@ -4121,12 +4119,12 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private struct CanonicalHabitMutationState {
+    struct CanonicalHabitMutationState {
         let row: HomeHabitRow?
         let libraryRow: HabitLibraryRow?
     }
 
-    private func fetchCanonicalHabitMutationState(
+    func fetchCanonicalHabitMutationState(
         habitID: UUID,
         on date: Date,
         completion: @escaping @Sendable (Result<CanonicalHabitMutationState, Error>) -> Void
@@ -4220,7 +4218,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func reconcileHabitMutation(
+    func reconcileHabitMutation(
         habitID: UUID,
         on date: Date
     ) {
@@ -4269,7 +4267,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func habitSignals(from rows: [HomeHabitRow]) -> [LifeBoardHabitSignal] {
+    func habitSignals(from rows: [HomeHabitRow]) -> [LifeBoardHabitSignal] {
         rows.map { row in
             LifeBoardHabitSignal(
                 habitID: row.habitID,
@@ -4296,7 +4294,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func habitOutcomeRaw(for state: HomeHabitRowState) -> String? {
+    func habitOutcomeRaw(for state: HomeHabitRowState) -> String? {
         switch state {
         case .completedToday:
             return "completed"
@@ -4311,7 +4309,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func mergeHabitRows(
+    func mergeHabitRows(
         agenda: [HomeHabitRow],
         tracking: [HomeHabitRow]
     ) -> [HomeHabitRow] {
@@ -4330,7 +4328,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func sortHabitRows(_ rows: [HomeHabitRow]) -> [HomeHabitRow] {
+    func sortHabitRows(_ rows: [HomeHabitRow]) -> [HomeHabitRow] {
         rows.sorted { lhs, rhs in
             if lhs.projectName != rhs.projectName {
                 return (lhs.projectName ?? lhs.lifeAreaName).localizedCaseInsensitiveCompare(rhs.projectName ?? rhs.lifeAreaName) == .orderedAscending
@@ -4339,7 +4337,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func includeHabitInAgenda(_ row: HomeHabitRow) -> Bool {
+    func includeHabitInAgenda(_ row: HomeHabitRow) -> Bool {
         switch row.state {
         case .overdue:
             return true
@@ -4355,13 +4353,13 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func isStableQuietTrackingRow(_ row: HomeHabitRow) -> Bool {
+    func isStableQuietTrackingRow(_ row: HomeHabitRow) -> Bool {
         row.trackingMode == .lapseOnly
             && row.state == .tracking
             && row.riskState == .stable
     }
 
-    private func buildAgendaTailItems(
+    func buildAgendaTailItems(
         rescueEligibleTasks: [TaskDefinition]
     ) -> [HomeAgendaTailItem] {
         guard activeScope.quickView == .today, V2FeatureFlags.evaRescueEnabled else {
@@ -4395,7 +4393,7 @@ public final class HomeViewModel: ObservableObject {
         ]
     }
 
-    private func isRescueEligibleTask(_ task: TaskDefinition, on referenceDate: Date) -> Bool {
+    func isRescueEligibleTask(_ task: TaskDefinition, on referenceDate: Date) -> Bool {
         guard !task.isComplete, let dueDate = task.dueDate else {
             return false
         }
@@ -4406,7 +4404,7 @@ public final class HomeViewModel: ObservableObject {
         return dueDate < rescueCutoff
     }
 
-    private func compareRescueRows(_ lhs: HomeTodayRow, _ rhs: HomeTodayRow) -> Bool {
+    func compareRescueRows(_ lhs: HomeTodayRow, _ rhs: HomeTodayRow) -> Bool {
         let lhsDue = lhs.dueDate ?? .distantFuture
         let rhsDue = rhs.dueDate ?? .distantFuture
         if lhsDue != rhsDue {
@@ -4422,7 +4420,7 @@ public final class HomeViewModel: ObservableObject {
         return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
     }
 
-    private func rescuePriority(for row: HomeTodayRow) -> Int {
+    func rescuePriority(for row: HomeTodayRow) -> Int {
         switch row {
         case .task(let task):
             return task.priority.scorePoints
@@ -4431,7 +4429,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private nonisolated static func trackingHomeRows(
+    nonisolated static func trackingHomeRows(
         from rows: [HabitLibraryRow],
         historyByHabitID: [UUID: [HabitDayMark]] = [:],
         on date: Date
@@ -4499,7 +4497,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func composeFocusRows(
+    func composeFocusRows(
         taskRows: [TaskDefinition],
         habitRows: [HomeHabitRow]
     ) -> [HomeTodayRow] {
@@ -4530,7 +4528,7 @@ public final class HomeViewModel: ObservableObject {
         return Array(results.prefix(Self.maxPinnedFocusTasks))
     }
 
-    private func compareFocusRows(_ lhs: HomeTodayRow, _ rhs: HomeTodayRow) -> Bool {
+    func compareFocusRows(_ lhs: HomeTodayRow, _ rhs: HomeTodayRow) -> Bool {
         let lhsRank = focusPriority(for: lhs)
         let rhsRank = focusPriority(for: rhs)
         if lhsRank != rhsRank {
@@ -4546,7 +4544,7 @@ public final class HomeViewModel: ObservableObject {
         return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
     }
 
-    private func updateFocusSelection(_ tasks: [TaskDefinition]) {
+    func updateFocusSelection(_ tasks: [TaskDefinition]) {
         let limitedTasks = Array(tasks.prefix(Self.maxPinnedFocusTasks))
         assignIfChanged(\.focusTasks, limitedTasks)
         let rows = limitedTasks.map(HomeTodayRow.task)
@@ -4559,7 +4557,7 @@ public final class HomeViewModel: ObservableObject {
         refreshFocusWhyCandidatesIfPresented()
     }
 
-    private func computeFocusWhyShuffleCandidates() -> [TaskDefinition] {
+    func computeFocusWhyShuffleCandidates() -> [TaskDefinition] {
         guard V2FeatureFlags.evaFocusEnabled else { return [] }
         guard activeScope.quickView == .today else { return [] }
 
@@ -4577,7 +4575,7 @@ public final class HomeViewModel: ObservableObject {
         return Array(ranked.prefix(Self.maxPinnedFocusTasks))
     }
 
-    private func focusPriority(for row: HomeTodayRow) -> Int {
+    func focusPriority(for row: HomeTodayRow) -> Int {
         switch row {
         case .task(let task):
             if task.isOverdue { return 0 }
@@ -4591,7 +4589,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func resolveHabit(
+    func resolveHabit(
         _ row: HomeHabitRow,
         action: HabitOccurrenceAction,
         source: String
@@ -4599,7 +4597,7 @@ public final class HomeViewModel: ObservableObject {
         resolveHabit(row, action: action, on: selectedDate, source: source)
     }
 
-    private func resolveHabit(
+    func resolveHabit(
         _ row: HomeHabitRow,
         action: HabitOccurrenceAction,
         on date: Date,
@@ -4613,7 +4611,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func resetHabit(
+    func resetHabit(
         _ row: HomeHabitRow,
         source: String
     ) {
@@ -4625,7 +4623,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func performHabitMutation(
+    func performHabitMutation(
         _ row: HomeHabitRow,
         request: HomeHabitMutationRequest,
         on date: Date,
@@ -4709,7 +4707,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func handleHabitMutationResult(
+    func handleHabitMutationResult(
         _ result: Result<Void, Error>,
         key: HomeHabitMutationKey,
         habitID: UUID,
@@ -4748,7 +4746,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func recoveryReflectionPromptIfNeeded(
+    func recoveryReflectionPromptIfNeeded(
         for row: HomeHabitRow,
         request: HomeHabitMutationRequest,
         on date: Date
@@ -4772,7 +4770,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func makeHabitMutationFeedback(
+    func makeHabitMutationFeedback(
         for request: HomeHabitMutationRequest,
         row: HomeHabitRow,
         date: Date,
@@ -4809,11 +4807,11 @@ public final class HomeViewModel: ObservableObject {
         habitMutationFeedback = nil
     }
 
-    private func isRecoveryHabitRow(_ row: HomeHabitRow) -> Bool {
+    func isRecoveryHabitRow(_ row: HomeHabitRow) -> Bool {
         row.state == .overdue || row.state == .lapsedToday || row.riskState != .stable
     }
 
-    private func applyOptimisticHabitMutation(
+    func applyOptimisticHabitMutation(
         _ row: HomeHabitRow,
         request: HomeHabitMutationRequest,
         on date: Date
@@ -4840,7 +4838,7 @@ public final class HomeViewModel: ObservableObject {
         return true
     }
 
-    private func currentAllHabitRows() -> [HomeHabitRow] {
+    func currentAllHabitRows() -> [HomeHabitRow] {
         if let cachedMergedHabitRows,
            cachedMergedHabitRows.revision == habitRowsDerivationRevision {
             return cachedMergedHabitRows.rows
@@ -4864,7 +4862,7 @@ public final class HomeViewModel: ObservableObject {
         return rows
     }
 
-    private func splitRescueEligibleTasks(
+    func splitRescueEligibleTasks(
         from openTaskRows: [TaskDefinition],
         on date: Date
     ) -> (agendaTaskRows: [TaskDefinition], focusTaskRows: [TaskDefinition], rescueEligibleTasks: [TaskDefinition]) {
@@ -4884,7 +4882,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func refreshTodayAgendaForCurrentFocusSelection() {
+    func refreshTodayAgendaForCurrentFocusSelection() {
         guard activeScope.quickView == .today else { return }
         refreshDueTodayAgenda(
             openTaskRows: focusOpenTasksForCurrentState(),
@@ -4909,25 +4907,25 @@ public final class HomeViewModel: ObservableObject {
         return agendaTaskRows.filter { !visibleFocusTaskIDs.contains($0.id) }
     }
 
-    private static func openTaskID(for row: HomeTodayRow) -> UUID? {
+    static func openTaskID(for row: HomeTodayRow) -> UUID? {
         guard case .task(let task) = row, !task.isComplete else { return nil }
         return task.id
     }
 
-    private func isEligibleForHabitFocusFallback(_ row: HomeHabitRow) -> Bool {
+    func isEligibleForHabitFocusFallback(_ row: HomeHabitRow) -> Bool {
         row.trackingMode == .dailyCheckIn
             && row.kind == .positive
             && (row.state == .overdue || row.riskState == .atRisk)
     }
 
-    private func isShowingHabitBackedFocusFallback() -> Bool {
+    func isShowingHabitBackedFocusFallback() -> Bool {
         let rows = focusNowSectionState.rows
         guard rows.isEmpty == false else { return false }
         guard focusTasks.isEmpty else { return false }
         return rows.allSatisfy(\.isHabit)
     }
 
-    private func shouldRecomputeHabitFocusFallback(for habitID: UUID) -> Bool {
+    func shouldRecomputeHabitFocusFallback(for habitID: UUID) -> Bool {
         guard focusTasks.isEmpty else { return false }
         guard focusNowSectionState.rows.isEmpty == false else { return true }
 
@@ -4939,7 +4937,7 @@ public final class HomeViewModel: ObservableObject {
         return displayedHabitRows.contains(where: { $0.habitID == habitID })
     }
 
-    private func currentHabitRowPlacementMap() -> [UUID: HomeHabitRowPlacement] {
+    func currentHabitRowPlacementMap() -> [UUID: HomeHabitRowPlacement] {
         var placements: [UUID: HomeHabitRowPlacement] = [:]
 
         for (index, row) in habitHomeSectionState.primaryRows.enumerated() {
@@ -4955,7 +4953,7 @@ public final class HomeViewModel: ObservableObject {
         return placements
     }
 
-    private func placementBucket(for row: HomeHabitRow) -> HomeHabitRowPlacementBucket {
+    func placementBucket(for row: HomeHabitRow) -> HomeHabitRowPlacementBucket {
         if row.trackingMode == .lapseOnly, row.state == .tracking, row.riskState == .stable {
             return .quiet
         }
@@ -4965,7 +4963,7 @@ public final class HomeViewModel: ObservableObject {
         return .primary
     }
 
-    private func replacingHabitRow(
+    func replacingHabitRow(
         habitID: UUID,
         with canonicalRow: HomeHabitRow?
     ) -> (primary: [HomeHabitRow], recovery: [HomeHabitRow], quiet: [HomeHabitRow]) {
@@ -4996,7 +4994,7 @@ public final class HomeViewModel: ObservableObject {
         return (primaryRows, recoveryRows, quietRows)
     }
 
-    private func patchAgendaRowsForHabitMutation(
+    func patchAgendaRowsForHabitMutation(
         habitID: UUID,
         canonicalRow: HomeHabitRow?
     ) -> [HomeTodayRow] {
@@ -5023,7 +5021,7 @@ public final class HomeViewModel: ObservableObject {
         return patchedRows
     }
 
-    private func patchDueTodaySection(
+    func patchDueTodaySection(
         rows: [HomeTodayRow]
     ) -> HomeListSection? {
         dueTodaySection.map { section in
@@ -5036,7 +5034,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func patchCurrentHabitSignals(
+    func patchCurrentHabitSignals(
         habitID: UUID,
         canonicalRow: HomeHabitRow?
     ) -> [LifeBoardHabitSignal] {
@@ -5055,7 +5053,7 @@ public final class HomeViewModel: ObservableObject {
         return signals
     }
 
-    private func buildHabitMutationSectionPatch(
+    func buildHabitMutationSectionPatch(
         habitID: UUID,
         canonicalRow: HomeHabitRow?
     ) -> HomeHabitMutationSectionPatch {
@@ -5101,7 +5099,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func applyHabitMutationSectionPatch(_ patch: HomeHabitMutationSectionPatch) {
+    func applyHabitMutationSectionPatch(_ patch: HomeHabitMutationSectionPatch) {
         assignForHabitMutation(\.dueTodayRows, patch.dueTodayRows)
         assignForHabitMutation(\.dueTodaySection, patch.dueTodaySection)
         assignForHabitMutation(\.habitHomeSectionState, patch.habitHomeSectionState)
@@ -5115,7 +5113,7 @@ public final class HomeViewModel: ObservableObject {
         currentHabitSignals = patch.currentHabitSignals
     }
 
-    private func habitFocusFallbackRows(from habitRows: [HomeHabitRow]) -> [HomeTodayRow] {
+    func habitFocusFallbackRows(from habitRows: [HomeHabitRow]) -> [HomeTodayRow] {
         let highPriorityHabits = habitRows
             .filter(isEligibleForHabitFocusFallback(_:))
             .sorted { lhs, rhs in
@@ -5134,7 +5132,7 @@ public final class HomeViewModel: ObservableObject {
         return Array(highPriorityHabits.prefix(1))
     }
 
-    private func optimisticHabitRow(
+    func optimisticHabitRow(
         from row: HomeHabitRow,
         request: HomeHabitMutationRequest,
         on date: Date
@@ -5200,7 +5198,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func optimisticHabitDayState(for request: HomeHabitMutationRequest) -> HabitDayState {
+    func optimisticHabitDayState(for request: HomeHabitMutationRequest) -> HabitDayState {
         switch request {
         case .resolve(.complete), .resolve(.abstained):
             return .success
@@ -5213,7 +5211,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func optimisticOccurrenceState(for request: HomeHabitMutationRequest) -> OccurrenceState {
+    func optimisticOccurrenceState(for request: HomeHabitMutationRequest) -> OccurrenceState {
         switch request {
         case .resolve(.complete), .resolve(.abstained):
             return .completed
@@ -5226,7 +5224,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func optimisticHomeHabitState(
+    func optimisticHomeHabitState(
         for row: HomeHabitRow,
         request: HomeHabitMutationRequest,
         on date: Date
@@ -5249,7 +5247,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func optimisticallyPatchedHabitDayMarks(
+    func optimisticallyPatchedHabitDayMarks(
         from existingMarks: [HabitDayMark],
         dayState: HabitDayState,
         on date: Date
@@ -5273,7 +5271,7 @@ public final class HomeViewModel: ObservableObject {
         return marks
     }
 
-    private func optimisticallyPatchedBoardCells(
+    func optimisticallyPatchedBoardCells(
         from existingCells: [HabitBoardCell],
         marks: [HabitDayMark],
         cadence: HabitCadenceDraft,
@@ -5318,7 +5316,7 @@ public final class HomeViewModel: ObservableObject {
         return resolvedCells
     }
 
-    private func optimisticBoardCellState(
+    func optimisticBoardCellState(
         on day: Date,
         marksByDay: [Date: HabitDayMark],
         cadence: HabitCadenceDraft,
@@ -5351,7 +5349,7 @@ public final class HomeViewModel: ObservableObject {
         return .bridge(kind: .single, source: .notScheduled)
     }
 
-    private func optimisticHabitShouldOccur(
+    func optimisticHabitShouldOccur(
         on date: Date,
         cadence: HabitCadenceDraft,
         calendar: Calendar
@@ -5364,7 +5362,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func classifyOptimisticBridgeKinds(in cells: [HabitBoardCell]) -> [HabitBoardCell] {
+    func classifyOptimisticBridgeKinds(in cells: [HabitBoardCell]) -> [HabitBoardCell] {
         var resolved = cells
         var index = 0
 
@@ -5419,7 +5417,7 @@ public final class HomeViewModel: ObservableObject {
         return resolved
     }
 
-    private func optimisticNearestDoneState(in cells: [HabitBoardCell], before index: Int) -> Bool {
+    func optimisticNearestDoneState(in cells: [HabitBoardCell], before index: Int) -> Bool {
         guard index > 0 else { return false }
         for cursor in stride(from: index - 1, through: 0, by: -1) {
             switch cells[cursor].state {
@@ -5434,7 +5432,7 @@ public final class HomeViewModel: ObservableObject {
         return false
     }
 
-    private func optimisticNearestDoneState(in cells: [HabitBoardCell], after index: Int) -> Bool {
+    func optimisticNearestDoneState(in cells: [HabitBoardCell], after index: Int) -> Bool {
         guard index < cells.count - 1 else { return false }
         for cursor in (index + 1)..<cells.count {
             switch cells[cursor].state {
@@ -5450,7 +5448,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Fetches gamification state from the v2 XP ledger.
-    private func refreshGamificationV2State(generation: Int? = nil) {
+    func refreshGamificationV2State(generation: Int? = nil) {
         let engine = useCaseCoordinator.gamificationEngine
 
         engine.fetchTodayXP { [weak self] result in
@@ -5480,7 +5478,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes refreshDailyScoreFromCompletedTasksToday.
-    private func refreshDailyScoreFromCompletedTasksToday(
+    func refreshDailyScoreFromCompletedTasksToday(
         referenceDate: Date = Date(),
         generation: Int? = nil,
         completion: (@Sendable () -> Void)? = nil
@@ -5531,12 +5529,12 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes loadProjectTasks.
-    private func loadProjectTasks(_ projectID: UUID) {
+    func loadProjectTasks(_ projectID: UUID) {
         loadProjectTasks(projectID, generation: nextReloadGeneration())
     }
 
     /// Executes loadProjectTasks.
-    private func loadProjectTasks(_ projectID: UUID, generation: Int) {
+    func loadProjectTasks(_ projectID: UUID, generation: Int) {
         isLoading = true
 
         useCaseCoordinator.getTasks.getTasksForProject(projectID) { [weak self] result in
@@ -5565,12 +5563,12 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes reloadCurrentModeTasks.
-    private func reloadCurrentModeTasks() {
+    func reloadCurrentModeTasks() {
         let generation = nextReloadGeneration()
         applyReloadScopes([.visibleTasks], generation: generation)
     }
 
-    private func applyReloadScopes(
+    func applyReloadScopes(
         _ scopes: Set<HomeReloadScope>,
         generation: Int,
         visibleTasksCompletion: (@Sendable () -> Void)? = nil,
@@ -5609,7 +5607,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes upsertTag.
-    private func upsertTag(_ tag: TagDefinition) {
+    func upsertTag(_ tag: TagDefinition) {
         if let index = tags.firstIndex(where: { $0.id == tag.id }) {
             tags[index] = tag
         } else {
@@ -5619,12 +5617,12 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes applyFocusFilters.
-    private func applyFocusFilters(trackAnalytics: Bool) {
+    func applyFocusFilters(trackAnalytics: Bool) {
         applyFocusFilters(trackAnalytics: trackAnalytics, generation: nextReloadGeneration())
     }
 
     /// Executes applyFocusFilters.
-    private func applyFocusFilters(
+    func applyFocusFilters(
         trackAnalytics: Bool,
         generation: Int,
         completion: (@Sendable () -> Void)? = nil
@@ -5702,7 +5700,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func scheduleAdjacentDayPrefetch(around targetDay: Date, generation: Int) {
+    func scheduleAdjacentDayPrefetch(around targetDay: Date, generation: Int) {
         pendingAdjacentDayPrefetchTask?.cancel()
         let baseDay = normalizedDay(targetDay)
         pendingAdjacentDayPrefetchTask = Task { @MainActor [weak self] in
@@ -5717,7 +5715,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func prefetchAdjacentDays(around targetDay: Date) {
+    func prefetchAdjacentDays(around targetDay: Date) {
         let calendar = Calendar.current
         let baseDay = normalizedDay(targetDay)
         var state = activeFilterState
@@ -5748,7 +5746,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes applyResultToSections.
-    private func applyResultToSections(
+    func applyResultToSections(
         _ result: HomeFilteredTasksResult,
         generation: Int,
         targetDay: Date,
@@ -5875,13 +5873,13 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes updateCompletionRateFromFocusResult.
-    private func updateCompletionRateFromFocusResult(openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) {
+    func updateCompletionRateFromFocusResult(openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) {
         let total = openTasks.count + doneTasks.count
         assignIfChanged(\.completionRate, total > 0 ? Double(doneTasks.count) / Double(total) : 0)
     }
 
     /// Executes refreshProgressState.
-    private func refreshProgressState() {
+    func refreshProgressState() {
         let earnedXP = max(0, dailyScore)
         let remainingPotentialXP: Int
         let targetXP: Int
@@ -5900,7 +5898,7 @@ public final class HomeViewModel: ObservableObject {
         ))
     }
 
-    private func refreshWeeklySummary() {
+    func refreshWeeklySummary() {
         let generation = nextWeeklySummaryGeneration()
         assignIfChanged(\.weeklySummaryIsLoading, true)
         assignIfChanged(\.weeklySummaryErrorMessage, nil)
@@ -5934,7 +5932,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes persistLastFilterState.
-    private func persistLastFilterState() {
+    func persistLastFilterState() {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
 
@@ -5944,7 +5942,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes restorePinnedFocusTaskIDs.
-    private func restorePinnedFocusTaskIDs() {
+    func restorePinnedFocusTaskIDs() {
         let persistedIDs = userDefaults
             .stringArray(forKey: Self.pinnedFocusTaskIDsKey)?
             .compactMap(UUID.init(uuidString:))
@@ -5953,7 +5951,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes persistPinnedFocusTaskIDs.
-    private func persistPinnedFocusTaskIDs() {
+    func persistPinnedFocusTaskIDs() {
         let normalized = normalizedPinnedFocusTaskIDs(pinnedFocusTaskIDs)
         if normalized != pinnedFocusTaskIDs {
             pinnedFocusTaskIDs = normalized
@@ -5962,7 +5960,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes restoreRecentShuffleTaskIDs.
-    private func restoreRecentShuffleTaskIDs() {
+    func restoreRecentShuffleTaskIDs() {
         recentShuffledFocusTaskIDs = userDefaults
             .stringArray(forKey: Self.recentShuffleTaskIDsKey)?
             .compactMap(UUID.init(uuidString:))
@@ -5970,11 +5968,11 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes persistRecentShuffleTaskIDs.
-    private func persistRecentShuffleTaskIDs() {
+    func persistRecentShuffleTaskIDs() {
         userDefaults.set(recentShuffledFocusTaskIDs.map(\.uuidString), forKey: Self.recentShuffleTaskIDsKey)
     }
 
-    private var shuffleExclusionWindow: Int {
+    var shuffleExclusionWindow: Int {
         #if DEBUG
         if userDefaults.object(forKey: "debug.eva.focus.shuffleExclusionWindow") != nil {
             let configured = userDefaults.integer(forKey: "debug.eva.focus.shuffleExclusionWindow")
@@ -5985,7 +5983,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes seedPinnedProjectsIfNeeded.
-    private func seedPinnedProjectsIfNeeded(from projects: [Project]) {
+    func seedPinnedProjectsIfNeeded(from projects: [Project]) {
         guard activeFilterState.pinnedProjectIDs.isEmpty else { return }
         let seeded = Array(projects.prefix(5).map(\.id))
         guard !seeded.isEmpty else { return }
@@ -5994,7 +5992,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes normalizeCustomProjectOrderIfNeeded.
-    private func normalizeCustomProjectOrderIfNeeded(from projects: [Project]) {
+    func normalizeCustomProjectOrderIfNeeded(from projects: [Project]) {
         let normalized = normalizedCustomProjectOrder(
             from: activeFilterState.customProjectOrderIDs,
             currentOrder: [],
@@ -6006,7 +6004,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes bumpPinnedProject.
-    private func bumpPinnedProject(_ id: UUID) {
+    func bumpPinnedProject(_ id: UUID) {
         var pinned = activeFilterState.pinnedProjectIDs
         pinned.removeAll { $0 == id }
         pinned.insert(id, at: 0)
@@ -6019,7 +6017,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes refreshEvaInsights.
-    private func refreshEvaInsights(openTasks: [TaskDefinition]? = nil) {
+    func refreshEvaInsights(openTasks: [TaskDefinition]? = nil) {
         guard V2FeatureFlags.evaFocusEnabled || V2FeatureFlags.evaTriageEnabled || V2FeatureFlags.evaRescueEnabled else {
             evaHomeInsights = nil
             return
@@ -6050,7 +6048,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes dueDate.
-    private func dueDate(for bucket: EvaDueBucket?) -> Date? {
+    func dueDate(for bucket: EvaDueBucket?) -> Date? {
         guard let bucket else { return nil }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -6067,7 +6065,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func uniqueTasks(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
+    func uniqueTasks(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
         var seen = Set<UUID>()
         var unique: [TaskDefinition] = []
         unique.reserveCapacity(tasks.count)
@@ -6079,7 +6077,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes sanitizeFilterState.
-    private func sanitizeFilterState(_ state: HomeFilterState, availableProjects: [Project]) -> HomeFilterState {
+    func sanitizeFilterState(_ state: HomeFilterState, availableProjects: [Project]) -> HomeFilterState {
         var sanitized = state
         sanitized.customProjectOrderIDs = normalizedCustomProjectOrder(
             from: state.customProjectOrderIDs,
@@ -6090,7 +6088,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes normalizedCustomProjectOrder.
-    private func normalizedCustomProjectOrder(
+    func normalizedCustomProjectOrder(
         from requestedOrder: [UUID],
         currentOrder: [UUID],
         availableProjects: [Project]
@@ -6130,7 +6128,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes sortByPriorityThenDue.
-    private func sortByPriorityThenDue(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
+    func sortByPriorityThenDue(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
         if lhs.priority.scorePoints != rhs.priority.scorePoints {
             return lhs.priority.scorePoints > rhs.priority.scorePoints
         }
@@ -6141,7 +6139,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes isEveningTaskHybrid.
-    private func isEveningTaskHybrid(_ task: TaskDefinition) -> Bool {
+    func isEveningTaskHybrid(_ task: TaskDefinition) -> Bool {
         if task.type == .evening { return true }
         if task.type == .morning { return false }
 
@@ -6151,7 +6149,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes rankedFocusTasks.
-    private func rankedFocusTasks(from tasks: [TaskDefinition], relativeTo scope: HomeListScope) -> [TaskDefinition] {
+    func rankedFocusTasks(from tasks: [TaskDefinition], relativeTo scope: HomeListScope) -> [TaskDefinition] {
         guard !tasks.isEmpty else { return [] }
 
         let calendar = Calendar.current
@@ -6226,7 +6224,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes composedFocusTasks.
-    private func composedFocusTasks(from openTasks: [TaskDefinition]) -> [TaskDefinition] {
+    func composedFocusTasks(from openTasks: [TaskDefinition]) -> [TaskDefinition] {
         guard !openTasks.isEmpty else { return [] }
         guard activeScope.quickView == .today else {
             return rankedFocusTasks(from: openTasks, relativeTo: activeScope)
@@ -6244,7 +6242,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes prunePinnedFocusTaskIDs.
-    private func prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set<UUID>) {
+    func prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set<UUID>) {
         let filtered = pinnedFocusTaskIDs.filter { keepingOpenTaskIDs.contains($0) }
         guard filtered != pinnedFocusTaskIDs else { return }
         pinnedFocusTaskIDs = filtered
@@ -6252,7 +6250,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes removePinnedFocusTaskID.
-    private func removePinnedFocusTaskID(_ taskID: UUID) {
+    func removePinnedFocusTaskID(_ taskID: UUID) {
         guard pinnedFocusTaskIDs.contains(taskID) else { return }
         pinnedFocusTaskIDs.removeAll { $0 == taskID }
         persistPinnedFocusTaskIDs()
@@ -6262,7 +6260,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes normalizedPinnedFocusTaskIDs.
-    private func normalizedPinnedFocusTaskIDs(_ ids: [UUID]) -> [UUID] {
+    func normalizedPinnedFocusTaskIDs(_ ids: [UUID]) -> [UUID] {
         var deduped: [UUID] = []
         deduped.reserveCapacity(min(ids.count, Self.maxPinnedFocusTasks))
 
@@ -6277,7 +6275,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes focusOpenTasksForCurrentState.
-    private func focusOpenTasksForCurrentState() -> [TaskDefinition] {
+    func focusOpenTasksForCurrentState() -> [TaskDefinition] {
         switch activeScope.quickView {
         case .done:
             return []
@@ -6291,7 +6289,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes refreshFocusTasksFromCurrentState.
-    private func refreshFocusTasksFromCurrentState() {
+    func refreshFocusTasksFromCurrentState() {
         if activeScope.quickView == .done {
             updateFocusSelection([])
             refreshEvaInsights(openTasks: [])
@@ -6306,7 +6304,7 @@ public final class HomeViewModel: ObservableObject {
         refreshEvaInsights(openTasks: openTasks)
     }
 
-    private func writeTaskListWidgetSnapshot(reason: String = "home_event") {
+    func writeTaskListWidgetSnapshot(reason: String = "home_event") {
         guard V2FeatureFlags.taskListWidgetsEnabled else { return }
         if reason.hasPrefix("apply_result_"), lastTaskListSnapshotRevision == dataRevision {
             return
@@ -6326,7 +6324,7 @@ public final class HomeViewModel: ObservableObject {
         TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: reason)
     }
 
-    private func buildTaskListWidgetSnapshot() -> TaskListWidgetSnapshot {
+    func buildTaskListWidgetSnapshot() -> TaskListWidgetSnapshot {
         let openUnion = uniqueTasks(
             morningTasks.filter { !$0.isComplete } +
             eveningTasks.filter { !$0.isComplete } +
@@ -6408,7 +6406,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func widgetTask(from task: TaskDefinition) -> TaskListWidgetTask {
+    func widgetTask(from task: TaskDefinition) -> TaskListWidgetTask {
         let minutes = task.estimatedDuration.map { duration in
             max(1, Int(duration / 60))
         }
@@ -6428,7 +6426,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func reloadTaskListWidgetTimelines() {
+    func reloadTaskListWidgetTimelines() {
         #if canImport(WidgetKit)
         Task { @MainActor in
             WidgetCenter.shared.reloadAllTimelines()
@@ -6437,7 +6435,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes trackFeatureUsage.
-    private func trackFeatureUsage(action: String, metadata: [String: Any]? = nil) {
+    func trackFeatureUsage(action: String, metadata: [String: Any]? = nil) {
         analyticsService?.trackFeatureUsage(feature: "home_filter", action: action, metadata: metadata)
     }
 
@@ -6486,7 +6484,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func flushQueuedReloads() {
+    func flushQueuedReloads() {
         if isApplyingReloadBatch {
             queuedReloadAfterCurrentBatch = true
             return
@@ -6579,7 +6577,7 @@ public final class HomeViewModel: ObservableObject {
         tracker.finishSchedulingOperations()
     }
 
-    private func completeReloadBatchLifecycle() {
+    func completeReloadBatchLifecycle() {
         isApplyingReloadBatch = false
         if queuedReloadAfterCurrentBatch {
             queuedReloadAfterCurrentBatch = false
@@ -6589,7 +6587,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func reloadScopes(
+    func reloadScopes(
         for reason: HomeTaskMutationEvent?,
         includeAnalytics: Bool,
         repostEvent: Bool
@@ -6601,7 +6599,7 @@ public final class HomeViewModel: ObservableObject {
         return scopes
     }
 
-    private func prioritizedReloadReason(from reasons: Set<HomeTaskMutationEvent>) -> HomeTaskMutationEvent? {
+    func prioritizedReloadReason(from reasons: Set<HomeTaskMutationEvent>) -> HomeTaskMutationEvent? {
         let priorityOrder: [HomeTaskMutationEvent] = [
             .completed,
             .reopened,
@@ -6618,7 +6616,7 @@ public final class HomeViewModel: ObservableObject {
         return priorityOrder.first(where: { reasons.contains($0) }) ?? reasons.first
     }
 
-    private func prioritizedTaskID(from taskIDs: Set<UUID>, for reason: HomeTaskMutationEvent) -> UUID? {
+    func prioritizedTaskID(from taskIDs: Set<UUID>, for reason: HomeTaskMutationEvent) -> UUID? {
         guard taskIDs.isEmpty == false else { return nil }
 
         switch reason {
@@ -6629,7 +6627,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func handleGamificationLedgerMutation(_ mutation: GamificationLedgerMutation) {
+    func handleGamificationLedgerMutation(_ mutation: GamificationLedgerMutation) {
         lastLedgerMutationObservedAt = Date()
         pendingLedgerMutationWatchdog?.cancel()
         pendingLedgerMutationWatchdog = nil
@@ -6680,7 +6678,7 @@ public final class HomeViewModel: ObservableObject {
         ))
     }
 
-    private func scheduleLedgerMutationWatchdog(trigger: String) {
+    func scheduleLedgerMutationWatchdog(trigger: String) {
         guard V2FeatureFlags.gamificationV2Enabled else { return }
 
         pendingLedgerMutationWatchdog?.cancel()
@@ -6723,7 +6721,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes scopeAnalyticsAction.
-    private func scopeAnalyticsAction(_ scope: HomeListScope) -> String {
+    func scopeAnalyticsAction(_ scope: HomeListScope) -> String {
         switch scope {
         case .today:
             return "today"
@@ -6741,7 +6739,6 @@ public final class HomeViewModel: ObservableObject {
             return "evening"
         }
     }
-
     // MARK: - Needs Replan
 
     public func openNeedsReplanLauncher() {
@@ -6942,13 +6939,13 @@ public final class HomeViewModel: ObservableObject {
         updateReplanState(phase: homeReplanState.phase)
     }
 
-    private func beginReplanLauncher(with candidates: [HomeReplanCandidate], scopedTo date: Date?) {
+    func beginReplanLauncher(with candidates: [HomeReplanCandidate], scopedTo date: Date?) {
         needsReplanViewModel.beginSession(with: candidates, scopedTo: date)
         let summary = makeNeedsReplanSummary(for: candidates)
         updateReplanState(phase: .launcher(summary))
     }
 
-    private func refreshNeedsReplanCandidates() {
+    func refreshNeedsReplanCandidates() {
         guard let readModelRepository = useCaseCoordinator.taskReadModelRepository else {
             needsReplanCandidates = []
             cachedGlobalReplanRevision = dataRevision
@@ -7011,7 +7008,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func refreshPassiveNeedsReplanState() {
+    func refreshPassiveNeedsReplanState() {
         switch homeReplanState.phase {
         case .launcher, .card, .placement, .summary, .skippedReview:
             return
@@ -7027,7 +7024,7 @@ public final class HomeViewModel: ObservableObject {
         updateReplanState(phase: .trayVisible(summary))
     }
 
-    private func deriveNeedsReplanCandidates(
+    func deriveNeedsReplanCandidates(
         from tasks: [TaskDefinition],
         scopedTo scopedDate: Date?
     ) -> [HomeReplanCandidate] {
@@ -7039,17 +7036,17 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func makeNeedsReplanSummary(for candidates: [HomeReplanCandidate]) -> NeedsReplanSummary {
+    func makeNeedsReplanSummary(for candidates: [HomeReplanCandidate]) -> NeedsReplanSummary {
         HomeNeedsReplanViewModel.summary(for: candidates)
     }
 
-    private func updateReplanState(phase: HomeReplanSessionPhase) {
+    func updateReplanState(phase: HomeReplanSessionPhase) {
         let nextState = needsReplanViewModel.makeState(phase: phase)
         guard homeReplanState != nextState else { return }
         homeReplanState = nextState
     }
 
-    private func advanceReplanSession(to phase: HomeReplanSessionPhase) {
+    func advanceReplanSession(to phase: HomeReplanSessionPhase) {
         if let next = activeReplanCandidates.first {
             updateReplanState(phase: phase)
             trackHomeInteraction(action: "needs_replan_next", metadata: [
@@ -7061,7 +7058,7 @@ public final class HomeViewModel: ObservableObject {
         updateReplanState(phase: phase)
     }
 
-    private func applyReplanCommand(
+    func applyReplanCommand(
         _ command: AssistantCommand,
         action: HomeReplanResolutionKind,
         candidate: HomeReplanCandidate,
@@ -7106,7 +7103,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func completeReplanResolution(
+    func completeReplanResolution(
         action: HomeReplanResolutionKind,
         candidate: HomeReplanCandidate,
         runID: UUID,
@@ -7128,18 +7125,18 @@ public final class HomeViewModel: ObservableObject {
         advanceReplanSession(to: phase)
     }
 
-    private func beginReplanApplying(_ action: HomeReplanApplyingAction) {
+    func beginReplanApplying(_ action: HomeReplanApplyingAction) {
         needsReplanViewModel.beginApplying(action)
         updateReplanState(phase: homeReplanState.phase)
     }
 
-    private func recordReplanFailure(_ error: Error) {
+    func recordReplanFailure(_ error: Error) {
         needsReplanViewModel.recordFailure(error)
         errorMessage = error.localizedDescription
         updateReplanState(phase: homeReplanState.phase)
     }
 
-    private func applyingAction(for action: HomeReplanResolutionKind) -> HomeReplanApplyingAction {
+    func applyingAction(for action: HomeReplanResolutionKind) -> HomeReplanApplyingAction {
         switch action {
         case .rescheduled:
             return .reschedule
@@ -7152,17 +7149,17 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func defaultReplanPlacementDay(now: Date = Date()) -> Date {
+    func defaultReplanPlacementDay(now: Date = Date()) -> Date {
         HomeNeedsReplanViewModel.defaultPlacementDay(now: now)
     }
 
-    private func roundedToNearestQuarterHour(_ date: Date) -> Date {
+    func roundedToNearestQuarterHour(_ date: Date) -> Date {
         let interval = (date.timeIntervalSinceReferenceDate / 900).rounded() * 900
         return Date(timeIntervalSinceReferenceDate: interval)
     }
 
     /// Executes trackFirstCompletionLatencyIfNeeded.
-    private func trackFirstCompletionLatencyIfNeeded() {
+    func trackFirstCompletionLatencyIfNeeded() {
         guard !didTrackFirstCompletionLatency else { return }
         didTrackFirstCompletionLatency = true
 
@@ -7171,21 +7168,21 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes updateCompletionRate.
-    private func updateCompletionRate(_ result: TodayTasksResult) {
+    func updateCompletionRate(_ result: TodayTasksResult) {
         let total = result.totalCount
         let completed = result.completedTasks.count
         completionRate = total > 0 ? Double(completed) / Double(total) : 0
     }
 
     /// Executes updateCompletionRate.
-    private func updateCompletionRate(_ result: DateTasksResult) {
+    func updateCompletionRate(_ result: DateTasksResult) {
         let total = result.totalCount
         let completed = result.completedTasks.count
         completionRate = total > 0 ? Double(completed) / Double(total) : 0
     }
 
     /// Executes applyCompletionResultLocally.
-    private func applyCompletionResultLocally(_ updatedTask: TaskDefinition) {
+    func applyCompletionResultLocally(_ updatedTask: TaskDefinition) {
         let keepsCompletedInline = shouldKeepCompletedInline(for: activeScope)
 
         if keepsCompletedInline {
@@ -7300,14 +7297,14 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes replacingTask.
-    private func replacingTask(in tasks: [TaskDefinition], with updatedTask: TaskDefinition) -> [TaskDefinition] {
+    func replacingTask(in tasks: [TaskDefinition], with updatedTask: TaskDefinition) -> [TaskDefinition] {
         tasks.map { task in
             task.id == updatedTask.id ? updatedTask : task
         }
     }
 
     /// Executes upsertingTaskInPlace.
-    private func upsertingTaskInPlace(in tasks: [TaskDefinition], with updatedTask: TaskDefinition) -> [TaskDefinition] {
+    func upsertingTaskInPlace(in tasks: [TaskDefinition], with updatedTask: TaskDefinition) -> [TaskDefinition] {
         guard let index = tasks.firstIndex(where: { $0.id == updatedTask.id }) else {
             return tasks + [updatedTask]
         }
@@ -7318,7 +7315,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes replacingTaskIfPresent.
-    private func replacingTaskIfPresent(in tasks: [TaskDefinition], with updatedTask: TaskDefinition) -> [TaskDefinition] {
+    func replacingTaskIfPresent(in tasks: [TaskDefinition], with updatedTask: TaskDefinition) -> [TaskDefinition] {
         guard let index = tasks.firstIndex(where: { $0.id == updatedTask.id }) else {
             return tasks
         }
@@ -7329,12 +7326,12 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes removingTask.
-    private func removingTask(id: UUID, from tasks: [TaskDefinition]) -> [TaskDefinition] {
+    func removingTask(id: UUID, from tasks: [TaskDefinition]) -> [TaskDefinition] {
         tasks.filter { $0.id != id }
     }
 
     /// Executes removeTaskFromOpenProjections.
-    private func removeTaskFromOpenProjections(id: UUID) {
+    func removeTaskFromOpenProjections(id: UUID) {
         morningTasks = removingTask(id: id, from: morningTasks)
         eveningTasks = removingTask(id: id, from: eveningTasks)
         overdueTasks = removingTask(id: id, from: overdueTasks)
@@ -7342,7 +7339,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes upsertTaskInOpenProjectionPreservingPosition.
-    private func upsertTaskInOpenProjectionPreservingPosition(_ task: TaskDefinition) {
+    func upsertTaskInOpenProjectionPreservingPosition(_ task: TaskDefinition) {
         if morningTasks.contains(where: { $0.id == task.id }) {
             morningTasks = replacingTaskIfPresent(in: morningTasks, with: task)
             return
@@ -7364,7 +7361,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes insertTaskIntoOpenProjection.
-    private func insertTaskIntoOpenProjection(_ task: TaskDefinition) {
+    func insertTaskIntoOpenProjection(_ task: TaskDefinition) {
         if task.isOverdue {
             overdueTasks = sortTasksByPriorityThenDue(upsertingTaskInPlace(in: overdueTasks, with: task))
             return
@@ -7378,18 +7375,18 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes sortTasksByPriorityThenDue.
-    private func sortTasksByPriorityThenDue(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
+    func sortTasksByPriorityThenDue(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
         tasks.sorted(by: sortByPriorityThenDue)
     }
 
-    private enum InlineSection {
+    enum InlineSection {
         case morning
         case evening
         case overdue
     }
 
     /// Executes retainingInlineCompletedRows.
-    private func retainingInlineCompletedRows(
+    func retainingInlineCompletedRows(
         computedMorning: [TaskDefinition],
         computedEvening: [TaskDefinition],
         computedOverdue: [TaskDefinition],
@@ -7452,7 +7449,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes insertTaskIfMissing.
-    private func insertTaskIfMissing(_ tasks: inout [TaskDefinition], task: TaskDefinition, preferredIndex: Int) {
+    func insertTaskIfMissing(_ tasks: inout [TaskDefinition], task: TaskDefinition, preferredIndex: Int) {
         if let existingIndex = tasks.firstIndex(where: { $0.id == task.id }) {
             tasks[existingIndex] = task
             return
@@ -7463,7 +7460,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes isTaskOverdue.
-    private func isTaskOverdue(_ task: TaskDefinition, relativeTo scope: HomeListScope) -> Bool {
+    func isTaskOverdue(_ task: TaskDefinition, relativeTo scope: HomeListScope) -> Bool {
         guard let dueDate = task.dueDate else { return false }
 
         switch scope {
@@ -7477,7 +7474,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes shouldKeepCompletedInline.
-    private func shouldKeepCompletedInline(for scope: HomeListScope) -> Bool {
+    func shouldKeepCompletedInline(for scope: HomeListScope) -> Bool {
         switch scope {
         case .today, .customDate:
             return true
@@ -7487,7 +7484,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes isTaskCompletedOnScopeDay.
-    private func isTaskCompletedOnScopeDay(_ task: TaskDefinition, scope: HomeListScope) -> Bool {
+    func isTaskCompletedOnScopeDay(_ task: TaskDefinition, scope: HomeListScope) -> Bool {
         guard task.isComplete, let completionDate = task.dateCompleted else { return false }
         let calendar = Calendar.current
         let startOfScopeDay = calendar.startOfDay(for: scope.referenceDate)
@@ -7498,12 +7495,12 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes isTaskCompletedOnActiveScopeDay.
-    private func isTaskCompletedOnActiveScopeDay(_ task: TaskDefinition) -> Bool {
+    func isTaskCompletedOnActiveScopeDay(_ task: TaskDefinition) -> Bool {
         isTaskCompletedOnScopeDay(task, scope: activeScope)
     }
 
     /// Executes mergedInlineDoneTasks.
-    private func mergedInlineDoneTasks(
+    func mergedInlineDoneTasks(
         incomingDoneTasks: [TaskDefinition],
         openTasks: [TaskDefinition],
         shouldKeepCompletedInline: Bool
@@ -7532,7 +7529,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes normalizedSections.
-    private func normalizedSections(
+    func normalizedSections(
         morning: [TaskDefinition],
         evening: [TaskDefinition],
         overdue: [TaskDefinition],
@@ -7559,37 +7556,37 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes nextReloadGeneration.
     @discardableResult
-    private func nextReloadGeneration() -> Int {
+    func nextReloadGeneration() -> Int {
         reloadGeneration += 1
         return reloadGeneration
     }
 
     @discardableResult
-    private func nextAnalyticsGeneration() -> Int {
+    func nextAnalyticsGeneration() -> Int {
         analyticsGeneration += 1
         return analyticsGeneration
     }
 
     @discardableResult
-    private func nextWeeklySummaryGeneration() -> Int {
+    func nextWeeklySummaryGeneration() -> Int {
         weeklySummaryGeneration += 1
         return weeklySummaryGeneration
     }
 
     /// Executes isCurrentReloadGeneration.
-    private func isCurrentReloadGeneration(_ generation: Int) -> Bool {
+    func isCurrentReloadGeneration(_ generation: Int) -> Bool {
         generation == reloadGeneration
     }
 
-    private func isCurrentAnalyticsGeneration(_ generation: Int) -> Bool {
+    func isCurrentAnalyticsGeneration(_ generation: Int) -> Bool {
         generation == analyticsGeneration
     }
 
-    private func isCurrentWeeklySummaryGeneration(_ generation: Int) -> Bool {
+    func isCurrentWeeklySummaryGeneration(_ generation: Int) -> Bool {
         generation == weeklySummaryGeneration
     }
 
-    private func assignIfChanged<Value: Equatable>(
+    func assignIfChanged<Value: Equatable>(
         _ keyPath: ReferenceWritableKeyPath<HomeViewModel, Value>,
         _ newValue: Value
     ) {
@@ -7602,7 +7599,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func assignForHabitMutation<Value>(
+    func assignForHabitMutation<Value>(
         _ keyPath: ReferenceWritableKeyPath<HomeViewModel, Value>,
         _ newValue: Value
     ) {
@@ -7615,7 +7612,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes applyCompletionOverrides.
-    private func applyCompletionOverrides(openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) -> (openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) {
+    func applyCompletionOverrides(openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) -> (openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) {
         let normalizedOpen = openTasks.map(applyingCompletionOverrideIfNeeded)
         let normalizedDone = doneTasks.map(applyingCompletionOverrideIfNeeded)
 
@@ -7650,7 +7647,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes applyingCompletionOverrideIfNeeded.
-    private func applyingCompletionOverrideIfNeeded(_ task: TaskDefinition) -> TaskDefinition {
+    func applyingCompletionOverrideIfNeeded(_ task: TaskDefinition) -> TaskDefinition {
         guard let expectedCompletion = completionOverrides[task.id],
               expectedCompletion != task.isComplete else {
             return task
@@ -7663,7 +7660,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes reconcileCompletionOverrides.
-    private func reconcileCompletionOverrides(persistedTasks: [TaskDefinition]) {
+    func reconcileCompletionOverrides(persistedTasks: [TaskDefinition]) {
         guard !completionOverrides.isEmpty else { return }
 
         var resolvedIDs: [UUID] = []
@@ -7684,7 +7681,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes summarizeRowState.
-    private func summarizeRowState(_ tasks: [TaskDefinition], limit: Int = 4) -> String {
+    func summarizeRowState(_ tasks: [TaskDefinition], limit: Int = 4) -> String {
         let summary = tasks.prefix(limit).map { task in
             let state = task.isComplete ? "done" : "open"
             return "\(task.id.uuidString.prefix(8)):\(state):\(task.title)"
@@ -7692,7 +7689,7 @@ public final class HomeViewModel: ObservableObject {
         return "[\(summary)] total=\(tasks.count)"
     }
 
-    private static func makeHabitMutationFeedbackDateFormatter() -> DateFormatter {
+    static func makeHabitMutationFeedbackDateFormatter() -> DateFormatter {
         let formatter = DateFormatter()
         formatter.calendar = Calendar.current
         formatter.locale = Locale.current
@@ -7700,7 +7697,7 @@ public final class HomeViewModel: ObservableObject {
         return formatter
     }
 
-    private static func summaryDate(from dateStamp: String?) -> Date? {
+    static func summaryDate(from dateStamp: String?) -> Date? {
         guard let dateStamp, dateStamp.isEmpty == false else { return nil }
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
@@ -7710,7 +7707,7 @@ public final class HomeViewModel: ObservableObject {
         return formatter.date(from: dateStamp)
     }
 
-    private static func summaryDateStamp(from date: Date) -> String {
+    static func summaryDateStamp(from date: Date) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -7719,7 +7716,7 @@ public final class HomeViewModel: ObservableObject {
         return formatter.string(from: date)
     }
 
-    private static func buildHomeCalendarSnapshot(
+    static func buildHomeCalendarSnapshot(
         from snapshot: LifeBoardCalendarSnapshot,
         selectedDate: Date,
         accessAction: CalendarAccessAction
@@ -7779,2540 +7776,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private static func isSameCalendarDay(_ lhs: Date, _ rhs: Date) -> Bool {
+    static func isSameCalendarDay(_ lhs: Date, _ rhs: Date) -> Bool {
         Calendar.current.isDate(lhs, inSameDayAs: rhs)
-    }
-}
-
-// MARK: - View State
-
-extension HomeViewModel {
-
-    /// Combined state for the view.
-    public var viewState: HomeViewState {
-        HomeViewState(
-            isLoading: isLoading,
-            errorMessage: errorMessage,
-            selectedDate: selectedDate,
-            selectedProject: selectedProject,
-            morningTasks: morningTasks,
-            eveningTasks: eveningTasks,
-            overdueTasks: overdueTasks,
-            dueTodayRows: dueTodayRows,
-            dueTodaySection: dueTodaySection,
-            todaySections: todaySections,
-            focusNowSectionState: focusNowSectionState,
-            todayAgendaSectionState: todayAgendaSectionState,
-            agendaTailItems: agendaTailItems,
-            habitHomeSectionState: habitHomeSectionState,
-            quietTrackingSummaryState: quietTrackingSummaryState,
-            upcomingTasks: upcomingTasks,
-            completedTasks: completedTasks,
-            doneTimelineTasks: doneTimelineTasks,
-            projects: projects,
-            dailyScore: dailyScore,
-            streak: streak,
-            completionRate: completionRate,
-            activeQuickView: activeFilterState.quickView,
-            activeScope: activeScope,
-            selectedProjectIDs: activeFilterState.selectedProjectIDs,
-            pointsPotential: pointsPotential,
-            progressState: progressState,
-            focusTasks: focusTasks,
-            focusRows: focusRows,
-            pinnedFocusTaskIDs: pinnedFocusTaskIDs,
-            quickViewCounts: quickViewCounts,
-            savedHomeViews: savedHomeViews,
-            emptyStateMessage: emptyStateMessage,
-            emptyStateActionTitle: emptyStateActionTitle,
-            showCompletedInline: activeFilterState.showCompletedInline,
-            pinnedProjectIDs: activeFilterState.pinnedProjectIDs
-        )
-    }
-}
-
-/// State structure for the home view.
-public struct HomeViewState {
-    public let isLoading: Bool
-    public let errorMessage: String?
-    public let selectedDate: Date
-    public let selectedProject: String
-    public let morningTasks: [TaskDefinition]
-    public let eveningTasks: [TaskDefinition]
-    public let overdueTasks: [TaskDefinition]
-    public let dueTodayRows: [HomeTodayRow]
-    public let dueTodaySection: HomeListSection?
-    public let todaySections: [HomeListSection]
-    public let focusNowSectionState: FocusNowSectionState
-    public let todayAgendaSectionState: TodayAgendaSectionState
-    public let agendaTailItems: [HomeAgendaTailItem]
-    public let habitHomeSectionState: HabitHomeSectionState
-    public let quietTrackingSummaryState: QuietTrackingSummaryState
-    public let upcomingTasks: [TaskDefinition]
-    public let completedTasks: [TaskDefinition]
-    public let doneTimelineTasks: [TaskDefinition]
-    public let projects: [Project]
-    public let dailyScore: Int
-    public let streak: Int
-    public let completionRate: Double
-    public let activeQuickView: HomeQuickView
-    public let activeScope: HomeListScope
-    public let selectedProjectIDs: [UUID]
-    public let pointsPotential: Int
-    public let progressState: HomeProgressState
-    public let focusTasks: [TaskDefinition]
-    public let focusRows: [HomeTodayRow]
-    public let pinnedFocusTaskIDs: [UUID]
-    public let quickViewCounts: [HomeQuickView: Int]
-    public let savedHomeViews: [SavedHomeView]
-    public let emptyStateMessage: String?
-    public let emptyStateActionTitle: String?
-    public let showCompletedInline: Bool
-    public let pinnedProjectIDs: [UUID]
-}
-
-public struct HomeProgressState: Equatable, Sendable {
-    public let earnedXP: Int
-    public let remainingPotentialXP: Int
-    public let todayTargetXP: Int
-    public let streakDays: Int
-    public let isStreakSafeToday: Bool
-
-    public static var empty: HomeProgressState {
-        HomeProgressState(
-            earnedXP: 0,
-            remainingPotentialXP: 0,
-            todayTargetXP: 0,
-            streakDays: 0,
-            isStreakSafeToday: false
-        )
-    }
-
-    public var progressFraction: Double {
-        guard todayTargetXP > 0 else { return 0 }
-        return min(1, Double(earnedXP) / Double(todayTargetXP))
-    }
-}
-
-public struct SummaryTaskRow: Equatable, Identifiable, Sendable {
-    public let taskID: UUID
-    public let title: String
-    public let priority: TaskPriority
-    public let dueDate: Date?
-    public let isOverdue: Bool
-    public let estimatedDuration: TimeInterval?
-    public let isBlocked: Bool
-    public let projectName: String?
-
-    public var id: UUID { taskID }
-}
-
-public struct MorningPlanSummary: Equatable, Sendable {
-    public let date: Date
-    public let openTodayCount: Int
-    public let highPriorityCount: Int
-    public let overdueCount: Int
-    public let potentialXP: Int
-    public let focusTasks: [SummaryTaskRow]
-    public let blockedCount: Int
-    public let longTaskCount: Int
-    public let morningPlannedCount: Int
-    public let eveningPlannedCount: Int
-}
-
-public struct NightlyRetrospectiveSummary: Equatable, Sendable {
-    public let date: Date
-    public let completedCount: Int
-    public let totalCount: Int
-    public let xpEarned: Int
-    public let completionRate: Double
-    public let streakCount: Int
-    public let biggestWins: [SummaryTaskRow]
-    public let carryOverDueTodayCount: Int
-    public let carryOverOverdueCount: Int
-    public let tomorrowPreview: [SummaryTaskRow]
-    public let morningCompletedCount: Int
-    public let eveningCompletedCount: Int
-}
-
-public enum DailySummaryModalData: Equatable, Sendable {
-    case morning(MorningPlanSummary)
-    case nightly(NightlyRetrospectiveSummary)
-
-    public var analyticsSnapshot: [String: Any] {
-        switch self {
-        case .morning(let summary):
-            return [
-                "open_today_count": summary.openTodayCount,
-                "high_priority_count": summary.highPriorityCount,
-                "overdue_count": summary.overdueCount,
-                "potential_xp": summary.potentialXP,
-                "focus_count": summary.focusTasks.count,
-                "blocked_count": summary.blockedCount,
-                "long_task_count": summary.longTaskCount
-            ]
-        case .nightly(let summary):
-            return [
-                "completed_count": summary.completedCount,
-                "total_count": summary.totalCount,
-                "xp_earned": summary.xpEarned,
-                "carry_over_due_today_count": summary.carryOverDueTodayCount,
-                "carry_over_overdue_count": summary.carryOverOverdueCount,
-                "tomorrow_preview_count": summary.tomorrowPreview.count,
-                "streak_count": summary.streakCount
-            ]
-        }
-    }
-}
-
-@MainActor
-final class HomeTimelineViewModel: ObservableObject {
-    @Published private(set) var selectedDate: Date
-    @Published private(set) var sunriseAnchor: SunriseAnchor
-    @Published private(set) var dragTranslation: CGFloat
-
-    init(
-        selectedDate: Date = Date(),
-        sunriseAnchor: SunriseAnchor = .collapsed,
-        dragTranslation: CGFloat = 0
-    ) {
-        self.selectedDate = selectedDate
-        self.sunriseAnchor = sunriseAnchor
-        self.dragTranslation = dragTranslation
-    }
-
-    func syncSelectedDate(_ date: Date) {
-        guard Calendar.current.isDate(date, inSameDayAs: selectedDate) == false else { return }
-        selectedDate = date
-    }
-
-    func snap(to anchor: SunriseAnchor) {
-        sunriseAnchor = anchor
-        dragTranslation = 0
-    }
-
-    func updateDrag(_ translation: CGFloat, metrics: HomeSunriseLayoutMetrics) {
-        let baseOffset = metrics.offset(for: sunriseAnchor)
-        let proposed = baseOffset + translation
-        let clamped = min(max(proposed, metrics.offset(for: .collapsed)), metrics.offset(for: .fullReveal))
-        dragTranslation = clamped - baseOffset
-    }
-
-    func endDrag(predictedTranslation: CGFloat, metrics: HomeSunriseLayoutMetrics) {
-        let current = interactiveOffset(metrics: metrics)
-        let projected = min(
-            max(current + (predictedTranslation - dragTranslation), metrics.offset(for: .collapsed)),
-            metrics.offset(for: .fullReveal)
-        )
-        let anchors: [SunriseAnchor] = [.collapsed, .midReveal, .fullReveal]
-        let target = anchors.min { lhs, rhs in
-            abs(metrics.offset(for: lhs) - projected) < abs(metrics.offset(for: rhs) - projected)
-        } ?? .collapsed
-        sunriseAnchor = target
-        dragTranslation = 0
-    }
-
-    func interactiveOffset(metrics: HomeSunriseLayoutMetrics) -> CGFloat {
-        let baseOffset = metrics.offset(for: sunriseAnchor)
-        let proposed = baseOffset + dragTranslation
-        return min(max(proposed, metrics.offset(for: .collapsed)), metrics.offset(for: .fullReveal))
-    }
-}
-
-extension HomeViewModel {
-    func buildTimelineSnapshot(
-        calendarSnapshot: HomeCalendarSnapshot,
-        sunriseAnchor: SunriseAnchor,
-        now: Date = Date(),
-        calendar: Calendar = .current
-    ) -> HomeTimelineSnapshot {
-        let interval = LifeBoardPerformanceTrace.begin("HomeTimelineSnapshotBuild")
-        defer { LifeBoardPerformanceTrace.end(interval) }
-        let workspacePreferences = workspacePreferencesProvider()
-        let showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
-        let selectedDay = calendar.startOfDay(for: selectedDate)
-        let currentMinuteStamp = Int(now.timeIntervalSinceReferenceDate / 60)
-        let taskCandidates = timelineTaskCandidates()
-        let weekAgenda = showCalendarEventsInTimeline
-            ? calendarIntegrationService.weekAgenda(anchorDate: selectedDate, weekStartsOn: workspacePreferences.weekStartsOn)
-            : []
-        let projectionInput = HomeTimelineProjectionInput(
-            dataRevision: dataRevision,
-            selectedDay: selectedDay,
-            now: now,
-            calendar: calendar,
-            currentMinuteStamp: currentMinuteStamp,
-            sunriseAnchor: sunriseAnchor,
-            calendarSnapshot: calendarSnapshot,
-            workspacePreferences: workspacePreferences,
-            hiddenCalendarEvents: hiddenHomeTimelineCalendarEvents.sorted(),
-            pinnedFocusTaskIDs: pinnedFocusTaskIDs,
-            needsReplanCandidates: needsReplanCandidates,
-            replanState: homeReplanState,
-            taskCandidates: taskCandidates,
-            taskIndexByID: timelineTaskUniverseByID(),
-            projects: projects,
-            lifeAreas: lifeAreas,
-            calendarWeekAgenda: weekAgenda
-        )
-        let builtProjection = timelineProjectionBuilder.build(
-            input: projectionInput,
-            cached: timelineSnapshotCache
-        )
-        timelineSnapshotCache = builtProjection
-        return builtProjection.snapshot
-    }
-
-    func timelineWeekStartsOn() -> Weekday {
-        calendarIntegrationService.weekStartsOn
-    }
-
-    func showCalendarEventsInTimelineFromHome() {
-        LifeBoardWorkspacePreferencesStore.shared.update { preferences in
-            preferences.showCalendarEventsInTimeline = true
-        }
-        calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: "home_timeline_show_calendar")
-    }
-
-    func hideCalendarEventFromTimeline(eventID: String, on day: Date) {
-        hiddenHomeTimelineCalendarEvents = hiddenCalendarEventStore.hide(eventID: eventID, on: day)
-    }
-
-    func isCalendarEventHiddenFromHomeTimeline(eventID: String, on day: Date) -> Bool {
-        hiddenHomeTimelineCalendarEvents.contains(HomeTimelineHiddenCalendarEventKey(eventID: eventID, day: day))
-    }
-}
-
-struct TimelineWindowBuckets {
-    let allItems: [TimelinePlanItem]
-    let beforeWakeItems: [TimelinePlanItem]
-    let bridgeIntoWakeItems: [TimelinePlanItem]
-    let operationalItems: [TimelinePlanItem]
-    let bridgePastSleepItems: [TimelinePlanItem]
-    let afterSleepItems: [TimelinePlanItem]
-
-    var bridgeItems: [TimelinePlanItem] {
-        bridgeIntoWakeItems + bridgePastSleepItems
-    }
-}
-
-private func timelinePlanItemSort(lhs: TimelinePlanItem, rhs: TimelinePlanItem) -> Bool {
-    guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else { return lhs.title < rhs.title }
-    if lhsStart != rhsStart { return lhsStart < rhsStart }
-    return (lhs.endDate ?? lhsStart) < (rhs.endDate ?? rhsStart)
-}
-
-extension HomeViewModel {
-    func timelineTaskCandidates() -> [TaskDefinition] {
-        var tasksByID: [UUID: TaskDefinition] = [:]
-
-        func insert(_ task: TaskDefinition) {
-            guard task.parentTaskID == nil else { return }
-            let relevantDate = timelinePlacementDate(for: task)
-            let isScheduled = relevantDate != nil
-            let isAllDayTask = task.isAllDay || timelineIsDateOnlyDueDate(task.dueDate)
-            let isUnscheduledInbox = task.scheduledStartAt == nil && task.dueDate == nil && task.isComplete == false
-            guard isScheduled || isAllDayTask || isUnscheduledInbox else { return }
-            tasksByID[task.id] = task
-        }
-
-        (morningTasks + eveningTasks + overdueTasks + dailyCompletedTasks + completedTasks + focusTasks)
-            .forEach(insert)
-
-        todaySections.forEach { section in
-            section.rows.forEach { row in
-                guard case .task(let task) = row else { return }
-                insert(task)
-            }
-        }
-
-        dueTodayRows.forEach { row in
-            guard case .task(let task) = row else { return }
-            insert(task)
-        }
-
-        return timelineSortedTasks(Array(tasksByID.values))
-    }
-
-    func timelineTasksForSelectedDay() -> [TaskDefinition] {
-        timelineTasksForSelectedDay(candidates: timelineTaskCandidates())
-    }
-
-    func timelineTasksForSelectedDay(candidates: [TaskDefinition]) -> [TaskDefinition] {
-        let calendar = Calendar.current
-        let selectedDay = calendar.startOfDay(for: selectedDate)
-        let selectedDayEnd = calendar.date(byAdding: .day, value: 1, to: selectedDay) ?? selectedDay
-        let workspacePreferences = workspacePreferencesProvider()
-        let previousDay = calendar.date(byAdding: .day, value: -1, to: selectedDay) ?? selectedDay
-        let previousWindow = resolvedTimelineAnchorWindow(on: previousDay, preferences: workspacePreferences, calendar: calendar)
-
-        let filtered = candidates.filter { task in
-            let relevantDate = timelinePlacementDate(for: task)
-            let isScheduledForDay = relevantDate.map { $0 < selectedDayEnd && $0 >= selectedDay } ?? false
-            let isPreviousNightContext = relevantDate.map { date in
-                date >= previousWindow.sleep && date < selectedDay
-            } ?? false
-            let isAllDayForDay = timelineAllDayDate(for: task).map { calendar.isDate($0, inSameDayAs: selectedDate) } ?? false
-            let isUnscheduledInbox = task.scheduledStartAt == nil && task.dueDate == nil && task.isComplete == false
-            return isScheduledForDay || isPreviousNightContext || isAllDayForDay || isUnscheduledInbox
-        }
-
-        return timelineSortedTasks(filtered)
-    }
-
-    func timelineTasksForWeek(weekStart: Date, weekEnd: Date) -> [TaskDefinition] {
-        timelineTasksForWeek(weekStart: weekStart, weekEnd: weekEnd, candidates: timelineTaskCandidates())
-    }
-
-    func timelineTasksForWeek(weekStart: Date, weekEnd: Date, candidates: [TaskDefinition]) -> [TaskDefinition] {
-        let filtered = candidates.filter { task in
-            guard task.scheduledStartAt != nil || task.dueDate != nil else { return false }
-            if let placementDate = timelinePlacementDate(for: task) {
-                return placementDate >= weekStart && placementDate < weekEnd
-            }
-            if let allDayDate = timelineAllDayDate(for: task) {
-                return allDayDate >= weekStart && allDayDate < weekEnd
-            }
-            return false
-        }
-
-        return timelineSortedTasks(filtered)
-    }
-
-    func timelineSortedTasks(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
-        return tasks.sorted { lhs, rhs in
-            let lhsDate = timelinePlacementDate(for: lhs) ?? timelineAllDayDate(for: lhs) ?? lhs.createdAt
-            let rhsDate = timelinePlacementDate(for: rhs) ?? timelineAllDayDate(for: rhs) ?? rhs.createdAt
-            if lhsDate != rhsDate { return lhsDate < rhsDate }
-            return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
-        }
-    }
-
-    func timelineWeekSummary(weekStartsOn: Weekday, includeCalendarEvents: Bool) -> TimelineWeekSummary {
-        timelineWeekSummary(
-            weekStartsOn: weekStartsOn,
-            includeCalendarEvents: includeCalendarEvents,
-            candidates: timelineTaskCandidates()
-        )
-    }
-
-    func timelineWeekSummary(
-        weekStartsOn: Weekday,
-        includeCalendarEvents: Bool,
-        candidates: [TaskDefinition]
-    ) -> TimelineWeekSummary {
-        let calendar = Calendar.current
-        let weekStart = XPCalculationEngine.startOfWeek(for: selectedDate, startingOn: weekStartsOn)
-        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
-        let calendarAgenda = includeCalendarEvents
-            ? calendarIntegrationService.weekAgenda(anchorDate: selectedDate, weekStartsOn: weekStartsOn)
-            : []
-        let agendaByDay = Dictionary(uniqueKeysWithValues: calendarAgenda.map {
-            (calendar.startOfDay(for: $0.date), $0)
-        })
-        let weekTasks = timelineTasksForWeek(weekStart: weekStart, weekEnd: weekEnd, candidates: candidates)
-        let tasksByDay = Dictionary(grouping: weekTasks) { task -> Date in
-            if let placementDate = timelinePlacementDate(for: task) {
-                return calendar.startOfDay(for: placementDate)
-            }
-            if let allDayDate = timelineAllDayDate(for: task) {
-                return calendar.startOfDay(for: allDayDate)
-            }
-            return weekStart
-        }
-        let replanCountsByDay = Dictionary(grouping: needsReplanCandidates.compactMap { candidate -> Date? in
-            candidate.anchorDate.map { calendar.startOfDay(for: $0) }
-        }) { $0 }
-            .mapValues(\.count)
-
-        let days = (0..<7).compactMap { offset -> TimelineWeekDaySummary? in
-            guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return nil }
-            let normalizedDay = calendar.startOfDay(for: day)
-            let agenda = agendaByDay[normalizedDay]
-            let tasks = tasksByDay[normalizedDay] ?? []
-            let taskMarkers = tasks.compactMap { timelinePlacementDate(for: $0) }
-            let visibleEvents = includeCalendarEvents
-                ? (agenda?.events.filter { !isCalendarEventHiddenFromHomeTimeline(eventID: $0.id, on: normalizedDay) } ?? [])
-                : []
-            let eventMarkers = visibleEvents.filter { !$0.isAllDay }.map(\.startDate)
-            let tints = tasks.compactMap { timelineTintHex(for: $0) } + visibleEvents.compactMap(\.calendarColorHex)
-            let allDayCount = tasks.filter { timelineAllDayDate(for: $0) != nil }.count + visibleEvents.filter(\.isAllDay).count
-            let timedCount = taskMarkers.count + eventMarkers.count
-            let totalCount = allDayCount + timedCount
-            let replanEligibleCount = replanCountsByDay[normalizedDay] ?? 0
-            return TimelineWeekDaySummary(
-                date: normalizedDay,
-                dayKey: timelineDayKey(for: normalizedDay, calendar: calendar),
-                allDayCount: allDayCount,
-                replanEligibleCount: replanEligibleCount,
-                timedMarkers: (taskMarkers + eventMarkers).sorted(),
-                tintHexes: Array(tints.prefix(4)),
-                summaryText: timelineWeekSummaryText(taskCount: taskMarkers.count, eventCount: eventMarkers.count, allDayCount: allDayCount),
-                loadLevel: timelineLoadLevel(for: totalCount)
-            )
-        }
-
-        return TimelineWeekSummary(
-            weekStart: weekStart,
-            weekStartsOn: weekStartsOn,
-            days: days
-        )
-    }
-
-    func timelineTaskUniverseByID() -> [UUID: TaskDefinition] {
-        var universe = uniqueTasks(
-            morningTasks
-            + eveningTasks
-            + overdueTasks
-            + dailyCompletedTasks
-            + upcomingTasks
-            + completedTasks
-            + doneTimelineTasks
-            + focusTasks
-        )
-        universe.append(contentsOf: dueTodayRows.compactMap { row in
-            guard case .task(let task) = row else { return nil }
-            return task
-        })
-        todaySections.forEach { section in
-            universe.append(contentsOf: section.rows.compactMap { row in
-                guard case .task(let task) = row else { return nil }
-                return task
-            })
-        }
-        return Dictionary(uniqueKeysWithValues: uniqueTasks(universe).map { ($0.id, $0) })
-    }
-
-    func timelinePlanItem(from task: TaskDefinition, taskIndexByID: [UUID: TaskDefinition]? = nil) -> TimelinePlanItem {
-        // Prefer explicit schedule fields. The dueDate fallback is temporary legacy support.
-        let startDate = timelinePlacementDate(for: task)
-        let resolvedDuration = task.scheduledEndAt?.timeIntervalSince(startDate ?? task.createdAt)
-            ?? task.estimatedDuration
-            ?? (30 * 60)
-        let endDate = startDate.map { start in
-            task.scheduledEndAt ?? start.addingTimeInterval(max(resolvedDuration, 15 * 60))
-        }
-        let checklistSummary = timelineChecklistSummary(for: task, taskIndexByID: taskIndexByID)
-        let hasProjectUtility = {
-            guard let projectName = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) else { return false }
-            return projectName.isEmpty == false && projectName.caseInsensitiveCompare(ProjectConstants.inboxProjectName) != .orderedSame
-        }()
-        return TimelinePlanItem(
-            id: "task:\(task.id.uuidString)",
-            source: .task,
-            taskID: task.id,
-            eventID: nil,
-            title: task.title,
-            subtitle: task.projectName,
-            startDate: startDate,
-            endDate: endDate,
-            isAllDay: timelineAllDayDate(for: task) != nil,
-            isComplete: task.isComplete,
-            tintHex: timelineTintHex(for: task),
-            systemImageName: timelineSystemImageName(for: task),
-            accessoryText: timelineAccessoryText(for: task),
-            taskPriority: task.priority,
-            isPinnedFocusTask: pinnedFocusTaskIDs.contains(task.id),
-            hasNotes: task.details?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
-            isRecurring: task.repeatPattern != nil || task.recurrenceSeriesID != nil,
-            checklistSummary: checklistSummary,
-            showsProjectUtility: hasProjectUtility,
-            isMeetingLike: task.context == .meeting
-        )
-    }
-
-    func timelinePlanItem(from task: TaskDefinition, on selectedDay: Date, taskIndexByID: [UUID: TaskDefinition]? = nil) -> TimelinePlanItem? {
-        let item = timelinePlanItem(from: task, taskIndexByID: taskIndexByID)
-        if item.isAllDay {
-            return nil
-        }
-        guard let startDate = item.startDate else { return nil }
-        guard Calendar.current.isDate(startDate, inSameDayAs: selectedDay) else { return nil }
-        return item
-    }
-
-    func timelinePlanItem(from event: LifeBoardCalendarEventSnapshot) -> TimelinePlanItem {
-        TimelinePlanItem(
-            id: "event:\(event.id)",
-            source: .calendarEvent,
-            taskID: nil,
-            eventID: event.id,
-            title: event.title,
-            subtitle: event.calendarTitle,
-            startDate: event.startDate,
-            endDate: event.endDate,
-            isAllDay: event.isAllDay,
-            isComplete: false,
-            tintHex: event.calendarColorHex,
-            systemImageName: "calendar",
-            accessoryText: nil,
-            taskPriority: nil,
-            isPinnedFocusTask: false,
-            hasNotes: event.notes?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
-            isRecurring: false,
-            checklistSummary: nil,
-            showsProjectUtility: false,
-            isMeetingLike: timelineIsMeetingLikeEvent(event)
-        )
-    }
-
-    func resolvedTimelineAnchorWindow(
-        on day: Date,
-        preferences: LifeBoardWorkspacePreferences,
-        calendar: Calendar = .current
-    ) -> (wake: Date, sleep: Date) {
-        let fallbackWake = timelineAnchorTime(on: day, hour: 5, minute: 0)
-        let fallbackSleepBase = timelineAnchorTime(on: day, hour: 2, minute: 0)
-        let fallbackSleep = calendar.date(byAdding: .day, value: 1, to: fallbackSleepBase) ?? fallbackSleepBase
-
-        let wake = timelineAnchorTime(
-            on: day,
-            hour: preferences.timelineRiseAndShineHour,
-            minute: preferences.timelineRiseAndShineMinute
-        )
-        var sleep = timelineAnchorTime(
-            on: day,
-            hour: preferences.timelineWindDownHour,
-            minute: preferences.timelineWindDownMinute
-        )
-        if sleep <= wake {
-            sleep = calendar.date(byAdding: .day, value: 1, to: sleep) ?? sleep
-        }
-
-        let span = sleep.timeIntervalSince(wake)
-        guard span >= 60 * 60, span <= 22 * 60 * 60 else {
-            return (fallbackWake, fallbackSleep)
-        }
-        return (wake, sleep)
-    }
-
-    func partitionTimelineItems(
-        _ items: [TimelinePlanItem],
-        wakeAnchor: TimelineAnchorItem,
-        sleepAnchor: TimelineAnchorItem
-    ) -> TimelineWindowBuckets {
-        let decoratedItems = items.map { item in
-            decorateTimelineItem(item, wakeAnchor: wakeAnchor, sleepAnchor: sleepAnchor)
-        }
-        let beforeWakeItems = decoratedItems.filter { $0.windowRelation == .beforeWake }
-        let afterSleepItems = decoratedItems.filter { $0.windowRelation == .afterSleep }
-        let bridgeIntoWakeItems = decoratedItems.filter { $0.windowRelation == .bridgeIntoWake }
-        let bridgePastSleepItems = decoratedItems.filter { $0.windowRelation == .bridgePastSleep }
-        let operationalItems = (bridgeIntoWakeItems
-            + decoratedItems.filter { $0.windowRelation == .operational }
-            + bridgePastSleepItems)
-            .sorted(by: timelinePlanItemSort)
-
-        return TimelineWindowBuckets(
-            allItems: decoratedItems.sorted(by: timelinePlanItemSort),
-            beforeWakeItems: beforeWakeItems.sorted(by: timelinePlanItemSort),
-            bridgeIntoWakeItems: bridgeIntoWakeItems.sorted(by: timelinePlanItemSort),
-            operationalItems: operationalItems,
-            bridgePastSleepItems: bridgePastSleepItems.sorted(by: timelinePlanItemSort),
-            afterSleepItems: afterSleepItems.sorted(by: timelinePlanItemSort)
-        )
-    }
-
-    func decorateTimelineItem(
-        _ item: TimelinePlanItem,
-        wakeAnchor: TimelineAnchorItem,
-        sleepAnchor: TimelineAnchorItem
-    ) -> TimelinePlanItem {
-        guard let start = item.startDate, let end = item.endDate, end > start else {
-            return item
-        }
-
-        let overlapsWake = start < wakeAnchor.time && end > wakeAnchor.time
-        let overlapsSleep = start < sleepAnchor.time && end > sleepAnchor.time
-        let windowRelation: TimelineWindowRelation
-        if end <= wakeAnchor.time {
-            windowRelation = .beforeWake
-        } else if start >= sleepAnchor.time {
-            windowRelation = .afterSleep
-        } else if overlapsWake {
-            windowRelation = .bridgeIntoWake
-        } else if overlapsSleep {
-            windowRelation = .bridgePastSleep
-        } else {
-            windowRelation = .operational
-        }
-
-        return TimelinePlanItem(
-            id: item.id,
-            source: item.source,
-            taskID: item.taskID,
-            eventID: item.eventID,
-            title: item.title,
-            subtitle: item.subtitle,
-            startDate: item.startDate,
-            endDate: item.endDate,
-            isAllDay: item.isAllDay,
-            isComplete: item.isComplete,
-            tintHex: item.tintHex,
-            systemImageName: item.systemImageName,
-            accessoryText: item.accessoryText,
-            taskPriority: item.taskPriority,
-            isPinnedFocusTask: item.isPinnedFocusTask,
-            hasNotes: item.hasNotes,
-            isRecurring: item.isRecurring,
-            checklistSummary: item.checklistSummary,
-            showsProjectUtility: item.showsProjectUtility,
-            isMeetingLike: item.isMeetingLike,
-            windowRelation: windowRelation,
-            overlapsWake: overlapsWake,
-            overlapsSleep: overlapsSleep
-        )
-    }
-
-    func timelineGaps(
-        between timedItems: [TimelinePlanItem],
-        wakeAnchor: TimelineAnchorItem,
-        sleepAnchor: TimelineAnchorItem,
-        inboxCount: Int,
-        selectedDate: Date,
-        now: Date,
-        actionableHorizon: TimeInterval = 4 * 60 * 60,
-        calendar: Calendar = .current
-    ) -> [TimelineGap] {
-        let gaps = timelineOperationalGaps(
-            between: timedItems,
-            wakeAnchor: wakeAnchor,
-            sleepAnchor: sleepAnchor,
-            inboxCount: inboxCount
-        )
-
-        return timelineActionableGaps(
-            from: gaps,
-            selectedDate: selectedDate,
-            now: now,
-            actionableHorizon: actionableHorizon,
-            calendar: calendar
-        )
-    }
-
-    func timelineActionableGaps(
-        from gaps: [TimelineGap],
-        selectedDate: Date,
-        now: Date,
-        actionableHorizon: TimeInterval = 4 * 60 * 60,
-        minimumFutureDuration: TimeInterval = 45 * 60,
-        minimumQuietDuration: TimeInterval = 90 * 60,
-        minimumPromptSpacing: TimeInterval = 90 * 60,
-        calendar: Calendar = .current
-    ) -> [TimelineGap] {
-        let selectedDay = calendar.startOfDay(for: selectedDate)
-        let today = calendar.startOfDay(for: now)
-        if selectedDay < today {
-            return []
-        }
-
-        func spaced(_ candidates: [TimelineGap], limit: Int) -> [TimelineGap] {
-            var selected: [TimelineGap] = []
-            for gap in candidates.sorted(by: { $0.startDate < $1.startDate }) {
-                guard selected.count < limit else { break }
-                guard selected.allSatisfy({ abs(gap.startDate.timeIntervalSince($0.startDate)) >= minimumPromptSpacing }) else {
-                    continue
-                }
-                selected.append(gap)
-            }
-            return selected
-        }
-
-        func preferredFutureCandidates(from source: [TimelineGap]) -> [TimelineGap] {
-            let nonQuiet = source.filter { $0.emphasis != .quietWindow && $0.duration >= minimumFutureDuration }
-            if nonQuiet.isEmpty == false {
-                return nonQuiet
-            }
-            return source.filter { $0.emphasis == .quietWindow && $0.duration >= minimumQuietDuration }
-        }
-
-        if selectedDay > today {
-            return spaced(preferredFutureCandidates(from: gaps), limit: 2)
-        }
-
-        let horizonEnd = now.addingTimeInterval(actionableHorizon)
-        let activeGap = gaps.first { gap in
-            gap.startDate <= now
-                && now < gap.endDate
-                && gap.endDate.timeIntervalSince(now) >= 20 * 60
-        }
-        let upcoming = preferredFutureCandidates(
-            from: gaps.filter { gap in
-                gap.startDate > now && gap.startDate <= horizonEnd
-            }
-        )
-
-        var selected = activeGap.map { [$0] } ?? []
-        for gap in upcoming.sorted(by: { $0.startDate < $1.startDate }) {
-            guard selected.count < (activeGap == nil ? 2 : 2) else { break }
-            guard activeGap == nil || selected.count < 2 else { break }
-            guard selected.allSatisfy({ abs(gap.startDate.timeIntervalSince($0.startDate)) >= minimumPromptSpacing }) else {
-                continue
-            }
-            selected.append(gap)
-            if activeGap != nil || selected.count >= 1 {
-                break
-            }
-        }
-
-        return selected
-    }
-
-    func timelineOperationalGaps(
-        between timedItems: [TimelinePlanItem],
-        wakeAnchor: TimelineAnchorItem,
-        sleepAnchor: TimelineAnchorItem,
-        inboxCount: Int
-    ) -> [TimelineGap] {
-        struct Boundary {
-            let start: Date
-            let end: Date
-            let isSleepAnchor: Bool
-        }
-
-        let sortedIntervals: [(start: Date, end: Date)] = timedItems.compactMap { item in
-            guard let start = item.startDate, let end = item.endDate, end > start else { return nil }
-            let clippedStart = max(start, wakeAnchor.time)
-            let clippedEnd = min(end, sleepAnchor.time)
-            guard clippedEnd > clippedStart else { return nil }
-            return (start: clippedStart, end: clippedEnd)
-        }
-        .sorted { lhs, rhs in
-            if lhs.start != rhs.start { return lhs.start < rhs.start }
-            return lhs.end < rhs.end
-        }
-
-        var mergedIntervals: [(start: Date, end: Date)] = []
-        for interval in sortedIntervals {
-            if let last = mergedIntervals.last, interval.start <= last.end {
-                mergedIntervals[mergedIntervals.count - 1] = (last.start, max(last.end, interval.end))
-            } else {
-                mergedIntervals.append(interval)
-            }
-        }
-
-        var boundaries: [Boundary] = [.init(start: wakeAnchor.time, end: wakeAnchor.time, isSleepAnchor: false)]
-        boundaries.append(contentsOf: mergedIntervals.map { interval in
-            Boundary(start: interval.start, end: interval.end, isSleepAnchor: false)
-        })
-        boundaries.append(.init(start: sleepAnchor.time, end: sleepAnchor.time, isSleepAnchor: true))
-        boundaries.sort { lhs, rhs in lhs.start < rhs.start }
-
-        var gaps: [TimelineGap] = []
-        for index in 0..<(boundaries.count - 1) {
-            let currentEnd = boundaries[index].end
-            let nextStart = boundaries[index + 1].start
-            let gapDuration = nextStart.timeIntervalSince(currentEnd)
-            guard gapDuration >= 20 * 60 else { continue }
-            let isFinalGap = boundaries[index + 1].isSleepAnchor
-            let emphasis: TimelineGapEmphasis
-            if isFinalGap {
-                emphasis = .quietWindow
-            } else if gapDuration <= 45 * 60 {
-                emphasis = .prepWindow
-            } else {
-                emphasis = .openTime
-            }
-            let primaryAction: TimelineGapAction = .addTask
-            let secondaryAction: TimelineGapAction? = .planBlock
-            let copy = timelineGapCopy(
-                duration: gapDuration,
-                inboxCount: inboxCount,
-                isFinalGap: isFinalGap,
-                emphasis: emphasis,
-                primaryAction: primaryAction
-            )
-            gaps.append(TimelineGap(
-                startDate: currentEnd,
-                endDate: nextStart,
-                suggestedTaskCount: inboxCount,
-                headline: copy.headline,
-                supportingText: copy.supportingText,
-                primaryAction: primaryAction,
-                secondaryAction: secondaryAction,
-                emphasis: emphasis
-            ))
-        }
-        return gaps
-    }
-
-    func timelineDayLayoutMode(
-        timedItems: [TimelinePlanItem],
-        gaps: [TimelineGap],
-        wakeAnchor: TimelineAnchorItem,
-        sleepAnchor: TimelineAnchorItem
-    ) -> TimelineDayLayoutMode {
-        guard timedItems.isEmpty == false else { return .compact }
-
-        let daySpan = max(sleepAnchor.time.timeIntervalSince(wakeAnchor.time), 1)
-        let largestGap = gaps.map(\.duration).max() ?? 0
-        guard largestGap >= 4 * 60 * 60 else { return .expanded }
-
-        let timedCoverage = timelineCoveredDuration(for: timedItems)
-        return (timedCoverage / daySpan) <= 0.22 ? .compact : .expanded
-    }
-
-    func timelineCoveredDuration(for timedItems: [TimelinePlanItem]) -> TimeInterval {
-        let intervals = timedItems.compactMap { item -> (start: Date, end: Date)? in
-            guard let start = item.startDate, let end = item.endDate, end > start else { return nil }
-            return (start, end)
-        }
-        .sorted { lhs, rhs in
-            if lhs.start != rhs.start {
-                return lhs.start < rhs.start
-            }
-            return lhs.end < rhs.end
-        }
-
-        guard let first = intervals.first else { return 0 }
-
-        var mergedStart = first.start
-        var mergedEnd = first.end
-        var total: TimeInterval = 0
-
-        for interval in intervals.dropFirst() {
-            if interval.start <= mergedEnd {
-                mergedEnd = max(mergedEnd, interval.end)
-            } else {
-                total += mergedEnd.timeIntervalSince(mergedStart)
-                mergedStart = interval.start
-                mergedEnd = interval.end
-            }
-        }
-
-        total += mergedEnd.timeIntervalSince(mergedStart)
-        return total
-    }
-
-    func timelineTintHex(for task: TaskDefinition) -> String? {
-        let projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let lifeAreasByID = Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        if let owningTint = HomeTaskTintResolver.owningSectionAccentHex(
-            for: task,
-            projectsByID: projectsByID,
-            lifeAreasByID: lifeAreasByID
-        ) {
-            return owningTint
-        }
-
-        // Preserve historical timeline fallback when ownership tint cannot be resolved.
-        return projectsByID[task.projectID]?.color.hexString ?? task.priority.colorHex
-    }
-
-    func timelineDayKey(for date: Date, calendar: Calendar) -> String {
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        let year = components.year ?? 0
-        let month = components.month ?? 0
-        let day = components.day ?? 0
-        return String(format: "%04d-%02d-%02d", year, month, day)
-    }
-
-    func timelineLoadLevel(for totalCount: Int) -> TimelineDayLoadLevel {
-        switch totalCount {
-        case ..<2:
-            return .light
-        case 2...4:
-            return .balanced
-        default:
-            return .busy
-        }
-    }
-
-    func timelineWeekSummaryText(taskCount: Int, eventCount: Int, allDayCount: Int) -> String {
-        let totalCount = taskCount + eventCount + allDayCount
-        if totalCount == 0 {
-            return "Open"
-        }
-        if totalCount >= 5 {
-            return "Busy"
-        }
-        if eventCount > 0 && taskCount > 0 {
-            let taskText = taskCount == 1 ? "1 task" : "\(taskCount) tasks"
-            let eventText = eventCount == 1 ? "1 event" : "\(eventCount) events"
-            return "\(taskText) · \(eventText)"
-        }
-        if taskCount > 0 {
-            return taskCount == 1 ? "1 task" : "\(taskCount) tasks"
-        }
-        if eventCount > 0 {
-            return eventCount == 1 ? "1 event" : "\(eventCount) events"
-        }
-        return allDayCount == 1 ? "1 all-day" : "\(allDayCount) all-day"
-    }
-
-    func timelineGapCopy(
-        duration: TimeInterval,
-        inboxCount: Int,
-        isFinalGap: Bool,
-        emphasis: TimelineGapEmphasis,
-        primaryAction: TimelineGapAction
-    ) -> (headline: String, supportingText: String) {
-        let durationText = timelineDurationText(duration)
-        switch emphasis {
-        case .quietWindow:
-            return (
-                headline: "Evening buffer",
-                supportingText: "Need a lighter close with \(durationText)?"
-            )
-        case .prepWindow:
-            return (
-                headline: "Short opening",
-                supportingText: "Need a short block for \(durationText)?"
-            )
-        case .openTime:
-            return (
-                headline: "Open time",
-                supportingText: isFinalGap ? "Keep \(durationText) open." : "Want to use \(durationText) well?"
-            )
-        }
-    }
-
-    func timelineChecklistSummary(
-        for task: TaskDefinition,
-        taskIndexByID: [UUID: TaskDefinition]?
-    ) -> TimelineChecklistSummary? {
-        guard task.subtasks.isEmpty == false, let taskIndexByID else { return nil }
-        let childTasks = task.subtasks.compactMap { taskIndexByID[$0] }
-        guard childTasks.count == task.subtasks.count else { return nil }
-        return TimelineChecklistSummary(
-            completedCount: childTasks.filter(\.isComplete).count,
-            totalCount: childTasks.count
-        )
-    }
-
-    func timelineIsMeetingLikeEvent(_ event: LifeBoardCalendarEventSnapshot) -> Bool {
-        let normalized = "\(event.title) \(event.calendarTitle)".lowercased()
-        return normalized.contains("meet")
-            || normalized.contains("zoom")
-            || normalized.contains("call")
-            || normalized.contains("video")
-    }
-
-    func timelineDurationText(_ duration: TimeInterval) -> String {
-        let totalMinutes = Int((duration / 60).rounded())
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        if hours > 0 && minutes > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        if hours > 0 {
-            return "\(hours)h"
-        }
-        return "\(max(minutes, 1))m"
-    }
-
-    func timelineSystemImageName(for task: TaskDefinition) -> String {
-        if let iconSymbolName = task.iconSymbolName, iconSymbolName.isEmpty == false {
-            return iconSymbolName
-        }
-        if let project = projects.first(where: { $0.id == task.projectID }) {
-            return project.icon.systemImageName
-        }
-        switch task.category {
-        case .work:
-            return "briefcase.fill"
-        case .health:
-            return "heart.fill"
-        case .personal:
-            return "person.fill"
-        case .shopping:
-            return "cart.fill"
-        default:
-            return "checklist"
-        }
-    }
-
-    func timelineAccessoryText(for task: TaskDefinition) -> String? {
-        if task.isComplete {
-            return "Done"
-        }
-        let now = Date()
-        guard let start = timelinePlacementDate(for: task) else {
-            return task.estimatedDuration.map(Self.timelineDurationText)
-        }
-        let end = task.scheduledEndAt ?? start.addingTimeInterval(max(task.estimatedDuration ?? 30 * 60, 15 * 60))
-        guard start <= now, end > now else {
-            return task.estimatedDuration.map(Self.timelineDurationText)
-        }
-        let roundedMinutes = max(1, Int(ceil(end.timeIntervalSince(now) / 60)))
-        return "\(roundedMinutes)m remaining"
-    }
-
-    func timelineAnchorTime(on day: Date, hour: Int, minute: Int) -> Date {
-        Calendar.current.date(
-            bySettingHour: max(0, min(23, hour)),
-            minute: max(0, min(59, minute)),
-            second: 0,
-            of: day
-        ) ?? day
-    }
-
-    func timelineIsDateOnlyDueDate(_ date: Date?) -> Bool {
-        guard let date else { return false }
-        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
-        return (components.hour ?? 0) == 0 && (components.minute ?? 0) == 0 && (components.second ?? 0) == 0
-    }
-
-    func timelinePlacementDate(for task: TaskDefinition) -> Date? {
-        task.scheduledStartAt ?? (timelineIsDateOnlyDueDate(task.dueDate) ? nil : task.dueDate)
-    }
-
-    func timelineAllDayDate(for task: TaskDefinition) -> Date? {
-        if task.isAllDay {
-            return task.dueDate ?? task.scheduledStartAt
-        }
-        if timelineIsDateOnlyDueDate(task.dueDate) {
-            return task.dueDate
-        }
-        return nil
-    }
-
-    static func timelineDurationText(_ duration: TimeInterval) -> String {
-        let totalMinutes = Int((duration / 60).rounded())
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        if hours > 0 && minutes > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        if hours > 0 {
-            return "\(hours)h"
-        }
-        return "\(max(minutes, 1))m"
-    }
-}
-
-enum TaskListWidgetCalendarProjection {
-    static func make(
-        from snapshot: LifeBoardCalendarSnapshot,
-        weekStartsOn: Weekday,
-        now: Date = Date(),
-        calendar: Calendar = .current
-    ) -> TaskListWidgetCalendarSnapshot {
-        let startOfToday = calendar.startOfDay(for: now)
-        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday
-        let todayEvents = events(
-            from: snapshot.eventsInRange,
-            start: startOfToday,
-            end: endOfToday
-        )
-        let timedEvents = todayEvents
-            .filter { $0.isAllDay == false && $0.isBusy }
-            .map(calendarEvent(from:))
-        let allDayEvents = todayEvents
-            .filter(\.isAllDay)
-            .map(calendarEvent(from:))
-
-        return TaskListWidgetCalendarSnapshot(
-            status: status(from: snapshot, todayEvents: todayEvents, timedEvents: timedEvents),
-            date: startOfToday,
-            updatedAt: now,
-            selectedCalendarCount: snapshot.selectedCalendarIDs.count,
-            availableCalendarCount: snapshot.availableCalendars.count,
-            eventsTodayCount: todayEvents.count,
-            nextMeeting: snapshot.nextMeeting.map(nextMeeting(from:)),
-            freeUntil: snapshot.freeUntil,
-            timedEvents: timedEvents,
-            allDayEvents: allDayEvents,
-            weekDays: weekDays(
-                from: snapshot.eventsInRange,
-                anchorDate: startOfToday,
-                weekStartsOn: weekStartsOn,
-                calendar: calendar
-            ),
-            isLoading: snapshot.isLoading,
-            errorMessage: snapshot.errorMessage
-        )
-    }
-
-    private static func status(
-        from snapshot: LifeBoardCalendarSnapshot,
-        todayEvents: [LifeBoardCalendarEventSnapshot],
-        timedEvents: [TaskListWidgetCalendarEvent]
-    ) -> TaskListWidgetCalendarStatus {
-        if snapshot.authorizationStatus.isAuthorizedForRead == false {
-            return .permissionRequired
-        }
-        if let error = snapshot.errorMessage, error.isEmpty == false {
-            return .error
-        }
-        if snapshot.selectedCalendarIDs.isEmpty {
-            return .noCalendarsSelected
-        }
-        if todayEvents.isEmpty == false && timedEvents.isEmpty {
-            return .allDayOnly
-        }
-        if timedEvents.isEmpty {
-            return .empty
-        }
-        return .active
-    }
-
-    private static func weekDays(
-        from sourceEvents: [LifeBoardCalendarEventSnapshot],
-        anchorDate: Date,
-        weekStartsOn: Weekday,
-        calendar: Calendar
-    ) -> [TaskListWidgetCalendarDay] {
-        let weekStart = XPCalculationEngine.startOfWeek(
-            for: anchorDate,
-            startingOn: weekStartsOn,
-            calendar: calendar
-        )
-
-        return (0..<7).compactMap { offset in
-            guard let date = calendar.date(byAdding: .day, value: offset, to: weekStart) else {
-                return nil
-            }
-            let dayStart = calendar.startOfDay(for: date)
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
-            let dayEvents = events(from: sourceEvents, start: dayStart, end: dayEnd)
-            return TaskListWidgetCalendarDay(
-                date: dayStart,
-                eventCount: dayEvents.count,
-                timedEvents: dayEvents
-                    .filter { $0.isAllDay == false && $0.isBusy }
-                    .prefix(3)
-                    .map(calendarEvent(from:)),
-                allDayEvents: dayEvents
-                    .filter(\.isAllDay)
-                    .prefix(2)
-                    .map(calendarEvent(from:))
-            )
-        }
-    }
-
-    private static func events(
-        from sourceEvents: [LifeBoardCalendarEventSnapshot],
-        start: Date,
-        end: Date
-    ) -> [LifeBoardCalendarEventSnapshot] {
-        sourceEvents
-            .filter { $0.endDate > start && $0.startDate < end }
-            .sorted { lhs, rhs in
-                if lhs.startDate != rhs.startDate {
-                    return lhs.startDate < rhs.startDate
-                }
-                return lhs.endDate < rhs.endDate
-            }
-    }
-
-    private static func nextMeeting(
-        from summary: LifeBoardNextMeetingSummary
-    ) -> TaskListWidgetCalendarNextMeeting {
-        TaskListWidgetCalendarNextMeeting(
-            event: calendarEvent(from: summary.event),
-            isInProgress: summary.isInProgress,
-            minutesUntilStart: summary.minutesUntilStart
-        )
-    }
-
-    private static func calendarEvent(
-        from event: LifeBoardCalendarEventSnapshot
-    ) -> TaskListWidgetCalendarEvent {
-        TaskListWidgetCalendarEvent(
-            id: event.id,
-            title: event.title,
-            calendarTitle: event.calendarTitle,
-            calendarColorHex: event.calendarColorHex,
-            startDate: event.startDate,
-            endDate: event.endDate,
-            isAllDay: event.isAllDay,
-            isBusy: event.isBusy,
-            isCanceled: event.isCanceled,
-            isTentative: event.participationStatus == .tentative
-        )
-    }
-}
-
-enum TaskListWidgetTimelineProjection {
-    static func make(
-        tasks: [TaskDefinition],
-        calendarSnapshot: TaskListWidgetCalendarSnapshot,
-        preferences: LifeBoardWorkspacePreferences,
-        now: Date = Date(),
-        calendar: Calendar = .current
-    ) -> TaskListWidgetTimelineSnapshot {
-        let dayStart = calendar.startOfDay(for: now)
-        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
-        let wakeAnchor = timelineAnchorTime(
-            on: dayStart,
-            hour: preferences.timelineRiseAndShineHour,
-            minute: preferences.timelineRiseAndShineMinute,
-            calendar: calendar
-        )
-        let sleepAnchor = resolvedSleepAnchor(
-            on: dayStart,
-            wakeAnchor: wakeAnchor,
-            preferences: preferences,
-            calendar: calendar
-        )
-        let calendarItems = preferences.showCalendarEventsInTimeline
-            ? calendarSnapshot.timedEvents.map(timelineItem(from:))
-            : []
-        let allDayCalendarItems = preferences.showCalendarEventsInTimeline
-            ? calendarSnapshot.allDayEvents.map(timelineItem(from:))
-            : []
-
-        let taskItems = tasks
-            .filter { $0.parentTaskID == nil }
-            .compactMap { timelineItem(from: $0, dayStart: dayStart, dayEnd: dayEnd, now: now, calendar: calendar) }
-        let timedTaskItems = taskItems.filter { $0.isAllDay == false && $0.startDate != nil }
-        let allDayTaskItems = taskItems.filter(\.isAllDay)
-        let inboxItems = tasks
-            .filter { isInboxCaptureTask($0) }
-            .sorted(by: sortTasksForTimeline)
-            .prefix(4)
-            .map { inboxItem(from: $0) }
-
-        let rawTimedItems = (timedTaskItems + calendarItems).sorted(by: sortItemsForTimeline)
-        let currentItemID = currentTimelineItemID(in: rawTimedItems, now: now)
-        let timedItems = rawTimedItems.map { item in
-            var value = item
-            value.isCurrent = value.id == currentItemID
-            return value
-        }
-        let allDayItems = (allDayTaskItems + allDayCalendarItems).sorted { lhs, rhs in
-            lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-        }
-        let gaps = timelineGaps(
-            timedItems: timedItems,
-            wakeAnchor: wakeAnchor,
-            sleepAnchor: sleepAnchor,
-            inboxCount: inboxItems.count,
-            now: now
-        )
-        let weekDays = weekDays(
-            tasks: tasks,
-            calendarSnapshot: calendarSnapshot,
-            preferences: preferences,
-            anchorDate: dayStart,
-            calendar: calendar
-        )
-
-        return TaskListWidgetTimelineSnapshot(
-            date: dayStart,
-            updatedAt: now,
-            day: TaskListWidgetTimelineDay(
-                date: dayStart,
-                wakeAnchor: wakeAnchor,
-                sleepAnchor: sleepAnchor,
-                currentTime: now,
-                allDayItems: Array(allDayItems.prefix(6)),
-                inboxItems: Array(inboxItems),
-                timedItems: Array(timedItems.prefix(12)),
-                gaps: Array(gaps.prefix(4)),
-                currentItemID: currentItemID
-            ),
-            weekDays: weekDays,
-            calendarPlottingEnabled: preferences.showCalendarEventsInTimeline
-        )
-    }
-
-    private static func timelineItem(
-        from task: TaskDefinition,
-        dayStart: Date,
-        dayEnd: Date,
-        now: Date,
-        calendar: Calendar
-    ) -> TaskListWidgetTimelineItem? {
-        if let allDayDate = allDayDate(for: task, calendar: calendar),
-           calendar.isDate(allDayDate, inSameDayAs: dayStart) {
-            return TaskListWidgetTimelineItem(
-                id: "task:\(task.id.uuidString)",
-                source: .task,
-                taskID: task.id,
-                title: task.title,
-                subtitle: task.projectLabelForWidget,
-                startDate: allDayDate,
-                endDate: nil,
-                isAllDay: true,
-                isComplete: task.isComplete,
-                tintHex: task.priority.colorHex,
-                systemImageName: systemImageName(for: task),
-                accessoryText: task.isComplete ? "Done" : nil
-            )
-        }
-
-        guard let start = placementDate(for: task, calendar: calendar) else { return nil }
-        let duration = max(task.scheduledEndAt?.timeIntervalSince(start) ?? task.estimatedDuration ?? 30 * 60, 15 * 60)
-        let end = task.scheduledEndAt ?? start.addingTimeInterval(duration)
-        guard end > dayStart, start < dayEnd else { return nil }
-
-        return TaskListWidgetTimelineItem(
-            id: "task:\(task.id.uuidString)",
-            source: .task,
-            taskID: task.id,
-            title: task.title,
-            subtitle: task.projectLabelForWidget,
-            startDate: start,
-            endDate: end,
-            isAllDay: false,
-            isComplete: task.isComplete,
-            tintHex: task.priority.colorHex,
-            systemImageName: systemImageName(for: task),
-            accessoryText: accessoryText(for: task, start: start, end: end, now: now)
-        )
-    }
-
-    private static func timelineItem(from event: TaskListWidgetCalendarEvent) -> TaskListWidgetTimelineItem {
-        TaskListWidgetTimelineItem(
-            id: "event:\(event.id)",
-            source: .calendarEvent,
-            eventID: event.id,
-            title: event.title,
-            subtitle: event.calendarTitle,
-            startDate: event.startDate,
-            endDate: event.endDate,
-            isAllDay: event.isAllDay,
-            isComplete: false,
-            tintHex: event.calendarColorHex,
-            systemImageName: event.isAllDay ? "sun.max" : "calendar.badge.clock",
-            accessoryText: event.isTentative ? "Tentative" : nil
-        )
-    }
-
-    private static func inboxItem(from task: TaskDefinition) -> TaskListWidgetTimelineItem {
-        TaskListWidgetTimelineItem(
-            id: "inbox:\(task.id.uuidString)",
-            source: .task,
-            taskID: task.id,
-            title: task.title,
-            subtitle: task.projectLabelForWidget,
-            isAllDay: false,
-            isComplete: false,
-            tintHex: task.priority.colorHex,
-            systemImageName: systemImageName(for: task),
-            accessoryText: task.priority.code
-        )
-    }
-
-    private static func weekDays(
-        tasks: [TaskDefinition],
-        calendarSnapshot: TaskListWidgetCalendarSnapshot,
-        preferences: LifeBoardWorkspacePreferences,
-        anchorDate: Date,
-        calendar: Calendar
-    ) -> [TaskListWidgetTimelineWeekDay] {
-        let weekStart = XPCalculationEngine.startOfWeek(
-            for: anchorDate,
-            startingOn: preferences.weekStartsOn,
-            calendar: calendar
-        )
-        return (0..<7).compactMap { offset in
-            guard let date = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return nil }
-            let dayStart = calendar.startOfDay(for: date)
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
-            let dayTasks = tasks.filter { task in
-                if let allDayDate = allDayDate(for: task, calendar: calendar) {
-                    return calendar.isDate(allDayDate, inSameDayAs: dayStart)
-                }
-                guard let start = placementDate(for: task, calendar: calendar) else { return false }
-                let end = task.scheduledEndAt ?? start.addingTimeInterval(max(task.estimatedDuration ?? 30 * 60, 15 * 60))
-                return end > dayStart && start < dayEnd
-            }
-            let taskAllDayCount = dayTasks.filter { allDayDate(for: $0, calendar: calendar) != nil }.count
-            let taskTimedCount = dayTasks.count - taskAllDayCount
-            let calendarDay = preferences.showCalendarEventsInTimeline
-                ? calendarSnapshot.weekDays.first { calendar.isDate($0.date, inSameDayAs: dayStart) }
-                : nil
-            let calendarAllDayCount = calendarDay?.allDayEvents.count ?? 0
-            let calendarTimedCount = calendarDay.map { max(0, $0.eventCount - $0.allDayEvents.count) } ?? 0
-            let allDayCount = taskAllDayCount + calendarAllDayCount
-            let timedCount = taskTimedCount + calendarTimedCount
-            let tints = dayTasks.map { $0.priority.colorHex } + (calendarDay?.timedEvents.compactMap(\.calendarColorHex) ?? [])
-
-            return TaskListWidgetTimelineWeekDay(
-                date: dayStart,
-                dayKey: dayKey(for: dayStart, calendar: calendar),
-                allDayCount: allDayCount,
-                timedCount: timedCount,
-                tintHexes: Array(tints.prefix(4)),
-                loadLevel: loadLevel(for: allDayCount + timedCount)
-            )
-        }
-    }
-
-    private static func timelineGaps(
-        timedItems: [TaskListWidgetTimelineItem],
-        wakeAnchor: Date,
-        sleepAnchor: Date,
-        inboxCount: Int,
-        now: Date
-    ) -> [TaskListWidgetTimelineGap] {
-        guard sleepAnchor > wakeAnchor else { return [] }
-        let intervals = timedItems.compactMap { item -> (start: Date, end: Date)? in
-            guard let start = item.startDate, let end = item.endDate else { return nil }
-            let clippedStart = max(start, wakeAnchor)
-            let clippedEnd = min(end, sleepAnchor)
-            guard clippedEnd > clippedStart else { return nil }
-            return (clippedStart, clippedEnd)
-        }
-        .sorted { lhs, rhs in
-            if lhs.start != rhs.start { return lhs.start < rhs.start }
-            return lhs.end < rhs.end
-        }
-
-        var merged: [(start: Date, end: Date)] = []
-        for interval in intervals {
-            guard let last = merged.last else {
-                merged.append(interval)
-                continue
-            }
-            if interval.start <= last.end {
-                merged[merged.count - 1] = (last.start, max(last.end, interval.end))
-            } else {
-                merged.append(interval)
-            }
-        }
-
-        var cursor = wakeAnchor
-        var gaps: [TaskListWidgetTimelineGap] = []
-        for interval in merged {
-            appendGapIfNeeded(start: cursor, end: interval.start, inboxCount: inboxCount, now: now, into: &gaps)
-            cursor = max(cursor, interval.end)
-        }
-        appendGapIfNeeded(start: cursor, end: sleepAnchor, inboxCount: inboxCount, now: now, into: &gaps)
-        return gaps
-    }
-
-    private static func appendGapIfNeeded(
-        start: Date,
-        end: Date,
-        inboxCount: Int,
-        now: Date,
-        into gaps: inout [TaskListWidgetTimelineGap]
-    ) {
-        guard end.timeIntervalSince(start) >= 30 * 60 else { return }
-        let headline = start <= now && end > now ? "Open now" : "Open time"
-        let minutes = Int(end.timeIntervalSince(start) / 60)
-        let supporting = inboxCount > 0
-            ? "\(minutes)m available. Place an Inbox task here."
-            : "\(minutes)m available. Add a task for this window."
-        gaps.append(TaskListWidgetTimelineGap(
-            startDate: start,
-            endDate: end,
-            suggestedTaskCount: inboxCount,
-            headline: headline,
-            supportingText: supporting
-        ))
-    }
-
-    private static func currentTimelineItemID(in items: [TaskListWidgetTimelineItem], now: Date) -> String? {
-        if let current = items.first(where: { item in
-            guard item.isComplete == false, let start = item.startDate, let end = item.endDate else { return false }
-            return start <= now && end > now
-        }) {
-            return current.id
-        }
-        return items.first { item in
-            guard let start = item.startDate else { return false }
-            return start >= now
-        }?.id
-    }
-
-    private static func sortItemsForTimeline(_ lhs: TaskListWidgetTimelineItem, _ rhs: TaskListWidgetTimelineItem) -> Bool {
-        let lhsStart = lhs.startDate ?? Date.distantFuture
-        let rhsStart = rhs.startDate ?? Date.distantFuture
-        if lhsStart != rhsStart { return lhsStart < rhsStart }
-        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-    }
-
-    private static func sortTasksForTimeline(_ lhs: TaskDefinition, _ rhs: TaskDefinition) -> Bool {
-        if lhs.priority.scorePoints != rhs.priority.scorePoints {
-            return lhs.priority.scorePoints > rhs.priority.scorePoints
-        }
-        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-    }
-
-    private static func isInboxCaptureTask(_ task: TaskDefinition) -> Bool {
-        guard task.isComplete == false, task.parentTaskID == nil else { return false }
-        guard task.scheduledStartAt == nil, task.dueDate == nil else { return false }
-        let projectName = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return task.projectID == ProjectConstants.inboxProjectID
-            || projectName.isEmpty
-            || projectName.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame
-    }
-
-    private static func placementDate(for task: TaskDefinition, calendar: Calendar) -> Date? {
-        task.scheduledStartAt ?? (isDateOnly(task.dueDate, calendar: calendar) ? nil : task.dueDate)
-    }
-
-    private static func allDayDate(for task: TaskDefinition, calendar: Calendar) -> Date? {
-        if task.isAllDay {
-            return task.dueDate ?? task.scheduledStartAt
-        }
-        if isDateOnly(task.dueDate, calendar: calendar) {
-            return task.dueDate
-        }
-        return nil
-    }
-
-    private static func isDateOnly(_ date: Date?, calendar: Calendar) -> Bool {
-        guard let date else { return false }
-        let components = calendar.dateComponents([.hour, .minute, .second], from: date)
-        return (components.hour ?? 0) == 0 && (components.minute ?? 0) == 0 && (components.second ?? 0) == 0
-    }
-
-    private static func timelineAnchorTime(on day: Date, hour: Int, minute: Int, calendar: Calendar) -> Date {
-        calendar.date(
-            bySettingHour: max(0, min(23, hour)),
-            minute: max(0, min(59, minute)),
-            second: 0,
-            of: day
-        ) ?? day
-    }
-
-    private static func resolvedSleepAnchor(
-        on day: Date,
-        wakeAnchor: Date,
-        preferences: LifeBoardWorkspacePreferences,
-        calendar: Calendar
-    ) -> Date {
-        var sleep = timelineAnchorTime(
-            on: day,
-            hour: preferences.timelineWindDownHour,
-            minute: preferences.timelineWindDownMinute,
-            calendar: calendar
-        )
-        if sleep <= wakeAnchor {
-            sleep = calendar.date(byAdding: .day, value: 1, to: sleep) ?? sleep
-        }
-        return sleep
-    }
-
-    private static func accessoryText(for task: TaskDefinition, start: Date, end: Date, now: Date) -> String? {
-        if task.isComplete {
-            return "Done"
-        }
-        if start <= now, end > now {
-            let roundedMinutes = max(1, Int(ceil(end.timeIntervalSince(now) / 60)))
-            return "\(roundedMinutes)m left"
-        }
-        if let duration = task.estimatedDuration {
-            return durationText(duration)
-        }
-        return task.priority.code
-    }
-
-    private static func durationText(_ duration: TimeInterval) -> String {
-        let totalMinutes = max(1, Int((duration / 60).rounded()))
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        if hours > 0 && minutes > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        if hours > 0 {
-            return "\(hours)h"
-        }
-        return "\(minutes)m"
-    }
-
-    private static func systemImageName(for task: TaskDefinition) -> String {
-        if let iconSymbolName = task.iconSymbolName, iconSymbolName.isEmpty == false {
-            return iconSymbolName
-        }
-        switch task.category {
-        case .work:
-            return "briefcase.fill"
-        case .health:
-            return "heart.fill"
-        case .personal:
-            return "person.fill"
-        case .shopping:
-            return "cart.fill"
-        default:
-            return "checklist"
-        }
-    }
-
-    private static func dayKey(for date: Date, calendar: Calendar) -> String {
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        let year = components.year ?? 0
-        let month = components.month ?? 0
-        let day = components.day ?? 0
-        return String(format: "%04d-%02d-%02d", year, month, day)
-    }
-
-    private static func loadLevel(for count: Int) -> TaskListWidgetTimelineLoadLevel {
-        if count >= 5 { return .busy }
-        if count >= 2 { return .balanced }
-        return .light
-    }
-}
-
-private extension TaskDefinition {
-    var projectLabelForWidget: String {
-        let projectName = projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return projectName?.isEmpty == false ? projectName! : ProjectConstants.inboxProjectName
-    }
-}
-
-final class TaskListWidgetSnapshotService: @unchecked Sendable {
-    static let shared = TaskListWidgetSnapshotService()
-
-    private let queue = DispatchQueue(label: "lifeboard.tasklist.widget.snapshot", qos: .utility)
-    private let debounceDelay: TimeInterval = 0.75
-    private var pendingWorkItem: DispatchWorkItem?
-    private var refreshInFlight = false
-    private var queuedReasonAfterRefresh: String?
-
-    private init() {}
-
-    func scheduleRefresh(reason: String) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            if self.refreshInFlight {
-                self.queuedReasonAfterRefresh = reason
-                return
-            }
-            self.pendingWorkItem?.cancel()
-            let workItem = DispatchWorkItem { [weak self] in
-                self?.refreshNow(reason: reason)
-            }
-            self.pendingWorkItem = workItem
-            self.queue.asyncAfter(deadline: .now() + self.debounceDelay, execute: workItem)
-        }
-    }
-
-    private func refreshNow(reason: String) {
-        guard V2FeatureFlags.taskListWidgetsEnabled else { return }
-        guard let coordinator = currentCoordinator() else { return }
-        if refreshInFlight {
-            queuedReasonAfterRefresh = reason
-            return
-        }
-        refreshInFlight = true
-        pendingWorkItem = nil
-        LifeBoardMemoryDiagnostics.checkpoint(
-            event: "widget_snapshot_refresh_started",
-            message: "Refreshing task list widget snapshot",
-            fields: ["reason": reason]
-        )
-
-        coordinator.getTasks.searchTasks(query: "", in: .all) { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .failure(let error):
-                logWarning(
-                    event: "task_list_widget_snapshot_refresh_failed",
-                    message: "Failed to refresh task list widget snapshot",
-                    fields: [
-                        "reason": reason,
-                        "error": error.localizedDescription
-                    ]
-                )
-                self.finishRefresh()
-            case .success(let tasks):
-                LifeBoardMemoryDiagnostics.checkpoint(
-                    event: "widget_snapshot_refresh_loaded",
-                    message: "Loaded task list widget source data",
-                    fields: ["reason": reason],
-                    counts: ["task_count": tasks.count]
-                )
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    let calendarSnapshot = TaskListWidgetCalendarProjection.make(
-                        from: coordinator.calendarIntegrationService.snapshot,
-                        weekStartsOn: coordinator.calendarIntegrationService.weekStartsOn
-                    )
-                    let workspacePreferences = LifeBoardWorkspacePreferencesStore.shared.load()
-                    let now = Date()
-                    self.loadHabitRows(coordinator: coordinator, on: now) { [weak self] habitRows in
-                        guard let self else { return }
-                        let snapshot = self.buildSnapshot(
-                            tasks: tasks,
-                            now: now,
-                            habitRows: habitRows,
-                            calendarSnapshot: calendarSnapshot,
-                            workspacePreferences: workspacePreferences
-                        )
-                        self.persistIfChanged(snapshot: snapshot, reason: reason)
-                        self.finishRefresh()
-                    }
-                }
-            }
-        }
-    }
-
-    private func finishRefresh() {
-        queue.async { [weak self] in
-            guard let self else { return }
-            self.refreshInFlight = false
-            guard let queuedReason = self.queuedReasonAfterRefresh else { return }
-            self.queuedReasonAfterRefresh = nil
-            self.scheduleRefresh(reason: queuedReason)
-        }
-    }
-
-    private func currentCoordinator() -> UseCaseCoordinator? {
-        let container = EnhancedDependencyContainer.shared
-        guard let coordinator = container.useCaseCoordinator else { return nil }
-        return coordinator
-    }
-
-    private func buildSnapshot(
-        tasks: [TaskDefinition],
-        now: Date = Date(),
-        habitRows: [HomeHabitRow] = [],
-        calendarSnapshot: TaskListWidgetCalendarSnapshot = .empty,
-        workspacePreferences: LifeBoardWorkspacePreferences = LifeBoardWorkspacePreferences()
-    ) -> TaskListWidgetSnapshot {
-        let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: now)
-        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
-        let fortyEightHours = now.addingTimeInterval(48 * 60 * 60)
-
-        let openTasks = tasks.filter { !$0.isComplete }
-        let sortedOpen = openTasks.sorted(by: sortByPriorityThenDue)
-        let overdueOpen = openTasks
-            .filter { task in
-                guard let dueDate = task.dueDate else { return false }
-                return dueDate < startOfToday
-            }
-            .sorted(by: sortByPriorityThenDue)
-        let todayOpen = openTasks
-            .filter { task in
-                guard let dueDate = task.dueDate else { return false }
-                return dueDate >= startOfToday && dueDate < endOfToday
-            }
-            .sorted(by: sortByPriorityThenDue)
-        let dueSoon = openTasks
-            .filter { task in
-                guard let dueDate = task.dueDate else { return false }
-                return dueDate >= now && dueDate <= fortyEightHours
-            }
-            .sorted(by: sortByPriorityThenDue)
-        let quickWins = openTasks
-            .filter { task in
-                guard let duration = task.estimatedDuration else { return false }
-                let minutes = Int(duration / 60)
-                return minutes > 0 && minutes <= 15
-            }
-            .sorted(by: sortByPriorityThenDue)
-        let waitingOn = openTasks
-            .filter { !$0.dependencies.isEmpty }
-            .sorted(by: sortByPriorityThenDue)
-
-        let completedToday = tasks
-            .filter(\.isComplete)
-            .filter { task in
-                guard let completedAt = task.dateCompleted else { return false }
-                return calendar.isDateInToday(completedAt)
-            }
-            .sorted(by: sortCompletedDescending)
-
-        let focusNow = Array((todayOpen.isEmpty ? sortedOpen : todayOpen).prefix(3))
-        let topTasks = Array((todayOpen + overdueOpen).isEmpty ? sortedOpen.prefix(3) : (todayOpen + overdueOpen).prefix(3))
-
-        let projectSlices: [TaskListWidgetProjectSlice] = Dictionary(
-            grouping: openTasks,
-            by: { $0.projectID }
-        )
-        .map { projectID, projectTasks in
-            let projectName = projectTasks.first?.projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
-            return TaskListWidgetProjectSlice(
-                projectID: projectID,
-                projectName: (projectName?.isEmpty == false ? projectName : nil) ?? "Inbox",
-                openCount: projectTasks.count,
-                overdueCount: projectTasks.filter(\.isOverdue).count
-            )
-        }
-        .sorted { lhs, rhs in
-            if lhs.openCount != rhs.openCount {
-                return lhs.openCount > rhs.openCount
-            }
-            return lhs.projectName.localizedCaseInsensitiveCompare(rhs.projectName) == .orderedAscending
-        }
-
-        let energyBuckets: [TaskListWidgetEnergyBucket] = TaskEnergy.allCases.map { energy in
-            TaskListWidgetEnergyBucket(
-                energy: energy.rawValue,
-                count: openTasks.filter { $0.energy == energy }.count
-            )
-        }
-        let timelineSnapshot = TaskListWidgetTimelineProjection.make(
-            tasks: tasks,
-            calendarSnapshot: calendarSnapshot,
-            preferences: workspacePreferences,
-            now: now,
-            calendar: calendar
-        )
-        let habitSnapshot = taskListWidgetHabitSnapshot(
-            from: habitRows,
-            now: now,
-            calendar: calendar
-        )
-
-        return TaskListWidgetSnapshot(
-            schemaVersion: TaskListWidgetSnapshot.currentSchemaVersion,
-            updatedAt: now,
-            todayTopTasks: topTasks.map(widgetTask(from:)),
-            upcomingTasks: Array(dueSoon.prefix(3)).map(widgetTask(from:)),
-            overdueTasks: Array(overdueOpen.prefix(3)).map(widgetTask(from:)),
-            quickWins: Array(quickWins.prefix(3)).map(widgetTask(from:)),
-            projectSlices: Array(projectSlices.prefix(6)),
-            doneTodayCount: completedToday.count,
-            focusNow: focusNow.map(widgetTask(from:)),
-            waitingOn: Array(waitingOn.prefix(3)).map(widgetTask(from:)),
-            energyBuckets: energyBuckets,
-            openTodayCount: todayOpen.count + overdueOpen.count,
-            openTaskPool: Array(sortedOpen.prefix(25)).map(widgetTask(from:)),
-            completedTodayTasks: Array(completedToday.prefix(8)).map(widgetTask(from:)),
-            snapshotHealth: TaskListWidgetSnapshotHealth(
-                source: "full_query",
-                generatedAt: now,
-                isStale: false,
-                hasCorruptionFallback: false
-            ),
-            calendar: calendarSnapshot,
-            timeline: timelineSnapshot,
-            habit: habitSnapshot
-        )
-    }
-
-    private func loadHabitRows(
-        coordinator: UseCaseCoordinator,
-        on date: Date,
-        completion: @escaping ([HomeHabitRow]) -> Void
-    ) {
-        let calendar = Calendar.current
-        let day = calendar.startOfDay(for: date)
-        let group = DispatchGroup()
-        let state = LockedResultAccumulator(HomeHabitWidgetRowsState())
-
-        group.enter()
-        coordinator.buildHabitHomeProjection.execute(date: day) { result in
-            if case .success(let rows) = result {
-                state.update { $0.agendaRows = rows }
-            }
-            group.leave()
-        }
-
-        group.enter()
-        coordinator.getHabitLibrary.execute(includeArchived: false) { [weak self] result in
-            guard let self else {
-                group.leave()
-                return
-            }
-            guard case .success(let libraryRows) = result else {
-                group.leave()
-                return
-            }
-            guard libraryRows.isEmpty == false else {
-                group.leave()
-                return
-            }
-
-            group.enter()
-            coordinator.getHabitHistory.execute(
-                habitIDs: libraryRows.map(\.habitID),
-                endingOn: day,
-                dayCount: 30
-            ) { historyResult in
-                var historyByHabitID: [UUID: [HabitDayMark]] = [:]
-                if case .success(let windows) = historyResult {
-                    historyByHabitID = windows.reduce(into: [:]) { result, window in
-                        result[window.habitID] = window.marks
-                    }
-                }
-                let rows = self.trackingWidgetHabitRows(
-                    from: libraryRows,
-                    historyByHabitID: historyByHabitID,
-                    on: day,
-                    calendar: calendar
-                )
-                state.update { $0.trackingRows = rows }
-                group.leave()
-            }
-            group.leave()
-        }
-
-        group.notify(queue: queue) { [weak self] in
-            guard let self else { return }
-            let resolvedState = (try? state.result().get()) ?? HomeHabitWidgetRowsState()
-            let mergedRows = self.mergeWidgetHabitRows(
-                agenda: resolvedState.agendaRows,
-                tracking: resolvedState.trackingRows
-            )
-            completion(mergedRows)
-        }
-    }
-
-    private func trackingWidgetHabitRows(
-        from rows: [HabitLibraryRow],
-        historyByHabitID: [UUID: [HabitDayMark]],
-        on date: Date,
-        calendar: Calendar
-    ) -> [HomeHabitRow] {
-        let startOfDay = calendar.startOfDay(for: date)
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
-
-        return rows.compactMap { row in
-            guard !row.isArchived, !row.isPaused, row.trackingMode == .lapseOnly else {
-                return nil
-            }
-
-            let marks = historyByHabitID[row.habitID] ?? row.last14Days
-            let todayMark = marks.first { mark in
-                let markDate = calendar.startOfDay(for: mark.date)
-                return markDate >= startOfDay && markDate < endOfDay
-            }
-            let state: HomeHabitRowState
-            switch todayMark?.state {
-            case .failure:
-                state = .lapsedToday
-            default:
-                state = .tracking
-            }
-
-            let compactCells = HabitBoardPresentationBuilder.buildCells(
-                marks: marks,
-                cadence: row.cadence,
-                referenceDate: date,
-                dayCount: 7,
-                calendar: calendar
-            )
-            let expandedCells = HabitBoardPresentationBuilder.buildCells(
-                marks: marks,
-                cadence: row.cadence,
-                referenceDate: date,
-                dayCount: 30,
-                calendar: calendar
-            )
-
-            return HomeHabitRow(
-                habitID: row.habitID,
-                title: row.title,
-                kind: row.kind,
-                trackingMode: row.trackingMode,
-                lifeAreaID: row.lifeAreaID,
-                lifeAreaName: row.lifeAreaName,
-                projectID: row.projectID,
-                projectName: row.projectName,
-                iconSymbolName: row.icon?.symbolName ?? "circle.dashed",
-                accentHex: row.colorHex,
-                cadence: row.cadence,
-                cadenceLabel: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar),
-                dueAt: row.nextDueAt,
-                state: state,
-                currentStreak: row.currentStreak,
-                bestStreak: row.bestStreak,
-                last14Days: marks,
-                boardCellsCompact: compactCells,
-                boardCellsExpanded: expandedCells,
-                riskState: todayMark?.state == .failure ? .broken : .stable,
-                helperText: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar)
-            )
-        }
-    }
-
-    private func mergeWidgetHabitRows(
-        agenda: [HomeHabitRow],
-        tracking: [HomeHabitRow]
-    ) -> [HomeHabitRow] {
-        var merged: [String: HomeHabitRow] = [:]
-        for row in agenda {
-            merged[row.id] = row
-        }
-        for row in tracking where merged[row.id] == nil {
-            merged[row.id] = row
-        }
-        return merged.values.sorted { lhs, rhs in
-            if lhs.projectName != rhs.projectName {
-                return (lhs.projectName ?? lhs.lifeAreaName)
-                    .localizedCaseInsensitiveCompare(rhs.projectName ?? rhs.lifeAreaName) == .orderedAscending
-            }
-            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-        }
-    }
-
-    private func taskListWidgetHabitSnapshot(
-        from rows: [HomeHabitRow],
-        now: Date,
-        calendar: Calendar
-    ) -> TaskListWidgetHabitSnapshot {
-        let day = calendar.startOfDay(for: now)
-        let activeRows = rows.filter { row in
-            switch row.state {
-            case .due, .overdue, .completedToday, .lapsedToday, .skippedToday, .tracking:
-                return true
-            }
-        }
-        let dueCount = activeRows.filter { $0.state == .due || $0.state == .overdue }.count
-        let completedCount = activeRows.filter { $0.state == .completedToday }.count
-        let atRiskCount = activeRows.filter { $0.riskState == .atRisk || $0.riskState == .broken }.count
-        let primary = activeRows
-            .sorted { lhs, rhs in
-                let lhsRank = taskListWidgetHabitPriority(lhs)
-                let rhsRank = taskListWidgetHabitPriority(rhs)
-                if lhsRank != rhsRank { return lhsRank < rhsRank }
-                if lhs.currentStreak != rhs.currentStreak { return lhs.currentStreak > rhs.currentStreak }
-                let lhsDue = lhs.dueAt ?? Date.distantFuture
-                let rhsDue = rhs.dueAt ?? Date.distantFuture
-                if lhsDue != rhsDue { return lhsDue < rhsDue }
-                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-            }
-            .first
-            .map { row in
-                TaskListWidgetHabitPrimary(
-                    habitID: row.habitID,
-                    title: row.title,
-                    iconSymbolName: row.iconSymbolName,
-                    accentHex: row.accentHex,
-                    currentStreak: row.currentStreak,
-                    bestStreak: row.bestStreak,
-                    todayState: taskListWidgetHabitTodayState(row.state),
-                    dueAt: row.dueAt,
-                    week: taskListWidgetHabitWeek(from: row.last14Days, endingOn: day, calendar: calendar)
-                )
-            }
-
-        return TaskListWidgetHabitSnapshot(
-            date: day,
-            updatedAt: now,
-            primaryHabit: primary,
-            dueCount: dueCount,
-            completedTodayCount: completedCount,
-            atRiskCount: atRiskCount
-        )
-    }
-
-    private func taskListWidgetHabitPriority(_ row: HomeHabitRow) -> Int {
-        switch row.state {
-        case .overdue:
-            return 0
-        case .due:
-            return row.riskState == .atRisk || row.riskState == .broken ? 1 : 2
-        case .lapsedToday:
-            return 3
-        case .tracking:
-            return row.currentStreak > 0 ? 4 : 6
-        case .completedToday:
-            return 5
-        case .skippedToday:
-            return 7
-        }
-    }
-
-    private func taskListWidgetHabitTodayState(_ state: HomeHabitRowState) -> TaskListWidgetHabitTodayState {
-        switch state {
-        case .due:
-            return .due
-        case .overdue:
-            return .overdue
-        case .completedToday:
-            return .completedToday
-        case .lapsedToday:
-            return .lapsedToday
-        case .skippedToday:
-            return .skippedToday
-        case .tracking:
-            return .tracking
-        }
-    }
-
-    private func taskListWidgetHabitWeek(
-        from marks: [HabitDayMark],
-        endingOn date: Date,
-        calendar: Calendar
-    ) -> [TaskListWidgetHabitDay] {
-        let days = (0..<7).compactMap { offset in
-            calendar.date(byAdding: .day, value: offset - 6, to: date)
-        }
-        return days.map { day in
-            let mark = marks.first { calendar.isDate($0.date, inSameDayAs: day) }
-            return TaskListWidgetHabitDay(
-                date: day,
-                dayKey: taskListWidgetHabitDayKey(day, calendar: calendar),
-                state: taskListWidgetHabitDayState(mark?.state, day: day, now: date, calendar: calendar)
-            )
-        }
-    }
-
-    private func taskListWidgetHabitDayState(
-        _ state: HabitDayState?,
-        day: Date,
-        now: Date,
-        calendar: Calendar
-    ) -> TaskListWidgetHabitDayState {
-        if day > now, calendar.isDate(day, inSameDayAs: now) == false {
-            return .future
-        }
-        switch state ?? .none {
-        case .success:
-            return .success
-        case .failure:
-            return .failure
-        case .skipped:
-            return .skipped
-        case .none:
-            return .none
-        case .future:
-            return .future
-        }
-    }
-
-    private func taskListWidgetHabitDayKey(_ date: Date, calendar: Calendar) -> String {
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
-    }
-
-    private func widgetTask(from task: TaskDefinition) -> TaskListWidgetTask {
-        TaskListWidgetTask(
-            id: task.id,
-            title: task.title,
-            projectID: task.projectID,
-            projectName: task.projectName,
-            priorityCode: task.priority.code,
-            dueDate: task.dueDate,
-            isOverdue: task.isOverdue,
-            estimatedDurationMinutes: task.estimatedDuration.map { max(1, Int($0 / 60)) },
-            energy: task.energy.rawValue,
-            context: task.context.rawValue,
-            isComplete: task.isComplete,
-            hasDependencies: !task.dependencies.isEmpty
-        )
-    }
-
-    private func sortByPriorityThenDue(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
-        if lhs.priority.scorePoints != rhs.priority.scorePoints {
-            return lhs.priority.scorePoints > rhs.priority.scorePoints
-        }
-        let lhsDate = lhs.dueDate ?? Date.distantFuture
-        let rhsDate = rhs.dueDate ?? Date.distantFuture
-        if lhsDate != rhsDate {
-            return lhsDate < rhsDate
-        }
-        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-    }
-
-    private func sortCompletedDescending(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
-        let lhsDate = lhs.dateCompleted ?? Date.distantPast
-        let rhsDate = rhs.dateCompleted ?? Date.distantPast
-        if lhsDate != rhsDate {
-            return lhsDate > rhsDate
-        }
-        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-    }
-
-    private func persistIfChanged(snapshot: TaskListWidgetSnapshot, reason: String) {
-        let current = TaskListWidgetSnapshot.load()
-        if Self.normalizedForReloadComparison(snapshot) == Self.normalizedForReloadComparison(current) {
-            return
-        }
-        snapshot.save()
-        WatchWidgetSnapshotSync.shared.sendTaskListSnapshot(snapshot)
-        reloadTaskListTimelines()
-        logDebug("TASK_WIDGET_SNAPSHOT refreshed reason=\(reason)")
-    }
-
-    static func normalizedForReloadComparison(_ snapshot: TaskListWidgetSnapshot) -> TaskListWidgetSnapshot {
-        var value = snapshot
-        value.updatedAt = Date(timeIntervalSince1970: 0)
-        value.snapshotHealth.generatedAt = Date(timeIntervalSince1970: 0)
-        value.snapshotHealth.hasCorruptionFallback = false
-        value.calendar.updatedAt = Date(timeIntervalSince1970: 0)
-        value.timeline.updatedAt = Date(timeIntervalSince1970: 0)
-        value.timeline.day.currentTime = Date(timeIntervalSince1970: 0)
-        value.habit.updatedAt = Date(timeIntervalSince1970: 0)
-        return value
-    }
-
-    private func reloadTaskListTimelines() {
-        #if canImport(WidgetKit)
-        let kinds = [
-            "TopTaskNowWidget", "TodayCounterNextWidget", "OverdueRescueWidget", "QuickWin15mWidget",
-            "MorningKickoffWidget", "EveningWrapWidget", "WaitingOnWidget", "InboxTriageWidget",
-            "DueSoonRadarWidget", "EnergyMatchWidget", "ProjectSpotlightWidget", "CalendarTaskBridgeWidget",
-            "TodayTop3Widget", "NowLaneWidget", "OverdueBoardWidget", "Upcoming48hWidget",
-            "MorningEveningPlanWidget", "QuickViewSwitcherWidget", "ProjectSprintWidget",
-            "PriorityMatrixLiteWidget", "ContextWidget", "FocusSessionQueueWidget",
-            "RecoveryWidget", "DoneReflectionWidget",
-            "TodayPlannerBoardWidget", "WeekTaskPlannerWidget", "ProjectCockpitWidget",
-            "BacklogHealthWidget", "KanbanLiteWidget", "DeadlineHeatmapWidget",
-            "ExecutionDashboardWidget", "DeepWorkAgendaWidget", "AssistantPlanPreviewWidget",
-            "LifeAreasBoardWidget",
-            "HomeCalendarWidget", "HomeTimelineWidget",
-            "WatchTimelineComplication", "WatchMeetingScheduleComplication", "WatchHabitStreakComplication",
-            "InlineNextTaskWidget", "InlineDueSoonWidget",
-            "CircularTodayProgressWidget", "CircularQuickAddWidget",
-            "RectangularTop2TasksWidget", "RectangularOverdueAlertWidget",
-            "RectangularFocusNowWidget", "RectangularWaitingOnWidget",
-            "DeskTodayBoardWidget", "CountdownPanelWidget", "NightlyResetWidget",
-            "MorningBriefPanelWidget", "ProjectPulseWidget", "FocusDockWidget"
-        ]
-        Task { @MainActor in
-            let center = WidgetCenter.shared
-            for kind in kinds {
-                center.reloadTimelines(ofKind: kind)
-            }
-        }
-        #endif
-    }
-}
-
-enum DailySummaryModalError: LocalizedError {
-    case tasksUnavailable(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .tasksUnavailable(let message):
-            return message
-        }
-    }
-}
-
-final class GetDailySummaryModalUseCase {
-    private let getTasksUseCase: GetTasksUseCase
-    private let analyticsUseCase: CalculateAnalyticsUseCase
-    private let calendar: Calendar
-    private let now: () -> Date
-
-    init(
-        getTasksUseCase: GetTasksUseCase,
-        analyticsUseCase: CalculateAnalyticsUseCase,
-        calendar: Calendar = .current,
-        now: @escaping () -> Date = Date.init
-    ) {
-        self.getTasksUseCase = getTasksUseCase
-        self.analyticsUseCase = analyticsUseCase
-        self.calendar = calendar
-        self.now = now
-    }
-
-    func execute(
-        kind: LifeBoardDailySummaryKind,
-        date: Date,
-        completion: @escaping @Sendable (Result<DailySummaryModalData, Error>) -> Void
-    ) {
-        let group = DispatchGroup()
-        let state = LockedResultAccumulator(DailySummaryLoadState())
-
-        group.enter()
-        getTasksUseCase.searchTasks(query: "", in: .all) { result in
-            state.update { $0.allTasksResult = result }
-            group.leave()
-        }
-
-        group.enter()
-        analyticsUseCase.calculateDailyAnalytics(for: date) { result in
-            if case .success(let value) = result {
-                state.update { $0.analytics = value }
-            }
-            group.leave()
-        }
-
-        group.enter()
-        analyticsUseCase.calculateStreak { result in
-            if case .success(let value) = result {
-                state.update { $0.streakCount = value.currentStreak }
-            }
-            group.leave()
-        }
-
-        group.enter()
-        getTasksUseCase.getTasksForDate(date) { result in
-            if case .success(let value) = result {
-                state.update { $0.dateTasks = value }
-            }
-            group.leave()
-        }
-
-        group.notify(queue: .global(qos: .userInitiated)) {
-            let resolvedState = (try? state.result().get()) ?? DailySummaryLoadState()
-
-            guard let resolvedTasksResult = resolvedState.allTasksResult else {
-                completion(.failure(DailySummaryModalError.tasksUnavailable("Task data unavailable")))
-                return
-            }
-
-            switch resolvedTasksResult {
-            case .failure(let error):
-                completion(.failure(DailySummaryModalError.tasksUnavailable(error.localizedDescription)))
-            case .success(let allTasks):
-                completion(.success(
-                    self.buildSummary(
-                        kind: kind,
-                        date: date,
-                        allTasks: allTasks,
-                        analytics: resolvedState.analytics,
-                        streakCount: resolvedState.streakCount,
-                        dateTasks: resolvedState.dateTasks
-                    )
-                ))
-            }
-        }
-    }
-
-    func buildSummary(
-        kind: LifeBoardDailySummaryKind,
-        date: Date,
-        allTasks: [TaskDefinition],
-        analytics: DailyAnalytics?,
-        streakCount: Int?,
-        dateTasks: DateTasksResult? = nil
-    ) -> DailySummaryModalData {
-        switch kind {
-        case .morning:
-            return .morning(buildMorningSummary(date: date, allTasks: allTasks, dateTasks: dateTasks))
-        case .nightly:
-            return .nightly(
-                buildNightlySummary(
-                    date: date,
-                    allTasks: allTasks,
-                    analytics: analytics,
-                    streakCount: streakCount,
-                    dateTasks: dateTasks
-                )
-            )
-        }
-    }
-
-    private func buildMorningSummary(
-        date: Date,
-        allTasks: [TaskDefinition],
-        dateTasks: DateTasksResult?
-    ) -> MorningPlanSummary {
-        let dayRange = dateRange(for: date)
-        let openTasks = allTasks.filter { !$0.isComplete }
-        let dueTodayOpen = openTasks.filter { task in
-            guard let dueDate = task.dueDate else { return false }
-            return dueDate >= dayRange.start && dueDate < dayRange.end
-        }
-        let overdueOpen = openTasks.filter { task in
-            guard let dueDate = task.dueDate else { return false }
-            return dueDate < dayRange.start
-        }
-        let actionable = sortByUrgency(tasks: dueTodayOpen + overdueOpen)
-        let focusTasks = Array(actionable.prefix(3)).map(makeSummaryRow)
-        let highPriorityCount = actionable.filter { $0.priority.isHighPriority }.count
-        let potentialXP = actionable.reduce(0) { $0 + $1.priority.scorePoints }
-        let blockedCount = actionable.filter { !$0.dependencies.isEmpty }.count
-        let longTaskCount = actionable.filter { ($0.estimatedDuration ?? 0) >= 3600 }.count
-        let morningPlannedCount: Int
-        let eveningPlannedCount: Int
-        if let dateTasks {
-            morningPlannedCount = dateTasks.morningTasks.filter { !$0.isComplete }.count
-            eveningPlannedCount = dateTasks.eveningTasks.filter { !$0.isComplete }.count
-        } else {
-            eveningPlannedCount = dueTodayOpen.filter(isEveningTask).count
-            morningPlannedCount = max(0, dueTodayOpen.count - eveningPlannedCount)
-        }
-
-        return MorningPlanSummary(
-            date: dayRange.start,
-            openTodayCount: actionable.count,
-            highPriorityCount: highPriorityCount,
-            overdueCount: overdueOpen.count,
-            potentialXP: potentialXP,
-            focusTasks: focusTasks,
-            blockedCount: blockedCount,
-            longTaskCount: longTaskCount,
-            morningPlannedCount: morningPlannedCount,
-            eveningPlannedCount: eveningPlannedCount
-        )
-    }
-
-    private func buildNightlySummary(
-        date: Date,
-        allTasks: [TaskDefinition],
-        analytics: DailyAnalytics?,
-        streakCount: Int?,
-        dateTasks: DateTasksResult?
-    ) -> NightlyRetrospectiveSummary {
-        let dayRange = dateRange(for: date)
-        let tomorrowStart = dayRange.end
-        let tomorrowEnd = calendar.date(byAdding: .day, value: 1, to: tomorrowStart) ?? tomorrowStart
-
-        let completedToday = sortByUrgency(tasks: allTasks.filter { task in
-            guard task.isComplete, let dateCompleted = task.dateCompleted else { return false }
-            return dateCompleted >= dayRange.start && dateCompleted < dayRange.end
-        })
-
-        let openTasks = allTasks.filter { !$0.isComplete }
-        let dueTodayOpen = openTasks.filter { task in
-            guard let dueDate = task.dueDate else { return false }
-            return dueDate >= dayRange.start && dueDate < dayRange.end
-        }
-        let overdueOpen = openTasks.filter { task in
-            guard let dueDate = task.dueDate else { return false }
-            return dueDate < dayRange.start
-        }
-        let tomorrowPreview = sortByUrgency(tasks: openTasks.filter { task in
-            guard let dueDate = task.dueDate else { return false }
-            return dueDate >= tomorrowStart && dueDate < tomorrowEnd
-        })
-
-        let dueTodayCount = allTasks.filter { task in
-            guard let dueDate = task.dueDate else { return false }
-            return dueDate >= dayRange.start && dueDate < dayRange.end
-        }.count
-        let calendarTotalCount = dateTasks.map {
-            $0.morningTasks.count + $0.eveningTasks.count + $0.completedTasks.count
-        } ?? 0
-        let analyticsTotalCount = analytics?.totalTasks ?? 0
-        let baselineTotalCount = max(dueTodayCount, max(calendarTotalCount, analyticsTotalCount))
-        let totalCount = max(completedToday.count, baselineTotalCount)
-        let xpEarned = completedToday.reduce(0) { $0 + $1.priority.scorePoints }
-        let fallbackCompletionRate = totalCount > 0 ? Double(completedToday.count) / Double(totalCount) : 0
-        let completionRate = analytics?.completionRate ?? fallbackCompletionRate
-        let morningCompletedCount = analytics?.morningTasksCompleted
-            ?? completedToday.filter { !$0.isEveningTask && $0.type != .evening }.count
-        let eveningCompletedCount = analytics?.eveningTasksCompleted
-            ?? completedToday.filter(isEveningTask).count
-
-        return NightlyRetrospectiveSummary(
-            date: dayRange.start,
-            completedCount: completedToday.count,
-            totalCount: totalCount,
-            xpEarned: xpEarned,
-            completionRate: completionRate,
-            streakCount: max(0, streakCount ?? 0),
-            biggestWins: Array(completedToday.prefix(3)).map(makeSummaryRow),
-            carryOverDueTodayCount: dueTodayOpen.count,
-            carryOverOverdueCount: overdueOpen.count,
-            tomorrowPreview: Array(tomorrowPreview.prefix(3)).map(makeSummaryRow),
-            morningCompletedCount: morningCompletedCount,
-            eveningCompletedCount: eveningCompletedCount
-        )
-    }
-
-    private func makeSummaryRow(_ task: TaskDefinition) -> SummaryTaskRow {
-        let startOfToday = calendar.startOfDay(for: now())
-        let overdue = (task.dueDate.map { $0 < startOfToday } ?? false) && !task.isComplete
-        return SummaryTaskRow(
-            taskID: task.id,
-            title: task.title,
-            priority: task.priority,
-            dueDate: task.dueDate,
-            isOverdue: overdue,
-            estimatedDuration: task.estimatedDuration,
-            isBlocked: !task.dependencies.isEmpty,
-            projectName: task.projectName
-        )
-    }
-
-    private func sortByUrgency(tasks: [TaskDefinition]) -> [TaskDefinition] {
-        tasks.sorted { lhs, rhs in
-            if lhs.priority.scorePoints != rhs.priority.scorePoints {
-                return lhs.priority.scorePoints > rhs.priority.scorePoints
-            }
-            let lhsDue = lhs.dueDate ?? Date.distantFuture
-            let rhsDue = rhs.dueDate ?? Date.distantFuture
-            if lhsDue != rhsDue {
-                return lhsDue < rhsDue
-            }
-            return lhs.id.uuidString < rhs.id.uuidString
-        }
-    }
-
-    private func dateRange(for date: Date) -> (start: Date, end: Date) {
-        let start = calendar.startOfDay(for: date)
-        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start
-        return (start, end)
-    }
-
-    private func isEveningTask(_ task: TaskDefinition) -> Bool {
-        task.isEveningTask || task.type == .evening
     }
 }
