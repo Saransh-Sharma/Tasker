@@ -108,6 +108,62 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "insights_completion_and_tab_switch")
     }
 
+    func testInsightsTodayCTAsOpenTaskAndHabitWorkflows() throws {
+        XCTAssertTrue(homePage.openInsights(), "Insights should open from Charts")
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsHeroCard), "Today hero CTA should be tappable")
+        XCTAssertTrue(element(id: "addTask.view").waitForExistence(timeout: 3), "Empty Today hero should open Add Task")
+        dismissPresentedSheet()
+
+        XCTAssertTrue(homePage.insightsContainer.waitForExistence(timeout: 3), "Insights should still be available after dismissing Add Task")
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsActionHabitCheck), "Habit check CTA should be tappable")
+        XCTAssertTrue(element(id: "habitBoard.view").waitForExistence(timeout: 3), "Habit check should open Habit Board")
+        takeScreenshot(named: "insights_today_ctas_open_task_and_habit")
+    }
+
+    func testInsightsWeekCTAsExpandMomentumAndOpenProjects() throws {
+        relaunchWithSearchSeed()
+        XCTAssertTrue(homePage.openInsights(), "Insights should open from Charts")
+        XCTAssertTrue(homePage.switchInsightsTab(.week), "Week tab should be reachable")
+
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsActionWeeklyMomentum), "Weekly momentum CTA should be tappable")
+        XCTAssertTrue(element(id: AccessibilityIdentifiers.Home.insightsWeeklyRhythm).waitForExistence(timeout: 3), "Weekly momentum should reveal weekly rhythm")
+
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsActionProjectMix), "Project mix CTA should be tappable")
+        XCTAssertTrue(element(id: "projectManagement.view").waitForExistence(timeout: 3), "Project mix should open Project Management")
+        takeScreenshot(named: "insights_week_ctas_expand_and_open_projects")
+    }
+
+    func testInsightsSystemsCTAsExpandConsistencyAndOpenReminderSettings() throws {
+        relaunchWithSearchSeed()
+        XCTAssertTrue(homePage.openInsights(), "Insights should open from Charts")
+        XCTAssertTrue(homePage.switchInsightsTab(.systems), "Systems tab should be reachable")
+
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsActionReminderResponse), "Reminder response CTA should be tappable")
+        XCTAssertTrue(
+            element(id: AccessibilityIdentifiers.Settings.view).waitForExistence(timeout: 3) ||
+                element(id: "settings.root").waitForExistence(timeout: 3) ||
+                element(id: "settings.hero.card").waitForExistence(timeout: 3),
+            "Reminder response should open Settings"
+        )
+
+        let doneButton = app.navigationBars[AccessibilityIdentifiers.Settings.navigationBar]
+            .buttons[AccessibilityIdentifiers.Settings.doneButton]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 3), "Settings should expose Done")
+        tap(doneButton)
+        XCTAssertTrue(homePage.openInsights(), "Insights should reopen after Settings")
+        XCTAssertTrue(homePage.switchInsightsTab(.systems), "Systems tab should be reachable after Settings")
+
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsActionConsistency), "Consistency CTA should be tappable")
+        XCTAssertTrue(
+            waitForAccessibilityValue(
+                id: AccessibilityIdentifiers.Home.insightsDisclosureSystemDetails,
+                containing: "expanded"
+            ),
+            "Consistency should expand Systems details"
+        )
+        takeScreenshot(named: "insights_systems_ctas_expand_and_open_settings")
+    }
+
     func testTaskRowsRemainCompact() throws {
         let taskTitle = "Compact Row Guard"
         let addTaskPage = homePage.tapAddTask()
@@ -235,6 +291,59 @@ class AnalyticsAndChartsTests: BaseUITest {
             element.tap()
         } else {
             element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+    }
+
+    @discardableResult
+    private func tapInsightElement(id: String, timeout: TimeInterval = 3, maxSwipes: Int = 5) -> Bool {
+        let target = element(id: id)
+        if target.waitForExistence(timeout: timeout), target.isHittable {
+            tap(target)
+            return true
+        }
+
+        let scrollView = homePage.insightsScrollView
+        guard scrollView.waitForExistence(timeout: 2) else { return false }
+        for _ in 0..<maxSwipes {
+            scrollView.swipeUp()
+            if target.waitForExistence(timeout: 0.5), target.isHittable {
+                tap(target)
+                return true
+            }
+        }
+        for _ in 0..<maxSwipes {
+            scrollView.swipeDown()
+            if target.waitForExistence(timeout: 0.5), target.isHittable {
+                tap(target)
+                return true
+            }
+        }
+        return false
+    }
+
+    private func waitForAccessibilityValue(
+        id: String,
+        containing text: String,
+        timeout: TimeInterval = 3
+    ) -> Bool {
+        let target = app.buttons[id]
+        let predicate = NSPredicate { _, _ in
+            guard target.exists else { return false }
+            return String(describing: target.value ?? "")
+                .localizedCaseInsensitiveContains(text)
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func dismissPresentedSheet() {
+        let closeButtons = ["addTask.cancelButton", "Close", "Cancel"]
+        for identifier in closeButtons {
+            let button = app.buttons[identifier]
+            if button.waitForExistence(timeout: 1) {
+                tap(button)
+                return
+            }
         }
     }
 

@@ -11920,6 +11920,99 @@ private extension Calendar {
 }
 
 @MainActor
+final class InsightsActionRoutingTests: XCTestCase {
+    func testTodayActionCardsResolveToOperationalWorkflows() {
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .today, id: "nextDecision")),
+            .startNextDecision
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .today, id: "protectFocus")),
+            .protectFocus
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .today, id: "habitCheck")),
+            .openHabitCheck
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .today, id: "yesterdayReview")),
+            .openYesterdayReview
+        )
+    }
+
+    func testWeekActionCardsResolveToReflectiveWorkflows() {
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .week, id: "weeklyMomentum")),
+            .expandDetails(.weeklyRhythm)
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .week, id: "backlogDrag")),
+            .openBacklogRecovery
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .week, id: "projectMix")),
+            .openProjectMix
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .week, id: "recovery")),
+            .openWeeklyReview
+        )
+    }
+
+    func testSystemsActionCardsResolveToSystemHealthWorkflows() {
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .systems, id: "reminderResponse")),
+            .openReminderSettings
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .systems, id: "consistency")),
+            .expandDetails(.streakResilience)
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .systems, id: "focusHealth")),
+            .protectFocus
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .systems, id: "planningQuality")),
+            .openWeeklyPlanner
+        )
+    }
+
+    func testHeroCTAResolvesEmptyPartialAndRichStates() {
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .today, availability: .empty, primaryCTATitle: "Add task")
+            ),
+            .addTask
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .today, availability: .partial, primaryCTATitle: "Open today")
+            ),
+            .openToday
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .today, availability: .rich, primaryCTATitle: "Keep momentum")
+            ),
+            .protectFocus
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .week, availability: .rich, primaryCTATitle: "Clean backlog")
+            ),
+            .openBacklogRecovery
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .systems, availability: .partial, primaryCTATitle: "Set one reminder")
+            ),
+            .openReminderSettings
+        )
+    }
+}
+
+@MainActor
 final class InsightsViewModelPerformanceLogicTests: XCTestCase {
     func testOnAppearLoadsSelectedTabOnly() {
         let repository = InsightsRepositorySpy()
