@@ -27,6 +27,8 @@ enum LifeBoardSearchChromeStyle {
 struct LifeBoardSearchFilterChipDescriptor: Identifiable {
     let id: String
     let title: String
+    var systemImage: String? = nil
+    var count: Int? = nil
     let isSelected: Bool
     let tintColor: Color
     let accessibilityIdentifier: String
@@ -36,6 +38,8 @@ struct LifeBoardSearchFilterChipDescriptor: Identifiable {
 struct LifeBoardSearchHeaderView: View {
     @Binding var query: String
     @FocusState.Binding var isFocused: Bool
+    var placeholder: String = "Search tasks, notes, habits, projects..."
+    var isCommandMode: Bool = false
     let onQueryChanged: (String) -> Void
     let onSubmit: () -> Void
     let onClear: () -> Void
@@ -45,10 +49,10 @@ struct LifeBoardSearchHeaderView: View {
     var body: some View {
         HStack(spacing: spacing.s8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(Color.lifeboard.textSecondary)
 
-            TextField("Search tasks, notes, habits...", text: $query)
+            TextField(placeholder, text: $query)
                 .focused($isFocused)
                 .submitLabel(.search)
                 .textInputAutocapitalization(.never)
@@ -61,6 +65,13 @@ struct LifeBoardSearchHeaderView: View {
                     onQueryChanged(newValue)
                 }
                 .onSubmit(onSubmit)
+
+            if isCommandMode {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .accessibilityHidden(true)
+            }
 
             if !query.isEmpty {
                 Button(action: onClear) {
@@ -81,7 +92,7 @@ struct LifeBoardSearchHeaderView: View {
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius, style: .continuous)
-                        .stroke(LBColorTokens.hairline.opacity(0.38), lineWidth: 1)
+                        .stroke(isFocused ? LBColorTokens.violet.opacity(0.82) : LBColorTokens.hairline.opacity(0.38), lineWidth: isFocused ? 1.5 : 1)
                 }
                 .shadow(color: LBColorTokens.elevationShadow, radius: 15, x: 0, y: 8)
         }
