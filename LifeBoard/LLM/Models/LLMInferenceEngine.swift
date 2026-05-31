@@ -242,6 +242,9 @@ actor LLMInferenceEngine {
         modelName: String,
         onProgress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> LLMInferencePrepareResult {
+        let interval = LifeBoardPerformanceTrace.begin("LLMModelPrepare")
+        defer { LifeBoardPerformanceTrace.end(interval) }
+
         let wasAlreadyLoaded = loadedModelName == modelName
         _ = try await load(modelName: modelName, onProgress: onProgress)
         let modelInfo = "Loaded \(modelName). Weights: \(MLX.Memory.activeMemory / 1024 / 1024)M"
@@ -274,6 +277,9 @@ actor LLMInferenceEngine {
         onFirstToken: (@Sendable () -> Void)? = nil,
         onStreamUpdate: (@Sendable (LLMInferenceStreamUpdate) -> Void)? = nil
     ) async throws -> LLMInferenceGenerationResult {
+        let generationTrace = LifeBoardPerformanceTrace.begin("LLMGenerate")
+        defer { LifeBoardPerformanceTrace.end(generationTrace) }
+
         let streamBudgets = LLMChatBudgets.active
         let outputTokenStride = requestOptions.showsVisibleThinking
             ? max(1, min(streamBudgets.outputTokenStride, 16))
