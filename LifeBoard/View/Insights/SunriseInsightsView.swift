@@ -83,6 +83,8 @@ public enum InsightsActionResolver {
         id: String
     ) -> InsightsActionIntent {
         switch (tab, id) {
+        case (.today, "overdueRescue"):
+            return .openBacklogRecovery
         case (.today, "nextDecision"):
             return .startNextDecision
         case (.today, "protectFocus"):
@@ -212,6 +214,27 @@ struct InsightsTabPresentation: Equatable {
             ctaTitle = openCount > 0 ? "Review today" : "Keep momentum"
         }
 
+        let overdueCount = Int(state.duePressureMetrics.first(where: { $0.id == "overdue" })?.value ?? "") ?? 0
+        let estimatedMinutes = max(2, min(12, overdueCount))
+        let overdueRescueAction = overdueCount > 0
+            ? [
+                InsightsActionPresentation(
+                    id: "overdueRescue",
+                    title: "Overdue Rescue",
+                    message: "Tasks need your attention · \(overdueCount) overdue · Est. \(estimatedMinutes) min",
+                    systemImage: "lifepreserver",
+                    role: .warning,
+                    ctaTitle: "Start rescue"
+                )
+            ]
+            : []
+        let todayActions = overdueRescueAction + [
+            InsightsActionPresentation(id: "nextDecision", title: "Next decision", message: firstDetail(from: state.duePressureMetrics, fallback: "Choose one task to remove from today."), systemImage: "exclamationmark.arrow.triangle.2.circlepath", role: .warning, ctaTitle: "Choose next task"),
+            InsightsActionPresentation(id: "protectFocus", title: "Protect focus", message: firstDetail(from: state.focusMetrics, fallback: momentumGuidanceText), systemImage: "sparkles", role: .focus, ctaTitle: "Plan focus block"),
+            InsightsActionPresentation(id: "habitCheck", title: "Habit check", message: firstDetail(from: state.recoveryMetrics, fallback: "Update the smallest pending habit signal."), systemImage: "checkmark.seal", role: .routine, ctaTitle: "Update habits"),
+            InsightsActionPresentation(id: "yesterdayReview", title: "Yesterday review", message: firstDetail(from: state.momentumMetrics, fallback: "Review carry-over and keep tomorrow tight."), systemImage: "arrow.uturn.backward.circle", role: .assistant, ctaTitle: "Review carry-over")
+        ]
+
         return InsightsTabPresentation(
             tab: .today,
             availability: availability,
@@ -230,12 +253,7 @@ struct InsightsTabPresentation: Equatable {
                 InsightsMetricPresentation(id: "habits", label: "Habits", value: "\(state.recoveryCount)", detail: "Recovery signals", role: .routine, systemImage: "repeat.circle"),
                 InsightsMetricPresentation(id: "open", label: "Open", value: "\(openCount)", detail: "Still active", role: openCount > 0 ? .warning : .task, systemImage: "tray")
             ],
-            actions: [
-                InsightsActionPresentation(id: "nextDecision", title: "Next decision", message: firstDetail(from: state.duePressureMetrics, fallback: "Choose one task to remove from today."), systemImage: "exclamationmark.arrow.triangle.2.circlepath", role: .warning, ctaTitle: "Choose next task"),
-                InsightsActionPresentation(id: "protectFocus", title: "Protect focus", message: firstDetail(from: state.focusMetrics, fallback: momentumGuidanceText), systemImage: "sparkles", role: .focus, ctaTitle: "Plan focus block"),
-                InsightsActionPresentation(id: "habitCheck", title: "Habit check", message: firstDetail(from: state.recoveryMetrics, fallback: "Update the smallest pending habit signal."), systemImage: "checkmark.seal", role: .routine, ctaTitle: "Update habits"),
-                InsightsActionPresentation(id: "yesterdayReview", title: "Yesterday review", message: firstDetail(from: state.momentumMetrics, fallback: "Review carry-over and keep tomorrow tight."), systemImage: "arrow.uturn.backward.circle", role: .assistant, ctaTitle: "Review carry-over")
-            ],
+            actions: todayActions,
             details: InsightsDetailPresentation(
                 title: "Today details",
                 summary: "XP, pressure, recovery, and completion mix stay here when you need them."
