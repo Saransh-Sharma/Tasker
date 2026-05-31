@@ -1321,23 +1321,25 @@ private struct OverdueRescueDeckView: View {
 
             if let card = viewModel.currentCard {
                 let drag = activeDragResolution(metrics: metrics)
-                ZStack(alignment: .bottom) {
+                ZStack(alignment: .center) {
+                    OverdueRescueBackCards(metrics: metrics)
+
                     OverdueRescueRevealPanel(
                         reveal: drag.reveal,
                         progress: drag.progress,
                         card: card,
                         metrics: metrics
                     )
-                    OverdueRescueCardStack(
-                        card: card,
-                        dragOffset: activeCardOffset(metrics: metrics),
-                        tiltDegrees: drag.tiltDegrees,
-                        metrics: metrics
-                    )
-                    .gesture(cardGesture(metrics: metrics), including: voiceOverEnabled ? .subviews : .all)
+
+                    OverdueRescueTaskCard(card: card)
+                        .frame(width: metrics.cardWidth, height: metrics.cardHeight)
+                        .offset(activeCardOffset(metrics: metrics))
+                        .rotationEffect(.degrees(reduceMotion ? 0 : drag.tiltDegrees))
+                        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: card.id)
+                        .gesture(cardGesture(metrics: metrics), including: voiceOverEnabled ? .subviews : .all)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: metrics.deckHeight)
+                .frame(width: metrics.cardWidth + 32, height: metrics.deckHeight)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Overdue Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: Keep today, \(card.moveButtonTitle), Edit, Delete.")
                 .accessibilityAction(named: Text("Keep today")) {
@@ -1505,12 +1507,8 @@ private struct OverdueRescueDeckView: View {
     }
 }
 
-private struct OverdueRescueCardStack: View {
-    let card: OverdueRescueCardModel
-    let dragOffset: CGSize
-    let tiltDegrees: Double
+private struct OverdueRescueBackCards: View {
     let metrics: OverdueRescueDeckLayoutMetrics
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .center) {
@@ -1530,14 +1528,7 @@ private struct OverdueRescueCardStack: View {
                     .scaleEffect(1.0 - Double(reverseIndex) * 0.015)
                     .shadow(color: Color.black.opacity(0.04 + Double(index) * 0.01), radius: 12 + CGFloat(index) * 4, y: 6 + CGFloat(index) * 2)
             }
-
-            OverdueRescueTaskCard(card: card)
-                .frame(width: metrics.cardWidth, height: metrics.cardHeight)
-                .offset(dragOffset)
-                .rotationEffect(.degrees(reduceMotion ? 0 : tiltDegrees))
-                .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: card.id)
         }
-        .frame(width: metrics.cardWidth + 32, height: metrics.deckHeight, alignment: .center)
     }
 
     private func backCardColor(_ index: Int) -> Color {
