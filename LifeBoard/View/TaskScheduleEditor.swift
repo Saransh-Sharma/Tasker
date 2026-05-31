@@ -458,10 +458,6 @@ struct TimelineAnchorDraft {
 }
 
 struct TimelineAnchorDetailSheetView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var draft: TimelineAnchorDraft
-    @State private var didCommitDraft = false
-
     let selection: TimelineAnchorSelection
     let preferencesStore: LifeBoardWorkspacePreferencesStore
 
@@ -471,121 +467,13 @@ struct TimelineAnchorDetailSheetView: View {
     ) {
         self.selection = selection
         self.preferencesStore = preferencesStore
-        let preferences = preferencesStore.load()
-        self._draft = State(initialValue: TimelineAnchorDraft(preferences: preferences))
     }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.lg) {
-                topBar
-                header
-                timeEditor
-            }
-            .lifeboardReadableContent(maxWidth: 560, alignment: .center)
-            .padding(.bottom, LifeBoardTheme.Spacing.xxxl)
-        }
-        .background(Color.lifeboard.bgCanvas)
-        .presentationDragIndicator(.visible)
-        .accessibilityIdentifier("timelineAnchorDetail.view")
-        .onDisappear(perform: commitDraftIfNeeded)
-    }
-
-    private var topBar: some View {
-        HStack {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color.lifeboard.textSecondary)
-                    .frame(width: 30, height: 30)
-                    .background(Color.lifeboard.surfaceSecondary)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("timelineAnchorDetail.closeButton")
-            .accessibilityLabel("Close timeline anchor details")
-
-            Spacer()
-        }
-        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
-        .padding(.top, LifeBoardTheme.Spacing.sm)
-    }
-
-    private var header: some View {
-        HStack(alignment: .top, spacing: LifeBoardTheme.Spacing.md) {
-            Image(systemName: selection.systemImageName)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(Color.lifeboard.accentPrimary)
-                .frame(width: 42, height: 42)
-                .background(Color.lifeboard.accentWash, in: Circle())
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
-                Text(selection.title)
-                    .font(.lifeboard(.title1))
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.lifeboard.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(selection.subtitle)
-                    .font(.lifeboard(.callout))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(currentTimeLabel)
-                    .font(.lifeboard(.meta).weight(.semibold))
-                    .foregroundStyle(Color.lifeboard.textTertiary)
-                    .monospacedDigit()
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
-        .padding(.vertical, LifeBoardTheme.Spacing.md)
-        .lifeboardDenseSurface(
-            cornerRadius: LifeBoardTheme.CornerRadius.card,
-            fillColor: Color.lifeboard.surfacePrimary,
-            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
+        TimelineAnchorRitualSheetView(
+            selection: selection,
+            preferencesStore: preferencesStore
         )
-        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
-    }
-
-    private var timeEditor: some View {
-        TaskTimeWheelPicker(
-            startDate: Binding(
-                get: { Optional(draft.time(for: selection)) },
-                set: { newValue in
-                    guard let newValue else { return }
-                    draft.setTime(newValue, for: selection)
-                }
-            ),
-            durationMinutes: 30,
-            defaultStartDate: draft.time(for: selection),
-            intervalMinutes: TaskDetailViewModel.scheduleIntervalMinutes,
-            showsDurationRange: false,
-            accessibilityLabel: String(
-                format: String(localized: "%@ start time"),
-                selection.title
-            ),
-            slotBaseDate: selection.slotBaseDate(from: preferencesStore.load()),
-            additionalDayCount: selection == .windDown ? 1 : 0
-        )
-        .accessibilityIdentifier("timelineAnchorDetail.timePicker")
-        .padding(.horizontal, LifeBoardTheme.Spacing.screenHorizontal)
-    }
-
-    private var currentTimeLabel: String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: draft.time(for: selection))
-    }
-
-    private func commitDraftIfNeeded() {
-        guard didCommitDraft == false else { return }
-        didCommitDraft = true
-        draft.commitIfNeeded(for: selection, to: preferencesStore)
     }
 }
 

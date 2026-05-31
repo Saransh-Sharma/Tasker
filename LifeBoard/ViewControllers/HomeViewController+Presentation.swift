@@ -402,22 +402,30 @@ extension HomeViewController {
 
         let detailView = TimelineAnchorDetailSheetView(selection: selection)
         let hostingController = UIHostingController(rootView: detailView.lifeboardLayoutClass(currentLayoutClass))
-        hostingController.view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        hostingController.view.backgroundColor = .clear
 
         if isUsingIPadNativeShell {
             hostingController.modalPresentationStyle = .formSheet
-            hostingController.preferredContentSize = CGSize(width: 540, height: 520)
+            hostingController.preferredContentSize = CGSize(width: 540, height: 640)
             if let sheet = hostingController.sheetPresentationController {
                 sheet.detents = [.large()]
-                sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.preferredCornerRadius = 34
                 sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+                sheet.prefersGrabberVisible = false
             }
         } else {
             hostingController.modalPresentationStyle = .pageSheet
             if let sheet = hostingController.sheetPresentationController {
-                sheet.detents = [.medium(), .large()]
-                sheet.preferredCornerRadius = LifeBoardThemeManager.shared.currentTheme.tokens.corner.modal
-                sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+                let ritualDetent = UISheetPresentationController.Detent.custom(
+                    identifier: .init("timelineAnchorRitual")
+                ) { context in
+                    context.maximumDetentValue * 0.68
+                }
+                sheet.detents = [ritualDetent, .large()]
+                sheet.selectedDetentIdentifier = .init("timelineAnchorRitual")
+                sheet.preferredCornerRadius = 34
+                sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+                sheet.prefersGrabberVisible = false
             }
         }
 

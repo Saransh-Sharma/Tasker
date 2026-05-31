@@ -459,6 +459,10 @@
 		C4B2E3D5F6A7081C /* MilestoneCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70B /* MilestoneCelebrationView.swift */; };
 		C4B2E3D5F6A7081D /* BadgeDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70C /* BadgeDetailSheet.swift */; };
 		C4D5E6F70891A2B3C4D5E701 /* TaskScheduleEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */; };
+		C4D5E6F70891A2B3C4D5E708 /* TimelineAnchorRitualTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E70C /* TimelineAnchorRitualTheme.swift */; };
+		C4D5E6F70891A2B3C4D5E709 /* TimelineAnchorRitualModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E70D /* TimelineAnchorRitualModel.swift */; };
+		C4D5E6F70891A2B3C4D5E70A /* TimelineAnchorWaveShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E70E /* TimelineAnchorWaveShape.swift */; };
+		C4D5E6F70891A2B3C4D5E70B /* TimelineAnchorRitualSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E70F /* TimelineAnchorRitualSheetView.swift */; };
 		C4D5E6F70891A2B3C4D5E702 /* SunriseTaskDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E703 /* SunriseTaskDetailScreen.swift */; };
 		C4D5E6F70891A2B3C4D5E704 /* SunriseHabitDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E705 /* SunriseHabitDetailScreen.swift */; };
 		C4D5E6F70891A2B3C4D5E706 /* SunriseDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E707 /* SunriseDetailComponents.swift */; };
@@ -1143,6 +1147,10 @@
 		C4AF3952DBA8C2ACE185FEF0 /* DailyXPAggregateDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/DailyXPAggregateDefinition.swift; sourceTree = SOURCE_ROOT; };
 		C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskReadModelRepositoryProtocol.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskScheduleEditor.swift; sourceTree = "<group>"; };
+		C4D5E6F70891A2B3C4D5E70C /* TimelineAnchorRitualTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineAnchorRitualTheme.swift; sourceTree = "<group>"; };
+		C4D5E6F70891A2B3C4D5E70D /* TimelineAnchorRitualModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineAnchorRitualModel.swift; sourceTree = "<group>"; };
+		C4D5E6F70891A2B3C4D5E70E /* TimelineAnchorWaveShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineAnchorWaveShape.swift; sourceTree = "<group>"; };
+		C4D5E6F70891A2B3C4D5E70F /* TimelineAnchorRitualSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineAnchorRitualSheetView.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E703 /* SunriseTaskDetailScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseTaskDetailScreen.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E705 /* SunriseHabitDetailScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHabitDetailScreen.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E707 /* SunriseDetailComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseDetailComponents.swift; sourceTree = "<group>"; };
@@ -2069,6 +2077,10 @@
 				C4D5E6F70891A2B3C4D5E705 /* SunriseHabitDetailScreen.swift */,
 				C4D5E6F70891A2B3C4D5E707 /* SunriseDetailComponents.swift */,
 				C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */,
+				C4D5E6F70891A2B3C4D5E70C /* TimelineAnchorRitualTheme.swift */,
+				C4D5E6F70891A2B3C4D5E70D /* TimelineAnchorRitualModel.swift */,
+				C4D5E6F70891A2B3C4D5E70E /* TimelineAnchorWaveShape.swift */,
+				C4D5E6F70891A2B3C4D5E70F /* TimelineAnchorRitualSheetView.swift */,
 				D379A868382E81C83D874E36 /* SunriseTaskRowView.swift */,
 				2A7397B50382FF7FB4FAEC5F /* SunriseTaskSectionView.swift */,
 				E526F0CB3E9299C87861646E /* SunriseTaskListView.swift */,
@@ -3532,6 +3544,10 @@
 				C4D5E6F70891A2B3C4D5E704 /* SunriseHabitDetailScreen.swift in Sources */,
 				C4D5E6F70891A2B3C4D5E706 /* SunriseDetailComponents.swift in Sources */,
 				C4D5E6F70891A2B3C4D5E701 /* TaskScheduleEditor.swift in Sources */,
+				C4D5E6F70891A2B3C4D5E708 /* TimelineAnchorRitualTheme.swift in Sources */,
+				C4D5E6F70891A2B3C4D5E709 /* TimelineAnchorRitualModel.swift in Sources */,
+				C4D5E6F70891A2B3C4D5E70A /* TimelineAnchorWaveShape.swift in Sources */,
+				C4D5E6F70891A2B3C4D5E70B /* TimelineAnchorRitualSheetView.swift in Sources */,
 				350E661527174B8BDEE11FCC /* SunriseTaskRowView.swift in Sources */,
 				52EA01C705B92C45F65720CA /* SunriseTaskSectionView.swift in Sources */,
 				32CEC1ABC506CDA117F1CB3B /* SunriseTaskListView.swift in Sources */,
