@@ -11,10 +11,19 @@ import XCTest
 class PerformanceTests: BaseUITest {
 
     var homePage: HomePage!
+    override var additionalLaunchArguments: [String] {
+        [
+            XCUIApplication.LaunchArgumentKey.testSeedFullTimelineWorkspace.rawValue,
+            XCUIApplication.LaunchArgumentKey.testCalendarStub.rawValue,
+            "\(XCUIApplication.LaunchArgumentKey.testCalendarMode.rawValue):active",
+            XCUIApplication.LaunchArgumentKey.testEvaActivationCompleted.rawValue
+        ]
+    }
 
     override func setUpWithError() throws {
         try super.setUpWithError()
         homePage = HomePage(app: app)
+        XCTAssertTrue(ensurePerformanceAppReady(), "Performance test app should be ready before measurement starts")
     }
 
     // MARK: - Test 66: App Launch Performance
@@ -24,6 +33,7 @@ class PerformanceTests: BaseUITest {
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             app.terminate()
             app.launch()
+            XCTAssertTrue(ensurePerformanceAppReady(timeout: 14), "App launch performance should reach authenticated Home")
         }
 
         app.terminate()
@@ -32,6 +42,7 @@ class PerformanceTests: BaseUITest {
             testCase: self
         ) {
             app.launch()
+            _ = ensurePerformanceAppReady(timeout: 14)
         }
         PerformanceMetrics.assertAppLaunchTime(launchDuration, testCase: self)
 
@@ -45,43 +56,14 @@ class PerformanceTests: BaseUITest {
     // MARK: - Test 67: Task List Scrolling Performance
 
     func testTaskListScrollingPerformance() throws {
-        // GIVEN: Many tasks exist for scrolling
-        print("📝 Creating 100 tasks for scroll performance test...")
-
-        for i in 1...100 {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.enterTitle("Scroll Task \(i)")
-            addTaskPage.selectPriority(i % 4 == 0 ? .max : (i % 3 == 0 ? .high : .medium))
-            addTaskPage.tapSave()
-
-            // Batch wait for performance
-            if i % 20 == 0 {
-                waitForAnimations(duration: 1.0)
-                print("  Created \(i) tasks...")
-            }
-        }
-
-        waitForAnimations(duration: 2.0)
-
-        let taskCount = homePage.getTaskCount()
-        print("📊 Total tasks for scroll test: \(taskCount)")
-
-        // WHEN: User scrolls through the list
-        let taskListScrollView = homePage.taskListScrollView
-        XCTAssertTrue(taskListScrollView.exists, "Task list scroll view should exist")
+        relaunchSeededPerformanceWorkspace()
+        let taskListScrollView = homePerformanceScrollSurface()
+        XCTAssertTrue(taskListScrollView.waitForExistence(timeout: 8), "Seeded Home scroll surface should exist")
 
         let options = XCTMeasureOptions()
         options.iterationCount = 3
-        measure(metrics: [PerformanceMetrics.signpostMetric(named: "HomeTaskListScrollSession")], options: options) {
-            // Scroll through entire list
-            for _ in 0..<10 {
-                taskListScrollView.swipeUp()
-            }
-
-            // Scroll back up
-            for _ in 0..<10 {
-                taskListScrollView.swipeDown()
-            }
+        measure(metrics: homeScrollMetrics(signpostName: "HomeTaskListScrollSession"), options: options) {
+            performScrollCycle(on: taskListScrollView, swipeCount: 10)
         }
 
         takeScreenshot(named: "performance_scroll_end")
@@ -97,6 +79,42 @@ class PerformanceTests: BaseUITest {
 
     func testHomeHabitsOnlyScrollHitches() throws {
         try measureSeededHomeScrollHitches(scopeAccessibilityID: "home.sunrise.filter.habits")
+    }
+
+    func testScheduleScrollPerformance() throws {
+        relaunchSeededPerformanceWorkspace()
+        try openScheduleForPerformance()
+
+        let scheduleSurface = scheduleScrollSurface()
+        XCTAssertTrue(scheduleSurface.waitForExistence(timeout: 8), "Schedule surface should exist for scroll measurement")
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "ScheduleScrollSession")], options: options) {
+            for _ in 0..<6 {
+                scheduleSurface.swipeUp()
+            }
+            for _ in 0..<6 {
+                scheduleSurface.swipeDown()
+            }
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.25))
+        }
+    }
+
+    func testScheduleEventDetailOpenPerformance() throws {
+        relaunchSeededPerformanceWorkspace()
+        try openScheduleForPerformance()
+
+        let eventRow = scheduleEventRow(identifier: "schedule.event.test_meeting_1")
+        XCTAssertTrue(eventRow.waitForExistence(timeout: 8), "Seeded schedule event should exist for event-open measurement")
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "ScheduleEventDetailOpen")], options: options) {
+            tapElement(eventRow)
+            XCTAssertTrue(waitForScheduleEventDetailPresented(timeout: 4), "Schedule event detail should open during performance measurement")
+            XCTAssertTrue(dismissScheduleEventDetailIfPresented(), "Schedule event detail should dismiss after performance measurement")
+        }
     }
 
     // MARK: - Test 68: Task Creation Performance
@@ -138,12 +156,9 @@ class PerformanceTests: BaseUITest {
             throw XCTSkip("XCTHitchMetric requires iOS 19.0 or later.")
         }
 
-        app.terminate()
-        app.launchSeededTimelineWorkspace(calendarMode: "active")
-        homePage = HomePage(app: app)
+        relaunchSeededPerformanceWorkspace()
 
-        let homeScrollView = app.scrollViews["home.view"].firstMatch
-        let homeSurface = homeScrollView.exists ? homeScrollView : app.otherElements["home.view"].firstMatch
+        let homeSurface = homePerformanceScrollSurface()
         XCTAssertTrue(homeSurface.waitForExistence(timeout: 8), "Seeded Home scroll surface should exist")
 
         let scopeButton = app.buttons[scopeAccessibilityID].firstMatch
@@ -154,12 +169,52 @@ class PerformanceTests: BaseUITest {
         let options = XCTMeasureOptions()
         options.iterationCount = 3
         measure(metrics: [XCTHitchMetric(application: app)], options: options) {
-            for _ in 0..<8 {
-                homeSurface.swipeUp()
+            performScrollCycle(on: homeSurface, swipeCount: 8)
+        }
+    }
+
+    func testSeededMajorFeatureCriticalJourneyPerformance() throws {
+        relaunchSeededPerformanceWorkspace()
+        XCTAssertTrue(ensurePerformanceAppReady(), "Critical journey should start from ready Home")
+        exerciseCriticalJourneyCreationFlow()
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+
+        measure(metrics: homeScrollMetrics(signpostName: "SeededMajorFeatureCriticalJourney"), options: options) {
+            XCTAssertTrue(ensurePerformanceAppReady(), "Critical journey should start from ready Home")
+            cycleBottomTabsForPerformance()
+            tapSunriseFilter("all")
+            tapSunriseFilter("tasks")
+            performScrollCycle(on: homePerformanceScrollSurface(), swipeCount: 3)
+            tapFirstHomeTimelineItemIfAvailable()
+            dismissTaskOrEventDetailIfPresented()
+
+            tapSunriseFilter("habits")
+            performScrollCycle(on: homePerformanceScrollSurface(), swipeCount: 2)
+            tapFirstHomeHabitIfAvailable()
+            dismissTaskOrEventDetailIfPresented()
+
+            do {
+                try openScheduleForPerformance()
+            } catch {
+                XCTFail("Schedule should open during critical journey: \(error)")
             }
-            for _ in 0..<8 {
-                homeSurface.swipeDown()
+            performScrollCycle(on: scheduleScrollSurface(), swipeCount: 3)
+            let eventRow = scheduleEventRow(identifier: "schedule.event.test_meeting_1")
+            if eventRow.waitForExistence(timeout: 2) {
+                tapElement(eventRow)
+                _ = waitForScheduleEventDetailPresented(timeout: 3)
+                _ = dismissScheduleEventDetailIfPresented()
             }
+
+            XCTAssertTrue(openInsightsForPerformance(), "Insights should open during critical journey")
+            _ = switchInsightsTabForPerformance(.today)
+            _ = scrollInsightsTabForPerformance(.week, swipeCount: 2)
+            _ = scrollInsightsTabForPerformance(.systems, swipeCount: 2)
+
+            openChatForPerformance()
+            returnHomeFromTransientSurface()
         }
     }
 
@@ -256,12 +311,14 @@ class PerformanceTests: BaseUITest {
             "-DISABLE_ANIMATIONS",
             "-SKIP_ONBOARDING",
             XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
-            XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue
+            XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue,
+            XCUIApplication.LaunchArgumentKey.testEvaActivationCompleted.rawValue
         ]
         app.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         app.launch()
         waitForAppLaunch()
         homePage = HomePage(app: app)
+        XCTAssertTrue(ensurePerformanceAppReady(), "Habit performance workspace should be ready before measurement starts")
     }
 
     private func firstHomeHabitRow(file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
@@ -564,6 +621,602 @@ class PerformanceTests: BaseUITest {
     }
 
     // MARK: - Helper
+
+    private func exerciseCriticalJourneyCreationFlow() {
+        tapSunriseFilter("tasks")
+        let taskTitle = "Critical Journey Setup \(UUID().uuidString.prefix(6))"
+        let addTaskPage = homePage.tapAddTask()
+        createTaskForPerformance(addTaskPage: addTaskPage, title: taskTitle)
+        tapSunriseFilter("tasks")
+        XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Created task should appear during critical journey setup")
+        XCTAssertTrue(completeVisibleTaskForPerformance(containingTitle: taskTitle), "Created task should be marked done during critical journey setup")
+
+        tapSunriseFilter("habits")
+        let habitTitle = "Critical Habit Setup \(UUID().uuidString.prefix(6))"
+        createHabitThroughAddSheet(title: habitTitle)
+        markHabitDone(containingTitle: habitTitle)
+        tapSunriseFilter("all")
+    }
+
+    private func relaunchSeededPerformanceWorkspace() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchSeededTimelineWorkspace(
+            calendarMode: "active",
+            skipOnboarding: true,
+            evaActivationCompleted: true
+        )
+        homePage = HomePage(app: app)
+        XCTAssertTrue(ensurePerformanceAppReady(), "Seeded performance workspace should reach Home before measurement")
+        ensureHomeTimelineReady()
+    }
+
+    private func homeScrollMetrics(signpostName: String) -> [XCTMetric] {
+        var metrics: [XCTMetric] = [PerformanceMetrics.signpostMetric(named: signpostName)]
+        if #available(iOS 19.0, *) {
+            metrics.append(XCTHitchMetric(application: app))
+        }
+        return metrics
+    }
+
+    private func homePerformanceScrollSurface() -> XCUIElement {
+        let homeScrollView = app.scrollViews["home.view"].firstMatch
+        if homeScrollView.exists {
+            return homeScrollView
+        }
+        let homeSurface = app.otherElements["home.view"].firstMatch
+        if homeSurface.exists {
+            return homeSurface
+        }
+        return homePage.taskListScrollView
+    }
+
+    private func performScrollCycle(on element: XCUIElement, swipeCount: Int) {
+        for _ in 0..<swipeCount {
+            element.swipeUp()
+        }
+        for _ in 0..<swipeCount {
+            element.swipeDown()
+        }
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.2))
+    }
+
+    private func cycleBottomTabsForPerformance() {
+        if app.buttons[AccessibilityIdentifiers.Home.bottomBarCalendar].waitForExistence(timeout: 3) {
+            tapElement(app.buttons[AccessibilityIdentifiers.Home.bottomBarCalendar])
+            _ = app.descendants(matching: .any)["schedule.list"].waitForExistence(timeout: 4)
+        }
+        if app.buttons[AccessibilityIdentifiers.Home.bottomBarHome].waitForExistence(timeout: 3) {
+            tapElement(app.buttons[AccessibilityIdentifiers.Home.bottomBarHome])
+            _ = ensurePerformanceAppReady(timeout: 5)
+        }
+
+        _ = openInsightsForPerformance()
+        if app.buttons[AccessibilityIdentifiers.Home.bottomBarHome].waitForExistence(timeout: 3) {
+            tapElement(app.buttons[AccessibilityIdentifiers.Home.bottomBarHome])
+            _ = ensurePerformanceAppReady(timeout: 5)
+        }
+
+        openChatForPerformance()
+        returnHomeFromTransientSurface()
+    }
+
+    private func tapSunriseFilter(_ id: String) {
+        let button = app.buttons[AccessibilityIdentifiers.Home.sunriseFilter(id)].firstMatch
+        if button.waitForExistence(timeout: 3) {
+            tapElement(button)
+        }
+    }
+
+    private func createTaskForPerformance(addTaskPage: AddTaskPage, title: String) {
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(timeout: 5), "Add Task should open during critical journey")
+        addTaskPage.enterTitle(title)
+        addTaskPage.tapSave()
+    }
+
+    private func tapFirstHomeTimelineItemIfAvailable() {
+        let predicate = NSPredicate(
+            format: "identifier BEGINSWITH %@ OR identifier BEGINSWITH %@",
+            "home.timeline.task.",
+            "home.timeline.event."
+        )
+        let item = app.descendants(matching: .any).matching(predicate).firstMatch
+        if item.waitForExistence(timeout: 3) {
+            tapElement(item)
+        }
+    }
+
+    private func tapFirstHomeHabitIfAvailable() {
+        let habit = homeHabitPerformanceTapTarget()
+        if habit.waitForExistence(timeout: 3) {
+            tapElement(habit)
+        }
+    }
+
+    private func createHabitThroughAddSheet(title: String) {
+        let addPage = AddTaskPage(app: app)
+        if openHabitComposerFromHome() == false {
+            let taskAddPage = homePage.tapAddTask()
+            XCTAssertTrue(taskAddPage.verifyIsDisplayed(timeout: 5), "Add sheet should open before creating a habit")
+            taskAddPage.switchToHabitMode()
+        }
+        XCTAssertTrue(app.otherElements["addHabit.view"].waitForExistence(timeout: 5), "Habit composer should open from the Add sheet")
+        enterHabitTitleForPerformance(title)
+        let createButton = app.buttons["addHabit.createButton"].exists
+            ? app.buttons["addHabit.createButton"]
+            : app.descendants(matching: .any)["addHabit.createButton"]
+        XCTAssertTrue(createButton.waitForExistence(timeout: 4), "Habit composer should expose a create button")
+        tapElement(createButton)
+        _ = app.otherElements["addHabit.view"].waitForExistence(timeout: 0.2)
+        let dismissalExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.otherElements["addHabit.view"]
+        )
+        _ = XCTWaiter.wait(for: [dismissalExpectation], timeout: 5)
+        _ = ensurePerformanceAppReady(timeout: 8)
+        tapSunriseFilter("habits")
+        XCTAssertTrue(
+            app.staticTexts[title].waitForExistence(timeout: 8)
+                || homeHabitRow(containingTitle: title).waitForExistence(timeout: 8),
+            "Created habit should appear on Home habits"
+        )
+    }
+
+    private func openHabitComposerFromHome() -> Bool {
+        tapSunriseFilter("habits")
+        let addHabitButton = app.buttons[AccessibilityIdentifiers.Home.habitsAddHabit].firstMatch
+        for _ in 0..<10 {
+            if addHabitButton.exists {
+                tapElement(addHabitButton)
+                if app.otherElements["addHabit.view"].waitForExistence(timeout: 3) {
+                    return true
+                }
+            }
+            homePerformanceScrollSurface().swipeUp()
+        }
+        return false
+    }
+
+    private func enterHabitTitleForPerformance(_ title: String) {
+        let titleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField].firstMatch
+        XCTAssertTrue(titleField.waitForExistence(timeout: 8), "Habit title field should exist")
+
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.45))
+        if app.keyboards.firstMatch.exists {
+            app.typeText(title)
+            return
+        }
+
+        titleField.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        app.typeText(title)
+    }
+
+    private func openInsightsForPerformance() -> Bool {
+        let chartsButton = app.buttons[AccessibilityIdentifiers.Home.bottomBarCharts].exists
+            ? app.buttons[AccessibilityIdentifiers.Home.bottomBarCharts]
+            : app.descendants(matching: .any)[AccessibilityIdentifiers.Home.bottomBarCharts]
+        guard chartsButton.waitForExistence(timeout: 5) else {
+            return false
+        }
+
+        tapElement(chartsButton)
+        return waitForAnyPerformanceElement(
+            [
+                homePage.insightsContainer,
+                app.descendants(matching: .any)[AccessibilityIdentifiers.Home.insightsContainer],
+                app.descendants(matching: .any)[AccessibilityIdentifiers.Home.insightsTabToday],
+                app.descendants(matching: .any)[AccessibilityIdentifiers.Home.insightsContentToday],
+                app.staticTexts["What needs attention"]
+            ],
+            timeout: 5
+        )
+    }
+
+    private func switchInsightsTabForPerformance(_ tab: HomePage.InsightsTab, timeout: TimeInterval = 2) -> Bool {
+        let identifier: String
+        let label: String
+        switch tab {
+        case .today:
+            identifier = AccessibilityIdentifiers.Home.insightsTabToday
+            label = "Today"
+        case .week:
+            identifier = AccessibilityIdentifiers.Home.insightsTabWeek
+            label = "Week"
+        case .systems:
+            identifier = AccessibilityIdentifiers.Home.insightsTabSystems
+            label = "Systems"
+        }
+
+        let candidates = [
+            app.buttons[identifier],
+            app.descendants(matching: .any)[identifier],
+            app.buttons[label],
+            app.staticTexts[label],
+            app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
+        ]
+
+        guard let tabElement = candidates.first(where: { $0.waitForExistence(timeout: timeout) }) else {
+            XCTFail("Insights \(label) tab should be available for performance interaction")
+            return false
+        }
+        tapElement(tabElement)
+        return true
+    }
+
+    private func scrollInsightsTabForPerformance(_ tab: HomePage.InsightsTab, swipeCount: Int) -> Bool {
+        guard switchInsightsTabForPerformance(tab) else { return false }
+        let scrollView = app.scrollViews[AccessibilityIdentifiers.Home.insightsScroll].firstMatch
+        let surface = scrollView.exists
+            ? scrollView
+            : app.descendants(matching: .any)[AccessibilityIdentifiers.Home.insightsScroll]
+        guard surface.waitForExistence(timeout: 2) else {
+            XCTFail("Insights scroll surface should be available for performance interaction")
+            return false
+        }
+
+        performScrollCycle(on: surface, swipeCount: swipeCount)
+        return true
+    }
+
+    private func completeVisibleTaskForPerformance(containingTitle title: String) -> Bool {
+        if tapExplicitTaskCheckbox(containingTitle: title), taskCompletionObserved(title: title, timeout: 3) {
+            return true
+        }
+
+        if completeTaskViaDetailForPerformance(containingTitle: title) {
+            return true
+        }
+
+        let titleElement = app.staticTexts[title].firstMatch
+        guard titleElement.waitForExistence(timeout: 4) else {
+            return false
+        }
+
+        let frame = titleElement.frame
+        let rowY = frame.midY
+        let candidateXs = [
+            frame.minX - 42,
+            frame.minX - 70,
+            frame.minX - 98,
+            frame.minX - 126,
+            54,
+            34
+        ].map { max(18, min(app.frame.width - 18, $0)) }
+
+        for x in candidateXs {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+                .withOffset(CGVector(dx: x, dy: rowY))
+                .tap()
+            dismissTaskOrEventDetailIfPresented()
+            if taskCompletionObserved(title: title, timeout: 1.2) {
+                return true
+            }
+        }
+
+        titleElement.press(forDuration: 0.8)
+        let markComplete = app.buttons["Mark Complete"].firstMatch
+        if markComplete.waitForExistence(timeout: 2) {
+            tapElement(markComplete)
+            return taskCompletionObserved(title: title, timeout: 3)
+        }
+
+        return false
+    }
+
+    private func completeTaskViaDetailForPerformance(containingTitle title: String) -> Bool {
+        let titleElement = app.staticTexts[title].firstMatch
+        guard titleElement.waitForExistence(timeout: 3) else {
+            return false
+        }
+
+        tapElement(titleElement)
+        let detailView = app.descendants(matching: .any)[AccessibilityIdentifiers.TaskDetail.view]
+        guard detailView.waitForExistence(timeout: 5) else {
+            return false
+        }
+
+        let completeButton = app.descendants(matching: .any)[AccessibilityIdentifiers.TaskDetail.completeButton].firstMatch
+        guard completeButton.waitForExistence(timeout: 4) else {
+            dismissTaskOrEventDetailIfPresented()
+            return false
+        }
+
+        tapElement(completeButton)
+        let didComplete = waitForTaskDetailCompletionStateForPerformance(timeout: 5)
+        dismissTaskOrEventDetailIfPresented()
+        _ = ensurePerformanceAppReady(timeout: 5)
+        tapSunriseFilter("tasks")
+        return didComplete
+    }
+
+    private func waitForTaskDetailCompletionStateForPerformance(timeout: TimeInterval) -> Bool {
+        let button = app.descendants(matching: .any)[AccessibilityIdentifiers.TaskDetail.completeButton].firstMatch
+        let predicate = NSPredicate { _, _ in
+            let label = button.label.lowercased()
+            let value = (button.value as? String)?.lowercased() ?? ""
+            return label == "completed"
+                || label.contains("reopen")
+                || value.contains("selected")
+                || value == "1"
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func tapExplicitTaskCheckbox(containingTitle title: String) -> Bool {
+        let checkboxPredicate = NSPredicate(
+            format: "identifier BEGINSWITH %@ AND label CONTAINS[c] %@",
+            "home.taskCheckbox.",
+            title
+        )
+        let checkboxByLabel = app.descendants(matching: .any).matching(checkboxPredicate).firstMatch
+        if checkboxByLabel.waitForExistence(timeout: 0.5) {
+            tapElement(checkboxByLabel)
+            return true
+        }
+
+        let titleElement = app.staticTexts[title].firstMatch
+        if titleElement.waitForExistence(timeout: 0.5) {
+            let titleMidY = titleElement.frame.midY
+            let checkboxes = app.descendants(matching: .any).matching(
+                NSPredicate(format: "identifier BEGINSWITH %@", "home.taskCheckbox.")
+            )
+            for index in 0..<checkboxes.count {
+                let checkbox = checkboxes.element(boundBy: index)
+                guard checkbox.exists else { continue }
+                if abs(checkbox.frame.midY - titleMidY) <= 28 {
+                    tapElement(checkbox)
+                    return true
+                }
+            }
+        }
+
+        let row = homePage.taskRow(containingTitle: title)
+        guard row.exists, row.identifier.hasPrefix("home.taskRow.") else {
+            return false
+        }
+
+        let taskID = String(row.identifier.dropFirst("home.taskRow.".count))
+        let checkbox = app.descendants(matching: .any)["home.taskCheckbox.\(taskID)"].firstMatch
+        if checkbox.waitForExistence(timeout: 0.5) {
+            tapElement(checkbox)
+            return true
+        }
+
+        return false
+    }
+
+    private func taskCompletionObserved(title: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if homePage.taskRowStateValue(containingTitle: title)?.localizedCaseInsensitiveContains("done") == true {
+                return true
+            }
+
+            let doneElement = app.descendants(matching: .any).matching(
+                NSPredicate(format: "label CONTAINS[c] %@ AND value CONTAINS[c] %@", title, "done")
+            ).firstMatch
+            if doneElement.exists {
+                return true
+            }
+
+            if app.staticTexts[title].exists == false && homePage.taskRow(containingTitle: title).exists == false {
+                return true
+            }
+
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.15))
+        }
+
+        return false
+    }
+
+    private func markHabitDone(containingTitle title: String) {
+        tapSunriseFilter("habits")
+        let row = homeHabitRow(containingTitle: title)
+        XCTAssertTrue(row.waitForExistence(timeout: 8), "Created habit row should exist before marking done")
+        let previousValue = (row.value as? String) ?? ""
+        tapElement(row)
+
+        let predicate = NSPredicate { _, _ in
+            let nextValue = (row.value as? String) ?? ""
+            return nextValue.localizedCaseInsensitiveContains("done")
+                || (previousValue.isEmpty == false && nextValue != previousValue)
+        }
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: row)], timeout: 5),
+            .completed,
+            "Created habit should mark done after tapping its Home row"
+        )
+    }
+
+    private func homeHabitRow(containingTitle title: String) -> XCUIElement {
+        let rowPredicate = NSPredicate(format: "identifier BEGINSWITH %@", "home.habits.row.")
+        let rows = app.descendants(matching: .any).matching(rowPredicate)
+        for _ in 0..<8 {
+            for index in 0..<rows.count {
+                let row = rows.element(boundBy: index)
+                if row.label.localizedCaseInsensitiveContains(title)
+                    || row.debugDescription.localizedCaseInsensitiveContains(title) {
+                    return row
+                }
+            }
+            homePerformanceScrollSurface().swipeUp()
+        }
+
+        let legacyPredicate = NSPredicate(format: "identifier BEGINSWITH %@", "home.habitRow.")
+        let legacyRows = app.descendants(matching: .any).matching(legacyPredicate)
+        for index in 0..<legacyRows.count {
+            let row = legacyRows.element(boundBy: index)
+            if row.label.localizedCaseInsensitiveContains(title)
+                || row.debugDescription.localizedCaseInsensitiveContains(title) {
+                return row
+            }
+        }
+
+        return app.descendants(matching: .any)["missing.home.habitRow.\(title)"]
+    }
+
+    private func dismissTaskOrEventDetailIfPresented() {
+        let taskDetail = app.descendants(matching: .any)[AccessibilityIdentifiers.TaskDetail.view]
+        if taskDetail.waitForExistence(timeout: 1) {
+            let close = app.buttons[AccessibilityIdentifiers.TaskDetail.closeButton]
+            if close.exists {
+                tapElement(close)
+                return
+            }
+            app.swipeDown()
+            return
+        }
+
+        if waitForScheduleEventDetailPresented(timeout: 1) {
+            _ = dismissScheduleEventDetailIfPresented()
+        }
+    }
+
+    private func openChatForPerformance() {
+        let composer = app.descendants(matching: .any)["chat.composer.container"]
+        let emptyState = app.descendants(matching: .any)["chat.emptyState.container"]
+        homePage.tapChat()
+        XCTAssertTrue(
+            waitForAnyPerformanceElement([composer, emptyState], timeout: 4),
+            "EVA should open to a composer or transcript surface during performance coverage"
+        )
+    }
+
+    private func waitForAnyPerformanceElement(_ elements: [XCUIElement], timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if elements.contains(where: { $0.exists }) {
+                return true
+            }
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+        }
+        return elements.contains(where: { $0.exists })
+    }
+
+    private func returnHomeFromTransientSurface() {
+        if app.buttons[AccessibilityIdentifiers.Home.bottomBarHome].waitForExistence(timeout: 1) {
+            tapElement(app.buttons[AccessibilityIdentifiers.Home.bottomBarHome])
+            _ = ensurePerformanceAppReady(timeout: 5)
+            return
+        }
+
+        let navButton = app.navigationBars.buttons.element(boundBy: 0)
+        if navButton.exists {
+            navButton.tap()
+        }
+        _ = ensurePerformanceAppReady(timeout: 5)
+    }
+
+    private func openScheduleForPerformance() throws {
+        let calendarButton = app.buttons["home.bottomBar.calendar"].exists
+            ? app.buttons["home.bottomBar.calendar"]
+            : app.descendants(matching: .any)["home.bottomBar.calendar"]
+        XCTAssertTrue(calendarButton.waitForExistence(timeout: 8), "Bottom bar calendar button should exist")
+        tapElement(calendarButton)
+
+        let scheduleFilters = app.buttons["schedule.toolbar.filters"]
+        let scheduleList = app.descendants(matching: .any)["schedule.list"]
+        XCTAssertTrue(
+            scheduleFilters.waitForExistence(timeout: 8) || scheduleList.waitForExistence(timeout: 8),
+            "Schedule should open from the bottom bar"
+        )
+    }
+
+    private func scheduleScrollSurface() -> XCUIElement {
+        let scrollView = app.scrollViews["schedule.list"].firstMatch
+        if scrollView.exists {
+            return scrollView
+        }
+
+        let identified = app.descendants(matching: .any)["schedule.list"]
+        if identified.exists {
+            return identified
+        }
+
+        return app.scrollViews.firstMatch
+    }
+
+    private func scheduleEventRow(identifier: String) -> XCUIElement {
+        let directButton = app.buttons[identifier]
+        if directButton.exists {
+            return directButton
+        }
+
+        let descendant = app.descendants(matching: .any)[identifier]
+        if descendant.exists {
+            return descendant
+        }
+
+        let surface = scheduleScrollSurface()
+        for _ in 0..<6 {
+            surface.swipeUp()
+            if directButton.exists {
+                return directButton
+            }
+            if descendant.exists {
+                return descendant
+            }
+        }
+
+        return descendant
+    }
+
+    private func dismissScheduleEventDetailIfPresented() -> Bool {
+        let identifiedClose = app.buttons["schedule.detail.close"]
+        let done = app.navigationBars.buttons["Done"].firstMatch
+        let detailSheet = app.descendants(matching: .any)["schedule.detail.sheet"]
+        let sheet = app.sheets.firstMatch
+
+        let appeared = waitForScheduleEventDetailPresented(timeout: 2)
+        guard appeared else { return false }
+        if identifiedClose.exists {
+            tapElement(identifiedClose)
+        } else if done.exists {
+            done.tap()
+        } else if sheet.exists {
+            sheet.swipeDown()
+        } else {
+            app.swipeDown()
+        }
+        return true
+    }
+
+    private func waitForScheduleEventDetailPresented(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        let probes: [XCUIElement] = [
+            app.buttons["schedule.detail.close"],
+            app.descendants(matching: .any)["schedule.detail.sheet"],
+            app.descendants(matching: .any)["schedule.detail.unavailable"],
+            app.navigationBars.buttons["Done"].firstMatch,
+            app.sheets.firstMatch
+        ]
+
+        while Date() < deadline {
+            if probes.contains(where: { $0.exists }) {
+                return true
+            }
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+        }
+        return probes.contains(where: { $0.exists })
+    }
+
+    private func tapElement(_ element: XCUIElement) {
+        if element.isHittable == false {
+            for _ in 0..<4 {
+                app.swipeUp()
+                if element.isHittable {
+                    break
+                }
+            }
+        }
+
+        if element.isHittable {
+            element.tap()
+        } else {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+    }
 
     private func findTaskIndex(withTitle title: String) -> Int {
         let taskRows = app.descendants(matching: .any).matching(

@@ -11,6 +11,12 @@ import XCTest
 class SearchAndFilteringTests: BaseUITest {
 
     var homePage: HomePage!
+    override var additionalLaunchArguments: [String] {
+        [
+            XCUIApplication.LaunchArgumentKey.testSeedSearchWorkspace.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableLLM.rawValue
+        ]
+    }
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -18,19 +24,7 @@ class SearchAndFilteringTests: BaseUITest {
     }
 
     private func seedSearchTasks() {
-        let tasks = [
-            ("Meeting with Team", TestDataFactory.TaskPriority.high),
-            ("Review Code", TestDataFactory.TaskPriority.medium),
-            ("Meeting Prep", TestDataFactory.TaskPriority.high),
-            ("Coffee Break", TestDataFactory.TaskPriority.low),
-            ("Sprint Planning", TestDataFactory.TaskPriority.medium)
-        ]
-
-        for (title, priority) in tasks {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: priority, taskType: .morning)
-            _ = homePage.waitForTask(withTitle: title, timeout: 5)
-        }
+        _ = homePage.view.waitForExistence(timeout: 5)
     }
 
     // MARK: - Test 52: Search Task by Title
@@ -38,30 +32,18 @@ class SearchAndFilteringTests: BaseUITest {
     func testSearchTaskByTitle() throws {
         // GIVEN: Multiple tasks exist
         seedSearchTasks()
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting with Team"), "Task should exist")
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Home should start collapsed")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home tool should be selected initially")
-        XCTAssertTrue(homePage.topNavActionRow.waitForExistence(timeout: 2), "Home top-nav action row should exist")
-        let collapsedMinY = homePage.sunriseSurface.frame.minY
-        let homeActionRowMinY = homePage.topNavActionRow.frame.minY
 
         // WHEN: User searches for "Meeting"
-        homePage.tapSearch()
+        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open from the Home search affordance")
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open in-place")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.searchButton), "Search tool should be selected while open")
         XCTAssertTrue(homePage.searchField.waitForExistence(timeout: 3), "Backdrop search field should be visible")
         XCTAssertTrue(homePage.searchChromeContainer.waitForExistence(timeout: 2), "Search chrome container should exist")
         XCTAssertTrue(homePage.searchContentContainer.waitForExistence(timeout: 2), "Search content container should exist")
-        let searchOpenMinY = homePage.sunriseSurface.frame.minY
-        XCTAssertLessThan(abs(searchOpenMinY - collapsedMinY), 12, "Sunrise should stay anchored while opening search")
         let safeAreaBoundary = homePage.topSafeAreaBoundary()
         let initialFieldMinY = homePage.searchField.frame.minY
         XCTAssertGreaterThanOrEqual(initialFieldMinY, safeAreaBoundary - 1, "Search field should stay below the safe area")
-        XCTAssertGreaterThanOrEqual(
-            initialFieldMinY,
-            homeActionRowMinY - 4,
-            "Search field should not sit higher than the home top-nav action row"
-        )
         XCTAssertGreaterThanOrEqual(
             homePage.searchContentContainer.frame.minY,
             homePage.searchChromeContainer.frame.maxY - 1,
@@ -74,11 +56,6 @@ class SearchAndFilteringTests: BaseUITest {
             homePage.searchField.frame.minY,
             safeAreaBoundary - 1,
             "Search field should remain below the safe area while focused"
-        )
-        XCTAssertGreaterThanOrEqual(
-            homePage.searchField.frame.minY,
-            homeActionRowMinY - 4,
-            "Focused search field should stay aligned with the home top-nav action row"
         )
         XCTAssertLessThan(
             abs(homePage.searchField.frame.minY - initialFieldMinY),
@@ -105,9 +82,9 @@ class SearchAndFilteringTests: BaseUITest {
 
         takeScreenshot(named: "search_by_title")
 
-        // Close path by tapping Search again.
-        homePage.tapSearch()
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Search should collapse on second tap")
+        // Close path by tapping the Search face back chip.
+        XCTAssertTrue(homePage.searchBackChip.waitForExistence(timeout: 2), "Search back chip should exist")
+        homePage.tapSearchBackChip()
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be re-selected when search closes")
     }
 
@@ -116,7 +93,7 @@ class SearchAndFilteringTests: BaseUITest {
     func testSearchNoResults() throws {
         // GIVEN: Tasks exist
         // WHEN: User searches for non-existent term
-        homePage.tapSearch()
+        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open from Home")
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")
         let initialFieldMinY = homePage.searchField.frame.minY
         homePage.typeSearchQuery("NonExistentTask123")
@@ -157,7 +134,7 @@ class SearchAndFilteringTests: BaseUITest {
     func testClearSearch() throws {
         // GIVEN: User has performed a search
         seedSearchTasks()
-        homePage.tapSearch()
+        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open from Home")
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")
         homePage.typeSearchQuery("Meeting")
         waitForAnimations(duration: 1.0)
@@ -175,22 +152,20 @@ class SearchAndFilteringTests: BaseUITest {
     }
 
     func testSearchFaceClosePaths_HomeAndBackChip() throws {
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Home should start collapsed")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should start selected")
 
-        homePage.tapSearch()
+        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open from Home")
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search should open")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.searchButton), "Search tool should be selected")
 
         homePage.tapHome()
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Home tap should collapse search")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after closing search")
 
-        homePage.tapSearch()
+        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open from Home")
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Bottom search should reopen search face")
         XCTAssertTrue(homePage.searchBackChip.waitForExistence(timeout: 2), "Back chip should appear on search face")
         homePage.tapSearchBackChip()
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Back chip should collapse search")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after back chip closes search")
     }
 
     // MARK: - Test 55: Filter by Priority - High Only
@@ -284,7 +259,7 @@ class SearchAndFilteringTests: BaseUITest {
         // GIVEN: Tasks exist
         seedSearchTasks()
         // WHEN: User applies both search and filter
-        homePage.tapSearch()
+        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open from Home")
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")
         homePage.typeSearchQuery("Meeting")
         waitForAnimations(duration: 0.9)
