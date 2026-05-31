@@ -10,12 +10,16 @@ public struct InsightsTabView: View {
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
+    let onPerformInsightAction: (InsightsActionIntent) -> Void
     var bottomInset: CGFloat = 0
     var topContentInset: CGFloat = 0
     var onBackToTasks: (() -> Void)? = nil
     var onOpenSettings: (() -> Void)? = nil
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var scrollTraceCoordinator = InsightsScrollTraceCoordinator()
+    @State private var pendingDetailAnchor: InsightsDetailAnchor?
+    @State private var isWeekDetailsExpanded = false
+    @State private var isSystemsDetailsExpanded = false
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
@@ -43,34 +47,55 @@ public struct InsightsTabView: View {
                     }
                 )
 
-                ScrollView {
-                    SunriseInsightsContentView(
-                        viewModel: viewModel,
-                        homeProgress: homeProgress,
-                        homeCompletionRate: homeCompletionRate,
-                        reflectionEligible: reflectionEligible,
-                        dailyReflectionEntryState: dailyReflectionEntryState,
-                        momentumGuidanceText: momentumGuidanceText,
-                        animateMomentumCard: animateMomentumCard,
-                        onOpenReflection: onOpenReflection
-                    )
-                    .padding(.bottom, bottomInset + spacing.s24)
-                }
-                .padding(.bottom, spacing.s16)
-                .scrollIndicators(.hidden)
-                .onScrollGeometryChange(
-                    for: CGFloat.self,
-                    of: { geometry in
-                        max(0, geometry.contentOffset.y + geometry.contentInsets.top)
-                    },
-                    action: { oldOffset, newOffset in
-                        scrollTraceCoordinator.recordScrollActivity(
-                            oldOffset: oldOffset,
-                            newOffset: newOffset
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        SunriseInsightsContentView(
+                            viewModel: viewModel,
+                            homeProgress: homeProgress,
+                            homeCompletionRate: homeCompletionRate,
+                            reflectionEligible: reflectionEligible,
+                            dailyReflectionEntryState: dailyReflectionEntryState,
+                            momentumGuidanceText: momentumGuidanceText,
+                            animateMomentumCard: animateMomentumCard,
+                            onOpenReflection: onOpenReflection,
+                            onPerformInsightAction: onPerformInsightAction,
+                            pendingDetailAnchor: $pendingDetailAnchor,
+                            isWeekDetailsExpanded: $isWeekDetailsExpanded,
+                            isSystemsDetailsExpanded: $isSystemsDetailsExpanded
                         )
+                        .padding(.bottom, bottomInset + spacing.s24)
                     }
-                )
-                .accessibilityIdentifier("home.insights.scroll")
+                    .padding(.bottom, spacing.s16)
+                    .scrollIndicators(.hidden)
+                    .onScrollGeometryChange(
+                        for: CGFloat.self,
+                        of: { geometry in
+                            max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+                        },
+                        action: { oldOffset, newOffset in
+                            scrollTraceCoordinator.recordScrollActivity(
+                                oldOffset: oldOffset,
+                                newOffset: newOffset
+                            )
+                        }
+                    )
+                    .onChange(of: pendingDetailAnchor) { _, anchor in
+                        guard let anchor else { return }
+                        switch anchor {
+                        case .weeklyRhythm:
+                            isWeekDetailsExpanded = true
+                        case .streakResilience:
+                            isSystemsDetailsExpanded = true
+                        }
+                        DispatchQueue.main.async {
+                            withAnimation(LifeBoardAnimation.snappy) {
+                                proxy.scrollTo(anchor, anchor: .top)
+                            }
+                            pendingDetailAnchor = nil
+                        }
+                    }
+                    .accessibilityIdentifier("home.insights.scroll")
+                }
             }
         }
         .accessibilityIdentifier("home.insights.container")
