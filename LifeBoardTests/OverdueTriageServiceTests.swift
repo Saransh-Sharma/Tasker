@@ -157,6 +157,25 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertEqual(result.commitAction, .keepToday)
     }
 
+    func testDragResolverClampsVisibleOffsetBeyondLimit() {
+        let cardWidth: CGFloat = 360
+        let limit = OverdueRescueDragResolver.maxDragOffset(cardWidth: cardWidth)
+
+        let rightResult = OverdueRescueDragResolver.resolve(
+            translation: CGSize(width: 900, height: 8),
+            cardWidth: cardWidth
+        )
+        XCTAssertEqual(rightResult.commitAction, .keepToday)
+        XCTAssertLessThanOrEqual(rightResult.visibleOffset.width, limit + 0.001)
+
+        let leftResult = OverdueRescueDragResolver.resolve(
+            translation: CGSize(width: -900, height: 8),
+            cardWidth: cardWidth
+        )
+        XCTAssertEqual(leftResult.commitAction, .moveLater)
+        XCTAssertGreaterThanOrEqual(leftResult.visibleOffset.width, -limit - 0.001)
+    }
+
     func testDragResolverLeftDragBelowThresholdRevealsMoveWithoutCommit() {
         let result = OverdueRescueDragResolver.resolve(
             translation: CGSize(width: -62, height: 12),

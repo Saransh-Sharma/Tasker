@@ -247,7 +247,7 @@ struct OverdueRescueDeckLayoutMetrics: Equatable {
     }
 
     var deckHeight: CGFloat {
-        cardHeight + 80
+        cardHeight + 40
     }
 
     var progressWidth: CGFloat {
@@ -255,7 +255,7 @@ struct OverdueRescueDeckLayoutMetrics: Equatable {
     }
 
     var actionButtonHeight: CGFloat {
-        dynamicTypeIsExpanded ? 76 : 68
+        dynamicTypeIsExpanded ? 88 : 80
     }
 
     var actionGridUsesSingleColumn: Bool {
@@ -263,7 +263,7 @@ struct OverdueRescueDeckLayoutMetrics: Equatable {
     }
 
     var bottomClearance: CGFloat {
-        max(108, bottomInset + 16)
+        max(108, bottomInset + 20)
     }
 
     static func make(size: CGSize, bottomInset: CGFloat, dynamicTypeSize: DynamicTypeSize) -> OverdueRescueDeckLayoutMetrics {
@@ -276,6 +276,29 @@ struct OverdueRescueDeckLayoutMetrics: Equatable {
             dynamicTypeIsExpanded: dynamicTypeSize.isAccessibilitySize
         )
     }
+}
+
+enum OverdueRescueDeckCopy {
+    static let keepToday = "Keep today"
+    static let moveLater = "Move later"
+    static let edit = "Edit"
+    static let delete = "Delete"
+}
+
+enum OverdueRescuePalette {
+    static let progressTrack = Color(red: 0.91, green: 0.88, blue: 0.83)
+
+    static let keepFill = Color(red: 0.90, green: 0.96, blue: 0.92)
+    static let keepForeground = Color(red: 0.18, green: 0.49, blue: 0.31)
+
+    static let moveFill = Color(red: 1.0, green: 0.94, blue: 0.85)
+    static let moveForeground = Color(red: 0.77, green: 0.48, blue: 0.07)
+
+    static let editFill = Color(red: 0.91, green: 0.94, blue: 1.0)
+    static let editForeground = Color(red: 0.29, green: 0.40, blue: 0.78)
+
+    static let deleteFill = Color(red: 1.0, green: 0.92, blue: 0.91)
+    static let deleteForeground = Color(red: 0.78, green: 0.27, blue: 0.27)
 }
 
 enum OverdueRescueSwipeRevealKind: Equatable {
@@ -299,13 +322,19 @@ enum OverdueRescueDragResolver {
         max(96, cardWidth * 0.28)
     }
 
+    static func maxDragOffset(cardWidth: CGFloat) -> CGFloat {
+        cardWidth * 0.3
+    }
+
     static func resolve(translation: CGSize, cardWidth: CGFloat, reduceMotion: Bool = false) -> OverdueRescueDragResolution {
         let reveal = revealKind(for: translation)
         let threshold = commitThreshold(cardWidth: cardWidth)
         let progress = reveal == .none ? 0 : revealProgress(for: translation.width, threshold: threshold)
-        let visibleOffset = reveal == .none ? .zero : CGSize(width: translation.width, height: translation.height * 0.08)
+        let clampLimit = maxDragOffset(cardWidth: cardWidth)
+        let clampedWidth = max(-clampLimit, min(clampLimit, translation.width))
+        let visibleOffset = reveal == .none ? .zero : CGSize(width: clampedWidth, height: translation.height * 0.06)
         let commitAction = commitAction(for: translation, cardWidth: cardWidth)
-        let tilt = reduceMotion || reveal == .none ? 0 : Double(max(-8, min(8, translation.width / cardWidth * 9)))
+        let tilt = reduceMotion || reveal == .none ? 0 : Double(max(-5.5, min(5.5, translation.width / cardWidth * 6)))
 
         return OverdueRescueDragResolution(
             reveal: reveal,
