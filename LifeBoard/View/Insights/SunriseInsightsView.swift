@@ -1,9 +1,123 @@
 import SwiftUI
 
-enum InsightsAvailabilityState: Equatable {
+public enum InsightsAvailabilityState: Equatable, Sendable {
     case empty
     case partial
     case rich
+}
+
+public enum InsightsModuleVisibility: Equatable {
+    case visible
+    case empty(message: String)
+    case hidden
+}
+
+public enum InsightsDetailAnchor: String, Equatable, Hashable, Sendable {
+    case weeklyRhythm
+    case streakResilience
+}
+
+public enum InsightsActionIntent: Equatable, Sendable {
+    case addTask
+    case openToday
+    case startNextDecision
+    case protectFocus
+    case openYesterdayReview
+    case openHabitCheck
+    case openBacklogRecovery
+    case openProjectMix
+    case openWeeklyReview
+    case openWeeklyPlanner
+    case openReminderSettings
+    case expandDetails(InsightsDetailAnchor)
+}
+
+public enum InsightsActionSource: Equatable {
+    case hero(tab: InsightsViewModel.InsightsTab, availability: InsightsAvailabilityState, primaryCTATitle: String)
+    case card(tab: InsightsViewModel.InsightsTab, id: String)
+}
+
+public enum InsightsActionResolver {
+    public static func intent(for source: InsightsActionSource) -> InsightsActionIntent {
+        switch source {
+        case .hero(let tab, let availability, let primaryCTATitle):
+            return heroIntent(tab: tab, availability: availability, primaryCTATitle: primaryCTATitle)
+        case .card(let tab, let id):
+            return cardIntent(tab: tab, id: id)
+        }
+    }
+
+    private static func heroIntent(
+        tab: InsightsViewModel.InsightsTab,
+        availability: InsightsAvailabilityState,
+        primaryCTATitle: String
+    ) -> InsightsActionIntent {
+        let normalizedTitle = primaryCTATitle.lowercased()
+        if normalizedTitle.contains("add") {
+            return .addTask
+        }
+
+        switch tab {
+        case .today:
+            switch availability {
+            case .empty:
+                return .addTask
+            case .partial:
+                return .openToday
+            case .rich:
+                return normalizedTitle.contains("momentum") ? .protectFocus : .startNextDecision
+            }
+        case .week:
+            return normalizedTitle.contains("backlog") || normalizedTitle.contains("clean")
+                ? .openBacklogRecovery
+                : .expandDetails(.weeklyRhythm)
+        case .systems:
+            return normalizedTitle.contains("reminder") || normalizedTitle.contains("tune")
+                ? .openReminderSettings
+                : .openWeeklyPlanner
+        }
+    }
+
+    private static func cardIntent(
+        tab: InsightsViewModel.InsightsTab,
+        id: String
+    ) -> InsightsActionIntent {
+        switch (tab, id) {
+        case (.today, "nextDecision"):
+            return .startNextDecision
+        case (.today, "protectFocus"):
+            return .protectFocus
+        case (.today, "habitCheck"):
+            return .openHabitCheck
+        case (.today, "yesterdayReview"):
+            return .openYesterdayReview
+        case (.week, "weeklyMomentum"):
+            return .expandDetails(.weeklyRhythm)
+        case (.week, "backlogDrag"), (.week, "backlogTrack"):
+            return .openBacklogRecovery
+        case (.week, "projectMix"):
+            return .openProjectMix
+        case (.week, "recovery"):
+            return .openWeeklyReview
+        case (.systems, "reminderResponse"):
+            return .openReminderSettings
+        case (.systems, "consistency"):
+            return .expandDetails(.streakResilience)
+        case (.systems, "focusHealth"):
+            return .protectFocus
+        case (.systems, "planningQuality"):
+            return .openWeeklyPlanner
+        default:
+            switch tab {
+            case .today:
+                return .openToday
+            case .week:
+                return .expandDetails(.weeklyRhythm)
+            case .systems:
+                return .openWeeklyPlanner
+            }
+        }
+    }
 }
 
 struct InsightsDiagnosisPresentation: Equatable {
@@ -284,6 +398,10 @@ struct SunriseInsightsContentView: View {
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
+    let onPerformInsightAction: (InsightsActionIntent) -> Void
+    @Binding var pendingDetailAnchor: InsightsDetailAnchor?
+    @Binding var isWeekDetailsExpanded: Bool
+    @Binding var isSystemsDetailsExpanded: Bool
 
     var body: some View {
         switch viewModel.selectedTab {
@@ -296,14 +414,26 @@ struct SunriseInsightsContentView: View {
                 dailyReflectionEntryState: dailyReflectionEntryState,
                 momentumGuidanceText: momentumGuidanceText,
                 animateMomentumCard: animateMomentumCard,
-                onOpenReflection: onOpenReflection
+                onOpenReflection: onOpenReflection,
+                onPerformInsightAction: onPerformInsightAction,
+                pendingDetailAnchor: $pendingDetailAnchor
             )
             .accessibilityIdentifier("home.insights.content.today")
         case .week:
-            SunriseInsightsWeekView(viewModel: viewModel)
+            SunriseInsightsWeekView(
+                viewModel: viewModel,
+                onPerformInsightAction: onPerformInsightAction,
+                pendingDetailAnchor: $pendingDetailAnchor,
+                isDetailsExpanded: $isWeekDetailsExpanded
+            )
                 .accessibilityIdentifier("home.insights.content.week")
         case .systems:
-            SunriseInsightsSystemsView(viewModel: viewModel)
+            SunriseInsightsSystemsView(
+                viewModel: viewModel,
+                onPerformInsightAction: onPerformInsightAction,
+                pendingDetailAnchor: $pendingDetailAnchor,
+                isDetailsExpanded: $isSystemsDetailsExpanded
+            )
                 .accessibilityIdentifier("home.insights.content.systems")
         }
     }
@@ -318,6 +448,8 @@ private struct SunriseInsightsTodayView: View {
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
+    let onPerformInsightAction: (InsightsActionIntent) -> Void
+    @Binding var pendingDetailAnchor: InsightsDetailAnchor?
 
     @State private var showDetails = false
     private var state: InsightsTodayState { viewModel.todayState }
@@ -333,7 +465,7 @@ private struct SunriseInsightsTodayView: View {
         LazyVStack(spacing: LBSpacingTokens.sm) {
             SunriseInsightsDiagnosisCard(
                 presentation: presentation.diagnosis,
-                action: primaryAction
+                action: { performHeroAction() }
             )
 
             SunriseInsightsMetricStrip(metrics: presentation.metrics)
@@ -341,7 +473,7 @@ private struct SunriseInsightsTodayView: View {
             ForEach(presentation.actions) { action in
                 SunriseInsightActionCard(
                     presentation: action,
-                    action: { LifeBoardFeedback.selection() }
+                    action: { performActionCard(action) }
                 )
             }
 
@@ -386,6 +518,39 @@ private struct SunriseInsightsTodayView: View {
         return { LifeBoardFeedback.selection() }
     }
 
+    private func performHeroAction() {
+        let intent = InsightsActionResolver.intent(
+            for: .hero(
+                tab: .today,
+                availability: presentation.availability,
+                primaryCTATitle: presentation.diagnosis.primaryCTATitle
+            )
+        )
+        if intent == .openToday, reflectionEligible {
+            onOpenReflection()
+            return
+        }
+        perform(intent)
+    }
+
+    private func performActionCard(_ action: InsightsActionPresentation) {
+        let intent = InsightsActionResolver.intent(for: .card(tab: .today, id: action.id))
+        perform(intent)
+    }
+
+    private func perform(_ intent: InsightsActionIntent) {
+        switch intent {
+        case .expandDetails(let anchor):
+            withAnimation(LifeBoardAnimation.snappy) {
+                showDetails = true
+            }
+            LifeBoardFeedback.success()
+            pendingDetailAnchor = anchor
+        default:
+            onPerformInsightAction(intent)
+        }
+    }
+
     private func firstDetail(from metrics: [InsightsMetricTile]) -> String? {
         guard let metric = metrics.first else { return nil }
         return "\(metric.title): \(metric.value). \(metric.detail)"
@@ -394,7 +559,9 @@ private struct SunriseInsightsTodayView: View {
 
 private struct SunriseInsightsWeekView: View {
     @ObservedObject var viewModel: InsightsViewModel
-    @State private var showDetails = false
+    let onPerformInsightAction: (InsightsActionIntent) -> Void
+    @Binding var pendingDetailAnchor: InsightsDetailAnchor?
+    @Binding var isDetailsExpanded: Bool
     private var state: InsightsWeekState { viewModel.weekState }
     private var presentation: InsightsTabPresentation {
         InsightsTabPresentation.build(tab: .week, viewModel: viewModel, momentumGuidanceText: "")
@@ -405,7 +572,7 @@ private struct SunriseInsightsWeekView: View {
             SunriseInsightsDiagnosisCard(
                 presentation: presentation.diagnosis,
                 accessibilityIdentifier: "home.insights.weekHero",
-                action: { LifeBoardFeedback.selection() }
+                action: { performHeroAction() }
             )
 
             SunriseInsightsMetricStrip(metrics: presentation.metrics)
@@ -413,18 +580,20 @@ private struct SunriseInsightsWeekView: View {
             ForEach(presentation.actions) { action in
                 SunriseInsightActionCard(
                     presentation: action,
-                    action: { LifeBoardFeedback.selection() }
+                    action: { performActionCard(action) }
                 )
             }
 
             SunriseInsightDisclosureCard(
                 title: presentation.details.title,
                 summary: presentation.details.summary,
-                isExpanded: $showDetails,
+                isExpanded: $isDetailsExpanded,
                 accessibilityIdentifier: "home.insights.disclosure.weekDetails"
             ) {
                 VStack(spacing: LBSpacingTokens.sm) {
                     SunriseWeekBarsCard(state: state, scaleMode: viewModel.weekScaleMode)
+                        .id(InsightsDetailAnchor.weeklyRhythm)
+                        .accessibilityIdentifier("home.insights.weeklyRhythm")
                     SunriseMetricSection(
                         title: "Week summary",
                         metrics: state.weeklySummaryMetrics,
@@ -443,11 +612,42 @@ private struct SunriseInsightsWeekView: View {
         .padding(.horizontal, LBSpacingTokens.screenMargin)
         .padding(.bottom, LBSpacingTokens.xl)
     }
+
+    private func performHeroAction() {
+        let intent = InsightsActionResolver.intent(
+            for: .hero(
+                tab: .week,
+                availability: presentation.availability,
+                primaryCTATitle: presentation.diagnosis.primaryCTATitle
+            )
+        )
+        perform(intent)
+    }
+
+    private func performActionCard(_ action: InsightsActionPresentation) {
+        let intent = InsightsActionResolver.intent(for: .card(tab: .week, id: action.id))
+        perform(intent)
+    }
+
+    private func perform(_ intent: InsightsActionIntent) {
+        switch intent {
+        case .expandDetails(let anchor):
+            withAnimation(LifeBoardAnimation.snappy) {
+                isDetailsExpanded = true
+            }
+            LifeBoardFeedback.success()
+            pendingDetailAnchor = anchor
+        default:
+            onPerformInsightAction(intent)
+        }
+    }
 }
 
 private struct SunriseInsightsSystemsView: View {
     @ObservedObject var viewModel: InsightsViewModel
-    @State private var showDetails = false
+    let onPerformInsightAction: (InsightsActionIntent) -> Void
+    @Binding var pendingDetailAnchor: InsightsDetailAnchor?
+    @Binding var isDetailsExpanded: Bool
     private var state: InsightsSystemsState { viewModel.systemsState }
     private var presentation: InsightsTabPresentation {
         InsightsTabPresentation.build(tab: .systems, viewModel: viewModel, momentumGuidanceText: "")
@@ -457,7 +657,7 @@ private struct SunriseInsightsSystemsView: View {
         LazyVStack(spacing: LBSpacingTokens.sm) {
             SunriseInsightsDiagnosisCard(
                 presentation: presentation.diagnosis,
-                action: { LifeBoardFeedback.selection() }
+                action: { performHeroAction() }
             )
 
             SunriseInsightsMetricStrip(metrics: presentation.metrics)
@@ -465,20 +665,22 @@ private struct SunriseInsightsSystemsView: View {
             ForEach(presentation.actions) { action in
                 SunriseInsightActionCard(
                     presentation: action,
-                    action: { LifeBoardFeedback.selection() }
+                    action: { performActionCard(action) }
                 )
             }
 
             SunriseInsightDisclosureCard(
                 title: presentation.details.title,
                 summary: presentation.details.summary,
-                isExpanded: $showDetails
+                isExpanded: $isDetailsExpanded
             ) {
                 VStack(spacing: LBSpacingTokens.sm) {
                     SunriseReminderResponseCard(state: state.reminderResponse)
                     SunriseMetricSection(title: "Focus health", metrics: state.focusHealthMetrics)
                     SunriseMetricSection(title: "Recovery health", metrics: state.recoveryHealthMetrics)
                     SunriseMetricSection(title: "Streak resilience", metrics: state.streakMetrics)
+                        .id(InsightsDetailAnchor.streakResilience)
+                        .accessibilityIdentifier("home.insights.streakResilience")
                     SunriseMetricSection(title: "Achievement velocity", metrics: state.achievementVelocityMetrics)
                     SunriseNarrativeCard(
                         title: "Achievements",
@@ -494,6 +696,35 @@ private struct SunriseInsightsSystemsView: View {
     private func firstDetail(from metrics: [InsightsMetricTile]) -> String? {
         guard let metric = metrics.first else { return nil }
         return "\(metric.title): \(metric.value). \(metric.detail)"
+    }
+
+    private func performHeroAction() {
+        let intent = InsightsActionResolver.intent(
+            for: .hero(
+                tab: .systems,
+                availability: presentation.availability,
+                primaryCTATitle: presentation.diagnosis.primaryCTATitle
+            )
+        )
+        perform(intent)
+    }
+
+    private func performActionCard(_ action: InsightsActionPresentation) {
+        let intent = InsightsActionResolver.intent(for: .card(tab: .systems, id: action.id))
+        perform(intent)
+    }
+
+    private func perform(_ intent: InsightsActionIntent) {
+        switch intent {
+        case .expandDetails(let anchor):
+            withAnimation(LifeBoardAnimation.snappy) {
+                isDetailsExpanded = true
+            }
+            LifeBoardFeedback.success()
+            pendingDetailAnchor = anchor
+        default:
+            onPerformInsightAction(intent)
+        }
     }
 }
 
@@ -676,44 +907,45 @@ private struct SunriseInsightActionCard: View {
     private var style: LBRoleStyle { LBColorTokens.role(presentation.role) }
 
     var body: some View {
-        Button(action: action) {
-            HStack(alignment: .center, spacing: LBSpacingTokens.sm) {
-                Image(systemName: presentation.systemImage)
-                    .font(.system(size: 18, weight: .semibold))
+        HStack(alignment: .center, spacing: LBSpacingTokens.sm) {
+            Image(systemName: presentation.systemImage)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(style.deep)
+                .frame(width: 46, height: 46)
+                .background(
+                    Circle()
+                        .fill(style.softSurface.opacity(0.92))
+                        .overlay(Circle().stroke(style.border.opacity(0.48), lineWidth: 1))
+                )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(presentation.title)
+                    .font(.lifeboard(.headline).weight(.semibold))
+                    .foregroundStyle(LBColorTokens.navy)
+                Text(presentation.message)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(presentation.ctaTitle)
+                    .font(.lifeboard(.caption1).weight(.semibold))
                     .foregroundStyle(style.deep)
-                    .frame(width: 46, height: 46)
-                    .background(
-                        Circle()
-                            .fill(style.softSurface.opacity(0.92))
-                            .overlay(Circle().stroke(style.border.opacity(0.48), lineWidth: 1))
-                    )
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(presentation.title)
-                        .font(.lifeboard(.headline).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
-                    Text(presentation.message)
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(LBColorTokens.navyMuted)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(presentation.ctaTitle)
-                        .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(style.deep)
-                }
-
-                Spacer(minLength: LBSpacingTokens.sm)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.textTertiary)
             }
-            .padding(LBSpacingTokens.md)
-            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+
+            Spacer(minLength: LBSpacingTokens.sm)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(LBColorTokens.textTertiary)
         }
-        .buttonStyle(.plain)
+        .padding(LBSpacingTokens.md)
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .secondaryInsightSurface(role: presentation.role, cornerRadius: 24)
+        .onTapGesture(perform: action)
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction(named: Text(presentation.ctaTitle), action)
         .accessibilityIdentifier("home.insights.action.\(presentation.id)")
     }
 }
@@ -764,8 +996,6 @@ private struct SunriseInsightDisclosureCard<Content: View>: View {
         }
         .padding(LBSpacingTokens.md)
         .sunriseInsightSurface(role: .neutral, cornerRadius: 22)
-        .accessibilityIdentifier(resolvedAccessibilityIdentifier)
-        .accessibilityValue(isExpanded ? "expanded" : "collapsed")
     }
 }
 
@@ -928,12 +1158,23 @@ private struct SunriseWeekBarsCard: View {
     }
 
     var body: some View {
-        if state.weeklyBars.isEmpty == false {
-            VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
-                Text("Weekly rhythm")
-                    .font(.lifeboard(.callout).weight(.semibold))
-                    .foregroundStyle(LBColorTokens.navy)
+        VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+            Text("Weekly rhythm")
+                .font(.lifeboard(.callout).weight(.semibold))
+                .foregroundStyle(LBColorTokens.navy)
 
+            if state.weeklyBars.isEmpty {
+                Text("Close a few tasks this week and LifeBoard will map the days that carry your momentum.")
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(LBSpacingTokens.sm)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(LBColorTokens.glassStrong)
+                    )
+            } else {
                 HStack(alignment: .bottom, spacing: LBSpacingTokens.xs) {
                     ForEach(state.weeklyBars) { bar in
                         VStack(spacing: 4) {
