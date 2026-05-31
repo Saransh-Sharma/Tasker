@@ -16,14 +16,18 @@ struct SunriseSearchFaceView<ResultsContent: View>: View {
     let isLoading: Bool
     let loadingMessage: String
     let showsNoResults: Bool
+    let hasActiveSuggestedCommand: Bool
     let emptyTitle: String
     let emptySubtitle: String
+    let emptyPrimaryTitle: String?
     let hasActiveFilters: Bool
     let onBack: () -> Void
     let onQueryChanged: (String) -> Void
     let onSubmit: () -> Void
     let onClear: () -> Void
     let onClearFilters: () -> Void
+    let onEmptyPrimaryAction: (() -> Void)?
+    let onRunSuggestedCommand: (HomeSearchSuggestedCommand) -> Void
     let onAskEvaPrompt: (String) -> Void
     @ViewBuilder let resultsContent: ResultsContent
 
@@ -143,14 +147,6 @@ struct SunriseSearchFaceView<ResultsContent: View>: View {
                 message: "Gathering matching tasks and command suggestions."
             )
             .frame(maxWidth: .infinity, minHeight: max(availableHeight - bottomInset, 260), alignment: .center)
-        } else if isDefaultState {
-            CommandSearchDefaultState(
-                suggestions: suggestedCommands,
-                recentSearches: recentSearches,
-                onRunSuggestion: runSuggestion,
-                onAskEva: askEva
-            )
-            .frame(maxWidth: .infinity, minHeight: max(availableHeight - bottomInset, 260), alignment: .top)
         } else if showsNoResults {
             CommandSearchNoResultsState(
                 title: emptyTitle,
@@ -158,9 +154,19 @@ struct SunriseSearchFaceView<ResultsContent: View>: View {
                 query: trimmedQuery,
                 hasActiveFilters: hasActiveFilters,
                 onClearFilters: onClearFilters,
+                primaryTitle: emptyPrimaryTitle,
+                primaryAction: onEmptyPrimaryAction,
                 onAskEva: { askEva(nonEmpty(trimmedQuery) ?? "Help me find the right plan") }
             )
             .frame(maxWidth: .infinity, minHeight: max(availableHeight - bottomInset, 260), alignment: .center)
+        } else if isDefaultState && hasActiveSuggestedCommand == false {
+            CommandSearchDefaultState(
+                suggestions: suggestedCommands,
+                recentSearches: recentSearches,
+                onRunSuggestion: runSuggestion,
+                onAskEva: askEva
+            )
+            .frame(maxWidth: .infinity, minHeight: max(availableHeight - bottomInset, 260), alignment: .top)
         } else {
             VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
                 if shouldShowAskEvaRow {
@@ -186,16 +192,8 @@ struct SunriseSearchFaceView<ResultsContent: View>: View {
         trimmedQuery.isEmpty == false && commandMode == .askEva || trimmedQuery.split(separator: " ").count >= 3 || isSlashQuery
     }
 
-    private var suggestedCommands: [CommandSearchSuggestion] {
-        if isSlashQuery {
-            return [
-                CommandSearchSuggestion(title: "/plan", symbol: "calendar.badge.clock", prompt: "/plan my next 2 hours", context: "Create a realistic execution block."),
-                CommandSearchSuggestion(title: "/overdue", symbol: "exclamationmark.triangle", prompt: "/overdue", context: "Review stale or late tasks."),
-                CommandSearchSuggestion(title: "/review", symbol: "arrow.clockwise.heart", prompt: "/review today", context: "Summarize carry-over and cleanup.")
-            ]
-        }
-
-        return CommandSearchSuggestion.contextualDefaults()
+    private var suggestedCommands: [HomeSearchSuggestedCommand] {
+        HomeSearchSuggestedCommand.contextualDefaults()
     }
 
     private func submitSearch() {
@@ -206,12 +204,8 @@ struct SunriseSearchFaceView<ResultsContent: View>: View {
         }
     }
 
-    private func runSuggestion(_ suggestion: CommandSearchSuggestion) {
-        query = suggestion.prompt
-        onQueryChanged(suggestion.prompt)
-        if suggestion.prompt.hasPrefix("/") || commandMode == .askEva {
-            askEva(suggestion.prompt)
-        }
+    private func runSuggestion(_ suggestion: HomeSearchSuggestedCommand) {
+        onRunSuggestedCommand(suggestion)
     }
 
     private func askEva(_ prompt: String) {
@@ -225,48 +219,10 @@ struct SunriseSearchFaceView<ResultsContent: View>: View {
     }
 }
 
-struct CommandSearchSuggestion: Identifiable, Equatable {
-    let id = UUID()
-    let title: String
-    let symbol: String
-    let prompt: String
-    let context: String
-
-    static func contextualDefaults(calendar: Calendar = .current, now: Date = Date()) -> [CommandSearchSuggestion] {
-        let hour = calendar.component(.hour, from: now)
-        let contextual: [CommandSearchSuggestion]
-        if hour < 12 {
-            contextual = [
-                CommandSearchSuggestion(title: "Plan my morning", symbol: "sunrise", prompt: "Plan my morning", context: "Sequence the first useful block."),
-                CommandSearchSuggestion(title: "First task", symbol: "1.circle", prompt: "Show today's first task", context: "Find the cleanest starting point."),
-                CommandSearchSuggestion(title: "Before lunch", symbol: "clock", prompt: "What can I finish before lunch?", context: "Fit quick wins into the open window.")
-            ]
-        } else if hour < 18 {
-            contextual = [
-                CommandSearchSuggestion(title: "Next 2 hours", symbol: "timer", prompt: "Plan my next 2 hours", context: "Protect a realistic focus block."),
-                CommandSearchSuggestion(title: "Before meeting", symbol: "calendar", prompt: "What fits before my next meeting?", context: "Match work to calendar space."),
-                CommandSearchSuggestion(title: "Quick wins", symbol: "bolt", prompt: "Show quick wins", context: "Find small tasks with useful payoff.")
-            ]
-        } else {
-            contextual = [
-                CommandSearchSuggestion(title: "Review today", symbol: "checklist", prompt: "Review today", context: "Close loops before shutdown."),
-                CommandSearchSuggestion(title: "Move unfinished", symbol: "arrow.right.doc.on.clipboard", prompt: "Move unfinished tasks", context: "Clean carry-over intentionally."),
-                CommandSearchSuggestion(title: "Plan tomorrow", symbol: "calendar.badge.plus", prompt: "Plan tomorrow", context: "Set up the next day.")
-            ]
-        }
-
-        return [
-            CommandSearchSuggestion(title: "What next?", symbol: "sparkles", prompt: "What should I do next?", context: "Ask Eva for the next best move."),
-            CommandSearchSuggestion(title: "Overdue tasks", symbol: "exclamationmark.triangle", prompt: "Show overdue tasks", context: "Find stale work."),
-            CommandSearchSuggestion(title: "Missed habits", symbol: "repeat.circle", prompt: "Find habits I missed", context: "Recover routine drift.")
-        ] + contextual.prefix(3)
-    }
-}
-
 private struct CommandSearchDefaultState: View {
-    let suggestions: [CommandSearchSuggestion]
+    let suggestions: [HomeSearchSuggestedCommand]
     let recentSearches: [String]
-    let onRunSuggestion: (CommandSearchSuggestion) -> Void
+    let onRunSuggestion: (HomeSearchSuggestedCommand) -> Void
     let onAskEva: (String) -> Void
 
     var body: some View {
@@ -308,7 +264,7 @@ private struct CommandSearchDefaultState: View {
 }
 
 private struct CommandSearchSuggestionRow: View {
-    let suggestion: CommandSearchSuggestion
+    let suggestion: HomeSearchSuggestedCommand
     let action: () -> Void
 
     var body: some View {
@@ -340,6 +296,7 @@ private struct CommandSearchSuggestionRow: View {
             .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("search.suggestion.\(suggestion.rawValue)")
         .background {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(LBColorTokens.glassStrong.opacity(0.82))
@@ -399,6 +356,8 @@ private struct CommandSearchNoResultsState: View {
     let query: String
     let hasActiveFilters: Bool
     let onClearFilters: () -> Void
+    let primaryTitle: String?
+    let primaryAction: (() -> Void)?
     let onAskEva: () -> Void
 
     var body: some View {
@@ -406,8 +365,8 @@ private struct CommandSearchNoResultsState: View {
             asset: .decisionSign,
             title: title,
             message: subtitle,
-            primaryTitle: hasActiveFilters ? "Clear filters" : nil,
-            primaryAction: hasActiveFilters ? onClearFilters : nil,
+            primaryTitle: primaryTitle ?? (hasActiveFilters ? "Clear filters" : nil),
+            primaryAction: primaryAction ?? (hasActiveFilters ? onClearFilters : nil),
             secondaryTitle: query.isEmpty ? nil : "Ask Eva",
             secondaryAction: query.isEmpty ? nil : onAskEva
         )
@@ -437,6 +396,102 @@ struct SunriseSearchResultsSurface<Content: View>: View {
                         .stroke(LBColorTokens.glassBorder, lineWidth: 1)
                 )
                 .shadow(color: LBColorTokens.elevationShadow, radius: 16, x: 0, y: 9)
+        }
+    }
+}
+
+struct HomeSearchCommandResultHeader: View {
+    let result: HomeSearchCommandResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: LBSpacingTokens.xs) {
+                Image(systemName: result.command.symbol)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .accessibilityHidden(true)
+
+                Text(result.title)
+                    .font(.lifeboard(.headline).weight(.semibold))
+                    .foregroundStyle(LBColorTokens.navy)
+
+                Spacer(minLength: 0)
+
+                Text(result.resultCount == 1 ? "1 result" : "\(result.resultCount) results")
+                    .font(.lifeboard(.caption2).weight(.semibold))
+                    .foregroundStyle(LBColorTokens.navyMuted)
+            }
+
+            Text(result.subtitle)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(LBColorTokens.navyMuted)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("search.commandResult.header")
+    }
+}
+
+struct HomeSearchHabitResultRow: View {
+    let row: HomeHabitRow
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: LBSpacingTokens.sm) {
+                Image(systemName: row.iconSymbolName)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .frame(width: 40, height: 40)
+                    .background(LBColorTokens.violetSoft, in: Circle())
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(row.title)
+                        .font(.lifeboard(.headline).weight(.semibold))
+                        .foregroundStyle(LBColorTokens.navy)
+
+                    Text(subtitle)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(LBColorTokens.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(LBSpacingTokens.sm)
+            .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(LBColorTokens.glassStrong.opacity(0.68))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(LBColorTokens.glassBorder, lineWidth: 1))
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("search.habitResult.\(row.id)")
+    }
+
+    private var subtitle: String {
+        let streak = row.currentStreak == 1 ? "1 day streak" : "\(row.currentStreak) day streak"
+        switch row.state {
+        case .overdue:
+            return "Overdue - \(streak)"
+        case .lapsedToday:
+            return "Lapsed today - \(streak)"
+        case .due:
+            return "Due - \(streak)"
+        case .tracking:
+            return "Tracking - \(streak)"
+        case .completedToday:
+            return "Completed today - \(streak)"
+        case .skippedToday:
+            return "Skipped today - \(streak)"
         }
     }
 }

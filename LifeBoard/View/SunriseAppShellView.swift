@@ -1404,6 +1404,19 @@ struct SunriseAppShellView: View {
         searchState.submitCurrentQuery()
     }
 
+    private func runSearchSuggestedCommand(_ command: HomeSearchSuggestedCommand) {
+        cancelPendingSearchCommit()
+        searchDraftQuery = ""
+        let result = HomeSearchCommandResultBuilder.build(
+            command: command,
+            tasksSnapshot: tasksSnapshot,
+            habitsSnapshot: habitsSnapshot,
+            calendarSnapshot: calendarSnapshot
+        )
+        searchState.runSuggestedCommand(result)
+        trackSearchChipToggled(kind: "suggested_command", value: command.rawValue, isSelected: true)
+    }
+
     private func cancelPendingSearchCommit() {
         pendingSearchCommitTask?.cancel()
         pendingSearchCommitTask = nil
@@ -1729,12 +1742,14 @@ struct SunriseAppShellView: View {
             advancedProjectChips: searchProjectChipDescriptors,
             recentSearches: searchState.recentSearches,
             activeFilterCount: searchState.activeFilterCount,
-            resultCount: searchState.sections.reduce(0) { $0 + $1.tasks.count },
+            resultCount: searchState.activeSuggestedCommandResult?.resultCount ?? searchState.sections.reduce(0) { $0 + $1.tasks.count },
             isLoading: isSearchLoadingContentVisible,
             loadingMessage: searchLoadingMessage,
             showsNoResults: searchState.shouldShowNoResultsMessage,
+            hasActiveSuggestedCommand: searchState.hasActiveSuggestedCommand,
             emptyTitle: searchState.emptyStateTitle,
             emptySubtitle: searchState.emptyStateSubtitle,
+            emptyPrimaryTitle: searchState.emptyPrimaryTitle,
             hasActiveFilters: searchState.hasActiveFilters,
             onBack: {
                 onReturnToTasks("back_chip")
@@ -1754,6 +1769,14 @@ struct SunriseAppShellView: View {
             },
             onClearFilters: {
                 searchState.clearFilters()
+            },
+            onEmptyPrimaryAction: {
+                if let fallbackCommand = searchState.emptyFallbackCommand {
+                    runSearchSuggestedCommand(fallbackCommand)
+                }
+            },
+            onRunSuggestedCommand: { command in
+                runSearchSuggestedCommand(command)
             },
             onAskEvaPrompt: { prompt in
                 searchState.recordRecentSearch(prompt)
@@ -1926,34 +1949,56 @@ struct SunriseAppShellView: View {
 
     private var searchResultsContent: some View {
         SunriseSearchResultsSurface {
-            ForEach(searchState.sections) { section in
-                SunriseTaskSectionView(
-                    project: searchProject(for: section.projectName),
-                    tasks: section.tasks,
-                    tagNameByID: tasksSnapshot.tagNameByID,
-                    completedCollapsed: searchCompletedResultsCollapsed,
-                    isTaskDragEnabled: false,
-                    layoutStyle: .sunriseSearch,
-                    onTaskTap: { task in
-                        trackSearchResultOpened(task, projectName: section.projectName)
-                        onTaskTap(task)
-                    },
-                    onToggleComplete: { task in
-                        trackTaskToggle(task, source: "search_results")
-                        onToggleComplete(task)
-                    },
-                    onDeleteTask: { task in
-                        onDeleteTask(task)
-                    },
-                    onRescheduleTask: { task in
-                        onRescheduleTask(task)
-                    },
-                    onCompletedCollapsedChange: { _, _ in
-                        searchState.toggleCompletedExpansion()
+            if let commandResult = searchState.activeSuggestedCommandResult {
+                HomeSearchCommandResultHeader(result: commandResult)
+
+                ForEach(commandResult.taskSections) { section in
+                    searchTaskSection(section)
+                }
+
+                if commandResult.habitRows.isEmpty == false {
+                    LazyVStack(spacing: LBSpacingTokens.sm) {
+                        ForEach(commandResult.habitRows) { habit in
+                            HomeSearchHabitResultRow(row: habit) {
+                                openHabitDetail(habit)
+                            }
+                        }
                     }
-                )
+                }
+            } else {
+                ForEach(searchState.sections) { section in
+                    searchTaskSection(section)
+                }
             }
         }
+    }
+
+    private func searchTaskSection(_ section: HomeSearchSection) -> some View {
+        SunriseTaskSectionView(
+            project: searchProject(for: section.projectName),
+            tasks: section.tasks,
+            tagNameByID: tasksSnapshot.tagNameByID,
+            completedCollapsed: searchCompletedResultsCollapsed,
+            isTaskDragEnabled: false,
+            layoutStyle: .sunriseSearch,
+            onTaskTap: { task in
+                trackSearchResultOpened(task, projectName: section.projectName)
+                onTaskTap(task)
+            },
+            onToggleComplete: { task in
+                trackTaskToggle(task, source: "search_results")
+                onToggleComplete(task)
+            },
+            onDeleteTask: { task in
+                onDeleteTask(task)
+            },
+            onRescheduleTask: { task in
+                onRescheduleTask(task)
+            },
+            onCompletedCollapsedChange: { _, _ in
+                searchState.toggleCompletedExpansion()
+            }
+        )
     }
 
     private var searchCompletedResultsCollapsed: Bool {
@@ -1963,7 +2008,10 @@ struct SunriseAppShellView: View {
     }
 
     private var isSearchLoadingContentVisible: Bool {
-        (searchSurfaceState != .ready && !searchState.hasLoaded) || (searchState.isLoading && !searchState.hasLoaded)
+        if searchState.hasActiveSuggestedCommand {
+            return false
+        }
+        return (searchSurfaceState != .ready && !searchState.hasLoaded) || (searchState.isLoading && !searchState.hasLoaded)
     }
 
     private var searchLoadingMessage: String {
