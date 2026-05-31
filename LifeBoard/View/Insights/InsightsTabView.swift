@@ -10,6 +10,8 @@ public struct InsightsTabView: View {
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
+    var bottomInset: CGFloat = 0
+    var topContentInset: CGFloat = 0
     var onBackToTasks: (() -> Void)? = nil
     var onOpenSettings: (() -> Void)? = nil
     @Environment(\.lifeboardLayoutClass) private var layoutClass
@@ -28,7 +30,10 @@ public struct InsightsTabView: View {
             leadingAction: { onBackToTasks?() },
             trailingSystemImage: "gearshape",
             trailingAccessibilityLabel: "Settings",
-            trailingAction: { onOpenSettings?() }
+            trailingAction: { onOpenSettings?() },
+            metricPillTitle: attentionPillTitle,
+            bottomInset: 0,
+            topContentInset: topContentInset
         ) {
             VStack(spacing: LBSpacingTokens.md) {
                 SunriseInsightsHeaderView(
@@ -49,6 +54,7 @@ public struct InsightsTabView: View {
                         animateMomentumCard: animateMomentumCard,
                         onOpenReflection: onOpenReflection
                     )
+                    .padding(.bottom, bottomInset + spacing.s24)
                 }
                 .padding(.bottom, spacing.s16)
                 .scrollIndicators(.hidden)
@@ -76,6 +82,15 @@ public struct InsightsTabView: View {
             LifeBoardPerformanceTrace.event("InsightsTabSwitch")
             scrollTraceCoordinator.finishIfNeeded()
         }
+    }
+
+    private var attentionPillTitle: String {
+        let presentation = InsightsTabPresentation.build(
+            tab: viewModel.selectedTab,
+            viewModel: viewModel,
+            momentumGuidanceText: momentumGuidanceText
+        )
+        return presentation.attentionPillTitle
     }
 
     private var tabSelector: some View {

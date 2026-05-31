@@ -1,5 +1,280 @@
 import SwiftUI
 
+enum InsightsAvailabilityState: Equatable {
+    case empty
+    case partial
+    case rich
+}
+
+struct InsightsDiagnosisPresentation: Equatable {
+    let title: String
+    let explanation: String
+    let evidence: String
+    let role: LBRole
+    let asset: SunriseDecorAsset
+    let primaryCTATitle: String
+}
+
+struct InsightsMetricPresentation: Identifiable, Equatable {
+    let id: String
+    let label: String
+    let value: String
+    let detail: String
+    let role: LBRole
+    let systemImage: String
+}
+
+struct InsightsActionPresentation: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let message: String
+    let systemImage: String
+    let role: LBRole
+    let ctaTitle: String
+}
+
+struct InsightsDetailPresentation: Equatable {
+    let title: String
+    let summary: String
+}
+
+struct InsightsTabPresentation: Equatable {
+    let tab: InsightsViewModel.InsightsTab
+    let availability: InsightsAvailabilityState
+    let attentionPillTitle: String
+    let diagnosis: InsightsDiagnosisPresentation
+    let metrics: [InsightsMetricPresentation]
+    let actions: [InsightsActionPresentation]
+    let details: InsightsDetailPresentation
+
+    @MainActor
+    static func build(
+        tab: InsightsViewModel.InsightsTab,
+        viewModel: InsightsViewModel,
+        momentumGuidanceText: String
+    ) -> InsightsTabPresentation {
+        switch tab {
+        case .today:
+            return buildToday(viewModel.todayState, momentumGuidanceText: momentumGuidanceText)
+        case .week:
+            return buildWeek(viewModel.weekState)
+        case .systems:
+            return buildSystems(viewModel.systemsState)
+        }
+    }
+
+    private static func buildToday(
+        _ state: InsightsTodayState,
+        momentumGuidanceText: String
+    ) -> InsightsTabPresentation {
+        let openCount = max(0, state.totalTasksToday - state.tasksCompletedToday)
+        let availability: InsightsAvailabilityState
+        if state.totalTasksToday == 0, state.dailyXP == 0 {
+            availability = .empty
+        } else if state.tasksCompletedToday == 0 || state.duePressureMetrics.isEmpty {
+            availability = .partial
+        } else {
+            availability = .rich
+        }
+
+        let staleDetail = state.duePressureMetrics.first?.detail ?? "Open loops are ready for a decision."
+        let diagnosisTitle: String
+        let diagnosisExplanation: String
+        let ctaTitle: String
+        switch availability {
+        case .empty:
+            diagnosisTitle = "No signal yet"
+            diagnosisExplanation = "Add a task, habit, or calendar connection to unlock useful progress insights."
+            ctaTitle = "Add task"
+        case .partial:
+            diagnosisTitle = "A pattern is starting"
+            diagnosisExplanation = "LifeBoard has enough activity to guide the next move, but not enough completions to call it a trend."
+            ctaTitle = "Open today"
+        case .rich:
+            diagnosisTitle = openCount > 0 ? "Pressure is visible." : "Momentum is visible."
+            diagnosisExplanation = openCount > 0
+                ? "Next: clear or reschedule the oldest open loop."
+                : "Next: protect the progress already made today."
+            ctaTitle = openCount > 0 ? "Review today" : "Keep momentum"
+        }
+
+        return InsightsTabPresentation(
+            tab: .today,
+            availability: availability,
+            attentionPillTitle: attentionPill(for: availability, count: openCount),
+            diagnosis: InsightsDiagnosisPresentation(
+                title: diagnosisTitle,
+                explanation: diagnosisExplanation,
+                evidence: "\(state.tasksCompletedToday) done - \(openCount) open - \(staleDetail)",
+                role: openCount > 0 ? .warning : .focus,
+                asset: openCount > 0 ? .happySun : .growthPlant,
+                primaryCTATitle: ctaTitle
+            ),
+            metrics: [
+                InsightsMetricPresentation(id: "closed", label: "Closed", value: "\(state.tasksCompletedToday)", detail: "Done today", role: .task, systemImage: "checkmark.circle"),
+                InsightsMetricPresentation(id: "focus", label: "Focus", value: metricValue(from: state.focusMetrics, fallback: "0m"), detail: firstDetail(from: state.focusMetrics, fallback: momentumGuidanceText), role: .focus, systemImage: "target"),
+                InsightsMetricPresentation(id: "habits", label: "Habits", value: "\(state.recoveryCount)", detail: "Recovery signals", role: .routine, systemImage: "repeat.circle"),
+                InsightsMetricPresentation(id: "open", label: "Open", value: "\(openCount)", detail: "Still active", role: openCount > 0 ? .warning : .task, systemImage: "tray")
+            ],
+            actions: [
+                InsightsActionPresentation(id: "nextDecision", title: "Next decision", message: firstDetail(from: state.duePressureMetrics, fallback: "Choose one task to remove from today."), systemImage: "exclamationmark.arrow.triangle.2.circlepath", role: .warning, ctaTitle: "Choose next task"),
+                InsightsActionPresentation(id: "protectFocus", title: "Protect focus", message: firstDetail(from: state.focusMetrics, fallback: momentumGuidanceText), systemImage: "sparkles", role: .focus, ctaTitle: "Plan focus block"),
+                InsightsActionPresentation(id: "habitCheck", title: "Habit check", message: firstDetail(from: state.recoveryMetrics, fallback: "Update the smallest pending habit signal."), systemImage: "checkmark.seal", role: .routine, ctaTitle: "Update habits"),
+                InsightsActionPresentation(id: "yesterdayReview", title: "Yesterday review", message: firstDetail(from: state.momentumMetrics, fallback: "Review carry-over and keep tomorrow tight."), systemImage: "arrow.uturn.backward.circle", role: .assistant, ctaTitle: "Review carry-over")
+            ],
+            details: InsightsDetailPresentation(
+                title: "Today details",
+                summary: "XP, pressure, recovery, and completion mix stay here when you need them."
+            )
+        )
+    }
+
+    private static func buildWeek(_ state: InsightsWeekState) -> InsightsTabPresentation {
+        let activeDays = state.weeklyBars.filter { $0.xp > 0 }.count
+        let carryOver = nonEmpty(state.weeklyOperating?.carryOverSummary) ?? state.deltaSummary
+        let availability: InsightsAvailabilityState
+        if state.weeklyTotalXP == 0, state.weeklyBars.isEmpty {
+            availability = .empty
+        } else if activeDays < 2 || state.weeklySummaryMetrics.isEmpty {
+            availability = .partial
+        } else {
+            availability = .rich
+        }
+
+        let isBacklogVisible = carryOver.localizedCaseInsensitiveContains("carry")
+            || carryOver.localizedCaseInsensitiveContains("stale")
+            || carryOver.localizedCaseInsensitiveContains("overdue")
+        let title: String
+        let explanation: String
+        switch availability {
+        case .empty:
+            title = "No weekly signal yet"
+            explanation = "Use LifeBoard for a few tasks this week to reveal momentum, backlog, and recovery patterns."
+        case .partial:
+            title = "A weekly pattern is forming"
+            explanation = "A few active days are visible. More completions will make the diagnosis sharper."
+        case .rich:
+            title = isBacklogVisible ? "Backlog drag is visible." : "Weekly momentum is visible."
+            explanation = isBacklogVisible
+                ? "Next: close, reschedule, or delete old work before it drags into next week."
+                : "Next: protect the days that are already working."
+        }
+
+        return InsightsTabPresentation(
+            tab: .week,
+            availability: availability,
+            attentionPillTitle: attentionPill(for: availability, count: max(0, state.weeklyTotalXP - state.previousWeekTotalXP)),
+            diagnosis: InsightsDiagnosisPresentation(
+                title: title,
+                explanation: explanation,
+                evidence: "\(state.weeklyTotalXP) XP - \(activeDays) active days - \(nonEmpty(carryOver) ?? "No carry-over signal yet.")",
+                role: isBacklogVisible ? .warning : .routine,
+                asset: .mountain,
+                primaryCTATitle: isBacklogVisible ? "Clean backlog" : "See momentum"
+            ),
+            metrics: [
+                InsightsMetricPresentation(id: "closed", label: "Closed", value: metricValue(from: state.weeklySummaryMetrics, fallback: "+\(max(0, state.weeklyTotalXP - state.previousWeekTotalXP))"), detail: "Weekly movement", role: .task, systemImage: "checkmark.circle"),
+                InsightsMetricPresentation(id: "activeDays", label: "Active days", value: "\(activeDays)", detail: "Days with XP", role: .routine, systemImage: "calendar"),
+                InsightsMetricPresentation(id: "carryOver", label: "Carry-over", value: state.weeklyOperating == nil ? "Thin" : "Live", detail: nonEmpty(carryOver) ?? "No carry-over trend yet", role: isBacklogVisible ? .warning : .assistant, systemImage: "arrow.clockwise"),
+                InsightsMetricPresentation(id: "focus", label: "Focus", value: "\(state.averageDailyXP)", detail: "Avg daily XP", role: .focus, systemImage: "target")
+            ],
+            actions: [
+                InsightsActionPresentation(id: "weeklyMomentum", title: "Weekly momentum", message: nonEmpty(state.patternSummary) ?? "See how this week compares with your usual rhythm.", systemImage: "chart.bar.xaxis", role: .routine, ctaTitle: "See momentum"),
+                InsightsActionPresentation(id: "backlogDrag", title: "Backlog drag", message: nonEmpty(carryOver) ?? "Old work will appear here once carry-over is visible.", systemImage: "tray.and.arrow.down", role: .warning, ctaTitle: "Clean backlog"),
+                InsightsActionPresentation(id: "projectMix", title: "Project mix", message: state.projectLeaderboard.first.map { "\($0.title): \($0.detail)" } ?? "Balance Work, Personal, Habits, Focus, and Routines.", systemImage: "folder", role: .assistant, ctaTitle: "Balance week"),
+                InsightsActionPresentation(id: "recovery", title: "Recovery", message: nonEmpty(state.weeklyOperating?.recoverySummary) ?? "Run a weekly review to tighten the next plan.", systemImage: "heart", role: .personal, ctaTitle: "Run weekly review")
+            ],
+            details: InsightsDetailPresentation(
+                title: "Week details",
+                summary: "Momentum bars, project mix, priority mix, and operating review."
+            )
+        )
+    }
+
+    private static func buildSystems(_ state: InsightsSystemsState) -> InsightsTabPresentation {
+        let activeDays = max(state.streakDays, state.returnStreak)
+        let hasReminderSignal = state.reminderResponse.totalDeliveries > 0
+        let hasFocusSignal = state.focusHealthMetrics.isEmpty == false
+        let availability: InsightsAvailabilityState
+        if state.totalXP == 0, hasReminderSignal == false, hasFocusSignal == false {
+            availability = .empty
+        } else if hasReminderSignal == false || hasFocusSignal == false {
+            availability = .partial
+        } else {
+            availability = .rich
+        }
+
+        let title: String
+        let explanation: String
+        switch availability {
+        case .empty:
+            title = "Your system is under-instrumented."
+            explanation = "Start tracking tasks, reminders, focus rituals, or reviews to make system health visible."
+        case .partial:
+            title = "Your system is coming online."
+            explanation = "Tasks are visible, but reminders, focus rituals, or reviews are still thin."
+        case .rich:
+            title = "System health is visible."
+            explanation = "Next: tune the weakest reminder, focus, or review loop."
+        }
+
+        return InsightsTabPresentation(
+            tab: .systems,
+            availability: availability,
+            attentionPillTitle: attentionPill(for: availability, count: state.reminderResponse.pendingDeliveries),
+            diagnosis: InsightsDiagnosisPresentation(
+                title: title,
+                explanation: explanation,
+                evidence: "\(state.reminderResponse.totalDeliveries) reminders - \(state.focusHealthMetrics.count) focus signals - \(activeDays) active days",
+                role: availability == .rich ? .assistant : .warning,
+                asset: .thinkingCup,
+                primaryCTATitle: hasReminderSignal ? "Tune reminders" : "Set one reminder"
+            ),
+            metrics: [
+                InsightsMetricPresentation(id: "reminders", label: "Reminders", value: "\(state.reminderResponse.totalDeliveries)", detail: state.reminderResponse.detail, role: .assistant, systemImage: "bell.badge"),
+                InsightsMetricPresentation(id: "focusRituals", label: "Focus rituals", value: "\(state.focusHealthMetrics.count)", detail: firstDetail(from: state.focusHealthMetrics, fallback: "Create one protected block."), role: .focus, systemImage: "target"),
+                InsightsMetricPresentation(id: "reviews", label: "Reviews", value: "\(state.recoveryHealthMetrics.count)", detail: firstDetail(from: state.recoveryHealthMetrics, fallback: "Review rhythm is thin."), role: .personal, systemImage: "moon.stars"),
+                InsightsMetricPresentation(id: "activeDays", label: "Active days", value: "\(activeDays)", detail: "Current operating rhythm", role: .task, systemImage: "checkmark.seal")
+            ],
+            actions: [
+                InsightsActionPresentation(id: "reminderResponse", title: "Reminder response", message: state.reminderResponse.detail, systemImage: "bell.badge", role: .assistant, ctaTitle: "Tune reminders"),
+                InsightsActionPresentation(id: "consistency", title: "Consistency", message: firstDetail(from: state.streakMetrics, fallback: "Active days and recurring completion build the rhythm."), systemImage: "checkmark.seal", role: .task, ctaTitle: "View rhythm"),
+                InsightsActionPresentation(id: "focusHealth", title: "Focus health", message: firstDetail(from: state.focusHealthMetrics, fallback: "Create a focus ritual to protect execution time."), systemImage: "target", role: .focus, ctaTitle: "Create focus ritual"),
+                InsightsActionPresentation(id: "planningQuality", title: "Planning quality", message: firstDetail(from: state.recoveryHealthMetrics, fallback: "Compare planned work with completed work and reschedules."), systemImage: "list.bullet.clipboard", role: .routine, ctaTitle: "Improve planning")
+            ],
+            details: InsightsDetailPresentation(
+                title: "System details",
+                summary: "Reminder response, focus health, recovery health, streak resilience, and achievements."
+            )
+        )
+    }
+
+    private static func attentionPill(for availability: InsightsAvailabilityState, count: Int) -> String {
+        switch availability {
+        case .empty:
+            return "No signal yet"
+        case .partial:
+            return "Thin signal"
+        case .rich:
+            return count == 1 ? "1 item needs attention" : "\(max(0, count)) items need attention"
+        }
+    }
+
+    private static func firstDetail(from metrics: [InsightsMetricTile], fallback: String) -> String {
+        guard let metric = metrics.first else { return fallback }
+        return "\(metric.title): \(metric.value). \(metric.detail)"
+    }
+
+    private static func metricValue(from metrics: [InsightsMetricTile], fallback: String) -> String {
+        metrics.first?.value ?? fallback
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
+}
+
 struct SunriseInsightsContentView: View {
     @ObservedObject var viewModel: InsightsViewModel
     let homeProgress: HomeProgressState
@@ -46,34 +321,29 @@ private struct SunriseInsightsTodayView: View {
 
     @State private var showDetails = false
     private var state: InsightsTodayState { viewModel.todayState }
+    private var presentation: InsightsTabPresentation {
+        InsightsTabPresentation.build(
+            tab: .today,
+            viewModel: viewModel,
+            momentumGuidanceText: momentumGuidanceText
+        )
+    }
 
     var body: some View {
         LazyVStack(spacing: LBSpacingTokens.sm) {
-            SunriseInsightsHeroCard(
-                title: state.heroCard.title,
-                answer: state.heroCard.hint,
-                metric: state.heroCard.metric,
-                role: .focus,
-                decorAsset: .happySun,
-                primaryActionTitle: reflectionEligible ? "Reflect" : nil,
-                primaryAction: onOpenReflection
+            SunriseInsightsDiagnosisCard(
+                presentation: presentation.diagnosis,
+                action: primaryAction
             )
 
-            SunriseInsightActionCard(
-                title: "Next decision",
-                message: firstDetail(from: state.duePressureMetrics) ?? "No urgent pressure is visible right now.",
-                systemImage: "exclamationmark.arrow.triangle.2.circlepath",
-                role: .warning,
-                accessibilityIdentifier: "home.insights.action.nextDecision"
-            )
+            SunriseInsightsMetricStrip(metrics: presentation.metrics)
 
-            SunriseInsightActionCard(
-                title: "Protect focus",
-                message: firstDetail(from: state.focusMetrics) ?? momentumGuidanceText,
-                systemImage: "sparkles",
-                role: .focus,
-                accessibilityIdentifier: "home.insights.action.protectFocus"
-            )
+            ForEach(presentation.actions) { action in
+                SunriseInsightActionCard(
+                    presentation: action,
+                    action: { LifeBoardFeedback.selection() }
+                )
+            }
 
             if let dailyReflectionEntryState {
                 SunriseInsightsReflectionCard(
@@ -83,8 +353,8 @@ private struct SunriseInsightsTodayView: View {
             }
 
             SunriseInsightDisclosureCard(
-                title: "Today details",
-                summary: "XP, pressure, recovery, and completion mix stay here when you need them.",
+                title: presentation.details.title,
+                summary: presentation.details.summary,
                 isExpanded: $showDetails,
                 accessibilityIdentifier: "home.insights.disclosure.todayDetails"
             ) {
@@ -109,6 +379,13 @@ private struct SunriseInsightsTodayView: View {
         .padding(.bottom, LBSpacingTokens.xl)
     }
 
+    private var primaryAction: () -> Void {
+        if reflectionEligible {
+            return onOpenReflection
+        }
+        return { LifeBoardFeedback.selection() }
+    }
+
     private func firstDetail(from metrics: [InsightsMetricTile]) -> String? {
         guard let metric = metrics.first else { return nil }
         return "\(metric.title): \(metric.value). \(metric.detail)"
@@ -119,39 +396,30 @@ private struct SunriseInsightsWeekView: View {
     @ObservedObject var viewModel: InsightsViewModel
     @State private var showDetails = false
     private var state: InsightsWeekState { viewModel.weekState }
+    private var presentation: InsightsTabPresentation {
+        InsightsTabPresentation.build(tab: .week, viewModel: viewModel, momentumGuidanceText: "")
+    }
 
     var body: some View {
         LazyVStack(spacing: LBSpacingTokens.sm) {
-            SunriseInsightsHeroCard(
-                title: state.heroCard.title,
-                answer: state.heroCard.hint,
-                metric: state.patternSummary,
-                role: .routine,
-                decorAsset: .mountain,
-                primaryActionTitle: nil,
-                primaryAction: nil,
-                accessibilityIdentifier: "home.insights.weekHero"
+            SunriseInsightsDiagnosisCard(
+                presentation: presentation.diagnosis,
+                accessibilityIdentifier: "home.insights.weekHero",
+                action: { LifeBoardFeedback.selection() }
             )
 
-            SunriseInsightActionCard(
-                title: "Pattern to use",
-                message: state.deltaSummary,
-                systemImage: "chart.bar.xaxis",
-                role: .routine
-            )
+            SunriseInsightsMetricStrip(metrics: presentation.metrics)
 
-            if let weeklyOperating = state.weeklyOperating {
+            ForEach(presentation.actions) { action in
                 SunriseInsightActionCard(
-                    title: weeklyOperating.recoveryHeadline,
-                    message: weeklyOperating.recoverySummary,
-                    systemImage: "arrow.clockwise.heart",
-                    role: .assistant
+                    presentation: action,
+                    action: { LifeBoardFeedback.selection() }
                 )
             }
 
             SunriseInsightDisclosureCard(
-                title: "Week details",
-                summary: "Momentum bars, project mix, priority mix, and operating review.",
+                title: presentation.details.title,
+                summary: presentation.details.summary,
                 isExpanded: $showDetails,
                 accessibilityIdentifier: "home.insights.disclosure.weekDetails"
             ) {
@@ -181,36 +449,29 @@ private struct SunriseInsightsSystemsView: View {
     @ObservedObject var viewModel: InsightsViewModel
     @State private var showDetails = false
     private var state: InsightsSystemsState { viewModel.systemsState }
+    private var presentation: InsightsTabPresentation {
+        InsightsTabPresentation.build(tab: .systems, viewModel: viewModel, momentumGuidanceText: "")
+    }
 
     var body: some View {
         LazyVStack(spacing: LBSpacingTokens.sm) {
-            SunriseInsightsHeroCard(
-                title: state.heroCard.title,
-                answer: state.heroCard.hint,
-                metric: state.heroSummary,
-                role: .assistant,
-                decorAsset: .thinkingCup,
-                primaryActionTitle: nil,
-                primaryAction: nil
+            SunriseInsightsDiagnosisCard(
+                presentation: presentation.diagnosis,
+                action: { LifeBoardFeedback.selection() }
             )
 
-            SunriseInsightActionCard(
-                title: "Reminder response",
-                message: state.reminderResponse.detail,
-                systemImage: "bell.badge",
-                role: .assistant
-            )
+            SunriseInsightsMetricStrip(metrics: presentation.metrics)
 
-            SunriseInsightActionCard(
-                title: "Consistency check",
-                message: firstDetail(from: state.focusHealthMetrics) ?? "Focus and recovery patterns will sharpen as you use the app.",
-                systemImage: "checkmark.seal",
-                role: .task
-            )
+            ForEach(presentation.actions) { action in
+                SunriseInsightActionCard(
+                    presentation: action,
+                    action: { LifeBoardFeedback.selection() }
+                )
+            }
 
             SunriseInsightDisclosureCard(
-                title: "System details",
-                summary: "Reminder response, focus health, recovery health, streak resilience, and achievements.",
+                title: presentation.details.title,
+                summary: presentation.details.summary,
                 isExpanded: $showDetails
             ) {
                 VStack(spacing: LBSpacingTokens.sm) {
@@ -293,49 +554,167 @@ private struct SunriseInsightHeroCard: View {
     }
 }
 
-private struct SunriseInsightActionCard: View {
-    let title: String
-    let message: String
-    let systemImage: String
-    let role: LBRole
-    var accessibilityIdentifier: String? = nil
+private struct SunriseInsightsDiagnosisCard: View {
+    let presentation: InsightsDiagnosisPresentation
+    var accessibilityIdentifier: String = "home.insights.hero"
+    let action: () -> Void
 
-    private var style: LBRoleStyle { LBColorTokens.role(role) }
+    private var style: LBRoleStyle { LBColorTokens.role(presentation.role) }
 
     var body: some View {
-        HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
-            Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(style.deep)
-                .frame(width: 44, height: 44)
-                .background(
-                    Circle()
-                        .fill(style.softSurface.opacity(0.92))
-                        .overlay(Circle().stroke(style.border.opacity(0.48), lineWidth: 1))
-                )
+        Button(action: action) {
+            ZStack(alignment: .bottomTrailing) {
+                VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
+                    Label("Primary diagnosis", systemImage: style.symbolName)
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(style.deep)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.lifeboard(.headline).weight(.semibold))
-                    .foregroundStyle(LBColorTokens.navy)
-                Text(message)
-                    .font(.lifeboard(.callout))
-                    .foregroundStyle(LBColorTokens.navyMuted)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Text(presentation.title)
+                        .font(.lifeboard(.title2).weight(.semibold))
+                        .foregroundStyle(LBColorTokens.navy)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(presentation.explanation)
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(LBColorTokens.navySoft)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(presentation.evidence)
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundStyle(style.deep)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("home.insights.hero.metric")
+
+                    Text(presentation.primaryCTATitle)
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(LBColorTokens.violetDeep)
+                        .padding(.horizontal, LBSpacingTokens.sm)
+                        .frame(minHeight: 32)
+                        .background(LBColorTokens.glassStrong, in: Capsule())
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(LBSpacingTokens.md)
+                .padding(.trailing, 92)
+
+                SunriseDecorImage(asset: presentation.asset, size: 116, opacity: 0.92)
+                    .offset(x: 18, y: 14)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 158, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .secondaryInsightSurface(role: presentation.role, cornerRadius: 28)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+private struct SunriseInsightsMetricStrip: View {
+    let metrics: [InsightsMetricPresentation]
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: LBSpacingTokens.xs) {
+                metricCards
             }
 
-            Spacer(minLength: LBSpacingTokens.sm)
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(LBColorTokens.textTertiary)
-                .padding(.top, 14)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: LBSpacingTokens.xs) {
+                metricCards
+            }
         }
-        .padding(LBSpacingTokens.md)
-        .sunriseInsightSurface(role: role, cornerRadius: 24)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.insights.metricStrip")
+    }
+
+    private var metricCards: some View {
+        ForEach(metrics) { metric in
+            SunriseInsightsMetricCard(metric: metric)
+        }
+    }
+}
+
+private struct SunriseInsightsMetricCard: View {
+    let metric: InsightsMetricPresentation
+    private var style: LBRoleStyle { LBColorTokens.role(metric.role) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 5) {
+                Image(systemName: metric.systemImage)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(style.deep)
+                Text(metric.label)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(LBColorTokens.textTertiary)
+                    .lineLimit(1)
+            }
+
+            Text(metric.value)
+                .font(.lifeboard(.title3).weight(.semibold))
+                .foregroundStyle(LBColorTokens.navy)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+
+            Text(metric.detail)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(LBColorTokens.navyMuted)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, minHeight: 82, alignment: .topLeading)
+        .padding(LBSpacingTokens.sm)
+        .secondaryInsightSurface(role: metric.role, cornerRadius: 18)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(accessibilityIdentifier ?? "home.insights.action.\(title.lifeboardAccessibilitySlug)")
+        .accessibilityLabel("\(metric.label), \(metric.value), \(metric.detail)")
+    }
+}
+
+private struct SunriseInsightActionCard: View {
+    let presentation: InsightsActionPresentation
+    let action: () -> Void
+
+    private var style: LBRoleStyle { LBColorTokens.role(presentation.role) }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: LBSpacingTokens.sm) {
+                Image(systemName: presentation.systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(style.deep)
+                    .frame(width: 46, height: 46)
+                    .background(
+                        Circle()
+                            .fill(style.softSurface.opacity(0.92))
+                            .overlay(Circle().stroke(style.border.opacity(0.48), lineWidth: 1))
+                    )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(presentation.title)
+                        .font(.lifeboard(.headline).weight(.semibold))
+                        .foregroundStyle(LBColorTokens.navy)
+                    Text(presentation.message)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(presentation.ctaTitle)
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(style.deep)
+                }
+
+                Spacer(minLength: LBSpacingTokens.sm)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(LBColorTokens.textTertiary)
+            }
+            .padding(LBSpacingTokens.md)
+            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .secondaryInsightSurface(role: presentation.role, cornerRadius: 24)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.insights.action.\(presentation.id)")
     }
 }
 
@@ -630,6 +1009,10 @@ private struct SunriseNarrativeCard: View {
 
 private extension View {
     func sunriseInsightSurface(role: LBRole, cornerRadius: CGFloat) -> some View {
+        modifier(SunriseInsightSurfaceModifier(role: role, cornerRadius: cornerRadius))
+    }
+
+    func secondaryInsightSurface(role: LBRole, cornerRadius: CGFloat) -> some View {
         modifier(SunriseInsightSurfaceModifier(role: role, cornerRadius: cornerRadius))
     }
 }
