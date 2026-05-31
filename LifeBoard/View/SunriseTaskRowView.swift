@@ -25,6 +25,7 @@ struct TaskRowMetadataPolicy: Equatable {
 enum TaskRowChromeStyle: Equatable {
     case card
     case flatHomeList
+    case sunriseSearchCard
 }
 
 struct TaskRowDisplayModel: Equatable {
@@ -321,28 +322,12 @@ private enum TaskRowDerivedStateCache {
             tagNameByID: tagNameByID,
             metadataPolicy: metadataPolicy
         )
-        let xpPreview: XPCompletionPreview?
-        if isGamificationV2Enabled {
-            if let todayXPSoFar {
-                xpPreview = XPCalculationEngine.completionXPIfCompletedNow(
-                    priorityRaw: task.priority.rawValue,
-                    estimatedDuration: task.estimatedDuration,
-                    dueDate: task.dueDate,
-                    dailyEarnedSoFar: todayXPSoFar,
-                    isGamificationV2Enabled: true
-                )
-            } else {
-                xpPreview = nil
-            }
-        } else {
-            xpPreview = XPCalculationEngine.completionXPIfCompletedNow(
-                priorityRaw: task.priority.rawValue,
-                estimatedDuration: task.estimatedDuration,
-                dueDate: task.dueDate,
-                dailyEarnedSoFar: 0,
-                isGamificationV2Enabled: false
-            )
-        }
+        let xpPreview = XPCalculationEngine.completionXPIfCompletedNow(
+            priorityRaw: task.priority.rawValue,
+            estimatedDuration: task.estimatedDuration,
+            dueDate: task.dueDate,
+            isGamificationV2Enabled: isGamificationV2Enabled
+        )
 
         let accessibilityStateValue = task.isComplete ? "done" : "open"
         var labelParts: [String] = ["Task: \(task.title)"]
@@ -655,7 +640,7 @@ struct SunriseTaskRowView: View, Equatable {
         HStack(spacing: 0) {
             priorityStripe
 
-            HStack(alignment: .center, spacing: isPad ? LifeBoardTheme.Spacing.sm : LifeBoardTheme.Spacing.xs) {
+            HStack(alignment: .center, spacing: rowInnerSpacing) {
                 CompletionCheckbox(isComplete: task.isComplete, compact: true) {
                     onToggleComplete?()
                 }
@@ -666,41 +651,43 @@ struct SunriseTaskRowView: View, Equatable {
 
                 if let iconSymbolName = task.iconSymbolName ?? fallbackIconSymbolName {
                     Image(systemName: iconSymbolName)
-                        .font(.system(size: isPad ? 16 : 15, weight: .semibold))
+                        .font(.system(size: iconSize, weight: .semibold))
                         .foregroundStyle(task.isComplete ? Color.lifeboard.textQuaternary : resolvedIconTint)
-                        .frame(width: 20, alignment: .center)
+                        .frame(width: isSunriseSearchCard ? 22 : 20, alignment: .center)
                         .accessibilityHidden(true)
                 }
 
-                VStack(alignment: .leading, spacing: isPad ? 3 : 1) {
+                VStack(alignment: .leading, spacing: textSpacing) {
                     Text(task.title)
-                        .font(.lifeboard(.body))
+                        .font(isSunriseSearchCard ? .lifeboard(.body).weight(.semibold) : .lifeboard(.body))
                         .foregroundColor(task.isComplete ? Color.lifeboard.textTertiary : Color.lifeboard.textPrimary)
                         .lineLimit(displayModel.hasDescription ? 1 : 2)
                         .multilineTextAlignment(.leading)
+                        .accessibilityIdentifier("home.taskTitle.\(task.id.uuidString)")
 
                     if isPad, let description = task.details?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty, !task.isComplete {
                         // iPad: always show description if available
                         Text(description)
-                            .font(.lifeboard(.caption2))
+                            .font(isSunriseSearchCard ? .lifeboard(.callout) : .lifeboard(.caption2))
                             .foregroundColor(Color.lifeboard.textTertiary)
                             .lineLimit(1)
                     } else if let descriptionText = displayModel.descriptionText {
                         Text(descriptionText)
-                            .font(.lifeboard(.caption2))
+                            .font(isSunriseSearchCard ? .lifeboard(.callout) : .lifeboard(.caption2))
                             .foregroundColor(task.isComplete ? Color.lifeboard.textQuaternary : Color.lifeboard.textTertiary)
                             .lineLimit(1)
                     }
 
                     if let metadataText = displayModel.metadataText {
                         Text(metadataText)
-                            .font(.lifeboard(.caption2))
+                            .font(isSunriseSearchCard ? .lifeboard(.caption1) : .lifeboard(.caption2))
                             .foregroundColor(task.isComplete ? Color.lifeboard.textQuaternary : Color.lifeboard.textTertiary)
                             .lineLimit(1)
                     }
                 }
+                .layoutPriority(1)
 
-                Spacer(minLength: 0)
+                Spacer(minLength: LifeBoardTheme.Spacing.xs)
 
                 HStack(spacing: 6) {
                     if isPad {
@@ -712,12 +699,19 @@ struct SunriseTaskRowView: View, Equatable {
                     }
 
                     compactXPBadge
+
+                    if isSunriseSearchCard {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color.lifeboard.textQuaternary)
+                            .accessibilityHidden(true)
+                    }
                 }
             }
-            .padding(.vertical, isPad ? 8 : (displayModel.hasSecondaryContent ? 6 : 4))
-            .padding(.trailing, LifeBoardTheme.Spacing.md)
-            .padding(.leading, LifeBoardTheme.Spacing.xs)
-            .frame(minHeight: isPad ? 60 : (displayModel.hasDescription ? 56 : 50))
+            .padding(.vertical, rowVerticalPadding)
+            .padding(.trailing, isSunriseSearchCard ? LifeBoardTheme.Spacing.md : LifeBoardTheme.Spacing.md)
+            .padding(.leading, isSunriseSearchCard ? LifeBoardTheme.Spacing.sm : LifeBoardTheme.Spacing.xs)
+            .frame(minHeight: rowMinimumHeight)
         }
         .animation(LifeBoardAnimation.quick, value: task.isComplete)
         .overlay {
@@ -757,6 +751,9 @@ struct SunriseTaskRowView: View, Equatable {
     }
 
     private var rowBackground: Color {
+        if isSunriseSearchCard {
+            return Color.lifeboard.surfacePrimary.opacity(0.86)
+        }
         if task.isComplete {
             return Color.lifeboard.surfacePrimary.opacity(0.7)
         }
@@ -836,7 +833,7 @@ struct SunriseTaskRowView: View, Equatable {
 
     private var taskRowHighlightShape: AnyShape {
         switch chromeStyle {
-        case .card:
+        case .card, .sunriseSearchCard:
             return AnyShape(RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md))
         case .flatHomeList:
             return AnyShape(Rectangle())
@@ -845,7 +842,7 @@ struct SunriseTaskRowView: View, Equatable {
 
     private var priorityStripeShape: AnyShape {
         switch chromeStyle {
-        case .card:
+        case .card, .sunriseSearchCard:
             return AnyShape(
                 UnevenRoundedRectangle(
                     topLeadingRadius: LifeBoardTheme.CornerRadius.md,
@@ -877,12 +874,12 @@ struct SunriseTaskRowView: View, Equatable {
     private var compactXPBadge: some View {
         let preview = derivedState.xpPreview
 
-        return Text(preview?.compactLabel ?? "XP pending")
-            .font(.lifeboard(.caption2))
+        return Text(preview?.compactLabel ?? "+0")
+            .font(isSunriseSearchCard ? .lifeboard(.caption2) : .lifeboard(.caption2))
             .fontWeight(task.priority == .max || task.priority == .high ? .bold : .medium)
             .foregroundColor(task.priority == .max || task.priority == .high ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 3)
+            .padding(.horizontal, isSunriseSearchCard ? 7 : 5)
+            .padding(.vertical, isSunriseSearchCard ? 4 : 3)
             .background(
                 Capsule()
                     .fill(task.priority == .max || task.priority == .high ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
@@ -894,10 +891,39 @@ struct SunriseTaskRowView: View, Equatable {
             .fixedSize()
             .scaleEffect(task.isComplete ? 1.15 : 1.0)
             .animation(LifeBoardAnimation.bouncy, value: task.isComplete)
-            .accessibilityLabel(preview.map { "Reward \($0.shortLabel)" } ?? "Reward pending")
+            .accessibilityLabel(preview.map { "Reward \($0.shortLabel)" } ?? "Reward +0 XP")
             .accessibilityHint(
                 "Reward factors: \(XPCalculationEngine.estimateReasonHints(estimatedDuration: task.estimatedDuration, isFocusSessionActive: false, isPinnedInFocusStrip: false))"
             )
+    }
+
+    private var isSunriseSearchCard: Bool {
+        chromeStyle == .sunriseSearchCard
+    }
+
+    private var rowInnerSpacing: CGFloat {
+        if isSunriseSearchCard { return LifeBoardTheme.Spacing.sm }
+        return isPad ? LifeBoardTheme.Spacing.sm : LifeBoardTheme.Spacing.xs
+    }
+
+    private var iconSize: CGFloat {
+        if isSunriseSearchCard { return 17 }
+        return isPad ? 16 : 15
+    }
+
+    private var textSpacing: CGFloat {
+        if isSunriseSearchCard { return 3 }
+        return isPad ? 3 : 1
+    }
+
+    private var rowVerticalPadding: CGFloat {
+        if isSunriseSearchCard { return 10 }
+        return isPad ? 8 : (displayModel.hasSecondaryContent ? 6 : 4)
+    }
+
+    private var rowMinimumHeight: CGFloat {
+        if isSunriseSearchCard { return displayModel.hasSecondaryContent ? 78 : 70 }
+        return isPad ? 60 : (displayModel.hasDescription ? 56 : 50)
     }
 }
 
@@ -919,6 +945,19 @@ private struct TaskRowChromeModifier: ViewModifier {
                     strokeColor: highlightStrokeColor,
                     lineWidth: isOnboardingHighlighted ? 2 : 1
                 )
+        case .sunriseSearchCard:
+            content
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(rowBackground)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(highlightStrokeColor.opacity(isOnboardingHighlighted ? 1 : 0.42), lineWidth: isOnboardingHighlighted ? 2 : 1)
+                        )
+                        .shadow(color: LBColorTokens.elevationShadow.opacity(0.38), radius: 12, x: 0, y: 7)
+                }
         case .flatHomeList:
             content
                 .background(rowBackground)

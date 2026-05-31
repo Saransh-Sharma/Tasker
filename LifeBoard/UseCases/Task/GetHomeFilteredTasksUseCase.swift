@@ -1624,7 +1624,7 @@ public final class GetOverdueRescuePlanUseCase: @unchecked Sendable {
                     taskID: $0.taskID,
                     action: .move,
                     toDate: Calendar.current.date(byAdding: .day, value: 1, to: startOfToday),
-                    reasons: ["Daily cap", "Avoid overload"],
+                    reasons: ["Daily load", "Avoid overload"],
                     confidence: 0.62
                 )
             })

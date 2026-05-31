@@ -509,9 +509,7 @@ struct SunriseTaskDetailScreen: View {
     private var contextDisclosure: some View {
         disclosureCard(.context, title: "Context", systemImage: "text.bubble", summary: contextSummary, accessibilityIdentifier: "taskDetail.disclosure.context") {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                if let preview = detailXPPreview {
-                    LifeBoardHeroMetricTile(title: "Reward", value: preview.shortLabel, detail: "Complete now", tone: .accent)
-                }
+                LifeBoardHeroMetricTile(title: "Reward", value: detailXPPreview.shortLabel, detail: "Complete now", tone: .accent)
                 if !viewModel.recentReflectionNotes.isEmpty {
                     ForEach(viewModel.recentReflectionNotes.prefix(3), id: \.id) { note in
                         VStack(alignment: .leading, spacing: 4) {
@@ -713,23 +711,12 @@ struct SunriseTaskDetailScreen: View {
         .ignoresSafeArea()
     }
 
-    private var detailXPPreview: XPCompletionPreview? {
-        if isGamificationV2Enabled {
-            guard let liveTodayXPSoFar else { return nil }
-            return XPCalculationEngine.completionXPIfCompletedNow(
-                priorityRaw: viewModel.selectedPriority.rawValue,
-                estimatedDuration: viewModel.estimatedDuration,
-                dueDate: viewModel.dueDate,
-                dailyEarnedSoFar: liveTodayXPSoFar,
-                isGamificationV2Enabled: true
-            )
-        }
-        return XPCalculationEngine.completionXPIfCompletedNow(
+    private var detailXPPreview: XPCompletionPreview {
+        XPCalculationEngine.completionXPIfCompletedNow(
             priorityRaw: viewModel.selectedPriority.rawValue,
             estimatedDuration: viewModel.estimatedDuration,
             dueDate: viewModel.dueDate,
-            dailyEarnedSoFar: 0,
-            isGamificationV2Enabled: false
+            isGamificationV2Enabled: isGamificationV2Enabled
         )
     }
 
@@ -803,7 +790,7 @@ struct SunriseTaskDetailScreen: View {
 
     private var contextSummary: String {
         var parts: [String] = []
-        if detailXPPreview != nil { parts.append("Reward preview") }
+        parts.append("Reward preview")
         if viewModel.contextSummary != "Extra context is hidden" { parts.append(viewModel.contextSummary) }
         return parts.isEmpty ? "Reflections and project context." : parts.joined(separator: " · ")
     }
@@ -813,7 +800,7 @@ struct SunriseTaskDetailScreen: View {
     }
 
     private var showsContextDisclosure: Bool {
-        detailXPPreview != nil || viewModel.shouldShowContextSection || expandedSections.contains(.context)
+        true
     }
 
     private var taskAccentColor: Color {
