@@ -595,6 +595,8 @@
 		E50000000000000000000023 /* LBPrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000022 /* LBPrimaryButton.swift */; };
 		E50000000000000000000025 /* LBSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000024 /* LBSectionHeader.swift */; };
 		E50000000000000000000027 /* LBTimelineCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000026 /* LBTimelineCard.swift */; };
+		F10A00000000000000000001 /* TimelineRoutineAnchorVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10A00000000000000000002 /* TimelineRoutineAnchorVisualStyle.swift */; };
+		F10A00000000000000000003 /* TimelineRoutineAnchorCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10A00000000000000000004 /* TimelineRoutineAnchorCard.swift */; };
 		E50000000000000000000029 /* LBTimelineItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000028 /* LBTimelineItem.swift */; };
 		E5000000000000000000002B /* LBTimelineSpine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000002A /* LBTimelineSpine.swift */; };
 		E5000000000000000000002D /* SunriseHomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000002C /* SunriseHomeScreen.swift */; };
@@ -1278,6 +1280,8 @@
 		E50000000000000000000022 /* LBPrimaryButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBPrimaryButton.swift; sourceTree = "<group>"; };
 		E50000000000000000000024 /* LBSectionHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBSectionHeader.swift; sourceTree = "<group>"; };
 		E50000000000000000000026 /* LBTimelineCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTimelineCard.swift; sourceTree = "<group>"; };
+		F10A00000000000000000002 /* TimelineRoutineAnchorVisualStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineRoutineAnchorVisualStyle.swift; sourceTree = "<group>"; };
+		F10A00000000000000000004 /* TimelineRoutineAnchorCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineRoutineAnchorCard.swift; sourceTree = "<group>"; };
 		E50000000000000000000028 /* LBTimelineItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTimelineItem.swift; sourceTree = "<group>"; };
 		E5000000000000000000002A /* LBTimelineSpine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTimelineSpine.swift; sourceTree = "<group>"; };
 		E5000000000000000000002C /* SunriseHomeScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHomeScreen.swift; sourceTree = "<group>"; };
@@ -2835,6 +2839,8 @@
 				E50000000000000000000022 /* LBPrimaryButton.swift */,
 				E50000000000000000000024 /* LBSectionHeader.swift */,
 				E50000000000000000000026 /* LBTimelineCard.swift */,
+				F10A00000000000000000002 /* TimelineRoutineAnchorVisualStyle.swift */,
+				F10A00000000000000000004 /* TimelineRoutineAnchorCard.swift */,
 				E50000000000000000000028 /* LBTimelineItem.swift */,
 				E5000000000000000000002A /* LBTimelineSpine.swift */,
 			);
@@ -3311,6 +3317,8 @@
 				E50000000000000000000023 /* LBPrimaryButton.swift in Sources */,
 				E50000000000000000000025 /* LBSectionHeader.swift in Sources */,
 				E50000000000000000000027 /* LBTimelineCard.swift in Sources */,
+				F10A00000000000000000001 /* TimelineRoutineAnchorVisualStyle.swift in Sources */,
+				F10A00000000000000000003 /* TimelineRoutineAnchorCard.swift in Sources */,
 				E50000000000000000000029 /* LBTimelineItem.swift in Sources */,
 				E5000000000000000000002B /* LBTimelineSpine.swift in Sources */,
 				E5000000000000000000002D /* SunriseHomeScreen.swift in Sources */,
