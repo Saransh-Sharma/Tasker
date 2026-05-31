@@ -996,6 +996,7 @@ struct HomeOverlaySnapshot: Equatable {
     let triageQueueLoading: Bool
     let triageQueueErrorMessage: String?
     let triageQueue: [EvaTriageQueueItem]
+    let rescueLauncherState: HomeOverdueRescueLauncherState
     let rescuePresented: Bool
     let rescuePlan: EvaRescuePlan?
     let lastBatchRunID: UUID?
@@ -1011,6 +1012,7 @@ struct HomeOverlaySnapshot: Equatable {
             triageQueueLoading: false,
             triageQueueErrorMessage: nil,
             triageQueue: [],
+            rescueLauncherState: .idle,
             rescuePresented: false,
             rescuePlan: nil,
             lastBatchRunID: nil,
@@ -1027,6 +1029,7 @@ struct HomeOverlaySnapshot: Equatable {
             && lhs.triageQueueLoading == rhs.triageQueueLoading
             && lhs.triageQueueErrorMessage == rhs.triageQueueErrorMessage
             && lhs.triageQueue.map(\.task.id) == rhs.triageQueue.map(\.task.id)
+            && lhs.rescueLauncherState == rhs.rescueLauncherState
             && lhs.rescuePresented == rhs.rescuePresented
             && String(describing: lhs.rescuePlan) == String(describing: rhs.rescuePlan)
             && lhs.lastBatchRunID == rhs.lastBatchRunID

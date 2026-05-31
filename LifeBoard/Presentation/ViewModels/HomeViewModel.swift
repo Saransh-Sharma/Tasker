@@ -591,6 +591,13 @@ public struct InsightsLaunchRequest: Equatable {
     }
 }
 
+public enum HomeOverdueRescueLauncherState: Equatable {
+    case idle
+    case loading
+    case ready
+    case failed(String)
+}
+
 /// ViewModel for the Home screen
 /// Manages all business logic and state for the home view
 @MainActor
@@ -705,6 +712,9 @@ public final class HomeViewModel: ObservableObject {
         didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaRescueSheetPresented: Bool = false {
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
+    }
+    @Published public private(set) var evaRescueLauncherState: HomeOverdueRescueLauncherState = .idle {
         didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaTriageScope: EvaTriageScope = .visible {
@@ -1114,6 +1124,7 @@ public final class HomeViewModel: ObservableObject {
             triageQueueLoading: evaTriageQueueLoading,
             triageQueueErrorMessage: evaTriageQueueErrorMessage,
             triageQueue: evaTriageQueue,
+            rescueLauncherState: evaRescueLauncherState,
             rescuePresented: evaRescueSheetPresented,
             rescuePlan: evaRescuePlan,
             lastBatchRunID: evaLastBatchRunID,
@@ -1689,6 +1700,30 @@ public final class HomeViewModel: ObservableObject {
                     )
                     completion(.success(()))
 
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    public func restoreDeletedTaskSnapshot(
+        _ task: TaskDefinition,
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
+    ) {
+        useCaseCoordinator.taskDefinitionRepository.create(task) { [weak self] result in
+            Task { @MainActor in
+                switch result {
+                case .success(let restoredTask):
+                    self?.enqueueReload(
+                        source: "restore_deleted_task",
+                        reason: .bulkChanged,
+                        invalidateCaches: true,
+                        includeAnalytics: false,
+                        repostEvent: true
+                    )
+                    completion(.success(restoredTask))
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                     completion(.failure(error))
@@ -2708,6 +2743,9 @@ public final class HomeViewModel: ObservableObject {
 
     public func setEvaRescuePresented(_ value: Bool) {
         evaRescueSheetPresented = value
+        if value == false, evaRescueLauncherState != .loading {
+            evaRescueLauncherState = .idle
+        }
     }
 
     public func openFocusWhy() {
@@ -2994,7 +3032,7 @@ public final class HomeViewModel: ObservableObject {
     public func openRescue() {
         guard V2FeatureFlags.evaRescueEnabled else { return }
         let referenceDate = selectedDate
-        evaRescueSheetPresented = true
+        evaRescueLauncherState = .loading
         useCaseCoordinator.getTasks.getOverdueTasks { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
@@ -3002,18 +3040,25 @@ public final class HomeViewModel: ObservableObject {
                 switch result {
                 case .success(let overdue):
                     tasks = overdue
-                case .failure:
+                case .failure(let error):
                     tasks = self.overdueTasks
+                    if tasks.isEmpty {
+                        self.evaRescueLauncherState = .failed(error.localizedDescription)
+                        self.errorMessage = error.localizedDescription
+                        return
+                    }
                 }
                 let rescueEligibleTasks = tasks.filter {
-                    !($0.isComplete) && self.isRescueEligibleTask($0, on: referenceDate)
+                    self.isOverdueRescueDeckEligibleTask($0, on: referenceDate)
                 }
                 self.evaRescuePlan = self.getOverdueRescuePlanUseCase.execute(
                     overdueTasks: rescueEligibleTasks,
                     now: referenceDate
                 )
+                self.evaRescueLauncherState = .ready
+                self.evaRescueSheetPresented = true
                 self.trackHomeInteraction(action: "rescue_open", metadata: [
-                    "scope": "two_week_overdue",
+                    "scope": "all_overdue",
                     "overdue_count": rescueEligibleTasks.count
                 ])
             }
@@ -3172,7 +3217,11 @@ public final class HomeViewModel: ObservableObject {
             )))
             return
         }
-        let openTasks = focusOpenTasksForCurrentState() + completedTasks + doneTimelineTasks + evaTriageQueue.map(\.task)
+        let openTasks = focusOpenTasksForCurrentState()
+            + overdueTasks
+            + completedTasks
+            + doneTimelineTasks
+            + evaTriageQueue.map(\.task)
         let tasksByID = openTasks.reduce(into: [UUID: TaskDefinition]()) { partialResult, task in
             partialResult[task.id] = task
         }
@@ -4398,10 +4447,30 @@ public final class HomeViewModel: ObservableObject {
             return false
         }
 
+        let anchorDay = Calendar.current.startOfDay(for: referenceDate)
+        guard let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: anchorDay) else {
+            return false
+        }
+        return dueDate < cutoff
+    }
+
+    func isOverdueRescueDeckEligibleTask(_ task: TaskDefinition, on referenceDate: Date) -> Bool {
+        guard !task.isComplete, let dueDate = task.dueDate else {
+            return false
+        }
+
         let calendar = Calendar.current
         let anchorDay = calendar.startOfDay(for: referenceDate)
-        let rescueCutoff = calendar.date(byAdding: .day, value: -14, to: anchorDay) ?? anchorDay
-        return dueDate < rescueCutoff
+        guard dueDate < anchorDay else {
+            return false
+        }
+        if let deferred = task.deferredFromWeekStart, calendar.isDate(deferred, inSameDayAs: anchorDay) {
+            return false
+        }
+        if task.recurrenceSeriesID != nil, dueDate >= anchorDay {
+            return false
+        }
+        return true
     }
 
     func compareRescueRows(_ lhs: HomeTodayRow, _ rhs: HomeTodayRow) -> Bool {

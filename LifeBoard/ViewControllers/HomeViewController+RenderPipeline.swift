@@ -116,6 +116,7 @@ extension HomeViewController {
                 triageQueueLoading: state.triageQueueLoading,
                 triageQueueErrorMessage: state.triageQueueErrorMessage,
                 triageQueue: state.triageQueue,
+                rescueLauncherState: state.rescueLauncherState,
                 rescuePresented: state.rescuePresented,
                 rescuePlan: state.rescuePlan,
                 lastBatchRunID: state.lastBatchRunID,
