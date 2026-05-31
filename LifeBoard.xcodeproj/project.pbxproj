@@ -128,7 +128,6 @@
 		7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
 		7529F7062DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
 		7529F7AA2F5D0001000CBE36 /* LLMDebugSmokeRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F7A92F5D0001000CBE36 /* LLMDebugSmokeRunner.swift */; };
-		D9A0B1C2D3E4F506172839AC /* InsightsModuleVisibilityPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A0B1C2D3E4F506172839AB /* InsightsModuleVisibilityPlannerTests.swift */; };
 		752A974B2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97492E92A6ED00CFC576 /* ProjectConstants.swift */; };
 		752A97512E92A70100CFC576 /* UUIDGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A974E2E92A70100CFC576 /* UUIDGenerator.swift */; };
 		752A97562E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97532E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift */; };
@@ -459,13 +458,13 @@
 		C4B2E3D5F6A7081C /* MilestoneCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70B /* MilestoneCelebrationView.swift */; };
 		C4B2E3D5F6A7081D /* BadgeDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70C /* BadgeDetailSheet.swift */; };
 		C4D5E6F70891A2B3C4D5E701 /* TaskScheduleEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */; };
+		C4D5E6F70891A2B3C4D5E702 /* SunriseTaskDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E703 /* SunriseTaskDetailScreen.swift */; };
+		C4D5E6F70891A2B3C4D5E704 /* SunriseHabitDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E705 /* SunriseHabitDetailScreen.swift */; };
+		C4D5E6F70891A2B3C4D5E706 /* SunriseDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E707 /* SunriseDetailComponents.swift */; };
 		C4D5E6F70891A2B3C4D5E708 /* TimelineAnchorRitualTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E70C /* TimelineAnchorRitualTheme.swift */; };
 		C4D5E6F70891A2B3C4D5E709 /* TimelineAnchorRitualModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E70D /* TimelineAnchorRitualModel.swift */; };
 		C4D5E6F70891A2B3C4D5E70A /* TimelineAnchorWaveShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E70E /* TimelineAnchorWaveShape.swift */; };
 		C4D5E6F70891A2B3C4D5E70B /* TimelineAnchorRitualSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E70F /* TimelineAnchorRitualSheetView.swift */; };
-		C4D5E6F70891A2B3C4D5E702 /* SunriseTaskDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E703 /* SunriseTaskDetailScreen.swift */; };
-		C4D5E6F70891A2B3C4D5E704 /* SunriseHabitDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E705 /* SunriseHabitDetailScreen.swift */; };
-		C4D5E6F70891A2B3C4D5E706 /* SunriseDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E707 /* SunriseDetailComponents.swift */; };
 		C537950FC6FD78BB996E7CA5 /* HomeXPHeroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DC0A5BC84D9C6C792B2AB6 /* HomeXPHeroView.swift */; };
 		C5E24F11E95F5281AFA4E8DD /* UIKit+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A94E5E4F9BB3AA846B56A72 /* UIKit+TokenAdapters.swift */; };
 		C6182C050AFE59B731DAD798 /* LifeBoardWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F9A8B91DCC93833939CAE3C6 /* LifeBoardWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -528,7 +527,6 @@
 		D4F200000000000000000122 /* HomeAIActionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */; };
 		D4F200000000000000000123 /* XPCalculationEngineWeeklyCategoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000121 /* XPCalculationEngineWeeklyCategoryTests.swift */; };
 		D4F200000000000000000125 /* WeeklyOperatingLayerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000124 /* WeeklyOperatingLayerViewModelTests.swift */; };
-		D9A0B1C2D3E4F506172839AD /* InsightsModuleVisibilityPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A0B1C2D3E4F506172839AE /* InsightsModuleVisibilityPlanner.swift */; };
 		D4F300000000000000000130 /* DailyReflectionLoadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F300000000000000000131 /* DailyReflectionLoadCoordinator.swift */; };
 		D4F400000000000000000201 /* SunriseTimelineSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F400000000000000000202 /* SunriseTimelineSurface.swift */; };
 		D5E7A8BA2F3C4D5E0067A1B2 /* DailySummaryModalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E7A8B92F3C4D5E0067A1B2 /* DailySummaryModalTests.swift */; };
@@ -551,6 +549,8 @@
 		D6BD60E5C38CC9087DD53FC6 /* SlashCommandExecutionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1371F4BC6B6BB7BF68747A7F /* SlashCommandExecutionService.swift */; };
 		D7A500000000000000000102 /* LifeBoardLaunchSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000101 /* LifeBoardLaunchSplashView.swift */; };
 		D7A500000000000000000202 /* HomeViewControllerLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */; };
+		D9A0B1C2D3E4F506172839AC /* InsightsModuleVisibilityPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A0B1C2D3E4F506172839AB /* InsightsModuleVisibilityPlannerTests.swift */; };
+		D9A0B1C2D3E4F506172839AD /* InsightsModuleVisibilityPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A0B1C2D3E4F506172839AE /* InsightsModuleVisibilityPlanner.swift */; };
 		DAD2A078D60094864EB53934 /* HomeViewController+Snackbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EF5E391342B1FBE7864081 /* HomeViewController+Snackbar.swift */; };
 		DCC82F690B379131E60A69DA /* LifeBoardWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1256A6FF63A60FC9D9E82C2 /* LifeBoardWidgetBundle.swift */; };
 		DE2C698360236D910D116D07 /* LifeBoardTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB9BE07CCB7761E186498D8C /* LifeBoardTheme.swift */; };
@@ -601,8 +601,6 @@
 		E50000000000000000000023 /* LBPrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000022 /* LBPrimaryButton.swift */; };
 		E50000000000000000000025 /* LBSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000024 /* LBSectionHeader.swift */; };
 		E50000000000000000000027 /* LBTimelineCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000026 /* LBTimelineCard.swift */; };
-		F10A00000000000000000001 /* TimelineRoutineAnchorVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10A00000000000000000002 /* TimelineRoutineAnchorVisualStyle.swift */; };
-		F10A00000000000000000003 /* TimelineRoutineAnchorCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10A00000000000000000004 /* TimelineRoutineAnchorCard.swift */; };
 		E50000000000000000000029 /* LBTimelineItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000028 /* LBTimelineItem.swift */; };
 		E5000000000000000000002B /* LBTimelineSpine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000002A /* LBTimelineSpine.swift */; };
 		E5000000000000000000002D /* SunriseHomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000002C /* SunriseHomeScreen.swift */; };
@@ -627,6 +625,8 @@
 		F0A1B2C3D4E5F60718293B4D /* HomeFilterStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */; };
 		F0A1B2C3D4E5F60718293B4E /* HomeTaskSectionBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */; };
 		F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */; };
+		F10A00000000000000000001 /* TimelineRoutineAnchorVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10A00000000000000000002 /* TimelineRoutineAnchorVisualStyle.swift */; };
+		F10A00000000000000000003 /* TimelineRoutineAnchorCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10A00000000000000000004 /* TimelineRoutineAnchorCard.swift */; };
 		F1A2B3C4D5E6F708192A3B4C /* WidgetBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* WidgetBrand.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E3 /* LifeBoardTheme+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E2 /* LifeBoardTheme+SwiftUI.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E5 /* LifeBoardAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E4 /* LifeBoardAnimations.swift */; };
@@ -829,7 +829,6 @@
 		753EFCAB2445A24700A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		753EFCB02445A24700A739E3 /* LifeBoardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LifeBoardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCB42445A24700A739E3 /* LifeBoardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardTests.swift; sourceTree = "<group>"; };
-		D9A0B1C2D3E4F506172839AB /* InsightsModuleVisibilityPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsModuleVisibilityPlannerTests.swift; sourceTree = "<group>"; };
 		753EFCB62445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		753EFCBB2445A24800A739E3 /* LifeBoardUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LifeBoardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCBF2445A24800A739E3 /* LifeBoardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardUITests.swift; sourceTree = "<group>"; };
@@ -1147,13 +1146,13 @@
 		C4AF3952DBA8C2ACE185FEF0 /* DailyXPAggregateDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/DailyXPAggregateDefinition.swift; sourceTree = SOURCE_ROOT; };
 		C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskReadModelRepositoryProtocol.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskScheduleEditor.swift; sourceTree = "<group>"; };
+		C4D5E6F70891A2B3C4D5E703 /* SunriseTaskDetailScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseTaskDetailScreen.swift; sourceTree = "<group>"; };
+		C4D5E6F70891A2B3C4D5E705 /* SunriseHabitDetailScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHabitDetailScreen.swift; sourceTree = "<group>"; };
+		C4D5E6F70891A2B3C4D5E707 /* SunriseDetailComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseDetailComponents.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E70C /* TimelineAnchorRitualTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineAnchorRitualTheme.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E70D /* TimelineAnchorRitualModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineAnchorRitualModel.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E70E /* TimelineAnchorWaveShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineAnchorWaveShape.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E70F /* TimelineAnchorRitualSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineAnchorRitualSheetView.swift; sourceTree = "<group>"; };
-		C4D5E6F70891A2B3C4D5E703 /* SunriseTaskDetailScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseTaskDetailScreen.swift; sourceTree = "<group>"; };
-		C4D5E6F70891A2B3C4D5E705 /* SunriseHabitDetailScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHabitDetailScreen.swift; sourceTree = "<group>"; };
-		C4D5E6F70891A2B3C4D5E707 /* SunriseDetailComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseDetailComponents.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF01 /* AddTaskCreateButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskCreateButton.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF02 /* AddTaskDescriptionField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskDescriptionField.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF03 /* AddTaskInlineCreator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskInlineCreator.swift; sourceTree = "<group>"; };
@@ -1235,7 +1234,6 @@
 		D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAIActionCoordinatorTests.swift; sourceTree = "<group>"; };
 		D4F200000000000000000121 /* XPCalculationEngineWeeklyCategoryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = XPCalculationEngineWeeklyCategoryTests.swift; sourceTree = "<group>"; };
 		D4F200000000000000000124 /* WeeklyOperatingLayerViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyOperatingLayerViewModelTests.swift; sourceTree = "<group>"; };
-		D9A0B1C2D3E4F506172839AE /* InsightsModuleVisibilityPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Models/InsightsModuleVisibilityPlanner.swift; sourceTree = SOURCE_ROOT; };
 		D4F300000000000000000131 /* DailyReflectionLoadCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Gamification/DailyReflectionLoadCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		D4F400000000000000000202 /* SunriseTimelineSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/View/SunriseTimelineSurface.swift; sourceTree = SOURCE_ROOT; };
 		D5A9A2796943621DC66C4703 /* Tombstone.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/Tombstone.swift; sourceTree = SOURCE_ROOT; };
@@ -1245,6 +1243,8 @@
 		D7A500000000000000000101 /* LifeBoardLaunchSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardLaunchSplashView.swift; sourceTree = "<group>"; };
 		D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewControllerLifecycleTests.swift; sourceTree = "<group>"; };
 		D7C5BD9B9BA76D61F7F044BD /* LifeBoardSnackbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardSnackbar.swift; sourceTree = "<group>"; };
+		D9A0B1C2D3E4F506172839AB /* InsightsModuleVisibilityPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsModuleVisibilityPlannerTests.swift; sourceTree = "<group>"; };
+		D9A0B1C2D3E4F506172839AE /* InsightsModuleVisibilityPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Models/InsightsModuleVisibilityPlanner.swift; sourceTree = SOURCE_ROOT; };
 		DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProfileHeaderView.swift; sourceTree = "<group>"; };
 		DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskPriorityPicker.swift; sourceTree = "<group>"; };
 		E06E18805C2401359A9B0F5B /* ManageLifeAreasUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/LifeArea/ManageLifeAreasUseCase.swift; sourceTree = SOURCE_ROOT; };
@@ -1292,8 +1292,6 @@
 		E50000000000000000000022 /* LBPrimaryButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBPrimaryButton.swift; sourceTree = "<group>"; };
 		E50000000000000000000024 /* LBSectionHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBSectionHeader.swift; sourceTree = "<group>"; };
 		E50000000000000000000026 /* LBTimelineCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTimelineCard.swift; sourceTree = "<group>"; };
-		F10A00000000000000000002 /* TimelineRoutineAnchorVisualStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineRoutineAnchorVisualStyle.swift; sourceTree = "<group>"; };
-		F10A00000000000000000004 /* TimelineRoutineAnchorCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineRoutineAnchorCard.swift; sourceTree = "<group>"; };
 		E50000000000000000000028 /* LBTimelineItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTimelineItem.swift; sourceTree = "<group>"; };
 		E5000000000000000000002A /* LBTimelineSpine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBTimelineSpine.swift; sourceTree = "<group>"; };
 		E5000000000000000000002C /* SunriseHomeScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHomeScreen.swift; sourceTree = "<group>"; };
@@ -1323,6 +1321,8 @@
 		F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskSectionBuilderTests.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewModelPersistenceTests.swift; sourceTree = "<group>"; };
 		F0E3799E6AD3B71C2BCAA18D /* CoreDataSectionRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/CoreDataSectionRepository.swift; sourceTree = SOURCE_ROOT; };
+		F10A00000000000000000002 /* TimelineRoutineAnchorVisualStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineRoutineAnchorVisualStyle.swift; sourceTree = "<group>"; };
+		F10A00000000000000000004 /* TimelineRoutineAnchorCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineRoutineAnchorCard.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F708192A3B4D /* WidgetBrand.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardWidgets/WidgetBrand.swift; sourceTree = SOURCE_ROOT; };
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* LifeBoardTheme+SwiftUI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoardTheme+SwiftUI.swift"; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F7A8B9C0D1E4 /* LifeBoardAnimations.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardAnimations.swift; sourceTree = "<group>"; };
@@ -3198,13 +3198,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LifeBoard-LifeBoardUITests/Pods-LifeBoard-LifeBoardUITests-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LifeBoard-LifeBoardUITests/Pods-LifeBoard-LifeBoardUITests-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -3219,13 +3215,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LifeBoard/Pods-LifeBoard-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LifeBoard/Pods-LifeBoard-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
