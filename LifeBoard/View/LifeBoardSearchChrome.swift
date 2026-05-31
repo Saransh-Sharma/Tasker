@@ -2,10 +2,10 @@ import SwiftUI
 import UIKit
 
 enum LifeBoardSearchChromeStyle {
-    static let headerCornerRadius: CGFloat = 24
+    static let headerCornerRadius: CGFloat = 28
     static let iconButtonCornerRadius: CGFloat = 22
     static let chipCornerRadius: CGFloat = 18
-    static let searchFieldHeight: CGFloat = 48
+    static let searchFieldHeight: CGFloat = 58
     static let filterSpacing: CGFloat = 12
     static let selectedChipScale: CGFloat = 1.03
     static let projectHeaderCornerRadius: CGFloat = 16
@@ -48,13 +48,14 @@ struct LifeBoardSearchHeaderView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Color.lifeboard.textSecondary)
 
-            TextField("Search tasks...", text: $query)
+            TextField("Search tasks, notes, habits...", text: $query)
                 .focused($isFocused)
                 .submitLabel(.search)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .font(.lifeboard(.body))
+                .font(.lifeboard(.headline))
                 .foregroundStyle(Color.lifeboard.textPrimary)
+                .tint(LBColorTokens.violetDeep)
                 .accessibilityIdentifier("search.searchField")
                 .onChange(of: query) { _, newValue in
                     onQueryChanged(newValue)
@@ -74,11 +75,16 @@ struct LifeBoardSearchHeaderView: View {
         }
         .padding(.horizontal, spacing.s12)
         .frame(height: LifeBoardSearchChromeStyle.searchFieldHeight)
-        .lifeboardChromeSurface(
-            cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius,
-            accentColor: Color.lifeboard.accentSecondary,
-            level: .e1
-        )
+        .background {
+            RoundedRectangle(cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius, style: .continuous)
+                .fill(LBColorTokens.glassStrong.opacity(0.82))
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius, style: .continuous)
+                        .stroke(LBColorTokens.hairline.opacity(0.38), lineWidth: 1)
+                }
+                .shadow(color: LBColorTokens.elevationShadow, radius: 15, x: 0, y: 8)
+        }
     }
 }
 

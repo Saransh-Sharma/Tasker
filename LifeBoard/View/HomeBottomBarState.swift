@@ -48,11 +48,7 @@ final class HomeBottomBarState {
     }
 
     func handleChromeStateChange(_ state: HomeScrollChromeState) {
-        switch state {
-        case .nearTop, .expanded, .idle:
-            isMinimized = false
-        case .collapsed:
-            isMinimized = true
-        }
+        _ = state
+        isMinimized = false
     }
 }

@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "sunrise_decor_mountain.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
