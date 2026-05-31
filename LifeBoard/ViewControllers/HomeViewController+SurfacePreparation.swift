@@ -402,7 +402,7 @@ extension HomeViewController {
             message: "Closing search surface",
             fields: ["source": source]
         )
-        faceCoordinator.setActiveFace(.tasks)
+        faceCoordinator.setActiveFace(faceCoordinator.returnFaceAfterSearch())
         faceCoordinator.setSearchSurfaceState(.idle)
         viewModel.trackHomeInteraction(
             action: "home_search_flip_close",

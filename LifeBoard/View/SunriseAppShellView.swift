@@ -441,6 +441,7 @@ struct SunriseAppShellView: View {
     private var isSearchOpen: Bool { activeFace == .search }
     private var isInsightsOpen: Bool { activeFace == .analytics }
     private var isChatOpen: Bool { activeFace == .chat }
+    private var shouldAttachSecondaryFaceToTop: Bool { isSearchOpen || isInsightsOpen }
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
     private var isScheduleFaceVisible: Bool { activeFace == .schedule }
     private var isTodayTimelineVisible: Bool {
@@ -609,6 +610,12 @@ struct SunriseAppShellView: View {
         guard isTodayTimelineVisible else { return 0 }
         return timelineViewModel.interactiveOffset(metrics: timelineLayoutMetrics)
     }
+    private var secondaryFaceTopContentInset: CGFloat {
+        max(0, layoutMetrics.safeAreaTop + spacing.s8 - 8)
+    }
+    private var sunriseSurfaceCornerRadius: CGFloat {
+        shouldAttachSecondaryFaceToTop ? 0 : corner.modal
+    }
     private var sunriseFlipAnimation: Animation {
         let duration: TimeInterval
         if reduceMotion || isUITesting {
@@ -742,11 +749,7 @@ struct SunriseAppShellView: View {
                     Color.lifeboard.bgCanvas
                         .ignoresSafeArea()
 
-                    VStack(spacing: 0) {
-                        topNavigationBar()
-                            .padding(.top, layoutMetrics.safeAreaTop + spacing.s8)
-                            .accessibilityIdentifier("home.topNav.container")
-
+                    if shouldAttachSecondaryFaceToTop {
                         ZStack(alignment: .top) {
                             backdropLayer()
 
@@ -755,6 +758,22 @@ struct SunriseAppShellView: View {
                                 .animation(sunriseFlipAnimation, value: activeFace)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .ignoresSafeArea(edges: .top)
+                    } else {
+                        VStack(spacing: 0) {
+                            topNavigationBar()
+                                .padding(.top, layoutMetrics.safeAreaTop + spacing.s8)
+                                .accessibilityIdentifier("home.topNav.container")
+
+                            ZStack(alignment: .top) {
+                                backdropLayer()
+
+                                sunriseLayer(taskListBottomInset: layoutMetrics.taskListBottomInset)
+                                    .offset(y: sunriseHintOffset + sunriseInteractiveOffset)
+                                    .animation(sunriseFlipAnimation, value: activeFace)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        }
                     }
                 }
             }
@@ -1382,6 +1401,7 @@ struct SunriseAppShellView: View {
         guard committedQuery != nextCommittedQuery else { return }
         LifeBoardPerformanceTrace.event("HomeSearchQueryCommitted")
         searchState.updateQuery(newValue)
+        searchState.submitCurrentQuery()
     }
 
     private func cancelPendingSearchCommit() {
@@ -1464,7 +1484,7 @@ struct SunriseAppShellView: View {
             maxHeight: .infinity,
             alignment: .top
         )
-        .modifier(HomeDenseSurfaceModifier(cornerRadius: corner.modal))
+        .modifier(HomeDenseSurfaceModifier(cornerRadius: sunriseSurfaceCornerRadius))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.sunrise.surface")
         .accessibilityValue(activeFace == .tasks ? timelineViewModel.sunriseAnchor.accessibilityValue : activeFace.surfaceAccessibilityValue)
@@ -1626,6 +1646,8 @@ struct SunriseAppShellView: View {
                     onOpenReflection: {
                         openDailyReflectPlan()
                     },
+                    bottomInset: layoutMetrics.taskListBottomInset,
+                    topContentInset: secondaryFaceTopContentInset,
                     onBackToTasks: {
                         onReturnToTasks("back_chip")
                     },
@@ -1644,7 +1666,8 @@ struct SunriseAppShellView: View {
                     leadingAction: { onReturnToTasks("back_chip") },
                     trailingSystemImage: "gearshape",
                     trailingAccessibilityLabel: "Settings",
-                    trailingAction: { onOpenSettings() }
+                    trailingAction: { onOpenSettings() },
+                    topContentInset: secondaryFaceTopContentInset
                 ) {
                     VStack(spacing: spacing.s8) {
                         ProgressView()
@@ -1693,11 +1716,20 @@ struct SunriseAppShellView: View {
 
         return SunriseSearchFaceView(
             query: $searchDraftQuery,
+            commandMode: Binding(
+                get: { searchState.commandMode },
+                set: { searchState.setCommandMode($0) }
+            ),
             isFocused: $isSearchFieldFocused,
             bottomInset: effectiveSearchBottomInset,
-            statusChips: searchStatusChipDescriptors,
-            priorityChips: searchPriorityChipDescriptors,
-            projectChips: searchProjectChipDescriptors,
+            topContentInset: secondaryFaceTopContentInset,
+            quickChips: searchQuickChipDescriptors,
+            advancedStatusChips: searchStatusChipDescriptors,
+            advancedPriorityChips: searchPriorityChipDescriptors,
+            advancedProjectChips: searchProjectChipDescriptors,
+            recentSearches: searchState.recentSearches,
+            activeFilterCount: searchState.activeFilterCount,
+            resultCount: searchState.sections.reduce(0) { $0 + $1.tasks.count },
             isLoading: isSearchLoadingContentVisible,
             loadingMessage: searchLoadingMessage,
             showsNoResults: searchState.shouldShowNoResultsMessage,
@@ -1719,6 +1751,13 @@ struct SunriseAppShellView: View {
                 searchDraftQuery = ""
                 searchState.clearQuery()
                 trackSearchQueryChanged("")
+            },
+            onClearFilters: {
+                searchState.clearFilters()
+            },
+            onAskEvaPrompt: { prompt in
+                searchState.recordRecentSearch(prompt)
+                onOpenChat()
             }
         ) {
             searchResultsContent
@@ -1892,7 +1931,7 @@ struct SunriseAppShellView: View {
                     project: searchProject(for: section.projectName),
                     tasks: section.tasks,
                     tagNameByID: tasksSnapshot.tagNameByID,
-                    completedCollapsed: false,
+                    completedCollapsed: searchCompletedResultsCollapsed,
                     isTaskDragEnabled: false,
                     layoutStyle: .sunriseSearch,
                     onTaskTap: { task in
@@ -1908,10 +1947,19 @@ struct SunriseAppShellView: View {
                     },
                     onRescheduleTask: { task in
                         onRescheduleTask(task)
+                    },
+                    onCompletedCollapsedChange: { _, _ in
+                        searchState.toggleCompletedExpansion()
                     }
                 )
             }
         }
+    }
+
+    private var searchCompletedResultsCollapsed: Bool {
+        if searchState.selectedStatus == .completed { return false }
+        if searchState.trimmedQuery.localizedCaseInsensitiveContains("completed") { return false }
+        return searchState.isCompletedExpanded == false
     }
 
     private var isSearchLoadingContentVisible: Bool {
@@ -1997,11 +2045,80 @@ struct SunriseAppShellView: View {
         }
     }
 
+    private var searchQuickChipDescriptors: [LifeBoardSearchFilterChipDescriptor] {
+        let p0 = TaskPriorityConfig.Priority.allCases.first?.rawValue ?? 0
+        let hasProjectFilter = searchState.selectedProjects.isEmpty == false
+        return [
+            LifeBoardSearchFilterChipDescriptor(
+                id: "quick-ask-eva",
+                title: "Ask Eva",
+                systemImage: "sparkles",
+                isSelected: searchState.commandMode == .askEva,
+                tintColor: Color.lifeboard.accentPrimary,
+                accessibilityIdentifier: "search.quick.askEva"
+            ) {
+                searchState.setCommandMode(searchState.commandMode == .askEva ? .search : .askEva)
+            },
+            LifeBoardSearchFilterChipDescriptor(
+                id: "quick-today",
+                title: "Today",
+                systemImage: "calendar",
+                isSelected: searchState.selectedStatus == .today,
+                tintColor: Color.lifeboard.accentPrimary,
+                accessibilityIdentifier: "search.quick.today"
+            ) {
+                searchState.setStatus(searchState.selectedStatus == .today ? .all : .today)
+                trackSearchChipToggled(kind: "status", value: "today", isSelected: searchState.selectedStatus == .today)
+            },
+            LifeBoardSearchFilterChipDescriptor(
+                id: "quick-overdue",
+                title: "Overdue",
+                systemImage: "exclamationmark.triangle",
+                isSelected: searchState.selectedStatus == .overdue,
+                tintColor: Color.lifeboard.statusWarning,
+                accessibilityIdentifier: "search.quick.overdue"
+            ) {
+                searchState.setStatus(searchState.selectedStatus == .overdue ? .all : .overdue)
+                trackSearchChipToggled(kind: "status", value: "overdue", isSelected: searchState.selectedStatus == .overdue)
+            },
+            LifeBoardSearchFilterChipDescriptor(
+                id: "quick-p0",
+                title: "P0",
+                systemImage: "flag.fill",
+                isSelected: searchState.selectedPriorities.contains(p0),
+                tintColor: Color.lifeboard.priorityMax,
+                accessibilityIdentifier: "search.quick.p0"
+            ) {
+                if let priority = TaskPriorityConfig.Priority.allCases.first {
+                    searchState.togglePriority(priority)
+                    trackSearchChipToggled(kind: "priority", value: priority.code.lowercased(), isSelected: searchState.selectedPriorities.contains(priority.rawValue))
+                }
+            },
+            LifeBoardSearchFilterChipDescriptor(
+                id: "quick-projects",
+                title: "Projects",
+                systemImage: "folder",
+                count: searchState.selectedProjects.isEmpty ? nil : searchState.selectedProjects.count,
+                isSelected: hasProjectFilter,
+                tintColor: Color.lifeboard.accentSecondary,
+                accessibilityIdentifier: "search.quick.projects"
+            ) {
+                if let firstProject = searchState.availableProjects.first {
+                    searchState.toggleProject(firstProject)
+                    trackSearchChipToggled(kind: "project", value: firstProject, isSelected: searchState.selectedProjects.contains(firstProject))
+                } else {
+                    LifeBoardFeedback.selection()
+                }
+            }
+        ]
+    }
+
     private var searchStatusChipDescriptors: [LifeBoardSearchFilterChipDescriptor] {
         HomeSearchStatusFilter.allCases.map { status in
             LifeBoardSearchFilterChipDescriptor(
                 id: "status-\(status.rawValue)",
                 title: status.title,
+                systemImage: searchStatusSystemImage(status),
                 isSelected: searchState.selectedStatus == status,
                 tintColor: Color.lifeboard.accentPrimary,
                 accessibilityIdentifier: status.accessibilityIdentifier
@@ -2009,6 +2126,19 @@ struct SunriseAppShellView: View {
                 searchState.setStatus(status)
                 trackSearchChipToggled(kind: "status", value: status.analyticsName, isSelected: true)
             }
+        }
+    }
+
+    private func searchStatusSystemImage(_ status: HomeSearchStatusFilter) -> String {
+        switch status {
+        case .all:
+            return "square.grid.2x2"
+        case .today:
+            return "calendar"
+        case .overdue:
+            return "exclamationmark.triangle"
+        case .completed:
+            return "checkmark.circle"
         }
     }
 

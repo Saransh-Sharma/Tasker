@@ -99,9 +99,9 @@ enum HomeiPadSidebarSection: String, CaseIterable, Identifiable {
 
     var destinations: [HomeiPadDestination] {
         switch self {
-        case .primary: return [.tasks, .schedule, .search, .analytics]
+        case .primary: return [.tasks, .schedule, .chat, .analytics]
         case .create: return [.addTask]
-        case .manage: return [.lifeManagement, .projects, .chat, .models, .settings]
+        case .manage: return [.lifeManagement, .projects, .models, .settings]
         }
     }
 }

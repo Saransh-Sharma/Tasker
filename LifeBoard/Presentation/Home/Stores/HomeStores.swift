@@ -76,13 +76,21 @@ final class HomeFaceCoordinator: ObservableObject {
     @Published private(set) var searchSurfaceState: HomeSearchSurfaceState = .idle
     @Published private(set) var chatPromptFocusRequestID: UInt64 = 0
     @Published var insightsViewModel: InsightsViewModel?
+    private var faceBeforeSearch: HomeSunriseFace?
 
     let bottomBarState = HomeBottomBarState()
 
     func setActiveFace(_ face: HomeSunriseFace) {
         guard activeFace != face else { return }
+        if face == .search, activeFace != .search {
+            faceBeforeSearch = activeFace
+        }
         activeFace = face
         bottomBarState.select(face.selectedBottomBarItem)
+    }
+
+    func returnFaceAfterSearch() -> HomeSunriseFace {
+        faceBeforeSearch ?? .tasks
     }
 
     func setShellPhase(_ phase: HomeShellPhase) {
