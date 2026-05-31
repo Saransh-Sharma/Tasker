@@ -92,6 +92,7 @@ struct SettingsRootView: View {
         .onDisappear {
             viewModel.commitTimelineAnchorDraft(timelineAnchorDraft)
         }
+        .accessibilityIdentifier("settings.root")
     }
 
     private var overviewSection: some View {

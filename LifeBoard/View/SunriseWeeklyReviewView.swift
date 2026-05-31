@@ -145,6 +145,7 @@ struct SunriseWeeklyReviewView: View {
                     )
                 }
             }
+            .accessibilityIdentifier("weeklyReview.view")
         }
     }
 }

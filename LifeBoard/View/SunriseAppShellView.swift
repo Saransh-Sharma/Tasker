@@ -1659,6 +1659,9 @@ struct SunriseAppShellView: View {
                     onOpenReflection: {
                         openDailyReflectPlan()
                     },
+                    onPerformInsightAction: { intent in
+                        performInsightAction(intent)
+                    },
                     bottomInset: layoutMetrics.taskListBottomInset,
                     topContentInset: secondaryFaceTopContentInset,
                     onBackToTasks: {
@@ -3904,6 +3907,89 @@ struct SunriseAppShellView: View {
         onReturnToTasks(source)
     }
 
+    private func performInsightAction(_ intent: InsightsActionIntent) {
+        LifeBoardFeedback.selection()
+        viewModel.trackHomeInteraction(
+            action: "insights_cta_tap",
+            metadata: ["intent": intent.telemetryName]
+        )
+
+        switch intent {
+        case .addTask:
+            onAddTask(nil)
+
+        case .openToday:
+            viewModel.setQuickView(.today)
+            returnToTasks(source: "insights_open_today")
+
+        case .startNextDecision:
+            viewModel.setQuickView(.today)
+            returnToTasks(source: "insights_next_decision")
+            DispatchQueue.main.async {
+                viewModel.startTriage(scope: .visible)
+            }
+
+        case .protectFocus:
+            performInsightsFocusAction()
+
+        case .openYesterdayReview:
+            openDailyReflectPlan(preferredReflectionDate: yesterdayDate())
+
+        case .openHabitCheck:
+            showHabitBoardPresented = true
+            LifeBoardFeedback.success()
+
+        case .openBacklogRecovery:
+            viewModel.setQuickView(.overdue)
+            returnToTasks(source: "insights_backlog_recovery")
+            DispatchQueue.main.async {
+                viewModel.openRescue()
+            }
+
+        case .openProjectMix:
+            onOpenProjectCreator()
+
+        case .openWeeklyReview:
+            onOpenWeeklyReview()
+
+        case .openWeeklyPlanner:
+            onOpenWeeklyPlanner()
+
+        case .openReminderSettings:
+            snackbar = SnackbarData(
+                message: "Opening Notifications & Focus settings.",
+                autoDismissSeconds: 2
+            )
+            returnToTasks(source: "insights_reminder_settings")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                onOpenSettings()
+            }
+
+        case .expandDetails:
+            break
+        }
+    }
+
+    private func performInsightsFocusAction() {
+        let hasFocusCandidates = tasksSnapshot.focusNowSectionState.rows.isEmpty == false
+            || viewModel.focusTasks.isEmpty == false
+        if V2FeatureFlags.evaFocusEnabled, hasFocusCandidates {
+            viewModel.openFocusWhy()
+            LifeBoardFeedback.success()
+            return
+        }
+
+        snackbar = SnackbarData(
+            message: "Starting a short protected focus block.",
+            autoDismissSeconds: 2
+        )
+        startNextActionFocusTimer()
+    }
+
+    private func yesterdayDate() -> Date {
+        Calendar.current.date(byAdding: .day, value: -1, to: chromeSnapshot.selectedDate) ?? Date().addingTimeInterval(-86_400)
+    }
+
     private func trackSearchFlipOpen(source: String) {
         viewModel.trackHomeInteraction(
             action: "home_search_flip_open",
@@ -4125,6 +4211,37 @@ private struct CalendarCardChromeModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
                     .stroke(Color.lifeboard.strokeHairline.opacity(0.72), lineWidth: 1)
             )
+    }
+}
+
+private extension InsightsActionIntent {
+    var telemetryName: String {
+        switch self {
+        case .addTask:
+            return "add_task"
+        case .openToday:
+            return "open_today"
+        case .startNextDecision:
+            return "start_next_decision"
+        case .protectFocus:
+            return "protect_focus"
+        case .openYesterdayReview:
+            return "open_yesterday_review"
+        case .openHabitCheck:
+            return "open_habit_check"
+        case .openBacklogRecovery:
+            return "open_backlog_recovery"
+        case .openProjectMix:
+            return "open_project_mix"
+        case .openWeeklyReview:
+            return "open_weekly_review"
+        case .openWeeklyPlanner:
+            return "open_weekly_planner"
+        case .openReminderSettings:
+            return "open_reminder_settings"
+        case .expandDetails(let anchor):
+            return "expand_details_\(anchor.rawValue)"
+        }
     }
 }
 
