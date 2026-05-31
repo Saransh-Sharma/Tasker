@@ -98,7 +98,6 @@ public final class MarkDailyReflectionCompleteUseCase: @unchecked Sendable {
                             currentStreak: profile.currentStreak,
                             didLevelUp: false,
                             dailyXPSoFar: 0,
-                            dailyCap: XPCalculationEngine.dailyCap,
                             unlockedAchievements: [],
                             crossedMilestone: nil,
                             celebration: nil

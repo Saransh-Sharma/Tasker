@@ -4,7 +4,6 @@ import Foundation
 /// Serialized as JSON to the App Group container.
 public struct GamificationWidgetSnapshot: Codable {
     public var dailyXP: Int
-    public var dailyCap: Int
     public var level: Int
     public var totalXP: Int64
     public var nextLevelXP: Int64
@@ -27,7 +26,6 @@ public struct GamificationWidgetSnapshot: Codable {
 
     public init(
         dailyXP: Int = 0,
-        dailyCap: Int = 250,
         level: Int = 1,
         totalXP: Int64 = 0,
         nextLevelXP: Int64 = 0,
@@ -44,7 +42,6 @@ public struct GamificationWidgetSnapshot: Codable {
         updatedAt: Date = Date()
     ) {
         self.dailyXP = dailyXP
-        self.dailyCap = dailyCap
         self.level = level
         self.totalXP = totalXP
         self.nextLevelXP = nextLevelXP

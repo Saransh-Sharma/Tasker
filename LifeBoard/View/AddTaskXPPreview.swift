@@ -17,23 +17,12 @@ struct AddTaskXPPreview: View {
     let todayXPSoFar: Int?
     let isGamificationV2Enabled: Bool
 
-    private var preview: XPCompletionPreview? {
-        if isGamificationV2Enabled {
-            guard let todayXPSoFar else { return nil }
-            return XPCalculationEngine.completionXPIfCompletedNow(
-                priorityRaw: priority.rawValue,
-                estimatedDuration: estimatedDuration,
-                dueDate: dueDate,
-                dailyEarnedSoFar: todayXPSoFar,
-                isGamificationV2Enabled: true
-            )
-        }
-        return XPCalculationEngine.completionXPIfCompletedNow(
+    private var preview: XPCompletionPreview {
+        XPCalculationEngine.completionXPIfCompletedNow(
             priorityRaw: priority.rawValue,
             estimatedDuration: estimatedDuration,
             dueDate: dueDate,
-            dailyEarnedSoFar: 0,
-            isGamificationV2Enabled: false
+            isGamificationV2Enabled: isGamificationV2Enabled
         )
     }
 
@@ -61,7 +50,7 @@ struct AddTaskXPPreview: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(isHighValue ? Color.lifeboard.accentSecondary : Color.lifeboard.textTertiary)
 
-                Text(preview?.shortLabel ?? "XP pending")
+                Text(preview.shortLabel)
                     .font(.lifeboard(.callout))
                     .fontWeight(.medium)
                     .foregroundColor(isHighValue ? Color.lifeboard.textSecondary : Color.lifeboard.textTertiary)

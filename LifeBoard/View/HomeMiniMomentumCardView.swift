@@ -15,15 +15,14 @@ struct HomeMiniMomentumCardView: View {
     }
 
     private var progressRatio: Double {
-        let denominator = max(1, progress.todayTargetXP)
-        return min(1, Double(progress.earnedXP) / Double(denominator))
+        min(1, max(0, completionRate))
     }
 
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                    Text("\(progress.earnedXP)/\(progress.todayTargetXP) XP")
+                    Text("\(progress.earnedXP) XP")
                         .font(.lifeboard(.bodyEmphasis))
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(1)
@@ -76,8 +75,8 @@ struct HomeMiniMomentumCardView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             reflectionEligible
-            ? "Momentum summary. \(progress.earnedXP) of \(progress.todayTargetXP) XP, \(completionPercent) percent done, \(progress.streakDays) day streak, reflection available."
-            : "Momentum summary. \(progress.earnedXP) of \(progress.todayTargetXP) XP, \(completionPercent) percent done, \(progress.streakDays) day streak."
+            ? "Momentum summary. \(progress.earnedXP) XP, \(completionPercent) percent done, \(progress.streakDays) day streak, reflection available."
+            : "Momentum summary. \(progress.earnedXP) XP, \(completionPercent) percent done, \(progress.streakDays) day streak."
         )
         .accessibilityHint("Opens analytics")
         .accessibilityIdentifier("home.momentumMiniCard")

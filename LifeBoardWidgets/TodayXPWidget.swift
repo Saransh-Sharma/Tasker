@@ -43,8 +43,7 @@ struct TodayXPWidgetView: View {
     let entry: TodayXPEntry
 
     private var progress: CGFloat {
-        guard entry.snapshot.dailyCap > 0 else { return 0 }
-        return min(1.0, CGFloat(entry.snapshot.dailyXP) / CGFloat(entry.snapshot.dailyCap))
+        entry.snapshot.dailyXP > 0 ? 1.0 : 0.0
     }
 
     private var freshnessText: String {
@@ -86,7 +85,7 @@ struct TodayXPWidgetView: View {
                             .font(TaskWidgetTypography.display)
                             .foregroundStyle(WidgetBrand.textPrimary)
                             .taskWidgetNumericTransition(Double(entry.snapshot.dailyXP), reduceMotion: context.reduceMotion)
-                        Text("/ \(entry.snapshot.dailyCap) XP")
+                        Text("XP today")
                             .font(TaskWidgetTypography.body)
                             .foregroundStyle(WidgetBrand.textSecondary)
                         TaskWidgetInlineMetadata(items: ["\(entry.snapshot.streakDays)d streak", freshnessText])
@@ -97,13 +96,13 @@ struct TodayXPWidgetView: View {
 
                 TaskWidgetProgressBar(
                     progress: Double(progress),
-                    tint: entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? WidgetBrand.leaf : WidgetBrand.sunriseGold
+                    tint: WidgetBrand.sunriseGold
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Today's XP \(entry.snapshot.dailyXP) of \(entry.snapshot.dailyCap). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText).")
+        .accessibilityLabel("Today's XP \(entry.snapshot.dailyXP). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText).")
     }
 
     private var mediumView: some View {
@@ -126,12 +125,12 @@ struct TodayXPWidgetView: View {
                             .font(TaskWidgetTypography.display)
                             .foregroundStyle(WidgetBrand.textPrimary)
                             .taskWidgetNumericTransition(Double(entry.snapshot.dailyXP), reduceMotion: context.reduceMotion)
-                        Text("/ \(entry.snapshot.dailyCap) XP")
+                        Text("XP today")
                             .font(TaskWidgetTypography.title)
                             .foregroundStyle(WidgetBrand.textSecondary)
                         TaskWidgetProgressBar(
                             progress: Double(progress),
-                            tint: entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? WidgetBrand.leaf : WidgetBrand.sunriseGold
+                            tint: WidgetBrand.sunriseGold
                         )
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -149,7 +148,7 @@ struct TodayXPWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Today's XP \(entry.snapshot.dailyXP) of \(entry.snapshot.dailyCap). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText).")
+        .accessibilityLabel("Today's XP \(entry.snapshot.dailyXP). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText).")
     }
 
     private func xpRing(size: CGFloat, lineWidth: CGFloat, reduceMotion: Bool) -> some View {

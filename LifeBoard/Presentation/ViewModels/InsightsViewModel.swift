@@ -212,7 +212,6 @@ public struct InsightsReminderResponseState: Equatable, Sendable {
 
 public struct InsightsTodayState: Equatable, Sendable {
     public var dailyXP: Int
-    public var dailyCap: Int
     public var level: Int
     public var tasksCompletedToday: Int
     public var totalTasksToday: Int
@@ -232,7 +231,6 @@ public struct InsightsTodayState: Equatable, Sendable {
 
     public init(
         dailyXP: Int = 0,
-        dailyCap: Int = GamificationTokens.dailyXPCap,
         level: Int = 1,
         tasksCompletedToday: Int = 0,
         totalTasksToday: Int = 0,
@@ -256,7 +254,6 @@ public struct InsightsTodayState: Equatable, Sendable {
         recoveryMetrics: [InsightsMetricTile] = []
     ) {
         self.dailyXP = dailyXP
-        self.dailyCap = dailyCap
         self.level = level
         self.tasksCompletedToday = tasksCompletedToday
         self.totalTasksToday = totalTasksToday
@@ -304,7 +301,7 @@ public struct InsightsWeekState: Equatable, Sendable {
         averageDailyXP: Int = 0,
         heroCard: InsightsNarrativeBlock = InsightsNarrativeBlock(
             title: "Your weekly rhythm",
-            metric: "0 XP • 0/7 goal-hit days",
+            metric: "0 XP • 0/7 active days",
             hint: "Look for one leverage day.",
             detail: "Consistency looks better when the week is visible at a glance."
         ),
@@ -486,7 +483,6 @@ public final class InsightsViewModel: ObservableObject {
     @Published public private(set) var systemsState: InsightsSystemsState = InsightsSystemsState()
 
     public var dailyXP: Int { todayState.dailyXP }
-    public var dailyCap: Int { todayState.dailyCap }
     public var level: Int { systemsState.level }
     public var tasksCompletedToday: Int { todayState.tasksCompletedToday }
     public var totalTasksToday: Int { todayState.totalTasksToday }
@@ -861,7 +857,6 @@ public final class InsightsViewModel: ObservableObject {
             completed: next.tasksCompletedToday,
             scheduled: next.totalTasksToday,
             dailyXP: next.dailyXP,
-            dailyCap: next.dailyCap,
             duePressure: next.duePressureMetrics
         )
         next.heroCard = InsightsNarrativeBlock(
@@ -1381,7 +1376,6 @@ public final class InsightsViewModel: ObservableObject {
 
         let topXPSource = summary.breakdown.max(by: { $0.xp < $1.xp })?.displayName ?? "No XP source yet"
         let streakSafe = dailyXP > 0
-        let remaining = max(0, GamificationTokens.dailyXPCap - dailyXP)
 
         let momentumMetrics = [
             InsightsMetricTile(
@@ -1395,8 +1389,8 @@ public final class InsightsViewModel: ObservableObject {
                 id: "xp",
                 title: "Daily XP",
                 value: "\(dailyXP)",
-                detail: remaining > 0 ? "\(remaining) XP to cap" : "Daily cap reached",
-                tone: remaining > 0 ? .accent : .success
+                detail: "Uncapped total earned today",
+                tone: dailyXP > 0 ? .success : .accent
             ),
             InsightsMetricTile(
                 id: "streak_safe",
@@ -1417,10 +1411,10 @@ public final class InsightsViewModel: ObservableObject {
         let paceMetrics = [
             InsightsMetricTile(
                 id: "goal_progress",
-                title: "Goal progress",
-                value: "\(min(100, Int((Double(dailyXP) / Double(max(GamificationTokens.dailyXPCap, 1))) * 100)))%",
-                detail: "Daily cap coverage",
-                tone: dailyXP >= GamificationTokens.dailyXPCap ? .success : .accent
+                title: "XP today",
+                value: "\(dailyXP)",
+                detail: "Uncapped daily total",
+                tone: dailyXP > 0 ? .success : .accent
             ),
             InsightsMetricTile(
                 id: "morning_evening",
@@ -1570,7 +1564,6 @@ public final class InsightsViewModel: ObservableObject {
             completed: summary.tasksCompleted,
             scheduled: max(scheduledCount, summary.tasksCompleted),
             dailyXP: dailyXP,
-            dailyCap: GamificationTokens.dailyXPCap,
             duePressure: duePressureMetrics
         )
         let coachingPrompt = todayCoachingPrompt(
@@ -1582,7 +1575,6 @@ public final class InsightsViewModel: ObservableObject {
 
         return InsightsTodayState(
             dailyXP: dailyXP,
-            dailyCap: GamificationTokens.dailyXPCap,
             level: level,
             tasksCompletedToday: summary.tasksCompleted,
             totalTasksToday: max(scheduledCount, summary.tasksCompleted),
@@ -1702,8 +1694,8 @@ public final class InsightsViewModel: ObservableObject {
         let highPriorityMixCount = currentWeekCompletedTasks.filter { $0.priority.isHighPriority }.count
 
         let currentWeekCompletions = currentWeekCompletedTasks.count
-        let currentGoalHitDays = bars.filter { $0.xp >= GamificationTokens.dailyXPCap }.count
-        let previousGoalHitDays = previousAggregates.filter { $0.totalXP >= GamificationTokens.dailyXPCap }.count
+        let currentGoalHitDays = bars.filter { !$0.isFuture && $0.xp > 0 }.count
+        let previousGoalHitDays = previousAggregates.filter { $0.totalXP > 0 }.count
         let deltaSummary = weekDeltaSummary(
             currentXP: bars.reduce(0) { $0 + $1.xp },
             previousXP: previousTotalXP,
@@ -1721,7 +1713,7 @@ public final class InsightsViewModel: ObservableObject {
         let summaryMetrics = [
             InsightsMetricTile(
                 id: "goal_hits",
-                title: "Goal-hit days",
+                title: "Active days",
                 value: "\(currentGoalHitDays)/7",
                 detail: previousGoalHitDays == currentGoalHitDays ? "Steady versus last week" : "\(signedDeltaLabel(currentGoalHitDays - previousGoalHitDays)) vs last week",
                 tone: currentGoalHitDays >= previousGoalHitDays ? .success : .warning
@@ -2317,17 +2309,14 @@ public final class InsightsViewModel: ObservableObject {
         completed: Int,
         scheduled: Int,
         dailyXP: Int,
-        dailyCap: Int,
         duePressure: [InsightsMetricTile]
     ) -> String {
+        _ = dailyXP
         let overdueCount = Int(duePressure.first(where: { $0.id == "overdue" })?.value ?? "0") ?? 0
         if completed == 0 {
             return overdueCount > 0
                 ? "Overdue pressure is active. Clear one item first."
                 : "No completions yet. Close one meaningful task."
-        }
-        if dailyXP >= dailyCap {
-            return "Daily cap reached. Use remaining time to reduce pressure."
         }
         return "\(completed)/\(max(scheduled, completed)) planned tasks completed."
     }
@@ -2363,13 +2352,13 @@ public final class InsightsViewModel: ObservableObject {
     ) -> String {
         let xpDelta = currentXP - previousXP
         let completionDelta = currentCompletions - previousCompletions
-        let goalHitDelta = currentGoalHitDays - previousGoalHitDays
+        let activeDayDelta = currentGoalHitDays - previousGoalHitDays
 
-        if xpDelta == 0 && completionDelta == 0 && goalHitDelta == 0 {
+        if xpDelta == 0 && completionDelta == 0 && activeDayDelta == 0 {
             return "Week is flat versus last week."
         }
 
-        return "\(signedDeltaLabel(xpDelta)) XP, \(signedDeltaLabel(completionDelta)) completions, \(signedDeltaLabel(goalHitDelta)) goal-hit days vs last week."
+        return "\(signedDeltaLabel(xpDelta)) XP, \(signedDeltaLabel(completionDelta)) completions, \(signedDeltaLabel(activeDayDelta)) active days vs last week."
     }
 
     nonisolated private static func weekPatternSummary(
@@ -2416,9 +2405,9 @@ public final class InsightsViewModel: ObservableObject {
         weeklySummaryMetrics: [InsightsMetricTile] = []
     ) -> InsightsWeekState {
         let total = bars.reduce(0) { $0 + $1.xp }
-        let goalHit = bars.filter { $0.xp >= GamificationTokens.dailyXPCap }.count
+        let goalHit = bars.filter { !$0.isFuture && $0.xp > 0 }.count
         let activeDays = max(1, bars.filter { !$0.isFuture }.count)
-        let maxXP = max(bars.map(\.xp).max() ?? 0, GamificationTokens.dailyXPCap)
+        let maxXP = max(bars.map(\.xp).max() ?? 0, 1)
         let normalizedBars = bars.map { bar in
             WeeklyBarData(
                 dateKey: bar.dateKey,
@@ -2440,7 +2429,7 @@ public final class InsightsViewModel: ObservableObject {
             : "\(signedDeltaLabel(total - previousTotalXP)) XP vs last week."
         let heroHint: String
         if goalHit == 0 {
-            heroHint = "Create one goal-hit day."
+            heroHint = "Create one active day."
         } else if goalHit >= 4 {
             heroHint = "Protect consistency."
         } else {
@@ -2456,7 +2445,7 @@ public final class InsightsViewModel: ObservableObject {
             averageDailyXP: total / activeDays,
             heroCard: InsightsNarrativeBlock(
                 title: heroTitle,
-                metric: "\(total) XP • \(goalHit)/7 goal-hit days",
+                metric: "\(total) XP • \(goalHit)/7 active days",
                 hint: heroHint,
                 detail: heroSummary
             ),
@@ -2477,7 +2466,7 @@ public final class InsightsViewModel: ObservableObject {
     ) -> [InsightsMetricTile] {
         guard !existing.isEmpty else { return existing }
 
-        let goalHitCount = bars.filter { $0.xp >= GamificationTokens.dailyXPCap }.count
+        let goalHitCount = bars.filter { !$0.isFuture && $0.xp > 0 }.count
         let activeDays = max(1, bars.filter { !$0.isFuture }.count)
         let averageXP = bars.filter { !$0.isFuture }.reduce(0) { $0 + $1.xp } / activeDays
         let bestDay = bestLabel(for: bars, calendar: XPCalculationEngine.mondayCalendar())
@@ -2516,7 +2505,6 @@ public final class InsightsViewModel: ObservableObject {
 
     nonisolated private static func rebuiltTodayMomentumMetrics(from state: InsightsTodayState) -> [InsightsMetricTile] {
         let topSource = state.xpBreakdown.max(by: { $0.xp < $1.xp })?.displayName ?? "No XP source yet"
-        let remaining = max(0, state.dailyCap - state.dailyXP)
 
         return state.momentumMetrics.map { metric in
             switch metric.id {
@@ -2533,8 +2521,8 @@ public final class InsightsViewModel: ObservableObject {
                     id: metric.id,
                     title: metric.title,
                     value: "\(state.dailyXP)",
-                    detail: remaining > 0 ? "\(remaining) XP to cap" : "Daily cap reached",
-                    tone: remaining > 0 ? .accent : .success
+                    detail: "Uncapped total earned today",
+                    tone: state.dailyXP > 0 ? .success : .accent
                 )
             case "streak_safe":
                 return InsightsMetricTile(
@@ -2559,17 +2547,15 @@ public final class InsightsViewModel: ObservableObject {
     }
 
     nonisolated private static func rebuiltTodayPaceMetrics(from state: InsightsTodayState) -> [InsightsMetricTile] {
-        let progressPercent = min(100, Int((Double(state.dailyXP) / Double(max(state.dailyCap, 1))) * 100))
-
         return state.paceMetrics.map { metric in
             switch metric.id {
             case "goal_progress":
                 return InsightsMetricTile(
                     id: metric.id,
                     title: metric.title,
-                    value: "\(progressPercent)%",
+                    value: "\(state.dailyXP)",
                     detail: metric.detail,
-                    tone: state.dailyXP >= state.dailyCap ? .success : .accent
+                    tone: state.dailyXP > 0 ? .success : .accent
                 )
             default:
                 return metric

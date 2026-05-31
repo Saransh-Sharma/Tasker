@@ -37,11 +37,6 @@ struct WeeklyScoreboardEntry: TimelineEntry {
 }
 
 struct WeeklyScoreboardWidgetView: View {
-    private enum WeekScaleMode {
-        case goal
-        case personalMax
-    }
-
     let entry: WeeklyScoreboardEntry
     private let dayLabels = ["M", "T", "W", "T", "F", "S", "S"]
 
@@ -49,17 +44,8 @@ struct WeeklyScoreboardWidgetView: View {
         max(entry.snapshot.weeklyXP.max() ?? 1, 1)
     }
 
-    private var scaleMode: WeekScaleMode {
-        personalMaxXP >= entry.snapshot.dailyCap ? .goal : .personalMax
-    }
-
     private var maxXP: Int {
-        switch scaleMode {
-        case .goal:
-            return max(personalMaxXP, entry.snapshot.dailyCap)
-        case .personalMax:
-            return personalMaxXP
-        }
+        personalMaxXP
     }
 
     private var todayIndex: Int {
@@ -89,7 +75,7 @@ struct WeeklyScoreboardWidgetView: View {
                         .font(TaskWidgetTypography.display)
                         .foregroundStyle(WidgetBrand.magenta)
                         .taskWidgetNumericTransition(Double(entry.snapshot.weeklyTotalXP), reduceMotion: context.reduceMotion)
-                    Text(scaleMode == .goal ? "Scaled to daily goal." : "Scaled to personal max.")
+                    Text("Scaled to personal max.")
                         .font(TaskWidgetTypography.body)
                         .foregroundStyle(WidgetBrand.textSecondary)
                         .lineLimit(2)
@@ -142,7 +128,7 @@ struct WeeklyScoreboardWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Weekly XP total \(entry.snapshot.weeklyTotalXP). Scale \(scaleMode == .goal ? "goal" : "personal max"). \(freshnessText).")
+        .accessibilityLabel("Weekly XP total \(entry.snapshot.weeklyTotalXP). Scale personal max. \(freshnessText).")
         .widgetURL(URL(string: "lifeboard://insights"))
     }
 
