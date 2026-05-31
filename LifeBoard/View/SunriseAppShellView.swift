@@ -666,6 +666,93 @@ struct SunriseAppShellView: View {
         return safeHeaderTop + (dynamicTypeSize.isAccessibilitySize ? 204 : 158)
     }
 
+    @ViewBuilder
+    private var rescueLauncherOverlay: some View {
+        switch overlaySnapshot.rescueLauncherState {
+        case .loading:
+            OverdueRescueLauncherOverlayView(
+                title: "Preparing rescue",
+                message: "Finding overdue tasks that still need a decision.",
+                showsProgress: true,
+                primaryTitle: nil,
+                secondaryTitle: nil,
+                onPrimary: nil,
+                onSecondary: nil
+            )
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            .zIndex(45)
+        case .failed(let message):
+            OverdueRescueLauncherOverlayView(
+                title: "Rescue could not start",
+                message: message,
+                showsProgress: false,
+                primaryTitle: "Try again",
+                secondaryTitle: "Dismiss",
+                onPrimary: {
+                    viewModel.openRescue()
+                },
+                onSecondary: {
+                    viewModel.setEvaRescuePresented(false)
+                }
+            )
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            .zIndex(45)
+        case .idle, .ready:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var rescueDeckOverlay: some View {
+        if overlaySnapshot.rescuePresented {
+            EvaOverdueRescueSheetV2(
+                plan: overlaySnapshot.rescuePlan,
+                tasksByID: rescueTasksByID,
+                projectsByID: tasksSnapshot.projectsByID,
+                referenceDate: chromeSnapshot.selectedDate,
+                lastBatchRunID: overlaySnapshot.lastBatchRunID,
+                bottomInset: layoutMetrics.taskListBottomInset,
+                onClose: {
+                    viewModel.setEvaRescuePresented(false)
+                },
+                onExit: {
+                    viewModel.setEvaRescuePresented(false)
+                },
+                onUpdate: { request, completion in
+                    Task { @MainActor in
+                        viewModel.updateTask(taskID: request.id, request: request, completion: completion)
+                    }
+                },
+                onDelete: { taskID, completion in
+                    Task { @MainActor in
+                        viewModel.deleteTask(taskID: taskID, scope: .single, completion: completion)
+                    }
+                },
+                onRestore: { task, completion in
+                    Task { @MainActor in
+                        viewModel.restoreDeletedTaskSnapshot(task, completion: completion)
+                    }
+                },
+                onApply: { mutations, completion in
+                    Task { @MainActor in
+                        viewModel.applyRescuePlan(mutations: mutations, completion: completion)
+                    }
+                },
+                onUndo: { completion in
+                    Task { @MainActor in
+                        viewModel.undoRescueRun(completion: completion)
+                    }
+                },
+                onTrack: { action, metadata in
+                    viewModel.trackHomeInteraction(action: action, metadata: metadata)
+                }
+            )
+            .transition(.opacity.combined(with: .scale(scale: 0.985)))
+            .zIndex(46)
+            .accessibilityIdentifier("home.rescue.overlay")
+        }
+    }
+
     var body: some View {
         let _ = themeManager.currentTheme.index
 
@@ -803,6 +890,12 @@ struct SunriseAppShellView: View {
         .lifeboardSnackbar($snackbar)
         .overlay(alignment: .bottom) {
             needsReplanFloatingOverlay
+        }
+        .overlay(alignment: .center) {
+            rescueLauncherOverlay
+        }
+        .overlay {
+            rescueDeckOverlay
         }
         .overlay(alignment: .top) {
             if showDatePicker {
@@ -1064,40 +1157,6 @@ struct SunriseAppShellView: View {
                     }
                 }
             )
-        }
-        .sheet(isPresented: Binding(
-            get: { overlaySnapshot.rescuePresented },
-            set: { viewModel.setEvaRescuePresented($0) }
-        )) {
-            EvaOverdueRescueSheetV2(
-                plan: overlaySnapshot.rescuePlan,
-                tasksByID: rescueTasksByID,
-                lastBatchRunID: overlaySnapshot.lastBatchRunID,
-                onApply: { mutations, completion in
-                    Task { @MainActor in
-                        viewModel.applyRescuePlan(mutations: mutations, completion: completion)
-                    }
-                },
-                onUndo: { completion in
-                    Task { @MainActor in
-                        viewModel.undoRescueRun(completion: completion)
-                    }
-                },
-                onCreateSplit: { taskID, draft, completion in
-                    Task { @MainActor in
-                        viewModel.createSplitChildren(parentTaskID: taskID, draft: draft, completion: completion)
-                    }
-                },
-                onUndoSplit: { childIDs, completion in
-                    Task { @MainActor in
-                        viewModel.undoCreatedSplitChildren(childTaskIDs: childIDs, completion: completion)
-                    }
-                },
-                onTrack: { action, metadata in
-                    viewModel.trackHomeInteraction(action: action, metadata: metadata)
-                }
-            )
-            .accessibilityIdentifier("home.rescue.sheet")
         }
         .sheet(isPresented: Binding(
             get: { overlaySnapshot.replanState.launcherSummary != nil },
@@ -4348,5 +4407,112 @@ private struct QuietTrackingRailStreakWidget: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(card.accessibilityLabel)
         .accessibilityValue(card.accessibilityValue(visibleDayCount: visibleDayCount))
+    }
+}
+
+private struct OverdueRescueLauncherOverlayView: View {
+    let title: String
+    let message: String
+    let showsProgress: Bool
+    let primaryTitle: String?
+    let secondaryTitle: String?
+    let onPrimary: (() -> Void)?
+    let onSecondary: (() -> Void)?
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.16)
+                .ignoresSafeArea()
+                .accessibilityHidden(true)
+
+            VStack(spacing: 18) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 1.0, green: 0.94, blue: 0.82),
+                                    Color(red: 0.92, green: 0.88, blue: 1.0)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 76, height: 76)
+
+                    Image(systemName: showsProgress ? "lifepreserver" : "exclamationmark.triangle")
+                        .font(.system(size: 30, weight: .semibold))
+                        .foregroundStyle(Color.lifeboard.accentPrimary)
+                        .accessibilityHidden(true)
+                }
+
+                VStack(spacing: 8) {
+                    Text(title)
+                        .font(.lifeboard(.title3).weight(.bold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .multilineTextAlignment(.center)
+
+                    Text(message)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if showsProgress {
+                    ProgressView()
+                        .tint(Color.lifeboard.accentPrimary)
+                        .accessibilityLabel("Preparing overdue rescue")
+                } else if primaryTitle != nil || secondaryTitle != nil {
+                    HStack(spacing: 12) {
+                        if let secondaryTitle, let onSecondary {
+                            Button(action: onSecondary) {
+                                Text(secondaryTitle)
+                                    .font(.lifeboard(.callout).weight(.semibold))
+                                    .foregroundStyle(Color.lifeboard.accentPrimary)
+                                    .frame(minWidth: 96, minHeight: 44)
+                                    .padding(.horizontal, 12)
+                                    .background(
+                                        Capsule()
+                                            .stroke(Color.lifeboard.accentPrimary.opacity(0.35), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        if let primaryTitle, let onPrimary {
+                            Button(action: onPrimary) {
+                                Text(primaryTitle)
+                                    .font(.lifeboard(.callout).weight(.semibold))
+                                    .foregroundStyle(Color.white)
+                                    .frame(minWidth: 112, minHeight: 44)
+                                    .padding(.horizontal, 14)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.lifeboard.accentPrimary)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 26)
+            .frame(maxWidth: 340)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color(red: 1.0, green: 0.985, blue: 0.955).opacity(0.96))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.12), radius: 28, x: 0, y: 18)
+            )
+            .padding(.horizontal, 28)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(title)
+            .accessibilityHint(message)
+        }
     }
 }
