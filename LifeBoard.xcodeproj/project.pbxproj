@@ -128,6 +128,7 @@
 		7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
 		7529F7062DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
 		7529F7AA2F5D0001000CBE36 /* LLMDebugSmokeRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F7A92F5D0001000CBE36 /* LLMDebugSmokeRunner.swift */; };
+		D9A0B1C2D3E4F506172839AC /* InsightsModuleVisibilityPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A0B1C2D3E4F506172839AB /* InsightsModuleVisibilityPlannerTests.swift */; };
 		752A974B2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97492E92A6ED00CFC576 /* ProjectConstants.swift */; };
 		752A97512E92A70100CFC576 /* UUIDGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A974E2E92A70100CFC576 /* UUIDGenerator.swift */; };
 		752A97562E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97532E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift */; };
@@ -523,6 +524,7 @@
 		D4F200000000000000000122 /* HomeAIActionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */; };
 		D4F200000000000000000123 /* XPCalculationEngineWeeklyCategoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000121 /* XPCalculationEngineWeeklyCategoryTests.swift */; };
 		D4F200000000000000000125 /* WeeklyOperatingLayerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000124 /* WeeklyOperatingLayerViewModelTests.swift */; };
+		D9A0B1C2D3E4F506172839AD /* InsightsModuleVisibilityPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A0B1C2D3E4F506172839AE /* InsightsModuleVisibilityPlanner.swift */; };
 		D4F300000000000000000130 /* DailyReflectionLoadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F300000000000000000131 /* DailyReflectionLoadCoordinator.swift */; };
 		D4F400000000000000000201 /* SunriseTimelineSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F400000000000000000202 /* SunriseTimelineSurface.swift */; };
 		D5E7A8BA2F3C4D5E0067A1B2 /* DailySummaryModalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E7A8B92F3C4D5E0067A1B2 /* DailySummaryModalTests.swift */; };
@@ -823,6 +825,7 @@
 		753EFCAB2445A24700A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		753EFCB02445A24700A739E3 /* LifeBoardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LifeBoardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCB42445A24700A739E3 /* LifeBoardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardTests.swift; sourceTree = "<group>"; };
+		D9A0B1C2D3E4F506172839AB /* InsightsModuleVisibilityPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsModuleVisibilityPlannerTests.swift; sourceTree = "<group>"; };
 		753EFCB62445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		753EFCBB2445A24800A739E3 /* LifeBoardUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LifeBoardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCBF2445A24800A739E3 /* LifeBoardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardUITests.swift; sourceTree = "<group>"; };
@@ -1224,6 +1227,7 @@
 		D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAIActionCoordinatorTests.swift; sourceTree = "<group>"; };
 		D4F200000000000000000121 /* XPCalculationEngineWeeklyCategoryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = XPCalculationEngineWeeklyCategoryTests.swift; sourceTree = "<group>"; };
 		D4F200000000000000000124 /* WeeklyOperatingLayerViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyOperatingLayerViewModelTests.swift; sourceTree = "<group>"; };
+		D9A0B1C2D3E4F506172839AE /* InsightsModuleVisibilityPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Models/InsightsModuleVisibilityPlanner.swift; sourceTree = SOURCE_ROOT; };
 		D4F300000000000000000131 /* DailyReflectionLoadCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Gamification/DailyReflectionLoadCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		D4F400000000000000000202 /* SunriseTimelineSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/View/SunriseTimelineSurface.swift; sourceTree = SOURCE_ROOT; };
 		D5A9A2796943621DC66C4703 /* Tombstone.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/Tombstone.swift; sourceTree = SOURCE_ROOT; };
@@ -1715,6 +1719,7 @@
 				B2E100000000000000000106 /* HomeHabitLastCellInteraction.swift */,
 				B2E100000000000000000105 /* HomeSectionState.swift */,
 				D2A100000000000000000001 /* QuietTrackingComposerSnapshot.swift */,
+				D9A0B1C2D3E4F506172839AE /* InsightsModuleVisibilityPlanner.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -1843,6 +1848,7 @@
 			isa = PBXGroup;
 			children = (
 				753EFCB42445A24700A739E3 /* LifeBoardTests.swift */,
+				D9A0B1C2D3E4F506172839AB /* InsightsModuleVisibilityPlannerTests.swift */,
 				F1C0A1234B56789000ABCD01 /* TaskDetailViewModelTests.swift */,
 				F5A100022F6A200100ABC001 /* LifeBoardAppShortcutsTests.swift */,
 				A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */,
@@ -3739,6 +3745,7 @@
 				D4F200000000000000000109 /* WeeklyPlannerViewModel.swift in Sources */,
 				D4F20000000000000000010A /* WeeklyReviewViewModel.swift in Sources */,
 				FFCF1FC469B2AE9FC88CF3D1 /* InsightsViewModel.swift in Sources */,
+				D9A0B1C2D3E4F506172839AD /* InsightsModuleVisibilityPlanner.swift in Sources */,
 				A25DA7AE7D00020D26A9EBC7 /* InsightsTabView.swift in Sources */,
 				5E7A10000000000000000001 /* SunriseInsightsView.swift in Sources */,
 				5E7A20000000000000000001 /* SunriseInsightsHeaderView.swift in Sources */,
@@ -3796,6 +3803,7 @@
 				C1A2B3C4D5E6F7001122334A /* LLMProjectionTimeoutTests.swift in Sources */,
 				C7A200000000000000000003 /* ChatCancellationPolicyTests.swift in Sources */,
 				753EFCB52445A24700A739E3 /* LifeBoardTests.swift in Sources */,
+				D9A0B1C2D3E4F506172839AC /* InsightsModuleVisibilityPlannerTests.swift in Sources */,
 				F1C0A1234B56789000ABCD02 /* TaskDetailViewModelTests.swift in Sources */,
 				F5A100032F6A200100ABC001 /* LifeBoardAppShortcutsTests.swift in Sources */,
 				0512DBCE948D6692B0F1857F /* LifeBoardThemeManagerTests.swift in Sources */,
