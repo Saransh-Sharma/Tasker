@@ -1,0 +1,6 @@
+- [x] Read the Insights/Search redesign handoff and repo UI structure.
+- [x] Implement shared top-aligned secondary screen shell/header/card primitives.
+- [x] Rebuild Insights around diagnosis, evidence metrics, action cards, and empty/partial/rich states.
+- [x] Rebuild Search as Command Search with quick filters, advanced filters, suggestions, Ask Eva, and grouped results.
+- [x] Move navigation toward global Search while preserving the existing Home shell.
+- [x] Build and run focused verification.

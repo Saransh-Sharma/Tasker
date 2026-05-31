@@ -12,15 +12,6 @@ struct LBBottomDock: View {
     let onCreate: () -> Void
 
     private var items: [DockItem] {
-        if state.selectedItem == .search {
-            return [
-                DockItem(item: .home, title: "Home", systemImage: "house", selectedSystemImage: "house.fill", accessibilityID: "home.bottomBar.home"),
-                DockItem(item: .calendar, title: "Schedule", systemImage: HomeCalendarBottomBarSymbol.symbolName(for: Date()), selectedSystemImage: HomeCalendarBottomBarSymbol.symbolName(for: Date()), accessibilityID: "home.bottomBar.calendar"),
-                DockItem(item: .charts, title: "Insights", systemImage: "chart.bar.xaxis", selectedSystemImage: "chart.bar.xaxis", accessibilityID: "home.bottomBar.charts"),
-                DockItem(item: .search, title: "Search", systemImage: "magnifyingglass", selectedSystemImage: "magnifyingglass", accessibilityID: "home.searchButton")
-            ]
-        }
-
         return [
             DockItem(item: .home, title: "Home", systemImage: "house", selectedSystemImage: "house.fill", accessibilityID: "home.bottomBar.home"),
             DockItem(item: .calendar, title: "Schedule", systemImage: HomeCalendarBottomBarSymbol.symbolName(for: Date()), selectedSystemImage: HomeCalendarBottomBarSymbol.symbolName(for: Date()), accessibilityID: "home.bottomBar.calendar"),
