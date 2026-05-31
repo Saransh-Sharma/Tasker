@@ -2,816 +2,2460 @@
 //  EvaOverdueRescueSheetV2.swift
 //  LifeBoard
 //
-//  Overdue rescue sheet for the Home sunrise shell.
+//  Screenshot-aligned Overdue Rescue decision deck.
 //
 
 import SwiftUI
+import UIKit
 
-private enum EvaRescueMoveChoice: String, CaseIterable {
-    case tomorrow
-    case weekend
-    case custom
+enum OverdueRescueDeckState: String, Codable, Equatable, Sendable {
+    case notStarted
+    case loading
+    case active
+    case editing
+    case confirmingDelete
+    case paused
+    case applyingBulk
+    case completed
+    case error
+}
 
-    var title: String {
-        switch self {
-        case .tomorrow: return "Tomorrow"
-        case .weekend: return "Weekend"
-        case .custom: return "Custom"
+enum OverdueRescueDecisionSource: String, Codable, Sendable {
+    case swipe
+    case tap
+    case edit
+    case delete
+    case bulk
+}
+
+enum OverdueRescueDecisionAction: String, Codable, Sendable {
+    case keepToday
+    case moveLater
+    case edit
+    case delete
+}
+
+struct RecurrenceInstanceSnapshot: Codable, Equatable, Sendable {
+    let recurrenceSeriesID: UUID?
+    let repeatPattern: TaskRepeatPattern?
+    let dueDate: Date?
+    let scheduledStartAt: Date?
+    let scheduledEndAt: Date?
+}
+
+struct OverdueRescueUndoRecord: Identifiable, Codable, Equatable, Sendable {
+    let id: UUID
+    let runID: UUID?
+    let taskID: UUID
+    let source: OverdueRescueDecisionSource
+    let action: OverdueRescueDecisionAction
+    let previousDueDate: Date?
+    let previousProjectID: UUID?
+    let previousDurationMinutes: Int?
+    let previousPriority: TaskPriority?
+    let previousCompletionState: Bool
+    let previousDeletedState: Bool
+    let previousRecurrenceState: RecurrenceInstanceSnapshot?
+    let fullSnapshot: AssistantTaskSnapshot
+    let createdAt: Date
+
+    init(
+        taskSnapshot: TaskDefinition,
+        source: OverdueRescueDecisionSource,
+        action: OverdueRescueDecisionAction,
+        runID: UUID?
+    ) {
+        self.id = UUID()
+        self.runID = runID
+        self.taskID = taskSnapshot.id
+        self.source = source
+        self.action = action
+        self.previousDueDate = taskSnapshot.dueDate
+        self.previousProjectID = taskSnapshot.projectID
+        self.previousDurationMinutes = taskSnapshot.estimatedDuration.map { Int(($0 / 60).rounded()) }
+        self.previousPriority = taskSnapshot.priority
+        self.previousCompletionState = taskSnapshot.isComplete
+        self.previousDeletedState = false
+        self.previousRecurrenceState = RecurrenceInstanceSnapshot(
+            recurrenceSeriesID: taskSnapshot.recurrenceSeriesID,
+            repeatPattern: taskSnapshot.repeatPattern,
+            dueDate: taskSnapshot.dueDate,
+            scheduledStartAt: taskSnapshot.scheduledStartAt,
+            scheduledEndAt: taskSnapshot.scheduledEndAt
+        )
+        self.fullSnapshot = AssistantTaskSnapshot(task: taskSnapshot)
+        self.createdAt = Date()
+    }
+
+    var taskSnapshot: TaskDefinition {
+        fullSnapshot.toTaskDefinition()
+    }
+}
+
+struct OverdueRescueSummary: Equatable, Sendable {
+    var kept = 0
+    var moved = 0
+    var edited = 0
+    var deleted = 0
+
+    var reviewed: Int { kept + moved + edited + deleted }
+}
+
+struct OverdueRescueSessionScope: Codable, Equatable, Hashable, Sendable {
+    var accountScopeID: String
+    var workspaceID: String?
+    var rescueDay: Date
+
+    var storageKey: String {
+        let dayStamp = Int(Calendar.current.startOfDay(for: rescueDay).timeIntervalSince1970)
+        return "overdueRescue.session.v1.\(accountScopeID).\(workspaceID ?? "default").\(dayStamp)"
+    }
+}
+
+struct OverdueRescueSessionState: Codable, Equatable, Sendable {
+    var runID: UUID
+    var accountScopeID: String
+    var workspaceID: String?
+    var referenceDate: Date
+    var deckState: OverdueRescueDeckState
+    var eligibleTaskIDs: [UUID]
+    var remainingTaskIDs: [UUID]
+    var resolvedTaskIDs: [UUID]
+    var currentIndex: Int
+    var keptCount: Int
+    var movedCount: Int
+    var deletedCount: Int
+    var editedCount: Int
+    var bulkAppliedCount: Int
+    var largeStackAcknowledged: Bool
+    var undoStack: [OverdueRescueUndoRecord]
+    var lastRecoverableState: OverdueRescueDeckState
+    var errorMessage: String?
+    var createdAt: Date
+    var updatedAt: Date
+
+    var summary: OverdueRescueSummary {
+        OverdueRescueSummary(kept: keptCount, moved: movedCount, edited: editedCount, deleted: deletedCount)
+    }
+}
+
+protocol OverdueRescueSessionStore {
+    func load(scope: OverdueRescueSessionScope) async throws -> OverdueRescueSessionState?
+    func save(_ session: OverdueRescueSessionState, scope: OverdueRescueSessionScope) async throws
+    func clear(scope: OverdueRescueSessionScope) async throws
+}
+
+struct UserDefaultsOverdueRescueSessionStore: OverdueRescueSessionStore {
+    let userDefaults: UserDefaults
+
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+    }
+
+    func load(scope: OverdueRescueSessionScope) async throws -> OverdueRescueSessionState? {
+        try loadSync(scope: scope)
+    }
+
+    func save(_ session: OverdueRescueSessionState, scope: OverdueRescueSessionScope) async throws {
+        try saveSync(session, scope: scope)
+    }
+
+    func clear(scope: OverdueRescueSessionScope) async throws {
+        clearSync(scope: scope)
+    }
+
+    func loadSync(scope: OverdueRescueSessionScope) throws -> OverdueRescueSessionState? {
+        guard let data = userDefaults.data(forKey: scope.storageKey) else { return nil }
+        return try JSONDecoder().decode(OverdueRescueSessionState.self, from: data)
+    }
+
+    func saveSync(_ session: OverdueRescueSessionState, scope: OverdueRescueSessionScope) throws {
+        let data = try JSONEncoder().encode(session)
+        userDefaults.set(data, forKey: scope.storageKey)
+    }
+
+    func clearSync(scope: OverdueRescueSessionScope) {
+        userDefaults.removeObject(forKey: scope.storageKey)
+    }
+}
+
+enum OverdueRescueStateMachine {
+    static func canTransition(from current: OverdueRescueDeckState, to next: OverdueRescueDeckState) -> Bool {
+        if next == .error {
+            return current != .completed
+        }
+        switch (current, next) {
+        case (.notStarted, .loading),
+             (.loading, .active),
+             (.loading, .completed),
+             (.loading, .error),
+             (.active, .editing),
+             (.editing, .active),
+             (.active, .confirmingDelete),
+             (.confirmingDelete, .active),
+             (.active, .paused),
+             (.editing, .paused),
+             (.confirmingDelete, .paused),
+             (.paused, .active),
+             (.active, .applyingBulk),
+             (.applyingBulk, .active),
+             (.active, .completed),
+             (.applyingBulk, .completed),
+             (.completed, .loading),
+             (.completed, .active),
+             (.error, .active),
+             (.error, .editing),
+             (.error, .confirmingDelete),
+             (.error, .paused),
+             (.error, .applyingBulk):
+            return true
+        default:
+            return current == next
+        }
+    }
+
+    static func isRecoverable(_ state: OverdueRescueDeckState) -> Bool {
+        switch state {
+        case .active, .editing, .confirmingDelete, .paused, .applyingBulk:
+            return true
+        case .notStarted, .loading, .completed, .error:
+            return false
         }
     }
 }
 
-private struct EvaRescueSplitComposerState: Sendable {
-    var isOpen = false
-    var childTitles: [String] = ["", ""]
-    var duePreset: EvaTriageDeferPreset?
-    var isCreating = false
-    var errorMessage: String?
-    var completed = false
-    var createdChildIDs: [UUID] = []
+struct OverdueRescueDeckLayoutMetrics: Equatable {
+    var containerSize: CGSize
+    var bottomInset: CGFloat
+    var dynamicTypeIsExpanded: Bool
+
+    var horizontalInset: CGFloat {
+        min(32, max(24, containerSize.width * 0.07))
+    }
+
+    var contentWidth: CGFloat {
+        min(max(containerSize.width - horizontalInset * 2, 280), 390)
+    }
+
+    var cardWidth: CGFloat {
+        contentWidth
+    }
+
+    var cardHeight: CGFloat {
+        let height = containerSize.height > 0 ? containerSize.height : 844
+        return min(390, max(320, height * 0.38))
+    }
+
+    var deckHeight: CGFloat {
+        cardHeight + 108
+    }
+
+    var progressWidth: CGFloat {
+        min(260, max(210, contentWidth * 0.68))
+    }
+
+    var actionButtonHeight: CGFloat {
+        dynamicTypeIsExpanded ? 76 : 68
+    }
+
+    var actionGridUsesSingleColumn: Bool {
+        dynamicTypeIsExpanded || contentWidth < 330
+    }
+
+    var bottomClearance: CGFloat {
+        max(96, bottomInset)
+    }
+
+    static func make(size: CGSize, bottomInset: CGFloat, dynamicTypeSize: DynamicTypeSize) -> OverdueRescueDeckLayoutMetrics {
+        OverdueRescueDeckLayoutMetrics(
+            containerSize: CGSize(
+                width: max(size.width, 320),
+                height: max(size.height, 640)
+            ),
+            bottomInset: bottomInset,
+            dynamicTypeIsExpanded: dynamicTypeSize.isAccessibilitySize
+        )
+    }
+}
+
+enum OverdueRescueSwipeRevealKind: Equatable {
+    case none
+    case keep
+    case move
+}
+
+struct OverdueRescueDragResolution: Equatable {
+    let reveal: OverdueRescueSwipeRevealKind
+    let progress: Double
+    let visibleOffset: CGSize
+    let commitAction: OverdueRescueDecisionAction?
+    let tiltDegrees: Double
+}
+
+enum OverdueRescueDragResolver {
+    static let horizontalDominanceRatio: CGFloat = 1.15
+
+    static func commitThreshold(cardWidth: CGFloat) -> CGFloat {
+        max(96, cardWidth * 0.28)
+    }
+
+    static func resolve(translation: CGSize, cardWidth: CGFloat, reduceMotion: Bool = false) -> OverdueRescueDragResolution {
+        let reveal = revealKind(for: translation)
+        let threshold = commitThreshold(cardWidth: cardWidth)
+        let progress = reveal == .none ? 0 : revealProgress(for: translation.width, threshold: threshold)
+        let visibleOffset = reveal == .none ? .zero : CGSize(width: translation.width, height: translation.height * 0.08)
+        let commitAction = commitAction(for: translation, cardWidth: cardWidth)
+        let tilt = reduceMotion || reveal == .none ? 0 : Double(max(-8, min(8, translation.width / cardWidth * 9)))
+
+        return OverdueRescueDragResolution(
+            reveal: reveal,
+            progress: progress,
+            visibleOffset: visibleOffset,
+            commitAction: commitAction,
+            tiltDegrees: tilt
+        )
+    }
+
+    static func revealKind(for translation: CGSize) -> OverdueRescueSwipeRevealKind {
+        let width = translation.width
+        let height = translation.height
+        guard abs(width) > 8, abs(width) > abs(height) * horizontalDominanceRatio else {
+            return .none
+        }
+        return width > 0 ? .keep : .move
+    }
+
+    static func commitAction(for translation: CGSize, cardWidth: CGFloat) -> OverdueRescueDecisionAction? {
+        let reveal = revealKind(for: translation)
+        guard reveal != .none, abs(translation.width) >= commitThreshold(cardWidth: cardWidth) else {
+            return nil
+        }
+        return reveal == .keep ? .keepToday : .moveLater
+    }
+
+    private static func revealProgress(for width: CGFloat, threshold: CGFloat) -> Double {
+        let start = max(8, threshold * 0.08)
+        let distance = abs(width)
+        guard distance > start else { return 0 }
+        return min(1, Double((distance - start) / max(1, threshold - start)))
+    }
+}
+
+struct OverdueRescueCardModel: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let task: TaskDefinition
+    let recommendation: EvaRescueRecommendation?
+    let overdueDays: Int
+    let projectLabel: String
+    let confidenceLabel: String
+    let reasonTitle: String
+    let reasonBody: String
+    let moveDate: Date?
+    let moveButtonTitle: String
+    let requiresDeleteConfirmation: Bool
+
+    static func make(
+        task: TaskDefinition,
+        recommendation: EvaRescueRecommendation?,
+        projectsByID: [UUID: Project],
+        now: Date
+    ) -> OverdueRescueCardModel {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        let dueDay = task.dueDate.map { calendar.startOfDay(for: $0) } ?? today
+        let overdueDays = max(1, calendar.dateComponents([.day], from: dueDay, to: today).day ?? 1)
+        let confidence = recommendation?.confidence ?? 0
+        let reason = Self.reasonCopy(for: task, recommendation: recommendation, overdueDays: overdueDays)
+        let moveDate = OverdueRescueMoveLaterResolver.resolveMoveDate(
+            for: task,
+            recommendation: recommendation,
+            now: now
+        )
+
+        return OverdueRescueCardModel(
+            id: task.id,
+            task: task,
+            recommendation: recommendation,
+            overdueDays: overdueDays,
+            projectLabel: task.projectID == ProjectConstants.inboxProjectID
+                ? "No project"
+                : (projectsByID[task.projectID]?.name ?? task.projectName ?? "No project"),
+            confidenceLabel: confidence >= 0.75 ? "High confidence" : (confidence >= 0.45 ? "Needs your call" : "Needs your call"),
+            reasonTitle: reason.title,
+            reasonBody: reason.body,
+            moveDate: moveDate,
+            moveButtonTitle: OverdueRescueMoveLaterResolver.buttonTitle(for: moveDate, now: now),
+            requiresDeleteConfirmation: Self.requiresDeleteConfirmation(task, now: now)
+        )
+    }
+
+    var overdueText: String {
+        overdueDays == 1 ? "Overdue by 1 day" : "Overdue by \(overdueDays) days"
+    }
+
+    var isHighConfidence: Bool {
+        (recommendation?.confidence ?? 0) >= 0.75
+    }
+
+    private static func reasonCopy(
+        for task: TaskDefinition,
+        recommendation: EvaRescueRecommendation?,
+        overdueDays: Int
+    ) -> (title: String, body: String) {
+        if let recommendation, recommendation.reasons.isEmpty == false {
+            let joined = recommendation.reasons
+                .map { $0.replacingOccurrences(of: "Overdue \\d+d", with: "", options: .regularExpression) }
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: ". ")
+
+            switch recommendation.action {
+            case .doToday:
+                return ("Still relevant", joined.isEmpty ? "Relevant to current projects." : "\(joined).")
+            case .move:
+                return ("Today looks full", "This can move out of today’s board without risk.")
+            case .split:
+                return ("Needs a smaller next step", joined.isEmpty ? "Break this down before it blocks the day." : "\(joined).")
+            case .dropCandidate:
+                return ("Looks stale", joined.isEmpty ? "This has not moved in a while." : "\(joined).")
+            }
+        }
+
+        if task.projectID != ProjectConstants.inboxProjectID {
+            return ("Still relevant", "Relevant to current projects.")
+        }
+        if overdueDays >= 14 {
+            return ("Looks stale", "This looks stale and has not moved in 2 weeks.")
+        }
+        return ("Needs your call", "Not enough signal to suggest a safe change.")
+    }
+
+    static func resolvedMoveDate(
+        for task: TaskDefinition,
+        recommendation: EvaRescueRecommendation?,
+        now: Date = Date()
+    ) -> Date {
+        OverdueRescueMoveLaterResolver.resolveMoveDate(for: task, recommendation: recommendation, now: now)
+    }
+
+    static func moveButtonTitle(for date: Date?, now: Date = Date()) -> String {
+        OverdueRescueMoveLaterResolver.buttonTitle(for: date, now: now)
+    }
+
+    static func requiresDeleteConfirmation(_ task: TaskDefinition, now: Date = Date()) -> Bool {
+        let hasNotes = task.details?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let hasSubtasks = task.subtasks.isEmpty == false
+        let hasRecurrence = task.recurrenceSeriesID != nil || task.repeatPattern != nil
+        let hasProject = task.projectID != ProjectConstants.inboxProjectID
+        let hasCalendarLink = task.scheduledStartAt != nil || task.scheduledEndAt != nil
+        let hasRecentEdits = Calendar.current.dateComponents([.hour], from: task.updatedAt, to: now).hour ?? 999 < 24
+        return hasNotes || hasSubtasks || hasRecurrence || hasProject || hasCalendarLink || hasRecentEdits
+    }
+}
+
+enum OverdueRescueMoveLaterResolver {
+    static func resolveMoveDate(
+        for task: TaskDefinition,
+        recommendation: EvaRescueRecommendation?,
+        now: Date
+    ) -> Date {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        if let suggested = recommendation?.toDate {
+            let suggestedDay = calendar.startOfDay(for: suggested)
+            if suggestedDay > today {
+                return suggestedDay
+            }
+        }
+
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        let lowUrgency = task.priority == .none || task.priority == .low
+        if lowUrgency, isWorkingDay(tomorrow, calendar: calendar) {
+            return tomorrow
+        }
+
+        if isWorkingDay(tomorrow, calendar: calendar), lowUrgency {
+            return tomorrow
+        }
+
+        if isWorkingDay(tomorrow, calendar: calendar), task.priority.isHighPriority == false {
+            return tomorrow
+        }
+
+        return nextWorkingDay(after: today, calendar: calendar)
+    }
+
+    static func buttonTitle(for date: Date?, now: Date) -> String {
+        guard let date else { return "Move later" }
+        let calendar = Calendar.current
+        if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now) {
+            return "Move tomorrow"
+        }
+        let today = calendar.startOfDay(for: now)
+        let days = calendar.dateComponents([.day], from: today, to: calendar.startOfDay(for: date)).day ?? 0
+        if days > 0, days <= 7 {
+            let weekday = calendar.component(.weekday, from: date)
+            return "Move to \(calendar.weekdaySymbols[max(0, weekday - 1)])"
+        }
+        return "Move later"
+    }
+
+    private static func nextWorkingDay(after date: Date, calendar: Calendar) -> Date {
+        var candidate = calendar.date(byAdding: .day, value: 1, to: date) ?? date
+        while isWorkingDay(candidate, calendar: calendar) == false {
+            candidate = calendar.date(byAdding: .day, value: 1, to: candidate) ?? candidate
+        }
+        return candidate
+    }
+
+    private static func isWorkingDay(_ date: Date, calendar: Calendar) -> Bool {
+        let weekday = calendar.component(.weekday, from: date)
+        return weekday != 1 && weekday != 7
+    }
+}
+
+enum OverdueRescueEligibilityService {
+    static let sprintLimit = 12
+    static let maximumSprintLimit = 15
+    static let largeStackThreshold = 20
+
+    static func eligibleTasks(
+        from tasksByID: [UUID: TaskDefinition],
+        recommendations: [EvaRescueRecommendation],
+        projectsByID: [UUID: Project],
+        referenceDate: Date
+    ) -> [TaskDefinition] {
+        let taskIDs = Set(tasksByID.keys).union(recommendations.map(\.taskID))
+        return taskIDs
+            .compactMap { tasksByID[$0] }
+            .filter { isEligible($0, projectsByID: projectsByID, referenceDate: referenceDate) }
+    }
+
+    static func isEligible(
+        _ task: TaskDefinition,
+        projectsByID: [UUID: Project],
+        referenceDate: Date
+    ) -> Bool {
+        guard task.isComplete == false, let dueDate = task.dueDate else { return false }
+        if let project = projectsByID[task.projectID], project.isArchived {
+            return false
+        }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: referenceDate)
+        guard dueDate < today else { return false }
+        if let deferred = task.deferredFromWeekStart, calendar.isDate(deferred, inSameDayAs: today) {
+            return false
+        }
+        if task.recurrenceSeriesID != nil, dueDate >= today {
+            return false
+        }
+        return true
+    }
+
+    static func sortCards(
+        _ lhs: OverdueRescueCardModel,
+        _ rhs: OverdueRescueCardModel,
+        referenceDate: Date
+    ) -> Bool {
+        let lhsScore = rankingScore(lhs, referenceDate: referenceDate)
+        let rhsScore = rankingScore(rhs, referenceDate: referenceDate)
+        if lhsScore != rhsScore { return lhsScore > rhsScore }
+        if lhs.overdueDays != rhs.overdueDays { return lhs.overdueDays > rhs.overdueDays }
+        return lhs.task.title.localizedCaseInsensitiveCompare(rhs.task.title) == .orderedAscending
+    }
+
+    private static func rankingScore(_ card: OverdueRescueCardModel, referenceDate: Date) -> Int {
+        var score = 0
+        if card.task.priority.isHighPriority { score += 1_000 }
+        if Calendar.current.isDate(card.task.dueDate ?? .distantPast, inSameDayAs: referenceDate) { score += 800 }
+        if (card.task.estimatedDuration ?? .greatestFiniteMagnitude) <= 1_800 { score += 300 }
+        if Calendar.current.dateComponents([.day], from: card.task.updatedAt, to: referenceDate).day ?? 999 <= 7 { score += 200 }
+        if card.task.projectID != ProjectConstants.inboxProjectID { score += 100 }
+        if card.projectLabel == "No project" { score -= 80 }
+        if card.isHighConfidence == false { score -= 100 }
+        if card.overdueDays >= 14 { score -= 120 }
+        return score
+    }
+}
+
+@MainActor
+final class OverdueRescueViewModel: ObservableObject {
+    static let sprintLimit = OverdueRescueEligibilityService.sprintLimit
+    static let largeStackThreshold = OverdueRescueEligibilityService.largeStackThreshold
+
+    @Published private(set) var state: OverdueRescueDeckState = .notStarted
+    @Published private(set) var cards: [OverdueRescueCardModel] = []
+    @Published private(set) var currentIndex = 0
+    @Published private(set) var sprintTotal = 0
+    @Published private(set) var sprintResolvedCount = 0
+    @Published private(set) var summary = OverdueRescueSummary()
+    @Published private(set) var undoRecords: [OverdueRescueUndoRecord] = []
+    @Published var snackbar: SnackbarData?
+    @Published var errorMessage: String?
+    @Published var showLargeStackPreflight = false
+    @Published var showSafeFixesConfirmation = false
+
+    let allCount: Int
+    private let allCards: [OverdueRescueCardModel]
+    private let referenceDate: Date
+    private let projectsByID: [UUID: Project]
+    private var resolvedTaskIDs: Set<UUID> = []
+    private let runID: UUID
+    private let sessionScope: OverdueRescueSessionScope
+    private let sessionStore: UserDefaultsOverdueRescueSessionStore
+    private var lastRecoverableState: OverdueRescueDeckState = .notStarted
+    private let onUpdate: @Sendable (UpdateTaskDefinitionRequest, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    private let onDelete: @Sendable (UUID, @escaping @Sendable (Result<Void, Error>) -> Void) -> Void
+    private let onRestore: @Sendable (TaskDefinition, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    private let onApplyBulk: @Sendable ([EvaBatchMutationInstruction], @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    private let onUndoBulk: @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    private let onTrack: (String, [String: Any]) -> Void
+
+    init(
+        plan: EvaRescuePlan?,
+        tasksByID: [UUID: TaskDefinition],
+        projectsByID: [UUID: Project],
+        referenceDate: Date = Date(),
+        sessionScope: OverdueRescueSessionScope? = nil,
+        sessionStore: UserDefaultsOverdueRescueSessionStore = UserDefaultsOverdueRescueSessionStore(),
+        onUpdate: @escaping @Sendable (UpdateTaskDefinitionRequest, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
+        onDelete: @escaping @Sendable (UUID, @escaping @Sendable (Result<Void, Error>) -> Void) -> Void,
+        onRestore: @escaping @Sendable (TaskDefinition, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
+        onApplyBulk: @escaping @Sendable ([EvaBatchMutationInstruction], @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void,
+        onUndoBulk: @escaping @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void,
+        onTrack: @escaping (String, [String: Any]) -> Void
+    ) {
+        let planRecommendations = Self.orderedRecommendations(from: plan)
+        let recommendationByID = Dictionary(uniqueKeysWithValues: planRecommendations.map { ($0.taskID, $0) })
+        let scope = sessionScope ?? OverdueRescueSessionScope(
+            accountScopeID: "default",
+            workspaceID: nil,
+            rescueDay: referenceDate
+        )
+        let eligibleTasks = OverdueRescueEligibilityService.eligibleTasks(
+            from: tasksByID,
+            recommendations: planRecommendations,
+            projectsByID: projectsByID,
+            referenceDate: referenceDate
+        )
+        let cards = eligibleTasks
+            .map { task in
+                OverdueRescueCardModel.make(
+                    task: task,
+                    recommendation: recommendationByID[task.id],
+                    projectsByID: projectsByID,
+                    now: referenceDate
+                )
+            }
+            .sorted { lhs, rhs in
+                OverdueRescueEligibilityService.sortCards(lhs, rhs, referenceDate: referenceDate)
+            }
+
+        self.allCards = cards
+        self.allCount = cards.count
+        self.referenceDate = referenceDate
+        self.projectsByID = projectsByID
+        self.sessionScope = scope
+        self.sessionStore = sessionStore
+        let savedSession = try? sessionStore.loadSync(scope: scope)
+        self.runID = savedSession?.runID ?? UUID()
+        self.onUpdate = onUpdate
+        self.onDelete = onDelete
+        self.onRestore = onRestore
+        self.onApplyBulk = onApplyBulk
+        self.onUndoBulk = onUndoBulk
+        self.onTrack = onTrack
+
+        if let savedSession,
+           savedSession.deckState != .completed,
+           savedSession.eligibleTaskIDs.contains(where: { tasksByID[$0] != nil }) {
+            restore(session: savedSession)
+        } else {
+            let firstSprintCards = Array(cards.prefix(Self.sprintLimit))
+            self.cards = firstSprintCards
+            self.sprintTotal = firstSprintCards.count
+            self.showLargeStackPreflight = cards.count >= Self.largeStackThreshold
+            _ = transition(to: .loading)
+            _ = transition(to: cards.isEmpty ? .completed : .active)
+        }
+    }
+
+    var currentCard: OverdueRescueCardModel? {
+        guard cards.indices.contains(currentIndex) else { return nil }
+        return cards[currentIndex]
+    }
+
+    var progressText: String {
+        guard sprintTotal > 0 else { return "0 of 0" }
+        return "\(min(sprintResolvedCount + 1, sprintTotal)) of \(sprintTotal)"
+    }
+
+    var progress: Double {
+        guard sprintTotal > 0 else { return 1 }
+        return Double(min(sprintResolvedCount, sprintTotal)) / Double(sprintTotal)
+    }
+
+    var remainingCount: Int {
+        max(0, sprintTotal - sprintResolvedCount)
+    }
+
+    var totalRemainingCount: Int {
+        max(0, allCount - resolvedTaskIDs.count)
+    }
+
+    var safeFixes: [OverdueRescueCardModel] {
+        allCards.filter { card in
+            guard resolvedTaskIDs.contains(card.id) == false else { return false }
+            guard let recommendation = card.recommendation else { return false }
+            guard recommendation.confidence >= 0.75 else { return false }
+            guard recommendation.action == .doToday || recommendation.action == .move else { return false }
+            guard card.task.recurrenceSeriesID == nil, card.task.repeatPattern == nil else { return false }
+            return true
+        }
+    }
+
+    var safeFixBreakdown: (move: Int, stay: Int, duration: Int) {
+        let move = safeFixes.filter { $0.recommendation?.action == .move }.count
+        let stay = safeFixes.filter { $0.recommendation?.action == .doToday }.count
+        let duration = 0
+        return (move, stay, duration)
+    }
+
+    func pause() {
+        guard state == .active || state == .editing || state == .confirmingDelete else { return }
+        transition(to: .paused)
+        onTrack("rescue_pause", ["reviewed": summary.reviewed, "remaining": remainingCount])
+    }
+
+    func resume() {
+        guard state == .paused else { return }
+        transition(to: .active)
+        onTrack("rescue_resume", ["reviewed": summary.reviewed, "remaining": remainingCount])
+    }
+
+    func startManualReview() {
+        showLargeStackPreflight = false
+        if cards.isEmpty, totalRemainingCount > 0 {
+            _ = transition(to: .loading)
+            loadNextSprint()
+        }
+        _ = transition(to: cards.isEmpty ? .completed : .active)
+    }
+
+    func requestEdit() {
+        guard state == .active, currentCard != nil else { return }
+        transition(to: .editing)
+        LifeBoardFeedback.selection()
+    }
+
+    func cancelEdit() {
+        guard state == .editing else { return }
+        _ = transition(to: .active)
+    }
+
+    func keepToday(source: OverdueRescueDecisionSource) {
+        guard let card = currentCard else { return }
+        let today = Calendar.current.startOfDay(for: referenceDate)
+        applyUpdate(
+            task: card.task,
+            request: UpdateTaskDefinitionRequest(id: card.id, dueDate: today),
+            action: .keepToday,
+            source: source,
+            message: "Kept on today"
+        )
+    }
+
+    func moveLater(source: OverdueRescueDecisionSource) {
+        guard let card = currentCard else { return }
+        let dueDate = card.moveDate ?? OverdueRescueMoveLaterResolver.resolveMoveDate(
+            for: card.task,
+            recommendation: card.recommendation,
+            now: referenceDate
+        )
+        applyUpdate(
+            task: card.task,
+            request: UpdateTaskDefinitionRequest(id: card.id, dueDate: dueDate),
+            action: .moveLater,
+            source: source,
+            message: card.moveButtonTitle == "Move tomorrow" ? "Moved to tomorrow" : "Moved later"
+        )
+    }
+
+    func saveEdit(draft: OverdueRescueEditDraft) {
+        guard let card = currentCard else { return }
+        let significant = draft.projectID != card.task.projectID || draft.priority != card.task.priority
+        applyUpdate(
+            task: card.task,
+            request: UpdateTaskDefinitionRequest(
+                id: card.id,
+                projectID: draft.projectID == card.task.projectID ? nil : draft.projectID,
+                dueDate: draft.dueDate,
+                clearDueDate: draft.dueDate == nil,
+                priority: draft.priority == card.task.priority ? nil : draft.priority,
+                estimatedDuration: draft.duration,
+                clearEstimatedDuration: draft.duration == nil
+            ),
+            action: .edit,
+            source: .edit,
+            message: significant ? "Updated and kept today" : "Updated"
+        )
+    }
+
+    func requestDelete() {
+        guard state == .active, let card = currentCard else { return }
+        if card.requiresDeleteConfirmation {
+            _ = transition(to: .confirmingDelete)
+        } else {
+            deleteCurrent()
+        }
+    }
+
+    func cancelDelete() {
+        guard state == .confirmingDelete else { return }
+        _ = transition(to: .active)
+    }
+
+    func confirmDelete() {
+        guard state == .confirmingDelete else { return }
+        deleteCurrent()
+    }
+
+    func applySafeFixes() {
+        let fixes = safeFixes
+        guard fixes.isEmpty == false else { return }
+        guard transition(to: .applyingBulk) else { return }
+        let today = Calendar.current.startOfDay(for: referenceDate)
+        let mutations = fixes.compactMap { card -> EvaBatchMutationInstruction? in
+            switch card.recommendation?.action {
+            case .doToday:
+                return EvaBatchMutationInstruction(taskID: card.id, dueDate: today)
+            case .move:
+                return EvaBatchMutationInstruction(taskID: card.id, dueDate: card.moveDate)
+            default:
+                return nil
+            }
+        }
+        onApplyBulk(mutations) { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success(let run):
+                    for card in fixes {
+                        self.undoRecords.append(OverdueRescueUndoRecord(
+                            taskSnapshot: card.task,
+                            source: .bulk,
+                            action: card.recommendation?.action == .doToday ? .keepToday : .moveLater,
+                            runID: run.id
+                        ))
+                    }
+                    self.summary.kept += fixes.filter { $0.recommendation?.action == .doToday }.count
+                    self.summary.moved += fixes.filter { $0.recommendation?.action == .move }.count
+                    let fixedIDs = Set(fixes.map(\.id))
+                    self.resolvedTaskIDs.formUnion(fixedIDs)
+                    self.sprintResolvedCount = min(self.sprintTotal, self.sprintResolvedCount + fixes.count)
+                    self.cards.removeAll { fixedIDs.contains($0.id) }
+                    self.currentIndex = min(self.currentIndex, max(0, self.cards.count - 1))
+                    self.snackbar = SnackbarData(message: "Applied \(fixes.count) safe fixes", actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
+                    self.showSafeFixesConfirmation = false
+                    _ = self.transition(to: self.cards.isEmpty ? .completed : .active)
+                    LifeBoardFeedback.success()
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                    _ = self.transition(to: .error)
+                }
+            }
+        }
+    }
+
+    func undoLast() {
+        guard let record = undoRecords.popLast() else { return }
+        if record.source == .bulk, let runID = record.runID {
+            let relatedRecords = [record] + undoRecords.filter { $0.runID == runID }
+            undoRecords.removeAll { $0.runID == runID }
+            onUndoBulk { [weak self] result in
+                Task { @MainActor in
+                    switch result {
+                    case .success:
+                        self?.snackbar = SnackbarData(message: "Safe fixes undone")
+                        self?.restoreUndoRecords(relatedRecords)
+                        _ = self?.transition(to: .active)
+                    case .failure(let error):
+                        self?.errorMessage = error.localizedDescription
+                    }
+                }
+            }
+            return
+        }
+
+        switch record.action {
+        case .delete:
+            onRestore(record.taskSnapshot) { [weak self] result in
+                Task { @MainActor in
+                    switch result {
+                    case .success:
+                        self?.restoreUndoRecords([record])
+                        _ = self?.transition(to: .active)
+                        self?.snackbar = SnackbarData(message: "Delete undone")
+                    case .failure(let error):
+                        self?.errorMessage = error.localizedDescription
+                    }
+                }
+            }
+        case .keepToday, .moveLater, .edit:
+            let request = UpdateTaskDefinitionRequest(
+                id: record.taskSnapshot.id,
+                projectID: record.taskSnapshot.projectID,
+                dueDate: record.taskSnapshot.dueDate,
+                clearDueDate: record.taskSnapshot.dueDate == nil,
+                priority: record.taskSnapshot.priority,
+                isComplete: record.taskSnapshot.isComplete,
+                estimatedDuration: record.taskSnapshot.estimatedDuration,
+                clearEstimatedDuration: record.taskSnapshot.estimatedDuration == nil
+            )
+            onUpdate(request) { [weak self] result in
+                Task { @MainActor in
+                    switch result {
+                    case .success:
+                        self?.restoreUndoRecords([record])
+                        _ = self?.transition(to: .active)
+                        self?.snackbar = SnackbarData(message: "Change undone")
+                    case .failure(let error):
+                        self?.errorMessage = error.localizedDescription
+                    }
+                }
+            }
+        }
+    }
+
+    private func applyUpdate(
+        task: TaskDefinition,
+        request: UpdateTaskDefinitionRequest,
+        action: OverdueRescueDecisionAction,
+        source: OverdueRescueDecisionSource,
+        message: String
+    ) {
+        guard state == .active || state == .editing else { return }
+        onUpdate(request) { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success:
+                    self.undoRecords.append(OverdueRescueUndoRecord(taskSnapshot: task, source: source, action: action, runID: nil))
+                    switch action {
+                    case .keepToday: self.summary.kept += 1
+                    case .moveLater: self.summary.moved += 1
+                    case .edit: self.summary.edited += 1
+                    case .delete: self.summary.deleted += 1
+                    }
+                    self.snackbar = SnackbarData(message: message, actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
+                    self.advance()
+                    LifeBoardFeedback.success()
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                    _ = self.transition(to: .error)
+                }
+            }
+        }
+    }
+
+    private func deleteCurrent() {
+        guard let card = currentCard else { return }
+        onDelete(card.id) { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success:
+                    self.undoRecords.append(OverdueRescueUndoRecord(taskSnapshot: card.task, source: .delete, action: .delete, runID: nil))
+                    self.summary.deleted += 1
+                    self.snackbar = SnackbarData(message: "Deleted", actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
+                    self.advance()
+                    LifeBoardFeedback.success()
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                    _ = self.transition(to: .error)
+                }
+            }
+        }
+    }
+
+    private func advance() {
+        if cards.indices.contains(currentIndex) {
+            resolvedTaskIDs.insert(cards[currentIndex].id)
+            sprintResolvedCount = min(sprintTotal, sprintResolvedCount + 1)
+            cards.remove(at: currentIndex)
+        }
+        if cards.isEmpty {
+            currentIndex = 0
+            _ = transition(to: .completed)
+        } else {
+            currentIndex = min(currentIndex, cards.count - 1)
+            _ = transition(to: .active)
+        }
+    }
+
+    private func loadNextSprint() {
+        let nextCards = allCards.filter { resolvedTaskIDs.contains($0.id) == false }
+        cards = Array(nextCards.prefix(Self.sprintLimit))
+        currentIndex = 0
+        sprintTotal = cards.count
+        sprintResolvedCount = 0
+    }
+
+    private func restore(session: OverdueRescueSessionState) {
+        let remainingIDs = session.remainingTaskIDs
+        let cardByID = Dictionary(uniqueKeysWithValues: allCards.map { ($0.id, $0) })
+        let restoredCards = remainingIDs.compactMap { cardByID[$0] }
+        let fallbackCards = allCards.filter { session.resolvedTaskIDs.contains($0.id) == false }
+        cards = restoredCards.isEmpty ? Array(fallbackCards.prefix(Self.sprintLimit)) : restoredCards
+        currentIndex = min(max(0, session.currentIndex), max(0, cards.count - 1))
+        sprintTotal = max(cards.count + session.resolvedTaskIDs.count, cards.count)
+        sprintResolvedCount = min(session.resolvedTaskIDs.count, sprintTotal)
+        summary = session.summary
+        undoRecords = session.undoStack
+        resolvedTaskIDs = Set(session.resolvedTaskIDs)
+        lastRecoverableState = session.lastRecoverableState
+        showLargeStackPreflight = allCount >= Self.largeStackThreshold && session.largeStackAcknowledged == false
+        errorMessage = session.errorMessage
+
+        if session.deckState == .loading {
+            state = cards.isEmpty ? .completed : .active
+        } else if session.deckState == .completed, cards.isEmpty == false {
+            state = .active
+        } else {
+            state = session.deckState
+        }
+    }
+
+    func finishAndClearSession() {
+        sessionStore.clearSync(scope: sessionScope)
+    }
+
+    private func currentSessionState() -> OverdueRescueSessionState {
+        let now = Date()
+        return OverdueRescueSessionState(
+            runID: runID,
+            accountScopeID: sessionScope.accountScopeID,
+            workspaceID: sessionScope.workspaceID,
+            referenceDate: referenceDate,
+            deckState: state,
+            eligibleTaskIDs: allCards.map(\.id),
+            remainingTaskIDs: cards.map(\.id),
+            resolvedTaskIDs: Array(resolvedTaskIDs),
+            currentIndex: currentIndex,
+            keptCount: summary.kept,
+            movedCount: summary.moved,
+            deletedCount: summary.deleted,
+            editedCount: summary.edited,
+            bulkAppliedCount: undoRecords.filter { $0.source == .bulk }.count,
+            largeStackAcknowledged: showLargeStackPreflight == false,
+            undoStack: undoRecords,
+            lastRecoverableState: lastRecoverableState,
+            errorMessage: errorMessage,
+            createdAt: now,
+            updatedAt: now
+        )
+    }
+
+    private func persistSession() {
+        do {
+            try sessionStore.saveSync(currentSessionState(), scope: sessionScope)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func restoreUndoRecords(_ records: [OverdueRescueUndoRecord]) {
+        guard records.isEmpty == false else { return }
+        for record in records {
+            resolvedTaskIDs.remove(record.taskSnapshot.id)
+            decrementSummary(for: record.action)
+        }
+        let restoredCards = records
+            .filter { record in cards.contains(where: { $0.id == record.taskSnapshot.id }) == false }
+            .map { record in
+                OverdueRescueCardModel.make(
+                    task: record.taskSnapshot,
+                    recommendation: nil,
+                    projectsByID: projectsByID,
+                    now: referenceDate
+                )
+            }
+        cards.insert(contentsOf: restoredCards, at: min(currentIndex, cards.count))
+        sprintResolvedCount = max(0, sprintResolvedCount - records.count)
+        if sprintTotal == 0 {
+            sprintTotal = cards.count
+        }
+    }
+
+    private func decrementSummary(for action: OverdueRescueDecisionAction) {
+        switch action {
+        case .keepToday: summary.kept = max(0, summary.kept - 1)
+        case .moveLater: summary.moved = max(0, summary.moved - 1)
+        case .edit: summary.edited = max(0, summary.edited - 1)
+        case .delete: summary.deleted = max(0, summary.deleted - 1)
+        }
+    }
+
+    @discardableResult
+    private func transition(to next: OverdueRescueDeckState) -> Bool {
+        guard Self.canTransition(from: state, to: next) else {
+            assertionFailure("Invalid Overdue Rescue transition: \(state) -> \(next)")
+            return false
+        }
+        if Self.isRecoverable(state) {
+            lastRecoverableState = state
+        }
+        state = next
+        persistSession()
+        return true
+    }
+
+    static func canTransition(from current: OverdueRescueDeckState, to next: OverdueRescueDeckState) -> Bool {
+        OverdueRescueStateMachine.canTransition(from: current, to: next)
+    }
+
+    private static func isRecoverable(_ state: OverdueRescueDeckState) -> Bool {
+        OverdueRescueStateMachine.isRecoverable(state)
+    }
+
+    private static func orderedRecommendations(from plan: EvaRescuePlan?) -> [EvaRescueRecommendation] {
+        guard let plan else { return [] }
+        return plan.doToday + plan.move + plan.split + plan.dropCandidate
+    }
+}
+
+struct OverdueRescueEditDraft: Equatable {
+    var dueDate: Date?
+    var duration: TimeInterval?
+    var projectID: UUID
+    var priority: TaskPriority
+
+    init(card: OverdueRescueCardModel) {
+        dueDate = card.task.dueDate
+        duration = card.task.estimatedDuration
+        projectID = card.task.projectID
+        priority = card.task.priority
+    }
 }
 
 struct EvaOverdueRescueSheetV2: View {
     let plan: EvaRescuePlan?
     let tasksByID: [UUID: TaskDefinition]
+    let projectsByID: [UUID: Project]
+    let referenceDate: Date
     let lastBatchRunID: UUID?
+    let bottomInset: CGFloat
+    let onClose: () -> Void
+    let onExit: () -> Void
+    let onUpdate: @Sendable (UpdateTaskDefinitionRequest, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    let onDelete: @Sendable (UUID, @escaping @Sendable (Result<Void, Error>) -> Void) -> Void
+    let onRestore: @Sendable (TaskDefinition, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
     let onApply: @Sendable ([EvaBatchMutationInstruction], @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
     let onUndo: @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
-    let onCreateSplit: @Sendable (UUID, EvaSplitDraft, @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void) -> Void
-    let onUndoSplit: @Sendable ([UUID], @escaping @Sendable (Result<Void, Error>) -> Void) -> Void
     let onTrack: (String, [String: Any]) -> Void
 
-    @State private var selectedActionByTaskID: [UUID: EvaRescueActionType] = [:]
-    @State private var moveChoiceByTaskID: [UUID: EvaRescueMoveChoice] = [:]
-    @State private var customMoveDateByTaskID: [UUID: Date] = [:]
-    @State private var splitStateByTaskID: [UUID: EvaRescueSplitComposerState] = [:]
-    @State private var showDropConfirm = false
-    @State private var pendingMutations: [EvaBatchMutationInstruction] = []
-    @State private var isApplying = false
-    @State private var isUndoing = false
-    @State private var errorMessage: String?
-    @State private var snackbar: SnackbarData?
-    @State private var emptyStateAppeared = false
+    @StateObject private var viewModel: OverdueRescueViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
-
-    private var allRecommendations: [EvaRescueRecommendation] {
-        guard let plan else { return [] }
-        return plan.doToday + plan.move + plan.split + plan.dropCandidate
+    init(
+        plan: EvaRescuePlan?,
+        tasksByID: [UUID: TaskDefinition],
+        projectsByID: [UUID: Project],
+        referenceDate: Date = Date(),
+        lastBatchRunID: UUID?,
+        bottomInset: CGFloat = 0,
+        onClose: @escaping () -> Void = {},
+        onExit: @escaping () -> Void = {},
+        onUpdate: @escaping @Sendable (UpdateTaskDefinitionRequest, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
+        onDelete: @escaping @Sendable (UUID, @escaping @Sendable (Result<Void, Error>) -> Void) -> Void,
+        onRestore: @escaping @Sendable (TaskDefinition, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
+        onApply: @escaping @Sendable ([EvaBatchMutationInstruction], @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void,
+        onUndo: @escaping @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void,
+        onTrack: @escaping (String, [String: Any]) -> Void
+    ) {
+        self.plan = plan
+        self.tasksByID = tasksByID
+        self.projectsByID = projectsByID
+        self.referenceDate = referenceDate
+        self.lastBatchRunID = lastBatchRunID
+        self.bottomInset = bottomInset
+        self.onClose = onClose
+        self.onExit = onExit
+        self.onUpdate = onUpdate
+        self.onDelete = onDelete
+        self.onRestore = onRestore
+        self.onApply = onApply
+        self.onUndo = onUndo
+        self.onTrack = onTrack
+        _viewModel = StateObject(wrappedValue: OverdueRescueViewModel(
+            plan: plan,
+            tasksByID: tasksByID,
+            projectsByID: projectsByID,
+            referenceDate: referenceDate,
+            onUpdate: onUpdate,
+            onDelete: onDelete,
+            onRestore: onRestore,
+            onApplyBulk: onApply,
+            onUndoBulk: onUndo,
+            onTrack: onTrack
+        ))
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                if let plan {
-                    // 7B: Debt level header
-                    VStack(alignment: .leading, spacing: spacing.s8) {
-                        HStack {
-                            Text("Debt: \(plan.debtLevel.rawValue.capitalized)")
-                                .font(.lifeboard(.title3))
-                                .foregroundColor(debtLevelColor(plan.debtLevel))
-                            Spacer()
-                            Text("\(allRecommendations.count)")
-                                .font(.lifeboard(.caption1))
-                                .foregroundColor(Color.lifeboard.textSecondary)
-                                .contentTransition(.numericText())
-                                .padding(.horizontal, spacing.s8)
-                                .padding(.vertical, spacing.s4)
-                                .background(Color.lifeboard.surfaceSecondary)
-                                .clipShape(Capsule())
-                            Text("overdue")
-                                .font(.lifeboard(.caption2))
-                                .foregroundColor(Color.lifeboard.textTertiary)
-                        }
+        ZStack {
+            OverdueRescueBackground()
 
-                        // 7B: Debt progress bar
-                        LifeBoardProgressBar(
-                            progress: min(plan.debtScore / 100.0, 1.0),
-                            colors: [debtLevelColor(plan.debtLevel), debtLevelColor(plan.debtLevel)],
-                            trackColor: Color.lifeboard.surfaceSecondary,
-                            height: 6
-                        )
-
-                        if let errorMessage {
-                            Text(errorMessage)
-                                .font(.lifeboard(.caption2))
-                                .foregroundColor(Color.lifeboard.statusDanger)
-                        }
-                    }
-                    .padding(.horizontal, spacing.s16)
-                    .padding(.top, spacing.s12)
-                    .enhancedStaggeredAppearance(index: 0)
-
-                    Divider()
-
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: spacing.s16) {
-                            rescueGroup(title: "Do today", icon: "flame.fill", iconColor: Color.lifeboard.statusWarning, items: plan.doToday, startIndex: 0)
-                            rescueGroup(title: "Move", icon: "calendar.badge.clock", iconColor: Color.lifeboard.accentPrimary, items: plan.move, startIndex: plan.doToday.count)
-                            rescueGroup(title: "Split", icon: "scissors", iconColor: Color.lifeboard.priorityHigh, items: plan.split, startIndex: plan.doToday.count + plan.move.count)
-                            rescueGroup(title: "Drop?", icon: "trash", iconColor: Color.lifeboard.statusDanger, items: plan.dropCandidate, startIndex: plan.doToday.count + plan.move.count + plan.split.count)
-                        }
-                        .padding(.horizontal, spacing.s16)
-                        .padding(.top, spacing.s12)
-                        .padding(.bottom, spacing.s24)
-                    }
-
-                    Divider()
-                    stickyRescueActionBar(plan: plan)
-                } else {
-                    // 7I: Empty state
-                    VStack(spacing: spacing.s16) {
-                        Spacer()
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 48))
-                            .foregroundColor(Color.lifeboard.statusSuccess)
-                            .breathingPulse(min: 0.7, max: 1.0, duration: 2.0)
-                            .scaleEffect(emptyStateAppeared ? 1.0 : 0.3)
-                            .animation(LifeBoardAnimation.expressive, value: emptyStateAppeared)
-                        Text("All caught up!")
-                            .font(.lifeboard(.title3))
-                            .foregroundColor(Color.lifeboard.textPrimary)
-                            .opacity(emptyStateAppeared ? 1.0 : 0)
-                            .animation(LifeBoardAnimation.expressive.delay(0.1), value: emptyStateAppeared)
-                        Text("No overdue tasks to rescue.")
-                            .font(.lifeboard(.body))
-                            .foregroundColor(Color.lifeboard.textSecondary)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(spacing.s16)
-                    .onAppear { emptyStateAppeared = true }
+            switch viewModel.state {
+            case .paused:
+                OverdueRescuePauseView(viewModel: viewModel, bottomInset: bottomInset, onDismiss: onClose)
+            case .completed:
+                OverdueRescueCompletionView(summary: viewModel.summary, remaining: viewModel.totalRemainingCount, bottomInset: bottomInset) {
+                    viewModel.finishAndClearSession()
+                    onExit()
+                } reviewRemaining: {
+                    viewModel.startManualReview()
                 }
-            }
-            .background(Color.lifeboard.bgCanvas)
-            .navigationTitle("Rescue")
-            .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                initializeDefaults()
-            }
-            .alert("Apply drop actions?", isPresented: $showDropConfirm) {
-                Button("Apply", role: .destructive) {
-                    runApply(mutations: pendingMutations)
-                    pendingMutations = []
+            case .error:
+                OverdueRescueErrorView(message: viewModel.errorMessage ?? "Something went wrong while updating the rescue deck.") {
+                    viewModel.startManualReview()
+                } close: {
+                    onExit()
                 }
-                Button("Cancel", role: .cancel) {
-                    pendingMutations = []
-                }
-            } message: {
-                Text("Tasks marked Drop? will be moved to Inbox and their due dates cleared.")
+            default:
+                OverdueRescueDeckView(viewModel: viewModel, bottomInset: bottomInset, close: {
+                    viewModel.pause()
+                    onClose()
+                })
             }
         }
-        .lifeboardSnackbar($snackbar)
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .lifeboardSnackbar($viewModel.snackbar)
+        .confirmationDialog("Delete this task?", isPresented: Binding(
+            get: { viewModel.state == .confirmingDelete },
+            set: { if !$0 { viewModel.cancelDelete() } }
+        ), titleVisibility: .visible) {
+            Button("Delete task", role: .destructive) {
+                viewModel.confirmDelete()
+            }
+            Button("Cancel", role: .cancel) {
+                viewModel.cancelDelete()
+            }
+        } message: {
+            Text("This removes it from your board. You can undo right after deleting.")
+        }
+        .sheet(isPresented: Binding(
+            get: { viewModel.state == .editing },
+            set: { if !$0 { viewModel.cancelEdit() } }
+        )) {
+            if let card = viewModel.currentCard {
+                OverdueRescueQuickEditSheet(
+                    card: card,
+                    projects: Array(projectsByID.values).sorted { $0.name < $1.name },
+                    save: { viewModel.saveEdit(draft: $0) },
+                    cancel: { viewModel.cancelEdit() }
+                )
+            }
+        }
+        .sheet(isPresented: $viewModel.showSafeFixesConfirmation) {
+            OverdueRescueSafeFixesView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $viewModel.showLargeStackPreflight) {
+            OverdueRescueLargeStackView(
+                count: viewModel.allCount,
+                safeCount: viewModel.safeFixes.count,
+                applySafeFixes: {
+                    viewModel.showLargeStackPreflight = false
+                    viewModel.showSafeFixesConfirmation = true
+                },
+                startManualReview: viewModel.startManualReview
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            viewModel.pause()
+        }
+        .accessibilityIdentifier("home.rescue.overlay")
     }
+}
 
-    private func debtLevelColor(_ level: EvaDebtLevel) -> Color {
-        switch level {
-        case .none: return Color.lifeboard.statusSuccess
-        case .low: return Color.lifeboard.accentPrimary
-        case .medium: return Color.lifeboard.statusWarning
-        case .high: return Color.lifeboard.statusDanger
+private struct OverdueRescueDeckView: View {
+    @ObservedObject var viewModel: OverdueRescueViewModel
+    let bottomInset: CGFloat
+    let close: () -> Void
+
+    @GestureState private var dragTranslation: CGSize = .zero
+    @State private var commitOffset: CGSize = .zero
+    @State private var viewportSize: CGSize = CGSize(width: 390, height: 844)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let metrics = OverdueRescueDeckLayoutMetrics.make(
+            size: viewportSize,
+            bottomInset: bottomInset,
+            dynamicTypeSize: dynamicTypeSize
+        )
+
+        ViewThatFits(in: .vertical) {
+            deckContent(metrics: metrics, scrollFallback: false)
+            ScrollView(.vertical, showsIndicators: false) {
+                deckContent(metrics: metrics, scrollFallback: true)
+            }
+        }
+        .onGeometryChange(for: CGSize.self) { proxy in
+            proxy.size
+        } action: { newSize in
+            viewportSize = newSize
         }
     }
 
-    private func stickyRescueActionBar(plan: EvaRescuePlan) -> some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            if buildMutations(plan: plan).isEmpty {
-                Text("Select at least one Today, Move, or Drop action to apply.")
-                    .font(.lifeboard(.caption2))
-                    .foregroundColor(Color.lifeboard.textSecondary)
+    private func deckContent(metrics: OverdueRescueDeckLayoutMetrics, scrollFallback: Bool) -> some View {
+        VStack(spacing: 0) {
+            header(metrics: metrics)
+                .padding(.top, scrollFallback ? 18 : 14)
+
+            if scrollFallback {
+                Color.clear.frame(height: 18)
+            } else {
+                Spacer(minLength: 10)
             }
 
-            HStack(spacing: spacing.s8) {
-                // 7H: Apply plan - primary filled
-                Button {
-                    let mutations = buildMutations(plan: plan)
-                    if hasDropSelection(plan: plan) {
-                        pendingMutations = mutations
-                        showDropConfirm = true
-                    } else {
-                        runApply(mutations: mutations)
-                    }
-                } label: {
-                    Text("Apply plan")
-                        .font(.lifeboard(.button))
-                        .foregroundColor(Color.lifeboard.accentOnPrimary)
-                        .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
-                        .background(
-                            (isApplying || buildMutations(plan: plan).isEmpty)
-                                ? Color.lifeboard.accentMuted
-                                : Color.lifeboard.accentPrimary
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: corner.r2))
+            if let card = viewModel.currentCard {
+                let drag = activeDragResolution(metrics: metrics)
+                ZStack(alignment: .bottom) {
+                    OverdueRescueRevealPanel(
+                        reveal: drag.reveal,
+                        progress: drag.progress,
+                        card: card,
+                        metrics: metrics
+                    )
+                    OverdueRescueCardStack(
+                        card: card,
+                        dragOffset: activeCardOffset(metrics: metrics),
+                        tiltDegrees: drag.tiltDegrees,
+                        metrics: metrics
+                    )
+                    .gesture(cardGesture(metrics: metrics), including: voiceOverEnabled ? .subviews : .all)
                 }
-                .buttonStyle(.plain)
-                .scaleOnPress()
-                .disabled(isApplying || buildMutations(plan: plan).isEmpty)
-
-                // 7H: Undo - outline
-                if lastBatchRunID != nil {
-                    Button {
-                        isUndoing = true
-                        onTrack("rescue_undo_tap", [:])
-                        onUndo { result in
-                            Task { @MainActor in
-                                isUndoing = false
-                                switch result {
-                                case .success:
-                                    snackbar = SnackbarData(message: "Rescue plan undone")
-                                    LifeBoardFeedback.success()
-                                case .failure(let error):
-                                    errorMessage = error.localizedDescription
-                                }
-                            }
-                        }
-                    } label: {
-                        Text("Undo")
-                            .font(.lifeboard(.buttonSmall))
-                            .foregroundColor(Color.lifeboard.textSecondary)
-                            .frame(minWidth: 64, minHeight: spacing.buttonHeight)
-                            .background(
-                                RoundedRectangle(cornerRadius: corner.r2)
-                                    .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .scaleOnPress()
-                    .disabled(isApplying || isUndoing)
+                .frame(maxWidth: .infinity)
+                .frame(height: metrics.deckHeight)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Overdue Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: Keep today, \(card.moveButtonTitle), Edit, Delete.")
+                .accessibilityAction(named: Text("Keep today")) {
+                    viewModel.keepToday(source: .tap)
                 }
-            }
-        }
-        .padding(.horizontal, spacing.s16)
-        .padding(.top, spacing.s12)
-        .padding(.bottom, spacing.s12)
-        .background(Color.lifeboard.surfacePrimary)
-    }
+                .accessibilityAction(named: Text(card.moveButtonTitle)) {
+                    viewModel.moveLater(source: .tap)
+                }
+                .accessibilityAction(named: Text("Edit")) {
+                    viewModel.requestEdit()
+                }
 
-    @ViewBuilder
-    private func rescueGroup(title: String, icon: String, iconColor: Color, items: [EvaRescueRecommendation], startIndex: Int) -> some View {
-        if items.isEmpty == false {
-            // 7C: Group header with icon and count badge
-            HStack(spacing: spacing.s8) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundColor(iconColor)
-                Text(title)
-                    .font(.lifeboard(.callout))
-                    .foregroundColor(Color.lifeboard.textPrimary)
-                Text("\(items.count)")
-                    .font(.lifeboard(.caption2))
-                    .foregroundColor(Color.lifeboard.textSecondary)
-                    .padding(.horizontal, spacing.s8)
-                    .padding(.vertical, spacing.s2)
-                    .background(Color.lifeboard.surfaceSecondary)
-                    .clipShape(Capsule())
+                OverdueRescueSwipeHint(
+                    reveal: drag.reveal,
+                    progress: drag.progress,
+                    moveTitle: card.moveButtonTitle
+                )
+                .padding(.top, 8)
+
+                OverdueRescueActionGrid(
+                    moveTitle: card.moveButtonTitle,
+                    metrics: metrics,
+                    keep: { viewModel.keepToday(source: .tap) },
+                    move: { viewModel.moveLater(source: .tap) },
+                    edit: viewModel.requestEdit,
+                    delete: viewModel.requestDelete
+                )
+                .frame(width: metrics.contentWidth)
+                .padding(.top, 16)
+            } else {
                 Spacer()
             }
 
-            ForEach(Array(items.enumerated()), id: \.element.taskID) { index, item in
-                let selectedAction = selectedActionByTaskID[item.taskID] ?? item.action
-                let splitState = splitStateByTaskID[item.taskID] ?? EvaRescueSplitComposerState()
-                let task = tasksByID[item.taskID]
-
-                // 7D: Rescue item card
-                HStack(spacing: 0) {
-                    // Priority stripe
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(rescuePriorityColor(for: task?.priority))
-                        .frame(width: 4)
-                        .padding(.vertical, spacing.s8)
-
-                    VStack(alignment: .leading, spacing: spacing.s8) {
-                        HStack(spacing: spacing.s8) {
-                            Text(task?.title ?? "Task")
-                                .font(.lifeboard(.body))
-                                .foregroundColor(Color.lifeboard.textPrimary)
-                                .lineLimit(2)
-
-                            Spacer()
-
-                            // 7D: Confidence badge
-                            Text(confidenceText(for: item.confidence))
-                                .font(.lifeboard(.caption2))
-                                .foregroundColor(rescueConfidenceBadgeTextColor(item.confidence))
-                                .padding(.horizontal, spacing.s8)
-                                .padding(.vertical, spacing.s4)
-                                .background(rescueConfidenceBadgeColor(item.confidence))
-                                .clipShape(Capsule())
-                        }
-
-                        // 7D: Overdue age badge + reason pills
-                        HStack(spacing: spacing.s4) {
-                            if let dueDate = task?.dueDate, dueDate < Date() {
-                                let daysOverdue = max(0, Calendar.current.dateComponents([.day], from: dueDate, to: Date()).day ?? 0)
-                                Text("\(daysOverdue)d overdue")
-                                    .font(.lifeboard(.caption2))
-                                    .foregroundColor(Color.lifeboard.statusDanger)
-                                    .padding(.horizontal, spacing.s8)
-                                    .padding(.vertical, spacing.s2)
-                                    .background(Color.lifeboard.statusDanger.opacity(0.12))
-                                    .clipShape(Capsule())
-                            }
-                        }
-
-                        // 7D: Reason pills
-                        if !item.reasons.isEmpty {
-                            HStack(spacing: spacing.s4) {
-                                ForEach(item.reasons, id: \.self) { reason in
-                                    Text(reason)
-                                        .font(.lifeboard(.caption2))
-                                        .foregroundColor(Color.lifeboard.textTertiary)
-                                        .padding(.horizontal, spacing.s8)
-                                        .padding(.vertical, spacing.s2)
-                                        .background(Color.lifeboard.surfaceSecondary)
-                                        .clipShape(Capsule())
-                                }
-                            }
-                        }
-
-                        // 7E: Action chip row
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: spacing.s8) {
-                                rescueActionChip(item: item, action: .doToday, selectedAction: selectedAction)
-                                rescueActionChip(item: item, action: .move, selectedAction: selectedAction)
-                                rescueActionChip(item: item, action: .split, selectedAction: selectedAction)
-                                rescueActionChip(item: item, action: .dropCandidate, selectedAction: selectedAction)
-                            }
-                        }
-
-                        // 7F: Move choice row
-                        if selectedAction == .move {
-                            moveChoiceRow(for: item)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
-
-                        if selectedAction == .split {
-                            splitComposer(for: item, state: splitState)
-                        }
-
-                        if splitState.completed {
-                            HStack(spacing: spacing.s4) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(Color.lifeboard.statusSuccess)
-                                Text("Split done")
-                                    .font(.lifeboard(.caption2))
-                                    .foregroundColor(Color.lifeboard.accentPrimary)
-                            }
-                        }
-                    }
-                    .padding(spacing.s12)
-                }
-                .lifeboardDenseSurface(
-                    cornerRadius: corner.r2,
-                    fillColor: Color.lifeboard.surfacePrimary,
-                    strokeColor: Color.lifeboard.strokeHairline
-                )
-                .enhancedStaggeredAppearance(index: startIndex + index + 1)
-            }
-        }
-    }
-
-    private func rescuePriorityColor(for priority: TaskPriority?) -> Color {
-        guard let priority else { return Color.lifeboard.priorityNone }
-        switch priority {
-        case .max: return Color.lifeboard.priorityMax
-        case .high: return Color.lifeboard.priorityHigh
-        case .low: return Color.lifeboard.priorityLow
-        case .none: return Color.lifeboard.priorityNone
-        }
-    }
-
-    private func rescueConfidenceBadgeColor(_ value: Double) -> Color {
-        switch value {
-        case 0.75...: return Color.lifeboard.statusSuccess.opacity(0.15)
-        case 0.45..<0.75: return Color.lifeboard.statusWarning.opacity(0.15)
-        default: return Color.lifeboard.textTertiary.opacity(0.12)
-        }
-    }
-
-    private func rescueConfidenceBadgeTextColor(_ value: Double) -> Color {
-        switch value {
-        case 0.75...: return Color.lifeboard.statusSuccess
-        case 0.45..<0.75: return Color.lifeboard.statusWarning
-        default: return Color.lifeboard.textTertiary
-        }
-    }
-
-    private func moveChoiceRow(for item: EvaRescueRecommendation) -> some View {
-        let selectedChoice = moveChoiceByTaskID[item.taskID] ?? .tomorrow
-        return VStack(alignment: .leading, spacing: spacing.s8) {
-            HStack(spacing: spacing.s8) {
-                ForEach(EvaRescueMoveChoice.allCases, id: \.self) { choice in
-                    Button {
-                        withAnimation(LifeBoardAnimation.quick) {
-                            moveChoiceByTaskID[item.taskID] = choice
-                        }
-                        onTrack("rescue_action_changed", [
-                            "task_id": item.taskID.uuidString,
-                            "action": "move_\(choice.rawValue)"
-                        ])
-                        LifeBoardFeedback.selection()
-                    } label: {
-                        Text(choice.title)
-                            .font(.lifeboard(.caption2))
-                            .foregroundColor(selectedChoice == choice ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
-                            .padding(.horizontal, spacing.s12)
-                            .frame(minHeight: 36)
-                            .background(selectedChoice == choice ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .scaleOnPress()
-                }
-            }
-
-            if selectedChoice == .custom {
-                let selectedDate = customMoveDateByTaskID[item.taskID] ?? Calendar.current.startOfDay(for: Date())
-                DatePicker(
-                    "Move date",
-                    selection: Binding(
-                        get: { selectedDate },
-                        set: { customMoveDateByTaskID[item.taskID] = Calendar.current.startOfDay(for: $0) }
-                    ),
-                    displayedComponents: .date
-                )
-                .datePickerStyle(.compact)
-                .frame(minHeight: 44)
-                .padding(spacing.s8)
-                .background(Color.lifeboard.surfaceSecondary)
-                .clipShape(RoundedRectangle(cornerRadius: corner.r2))
-                .tint(Color.lifeboard.accentPrimary)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-    }
-
-    // 7G: Split composer
-    private func splitComposer(for item: EvaRescueRecommendation, state: EvaRescueSplitComposerState) -> some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            if !state.isOpen {
-                Button {
-                    var next = state
-                    next.isOpen = true
-                    splitStateByTaskID[item.taskID] = next
-                    onTrack("rescue_split_open", [
-                        "task_id": item.taskID.uuidString
-                    ])
-                    LifeBoardFeedback.selection()
-                } label: {
-                    Text("Open split helper")
-                        .font(.lifeboard(.buttonSmall))
-                        .foregroundColor(Color.lifeboard.textSecondary)
-                        .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
-                        .background(
-                            RoundedRectangle(cornerRadius: corner.r2)
-                                .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-                .scaleOnPress()
+            if scrollFallback {
+                Color.clear.frame(height: metrics.bottomClearance + 22)
             } else {
-                VStack(alignment: .leading, spacing: spacing.s8) {
-                    ForEach(Array(state.childTitles.enumerated()), id: \.offset) { index, title in
-                        TextField(
-                            "Subtask \(index + 1)",
-                            text: Binding(
-                                get: { splitStateByTaskID[item.taskID]?.childTitles[safe: index] ?? title },
-                                set: { newValue in
-                                    var next = splitStateByTaskID[item.taskID] ?? state
-                                    guard next.childTitles.indices.contains(index) else { return }
-                                    next.childTitles[index] = newValue
-                                    splitStateByTaskID[item.taskID] = next
-                                }
-                            )
-                        )
-                        .textInputAutocapitalization(.sentences)
-                        .font(.lifeboard(.caption1))
-                        .padding(.horizontal, spacing.s12)
-                        .frame(minHeight: 40)
-                        .background(Color.lifeboard.surfacePrimary)
-                        .clipShape(RoundedRectangle(cornerRadius: corner.r1))
-                    }
+                Spacer(minLength: 12)
+                Color.clear.frame(height: metrics.bottomClearance)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
 
-                    if state.childTitles.count < 3 {
-                        Button {
-                            withAnimation(LifeBoardAnimation.bouncy) {
-                                var next = splitStateByTaskID[item.taskID] ?? state
-                                next.childTitles.append("")
-                                splitStateByTaskID[item.taskID] = next
-                            }
-                        } label: {
-                            HStack(spacing: spacing.s4) {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(Color.lifeboard.accentPrimary)
-                                Text("Add child")
-                                    .font(.lifeboard(.caption1))
-                                    .foregroundColor(Color.lifeboard.accentPrimary)
-                            }
-                            .frame(minHeight: 36)
+    private func header(metrics: OverdueRescueDeckLayoutMetrics) -> some View {
+        VStack(spacing: 14) {
+            HStack {
+                Button("Close", systemImage: "xmark") {
+                    close()
+                }
+                .labelStyle(.iconOnly)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(Color.lifeboard.textPrimary)
+                .frame(width: 58, height: 58)
+                .background(Circle().fill(Color.white.opacity(0.82)))
+                .accessibilityLabel("Close rescue")
+
+                Spacer()
+
+                Menu {
+                    if viewModel.safeFixes.isEmpty == false {
+                        Button("Apply high-confidence fixes") {
+                            viewModel.showSafeFixesConfirmation = true
                         }
-                        .buttonStyle(.plain)
                     }
-
-                    HStack(spacing: spacing.s8) {
-                        splitDueChip(item: item, title: "No due", preset: nil, state: state)
-                        splitDueChip(item: item, title: "Tomorrow", preset: .tomorrow, state: state)
-                        splitDueChip(item: item, title: "Weekend", preset: .weekendSaturday, state: state)
+                    Button("Pause rescue") {
+                        viewModel.pause()
                     }
-
-                    if let splitError = state.errorMessage {
-                        Text(splitError)
-                            .font(.lifeboard(.caption2))
-                            .foregroundColor(Color.lifeboard.statusDanger)
+                    Button("Restart sprint") {
+                        viewModel.startManualReview()
                     }
-
-                    Button {
-                        runSplitCreation(for: item, state: state)
-                    } label: {
-                        Text("Create subtasks")
-                            .font(.lifeboard(.button))
-                            .foregroundColor(Color.lifeboard.accentOnPrimary)
-                            .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
-                            .background(
-                                (state.isCreating || validSplitTitles(state).count < 2)
-                                    ? Color.lifeboard.accentMuted
-                                    : Color.lifeboard.accentPrimary
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: corner.r2))
-                    }
-                    .buttonStyle(.plain)
-                    .scaleOnPress()
-                    .disabled(state.isCreating || validSplitTitles(state).count < 2)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .frame(width: 58, height: 58)
+                        .background(Circle().fill(Color.white.opacity(0.82)))
                 }
-                .padding(spacing.s12)
-                .background(Color.lifeboard.surfaceSecondary)
-                .clipShape(RoundedRectangle(cornerRadius: corner.r2))
+                    .accessibilityLabel("More rescue actions")
             }
-        }
-    }
+            .padding(.horizontal, 28)
 
-    private func splitDueChip(
-        item: EvaRescueRecommendation,
-        title: String,
-        preset: EvaTriageDeferPreset?,
-        state: EvaRescueSplitComposerState
-    ) -> some View {
-        let isSelected = state.duePreset == preset
-        return Button {
-            withAnimation(LifeBoardAnimation.quick) {
-                var next = splitStateByTaskID[item.taskID] ?? state
-                next.duePreset = preset
-                splitStateByTaskID[item.taskID] = next
-            }
-            LifeBoardFeedback.selection()
-        } label: {
-            Text(title)
-                .font(.lifeboard(.caption2))
-                .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
-                .padding(.horizontal, spacing.s12)
-                .frame(minHeight: 36)
-                .background(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
-                .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .scaleOnPress()
-    }
-
-    // 7E: Action chip with icon
-    private func rescueActionChip(
-        item: EvaRescueRecommendation,
-        action: EvaRescueActionType,
-        selectedAction: EvaRescueActionType
-    ) -> some View {
-        let isSelected = selectedAction == action
-        return Button {
-            withAnimation(LifeBoardAnimation.quick) {
-                selectedActionByTaskID[item.taskID] = action
-            }
-            onTrack("rescue_action_changed", [
-                "task_id": item.taskID.uuidString,
-                "action": action.rawValue
-            ])
-            LifeBoardFeedback.selection()
-        } label: {
-            HStack(spacing: spacing.s4) {
-                Image(systemName: rescueActionIcon(for: action))
-                    .font(.system(size: 11))
-                Text(actionTitle(for: action))
-                    .font(.lifeboard(.caption2))
-            }
-            .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
-            .padding(.horizontal, spacing.s12)
-            .frame(minHeight: 36)
-            .background(
-                isSelected
-                    ? Color.lifeboard.accentPrimary
-                    : Color.lifeboard.surfaceSecondary
-            )
-            .overlay(
-                Capsule()
-                    .stroke(isSelected ? Color.clear : Color.lifeboard.strokeHairline, lineWidth: 1)
-            )
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .scaleOnPress()
-        .activeGlow(isActive: isSelected, color: Color.lifeboard.accentPrimary)
-        .accessibilityLabel(actionTitle(for: action))
-        .accessibilityValue(isSelected ? "Selected" : "Not selected")
-    }
-
-    private func rescueActionIcon(for action: EvaRescueActionType) -> String {
-        switch action {
-        case .doToday: return "flame.fill"
-        case .move: return "calendar"
-        case .split: return "scissors"
-        case .dropCandidate: return "trash"
-        }
-    }
-
-    private func runSplitCreation(for item: EvaRescueRecommendation, state: EvaRescueSplitComposerState) {
-        var next = state
-        next.isCreating = true
-        next.errorMessage = nil
-        splitStateByTaskID[item.taskID] = next
-
-        let draft = EvaSplitDraft(
-            parentTaskID: item.taskID,
-            children: validSplitTitles(state).map { EvaSplitDraftChild(title: $0) },
-            childDuePreset: state.duePreset,
-            createStatus: .creating,
-            createdChildIDs: []
-        )
-
-        onCreateSplit(item.taskID, draft) { result in
-            Task { @MainActor in
-                var updated = splitStateByTaskID[item.taskID] ?? state
-                updated.isCreating = false
-                switch result {
-                case .success(let createdChildren):
-                    let createdIDs = createdChildren.map(\.id)
-                    updated.completed = true
-                    updated.createdChildIDs = createdIDs
-                    updated.errorMessage = nil
-                    splitStateByTaskID[item.taskID] = updated
-                    snackbar = SnackbarData(
-                        message: "Split created (\(createdIDs.count))",
-                        actions: [
-                            SnackbarAction(title: "Undo") {
-                                onUndoSplit(createdIDs) { undoResult in
-                                    Task { @MainActor in
-                                        switch undoResult {
-                                        case .success:
-                                            var reset = splitStateByTaskID[item.taskID] ?? updated
-                                            reset.completed = false
-                                            reset.createdChildIDs = []
-                                            splitStateByTaskID[item.taskID] = reset
-                                        case .failure(let error):
-                                            errorMessage = error.localizedDescription
-                                        }
-                                    }
-                                }
-                            }
-                        ]
-                    )
-                    LifeBoardFeedback.success()
-                case .failure(let error):
-                    updated.errorMessage = error.localizedDescription
-                    splitStateByTaskID[item.taskID] = updated
-                    errorMessage = error.localizedDescription
-                }
-            }
-        }
-    }
-
-    private func validSplitTitles(_ state: EvaRescueSplitComposerState) -> [String] {
-        state.childTitles.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-    }
-
-    private func runApply(mutations: [EvaBatchMutationInstruction]) {
-        guard mutations.isEmpty == false else {
-            errorMessage = "No rescue changes selected."
-            return
-        }
-        isApplying = true
-        errorMessage = nil
-        onTrack("rescue_apply_tap", ["mutation_count": mutations.count])
-        onApply(mutations) { result in
-            Task { @MainActor in
-                isApplying = false
-                switch result {
-                case .success:
-                    snackbar = SnackbarData(
-                        message: "Rescue plan applied",
-                        actions: [
-                            SnackbarAction(title: "Undo") {
-                                onUndo { undoResult in
-                                    Task { @MainActor in
-                                        switch undoResult {
-                                        case .success:
-                                            snackbar = SnackbarData(message: "Rescue plan undone")
-                                        case .failure(let error):
-                                            errorMessage = error.localizedDescription
-                                        }
-                                    }
-                                }
-                            }
-                        ]
-                    )
-                    LifeBoardFeedback.success()
-                case .failure(let error):
-                    errorMessage = error.localizedDescription
-                }
-            }
-        }
-    }
-
-    private func initializeDefaults() {
-        guard let plan else { return }
-        var defaults: [UUID: EvaRescueActionType] = [:]
-        for item in plan.doToday { defaults[item.taskID] = .doToday }
-        for item in plan.move { defaults[item.taskID] = .move }
-        for item in plan.split { defaults[item.taskID] = .split }
-        for item in plan.dropCandidate { defaults[item.taskID] = .dropCandidate }
-        selectedActionByTaskID = defaults
-
-        for item in plan.move {
-            moveChoiceByTaskID[item.taskID] = .tomorrow
-            if let toDate = item.toDate {
-                customMoveDateByTaskID[item.taskID] = toDate
-            }
-        }
-    }
-
-    private func actionTitle(for action: EvaRescueActionType) -> String {
-        switch action {
-        case .doToday: return "Today"
-        case .move: return "Move"
-        case .split: return "Split"
-        case .dropCandidate: return "Drop"
-        }
-    }
-
-    private func confidenceText(for confidence: Double) -> String {
-        switch confidence {
-        case 0.75...:
-            return "High"
-        case 0.45..<0.75:
-            return "Medium"
-        default:
-            return "Low"
-        }
-    }
-
-    private func buildMutations(plan: EvaRescuePlan) -> [EvaBatchMutationInstruction] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let recommendations = plan.doToday + plan.move + plan.split + plan.dropCandidate
-
-        return recommendations.compactMap { item in
-            let selected = selectedActionByTaskID[item.taskID] ?? item.action
-            switch selected {
-            case .doToday:
-                return EvaBatchMutationInstruction(taskID: item.taskID, dueDate: today)
-            case .move:
-                let choice = moveChoiceByTaskID[item.taskID] ?? .tomorrow
-                let dueDate: Date?
-                switch choice {
-                case .tomorrow:
-                    dueDate = calendar.date(byAdding: .day, value: 1, to: today)
-                case .weekend:
-                    dueDate = EvaTriageDeferPreset.weekendSaturday.resolveDueDate()
-                case .custom:
-                    dueDate = customMoveDateByTaskID[item.taskID] ?? item.toDate ?? calendar.date(byAdding: .day, value: 1, to: today)
-                }
-                return EvaBatchMutationInstruction(taskID: item.taskID, dueDate: dueDate)
-            case .dropCandidate:
-                return EvaBatchMutationInstruction(
-                    taskID: item.taskID,
-                    projectID: ProjectConstants.inboxProjectID,
-                    clearDueDate: true
+            VStack(spacing: 7) {
+                Text("Overdue Rescue")
+                    .font(.lifeboard(.title2))
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                Text("Swipe or tap to sort what still matters.")
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .multilineTextAlignment(.center)
+                Text(viewModel.progressText)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .padding(.top, 12)
+                LifeBoardProgressBar(
+                    progress: viewModel.progress,
+                    colors: [Color.lifeboard.accentPrimary, Color.lifeboard.statusWarning],
+                    trackColor: Color.lifeboard.strokeHairline.opacity(0.65),
+                    height: 7
                 )
-            case .split:
-                return nil
+                .frame(width: metrics.progressWidth)
             }
         }
     }
 
-    private func hasDropSelection(plan: EvaRescuePlan) -> Bool {
-        let recommendations = plan.doToday + plan.move + plan.split + plan.dropCandidate
-        return recommendations.contains { item in
-            (selectedActionByTaskID[item.taskID] ?? item.action) == .dropCandidate
+    private func cardGesture(metrics: OverdueRescueDeckLayoutMetrics) -> some Gesture {
+        DragGesture(minimumDistance: 12)
+            .updating($dragTranslation) { value, state, _ in
+                state = value.translation
+            }
+            .onEnded { value in
+                if let action = OverdueRescueDragResolver.commitAction(
+                    for: value.translation,
+                    cardWidth: metrics.cardWidth
+                ) {
+                    commitDrag(action, metrics: metrics)
+                } else {
+                    withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.stateChange) {
+                        commitOffset = .zero
+                    }
+                }
+            }
+    }
+
+    private func activeDragResolution(metrics: OverdueRescueDeckLayoutMetrics) -> OverdueRescueDragResolution {
+        if commitOffset != .zero {
+            return OverdueRescueDragResolution(
+                reveal: commitOffset.width > 0 ? .keep : .move,
+                progress: 1,
+                visibleOffset: commitOffset,
+                commitAction: commitOffset.width > 0 ? .keepToday : .moveLater,
+                tiltDegrees: reduceMotion ? 0 : Double(max(-8, min(8, commitOffset.width / metrics.cardWidth * 9)))
+            )
+        }
+        return OverdueRescueDragResolver.resolve(
+            translation: dragTranslation,
+            cardWidth: metrics.cardWidth,
+            reduceMotion: reduceMotion
+        )
+    }
+
+    private func activeCardOffset(metrics: OverdueRescueDeckLayoutMetrics) -> CGSize {
+        activeDragResolution(metrics: metrics).visibleOffset
+    }
+
+    private func commitDrag(_ action: OverdueRescueDecisionAction, metrics: OverdueRescueDeckLayoutMetrics) {
+        withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.panelOut) {
+            switch action {
+            case .keepToday:
+                commitOffset = CGSize(width: metrics.cardWidth + 220, height: 0)
+            case .moveLater:
+                commitOffset = CGSize(width: -metrics.cardWidth - 220, height: 0)
+            case .edit, .delete:
+                commitOffset = .zero
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.01 : 0.16)) {
+            commitOffset = .zero
+            switch action {
+            case .keepToday: viewModel.keepToday(source: .swipe)
+            case .moveLater: viewModel.moveLater(source: .swipe)
+            case .edit, .delete: break
+            }
         }
     }
 }
 
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        guard indices.contains(index) else { return nil }
-        return self[index]
+private struct OverdueRescueCardStack: View {
+    let card: OverdueRescueCardModel
+    let dragOffset: CGSize
+    let tiltDegrees: Double
+    let metrics: OverdueRescueDeckLayoutMetrics
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            ForEach(0..<4, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 34, style: .continuous)
+                    .fill(backCardColor(index))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 34, style: .continuous)
+                            .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                    )
+                    .frame(
+                        width: metrics.cardWidth - 18 + CGFloat(index * 8),
+                        height: metrics.cardHeight * 0.86
+                    )
+                    .offset(y: -metrics.cardHeight * 0.22 + CGFloat(index * 17))
+                    .rotationEffect(.degrees(Double(index - 1) * 1.2))
+                    .shadow(color: Color.black.opacity(0.035), radius: 16, y: 8)
+            }
+
+            OverdueRescueTaskCard(card: card)
+                .frame(width: metrics.cardWidth, height: metrics.cardHeight)
+                .offset(dragOffset)
+                .rotationEffect(.degrees(reduceMotion ? 0 : tiltDegrees))
+                .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: card.id)
+        }
+        .frame(width: metrics.cardWidth + 32, height: metrics.deckHeight, alignment: .bottom)
+    }
+
+    private func backCardColor(_ index: Int) -> Color {
+        switch index {
+        case 0: return Color(red: 1.0, green: 0.91, blue: 0.83)
+        case 1: return Color(red: 0.91, green: 0.96, blue: 1.0)
+        case 2: return Color(red: 0.94, green: 0.90, blue: 1.0)
+        default: return Color(red: 1.0, green: 0.96, blue: 0.80)
+        }
+    }
+}
+
+private struct OverdueRescueTaskCard: View {
+    let card: OverdueRescueCardModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(card.task.title)
+                        .font(.lifeboard(.title3))
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .lineLimit(4)
+                        .minimumScaleFactor(0.76)
+
+                    Label(card.projectLabel, systemImage: "folder")
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+
+                    Text(card.confidenceLabel)
+                        .font(.lifeboard(.caption1))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.lifeboard.accentPrimary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.lifeboard.accentPrimary.opacity(0.10)))
+                }
+                Spacer()
+                OverdueRescuePlant()
+                    .frame(width: 90, height: 110)
+                    .accessibilityHidden(true)
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(card.overdueText)
+                    .font(.lifeboard(.callout))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+                Text(card.reasonBody)
+                    .font(.lifeboard(.body))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .lineLimit(3)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.70))
+                    .shadow(color: Color.black.opacity(0.05), radius: 12, y: 6)
+            )
+        }
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(red: 1.0, green: 0.99, blue: 0.95), Color.white],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                        .stroke(Color(red: 0.96, green: 0.86, blue: 0.68), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.08), radius: 24, y: 12)
+        )
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 4) {
+                Image(systemName: "sparkle")
+                Image(systemName: "sparkle")
+                    .font(.caption)
+            }
+            .foregroundStyle(Color.lifeboard.statusWarning.opacity(0.75))
+            .padding(24)
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+private struct OverdueRescueRevealPanel: View {
+    let reveal: OverdueRescueSwipeRevealKind
+    let progress: Double
+    let card: OverdueRescueCardModel
+    let metrics: OverdueRescueDeckLayoutMetrics
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 34, style: .continuous)
+            .fill(panelColor.opacity(0.18 + 0.10 * easedProgress))
+            .frame(width: metrics.cardWidth, height: metrics.cardHeight)
+            .overlay(alignment: reveal == .keep ? .leading : .trailing) {
+                if reveal != .none {
+                    VStack(spacing: 14) {
+                        Image(systemName: icon)
+                            .font(.system(size: 48, weight: .semibold))
+                        Text(title)
+                            .font(.lifeboard(.title2))
+                            .fontWeight(.bold)
+                            .multilineTextAlignment(.center)
+                    }
+                    .foregroundStyle(panelForeground)
+                    .opacity(easedProgress)
+                    .scaleEffect(0.86 + 0.14 * easedProgress)
+                    .padding(.horizontal, 44)
+                }
+            }
+            .offset(x: panelOffsetX, y: 0)
+            .opacity(reveal == .none ? 0 : easedProgress)
+            .accessibilityHidden(true)
+    }
+
+    private var easedProgress: Double {
+        progress * progress * (3 - 2 * progress)
+    }
+
+    private var panelOffsetX: CGFloat {
+        switch reveal {
+        case .keep: return -metrics.cardWidth * 0.13
+        case .move: return metrics.cardWidth * 0.13
+        case .none: return 0
+        }
+    }
+
+    private var panelColor: Color {
+        switch reveal {
+        case .keep: return Color.lifeboard.statusSuccess
+        case .move: return Color.lifeboard.statusWarning
+        case .none: return .clear
+        }
+    }
+
+    private var panelForeground: Color {
+        switch reveal {
+        case .keep: return Color.lifeboard.statusSuccess
+        case .move: return Color.lifeboard.statusWarning
+        case .none: return Color.clear
+        }
+    }
+
+    private var title: String {
+        switch reveal {
+        case .keep: return "Keep\ntoday"
+        case .move: return card.moveButtonTitle.replacingOccurrences(of: " ", with: "\n")
+        case .none: return ""
+        }
+    }
+
+    private var icon: String {
+        switch reveal {
+        case .keep: return "checkmark.circle"
+        case .move: return "clock"
+        case .none: return "circle"
+        }
+    }
+}
+
+private struct OverdueRescueSwipeHint: View {
+    let reveal: OverdueRescueSwipeRevealKind
+    let progress: Double
+    let moveTitle: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+            Text(text)
+        }
+        .font(.lifeboard(.caption1))
+        .foregroundStyle(Color.lifeboard.textSecondary)
+        .frame(height: 24)
+        .accessibilityHidden(true)
+    }
+
+    private var icon: String {
+        switch reveal {
+        case .keep: return "hand.point.right"
+        case .move: return "hand.point.left"
+        case .none: return "hand.draw"
+        }
+    }
+
+    private var text: String {
+        switch reveal {
+        case .keep: return "Swipe right to keep"
+        case .move: return "Swipe left to \(moveTitle.lowercased())"
+        case .none: return "Swipe left or right or tap a choice below."
+        }
+    }
+}
+
+private struct OverdueRescueActionGrid: View {
+    let moveTitle: String
+    let metrics: OverdueRescueDeckLayoutMetrics
+    let keep: () -> Void
+    let move: () -> Void
+    let edit: () -> Void
+    let delete: () -> Void
+
+    var body: some View {
+        Group {
+            if metrics.actionGridUsesSingleColumn {
+                VStack(spacing: 12) {
+                    actionButton(title: "Keep today", icon: "checkmark.circle", color: Color.lifeboard.statusSuccess, action: keep)
+                    actionButton(title: moveTitle, icon: "clock", color: Color.lifeboard.statusWarning, action: move)
+                    actionButton(title: "Edit", icon: "pencil", color: Color.lifeboard.accentSecondary, action: edit)
+                    actionButton(title: "Delete", icon: "trash", color: Color.lifeboard.statusDanger, action: delete)
+                }
+            } else {
+                VStack(spacing: 14) {
+                    HStack(spacing: 14) {
+                        actionButton(title: "Keep today", icon: "checkmark.circle", color: Color.lifeboard.statusSuccess, action: keep)
+                        actionButton(title: moveTitle, icon: "clock", color: Color.lifeboard.statusWarning, action: move)
+                    }
+                    HStack(spacing: 14) {
+                        actionButton(title: "Edit", icon: "pencil", color: Color.lifeboard.accentSecondary, action: edit)
+                        actionButton(title: "Delete", icon: "trash", color: Color.lifeboard.statusDanger, action: delete)
+                    }
+                }
+            }
+        }
+    }
+
+    private func actionButton(title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.lifeboard(.button))
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .frame(maxWidth: .infinity, minHeight: metrics.actionButtonHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(color.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .stroke(color.opacity(0.10), lineWidth: 1)
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .accessibilityHint(accessibilityHint(for: title))
+    }
+
+    private func accessibilityHint(for title: String) -> String {
+        if title == "Keep today" { return "Keeps this task on today’s board and moves to the next card." }
+        if title == "Edit" { return "Opens quick edit for this task." }
+        if title == "Delete" { return "Removes this task from your board." }
+        return "Moves this task out of today and moves to the next card."
+    }
+}
+
+private struct OverdueRescueQuickEditSheet: View {
+    let card: OverdueRescueCardModel
+    let projects: [Project]
+    let save: (OverdueRescueEditDraft) -> Void
+    let cancel: () -> Void
+
+    @State private var draft: OverdueRescueEditDraft
+    @Environment(\.dismiss) private var dismiss
+
+    init(
+        card: OverdueRescueCardModel,
+        projects: [Project],
+        save: @escaping (OverdueRescueEditDraft) -> Void,
+        cancel: @escaping () -> Void
+    ) {
+        self.card = card
+        self.projects = projects
+        self.save = save
+        self.cancel = cancel
+        _draft = State(initialValue: OverdueRescueEditDraft(card: card))
+    }
+
+    var body: some View {
+        VStack(spacing: 22) {
+            Capsule()
+                .fill(Color.lifeboard.strokeHairline)
+                .frame(width: 58, height: 6)
+                .padding(.top, 12)
+            HStack {
+                Image(systemName: "sparkles")
+                    .font(.title)
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
+                Text("Adjust task")
+                    .font(.lifeboard(.title2))
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                Spacer()
+                Button("Close", systemImage: "xmark") {
+                    cancel()
+                    dismiss()
+                }
+                .labelStyle(.iconOnly)
+                .frame(width: 54, height: 54)
+                .background(Circle().fill(Color.white.opacity(0.84)))
+                .foregroundStyle(Color.lifeboard.textPrimary)
+            }
+
+            HStack {
+                Text(card.task.title)
+                    .font(.lifeboard(.title3))
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .lineLimit(3)
+                Spacer()
+                OverdueRescuePlant()
+                    .frame(width: 86, height: 94)
+            }
+            .padding(22)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.white.opacity(0.68))
+                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.lifeboard.strokeHairline))
+            )
+
+            VStack(spacing: 0) {
+                Menu {
+                    Button("Today") { draft.dueDate = DatePreset.today.resolvedDueDate() }
+                    Button("Tomorrow") { draft.dueDate = DatePreset.tomorrow.resolvedDueDate() }
+                    Button("This week") { draft.dueDate = DatePreset.thisWeek.resolvedDueDate() }
+                } label: {
+                    editRow(icon: "calendar", title: "Due date", value: dueText)
+                }
+                Divider()
+                Menu {
+                    Button("15 min") { draft.duration = 15 * 60 }
+                    Button("30 min") { draft.duration = 30 * 60 }
+                    Button("45 min") { draft.duration = 45 * 60 }
+                    Button("1 hour") { draft.duration = 60 * 60 }
+                    Button("No duration") { draft.duration = nil }
+                } label: {
+                    editRow(icon: "clock", title: "Duration", value: durationText)
+                }
+                Divider()
+                Menu {
+                    Button("No project") { draft.projectID = ProjectConstants.inboxProjectID }
+                    ForEach(projects, id: \.id) { project in
+                        Button(project.name) { draft.projectID = project.id }
+                    }
+                } label: {
+                    editRow(icon: "folder", title: "Project", value: projectText)
+                }
+                Divider()
+                Menu {
+                    ForEach(TaskPriority.uiOrder, id: \.self) { priority in
+                        Button(priority.displayName) { draft.priority = priority }
+                    }
+                } label: {
+                    editRow(
+                        icon: "flag",
+                        title: "Priority",
+                        value: draft.priority.displayName,
+                        valueColor: draft.priority.isHighPriority ? Color.lifeboard.statusDanger : Color.lifeboard.textSecondary,
+                        iconColor: draft.priority.isHighPriority ? Color.lifeboard.statusDanger : Color.lifeboard.textSecondary
+                    )
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.white.opacity(0.76))
+                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.lifeboard.strokeHairline))
+            )
+
+            HStack(spacing: 16) {
+                Image(systemName: "sparkles")
+                    .font(.title2)
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(card.confidenceLabel)
+                        .font(.lifeboard(.callout))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.lifeboard.accentPrimary)
+                    Text("Based on project relevance and overdue status.")
+                        .font(.lifeboard(.body))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                }
+                Spacer()
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.lifeboard.accentPrimary.opacity(0.08))
+                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.lifeboard.accentPrimary.opacity(0.12)))
+            )
+
+            Spacer()
+
+            Button("Save and continue") {
+                save(draft)
+                dismiss()
+            }
+            .font(.lifeboard(.button))
+            .fontWeight(.bold)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 68)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.lifeboard.accentPrimary)
+            )
+            .buttonStyle(.plain)
+            .scaleOnPress()
+        }
+        .padding(.horizontal, 28)
+        .padding(.bottom, 24)
+        .background(OverdueRescueBackground())
+        .presentationDetents([.large])
+        .presentationDragIndicator(.hidden)
+    }
+
+    private func editRow(
+        icon: String,
+        title: String,
+        value: String,
+        valueColor: Color = Color.lifeboard.textSecondary,
+        iconColor: Color = Color.lifeboard.textSecondary
+    ) -> some View {
+        HStack(spacing: 18) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(iconColor)
+                .frame(width: 28)
+            Text(title)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
+            Spacer()
+            Text(value)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(valueColor)
+            Image(systemName: "chevron.down")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(valueColor)
+        }
+        .frame(minHeight: 74)
+        .padding(.horizontal, 20)
+    }
+
+    private var dueText: String {
+        guard let dueDate = draft.dueDate else { return "No due date" }
+        if Calendar.current.isDateInToday(dueDate) { return "Today" }
+        if Calendar.current.isDateInTomorrow(dueDate) { return "Tomorrow" }
+        return dueDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+    }
+
+    private var durationText: String {
+        guard let duration = draft.duration else { return "No duration" }
+        let minutes = Int(duration / 60)
+        return minutes >= 60 ? "\(minutes / 60) hour" : "\(minutes) min"
+    }
+
+    private var projectText: String {
+        if draft.projectID == ProjectConstants.inboxProjectID { return "No project" }
+        return projects.first(where: { $0.id == draft.projectID })?.name ?? "Project"
+    }
+}
+
+private struct OverdueRescueSafeFixesView: View {
+    @ObservedObject var viewModel: OverdueRescueViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 24) {
+            HStack {
+                Button("Close", systemImage: "xmark") { dismiss() }
+                    .labelStyle(.iconOnly)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .frame(width: 58, height: 58)
+                    .background(Circle().fill(Color.white.opacity(0.84)))
+                Spacer()
+            }
+            OverdueRescueShieldHero()
+                .frame(width: 220, height: 180)
+            Text("Apply \(viewModel.safeFixes.count) safe fixes?")
+                .font(.lifeboard(.title1))
+                .fontWeight(.bold)
+                .foregroundStyle(Color.lifeboard.textPrimary)
+                .multilineTextAlignment(.center)
+            Text("LifeBoard found \(viewModel.safeFixes.count) changes it is confident about.")
+                .font(.lifeboard(.title3))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .multilineTextAlignment(.center)
+
+            VStack(spacing: 0) {
+                if viewModel.safeFixBreakdown.move > 0 {
+                    safeRow(icon: "clock", title: "\(viewModel.safeFixBreakdown.move) move later", value: "\(viewModel.safeFixBreakdown.move)", color: Color.lifeboard.statusWarning)
+                }
+                if viewModel.safeFixBreakdown.move > 0, viewModel.safeFixBreakdown.stay > 0 {
+                    Divider()
+                }
+                if viewModel.safeFixBreakdown.stay > 0 {
+                    safeRow(icon: "checkmark.circle", title: "\(viewModel.safeFixBreakdown.stay) stay today", value: "\(viewModel.safeFixBreakdown.stay)", color: Color.lifeboard.statusSuccess)
+                }
+                if viewModel.safeFixBreakdown.duration > 0, viewModel.safeFixBreakdown.move + viewModel.safeFixBreakdown.stay > 0 {
+                    Divider()
+                }
+                if viewModel.safeFixBreakdown.duration > 0 {
+                    safeRow(icon: "calendar", title: "\(viewModel.safeFixBreakdown.duration) gets a duration", value: "\(viewModel.safeFixBreakdown.duration)", color: Color.lifeboard.accentPrimary)
+                }
+            }
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color.white.opacity(0.72))
+                    .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.lifeboard.strokeHairline))
+            )
+
+            Label("These changes are non-destructive and can be undone.", systemImage: "shield")
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 34)
+
+            Spacer()
+            Button("Apply \(viewModel.safeFixes.count) fixes") {
+                dismiss()
+                viewModel.applySafeFixes()
+            }
+            .font(.lifeboard(.button))
+            .fontWeight(.bold)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 68)
+            .background(RoundedRectangle(cornerRadius: 24).fill(Color.lifeboard.accentPrimary))
+            .disabled(viewModel.safeFixes.isEmpty)
+            Button("Review first") {
+                dismiss()
+            }
+            .font(.lifeboard(.button))
+            .fontWeight(.bold)
+            .foregroundStyle(Color.lifeboard.accentPrimary)
+            .frame(maxWidth: .infinity, minHeight: 62)
+            .background(RoundedRectangle(cornerRadius: 22).stroke(Color.lifeboard.accentPrimary.opacity(0.32)))
+        }
+        .padding(28)
+        .background(OverdueRescueBackground())
+        .presentationDetents([.large])
+    }
+
+    private func safeRow(icon: String, title: String, value: String, color: Color) -> some View {
+        HStack(spacing: 18) {
+            Image(systemName: icon)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(color)
+                .frame(width: 58, height: 58)
+                .background(RoundedRectangle(cornerRadius: 18).fill(color.opacity(0.12)))
+            Text(title)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
+            Spacer()
+            Text(value)
+                .font(.lifeboard(.headline))
+                .fontWeight(.bold)
+                .foregroundStyle(color)
+        }
+        .padding(.horizontal, 22)
+        .frame(height: 82)
+    }
+}
+
+private struct OverdueRescuePauseView: View {
+    @ObservedObject var viewModel: OverdueRescueViewModel
+    let bottomInset: CGFloat
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 28) {
+                HStack {
+                    Button("Close", systemImage: "xmark") { onDismiss() }
+                        .labelStyle(.iconOnly)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .frame(width: 58, height: 58)
+                        .background(Circle().fill(Color.white.opacity(0.84)))
+                    Spacer()
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 32)
+
+                OverdueRescueCupHero()
+                    .frame(width: 220, height: 210)
+
+                VStack(spacing: 10) {
+                    Text("Pause rescue?")
+                        .font(.lifeboard(.title1))
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color.lifeboard.textPrimary)
+                    Text("You reviewed \(viewModel.sprintResolvedCount) of \(viewModel.sprintTotal) tasks.\nYour changes are saved.\n\(viewModel.remainingCount) tasks can wait.")
+                        .font(.lifeboard(.title3))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(8)
+                }
+
+                HStack(spacing: 18) {
+                    Button {
+                        onDismiss()
+                    } label: {
+                        Label("Pause", systemImage: "cup.and.saucer")
+                            .font(.lifeboard(.button))
+                            .fontWeight(.bold)
+                            .frame(maxWidth: .infinity, minHeight: 68)
+                            .background(RoundedRectangle(cornerRadius: 24).stroke(Color.lifeboard.accentPrimary.opacity(0.38)))
+                    }
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
+
+                    Button {
+                        viewModel.resume()
+                    } label: {
+                        Label("Keep going", systemImage: "arrow.right")
+                            .font(.lifeboard(.button))
+                            .fontWeight(.bold)
+                            .frame(maxWidth: .infinity, minHeight: 68)
+                            .background(RoundedRectangle(cornerRadius: 24).fill(Color.lifeboard.accentPrimary))
+                    }
+                    .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 28)
+
+                Button {
+                    viewModel.resume()
+                } label: {
+                    HStack(spacing: 20) {
+                        Image(systemName: "lifepreserver")
+                            .font(.system(size: 36, weight: .semibold))
+                            .foregroundStyle(Color.lifeboard.statusWarning)
+                            .frame(width: 72, height: 72)
+                            .background(Circle().fill(Color.white.opacity(0.58)))
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Resume overdue rescue")
+                                .font(.lifeboard(.headline))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
+                            Text("\(viewModel.summary.reviewed) done · \(viewModel.remainingCount) left")
+                                .font(.lifeboard(.title3))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
+                            LifeBoardProgressBar(progress: viewModel.progress, colors: [Color.lifeboard.accentPrimary])
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
+                    }
+                    .padding(22)
+                    .background(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .fill(Color.white.opacity(0.68))
+                            .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.lifeboard.statusWarning.opacity(0.18)))
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 28)
+
+                Color.clear.frame(height: max(28, bottomInset))
+            }
+        }
+    }
+}
+
+private struct OverdueRescueCompletionView: View {
+    let summary: OverdueRescueSummary
+    let remaining: Int
+    let bottomInset: CGFloat
+    let viewToday: () -> Void
+    let reviewRemaining: () -> Void
+
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 26) {
+                HStack {
+                    Button("Close", systemImage: "xmark", action: viewToday)
+                        .labelStyle(.iconOnly)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .frame(width: 58, height: 58)
+                        .background(Circle().fill(Color.white.opacity(0.84)))
+                    Spacer()
+                    Button("More", systemImage: "ellipsis") {}
+                        .labelStyle(.iconOnly)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .frame(width: 58, height: 58)
+                        .background(Circle().fill(Color.white.opacity(0.84)))
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 32)
+
+                OverdueRescueSunriseHero()
+                    .frame(width: 260, height: 220)
+                Text("Board cleaned up")
+                    .font(.lifeboard(.title1))
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                Text("You sorted what still matters.")
+                    .font(.lifeboard(.title3))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+
+                HStack(spacing: 14) {
+                    statCard(icon: "checkmark.circle", value: summary.kept, label: "kept", color: Color.lifeboard.statusSuccess)
+                    statCard(icon: "clock", value: summary.moved, label: "moved later", color: Color.lifeboard.statusWarning)
+                    statCard(icon: "trash", value: summary.deleted, label: "deleted", color: Color.lifeboard.statusDanger)
+                }
+                .padding(.horizontal, 28)
+
+                Text("Your board should feel lighter now.")
+                    .font(.lifeboard(.body))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+
+                Button("View today", action: viewToday)
+                    .font(.lifeboard(.button))
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 68)
+                    .background(RoundedRectangle(cornerRadius: 24).fill(Color.lifeboard.accentPrimary))
+                    .padding(.horizontal, 42)
+
+                if remaining > 0 {
+                    Button("Review remaining", systemImage: "list.bullet", action: reviewRemaining)
+                        .font(.lifeboard(.button))
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color.lifeboard.accentPrimary)
+                        .frame(maxWidth: .infinity, minHeight: 62)
+                        .background(RoundedRectangle(cornerRadius: 22).stroke(Color.lifeboard.accentPrimary.opacity(0.32)))
+                        .padding(.horizontal, 42)
+                }
+
+                Color.clear.frame(height: max(28, bottomInset))
+            }
+        }
+    }
+
+    private func statCard(icon: String, value: Int, label: String, color: Color) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title.weight(.semibold))
+            Text("\(value)")
+                .font(.lifeboard(.title2))
+                .fontWeight(.bold)
+            Text(label)
+                .font(.lifeboard(.caption1))
+                .fontWeight(.semibold)
+        }
+        .foregroundStyle(color)
+        .frame(maxWidth: .infinity, minHeight: 126)
+        .background(RoundedRectangle(cornerRadius: 24).fill(color.opacity(0.07)))
+    }
+}
+
+private struct OverdueRescueLargeStackView: View {
+    let count: Int
+    let safeCount: Int
+    let applySafeFixes: () -> Void
+    let startManualReview: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 22) {
+            OverdueRescueShieldHero()
+                .frame(width: 220, height: 180)
+            Text("Large overdue stack")
+                .font(.lifeboard(.title1))
+                .fontWeight(.bold)
+                .foregroundStyle(Color.lifeboard.textPrimary)
+            Text("\(count) tasks need review. Start with high-confidence fixes or review manually.")
+                .font(.lifeboard(.title3))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .multilineTextAlignment(.center)
+            Spacer()
+            Button("Apply safe fixes") {
+                dismiss()
+                applySafeFixes()
+            }
+            .font(.lifeboard(.button))
+            .fontWeight(.bold)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 68)
+            .background(RoundedRectangle(cornerRadius: 24).fill(Color.lifeboard.accentPrimary))
+            .disabled(safeCount == 0)
+            Button("Start manual review") {
+                dismiss()
+                startManualReview()
+            }
+            .font(.lifeboard(.button))
+            .foregroundStyle(Color.lifeboard.accentPrimary)
+            .frame(maxWidth: .infinity, minHeight: 62)
+        }
+        .padding(28)
+        .background(OverdueRescueBackground())
+    }
+}
+
+private struct OverdueRescueErrorView: View {
+    let message: String
+    let retry: () -> Void
+    let close: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 54, weight: .semibold))
+                .foregroundStyle(Color.lifeboard.statusWarning)
+            Text("Rescue paused")
+                .font(.lifeboard(.title2))
+                .fontWeight(.bold)
+                .foregroundStyle(Color.lifeboard.textPrimary)
+            Text(message)
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .multilineTextAlignment(.center)
+            Button("Try again", action: retry)
+                .buttonStyle(.borderedProminent)
+            Button("Close", action: close)
+            Spacer()
+        }
+        .padding(28)
+    }
+}
+
+private struct OverdueRescueBackground: View {
+    var body: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 1.0, green: 0.995, blue: 0.97),
+                Color(red: 1.0, green: 0.97, blue: 0.91),
+                Color(red: 1.0, green: 0.995, blue: 0.98)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+    }
+}
+
+private struct OverdueRescuePlant: View {
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white)
+                .frame(width: 44, height: 36)
+                .shadow(color: Color.black.opacity(0.10), radius: 8, y: 4)
+            ForEach(0..<5, id: \.self) { index in
+                Capsule()
+                    .fill(Color(red: 0.62, green: 0.78, blue: 0.47).opacity(0.82))
+                    .frame(width: 18, height: 32)
+                    .rotationEffect(.degrees(Double(index * 28 - 56)))
+                    .offset(x: CGFloat(index * 11 - 22), y: CGFloat(-26 - index * 7))
+            }
+            Rectangle()
+                .fill(Color(red: 0.62, green: 0.78, blue: 0.47))
+                .frame(width: 3, height: 70)
+                .offset(y: -18)
+        }
+    }
+}
+
+private struct OverdueRescueCupHero: View {
+    var body: some View {
+        ZStack {
+            OverdueRescuePlant()
+                .frame(width: 140, height: 150)
+            Image(systemName: "cup.and.saucer.fill")
+                .font(.system(size: 108))
+                .foregroundStyle(Color.lifeboard.accentPrimary.opacity(0.25))
+                .offset(y: 44)
+            Image(systemName: "sparkle")
+                .foregroundStyle(Color.lifeboard.statusWarning)
+                .offset(x: -82, y: -70)
+            Image(systemName: "sparkle")
+                .foregroundStyle(Color.lifeboard.accentPrimary.opacity(0.60))
+                .offset(x: 78, y: 52)
+        }
+    }
+}
+
+private struct OverdueRescueShieldHero: View {
+    var body: some View {
+        ZStack {
+            Image(systemName: "shield.fill")
+                .font(.system(size: 126))
+                .foregroundStyle(Color.lifeboard.accentPrimary.opacity(0.24))
+            Image(systemName: "checkmark")
+                .font(.system(size: 58, weight: .bold))
+                .foregroundStyle(.white)
+            OverdueRescuePlant()
+                .frame(width: 82, height: 100)
+                .offset(x: 76, y: 28)
+        }
+    }
+}
+
+private struct OverdueRescueSunriseHero: View {
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Circle()
+                .trim(from: 0, to: 0.5)
+                .stroke(Color.lifeboard.statusWarning.opacity(0.18), lineWidth: 86)
+                .frame(width: 220, height: 220)
+                .offset(y: 82)
+            Circle()
+                .fill(Color.lifeboard.statusWarning.opacity(0.48))
+                .frame(width: 116, height: 116)
+                .offset(y: 36)
+            Ellipse()
+                .fill(Color(red: 1.0, green: 0.97, blue: 0.88))
+                .frame(width: 330, height: 90)
+            OverdueRescuePlant()
+                .frame(width: 90, height: 110)
+                .offset(x: 82, y: -6)
+        }
     }
 }
 
@@ -839,7 +2483,7 @@ struct LifeBoardProgressBar: View {
                         )
                     )
                     .scaleEffect(x: clampedProgress, y: 1, anchor: .leading)
-                    .animation(animate ? .spring(response: 0.34, dampingFraction: 0.82) : .linear(duration: 0.01), value: clampedProgress)
+                    .animation(animate ? LifeBoardAnimation.stateChange : .linear(duration: 0.01), value: clampedProgress)
             }
             .frame(height: height)
             .accessibilityElement(children: .ignore)
