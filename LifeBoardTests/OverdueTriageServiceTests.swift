@@ -63,6 +63,222 @@ final class OverdueTriageServiceTests: XCTestCase {
 }
 
 @MainActor
+final class OverdueRescueDeckTests: XCTestCase {
+    func testDeckIncludesRecentOverdueAndCapsSprint() {
+        let now = fixedDate()
+        let tasks = (0..<18).map { index in
+            rescueTask(
+                title: "Task \(index)",
+                priority: index == 0 ? .max : .low,
+                dueDate: Calendar.current.date(byAdding: .day, value: -1, to: now)!
+            )
+        }
+        let viewModel = makeViewModel(tasks: tasks)
+
+        XCTAssertEqual(viewModel.allCount, 18)
+        XCTAssertEqual(viewModel.cards.count, OverdueRescueViewModel.sprintLimit)
+        XCTAssertEqual(viewModel.state, .active)
+    }
+
+    func testDeckUsesDeterministicPriorityFirstOrdering() {
+        let now = fixedDate()
+        let low = rescueTask(
+            title: "Low quick",
+            priority: .low,
+            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: now)!,
+            estimatedDuration: 10 * 60
+        )
+        let high = rescueTask(
+            title: "High priority",
+            priority: .high,
+            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: now)!,
+            estimatedDuration: 90 * 60
+        )
+        let viewModel = makeViewModel(tasks: [low, high])
+
+        XCTAssertEqual(viewModel.cards.first?.id, high.id)
+    }
+
+    func testMoveLaterSkipsWeekendForHighUrgencyTasks() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let friday = calendar.date(from: DateComponents(year: 2026, month: 5, day: 29))!
+        let task = rescueTask(
+            title: "High risk",
+            priority: .max,
+            dueDate: calendar.date(byAdding: .day, value: -1, to: friday)!,
+            estimatedDuration: 2 * 60 * 60
+        )
+
+        let moveDate = OverdueRescueCardModel.resolvedMoveDate(for: task, recommendation: nil, now: friday)
+        XCTAssertEqual(calendar.component(.weekday, from: moveDate), 2)
+        XCTAssertEqual(OverdueRescueCardModel.moveButtonTitle(for: moveDate, now: friday), "Move to Monday")
+    }
+
+    func testDeleteConfirmationHardRules() {
+        let projectTask = rescueTask(title: "Project", priority: .low, projectID: UUID(), details: nil)
+        let notesTask = rescueTask(title: "Notes", priority: .low, details: "Important")
+        let simpleTask = rescueTask(title: "Simple", priority: .low, details: nil, updatedAt: Calendar.current.date(byAdding: .day, value: -3, to: Date())!)
+
+        XCTAssertTrue(OverdueRescueCardModel.requiresDeleteConfirmation(projectTask))
+        XCTAssertTrue(OverdueRescueCardModel.requiresDeleteConfirmation(notesTask))
+        XCTAssertFalse(OverdueRescueCardModel.requiresDeleteConfirmation(simpleTask))
+    }
+
+    func testStateMachineRejectsInvalidTransitions() {
+        XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .notStarted, to: .loading))
+        XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .loading, to: .active))
+        XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .active, to: .editing))
+        XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .active, to: .paused))
+        XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .active, to: .applyingBulk))
+        XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .active, to: .loading))
+        XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .paused, to: .editing))
+        XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .confirmingDelete, to: .applyingBulk))
+    }
+
+    func testDragResolverRightDragBelowThresholdRevealsKeepWithoutCommit() {
+        let result = OverdueRescueDragResolver.resolve(
+            translation: CGSize(width: 54, height: 8),
+            cardWidth: 360
+        )
+
+        XCTAssertEqual(result.reveal, .keep)
+        XCTAssertGreaterThan(result.progress, 0)
+        XCTAssertNil(result.commitAction)
+    }
+
+    func testDragResolverRightDragAboveThresholdCommitsKeep() {
+        let result = OverdueRescueDragResolver.resolve(
+            translation: CGSize(width: 112, height: 10),
+            cardWidth: 360
+        )
+
+        XCTAssertEqual(result.reveal, .keep)
+        XCTAssertEqual(result.commitAction, .keepToday)
+    }
+
+    func testDragResolverLeftDragBelowThresholdRevealsMoveWithoutCommit() {
+        let result = OverdueRescueDragResolver.resolve(
+            translation: CGSize(width: -62, height: 12),
+            cardWidth: 360
+        )
+
+        XCTAssertEqual(result.reveal, .move)
+        XCTAssertGreaterThan(result.progress, 0)
+        XCTAssertNil(result.commitAction)
+    }
+
+    func testDragResolverLeftDragAboveThresholdCommitsMove() {
+        let result = OverdueRescueDragResolver.resolve(
+            translation: CGSize(width: -116, height: 9),
+            cardWidth: 360
+        )
+
+        XCTAssertEqual(result.reveal, .move)
+        XCTAssertEqual(result.commitAction, .moveLater)
+    }
+
+    func testDragResolverVerticalDragDoesNotCommit() {
+        let result = OverdueRescueDragResolver.resolve(
+            translation: CGSize(width: 34, height: 160),
+            cardWidth: 360
+        )
+
+        XCTAssertEqual(result.reveal, .none)
+        XCTAssertEqual(result.visibleOffset, .zero)
+        XCTAssertNil(result.commitAction)
+    }
+
+    func testDragResolverReduceMotionRemovesTilt() {
+        let result = OverdueRescueDragResolver.resolve(
+            translation: CGSize(width: 86, height: 4),
+            cardWidth: 360,
+            reduceMotion: true
+        )
+
+        XCTAssertEqual(result.reveal, .keep)
+        XCTAssertEqual(result.tiltDegrees, 0)
+    }
+
+    func testUndoAfterKeepRestoresCardAndSummary() async {
+        let task = rescueTask(title: "Undo me", priority: .high)
+        let viewModel = OverdueRescueViewModel(
+            plan: nil,
+            tasksByID: [task.id: task],
+            projectsByID: [:],
+            onUpdate: { _, completion in
+                completion(.success(task))
+            },
+            onDelete: { _, completion in completion(.success(())) },
+            onRestore: { task, completion in completion(.success(task)) },
+            onApplyBulk: { _, completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onUndoBulk: { completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onTrack: { _, _ in }
+        )
+
+        viewModel.keepToday(source: .tap)
+        await Task.yield()
+
+        XCTAssertEqual(viewModel.state, .completed)
+        XCTAssertEqual(viewModel.summary.kept, 1)
+        XCTAssertEqual(viewModel.cards.count, 0)
+
+        viewModel.undoLast()
+        await Task.yield()
+
+        XCTAssertEqual(viewModel.state, .active)
+        XCTAssertEqual(viewModel.summary.kept, 0)
+        XCTAssertEqual(viewModel.cards.first?.id, task.id)
+    }
+
+    private func makeViewModel(tasks: [TaskDefinition]) -> OverdueRescueViewModel {
+        let tasksByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
+        return OverdueRescueViewModel(
+            plan: nil,
+            tasksByID: tasksByID,
+            projectsByID: [:],
+            onUpdate: { _, completion in completion(.success(tasks[0])) },
+            onDelete: { _, completion in completion(.success(())) },
+            onRestore: { task, completion in completion(.success(task)) },
+            onApplyBulk: { _, completion in
+                completion(.failure(NSError(domain: "test", code: 1)))
+            },
+            onUndoBulk: { completion in
+                completion(.failure(NSError(domain: "test", code: 1)))
+            },
+            onTrack: { _, _ in }
+        )
+    }
+
+    private func rescueTask(
+        title: String,
+        priority: TaskPriority,
+        projectID: UUID = ProjectConstants.inboxProjectID,
+        dueDate: Date = Calendar.current.date(byAdding: .day, value: -1, to: Date())!,
+        estimatedDuration: TimeInterval? = nil,
+        details: String? = nil,
+        updatedAt: Date = Calendar.current.date(byAdding: .day, value: -3, to: Date())!
+    ) -> TaskDefinition {
+        TaskDefinition(
+            id: UUID(),
+            projectID: projectID,
+            projectName: projectID == ProjectConstants.inboxProjectID ? ProjectConstants.inboxProjectName : "Project",
+            title: title,
+            details: details,
+            priority: priority,
+            dueDate: dueDate,
+            isComplete: false,
+            estimatedDuration: estimatedDuration,
+            updatedAt: updatedAt
+        )
+    }
+
+    private func fixedDate() -> Date {
+        Calendar.current.date(from: DateComponents(year: 2026, month: 5, day: 31))!
+    }
+}
+
+@MainActor
 final class TaskBreakdownServiceContractTests: XCTestCase {
     override func tearDown() {
         super.tearDown()
