@@ -144,6 +144,40 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(LBHeaderTimeContext.assistantCopy(for: .night, gapStart: start, gapEnd: end, now: start).title, "Wind down gently")
     }
 
+    func testRoutineAnchorVisualStyleResolvesWakeAssetAndCopy() {
+        let style = TimelineRoutineAnchorVisualStyle.resolve(
+            anchorID: "wake",
+            title: "Rise and shine",
+            subtitle: "Start the day"
+        )
+
+        XCTAssertEqual(style?.assetName, "routine_morning_strip")
+        XCTAssertEqual(style?.displayTitle, "Rise and shine")
+        XCTAssertEqual(style?.subtitleText(timeText: "8:00 AM"), "8:00 AM • Start the day")
+        XCTAssertEqual(style?.accessibilityLabel(timeText: "8:00 AM"), "Routine, 8:00 AM, Rise and shine, Start the day.")
+    }
+
+    func testRoutineAnchorVisualStyleResolvesSleepAssetAndTitleCase() {
+        let style = TimelineRoutineAnchorVisualStyle.resolve(
+            anchorID: "sleep",
+            title: "Wind down",
+            subtitle: "Close the day"
+        )
+
+        XCTAssertEqual(style?.assetName, "routine_evening_strip")
+        XCTAssertEqual(style?.displayTitle, "Wind Down")
+        XCTAssertEqual(style?.subtitleText(timeText: "10:00 PM"), "10:00 PM • Close the day")
+        XCTAssertEqual(style?.accessibilityLabel(timeText: "10:00 PM"), "Routine, 10:00 PM, Wind Down, Close the day.")
+    }
+
+    func testRoutineAnchorVisualStyleIgnoresUnknownAnchors() {
+        XCTAssertNil(TimelineRoutineAnchorVisualStyle.resolve(
+            anchorID: "lunch",
+            title: "Lunch",
+            subtitle: nil
+        ))
+    }
+
     @MainActor
     func testOnlyOneFilterChipIsSelected() {
         let models = SunriseHomeScreen.filterChipModels(selectedContentScope: .tasks)

@@ -425,6 +425,8 @@ enum AccessibilityIdentifiers {
         static let priorityP1 = "search.priority.p1"
         static let priorityP2 = "search.priority.p2"
         static let priorityP3 = "search.priority.p3"
+        static func suggestion(_ rawValue: String) -> String { "search.suggestion.\(rawValue)" }
+        static func habitResult(_ id: String) -> String { "search.habitResult.\(id)" }
     }
 
     // MARK: - Analytics Screen

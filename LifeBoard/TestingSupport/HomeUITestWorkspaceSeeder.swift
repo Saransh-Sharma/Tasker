@@ -121,6 +121,8 @@ final class HomeUITestWorkspaceSeeder {
                 let manageProjects = presentationDependencyContainer.coordinator.manageProjects
                 let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
                 let completeTaskDefinition = presentationDependencyContainer.coordinator.completeTaskDefinition
+                let createHabit = presentationDependencyContainer.coordinator.createHabit
+                let resolveHabitOccurrence = presentationDependencyContainer.coordinator.resolveHabitOccurrence
                 let calendar = Calendar.current
                 let now = Date()
                 let startOfDay = calendar.startOfDay(for: now)
@@ -206,6 +208,31 @@ final class HomeUITestWorkspaceSeeder {
                     _ = try await createTaskDefinition.executeAsync(request: request)
                 }
                 _ = try await completeTaskDefinition.setCompletionAsync(taskID: completedTaskID, to: true)
+
+                let missedHabitID = UUID(uuidString: "40000000-0000-0000-0000-000000000006") ?? UUID()
+                let habitCreatedAt = calendar.date(byAdding: .day, value: -5, to: startOfDay) ?? now
+                let missedHabit = try await createHabit.executeAsync(
+                    request: CreateHabitRequest(
+                        id: missedHabitID,
+                        title: "Search recovery habit",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "repeat.circle.fill", categoryKey: "recovery"),
+                        colorHex: HabitColorFamily.coral.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: habitCreatedAt
+                    )
+                )
+                let missedDate = calendar.date(byAdding: .day, value: -1, to: startOfDay) ?? now
+                try await resolveHabitOccurrence.executeAsync(
+                    habitID: missedHabit.id,
+                    action: .lapsed,
+                    on: missedDate
+                )
+
                 viewModel?.invalidateTaskCaches()
             } catch {
                 logError(

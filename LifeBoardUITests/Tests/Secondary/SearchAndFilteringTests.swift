@@ -168,6 +168,35 @@ class SearchAndFilteringTests: BaseUITest {
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after back chip closes search")
     }
 
+    func testSuggestedCommandOverdueTasksShowsSeededOverdueTasksWithoutTyping() throws {
+        seedSearchTasks()
+        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open from Home")
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")
+
+        let overdueSuggestion = app.buttons[AccessibilityIdentifiers.Search.suggestion("overdueTasks")]
+        XCTAssertTrue(overdueSuggestion.waitForExistence(timeout: 3), "Overdue tasks suggestion should be visible")
+        overdueSuggestion.tap()
+        waitForAnimations(duration: 0.7)
+
+        XCTAssertTrue(app.staticTexts["Overdue tasks"].waitForExistence(timeout: 2), "Command result header should appear")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting Prep"), "Seeded overdue task should appear without typing")
+        XCTAssertFalse(homePage.verifyTaskExists(withTitle: "Coffee Break"), "Completed task should not appear in overdue command results")
+    }
+
+    func testSuggestedCommandMissedHabitsShowsSeededRecoveryHabitWithoutTyping() throws {
+        seedSearchTasks()
+        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open from Home")
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")
+
+        let missedHabitsSuggestion = app.buttons[AccessibilityIdentifiers.Search.suggestion("missedHabits")]
+        XCTAssertTrue(missedHabitsSuggestion.waitForExistence(timeout: 3), "Missed habits suggestion should be visible")
+        missedHabitsSuggestion.tap()
+        waitForAnimations(duration: 0.7)
+
+        XCTAssertTrue(app.staticTexts["Missed habits"].waitForExistence(timeout: 2), "Command result header should appear")
+        XCTAssertTrue(app.staticTexts["Search recovery habit"].waitForExistence(timeout: 3), "Seeded missed habit should appear without typing")
+    }
+
     // MARK: - Test 55: Filter by Priority - High Only
 
     func testFilterByPriority_HighOnly() throws {
