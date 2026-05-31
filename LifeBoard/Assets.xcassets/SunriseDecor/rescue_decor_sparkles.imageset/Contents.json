@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "rescue_decor_sparkles.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

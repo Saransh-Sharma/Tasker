@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "rescue_decor_cup.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
