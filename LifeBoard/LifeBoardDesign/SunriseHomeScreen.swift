@@ -410,7 +410,11 @@ struct SunriseHomeScreen: View {
                                     nextUpcomingCalendarItemID: nextUpcomingCalendarItemID
                                 ),
                                 onTap: { onTimelineItemTap(item) },
-                                onToggleComplete: item.taskID == nil ? nil : { onTimelineItemToggleComplete(item) }
+                                onToggleComplete: item.taskID == nil ? nil : {
+                                    let interval = LifeBoardPerformanceTrace.begin("HomeTimelineTaskToggle")
+                                    onTimelineItemToggleComplete(item)
+                                    LifeBoardPerformanceTrace.end(interval)
+                                }
                             )
                             .equatable()
                         }
@@ -1523,7 +1527,9 @@ private struct SunriseHabitGridRow: View, Equatable {
 
     var body: some View {
         Button {
+            let interval = LifeBoardPerformanceTrace.begin("HomeHabitLastCellTap")
             onCycleHabit(model)
+            LifeBoardPerformanceTrace.end(interval)
         } label: {
             LBHabitCell(model: model.cellModel)
                 .equatable()

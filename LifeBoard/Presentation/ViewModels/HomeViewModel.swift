@@ -623,7 +623,6 @@ public final class HomeViewModel: ObservableObject {
 
     // Gamification v2
     @Published public private(set) var currentLevel: Int = 1
-    @Published public private(set) var dailyXPCap: Int = GamificationTokens.dailyXPCap
     @Published public private(set) var totalXP: Int64 = 0
     @Published public private(set) var nextLevelXP: Int64 = 0
     @Published public private(set) var lastXPResult: XPEventResult? {
@@ -1058,10 +1057,7 @@ public final class HomeViewModel: ObservableObject {
     private func buildHomeTasksState() -> HomeTasksState {
         let projectByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
         let tagNameByID = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
-        let todayXPSoFar: Int? =
-            (V2FeatureFlags.gamificationV2Enabled && progressState.todayTargetXP <= 0)
-            ? nil
-            : progressState.earnedXP
+        let todayXPSoFar: Int? = progressState.earnedXP
 
         return HomeTasksState(
             morningTasks: morningTasks,
@@ -1127,7 +1123,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func makeMomentumGuidanceText() -> String {
-        if progressState.todayTargetXP > 0 && progressState.earnedXP >= progressState.todayTargetXP {
+        if progressState.earnedXP > 0 {
             return "Momentum secured. Protect the streak with one clean finish."
         }
         if todayOpenTaskCount > 0 {
@@ -5890,13 +5886,8 @@ public final class HomeViewModel: ObservableObject {
         let remainingPotentialXP: Int
         let targetXP: Int
 
-        if V2FeatureFlags.gamificationV2Enabled {
-            remainingPotentialXP = max(0, dailyXPCap - earnedXP)
-            targetXP = dailyXPCap
-        } else {
-            remainingPotentialXP = max(0, pointsPotential)
-            targetXP = earnedXP + remainingPotentialXP
-        }
+        remainingPotentialXP = max(0, pointsPotential)
+        targetXP = earnedXP + remainingPotentialXP
 
         let streakDays = max(0, streak)
 
@@ -6649,7 +6640,6 @@ public final class HomeViewModel: ObservableObject {
         streak = max(0, mutation.streakDays)
         let levelInfo = XPCalculationEngine.levelForXP(mutation.totalXP)
         nextLevelXP = levelInfo.nextThreshold
-        dailyXPCap = XPCalculationEngine.dailyCap
         refreshProgressState()
 
         let celebrationEligibleCategories: Set<XPActionCategory> = [.complete, .focus, .reflection]
@@ -6684,7 +6674,6 @@ public final class HomeViewModel: ObservableObject {
             currentStreak: mutation.streakDays,
             didLevelUp: mutation.level > mutation.previousLevel,
             dailyXPSoFar: mutation.dailyXPSoFar,
-            dailyCap: XPCalculationEngine.dailyCap,
             unlockedAchievements: unlockedAchievements,
             crossedMilestone: milestone,
             celebration: celebration
