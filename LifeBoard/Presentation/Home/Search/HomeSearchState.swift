@@ -181,6 +181,11 @@ struct HomeSearchCommandResult: Equatable {
     }
 }
 
+private struct HomeSearchScoredTask {
+    let task: TaskDefinition
+    let score: Double
+}
+
 enum HomeSearchCommandResultBuilder {
     private static let quickWinLimit: TimeInterval = 15 * 60
     private static let nextTwoHours: TimeInterval = 2 * 60 * 60
@@ -321,14 +326,26 @@ enum HomeSearchCommandResultBuilder {
     }
 
     private static func openTasks(from snapshot: HomeTasksSnapshot) -> [TaskDefinition] {
-        snapshot.morningTasks
-            + snapshot.eveningTasks
-            + snapshot.overdueTasks
-            + snapshot.focusTasks
-            + snapshot.focusRows.compactMap(task(from:))
-            + (snapshot.dueTodaySection?.rows.compactMap(task(from:)) ?? [])
-            + snapshot.todaySections.flatMap { $0.rows.compactMap(task(from:)) }
-            + snapshot.todayAgendaSectionState.sections.flatMap { $0.rows.compactMap(task(from:)) }
+        var tasks: [TaskDefinition] = []
+        tasks.append(contentsOf: snapshot.morningTasks)
+        tasks.append(contentsOf: snapshot.eveningTasks)
+        tasks.append(contentsOf: snapshot.overdueTasks)
+        tasks.append(contentsOf: snapshot.focusTasks)
+        tasks.append(contentsOf: snapshot.focusRows.compactMap { task(from: $0) })
+
+        if let dueTodaySection = snapshot.dueTodaySection {
+            tasks.append(contentsOf: dueTodaySection.rows.compactMap { task(from: $0) })
+        }
+
+        for section in snapshot.todaySections {
+            tasks.append(contentsOf: section.rows.compactMap { task(from: $0) })
+        }
+
+        for section in snapshot.todayAgendaSectionState.sections {
+            tasks.append(contentsOf: section.rows.compactMap { task(from: $0) })
+        }
+
+        return tasks
     }
 
     private static func task(from row: HomeTodayRow) -> TaskDefinition? {
@@ -379,23 +396,56 @@ enum HomeSearchCommandResultBuilder {
         let startOfToday = calendar.startOfDay(for: now)
         let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday
 
-        return sortTasksByPriorityThenDue(tasks)
-            .map { task -> (TaskDefinition, Double) in
-                let overdueDays = task.dueDate.map { max(0, calendar.dateComponents([.day], from: $0, to: startOfToday).day ?? 0) } ?? 0
-                let dueToday = task.dueDate.map { $0 >= startOfToday && $0 < endOfToday } ?? false
-                let quickWin = (task.estimatedDuration ?? 0) > 0 && (task.estimatedDuration ?? 0) <= quickWinLimit ? 1.0 : 0
-                let unblocked = task.dependencies.isEmpty ? 1.0 : -1.2
-                let importance = Double(task.priority.scorePoints) * 0.6
-                let urgency = Double(overdueDays) * 1.4 + (dueToday ? 2.0 : 0)
-                return (task, urgency + quickWin + unblocked + importance)
-            }
+        let sortedTasks = sortTasksByPriorityThenDue(tasks)
+        let scoredTasks = sortedTasks.map { task in
+            HomeSearchScoredTask(
+                task: task,
+                score: focusScore(
+                    for: task,
+                    startOfToday: startOfToday,
+                    endOfToday: endOfToday,
+                    calendar: calendar
+                )
+            )
+        }
+
+        return scoredTasks
             .sorted { lhs, rhs in
-                if lhs.1 != rhs.1 {
-                    return lhs.1 > rhs.1
+                if lhs.score != rhs.score {
+                    return lhs.score > rhs.score
                 }
-                return compareByDueThenTitle(lhs.0, rhs.0)
+                return compareByDueThenTitle(lhs.task, rhs.task)
             }
-            .map(\.0)
+            .map { $0.task }
+    }
+
+    private static func focusScore(
+        for task: TaskDefinition,
+        startOfToday: Date,
+        endOfToday: Date,
+        calendar: Calendar
+    ) -> Double {
+        let overdueDays: Int
+        if let dueDate = task.dueDate {
+            overdueDays = max(0, calendar.dateComponents([.day], from: dueDate, to: startOfToday).day ?? 0)
+        } else {
+            overdueDays = 0
+        }
+
+        let isDueToday: Bool
+        if let dueDate = task.dueDate {
+            isDueToday = dueDate >= startOfToday && dueDate < endOfToday
+        } else {
+            isDueToday = false
+        }
+
+        let estimatedDuration = task.estimatedDuration ?? 0
+        let quickWinBoost = estimatedDuration > 0 && estimatedDuration <= quickWinLimit ? 1.0 : 0
+        let unblockedBoost = task.dependencies.isEmpty ? 1.0 : -1.2
+        let importance = Double(task.priority.scorePoints) * 0.6
+        let urgency = Double(overdueDays) * 1.4 + (isDueToday ? 2.0 : 0)
+
+        return urgency + quickWinBoost + unblockedBoost + importance
     }
 
     private static func sortTasksByPriorityThenDue(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
@@ -625,7 +675,7 @@ final class HomeSearchState: ObservableObject {
         if let activeSuggestedCommandResult {
             return activeSuggestedCommandResult.isEmpty
         }
-        hasLoaded && !isLoading && sections.isEmpty
+        return hasLoaded && !isLoading && sections.isEmpty
     }
 
     var emptyStateTitle: String {
