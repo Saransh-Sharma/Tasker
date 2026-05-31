@@ -10,37 +10,35 @@ public struct InsightsTabView: View {
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
+    var onBackToTasks: (() -> Void)? = nil
+    var onOpenSettings: (() -> Void)? = nil
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var scrollTraceCoordinator = InsightsScrollTraceCoordinator()
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                VStack(alignment: .leading, spacing: spacing.s4) {
-                    Text("Insights")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color.lifeboard.textTertiary)
+        SunriseDestinationScaffold(
+            title: "Insights",
+            subtitle: "Your progress at a glance.",
+            headerSymbolName: "chart.bar.xaxis",
+            leadingSystemImage: "line.3.horizontal",
+            leadingAccessibilityLabel: "Back to tasks",
+            leadingAccessibilityIdentifier: "home.sunrise.collapseHint",
+            leadingAction: { onBackToTasks?() },
+            trailingSystemImage: "gearshape",
+            trailingAccessibilityLabel: "Settings",
+            trailingAction: { onOpenSettings?() }
+        ) {
+            VStack(spacing: LBSpacingTokens.md) {
+                SunriseInsightsHeaderView(
+                    selectedTab: viewModel.selectedTab,
+                    onSelectTab: { tab in
+                        viewModel.selectTab(tab)
+                    }
+                )
 
-                    Text("What needs attention")
-                        .font(.lifeboard(.title3))
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.lifeboard.textPrimary)
-
-                    Text("One answer first. Details stay tucked away.")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                }
-
-                tabSelector
-            }
-            .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
-            .padding(.horizontal, spacing.screenHorizontal)
-            .padding(.vertical, spacing.s12)
-
-            ScrollView {
-                ZStack {
+                ScrollView {
                     SunriseInsightsContentView(
                         viewModel: viewModel,
                         homeProgress: homeProgress,
@@ -52,28 +50,27 @@ public struct InsightsTabView: View {
                         onOpenReflection: onOpenReflection
                     )
                 }
-                .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
                 .padding(.bottom, spacing.s16)
+                .scrollIndicators(.hidden)
+                .onScrollGeometryChange(
+                    for: CGFloat.self,
+                    of: { geometry in
+                        max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+                    },
+                    action: { oldOffset, newOffset in
+                        scrollTraceCoordinator.recordScrollActivity(
+                            oldOffset: oldOffset,
+                            newOffset: newOffset
+                        )
+                    }
+                )
+                .accessibilityIdentifier("home.insights.scroll")
             }
-            .onScrollGeometryChange(
-                for: CGFloat.self,
-                of: { geometry in
-                    max(0, geometry.contentOffset.y + geometry.contentInsets.top)
-                },
-                action: { oldOffset, newOffset in
-                    scrollTraceCoordinator.recordScrollActivity(
-                        oldOffset: oldOffset,
-                        newOffset: newOffset
-                    )
-                }
-            )
-            .onDisappear {
-                scrollTraceCoordinator.finishIfNeeded()
-            }
-            .accessibilityIdentifier("home.insights.scroll")
         }
         .accessibilityIdentifier("home.insights.container")
-        .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
+        .onDisappear {
+            scrollTraceCoordinator.finishIfNeeded()
+        }
         .onAppear { viewModel.onAppear() }
         .onChange(of: viewModel.selectedTab) { _, _ in
             LifeBoardPerformanceTrace.event("InsightsTabSwitch")
@@ -137,6 +134,9 @@ public struct InsightsTabView: View {
             }
             .buttonStyle(.plain)
             .scaleOnPress()
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(tab.rawValue)
+            .accessibilityValue(viewModel.selectedTab == tab ? "selected" : "not selected")
             .accessibilityIdentifier(accessibilityIdentifier(for: tab))
             .accessibilityAddTraits(viewModel.selectedTab == tab ? .isSelected : [])
         }

@@ -49,42 +49,44 @@ private struct SunriseInsightsTodayView: View {
 
     var body: some View {
         LazyVStack(spacing: LBSpacingTokens.sm) {
-            SunriseInsightHeroCard(
-                eyebrow: "Today",
+            SunriseInsightsHeroCard(
                 title: state.heroCard.title,
                 answer: state.heroCard.hint,
                 metric: state.heroCard.metric,
                 role: .focus,
+                decorAsset: .happySun,
                 primaryActionTitle: reflectionEligible ? "Reflect" : nil,
                 primaryAction: onOpenReflection
             )
-
-            if let dailyReflectionEntryState {
-                HomeDailyReflectionEntryCard(
-                    state: dailyReflectionEntryState,
-                    mode: .compact,
-                    onOpen: onOpenReflection
-                )
-            }
 
             SunriseInsightActionCard(
                 title: "Next decision",
                 message: firstDetail(from: state.duePressureMetrics) ?? "No urgent pressure is visible right now.",
                 systemImage: "exclamationmark.arrow.triangle.2.circlepath",
-                role: .warning
+                role: .warning,
+                accessibilityIdentifier: "home.insights.action.nextDecision"
             )
 
             SunriseInsightActionCard(
                 title: "Protect focus",
                 message: firstDetail(from: state.focusMetrics) ?? momentumGuidanceText,
                 systemImage: "sparkles",
-                role: .focus
+                role: .focus,
+                accessibilityIdentifier: "home.insights.action.protectFocus"
             )
+
+            if let dailyReflectionEntryState {
+                SunriseInsightsReflectionCard(
+                    state: dailyReflectionEntryState,
+                    onOpen: onOpenReflection
+                )
+            }
 
             SunriseInsightDisclosureCard(
                 title: "Today details",
                 summary: "XP, pressure, recovery, and completion mix stay here when you need them.",
-                isExpanded: $showDetails
+                isExpanded: $showDetails,
+                accessibilityIdentifier: "home.insights.disclosure.todayDetails"
             ) {
                 VStack(spacing: LBSpacingTokens.sm) {
                     HomeMomentumSummaryCard(
@@ -120,14 +122,15 @@ private struct SunriseInsightsWeekView: View {
 
     var body: some View {
         LazyVStack(spacing: LBSpacingTokens.sm) {
-            SunriseInsightHeroCard(
-                eyebrow: "Week",
+            SunriseInsightsHeroCard(
                 title: state.heroCard.title,
                 answer: state.heroCard.hint,
                 metric: state.patternSummary,
                 role: .routine,
+                decorAsset: .mountain,
                 primaryActionTitle: nil,
-                primaryAction: {}
+                primaryAction: nil,
+                accessibilityIdentifier: "home.insights.weekHero"
             )
 
             SunriseInsightActionCard(
@@ -149,11 +152,16 @@ private struct SunriseInsightsWeekView: View {
             SunriseInsightDisclosureCard(
                 title: "Week details",
                 summary: "Momentum bars, project mix, priority mix, and operating review.",
-                isExpanded: $showDetails
+                isExpanded: $showDetails,
+                accessibilityIdentifier: "home.insights.disclosure.weekDetails"
             ) {
                 VStack(spacing: LBSpacingTokens.sm) {
                     SunriseWeekBarsCard(state: state, scaleMode: viewModel.weekScaleMode)
-                    SunriseMetricSection(title: "Week summary", metrics: state.weeklySummaryMetrics)
+                    SunriseMetricSection(
+                        title: "Week summary",
+                        metrics: state.weeklySummaryMetrics,
+                        accessibilityIdentifier: "home.insights.weekSummary"
+                    )
                     SunriseLeaderboardCard(rows: state.projectLeaderboard)
                     SunriseDistributionItems(title: "Priority mix", items: state.priorityMix)
                     SunriseDistributionItems(title: "Task-type mix", items: state.taskTypeMix)
@@ -176,14 +184,14 @@ private struct SunriseInsightsSystemsView: View {
 
     var body: some View {
         LazyVStack(spacing: LBSpacingTokens.sm) {
-            SunriseInsightHeroCard(
-                eyebrow: "Systems",
+            SunriseInsightsHeroCard(
                 title: state.heroCard.title,
                 answer: state.heroCard.hint,
                 metric: state.heroSummary,
                 role: .assistant,
+                decorAsset: .thinkingCup,
                 primaryActionTitle: nil,
-                primaryAction: {}
+                primaryAction: nil
             )
 
             SunriseInsightActionCard(
@@ -290,30 +298,44 @@ private struct SunriseInsightActionCard: View {
     let message: String
     let systemImage: String
     let role: LBRole
+    var accessibilityIdentifier: String? = nil
 
     private var style: LBRoleStyle { LBColorTokens.role(role) }
 
     var body: some View {
         HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
             Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(style.deep)
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(style.softSurface))
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(style.softSurface.opacity(0.92))
+                        .overlay(Circle().stroke(style.border.opacity(0.48), lineWidth: 1))
+                )
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.lifeboard(.headline))
+                    .font(.lifeboard(.headline).weight(.semibold))
                     .foregroundStyle(LBColorTokens.navy)
                 Text(message)
                     .font(.lifeboard(.callout))
                     .foregroundStyle(LBColorTokens.navyMuted)
+                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer(minLength: 0)
+
+            Spacer(minLength: LBSpacingTokens.sm)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(LBColorTokens.textTertiary)
+                .padding(.top, 14)
         }
         .padding(LBSpacingTokens.md)
-        .sunriseInsightSurface(role: role, cornerRadius: 22)
+        .sunriseInsightSurface(role: role, cornerRadius: 24)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(accessibilityIdentifier ?? "home.insights.action.\(title.lifeboardAccessibilitySlug)")
     }
 }
 
@@ -321,7 +343,12 @@ private struct SunriseInsightDisclosureCard<Content: View>: View {
     let title: String
     let summary: String
     @Binding var isExpanded: Bool
+    var accessibilityIdentifier: String? = nil
     @ViewBuilder let content: () -> Content
+
+    private var resolvedAccessibilityIdentifier: String {
+        accessibilityIdentifier ?? "home.insights.disclosure.\(title.lifeboardAccessibilitySlug)"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: isExpanded ? LBSpacingTokens.md : 0) {
@@ -348,6 +375,8 @@ private struct SunriseInsightDisclosureCard<Content: View>: View {
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier(resolvedAccessibilityIdentifier)
+            .accessibilityValue(isExpanded ? "expanded" : "collapsed")
 
             if isExpanded {
                 content()
@@ -356,12 +385,21 @@ private struct SunriseInsightDisclosureCard<Content: View>: View {
         }
         .padding(LBSpacingTokens.md)
         .sunriseInsightSurface(role: .neutral, cornerRadius: 22)
+        .accessibilityIdentifier(resolvedAccessibilityIdentifier)
+        .accessibilityValue(isExpanded ? "expanded" : "collapsed")
+    }
+}
+
+private extension String {
+    var lifeboardAccessibilitySlug: String {
+        lowercased().filter { $0.isLetter || $0.isNumber }
     }
 }
 
 private struct SunriseMetricSection: View {
     let title: String
     let metrics: [InsightsMetricTile]
+    var accessibilityIdentifier: String?
 
     var body: some View {
         if metrics.isEmpty == false {
@@ -369,6 +407,7 @@ private struct SunriseMetricSection: View {
                 Text(title)
                     .font(.lifeboard(.callout).weight(.semibold))
                     .foregroundStyle(LBColorTokens.navy)
+                    .accessibilityIdentifier(accessibilityIdentifier ?? "home.insights.metric.\(title.lifeboardAccessibilitySlug)")
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: LBSpacingTokens.xs) {
                     ForEach(metrics) { metric in
@@ -394,6 +433,7 @@ private struct SunriseMetricSection: View {
                     }
                 }
             }
+            .accessibilityIdentifier(accessibilityIdentifier ?? "home.insights.metric.\(title.lifeboardAccessibilitySlug)")
         }
     }
 
@@ -489,6 +529,7 @@ private struct SunriseLeaderboardCard: View {
                     )
                 }
             }
+            .accessibilityIdentifier("home.insights.projectLeaderboard")
         }
     }
 }
@@ -501,7 +542,7 @@ private struct SunriseWeekBarsCard: View {
         let personalMax = max(state.weeklyBars.map(\.xp).max() ?? 1, 1)
         switch scaleMode {
         case .goal:
-            return max(personalMax, GamificationTokens.dailyXPCap)
+            return personalMax
         case .personalMax:
             return personalMax
         }
