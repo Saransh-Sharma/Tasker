@@ -82,7 +82,4 @@ public enum GamificationTokens {
         public static let badgeUnlock = SpringConfig(response: 0.35, dampingFraction: 0.55)
     }
 
-    // MARK: - Daily Cap
-
-    public static let dailyXPCap: Int = 250
 }
