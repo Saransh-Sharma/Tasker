@@ -257,6 +257,58 @@ struct OverdueRescueDeckLayoutMetrics: Equatable {
         cardHeight + (isCompactHeight ? 46 : 68)
     }
 
+    var revealPanelWidth: CGFloat {
+        cardWidth * 0.96
+    }
+
+    var revealPanelOffset: CGFloat {
+        cardWidth * 0.12
+    }
+
+    var revealContentInset: CGFloat {
+        min(max(58, cardWidth * 0.17), max(48, revealPanelWidth * 0.24))
+    }
+
+    var revealContentWidth: CGFloat {
+        let availableWidth = max(84, revealPanelWidth - revealContentInset * 2)
+        let idealWidth = min(max(96, cardWidth * 0.30), 118)
+        return min(idealWidth, availableWidth)
+    }
+
+    func revealPanelOffset(for reveal: OverdueRescueSwipeRevealKind) -> CGFloat {
+        switch reveal {
+        case .keep: return -revealPanelOffset
+        case .move: return revealPanelOffset
+        case .none: return 0
+        }
+    }
+
+    func revealContentFrame(for reveal: OverdueRescueSwipeRevealKind) -> CGRect {
+        guard reveal != .none else { return .zero }
+        let centerX = containerSize.width / 2 + revealPanelOffset(for: reveal)
+        let panelMinX = centerX - revealPanelWidth / 2
+        let panelMaxX = centerX + revealPanelWidth / 2
+
+        switch reveal {
+        case .keep:
+            return CGRect(
+                x: panelMinX + revealContentInset,
+                y: 0,
+                width: revealContentWidth,
+                height: cardHeight * 0.96
+            )
+        case .move:
+            return CGRect(
+                x: panelMaxX - revealContentInset - revealContentWidth,
+                y: 0,
+                width: revealContentWidth,
+                height: cardHeight * 0.96
+            )
+        case .none:
+            return .zero
+        }
+    }
+
     var progressWidth: CGFloat {
         min(250, max(190, contentWidth * 0.58))
     }
@@ -1736,22 +1788,27 @@ private struct OverdueRescueRevealPanel: View {
                 RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
                     .stroke(panelForeground.opacity(0.18), lineWidth: 1)
             )
-            .frame(width: metrics.cardWidth * 0.96, height: metrics.cardHeight * 0.96)
+            .frame(width: metrics.revealPanelWidth, height: metrics.cardHeight * 0.96)
             .shadow(color: Color.black.opacity(0.08 * easedProgress), radius: 22, y: 12)
             .overlay(alignment: reveal == .keep ? .leading : .trailing) {
                 if reveal != .none {
                     VStack(spacing: 12) {
                         Image(systemName: icon)
                             .font(.system(size: 54, weight: .semibold))
+                            .frame(width: 60, height: 60)
                         Text(title)
                             .font(.lifeboard(.screenTitle))
                             .fontWeight(.bold)
                             .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.82)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    .frame(width: metrics.revealContentWidth)
                     .foregroundStyle(panelForeground)
                     .opacity(easedProgress)
                     .scaleEffect(0.86 + 0.14 * easedProgress)
-                    .padding(.horizontal, 44)
+                    .padding(.horizontal, metrics.revealContentInset)
                 }
             }
             .offset(x: panelOffsetX, y: 0)
@@ -1764,11 +1821,7 @@ private struct OverdueRescueRevealPanel: View {
     }
 
     private var panelOffsetX: CGFloat {
-        switch reveal {
-        case .keep: return -metrics.cardWidth * 0.20
-        case .move: return metrics.cardWidth * 0.20
-        case .none: return 0
-        }
+        metrics.revealPanelOffset(for: reveal)
     }
 
     private var panelFill: Color {
