@@ -172,9 +172,9 @@ struct SunriseCompactHeaderChrome: View {
                     .foregroundStyle(Color.lifeboard.textTertiary)
 
                 HStack(spacing: spacing.s4) {
-                    Image(systemName: "flame.fill")
+                    Image(systemName: "leaf.fill")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.lifeboard.statusWarning)
+                        .foregroundStyle(Color.lifeboard.accentSecondary)
                         .accessibilityHidden(true)
 
                     Text(todayStatus.streakText)
@@ -429,7 +429,7 @@ struct SunriseCompactHeaderChrome: View {
         switch quickView {
         case .today: return "sun.max.fill"
         case .upcoming: return "calendar.badge.clock"
-        case .overdue: return "flame.fill"
+        case .overdue: return "lifepreserver"
         case .done: return "checkmark.circle.fill"
         case .morning: return "sunrise.fill"
         case .evening: return "moon.stars.fill"

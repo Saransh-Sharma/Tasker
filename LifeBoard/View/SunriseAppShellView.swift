@@ -340,14 +340,6 @@ struct SunriseAppShellView: View {
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
     @State private var draftDate = Date()
-    @State private var celebrationRouter = DefaultCelebrationRouter()
-    @State private var showXPBurst = false
-    @State private var xpBurstValue = 0
-    @State private var showLevelUp = false
-    @State private var levelUpValue = 1
-    @State private var showMilestone = false
-    @State private var milestoneValue: XPCalculationEngine.Milestone?
-    @State private var semanticCelebrationXP = 0
     @State private var showDailyReflectPlan = false
     @State private var dailyReflectPlanViewModel: DailyReflectPlanViewModel?
     @State private var activeNextActionFocusSession: FocusSessionDefinition?
@@ -362,7 +354,6 @@ struct SunriseAppShellView: View {
     @State private var lastHintTriggerAt: Date?
     @State private var isHomeVisible = false
     @State private var snackbar: SnackbarData?
-    @State private var shownUnlockKeys = Set<String>()
     @State private var lastSearchQueryTelemetryAt: Date?
     @FocusState private var isSearchFieldFocused: Bool
     @State private var hasAutoFocusedSearchField = false
@@ -673,7 +664,7 @@ struct SunriseAppShellView: View {
         case .loading:
             OverdueRescueLauncherOverlayView(
                 title: "Preparing rescue",
-                message: "Finding overdue tasks that still need a decision.",
+                message: "Finding tasks that still need a decision.",
                 showsProgress: true,
                 primaryTitle: nil,
                 secondaryTitle: nil,
@@ -866,25 +857,6 @@ struct SunriseAppShellView: View {
                 }
             }
 
-            if showXPBurst && shellPhase == .interactive {
-                xpBurstOverlay
-            }
-
-            if showLevelUp && shellPhase == .interactive {
-                LevelUpCelebrationView(
-                    level: levelUpValue,
-                    awardedXP: semanticCelebrationXP,
-                    isPresented: $showLevelUp
-                )
-            }
-
-            if showMilestone, let milestone = milestoneValue, shellPhase == .interactive {
-                MilestoneCelebrationView(
-                    milestone: milestone,
-                    awardedXP: semanticCelebrationXP,
-                    isPresented: $showMilestone
-                )
-            }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .accessibilityIdentifier("home.view")
@@ -2144,10 +2116,10 @@ struct SunriseAppShellView: View {
             },
             LifeBoardSearchFilterChipDescriptor(
                 id: "quick-overdue",
-                title: "Overdue",
-                systemImage: "exclamationmark.triangle",
+                title: "Rescue",
+                systemImage: "lifepreserver",
                 isSelected: searchState.selectedStatus == .overdue,
-                tintColor: Color.lifeboard.statusWarning,
+                tintColor: LBColorTokens.role(.warning).base,
                 accessibilityIdentifier: "search.quick.overdue"
             ) {
                 searchState.setStatus(searchState.selectedStatus == .overdue ? .all : .overdue)
@@ -3235,7 +3207,7 @@ struct SunriseAppShellView: View {
     private var habitsSectionCard: some View {
         HomeHabitSectionCardHost(
             title: "Habits",
-            summaryLine: "\(habitsSnapshot.habitHomeSectionState.totalCount) active · \(habitsSnapshot.habitHomeSectionState.onStreakCount) streak · \(habitsSnapshot.habitHomeSectionState.atRiskCount) risk",
+            summaryLine: "\(habitsSnapshot.habitHomeSectionState.totalCount) active · \(habitsSnapshot.habitHomeSectionState.onStreakCount) in rhythm · \(habitsSnapshot.habitHomeSectionState.atRiskCount) need care",
             rows: habitsSnapshot.habitHomeSectionState.primaryRows,
             accessibilityIdentifier: "home.habits.section",
             onOpenBoard: { showHabitBoardPresented = true },
@@ -3585,13 +3557,6 @@ struct SunriseAppShellView: View {
         )
     }
 
-    private var xpBurstOverlay: some View {
-        XPCelebrationView(xpValue: xpBurstValue, isPresented: $showXPBurst)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, 100)
-            .allowsHitTesting(false)
-    }
-
     /// Executes trackTaskToggle.
     private func trackTaskToggle(_ task: TaskDefinition, source: String) {
         viewModel.trackHomeInteraction(
@@ -3820,43 +3785,19 @@ struct SunriseAppShellView: View {
     }
 
     private func handleXPResult(_ result: XPEventResult?) {
-        guard let result, let event = CelebrationEvent.from(result) else { return }
-        guard let routed = celebrationRouter.route(event: event) else { return }
-        let routedEvent = routed.event
-        semanticCelebrationXP = routedEvent.awardedXP
+        guard let result else { return }
 
-        switch routedEvent.kind {
-        case .milestone:
-            if let milestone = routedEvent.milestone {
-                milestoneValue = milestone
-                showMilestone = true
-            }
-        case .levelUp:
-            levelUpValue = routedEvent.level
-            showLevelUp = true
-        case .achievementUnlock:
-            if V2FeatureFlags.gamificationOverhaulV1Enabled {
-                showAchievementUnlockToast(for: routedEvent)
-            } else {
-                xpBurstValue = routedEvent.awardedXP
-                showXPBurst = true
-            }
-        case .xpBurst:
-            xpBurstValue = routedEvent.awardedXP
-            showXPBurst = true
-        }
-
-        if routedEvent.awardedXP >= 7 {
+        if result.awardedXP >= 7 {
             LifeBoardFeedback.success()
-        } else if routedEvent.awardedXP >= 4 {
+        } else if result.awardedXP >= 4 {
             LifeBoardFeedback.medium()
         } else {
             LifeBoardFeedback.light()
         }
 
         viewModel.trackHomeInteraction(
-            action: "home_reward_xp_burst",
-            metadata: ["delta": routedEvent.awardedXP, "new_score": viewModel.dailyScore, "kind": routedEvent.kind.rawValue]
+            action: "home_progress_feedback",
+            metadata: ["delta": result.awardedXP, "new_score": viewModel.dailyScore]
         )
     }
 
@@ -4021,27 +3962,6 @@ struct SunriseAppShellView: View {
         viewModel.trackHomeInteraction(
             action: "home_search_flip_close",
             metadata: ["source": source]
-        )
-    }
-
-    private func showAchievementUnlockToast(for event: CelebrationEvent) {
-        guard let achievementKey = event.achievementKey else { return }
-        guard !shownUnlockKeys.contains(achievementKey) else { return }
-        shownUnlockKeys.insert(achievementKey)
-
-        let badgeName = AchievementCatalog.definition(for: achievementKey)?.name ?? "Badge"
-        snackbar = SnackbarData(
-            message: "Achievement unlocked: \(badgeName)",
-            actions: [
-                SnackbarAction(title: "View badge") {
-                    viewModel.launchInsights(
-                        InsightsLaunchRequest(
-                            targetTab: .systems,
-                            highlightedAchievementKey: achievementKey
-                        )
-                    )
-                }
-            ]
         )
     }
 
@@ -4474,7 +4394,7 @@ private struct OverdueRescueLauncherOverlayView: View {
                 if showsProgress {
                     ProgressView()
                         .tint(Color.lifeboard.accentPrimary)
-                        .accessibilityLabel("Preparing overdue rescue")
+                        .accessibilityLabel("Preparing rescue")
                 } else if primaryTitle != nil || secondaryTitle != nil {
                     HStack(spacing: 12) {
                         if let secondaryTitle, let onSecondary {

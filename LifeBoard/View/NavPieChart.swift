@@ -69,7 +69,7 @@ public struct NavPieChart: View {
                         )
                         .rotationEffect(.degrees(-90))
 
-                    // XP value
+                    // Progress value
                     Text("\(score)")
                         .font(.system(size: scoreFont, weight: .semibold, design: .rounded))
                         .foregroundColor(Color.lifeboard.accentPrimary)
@@ -80,7 +80,7 @@ public struct NavPieChart: View {
             .contentShape(Rectangle())
             .frame(width: minimumTapTargetSize, height: minimumTapTargetSize)
             .optionalAccessibilityIdentifier(accessibilityButtonID)
-            .accessibilityLabel("Today's XP: \(score)")
+            .accessibilityLabel("Today progress: \(score)")
             .accessibilityHint("Double tap to view analytics")
         }
         .frame(width: minimumTapTargetSize, height: minimumTapTargetSize)
@@ -182,7 +182,7 @@ public struct NavPieChartDetailed: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Today's XP: \(score)")
+        .accessibilityLabel("Today progress: \(score)")
         .onAppear {
             animateSegments()
         }
