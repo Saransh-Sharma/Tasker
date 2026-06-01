@@ -777,6 +777,30 @@ public final class GamificationEngine: @unchecked Sendable {
                     periodKey: periodKey
                 )
 
+                if let atomicRepository = self.repository as? AtomicGamificationRecordingRepositoryProtocol {
+                    atomicRepository.recordXPEventAtomically(event: event, periodKey: periodKey) { atomicResult in
+                        switch atomicResult {
+                        case .failure(let error):
+                            if self.isIdempotentReplayError(error) {
+                                self.completeIdempotentReplay(context: context, completion: completion)
+                            } else {
+                                completion(.failure(error))
+                            }
+                        case .success(let persisted):
+                            self.finishRecordedEvent(
+                                context: context,
+                                event: event,
+                                awardedXP: finalXP,
+                                profile: persisted.profile,
+                                previousLevel: persisted.previousLevel,
+                                dailyXPSoFar: persisted.dailyXPSoFar,
+                                completion: completion
+                            )
+                        }
+                    }
+                    return
+                }
+
                 // Save event
                 self.repository.saveXPEvent(event) { saveResult in
                     if case .failure(let error) = saveResult {
@@ -819,65 +843,84 @@ public final class GamificationEngine: @unchecked Sendable {
                                     completion: completion
                                 )
                             case .success(let (profile, previousLevel)):
-                                // Evaluate achievements
-                                self.evaluateAchievements(triggerEvent: event) { achieveResult in
-                                    let unlocked: [AchievementUnlockDefinition]
-                                    if case .success(let u) = achieveResult {
-                                        unlocked = u
-                                    } else {
-                                        unlocked = []
-                                    }
-
-                                    let levelInfo = XPCalculationEngine.levelForXP(profile.xpTotal)
-                                    let milestone = XPCalculationEngine.milestoneCrossed(
-                                        previousXP: profile.xpTotal - Int64(finalXP),
-                                        newXP: profile.xpTotal
-                                    )
-                                    let didLevelUp = levelInfo.level > previousLevel
-                                    let celebration = XPCelebrationPayload(
-                                        awardedXP: finalXP,
-                                        level: levelInfo.level,
-                                        didLevelUp: didLevelUp,
-                                        crossedMilestone: milestone,
-                                        cooldownSeconds: Self.celebrationCooldownSeconds,
-                                        occurredAt: Date()
-                                    )
-                                    self.updateStreak { streakResult in
-                                        let resolvedStreak: Int
-                                        if case .success(let streakProfile) = streakResult {
-                                            resolvedStreak = streakProfile.currentStreak
-                                        } else {
-                                            resolvedStreak = profile.currentStreak
-                                        }
-
-                                        let result = XPEventResult(
-                                            awardedXP: finalXP,
-                                            totalXP: profile.xpTotal,
-                                            level: levelInfo.level,
-                                            previousLevel: previousLevel,
-                                            currentStreak: resolvedStreak,
-                                            didLevelUp: didLevelUp,
-                                            dailyXPSoFar: newDailyXP,
-                                            unlockedAchievements: unlocked,
-                                            crossedMilestone: milestone,
-                                            celebration: celebration
-                                        )
-
-                                        self.emitXPFunnelTelemetry(context: context, result: result)
-                                        self.writeWidgetSnapshot()
-                                        self.emitLedgerMutation(
-                                            context: context,
-                                            result: result,
-                                            didChange: true,
-                                            originatingEventID: event.id
-                                        )
-                                        completion(.success(result))
-                                    }
-                                }
+                                self.finishRecordedEvent(
+                                    context: context,
+                                    event: event,
+                                    awardedXP: finalXP,
+                                    profile: profile,
+                                    previousLevel: previousLevel,
+                                    dailyXPSoFar: newDailyXP,
+                                    completion: completion
+                                )
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private func finishRecordedEvent(
+        context: XPEventContext,
+        event: XPEventDefinition,
+        awardedXP: Int,
+        profile: GamificationSnapshot,
+        previousLevel: Int,
+        dailyXPSoFar: Int,
+        completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void
+    ) {
+        evaluateAchievements(triggerEvent: event) { achieveResult in
+            let unlocked: [AchievementUnlockDefinition]
+            if case .success(let u) = achieveResult {
+                unlocked = u
+            } else {
+                unlocked = []
+            }
+
+            let levelInfo = XPCalculationEngine.levelForXP(profile.xpTotal)
+            let milestone = XPCalculationEngine.milestoneCrossed(
+                previousXP: profile.xpTotal - Int64(awardedXP),
+                newXP: profile.xpTotal
+            )
+            let didLevelUp = levelInfo.level > previousLevel
+            let celebration = XPCelebrationPayload(
+                awardedXP: awardedXP,
+                level: levelInfo.level,
+                didLevelUp: didLevelUp,
+                crossedMilestone: milestone,
+                cooldownSeconds: Self.celebrationCooldownSeconds,
+                occurredAt: Date()
+            )
+            self.updateStreak { streakResult in
+                let resolvedStreak: Int
+                if case .success(let streakProfile) = streakResult {
+                    resolvedStreak = streakProfile.currentStreak
+                } else {
+                    resolvedStreak = profile.currentStreak
+                }
+
+                let result = XPEventResult(
+                    awardedXP: awardedXP,
+                    totalXP: profile.xpTotal,
+                    level: levelInfo.level,
+                    previousLevel: previousLevel,
+                    currentStreak: resolvedStreak,
+                    didLevelUp: didLevelUp,
+                    dailyXPSoFar: dailyXPSoFar,
+                    unlockedAchievements: unlocked,
+                    crossedMilestone: milestone,
+                    celebration: celebration
+                )
+
+                self.emitXPFunnelTelemetry(context: context, result: result)
+                self.writeWidgetSnapshot()
+                self.emitLedgerMutation(
+                    context: context,
+                    result: result,
+                    didChange: true,
+                    originatingEventID: event.id
+                )
+                completion(.success(result))
             }
         }
     }

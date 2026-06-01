@@ -418,6 +418,26 @@ public protocol GamificationRepositoryProtocol: Sendable {
     func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void)
 }
 
+public struct AtomicXPRecordingResult: Sendable {
+    public let profile: GamificationSnapshot
+    public let previousLevel: Int
+    public let dailyXPSoFar: Int
+
+    public init(profile: GamificationSnapshot, previousLevel: Int, dailyXPSoFar: Int) {
+        self.profile = profile
+        self.previousLevel = previousLevel
+        self.dailyXPSoFar = dailyXPSoFar
+    }
+}
+
+public protocol AtomicGamificationRecordingRepositoryProtocol: GamificationRepositoryProtocol {
+    func recordXPEventAtomically(
+        event: XPEventDefinition,
+        periodKey: String,
+        completion: @escaping @Sendable (Result<AtomicXPRecordingResult, Error>) -> Void
+    )
+}
+
 public protocol AssistantActionRepositoryProtocol: Sendable {
     /// Executes createRun.
     func createRun(_ run: AssistantActionRunDefinition, completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void)
