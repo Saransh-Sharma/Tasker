@@ -4100,11 +4100,6 @@ struct SunriseAppShellView: View {
         durationSeconds: Int
     ) {
         guard isNextActionFocusRequestInFlight == false else { return }
-        guard viewModel.commitFocusNowSet(taskIDs: draftTasks.map(\.id), source: "focus_now_timer_start") else {
-            snackbar = SnackbarData(message: "Couldn't start focus. Try again.")
-            return
-        }
-
         activeFocusTimerSource = "focus_now"
         isNextActionFocusRequestInFlight = true
         LifeBoardFeedback.selection()
@@ -4121,6 +4116,10 @@ struct SunriseAppShellView: View {
                 isNextActionFocusRequestInFlight = false
                 switch result {
                 case .success(let session):
+                    guard viewModel.commitFocusNowSet(taskIDs: draftTasks.map(\.id), source: "focus_now_timer_start") else {
+                        snackbar = SnackbarData(message: "Couldn't start focus. Try again.")
+                        return
+                    }
                     viewModel.setEvaFocusWhyPresented(false)
                     activeNextActionFocusSession = session
                     showNextActionFocusTimer = true
