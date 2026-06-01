@@ -522,7 +522,7 @@ struct OverdueRescueCardModel: Identifiable, Equatable, Sendable {
     }
 
     var overdueText: String {
-        overdueDays == 1 ? "Overdue by 1 day" : "Overdue by \(overdueDays) days"
+        overdueDays == 1 ? "Needs a decision for 1 day" : "Needs a decision for \(overdueDays) days"
     }
 
     var isHighConfidence: Bool {
@@ -1462,7 +1462,7 @@ private struct OverdueRescueDeckView: View {
                 .frame(maxWidth: .infinity)
                 .frame(width: min(metrics.containerSize.width + 34, metrics.cardWidth + 64), height: metrics.deckHeight)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Overdue Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: Keep today, \(card.moveButtonTitle), Edit, Delete.")
+                .accessibilityLabel("Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: Keep today, \(card.moveButtonTitle), Edit, Delete.")
                 .accessibilityAction(named: Text("Keep today")) {
                     viewModel.keepToday(source: .tap)
                 }
@@ -1543,7 +1543,7 @@ private struct OverdueRescueDeckView: View {
             .padding(.horizontal, OverdueRescueVisualSpec.screenHorizontalPadding)
 
             VStack(spacing: 6) {
-                Text("Overdue Rescue")
+                Text("Rescue")
                     .font(.lifeboard(.title2))
                     .fontWeight(.bold)
                     .foregroundStyle(OverdueRescuePalette.ink)
@@ -2186,7 +2186,7 @@ private struct OverdueRescueQuickEditSheet: View {
                         .font(.lifeboard(.callout))
                         .fontWeight(.semibold)
                         .foregroundStyle(Color.lifeboard.accentPrimary)
-                    Text("Based on project relevance and overdue status.")
+                    Text("Based on project relevance and how long the task has needed a decision.")
                         .font(.lifeboard(.body))
                         .foregroundStyle(OverdueRescuePalette.secondaryInk)
                         .lineLimit(2)
@@ -2466,7 +2466,7 @@ private struct OverdueRescuePauseView: View {
                             .frame(width: 72, height: 72)
                             .background(Circle().fill(Color.white.opacity(0.58)))
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Resume overdue rescue")
+                            Text("Resume rescue")
                                 .font(.lifeboard(.headline))
                                 .foregroundStyle(OverdueRescuePalette.ink)
                             Text("\(viewModel.summary.reviewed) done · \(viewModel.remainingCount) left")
@@ -2610,7 +2610,7 @@ private struct OverdueRescueLargeStackView: View {
         VStack(spacing: 22) {
             OverdueRescueShieldHero()
                 .frame(width: 220, height: 180)
-            Text("Large overdue stack")
+            Text("Large rescue stack")
                 .font(.lifeboard(.title1))
                 .fontWeight(.bold)
                 .foregroundStyle(Color.lifeboard.textPrimary)

@@ -318,7 +318,7 @@ struct SunriseProjectManagementView: View {
                 projectMetricCard(title: "This week", value: "\(viewModel.weeklyContributionStats.thisWeekCount)")
                 projectMetricCard(title: "Done this week", value: "\(viewModel.weeklyContributionStats.completedThisWeekCount)")
                 projectMetricCard(title: "Outcome links", value: "\(viewModel.weeklyContributionStats.linkedOutcomeCount)")
-                projectMetricCard(title: "Carry pressure", value: "\(viewModel.weeklyContributionStats.carryPressureCount)")
+                projectMetricCard(title: "Rescue pressure", value: "\(viewModel.weeklyContributionStats.carryPressureCount)")
             }
 
             HStack(spacing: 10) {

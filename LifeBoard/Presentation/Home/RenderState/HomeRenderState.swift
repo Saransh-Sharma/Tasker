@@ -758,7 +758,7 @@ struct NeedsReplanSummary: Equatable {
             return "No unfinished past tasks need replanning."
         }
         if unscheduledCount > 0, datedCount > 0 {
-            return "\(datedCount) overdue or carry-over, \(unscheduledCount) unscheduled"
+            return "\(datedCount) rescue or carry-forward, \(unscheduledCount) unscheduled"
         }
         if unscheduledCount > 0 {
             return unscheduledCount == 1
@@ -794,7 +794,7 @@ struct NeedsReplanSummary: Equatable {
             return emptyStateMessage
         }
         if unscheduledCount > 0, datedCount > 0 {
-            return "\(datedCount) overdue or carry-over, \(unscheduledCount) unscheduled"
+            return "\(datedCount) rescue or carry-forward, \(unscheduledCount) unscheduled"
         }
         if unscheduledCount > 0 {
             return unscheduledCount == 1
@@ -827,7 +827,7 @@ struct NeedsReplanSummary: Equatable {
         if count == 0 {
             return emptyStateMessage
         }
-        return "Resolve overdue, carry-over, and unscheduled work before you shape what happens next."
+        return "Resolve rescue, carry-forward, and unscheduled work before you shape what happens next."
     }
 
     var launcherPrimaryActionTitle: String {

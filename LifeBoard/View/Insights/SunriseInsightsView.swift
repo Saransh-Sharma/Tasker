@@ -204,9 +204,9 @@ struct InsightsTabPresentation: Equatable {
             ? [
                 InsightsActionPresentation(
                     id: "overdueRescue",
-                    title: String(localized: "insights.today.action.overdueRescue.title", defaultValue: "Overdue Rescue"),
+                    title: String(localized: "insights.today.action.overdueRescue.title", defaultValue: "Rescue"),
                     message: String(
-                        format: String(localized: "insights.today.action.overdueRescue.message", defaultValue: "Tasks need your attention · %lld overdue · Est. %lld min"),
+                        format: String(localized: "insights.today.action.overdueRescue.message", defaultValue: "Tasks need a decision · %lld to rescue · Est. %lld min"),
                         locale: Locale.current,
                         overdueCount,
                         estimatedMinutes
@@ -222,7 +222,7 @@ struct InsightsTabPresentation: Equatable {
             InsightsActionPresentation(id: nextDecisionActionID, title: String(localized: "insights.today.action.nextDecision.title", defaultValue: "Next decision"), message: firstDetail(from: state.duePressureMetrics, fallback: String(localized: "insights.today.action.nextDecision.fallback", defaultValue: "Choose one task to remove from today.")), systemImage: "exclamationmark.arrow.triangle.2.circlepath", role: .warning, ctaTitle: String(localized: "insights.today.action.nextDecision.cta", defaultValue: "Choose next task")),
             InsightsActionPresentation(id: "protectFocus", title: String(localized: "insights.today.action.protectFocus.title", defaultValue: "Protect focus"), message: firstDetail(from: state.focusMetrics, fallback: momentumGuidanceText), systemImage: "sparkles", role: .focus, ctaTitle: String(localized: "insights.today.action.protectFocus.cta", defaultValue: "Plan focus block")),
             InsightsActionPresentation(id: "habitCheck", title: String(localized: "insights.today.action.habitCheck.title", defaultValue: "Habit check"), message: firstDetail(from: state.recoveryMetrics, fallback: String(localized: "insights.today.action.habitCheck.fallback", defaultValue: "Update the smallest pending habit signal.")), systemImage: "checkmark.seal", role: .routine, ctaTitle: String(localized: "insights.today.action.habitCheck.cta", defaultValue: "Update habits")),
-            InsightsActionPresentation(id: "yesterdayReview", title: String(localized: "insights.today.action.yesterdayReview.title", defaultValue: "Yesterday review"), message: firstDetail(from: state.momentumMetrics, fallback: String(localized: "insights.today.action.yesterdayReview.fallback", defaultValue: "Review carry-over and keep tomorrow tight.")), systemImage: "arrow.uturn.backward.circle", role: .assistant, ctaTitle: String(localized: "insights.today.action.yesterdayReview.cta", defaultValue: "Review carry-over"))
+            InsightsActionPresentation(id: "yesterdayReview", title: String(localized: "insights.today.action.yesterdayReview.title", defaultValue: "Yesterday review"), message: firstDetail(from: state.momentumMetrics, fallback: String(localized: "insights.today.action.yesterdayReview.fallback", defaultValue: "Review carry-forward and keep tomorrow tight.")), systemImage: "arrow.uturn.backward.circle", role: .assistant, ctaTitle: String(localized: "insights.today.action.yesterdayReview.cta", defaultValue: "Review carry-forward"))
         ]
 
         return InsightsTabPresentation(
@@ -253,7 +253,7 @@ struct InsightsTabPresentation: Equatable {
             actions: todayActions,
             details: InsightsDetailPresentation(
                 title: String(localized: "insights.today.details.title", defaultValue: "Today details"),
-                summary: String(localized: "insights.today.details.summary", defaultValue: "XP, pressure, recovery, and completion mix stay here when you need them.")
+                summary: String(localized: "insights.today.details.summary", defaultValue: "Pressure, recovery, and completion mix stay here when you need them.")
             )
         )
     }
@@ -299,7 +299,7 @@ struct InsightsTabPresentation: Equatable {
                 title: title,
                 explanation: explanation,
                 evidence: String(
-                    format: String(localized: "insights.week.diagnosis.evidence", defaultValue: "%lld XP - %lld active days - %@"),
+                    format: String(localized: "insights.week.diagnosis.evidence", defaultValue: "%lld closed - %lld active days - %@"),
                     locale: Locale.current,
                     state.weeklyTotalXP,
                     activeDays,
@@ -314,9 +314,9 @@ struct InsightsTabPresentation: Equatable {
             ),
             metrics: [
                 InsightsMetricPresentation(id: "closed", label: String(localized: "insights.week.metric.closed.label", defaultValue: "Closed"), value: metricValue(from: state.weeklySummaryMetrics, fallback: "+\(max(0, state.weeklyTotalXP - state.previousWeekTotalXP))"), detail: String(localized: "insights.week.metric.closed.detail", defaultValue: "Weekly movement"), role: .task, systemImage: "checkmark.circle"),
-                InsightsMetricPresentation(id: "activeDays", label: String(localized: "insights.week.metric.activeDays.label", defaultValue: "Active days"), value: "\(activeDays)", detail: String(localized: "insights.week.metric.activeDays.detail", defaultValue: "Days with XP"), role: .routine, systemImage: "calendar"),
-                InsightsMetricPresentation(id: "carryOver", label: String(localized: "insights.week.metric.carryOver.label", defaultValue: "Carry-over"), value: state.weeklyOperating == nil ? String(localized: "insights.week.metric.carryOver.thin", defaultValue: "Thin") : String(localized: "insights.week.metric.carryOver.live", defaultValue: "Live"), detail: nonEmpty(carryOver) ?? String(localized: "insights.week.metric.carryOver.detailFallback", defaultValue: "No carry-over trend yet"), role: isBacklogVisible ? .warning : .assistant, systemImage: "arrow.clockwise"),
-                InsightsMetricPresentation(id: "focus", label: String(localized: "insights.week.metric.focus.label", defaultValue: "Focus"), value: "\(state.averageDailyXP)", detail: String(localized: "insights.week.metric.focus.detail", defaultValue: "Avg daily XP"), role: .focus, systemImage: "target")
+                InsightsMetricPresentation(id: "activeDays", label: String(localized: "insights.week.metric.activeDays.label", defaultValue: "Active days"), value: "\(activeDays)", detail: String(localized: "insights.week.metric.activeDays.detail", defaultValue: "Days with visible activity"), role: .routine, systemImage: "calendar"),
+                InsightsMetricPresentation(id: "carryOver", label: String(localized: "insights.week.metric.carryOver.label", defaultValue: "Carry-forward"), value: state.weeklyOperating == nil ? String(localized: "insights.week.metric.carryOver.thin", defaultValue: "Thin") : String(localized: "insights.week.metric.carryOver.live", defaultValue: "Live"), detail: nonEmpty(carryOver) ?? String(localized: "insights.week.metric.carryOver.detailFallback", defaultValue: "No carry-forward trend yet"), role: isBacklogVisible ? .warning : .assistant, systemImage: "arrow.clockwise"),
+                InsightsMetricPresentation(id: "focus", label: String(localized: "insights.week.metric.focus.label", defaultValue: "Focus"), value: "\(state.averageDailyXP)", detail: String(localized: "insights.week.metric.focus.detail", defaultValue: "Average daily focus signal"), role: .focus, systemImage: "target")
             ],
             actions: [
                 InsightsActionPresentation(id: "weeklyMomentum", title: String(localized: "insights.week.action.weeklyMomentum.title", defaultValue: "Weekly momentum"), message: nonEmpty(state.patternSummary) ?? String(localized: "insights.week.action.weeklyMomentum.fallback", defaultValue: "See how this week compares with your usual rhythm."), systemImage: "chart.bar.xaxis", role: .routine, ctaTitle: String(localized: "insights.week.action.weeklyMomentum.cta", defaultValue: "See momentum")),
@@ -393,7 +393,7 @@ struct InsightsTabPresentation: Equatable {
             ],
             details: InsightsDetailPresentation(
                 title: String(localized: "insights.systems.details.title", defaultValue: "System details"),
-                summary: String(localized: "insights.systems.details.summary", defaultValue: "Reminder response, focus health, recovery health, streak resilience, and achievements.")
+                summary: String(localized: "insights.systems.details.summary", defaultValue: "Reminder response, focus health, recovery health, and active-day rhythm.")
             )
         )
     }
@@ -634,7 +634,7 @@ private struct SunriseInsightsWeekView: View {
                     SunriseDistributionItems(title: "Task-type mix", items: state.taskTypeMix)
                     if let weeklyOperating = state.weeklyOperating {
                         SunriseNarrativeCard(title: "Operating review", message: weeklyOperating.momentumNarrative)
-                        SunriseNarrativeCard(title: "Carry-over", message: weeklyOperating.carryOverSummary)
+                        SunriseNarrativeCard(title: "Carry-forward", message: weeklyOperating.carryOverSummary)
                     }
                 }
             }
@@ -709,13 +709,13 @@ private struct SunriseInsightsSystemsView: View {
                     SunriseReminderResponseCard(state: state.reminderResponse)
                     SunriseMetricSection(title: "Focus health", metrics: state.focusHealthMetrics)
                     SunriseMetricSection(title: "Recovery health", metrics: state.recoveryHealthMetrics)
-                    SunriseMetricSection(title: "Streak resilience", metrics: state.streakMetrics)
+                    SunriseMetricSection(title: "Active-day rhythm", metrics: state.streakMetrics)
                         .id(InsightsDetailAnchor.streakResilience)
                         .accessibilityIdentifier("home.insights.streakResilience")
-                    SunriseMetricSection(title: "Achievement velocity", metrics: state.achievementVelocityMetrics)
+                    SunriseMetricSection(title: "Long-term rhythm", metrics: state.achievementVelocityMetrics)
                     SunriseNarrativeCard(
-                        title: "Achievements",
-                        message: "\(state.unlockedAchievements.count) unlocked. \(state.nextMilestone.map { "Next: \($0.name)." } ?? "Top milestone reached.")"
+                        title: "History",
+                        message: "\(state.unlockedAchievements.count) historical markers. \(state.nextMilestone.map { "Next marker: \($0.name)." } ?? "Long-term history is stable.")"
                     )
                 }
             }
