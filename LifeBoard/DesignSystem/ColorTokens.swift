@@ -1,6 +1,6 @@
 import UIKit
 
-public struct LifeBoardColorTokens: LifeBoardTokenGroup {
+public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
     public let bgCanvas: UIColor
     public let bgCanvasSecondary: UIColor
     public let bgElevated: UIColor

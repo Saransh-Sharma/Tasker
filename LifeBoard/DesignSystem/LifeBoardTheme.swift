@@ -19,7 +19,7 @@ public struct LifeBoardTokenTraitContext: Hashable, Sendable {
     public static let unspecified = LifeBoardTokenTraitContext()
 }
 
-public struct LifeBoardBrandPalette: Equatable {
+public struct LifeBoardBrandPalette: Equatable, @unchecked Sendable {
     public let brandEmerald: UIColor
     public let brandMagenta: UIColor
     public let brandMarigold: UIColor
@@ -45,42 +45,43 @@ public struct LifeBoardBrandPalette: Equatable {
     public let inkDark: UIColor
     public let parchmentLight: UIColor
 
-    public static var sarvam: LifeBoardBrandPalette {
-        LifeBoardBrandPalette(
-            brandEmerald: UIColor(lifeboardHex: "#293A18"),
-            brandMagenta: UIColor(lifeboardHex: "#B1205F"),
-            brandMarigold: UIColor(lifeboardHex: "#FEBF2B"),
-            brandRed: UIColor(lifeboardHex: "#C11317"),
-            brandSandstone: UIColor(lifeboardHex: "#9E5F0A"),
-            neutralIvory: UIColor(lifeboardHex: "#FFF8EF"),
-            neutralCream: UIColor(lifeboardHex: "#F7EFE4"),
-            neutralMist: UIColor(lifeboardHex: "#EFE4D6"),
-            neutralStone: UIColor(lifeboardHex: "#E2D3C2"),
-            neutralSandGray: UIColor(lifeboardHex: "#C9B9A6"),
-            neutralUmber: UIColor(lifeboardHex: "#3A2E24"),
-            neutralInk: UIColor(lifeboardHex: "#1B1511"),
-            neutralDarkInk0: UIColor(lifeboardHex: "#0F0C0A"),
-            neutralDarkInk1: UIColor(lifeboardHex: "#15110E"),
-            neutralDarkInk2: UIColor(lifeboardHex: "#1D1712"),
-            neutralDarkInk3: UIColor(lifeboardHex: "#2A211A"),
-            neutralDarkBorder1: UIColor(lifeboardHex: "#3A2E24"),
-            neutralDarkBorder2: UIColor(lifeboardHex: "#4A3B30"),
-            neutralDarkText1: UIColor(lifeboardHex: "#FFF3E6"),
-            neutralDarkText2: UIColor(lifeboardHex: "#E7D9CB"),
-            neutralDarkText3: UIColor(lifeboardHex: "#CBBBA7"),
-            neutralDarkDisabled: UIColor(lifeboardHex: "#7E7268"),
-            inkDark: UIColor(lifeboardHex: "#10130D"),
-            parchmentLight: UIColor(lifeboardHex: "#F6EFE2")
-        )
-    }
+    public static let sarvam = LifeBoardBrandPalette(
+        brandEmerald: UIColor(lifeboardHex: "#293A18"),
+        brandMagenta: UIColor(lifeboardHex: "#B1205F"),
+        brandMarigold: UIColor(lifeboardHex: "#FEBF2B"),
+        brandRed: UIColor(lifeboardHex: "#C11317"),
+        brandSandstone: UIColor(lifeboardHex: "#9E5F0A"),
+        neutralIvory: UIColor(lifeboardHex: "#FFF8EF"),
+        neutralCream: UIColor(lifeboardHex: "#F7EFE4"),
+        neutralMist: UIColor(lifeboardHex: "#EFE4D6"),
+        neutralStone: UIColor(lifeboardHex: "#E2D3C2"),
+        neutralSandGray: UIColor(lifeboardHex: "#C9B9A6"),
+        neutralUmber: UIColor(lifeboardHex: "#3A2E24"),
+        neutralInk: UIColor(lifeboardHex: "#1B1511"),
+        neutralDarkInk0: UIColor(lifeboardHex: "#0F0C0A"),
+        neutralDarkInk1: UIColor(lifeboardHex: "#15110E"),
+        neutralDarkInk2: UIColor(lifeboardHex: "#1D1712"),
+        neutralDarkInk3: UIColor(lifeboardHex: "#2A211A"),
+        neutralDarkBorder1: UIColor(lifeboardHex: "#3A2E24"),
+        neutralDarkBorder2: UIColor(lifeboardHex: "#4A3B30"),
+        neutralDarkText1: UIColor(lifeboardHex: "#FFF3E6"),
+        neutralDarkText2: UIColor(lifeboardHex: "#E7D9CB"),
+        neutralDarkText3: UIColor(lifeboardHex: "#CBBBA7"),
+        neutralDarkDisabled: UIColor(lifeboardHex: "#7E7268"),
+        inkDark: UIColor(lifeboardHex: "#10130D"),
+        parchmentLight: UIColor(lifeboardHex: "#F6EFE2")
+    )
 }
 
 public enum LifeBoardThreadSafeTokenResolver {
+    private static let sarvamColorTokens = LifeBoardColorTokens.make(palette: .sarvam)
+
+    /// - Parameter traits: Reserved for future trait-aware token resolution; currently unused.
     public static func color(
         for role: LifeBoardColorRole,
         traits _: LifeBoardTokenTraitContext = .unspecified
     ) -> UIColor {
-        LifeBoardColorTokens.make(palette: .sarvam).color(for: role)
+        sarvamColorTokens.color(for: role)
     }
 }
 

@@ -231,7 +231,7 @@ public extension Notification {
 }
 
 /// Result returned after recording an XP event, used by UI for celebrations.
-public struct XPCelebrationPayload: Sendable {
+public struct XPCelebrationPayload: Equatable, Sendable {
     public let awardedXP: Int
     public let level: Int
     public let didLevelUp: Bool
@@ -240,7 +240,7 @@ public struct XPCelebrationPayload: Sendable {
     public let occurredAt: Date
 }
 
-public struct XPEventResult: Sendable {
+public struct XPEventResult: Equatable, Sendable {
     public let awardedXP: Int
     public let totalXP: Int64
     public let level: Int
