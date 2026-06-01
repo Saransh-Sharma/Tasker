@@ -7334,8 +7334,9 @@ private enum OnboardingTheme {
     static let accentPressed = Color.lifeboard(.actionPrimaryPressed)
     static let accentSecondary = Color.lifeboard(.accentSecondary)
     static let accentOnPrimary = Color.lifeboard(.accentOnPrimary)
-    static let marigold = Color(uiColor: UIColor(lifeboardHex: "#F4C95D"))
-    static let headerAccent = marigold
+    static let sunriseGold = Color(uiColor: UIColor(lifeboardHex: "#FFB300"))
+    static let marigold = sunriseGold
+    static let headerAccent = sunriseGold
     static let success = Color.lifeboard(.statusSuccess)
     static let danger = Color.lifeboard(.statusDanger)
 }

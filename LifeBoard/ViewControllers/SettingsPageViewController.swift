@@ -232,6 +232,6 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     // MARK: - Status Bar
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .lightContent
+        return .darkContent
     }
 }
