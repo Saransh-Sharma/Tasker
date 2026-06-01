@@ -14,6 +14,126 @@ import UserNotifications
 import MLXLMCommon
 @testable import LifeBoard
 
+final class FocusNowHeroImageResolverTests: XCTestCase {
+    func testPreferredImagesMapToAllSixHeroAssets() {
+        let resolver = TaskHeroImageResolver()
+
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Plan tomorrow schedule")).first, .sunrisePath)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Write draft notes")).first, .deskNotebook)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Walk and reset body")).first, .greenPath)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Go for a run")).first, .greenPath)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Recover and decompress")).first, .recoveryLake)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Codex Orbit Cool Off")).first, .recoveryLake)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Mindful breathing pause")).first, .meditation)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Deep work code block")).first, .meditation)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Sort loose ideas")).first, .genericClouds)
+    }
+
+    func testAssignImagesAvoidsDuplicatesInTopThreeWithFallbackOrder() {
+        let tasks = [
+            makeTask(title: "Plan tomorrow schedule"),
+            makeTask(title: "Plan morning setup"),
+            makeTask(title: "Plan calendar review")
+        ]
+        var resolver = TaskHeroImageResolver()
+
+        let assignments = resolver.assignImages(for: tasks)
+        let assignedImages = tasks.compactMap { assignments[$0.id] }
+
+        XCTAssertEqual(Set(assignedImages).count, 3)
+        XCTAssertEqual(assignedImages, [.sunrisePath, .deskNotebook, .genericClouds])
+    }
+
+    func testAssignImagesRemainsStableWithinSession() {
+        let tasks = [
+            makeTask(title: "Deep work code block"),
+            makeTask(title: "Walk and reset body"),
+            makeTask(title: "Write draft notes")
+        ]
+        var resolver = TaskHeroImageResolver()
+
+        let firstAssignments = resolver.assignImages(for: tasks)
+        let secondAssignments = resolver.assignImages(for: tasks)
+
+        XCTAssertEqual(secondAssignments[tasks[0].id], firstAssignments[tasks[0].id])
+        XCTAssertEqual(secondAssignments[tasks[1].id], firstAssignments[tasks[1].id])
+        XCTAssertEqual(secondAssignments[tasks[2].id], firstAssignments[tasks[2].id])
+    }
+
+    func testReasonResolverUsesTaskSpecificFallbackCopy() {
+        XCTAssertEqual(
+            FocusTaskReasonResolver.reason(for: makeTask(title: "Workout for 15 mins"), insight: nil),
+            "Move your body, reset your energy."
+        )
+        XCTAssertEqual(
+            FocusTaskReasonResolver.reason(for: makeTask(title: "Read 10 pages"), insight: nil),
+            "Recharge while you learn."
+        )
+        XCTAssertEqual(
+            FocusTaskReasonResolver.reason(for: makeTask(title: "Deep work block"), insight: nil),
+            "Protect your most important time."
+        )
+    }
+
+    func testDraftStateQuickSwapReplacesOneCardAndUndoRestores() {
+        let focus = [
+            makeTask(title: "Plan tomorrow schedule"),
+            makeTask(title: "Workout for 15 mins"),
+            makeTask(title: "Codex Orbit Cool Off")
+        ]
+        let candidate = makeTask(title: "Read 10 pages")
+        var state = FocusNowDraftState()
+        state.syncFocusTasks(focus)
+        state.syncCandidates([candidate])
+
+        XCTAssertTrue(state.quickSwap(focus[1]))
+        XCTAssertEqual(state.draftFocusTasks.map(\.id), [focus[0].id, candidate.id, focus[2].id])
+        XCTAssertEqual(state.candidateTasks.first?.id, focus[1].id)
+
+        state.undoLastChange()
+        XCTAssertEqual(state.draftFocusTasks.map(\.id), focus.map(\.id))
+        XCTAssertEqual(state.candidateTasks.first?.id, candidate.id)
+    }
+
+    func testSelectAndFlipMarksCardForSwap() {
+        let focus = [
+            makeTask(title: "Plan tomorrow schedule"),
+            makeTask(title: "Workout for 15 mins"),
+            makeTask(title: "Codex Orbit Cool Off")
+        ]
+        var state = FocusNowDraftState()
+        state.syncFocusTasks(focus)
+
+        XCTAssertNil(state.selectedTaskForSwap)
+
+        state.selectAndFlip(focus[2])
+        XCTAssertEqual(state.selectedTaskForSwap?.id, focus[2].id)
+    }
+
+    func testDraftStateShuffleDoesNotMutateDraftOrHeroAssignments() {
+        let focus = [
+            makeTask(title: "Plan tomorrow schedule"),
+            makeTask(title: "Workout for 15 mins"),
+            makeTask(title: "Codex Orbit Cool Off")
+        ]
+        var state = FocusNowDraftState()
+        state.syncFocusTasks(focus)
+        let taskIDs = state.draftFocusTasks.map(\.id)
+        let heroAssignments = state.assignedHeroImagesByTaskID
+
+        state.beginShuffle()
+        state.syncCandidates([makeTask(title: "Draft investor update")])
+        state.endShuffle()
+
+        XCTAssertEqual(state.draftFocusTasks.map(\.id), taskIDs)
+        XCTAssertEqual(state.assignedHeroImagesByTaskID, heroAssignments)
+    }
+
+    private func makeTask(title: String) -> TaskDefinition {
+        TaskDefinition(projectName: nil, title: title)
+    }
+}
+
 @MainActor
 final class AppDelegateCloudKitPreflightTests: XCTestCase {
 
@@ -11923,6 +12043,14 @@ private extension Calendar {
 final class InsightsActionRoutingTests: XCTestCase {
     func testTodayActionCardsResolveToOperationalWorkflows() {
         XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .today, id: "overdueRescue")),
+            .openBacklogRecovery
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .today, id: "overdueNextDecision")),
+            .openBacklogRecovery
+        )
+        XCTAssertEqual(
             InsightsActionResolver.intent(for: .card(tab: .today, id: "nextDecision")),
             .startNextDecision
         )
@@ -11976,6 +12104,67 @@ final class InsightsActionRoutingTests: XCTestCase {
             InsightsActionResolver.intent(for: .card(tab: .systems, id: "planningQuality")),
             .openWeeklyPlanner
         )
+    }
+
+    func testTodayPresentationRoutesOpenOverduePressureToRescue() {
+        let presentation = InsightsTabPresentation.buildToday(
+            InsightsTodayState(
+                dailyXP: 24,
+                tasksCompletedToday: 1,
+                totalTasksToday: 3,
+                duePressureMetrics: [
+                    InsightsMetricTile(
+                        id: "overdue",
+                        title: "Overdue",
+                        value: "2",
+                        detail: "2 overdue",
+                        tone: .warning
+                    )
+                ]
+            ),
+            momentumGuidanceText: "Keep momentum"
+        )
+
+        XCTAssertEqual(presentation.availability, .rich)
+        XCTAssertEqual(presentation.diagnosis.primaryCTAIntent, .openBacklogRecovery)
+        XCTAssertTrue(presentation.actions.contains { $0.id == "overdueRescue" })
+        XCTAssertTrue(presentation.actions.contains { $0.id == "overdueNextDecision" })
+        XCTAssertFalse(presentation.actions.contains { $0.id == "nextDecision" })
+    }
+
+    func testTodayPresentationRoutesOpenWorkToRescueEvenWithoutOverdueMetric() {
+        let presentation = InsightsTabPresentation.buildToday(
+            InsightsTodayState(
+                dailyXP: 24,
+                tasksCompletedToday: 1,
+                totalTasksToday: 3,
+                duePressureMetrics: [
+                    InsightsMetricTile(
+                        id: "today",
+                        title: "Due today",
+                        value: "2",
+                        detail: "2 open today",
+                        tone: .warning
+                    )
+                ]
+            ),
+            momentumGuidanceText: "Keep momentum"
+        )
+
+        XCTAssertEqual(presentation.availability, .rich)
+        XCTAssertEqual(presentation.diagnosis.primaryCTAIntent, .openBacklogRecovery)
+        XCTAssertFalse(presentation.actions.contains { $0.id == "overdueRescue" })
+        XCTAssertTrue(presentation.actions.contains { $0.id == "overdueNextDecision" })
+        XCTAssertFalse(presentation.actions.contains { $0.id == "nextDecision" })
+    }
+
+    func testLegacyTriageSheetIsNotMountedInSwiftUIRouting() {
+        let overlayStore = HomeOverlayStore()
+        let overlay = overlayStore.snapshot
+
+        XCTAssertFalse(overlay.focusWhyPresented)
+        XCTAssertFalse(overlay.rescuePresented)
+        XCTAssertEqual(overlay.rescueLauncherState, .idle)
     }
 
     func testHeroCTAResolvesEmptyPartialAndRichStates() {

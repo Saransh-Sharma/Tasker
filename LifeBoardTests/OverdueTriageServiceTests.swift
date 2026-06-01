@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import LifeBoard
 
 final class OverdueTriageServiceTests: XCTestCase {
@@ -100,8 +101,7 @@ final class OverdueRescueDeckTests: XCTestCase {
     }
 
     func testMoveLaterSkipsWeekendForHighUrgencyTasks() {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let calendar = Calendar.current
         let friday = calendar.date(from: DateComponents(year: 2026, month: 5, day: 29))!
         let task = rescueTask(
             title: "High risk",
@@ -134,6 +134,34 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .active, to: .loading))
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .paused, to: .editing))
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .confirmingDelete, to: .applyingBulk))
+    }
+
+    func testRevealContentKeepsSafeViewportMarginsOnIPhoneWidth() {
+        let metrics = OverdueRescueDeckLayoutMetrics.make(
+            size: CGSize(width: 393, height: 852),
+            bottomInset: 34,
+            dynamicTypeSize: .large
+        )
+        let keepFrame = metrics.revealContentFrame(for: .keep)
+        let moveFrame = metrics.revealContentFrame(for: .move)
+
+        XCTAssertGreaterThanOrEqual(keepFrame.minX, 20)
+        XCTAssertLessThanOrEqual(moveFrame.maxX, metrics.containerSize.width - 20)
+        XCTAssertGreaterThanOrEqual(keepFrame.width, 96)
+        XCTAssertEqual(keepFrame.width, moveFrame.width)
+    }
+
+    func testRevealContentKeepsSafeViewportMarginsOnNarrowIPhoneWidth() {
+        let metrics = OverdueRescueDeckLayoutMetrics.make(
+            size: CGSize(width: 320, height: 700),
+            bottomInset: 0,
+            dynamicTypeSize: .large
+        )
+        let keepFrame = metrics.revealContentFrame(for: .keep)
+        let moveFrame = metrics.revealContentFrame(for: .move)
+
+        XCTAssertGreaterThanOrEqual(keepFrame.minX, 20)
+        XCTAssertLessThanOrEqual(moveFrame.maxX, metrics.containerSize.width - 20)
     }
 
     func testDragResolverRightDragBelowThresholdRevealsKeepWithoutCommit() {
@@ -236,14 +264,14 @@ final class OverdueRescueDeckTests: XCTestCase {
         )
 
         viewModel.keepToday(source: .tap)
-        await Task.yield()
+        await _Concurrency.Task<Never, Never>.yield()
 
         XCTAssertEqual(viewModel.state, .completed)
         XCTAssertEqual(viewModel.summary.kept, 1)
         XCTAssertEqual(viewModel.cards.count, 0)
 
         viewModel.undoLast()
-        await Task.yield()
+        await _Concurrency.Task<Never, Never>.yield()
 
         XCTAssertEqual(viewModel.state, .active)
         XCTAssertEqual(viewModel.summary.kept, 0)

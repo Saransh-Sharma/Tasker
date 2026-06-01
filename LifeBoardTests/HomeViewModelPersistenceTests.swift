@@ -1422,6 +1422,64 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testCommitFocusNowSetPersistsDraftOrderAndFiltersInvalidTasks() {
+        let suiteName = "HomeViewModelPersistenceTests.CommitFocusNow.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let tasks = (1...4).map { index in
+            makeTask(name: "Commit \(index)", project: inbox, dueDate: Date(), priority: .high)
+        }
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let result = viewModel.commitFocusNowSet(
+            taskIDs: [tasks[2].id, UUID(), tasks[3].id, tasks[2].id, tasks[0].id],
+            source: "unit_test"
+        )
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(result)
+        XCTAssertEqual(viewModel.pinnedFocusTaskIDs, [tasks[2].id, tasks[3].id, tasks[0].id])
+        XCTAssertEqual(
+            defaults.stringArray(forKey: HomeViewModel.pinnedFocusTaskIDsKey),
+            [tasks[2].id.uuidString, tasks[3].id.uuidString, tasks[0].id.uuidString]
+        )
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testCommitFocusNowSetRejectsEmptyOrClosedDraft() {
+        let suiteName = "HomeViewModelPersistenceTests.CommitFocusNowEmpty.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let completed = makeTask(name: "Completed", project: inbox, dueDate: Date(), priority: .high, isComplete: true)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [completed])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertFalse(viewModel.commitFocusNowSet(taskIDs: [completed.id], source: "unit_test"))
+        XCTAssertTrue(viewModel.pinnedFocusTaskIDs.isEmpty)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testPinnedTaskPrunesAfterCompletion() {
         let suiteName = "HomeViewModelPersistenceTests.PinPruneCompletion.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -2024,7 +2082,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    func testOpenRescueBuildsPlanFromTwoWeekOverdueTasksOnly() {
+    func testOpenRescueBuildsPlanFromEveryOverdueDeckCandidate() {
         let suiteName = "HomeViewModelPersistenceTests.RescueOpenFilters.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             return XCTFail("Failed to create test UserDefaults suite")
@@ -2046,9 +2104,28 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             dueDate: calendar.date(byAdding: .day, value: -4, to: now),
             priority: .high
         )
+        let dueTodayTask = makeTask(
+            name: "Due Today",
+            project: inbox,
+            dueDate: now,
+            priority: .high
+        )
+        let completedOverdueTask = makeTask(
+            name: "Completed Overdue",
+            project: inbox,
+            dueDate: calendar.date(byAdding: .day, value: -10, to: now),
+            priority: .high,
+            isComplete: true,
+            dateCompleted: now
+        )
 
         let coordinator = UseCaseCoordinator(
-            taskRepository: HomeViewModelMockTaskRepository(tasks: [oldRescueTask, recentOverdueTask]),
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [
+                oldRescueTask,
+                recentOverdueTask,
+                dueTodayTask,
+                completedOverdueTask
+            ]),
             projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
         )
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
@@ -2064,8 +2141,130 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let dropIDs = (plan?.dropCandidate ?? []).map(\.taskID)
         let recommendedTaskIDs = Set(doTodayIDs + moveIDs + splitIDs + dropIDs)
 
+        XCTAssertTrue(viewModel.evaRescueSheetPresented)
+        XCTAssertEqual(viewModel.evaRescueLauncherState, .ready)
         XCTAssertTrue(recommendedTaskIDs.contains(oldRescueTask.id))
-        XCTAssertFalse(recommendedTaskIDs.contains(recentOverdueTask.id))
+        XCTAssertTrue(recommendedTaskIDs.contains(recentOverdueTask.id))
+        XCTAssertFalse(recommendedTaskIDs.contains(dueTodayTask.id))
+        XCTAssertFalse(recommendedTaskIDs.contains(completedOverdueTask.id))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testLegacyTriageEntrypointsOpenRescueDeckWithSeededOverdueTasks() {
+        let suiteName = "HomeViewModelPersistenceTests.LegacyTriageRoutesToRescue.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let calendar = Calendar.current
+        let inbox = Project.createInbox()
+        var keepToday = makeTask(
+            name: "Seed keep today",
+            project: inbox,
+            dueDate: calendar.date(byAdding: .day, value: -1, to: now),
+            priority: .max
+        )
+        keepToday.estimatedDuration = 15 * 60
+        var blocked = makeTask(
+            name: "Seed blocked split",
+            project: inbox,
+            dueDate: calendar.date(byAdding: .day, value: -3, to: now),
+            priority: .high
+        )
+        blocked.dependencies = [
+            TaskDependencyLinkDefinition(
+                taskID: blocked.id,
+                dependsOnTaskID: UUID(),
+                kind: .blocks
+            )
+        ]
+        let staleDrop = makeTask(
+            name: "Seed stale drop",
+            project: inbox,
+            dueDate: calendar.date(byAdding: .day, value: -20, to: now),
+            priority: .low,
+            updatedAt: calendar.date(byAdding: .day, value: -20, to: now) ?? now
+        )
+        var longMove = makeTask(
+            name: "Seed long move",
+            project: inbox,
+            dueDate: calendar.date(byAdding: .day, value: -5, to: now),
+            priority: .high
+        )
+        longMove.estimatedDuration = 90 * 60
+
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [keepToday, blocked, staleDrop, longMove]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        viewModel.startTriage()
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.evaRescueSheetPresented)
+        XCTAssertEqual(viewModel.evaRescueLauncherState, .ready)
+        XCTAssertEqual(viewModel.evaRescuePlan?.doToday.map(\.taskID), [keepToday.id])
+        XCTAssertTrue(viewModel.evaRescuePlan?.split.map(\.taskID).contains(blocked.id) == true)
+        XCTAssertTrue(viewModel.evaRescuePlan?.dropCandidate.map(\.taskID).contains(staleDrop.id) == true)
+        XCTAssertTrue(viewModel.evaRescuePlan?.move.map(\.taskID).contains(longMove.id) == true)
+
+        viewModel.setEvaRescuePresented(false)
+        waitForMainQueueFlush()
+
+        viewModel.startTriage(scope: .allInbox)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.evaRescueSheetPresented)
+        XCTAssertEqual(viewModel.evaRescueLauncherState, .ready)
+
+        viewModel.setEvaRescuePresented(false)
+        waitForMainQueueFlush()
+
+        viewModel.startNextDecision(scope: .visible)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.evaRescueSheetPresented)
+        XCTAssertEqual(viewModel.evaRescueLauncherState, .ready)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testRescueEntrypointsOpenEmptyDeckInsteadOfLegacyTriageWhenNoOverdueTasksExist() {
+        let suiteName = "HomeViewModelPersistenceTests.EmptyRescueNoLegacyTriage.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let dueTodayTask = makeTask(
+            name: "Due today only",
+            project: inbox,
+            dueDate: Date(),
+            priority: .high
+        )
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [dueTodayTask]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        viewModel.startNextDecision(scope: .visible)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.evaRescueSheetPresented)
+        XCTAssertEqual(viewModel.evaRescueLauncherState, .ready)
+        XCTAssertEqual(viewModel.evaRescuePlan?.debtLevel, EvaDebtLevel.none)
+        XCTAssertEqual(viewModel.evaRescuePlan?.doToday, [])
+        XCTAssertEqual(viewModel.evaRescuePlan?.move, [])
+        XCTAssertEqual(viewModel.evaRescuePlan?.split, [])
+        XCTAssertEqual(viewModel.evaRescuePlan?.dropCandidate, [])
 
         defaults.removePersistentDomain(forName: suiteName)
     }

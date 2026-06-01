@@ -708,25 +708,10 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var evaFocusWhySheetPresented: Bool = false {
         didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
-    @Published public private(set) var evaTriageSheetPresented: Bool = false {
-        didSet { scheduleHomeRenderStateRefresh(.overlay) }
-    }
     @Published public private(set) var evaRescueSheetPresented: Bool = false {
         didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaRescueLauncherState: HomeOverdueRescueLauncherState = .idle {
-        didSet { scheduleHomeRenderStateRefresh(.overlay) }
-    }
-    @Published public private(set) var evaTriageScope: EvaTriageScope = .visible {
-        didSet { scheduleHomeRenderStateRefresh(.overlay) }
-    }
-    @Published public private(set) var evaTriageQueueLoading: Bool = false {
-        didSet { scheduleHomeRenderStateRefresh(.overlay) }
-    }
-    @Published public private(set) var evaTriageQueueErrorMessage: String? {
-        didSet { scheduleHomeRenderStateRefresh(.overlay) }
-    }
-    @Published public private(set) var evaTriageQueue: [EvaTriageQueueItem] = [] {
         didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
     @Published public private(set) var evaRescuePlan: EvaRescuePlan? {
@@ -777,7 +762,6 @@ public final class HomeViewModel: ObservableObject {
     let useCaseCoordinator: UseCaseCoordinator
     let homeFilteredTasksUseCase: GetHomeFilteredTasksUseCase
     let computeEvaHomeInsightsUseCase: ComputeEvaHomeInsightsUseCase
-    let getInboxTriageQueueUseCase: GetInboxTriageQueueUseCase
     let getOverdueRescuePlanUseCase: GetOverdueRescuePlanUseCase
     let buildEvaBatchProposalUseCase: BuildEvaBatchProposalUseCase
     let getDailySummaryModalUseCase: GetDailySummaryModalUseCase
@@ -1119,11 +1103,6 @@ public final class HomeViewModel: ObservableObject {
         HomeOverlayState(
             guidanceState: nil,
             focusWhyPresented: evaFocusWhySheetPresented,
-            triagePresented: evaTriageSheetPresented,
-            triageScope: evaTriageScope,
-            triageQueueLoading: evaTriageQueueLoading,
-            triageQueueErrorMessage: evaTriageQueueErrorMessage,
-            triageQueue: evaTriageQueue,
             rescueLauncherState: evaRescueLauncherState,
             rescuePresented: evaRescueSheetPresented,
             rescuePlan: evaRescuePlan,
@@ -1408,12 +1387,7 @@ public final class HomeViewModel: ObservableObject {
              \HomeViewModel.focusRows,
              \HomeViewModel.activeScope,
              \HomeViewModel.evaFocusWhySheetPresented,
-             \HomeViewModel.evaTriageSheetPresented,
              \HomeViewModel.evaRescueSheetPresented,
-             \HomeViewModel.evaTriageScope,
-             \HomeViewModel.evaTriageQueueLoading,
-             \HomeViewModel.evaTriageQueueErrorMessage,
-             \HomeViewModel.evaTriageQueue,
              \HomeViewModel.evaRescuePlan,
              \HomeViewModel.evaLastBatchRunID,
              \HomeViewModel.homeReplanState,
@@ -1469,7 +1443,6 @@ public final class HomeViewModel: ObservableObject {
         self.useCaseCoordinator = useCaseCoordinator
         self.homeFilteredTasksUseCase = useCaseCoordinator.getHomeFilteredTasks
         self.computeEvaHomeInsightsUseCase = useCaseCoordinator.computeEvaHomeInsights
-        self.getInboxTriageQueueUseCase = useCaseCoordinator.getInboxTriageQueue
         self.getOverdueRescuePlanUseCase = useCaseCoordinator.getOverdueRescuePlan
         self.buildEvaBatchProposalUseCase = useCaseCoordinator.buildEvaBatchProposal
         self.buildHomeAgendaUseCase = BuildHomeAgendaUseCase()
@@ -2153,6 +2126,31 @@ public final class HomeViewModel: ObservableObject {
         return .promoted
     }
 
+    @discardableResult
+    public func commitFocusNowSet(taskIDs: [UUID], source: String) -> Bool {
+        guard activeScope.quickView == .today else { return false }
+
+        let openTasks = focusOpenTasksForCurrentState()
+        let openByID = Dictionary(uniqueKeysWithValues: openTasks.map { ($0.id, $0) })
+        var seen = Set<UUID>()
+        let committedIDs = Array(taskIDs.filter { id in
+            openByID[id] != nil && seen.insert(id).inserted
+        }.prefix(Self.maxPinnedFocusTasks))
+        guard committedIDs.isEmpty == false else { return false }
+
+        pinnedFocusTaskIDs = normalizedPinnedFocusTaskIDs(committedIDs)
+        persistPinnedFocusTaskIDs()
+        updateFocusSelection(composedFocusTasks(from: openTasks))
+        refreshTodayAgendaForCurrentFocusSelection()
+        refreshEvaInsights(openTasks: openTasks)
+        reloadTaskListWidgetTimelines()
+        trackHomeInteraction(action: "focus_now_set_committed", metadata: [
+            "source": source,
+            "focus_count": committedIDs.count
+        ])
+        return true
+    }
+
     /// Change selected date.
     public func selectDate(_ date: Date, source: HomeDateNavigationSource = .datePicker) {
         applySelectedDay(date, source: source, trackAnalytics: source == .swipe)
@@ -2737,10 +2735,6 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    public func setEvaTriagePresented(_ value: Bool) {
-        evaTriageSheetPresented = value
-    }
-
     public func setEvaRescuePresented(_ value: Bool) {
         evaRescueSheetPresented = value
         if value == false, evaRescueLauncherState != .loading {
@@ -2939,94 +2933,18 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public func startTriage(scope: EvaTriageScope) {
-        guard V2FeatureFlags.evaTriageEnabled else { return }
-        evaTriageSheetPresented = true
-        trackHomeInteraction(action: "triage_open", metadata: [
+        routeLegacyEvaActionToRescue(action: "triage_redirected_to_rescue", scope: scope)
+    }
+
+    public func startNextDecision(scope: EvaTriageScope = .visible) {
+        routeLegacyEvaActionToRescue(action: "next_decision_redirected_to_rescue", scope: scope)
+    }
+
+    private func routeLegacyEvaActionToRescue(action: String, scope: EvaTriageScope) {
+        trackHomeInteraction(action: action, metadata: [
             "scope": scope.rawValue
         ])
-        refreshTriageQueue(scope: scope)
-    }
-
-    public func refreshTriageQueue(scope: EvaTriageScope) {
-        refreshTriageQueue(scope: scope, completion: nil)
-    }
-
-    public func refreshTriageQueue(
-        scope: EvaTriageScope,
-        completion: (@Sendable (Result<Void, Error>) -> Void)?
-    ) {
-        guard V2FeatureFlags.evaTriageEnabled else {
-            completion?(.failure(NSError(
-                domain: "HomeViewModel",
-                code: 404,
-                userInfo: [NSLocalizedDescriptionKey: "Assistant triage disabled"]
-            )))
-            return
-        }
-
-        evaTriageScope = scope
-        evaTriageQueueLoading = true
-        evaTriageQueueErrorMessage = nil
-
-        let visibleOpenTasks = focusOpenTasksForCurrentState()
-        let visibleInbox = visibleOpenTasks.filter {
-            !$0.isComplete && $0.projectID == ProjectConstants.inboxProjectID
-        }
-
-        switch scope {
-        case .visible:
-            evaTriageQueue = getInboxTriageQueueUseCase.execute(
-                inboxTasks: visibleInbox,
-                allTasks: visibleOpenTasks,
-                projects: projects,
-                maxItems: 20
-            )
-            evaTriageQueueLoading = false
-            trackHomeInteraction(action: "triage_scope_changed", metadata: [
-                "scope": scope.rawValue,
-                "queue_count": evaTriageQueue.count
-            ])
-            completion?(.success(()))
-
-        case .allInbox:
-            useCaseCoordinator.getTasks.getTasksForProject(ProjectConstants.inboxProjectID, includeCompleted: false) { [weak self] result in
-                Task { @MainActor in
-                    guard let self else { return }
-                    switch result {
-                    case .success(let inboxResult):
-                        let inboxOpen = inboxResult.tasks.filter { !$0.isComplete }
-                        let allTasks = self.uniqueTasks(visibleOpenTasks + inboxOpen)
-                        self.evaTriageQueue = self.getInboxTriageQueueUseCase.execute(
-                            inboxTasks: inboxOpen,
-                            allTasks: allTasks,
-                            projects: self.projects,
-                            maxItems: 20
-                        )
-                        self.evaTriageQueueErrorMessage = nil
-                        self.evaTriageQueueLoading = false
-                        self.trackHomeInteraction(action: "triage_scope_changed", metadata: [
-                            "scope": scope.rawValue,
-                            "queue_count": self.evaTriageQueue.count
-                        ])
-                        completion?(.success(()))
-                    case .failure(let error):
-                        self.evaTriageQueue = self.getInboxTriageQueueUseCase.execute(
-                            inboxTasks: visibleInbox,
-                            allTasks: visibleOpenTasks,
-                            projects: self.projects,
-                            maxItems: 20
-                        )
-                        self.evaTriageQueueErrorMessage = "Couldn’t load backlog inbox. Showing visible tasks only."
-                        self.evaTriageQueueLoading = false
-                        self.trackHomeInteraction(action: "triage_error", metadata: [
-                            "scope": scope.rawValue,
-                            "error": error.localizedDescription
-                        ])
-                        completion?(.failure(error))
-                    }
-                }
-            }
-        }
+        openRescue()
     }
 
     public func openRescue() {
@@ -3065,145 +2983,6 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    public func removeTriageQueueItem(taskID: UUID) {
-        evaTriageQueue.removeAll { $0.task.id == taskID }
-    }
-
-    public func applyTriageDecision(
-        for item: EvaTriageQueueItem,
-        decision: EvaTriageDecision,
-        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
-    ) {
-        let suggestionThreshold = 0.45
-        var request = UpdateTaskDefinitionRequest(id: item.task.id)
-        var mutated = false
-
-        if decision.useSuggestedProject,
-           item.suggestions.projectConfidence >= suggestionThreshold,
-           let projectID = item.suggestions.projectID,
-           projectID != item.task.projectID {
-            request.projectID = projectID
-            mutated = true
-        } else if !decision.useSuggestedProject,
-                  let selectedProjectID = decision.selectedProjectID,
-                  selectedProjectID != item.task.projectID {
-            request.projectID = selectedProjectID
-            mutated = true
-        }
-
-        if let deferPreset = decision.deferPreset {
-            let deferDate = deferPreset.resolveDueDate()
-            if item.task.dueDate != deferDate {
-                request.dueDate = deferDate
-                request.clearDueDate = false
-                mutated = true
-            }
-        } else if decision.useSuggestedDue,
-                  item.suggestions.dueConfidence >= suggestionThreshold {
-            let dueDate = dueDate(for: item.suggestions.dueBucket)
-            switch item.suggestions.dueBucket {
-            case .someday:
-                if item.task.dueDate != nil {
-                    request.clearDueDate = true
-                    mutated = true
-                }
-            case .none:
-                break
-            default:
-                if item.task.dueDate != dueDate {
-                    request.dueDate = dueDate
-                    mutated = true
-                }
-            }
-        } else if !decision.useSuggestedDue {
-            if decision.clearDueDate {
-                if item.task.dueDate != nil {
-                    request.clearDueDate = true
-                    mutated = true
-                }
-            } else if let selectedDueDate = decision.selectedDueDate,
-                      item.task.dueDate != selectedDueDate {
-                request.dueDate = selectedDueDate
-                mutated = true
-            }
-        }
-
-        if decision.useSuggestedDuration,
-           item.suggestions.durationConfidence >= suggestionThreshold,
-           let suggestedDuration = item.suggestions.durationSeconds,
-           item.task.estimatedDuration != suggestedDuration {
-            request.estimatedDuration = suggestedDuration
-            mutated = true
-        } else if !decision.useSuggestedDuration {
-            if decision.clearDuration {
-                if item.task.estimatedDuration != nil {
-                    request.clearEstimatedDuration = true
-                    mutated = true
-                }
-            } else if let selectedDuration = decision.selectedDurationSeconds,
-                      item.task.estimatedDuration != selectedDuration {
-                request.estimatedDuration = selectedDuration
-                mutated = true
-            }
-        }
-
-        guard mutated else {
-            completion(.failure(NSError(
-                domain: "HomeViewModel",
-                code: 422,
-                userInfo: [NSLocalizedDescriptionKey: "Select at least one change or defer option to continue."]
-            )))
-            return
-        }
-
-        updateTask(taskID: item.task.id, request: request) { [weak self] result in
-            Task { @MainActor [weak self] in
-                guard let self else {
-                    completion(result)
-                    return
-                }
-                switch result {
-                case .success(let updatedTask):
-                    self.removeTriageQueueItem(taskID: updatedTask.id)
-                    self.trackHomeInteraction(action: "triage_apply_next", metadata: [
-                        "task_id": updatedTask.id.uuidString,
-                        "defer_preset": decision.deferPreset?.rawValue ?? "none",
-                        "used_suggested_project": decision.useSuggestedProject,
-                        "used_suggested_due": decision.useSuggestedDue,
-                        "used_suggested_duration": decision.useSuggestedDuration
-                    ])
-                    completion(.success(updatedTask))
-                case .failure(let error):
-                    self.trackHomeInteraction(action: "triage_error", metadata: [
-                        "task_id": item.task.id.uuidString,
-                        "error": error.localizedDescription
-                    ])
-                    completion(.failure(error))
-                }
-            }
-        }
-    }
-
-    public func applyTriageSuggestion(
-        for item: EvaTriageQueueItem,
-        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
-    ) {
-        let decision = EvaTriageDecision(
-            selectedProjectID: nil,
-            useSuggestedProject: item.suggestions.projectID != nil,
-            selectedDueDate: nil,
-            clearDueDate: false,
-            useSuggestedDue: item.suggestions.dueBucket != nil,
-            selectedDurationSeconds: nil,
-            clearDuration: false,
-            useSuggestedDuration: item.suggestions.durationSeconds != nil,
-            stateHint: item.suggestions.stateHint,
-            useSuggestedState: item.suggestions.stateHint != nil,
-            deferPreset: nil
-        )
-        applyTriageDecision(for: item, decision: decision, completion: completion)
-    }
-
     public func applyEvaBatchPlan(
         source: EvaBatchSource,
         mutations: [EvaBatchMutationInstruction],
@@ -3221,7 +3000,6 @@ public final class HomeViewModel: ObservableObject {
             + overdueTasks
             + completedTasks
             + doneTimelineTasks
-            + evaTriageQueue.map(\.task)
         let tasksByID = openTasks.reduce(into: [UUID: TaskDefinition]()) { partialResult, task in
             partialResult[task.id] = task
         }
@@ -3269,56 +3047,6 @@ public final class HomeViewModel: ObservableObject {
                         }
                     }
                 }
-            }
-        }
-    }
-
-    public func applyAllTriageSuggestions(
-        confidenceThreshold: Double = 0.75,
-        completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void
-    ) {
-        let mutations = evaTriageQueue.compactMap { item -> EvaBatchMutationInstruction? in
-            var mutation = EvaBatchMutationInstruction(taskID: item.task.id)
-            var hasChange = false
-
-            if item.suggestions.projectConfidence >= confidenceThreshold,
-               let projectID = item.suggestions.projectID,
-               projectID != item.task.projectID {
-                mutation.projectID = projectID
-                hasChange = true
-            }
-            if item.suggestions.dueConfidence >= confidenceThreshold {
-                switch item.suggestions.dueBucket {
-                case .someday:
-                    if item.task.dueDate != nil {
-                        mutation.clearDueDate = true
-                        hasChange = true
-                    }
-                case .none:
-                    break
-                default:
-                    let suggestedDate = dueDate(for: item.suggestions.dueBucket)
-                    if item.task.dueDate != suggestedDate {
-                        mutation.dueDate = suggestedDate
-                        hasChange = true
-                    }
-                }
-            }
-            if item.suggestions.durationConfidence >= confidenceThreshold,
-               let duration = item.suggestions.durationSeconds,
-               item.task.estimatedDuration != duration {
-                mutation.estimatedDuration = duration
-                hasChange = true
-            }
-            return hasChange ? mutation : nil
-        }
-
-        applyEvaBatchPlan(source: .triage, mutations: mutations) { [weak self] result in
-            Task { @MainActor in
-                if case .success = result {
-                    self?.evaTriageQueue.removeAll()
-                }
-                completion(result)
             }
         }
     }
@@ -6113,24 +5841,6 @@ public final class HomeViewModel: ObservableObject {
                     )
                 }
             }
-        }
-    }
-
-    /// Executes dueDate.
-    func dueDate(for bucket: EvaDueBucket?) -> Date? {
-        guard let bucket else { return nil }
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        switch bucket {
-        case .today:
-            return today
-        case .tomorrow:
-            return calendar.date(byAdding: .day, value: 1, to: today)
-        case .thisWeek:
-            let daysUntilEndOfWeek = 7 - calendar.component(.weekday, from: today)
-            return calendar.date(byAdding: .day, value: max(daysUntilEndOfWeek, 2), to: today)
-        case .someday:
-            return nil
         }
     }
 

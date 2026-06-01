@@ -58,6 +58,8 @@ public enum InsightsActionResolver {
         switch (tab, id) {
         case (.today, "overdueRescue"):
             return .openBacklogRecovery
+        case (.today, "overdueNextDecision"):
+            return .openBacklogRecovery
         case (.today, "nextDecision"):
             return .startNextDecision
         case (.today, "protectFocus"):
@@ -153,11 +155,12 @@ struct InsightsTabPresentation: Equatable {
         }
     }
 
-    private static func buildToday(
+    static func buildToday(
         _ state: InsightsTodayState,
         momentumGuidanceText: String
     ) -> InsightsTabPresentation {
         let openCount = max(0, state.totalTasksToday - state.tasksCompletedToday)
+        let overdueCount = Int(state.duePressureMetrics.first(where: { $0.id == "overdue" })?.value ?? "") ?? 0
         let availability: InsightsAvailabilityState
         if state.totalTasksToday == 0, state.dailyXP == 0 {
             availability = .empty
@@ -193,10 +196,9 @@ struct InsightsTabPresentation: Equatable {
             ctaTitle = openCount > 0
                 ? String(localized: "insights.today.diagnosis.rich.pressure.cta", defaultValue: "Review today")
                 : String(localized: "insights.today.diagnosis.rich.momentum.cta", defaultValue: "Keep momentum")
-            ctaIntent = openCount > 0 ? .startNextDecision : .protectFocus
+            ctaIntent = openCount > 0 ? .openBacklogRecovery : .protectFocus
         }
 
-        let overdueCount = Int(state.duePressureMetrics.first(where: { $0.id == "overdue" })?.value ?? "") ?? 0
         let estimatedMinutes = max(2, min(12, overdueCount))
         let overdueRescueAction = overdueCount > 0
             ? [
@@ -215,8 +217,9 @@ struct InsightsTabPresentation: Equatable {
                 )
             ]
             : []
+        let nextDecisionActionID = "overdueNextDecision"
         let todayActions = overdueRescueAction + [
-            InsightsActionPresentation(id: "nextDecision", title: String(localized: "insights.today.action.nextDecision.title", defaultValue: "Next decision"), message: firstDetail(from: state.duePressureMetrics, fallback: String(localized: "insights.today.action.nextDecision.fallback", defaultValue: "Choose one task to remove from today.")), systemImage: "exclamationmark.arrow.triangle.2.circlepath", role: .warning, ctaTitle: String(localized: "insights.today.action.nextDecision.cta", defaultValue: "Choose next task")),
+            InsightsActionPresentation(id: nextDecisionActionID, title: String(localized: "insights.today.action.nextDecision.title", defaultValue: "Next decision"), message: firstDetail(from: state.duePressureMetrics, fallback: String(localized: "insights.today.action.nextDecision.fallback", defaultValue: "Choose one task to remove from today.")), systemImage: "exclamationmark.arrow.triangle.2.circlepath", role: .warning, ctaTitle: String(localized: "insights.today.action.nextDecision.cta", defaultValue: "Choose next task")),
             InsightsActionPresentation(id: "protectFocus", title: String(localized: "insights.today.action.protectFocus.title", defaultValue: "Protect focus"), message: firstDetail(from: state.focusMetrics, fallback: momentumGuidanceText), systemImage: "sparkles", role: .focus, ctaTitle: String(localized: "insights.today.action.protectFocus.cta", defaultValue: "Plan focus block")),
             InsightsActionPresentation(id: "habitCheck", title: String(localized: "insights.today.action.habitCheck.title", defaultValue: "Habit check"), message: firstDetail(from: state.recoveryMetrics, fallback: String(localized: "insights.today.action.habitCheck.fallback", defaultValue: "Update the smallest pending habit signal.")), systemImage: "checkmark.seal", role: .routine, ctaTitle: String(localized: "insights.today.action.habitCheck.cta", defaultValue: "Update habits")),
             InsightsActionPresentation(id: "yesterdayReview", title: String(localized: "insights.today.action.yesterdayReview.title", defaultValue: "Yesterday review"), message: firstDetail(from: state.momentumMetrics, fallback: String(localized: "insights.today.action.yesterdayReview.fallback", defaultValue: "Review carry-over and keep tomorrow tight.")), systemImage: "arrow.uturn.backward.circle", role: .assistant, ctaTitle: String(localized: "insights.today.action.yesterdayReview.cta", defaultValue: "Review carry-over"))

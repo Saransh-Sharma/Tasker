@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct TaskDefinition: Codable, Equatable, Hashable, Sendable {
+public struct TaskDefinition: Codable, Equatable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public var recurrenceSeriesID: UUID?
     public var habitDefinitionID: UUID?

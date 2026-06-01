@@ -354,6 +354,7 @@ struct SunriseAppShellView: View {
     @State private var showNextActionFocusTimer = false
     @State private var nextActionFocusSummaryResult: FocusSessionResult?
     @State private var showNextActionFocusSummary = false
+    @State private var activeFocusTimerSource = "next_action_module_15min_focus"
     @State private var isNextActionFocusRequestInFlight = false
     @State private var isNextActionFocusEnding = false
     @State private var sunriseHintOffset: CGFloat = 0
@@ -963,10 +964,10 @@ struct SunriseAppShellView: View {
                     taskPriority: resolveTaskForFocusSession(taskID: session.taskID)?.priority.displayName,
                     targetDurationSeconds: session.targetDurationSeconds,
                     onComplete: { _ in
-                        finishNextActionFocusSession(sessionID: session.id, source: "next_action_module_15min_focus")
+                        finishNextActionFocusSession(sessionID: session.id, source: activeFocusTimerSource)
                     },
                     onCancel: {
-                        finishNextActionFocusSession(sessionID: session.id, source: "next_action_module_15min_focus_cancel")
+                        finishNextActionFocusSession(sessionID: session.id, source: "\(activeFocusTimerSource)_cancel")
                     }
                 )
             } else {
@@ -1103,58 +1104,19 @@ struct SunriseAppShellView: View {
                 insightProvider: { taskID in
                     viewModel.evaFocusInsight(for: taskID)
                 },
+                isStartingFocus: isNextActionFocusRequestInFlight,
                 onToggleComplete: { task in
                     trackTaskToggle(task, source: "focus_why_sheet")
                     onToggleComplete(task)
                 },
-                onStartFocus: { task in
-                    onStartFocus(task)
+                onStartFocus: { draftTasks, task, durationSeconds in
+                    startFocusNowTimer(draftTasks: draftTasks, task: task, durationSeconds: durationSeconds)
                 },
                 onShuffleCandidates: {
                     refreshFocusWhyShuffleCandidates()
                 },
                 onReplaceFocusTask: { candidate, replacing in
                     replaceFocusTaskFromWhySheet(candidate, replacing: replacing)
-                }
-            )
-        }
-        .sheet(isPresented: Binding(
-            get: { overlaySnapshot.triagePresented },
-            set: { viewModel.setEvaTriagePresented($0) }
-        )) {
-            SunriseEvaTriageSprintSheet(
-                queue: overlaySnapshot.triageQueue,
-                projectsByID: tasksSnapshot.projectsByID,
-                onApplySuggestion: { item, completion in
-                    Task { @MainActor in
-                        viewModel.applyTriageSuggestion(for: item, completion: completion)
-                    }
-                },
-                onApplyAll: { completion in
-                    Task { @MainActor in
-                        viewModel.applyAllTriageSuggestions(completion: completion)
-                    }
-                },
-                onSkip: { taskID in
-                    Task { @MainActor in
-                        viewModel.removeTriageQueueItem(taskID: taskID)
-                    }
-                },
-                onDelete: { taskID in
-                    Task { @MainActor in
-                        viewModel.deleteTask(taskID: taskID, scope: .single) { result in
-                            Task { @MainActor in
-                                if case .success = result {
-                                    viewModel.removeTriageQueueItem(taskID: taskID)
-                                }
-                            }
-                        }
-                    }
-                },
-                onEdit: { taskID in
-                    if let task = overlaySnapshot.triageQueue.first(where: { $0.task.id == taskID })?.task {
-                        onTaskTap(task)
-                    }
                 }
             )
         }
@@ -1632,9 +1594,9 @@ struct SunriseAppShellView: View {
                     },
                     onReorderCustomProjects: onReorderCustomProjects,
                     onInboxHeaderAction: shouldShowInboxTriageAction ? {
-                        viewModel.startTriage()
+                        viewModel.openRescue()
                     } : nil,
-                    inboxHeaderActionTitle: shouldShowInboxTriageAction ? "Start triage" : nil,
+                    inboxHeaderActionTitle: shouldShowInboxTriageAction ? "Start rescue" : nil,
                     onCompletedSectionToggle: { sectionID, collapsed, count in
                         viewModel.trackHomeInteraction(
                             action: "home_completed_group_toggled",
@@ -2308,7 +2270,6 @@ struct SunriseAppShellView: View {
                 tasksSnapshot.overdueTasks
                 + tasksSnapshot.morningTasks
                 + tasksSnapshot.eveningTasks
-                + overlaySnapshot.triageQueue.map(\.task)
             ).map { ($0.id, $0) }
         )
     }
@@ -2359,7 +2320,7 @@ struct SunriseAppShellView: View {
     }
 
     private var shouldShowInboxTriageAction: Bool {
-        V2FeatureFlags.evaTriageEnabled && chromeSnapshot.activeScope.quickView == .today
+        V2FeatureFlags.evaRescueEnabled && chromeSnapshot.activeScope.quickView == .today
     }
 
     private var taskListHorizontalGutter: CGFloat {
@@ -2700,7 +2661,7 @@ struct SunriseAppShellView: View {
                                 onAnchorTap: onTimelineAnchorTap,
                                 onAddTask: onAddTask,
                                 onScheduleInbox: {
-                                    viewModel.startTriage()
+                                    viewModel.openRescue()
                                 },
                                 onShowCalendarInTimeline: {
                                     viewModel.showCalendarEventsInTimelineFromHome()
@@ -3985,7 +3946,7 @@ struct SunriseAppShellView: View {
             viewModel.setQuickView(.today)
             returnToTasks(source: "insights_next_decision")
             DispatchQueue.main.async {
-                viewModel.startTriage(scope: .visible)
+                viewModel.startNextDecision(scope: .visible)
             }
 
         case .protectFocus:
@@ -4097,6 +4058,7 @@ struct SunriseAppShellView: View {
 
     private func startNextActionFocusTimer() {
         guard isNextActionFocusRequestInFlight == false else { return }
+        activeFocusTimerSource = "next_action_module_15min_focus"
         isNextActionFocusRequestInFlight = true
         LifeBoardFeedback.selection()
         viewModel.trackHomeInteraction(
@@ -4132,7 +4094,57 @@ struct SunriseAppShellView: View {
         }
     }
 
+    private func startFocusNowTimer(
+        draftTasks: [TaskDefinition],
+        task: TaskDefinition,
+        durationSeconds: Int
+    ) {
+        guard isNextActionFocusRequestInFlight == false else { return }
+        activeFocusTimerSource = "focus_now"
+        isNextActionFocusRequestInFlight = true
+        LifeBoardFeedback.selection()
+        viewModel.trackHomeInteraction(
+            action: "focus_now_timer_start_tapped",
+            metadata: [
+                "task_id": task.id.uuidString,
+                "target_duration_seconds": durationSeconds
+            ]
+        )
+
+        viewModel.startFocusSession(taskID: task.id, targetDurationSeconds: durationSeconds) { result in
+            Task { @MainActor in
+                isNextActionFocusRequestInFlight = false
+                switch result {
+                case .success(let session):
+                    guard viewModel.commitFocusNowSet(taskIDs: draftTasks.map(\.id), source: "focus_now_timer_start") else {
+                        snackbar = SnackbarData(message: "Couldn't start focus. Try again.")
+                        return
+                    }
+                    viewModel.setEvaFocusWhyPresented(false)
+                    activeNextActionFocusSession = session
+                    showNextActionFocusTimer = true
+                case .failure(let error):
+                    if let focusError = error as? FocusSessionError, case .alreadyActive = focusError {
+                        viewModel.setEvaFocusWhyPresented(false)
+                        resumeNextActionFocusSession(source: "focus_now")
+                    } else {
+                        logWarning(
+                            event: "focus_session_start_failed",
+                            message: "Failed to start focus session from Focus Now",
+                            fields: [
+                                "source": "focus_now",
+                                "error": error.localizedDescription
+                            ]
+                        )
+                        snackbar = SnackbarData(message: "Couldn't start focus. Try again.")
+                    }
+                }
+            }
+        }
+    }
+
     private func resumeNextActionFocusSession(source: String) {
+        activeFocusTimerSource = source
         viewModel.fetchActiveFocusSession { result in
             Task { @MainActor in
                 switch result {

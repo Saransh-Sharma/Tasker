@@ -182,53 +182,49 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
     }
 }
 
-final class EvaFocusWhySheetPresentationTests: XCTestCase {
-    func testTaskCardPresentationUsesFirstRationaleLabelAndContext() {
-        let task = makeTask(
-            title: "Choose tomorrow's first work step",
-            projectID: UUID(),
-            projectName: "Career",
-            priority: .high
-        )
-        let insight = EvaFocusTaskInsight(
-            taskID: task.id,
-            score: 0.91,
-            badge: nil,
-            rationale: [
-                EvaRationaleFactor(factor: "deadline", label: "Needs to land before the afternoon handoff", contribution: 0.8),
-                EvaRationaleFactor(factor: "momentum", label: "High leverage if started now", contribution: 0.6)
-            ]
-        )
+final class FocusNowPresentationSupportTests: XCTestCase {
+    func testDurationDefaultUsesTaskEstimateBeforeStoredFallback() {
+        let suiteName = "FocusNowPresentationSupportTests.DurationEstimate.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+        FocusDurationStore.saveLastUsedDurationSeconds(45 * 60, defaults: defaults)
 
-        let presentation = EvaFocusWhyTaskCardPresentation.make(task: task, insight: insight)
+        let task = makeTask(title: "Estimated block", estimatedDuration: 15 * 60)
 
-        XCTAssertEqual(presentation.title, task.title)
-        XCTAssertEqual(presentation.contextText, "Career")
-        XCTAssertEqual(presentation.summaryText, "Needs to land before the afternoon handoff")
-        XCTAssertEqual(presentation.reasonLines, insight.rationale.map(\.label))
-        XCTAssertFalse(presentation.isComplete)
+        XCTAssertEqual(FocusDurationStore.defaultDurationSeconds(for: task, defaults: defaults), 15 * 60)
+        defaults.removePersistentDomain(forName: suiteName)
     }
 
-    func testTaskCardPresentationFallsBackToGenericSummaryWithoutRationale() {
-        var task = makeTask(title: "Quiet reset", projectID: UUID(), projectName: nil, priority: .low)
-        task.isComplete = true
+    func testDurationDefaultFallsBackToLastUsedThenTwentyFiveMinutes() {
+        let suiteName = "FocusNowPresentationSupportTests.DurationFallback.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
 
-        let presentation = EvaFocusWhyTaskCardPresentation.make(task: task, insight: nil)
+        let task = makeTask(title: "No estimate", estimatedDuration: nil)
+        XCTAssertEqual(FocusDurationStore.defaultDurationSeconds(for: task, defaults: defaults), 25 * 60)
 
-        XCTAssertEqual(presentation.summaryText, String(localized: "Eva selected this using urgency and effort balance."))
-        XCTAssertEqual(presentation.reasonLines, [])
-        XCTAssertNil(presentation.contextText)
-        XCTAssertTrue(presentation.isComplete)
+        FocusDurationStore.saveLastUsedDurationSeconds(60 * 60, defaults: defaults)
+        XCTAssertEqual(FocusDurationStore.defaultDurationSeconds(for: task, defaults: defaults), 60 * 60)
+        defaults.removePersistentDomain(forName: suiteName)
     }
 
-    func testCandidatePresentationFallsBackToSwapCopyWithoutInsight() {
-        let task = makeTask(title: "Prep launch notes", projectID: UUID(), projectName: "Inbox", priority: .low)
+    func testDurationStoreBoundsCustomValues() {
+        let suiteName = "FocusNowPresentationSupportTests.DurationBounds.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
 
-        let presentation = EvaFocusWhyCandidatePresentation.make(task: task, insight: nil)
+        FocusDurationStore.saveLastUsedDurationSeconds(10, defaults: defaults)
+        XCTAssertEqual(FocusDurationStore.lastUsedDurationSeconds(defaults: defaults), 60)
 
-        XCTAssertEqual(presentation.title, task.title)
-        XCTAssertEqual(presentation.contextText, "Inbox")
-        XCTAssertEqual(presentation.summaryText, String(localized: "Swap into Focus Now"))
+        FocusDurationStore.saveLastUsedDurationSeconds(400 * 60, defaults: defaults)
+        XCTAssertEqual(FocusDurationStore.lastUsedDurationSeconds(defaults: defaults), 180 * 60)
+        defaults.removePersistentDomain(forName: suiteName)
     }
 
     private func makeTask(
@@ -236,14 +232,16 @@ final class EvaFocusWhySheetPresentationTests: XCTestCase {
         title: String,
         projectID: UUID = ProjectConstants.inboxProjectID,
         projectName: String? = "Inbox",
-        priority: TaskPriority = .low
+        priority: TaskPriority = .low,
+        estimatedDuration: TimeInterval? = nil
     ) -> TaskDefinition {
         TaskDefinition(
             id: id,
             projectID: projectID,
             projectName: projectName,
             title: title,
-            priority: priority
+            priority: priority,
+            estimatedDuration: estimatedDuration
         )
     }
 }
