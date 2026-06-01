@@ -28,7 +28,7 @@ struct TimelineAnchorRitualModel: Equatable {
         self.selection = selection
         self.title = selection.title
         self.subtitle = selection.subtitle
-        self.selectedTimeText = Self.formatted(selectedDate, format: "h:mm a", calendar: calendar)
+        self.selectedTimeText = Self.formatted(selectedDate, template: "jm", calendar: calendar)
         self.sectionTitle = selection == .wake ? "Select start time" : "Select end time"
         self.footerText = selection == .wake
             ? "A beautiful day begins with intention."
@@ -56,12 +56,13 @@ struct TimelineAnchorRitualModel: Equatable {
             guard let date = calendar.date(byAdding: .minute, value: offset * 15, to: selectedDate) else {
                 return nil
             }
+            let timeParts = Self.timeParts(for: date, calendar: calendar)
             return TimelineAnchorRitualTimeOption(
                 id: index,
                 date: date,
-                hourText: Self.formatted(date, format: "h:mm", calendar: calendar),
-                meridiemText: Self.formatted(date, format: "a", calendar: calendar),
-                accessibilityText: "\(Self.formatted(date, format: "h:mm a", calendar: calendar)), \(offset == 0 ? selectedAccessibilityText(for: selection) : selectableAccessibilityText(for: selection)).",
+                hourText: timeParts.primary,
+                meridiemText: timeParts.secondary,
+                accessibilityText: "\(Self.formatted(date, template: "jm", calendar: calendar)), \(offset == 0 ? selectedAccessibilityText(for: selection) : selectableAccessibilityText(for: selection)).",
                 isSelected: offset == 0
             )
         }
@@ -84,12 +85,30 @@ struct TimelineAnchorRitualModel: Equatable {
         selection == .wake ? "start time option" : "end time option"
     }
 
-    private static func formatted(_ date: Date, format: String, calendar: Calendar) -> String {
+    private static func timeParts(for date: Date, calendar: Calendar) -> (primary: String, secondary: String) {
+        let fullTime = formatted(date, template: "jm", calendar: calendar)
+        let meridiem = formatted(date, template: "a", calendar: calendar)
+        guard let meridiemRange = fullTime.range(of: meridiem, options: [.caseInsensitive, .diacriticInsensitive]) else {
+            return (fullTime, "")
+        }
+
+        let primary = fullTime
+            .replacingCharacters(in: meridiemRange, with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return (primary, meridiem)
+    }
+
+    private static func formatted(_ date: Date, template: String, calendar: Calendar) -> String {
+        let locale = calendar.locale ?? Locale.current
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = format
+        formatter.locale = locale
+        formatter.dateFormat = DateFormatter.dateFormat(
+            fromTemplate: template,
+            options: 0,
+            locale: locale
+        ) ?? template
         return formatter.string(from: date)
     }
 }

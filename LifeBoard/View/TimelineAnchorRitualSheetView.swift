@@ -7,6 +7,7 @@ struct TimelineAnchorRitualSheetView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedDate: Date
     @State private var tokenSettled = false
+    @State private var hasCommittedChanges = false
 
     let selection: TimelineAnchorSelection
     let preferencesStore: LifeBoardWorkspacePreferencesStore
@@ -47,7 +48,7 @@ struct TimelineAnchorRitualSheetView: View {
                         sheetWidth: metrics.sheetWidth,
                         heroHeight: heroHeight(for: proxy.size.height)
                     ) {
-                        dismiss()
+                        closeSheet()
                     }
 
                     TimelineAnchorRitualContent(
@@ -75,6 +76,9 @@ struct TimelineAnchorRitualSheetView: View {
                 settleTokenIfNeeded()
             }
         }
+        .onDisappear {
+            commitChangesIfNeeded()
+        }
     }
 
     @ScaledMetric(relativeTo: .largeTitle) private var tokenSize: CGFloat = 72
@@ -90,14 +94,27 @@ struct TimelineAnchorRitualSheetView: View {
     }
 
     private func saveChanges() {
+        commitChangesIfNeeded(playFeedback: true)
+        dismiss()
+    }
+
+    private func closeSheet() {
+        commitChangesIfNeeded(playFeedback: true)
+        dismiss()
+    }
+
+    private func commitChangesIfNeeded(playFeedback: Bool = false) {
+        guard hasCommittedChanges == false else { return }
+        hasCommittedChanges = true
         TimelineAnchorRitualModel.save(
             selectedDate: selectedDate,
             selection: selection,
             to: preferencesStore,
             calendar: calendar
         )
-        LifeBoardFeedback.success()
-        dismiss()
+        if playFeedback {
+            LifeBoardFeedback.success()
+        }
     }
 
     private func settleTokenIfNeeded() {
