@@ -111,11 +111,6 @@ extension HomeViewController {
             HomeOverlaySnapshot(
                 guidanceState: onboardingGuidanceModel.state,
                 focusWhyPresented: state.focusWhyPresented,
-                triagePresented: state.triagePresented,
-                triageScope: state.triageScope,
-                triageQueueLoading: state.triageQueueLoading,
-                triageQueueErrorMessage: state.triageQueueErrorMessage,
-                triageQueue: state.triageQueue,
                 rescueLauncherState: state.rescueLauncherState,
                 rescuePresented: state.rescuePresented,
                 rescuePlan: state.rescuePlan,

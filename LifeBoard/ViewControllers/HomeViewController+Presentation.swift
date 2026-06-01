@@ -1053,16 +1053,16 @@ extension HomeViewController {
         }
     }
 
-    func startFocusFlow(task: TaskDefinition?, source: String) {
+    func startFocusFlow(task: TaskDefinition?, source: String, targetDurationSeconds: Int = 25 * 60) {
         guard let viewModel else { return }
         if presentedViewController != nil {
             dismiss(animated: true) { [weak self] in
-                self?.startFocusFlow(task: task, source: source)
+                self?.startFocusFlow(task: task, source: source, targetDurationSeconds: targetDurationSeconds)
             }
             return
         }
 
-        viewModel.startFocusSession(taskID: task?.id) { [weak self] result in
+        viewModel.startFocusSession(taskID: task?.id, targetDurationSeconds: targetDurationSeconds) { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
                 switch result {
@@ -1289,7 +1289,7 @@ extension HomeViewController {
                     guard let self else { return }
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "start_triage", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.setQuickView(.today)
-                    self.viewModel.startTriage(scope: .visible)
+                    self.viewModel.openRescue()
                     self.viewModel.trackDailySummaryActionResult(cta: "start_triage", success: true, error: nil)
                     dismissSummary {}
                 },

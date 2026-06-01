@@ -991,11 +991,6 @@ struct HomeTimelineSnapshot: Equatable {
 struct HomeOverlaySnapshot: Equatable {
     let guidanceState: HomeOnboardingGuidanceModel.State?
     let focusWhyPresented: Bool
-    let triagePresented: Bool
-    let triageScope: EvaTriageScope
-    let triageQueueLoading: Bool
-    let triageQueueErrorMessage: String?
-    let triageQueue: [EvaTriageQueueItem]
     let rescueLauncherState: HomeOverdueRescueLauncherState
     let rescuePresented: Bool
     let rescuePlan: EvaRescuePlan?
@@ -1007,11 +1002,6 @@ struct HomeOverlaySnapshot: Equatable {
         HomeOverlaySnapshot(
             guidanceState: nil,
             focusWhyPresented: false,
-            triagePresented: false,
-            triageScope: .visible,
-            triageQueueLoading: false,
-            triageQueueErrorMessage: nil,
-            triageQueue: [],
             rescueLauncherState: .idle,
             rescuePresented: false,
             rescuePlan: nil,
@@ -1024,11 +1014,6 @@ struct HomeOverlaySnapshot: Equatable {
     static func == (lhs: HomeOverlaySnapshot, rhs: HomeOverlaySnapshot) -> Bool {
         lhs.guidanceState == rhs.guidanceState
             && lhs.focusWhyPresented == rhs.focusWhyPresented
-            && lhs.triagePresented == rhs.triagePresented
-            && lhs.triageScope == rhs.triageScope
-            && lhs.triageQueueLoading == rhs.triageQueueLoading
-            && lhs.triageQueueErrorMessage == rhs.triageQueueErrorMessage
-            && lhs.triageQueue == rhs.triageQueue
             && lhs.rescueLauncherState == rhs.rescueLauncherState
             && lhs.rescuePresented == rhs.rescuePresented
             && lhs.rescuePlan == rhs.rescuePlan
