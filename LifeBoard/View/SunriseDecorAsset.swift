@@ -26,7 +26,7 @@ struct SunriseDecorImage: View {
             .frame(width: size, height: size)
             .scaleEffect(x: mirrorX ? -1 : 1, y: 1)
             .rotationEffect(rotation)
-            .opacity(reduceTransparency ? min(opacity, 0.18) : opacity)
+            .opacity(reduceTransparency ? max(opacity, 0.18) : opacity)
             .accessibilityHidden(true)
             .allowsHitTesting(false)
     }

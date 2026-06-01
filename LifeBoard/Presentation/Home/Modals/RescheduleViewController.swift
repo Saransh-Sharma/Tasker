@@ -28,7 +28,7 @@ final class RescheduleViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
-        title = "Reschedule"
+        title = taskTitle
 
         datePicker.translatesAutoresizingMaskIntoConstraints = false
         datePicker.datePickerMode = .dateAndTime

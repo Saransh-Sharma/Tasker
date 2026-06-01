@@ -5,6 +5,20 @@
 
 import SwiftUI
 
+private enum RecurringTaskDeleteType {
+    case single
+    case series
+
+    var accessibilityIdentifier: String {
+        switch self {
+        case .single:
+            return "home.recurringTaskDelete.single"
+        case .series:
+            return "home.recurringTaskDelete.series"
+        }
+    }
+}
+
 struct SunriseRecurringTaskDeleteConfirmationView: View {
     let taskTitle: String
     let onDeleteSingle: () -> Void
@@ -30,6 +44,7 @@ struct SunriseRecurringTaskDeleteConfirmationView: View {
                             destructiveAction(
                                 title: "Delete This Task",
                                 systemImage: "calendar.badge.minus",
+                                type: .single,
                                 action: onDeleteSingle
                             )
 
@@ -39,6 +54,7 @@ struct SunriseRecurringTaskDeleteConfirmationView: View {
                             destructiveAction(
                                 title: "Delete Entire Series",
                                 systemImage: "repeat.circle",
+                                type: .series,
                                 action: onDeleteSeries
                             )
                         }
@@ -84,7 +100,7 @@ struct SunriseRecurringTaskDeleteConfirmationView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func destructiveAction(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+    private func destructiveAction(title: String, systemImage: String, type: RecurringTaskDeleteType, action: @escaping () -> Void) -> some View {
         Button {
             dismiss()
             action()
@@ -104,6 +120,6 @@ struct SunriseRecurringTaskDeleteConfirmationView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(title == "Delete This Task" ? "home.recurringTaskDelete.single" : "home.recurringTaskDelete.series")
+        .accessibilityIdentifier(type.accessibilityIdentifier)
     }
 }

@@ -205,6 +205,7 @@ private struct HomeiPadPrimaryPaneHost: View {
 struct SunriseiPadSplitShellView: View {
     private enum HomeiPadShellCommand {
         case tasks
+        case schedule
         case search
         case analytics
         case chat
@@ -359,7 +360,7 @@ struct SunriseiPadSplitShellView: View {
                 .keyboardShortcut("f", modifiers: .command)
             Button("") { performShellCommand(.tasks) }
                 .keyboardShortcut("1", modifiers: .command)
-            Button("") { performShellCommand(.search) }
+            Button("") { performShellCommand(.schedule) }
                 .keyboardShortcut("2", modifiers: .command)
             Button("") { performShellCommand(.analytics) }
                 .keyboardShortcut("3", modifiers: .command)
@@ -641,6 +642,8 @@ struct SunriseiPadSplitShellView: View {
         switch command {
         case .tasks:
             shellState.destination = .tasks
+        case .schedule:
+            shellState.destination = .schedule
         case .search:
             shellState.destination = .search
         case .analytics:

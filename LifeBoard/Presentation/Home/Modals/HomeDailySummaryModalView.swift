@@ -24,6 +24,14 @@ struct DailySummaryModalView: View {
         return formatter
     }()
 
+    private let headerDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateStyle = .full
+        formatter.timeStyle = .none
+        return formatter
+    }()
+
     var body: some View {
         VStack(spacing: 0) {
             headerCard
@@ -524,10 +532,6 @@ struct DailySummaryModalView: View {
     }
 
     private func headerDateText(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateStyle = .full
-        formatter.timeStyle = .none
-        return formatter.string(from: date)
+        headerDateFormatter.string(from: date)
     }
 }

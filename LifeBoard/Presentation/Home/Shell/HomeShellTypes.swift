@@ -71,9 +71,6 @@ struct HomeBottomBarVisibilityPolicy {
         if bottomOverlayObstruction > 0.5 {
             return bottomOverlayObstruction + idleSpacing + idleExtraSpacing
         }
-        if isBottomBarConcealed {
-            return regularSpacing
-        }
         return regularSpacing
     }
 }
@@ -137,6 +134,8 @@ struct HomeBottomBarContainer: View {
 }
 
 struct HomeSurfacePrewarmPolicy {
+    private static let bytesPerGib = 1_073_741_824.0
+
     enum Surface {
         case homeBackgroundSurfaces
         case search
@@ -147,7 +146,7 @@ struct HomeSurfacePrewarmPolicy {
         guard ProcessInfo.processInfo.isLowPowerModeEnabled == false else { return false }
         guard thermalStateAllowsPrewarm(ProcessInfo.processInfo.thermalState) else { return false }
 
-        let physicalMemoryGB = Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824
+        let physicalMemoryGB = Double(ProcessInfo.processInfo.physicalMemory) / Self.bytesPerGib
         switch surface {
         case .homeBackgroundSurfaces:
             return physicalMemoryGB >= 4

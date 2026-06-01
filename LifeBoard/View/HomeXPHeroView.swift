@@ -8,10 +8,12 @@ public struct HomeXPHeroView: View {
     let level: Int
     let streakDays: Int
 
+    private let dailyTargetXP = 30
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var progress: CGFloat {
-        dailyXP > 0 ? 1.0 : 0.0
+        guard dailyTargetXP > 0 else { return 0 }
+        return min(max(CGFloat(dailyXP) / CGFloat(dailyTargetXP), 0), 1)
     }
 
     public var body: some View {

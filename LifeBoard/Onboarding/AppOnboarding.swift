@@ -9761,7 +9761,7 @@ private struct OnboardingTaskRecommendationCard: View {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) {
                     metaChip("\(template.durationMinutes) min")
-                    metaChip("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: DatePreset.today.resolvedDueDate(), isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
+                    metaChip("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: template.dueDateIntent.resolvedDate(), isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
                     Spacer()
                     actionButton
                 }
@@ -9769,7 +9769,7 @@ private struct OnboardingTaskRecommendationCard: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         metaChip("\(template.durationMinutes) min")
-                        metaChip("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: DatePreset.today.resolvedDueDate(), isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
+                        metaChip("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: template.dueDateIntent.resolvedDate(), isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
                     }
                     actionButton
                 }

@@ -189,7 +189,9 @@ struct SunriseSearchFaceView<ResultsContent: View>: View {
     }
 
     private var shouldShowAskEvaRow: Bool {
-        trimmedQuery.isEmpty == false && commandMode == .askEva || trimmedQuery.split(separator: " ").count >= 3 || isSlashQuery
+        (trimmedQuery.isEmpty == false && commandMode == .askEva)
+            || trimmedQuery.split(separator: " ").count >= 3
+            || isSlashQuery
     }
 
     private var suggestedCommands: [HomeSearchSuggestedCommand] {

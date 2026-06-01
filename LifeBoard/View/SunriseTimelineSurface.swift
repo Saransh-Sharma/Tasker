@@ -5774,10 +5774,19 @@ private struct TimelineCompactAnchorRow: View {
                 )
                 .accessibilityIdentifier("home.timeline.anchor.\(anchor.id)")
 
-                Spacer(minLength: 12)
-
-                Color.clear
-                    .frame(width: metrics.compactTrailingLaneWidth, height: 1)
+                if anchor.isActionable {
+                    TimelineCompletionRing(
+                        color: Color.lifeboard.accentPrimary,
+                        isCompleted: false,
+                        isInteractive: false,
+                        label: anchor.title,
+                        action: {}
+                    )
+                    .frame(width: metrics.compactTrailingLaneWidth, alignment: .center)
+                } else {
+                    Color.clear
+                        .frame(width: metrics.compactTrailingLaneWidth, height: 1)
+                }
             }
         } else {
             Button(action: onTap) {

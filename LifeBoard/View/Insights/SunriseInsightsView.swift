@@ -549,13 +549,6 @@ private struct SunriseInsightsTodayView: View {
         .padding(.bottom, LBSpacingTokens.xl)
     }
 
-    private var primaryAction: () -> Void {
-        if reflectionEligible {
-            return onOpenReflection
-        }
-        return { LifeBoardFeedback.selection() }
-    }
-
     private func performHeroAction() {
         let intent = InsightsActionResolver.intent(
                 for: .hero(
@@ -589,10 +582,6 @@ private struct SunriseInsightsTodayView: View {
         }
     }
 
-    private func firstDetail(from metrics: [InsightsMetricTile]) -> String? {
-        guard let metric = metrics.first else { return nil }
-        return "\(metric.title): \(metric.value). \(metric.detail)"
-    }
 }
 
 private struct SunriseInsightsWeekView: View {
@@ -710,7 +699,8 @@ private struct SunriseInsightsSystemsView: View {
             SunriseInsightDisclosureCard(
                 title: presentation.details.title,
                 summary: presentation.details.summary,
-                isExpanded: $isDetailsExpanded
+                isExpanded: $isDetailsExpanded,
+                accessibilityIdentifier: "home.insights.disclosure.systemsDetails"
             ) {
                 VStack(spacing: LBSpacingTokens.sm) {
                     SunriseReminderResponseCard(state: state.reminderResponse)
@@ -729,11 +719,6 @@ private struct SunriseInsightsSystemsView: View {
         }
         .padding(.horizontal, LBSpacingTokens.screenMargin)
         .padding(.bottom, LBSpacingTokens.xl)
-    }
-
-    private func firstDetail(from metrics: [InsightsMetricTile]) -> String? {
-        guard let metric = metrics.first else { return nil }
-        return "\(metric.title): \(metric.value). \(metric.detail)"
     }
 
     private func performHeroAction() {
@@ -763,63 +748,6 @@ private struct SunriseInsightsSystemsView: View {
         default:
             onPerformInsightAction(intent)
         }
-    }
-}
-
-private struct SunriseInsightHeroCard: View {
-    let eyebrow: String
-    let title: String
-    let answer: String
-    let metric: String
-    let role: LBRole
-    let primaryActionTitle: String?
-    let primaryAction: () -> Void
-
-    private var style: LBRoleStyle { LBColorTokens.role(role) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
-            Label(eyebrow, systemImage: style.symbolName)
-                .font(.lifeboard(.caption1).weight(.semibold))
-                .foregroundStyle(style.deep)
-
-            Text(title)
-                .font(.lifeboard(.title2))
-                .foregroundStyle(LBColorTokens.navy)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(answer)
-                .font(.lifeboard(.headline))
-                .foregroundStyle(LBColorTokens.navySoft)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(metric)
-                .font(.lifeboard(.callout))
-                .foregroundStyle(LBColorTokens.navyMuted)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if let primaryActionTitle {
-                Button(primaryActionTitle, systemImage: "arrow.right", action: primaryAction)
-                    .font(.lifeboard(.callout).weight(.semibold))
-                    .foregroundStyle(Color.white)
-                    .padding(.horizontal, LBSpacingTokens.md)
-                    .frame(minHeight: 44)
-                    .background(
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: LBColorTokens.actionGradient(for: role),
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
-                    .buttonStyle(.plain)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(LBSpacingTokens.lg)
-        .sunriseInsightSurface(role: role, cornerRadius: 28)
     }
 }
 
@@ -1186,13 +1114,7 @@ private struct SunriseWeekBarsCard: View {
     let scaleMode: InsightsWeekScaleMode
 
     private var maxBarXP: Int {
-        let personalMax = max(state.weeklyBars.map(\.xp).max() ?? 1, 1)
-        switch scaleMode {
-        case .goal:
-            return personalMax
-        case .personalMax:
-            return personalMax
-        }
+        max(state.weeklyBars.map(\.xp).max() ?? 1, 1)
     }
 
     var body: some View {

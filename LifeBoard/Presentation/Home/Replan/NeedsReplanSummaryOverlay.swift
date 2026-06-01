@@ -28,7 +28,7 @@ struct NeedsReplanSummaryOverlay: View {
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: spacing.s4) {
-                        Text(state.skippedCount > 0 ? "You skipped \(state.skippedCount) tasks" : "All caught up")
+                        Text(summaryHeadline)
                             .font(.lifeboard(.title1).weight(.semibold))
                             .foregroundStyle(Color.lifeboard.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -66,6 +66,12 @@ struct NeedsReplanSummaryOverlay: View {
         )
         .shadow(color: .black.opacity(0.12), radius: 24, x: 0, y: 12)
         .accessibilityIdentifier("home.needsReplan.summary")
+    }
+
+    private var summaryHeadline: String {
+        guard state.skippedCount > 0 else { return "All caught up" }
+        let noun = state.skippedCount == 1 ? "task" : "tasks"
+        return "You skipped \(state.skippedCount) \(noun)"
     }
 
     private func metric(_ label: String, _ count: Int) -> some View {
