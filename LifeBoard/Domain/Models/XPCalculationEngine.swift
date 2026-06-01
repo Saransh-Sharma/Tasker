@@ -382,7 +382,7 @@ public struct XPCalculationEngine {
 
     // MARK: - Milestones
 
-    public struct Milestone: Equatable, Sendable {
+    public struct Milestone: Sendable {
         public let xpThreshold: Int64
         public let name: String
         public let sfSymbol: String

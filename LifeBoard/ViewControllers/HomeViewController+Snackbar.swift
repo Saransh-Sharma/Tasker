@@ -16,7 +16,7 @@ import SwiftData
 extension HomeViewController {
     /// Executes observeTaskCreatedForSnackbar.
     func observeTaskCreatedForSnackbar() {
-        NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
+        notificationCenter.publisher(for: .taskCreated)
             .receive(on: RunLoop.main)
             .compactMap { $0.object as? TaskDefinition }
             .sink { [weak self] createdTask in
@@ -57,6 +57,8 @@ extension HomeViewController {
     func showHomeSnackbar(data: SnackbarData) {
         guard homeHostingController != nil else { return }
 
+        dismissCurrentHomeSnackbar()
+
         let snackbar = LifeBoardSnackbar(data: data, onDismiss: {})
         let snackbarVC = UIHostingController(rootView: snackbar)
         snackbarVC.view.backgroundColor = .clear
@@ -70,11 +72,23 @@ extension HomeViewController {
             snackbarVC.view.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
         ])
         snackbarVC.didMove(toParent: self)
+        currentSnackbarViewController = snackbarVC
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
-            snackbarVC.willMove(toParent: nil)
-            snackbarVC.view.removeFromSuperview()
-            snackbarVC.removeFromParent()
+        let dismissWorkItem = DispatchWorkItem { [weak self, weak snackbarVC] in
+            guard let self, let snackbarVC, self.currentSnackbarViewController === snackbarVC else { return }
+            self.dismissCurrentHomeSnackbar()
         }
+        currentSnackbarDismissWorkItem = dismissWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0, execute: dismissWorkItem)
+    }
+
+    func dismissCurrentHomeSnackbar() {
+        currentSnackbarDismissWorkItem?.cancel()
+        currentSnackbarDismissWorkItem = nil
+        guard let snackbarVC = currentSnackbarViewController else { return }
+        snackbarVC.willMove(toParent: nil)
+        snackbarVC.view.removeFromSuperview()
+        snackbarVC.removeFromParent()
+        currentSnackbarViewController = nil
     }
 }
