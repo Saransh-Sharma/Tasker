@@ -230,32 +230,39 @@ struct OverdueRescueDeckLayoutMetrics: Equatable {
     var dynamicTypeIsExpanded: Bool
 
     var horizontalInset: CGFloat {
-        min(32, max(24, containerSize.width * 0.07))
+        min(30, max(20, containerSize.width * 0.052))
     }
 
     var contentWidth: CGFloat {
-        min(max(containerSize.width - horizontalInset * 2, 280), 390)
+        min(max(containerSize.width - horizontalInset * 2, 300), 390)
+    }
+
+    var isCompactHeight: Bool {
+        containerSize.height < 880
     }
 
     var cardWidth: CGFloat {
-        contentWidth
+        min(contentWidth + 12, containerSize.width - 28)
     }
 
     var cardHeight: CGFloat {
         let height = containerSize.height > 0 ? containerSize.height : 844
-        return min(420, max(340, height * 0.42))
+        if isCompactHeight {
+            return min(354, max(318, height * 0.38))
+        }
+        return min(430, max(386, height * 0.44))
     }
 
     var deckHeight: CGFloat {
-        cardHeight + 40
+        cardHeight + (isCompactHeight ? 46 : 68)
     }
 
     var progressWidth: CGFloat {
-        min(260, max(210, contentWidth * 0.68))
+        min(250, max(190, contentWidth * 0.58))
     }
 
     var actionButtonHeight: CGFloat {
-        dynamicTypeIsExpanded ? 88 : 80
+        dynamicTypeIsExpanded ? 88 : (isCompactHeight ? 62 : 76)
     }
 
     var actionGridUsesSingleColumn: Bool {
@@ -263,7 +270,7 @@ struct OverdueRescueDeckLayoutMetrics: Equatable {
     }
 
     var bottomClearance: CGFloat {
-        max(108, bottomInset + 20)
+        max(isCompactHeight ? 82 : 104, bottomInset + 18)
     }
 
     static func make(size: CGSize, bottomInset: CGFloat, dynamicTypeSize: DynamicTypeSize) -> OverdueRescueDeckLayoutMetrics {
@@ -286,19 +293,63 @@ enum OverdueRescueDeckCopy {
 }
 
 enum OverdueRescuePalette {
-    static let progressTrack = Color(red: 0.91, green: 0.88, blue: 0.83)
+    static let ink = Color(red: 0.03, green: 0.14, blue: 0.36)
+    static let secondaryInk = Color(red: 0.28, green: 0.39, blue: 0.56)
+    static let backgroundTop = Color(red: 1.0, green: 0.995, blue: 0.975)
+    static let backgroundMid = Color(red: 1.0, green: 0.975, blue: 0.925)
+    static let backgroundBottom = Color(red: 1.0, green: 0.995, blue: 0.985)
+    static let glassFill = Color.white.opacity(0.72)
+    static let glassStroke = Color(red: 0.88, green: 0.82, blue: 0.72).opacity(0.42)
+    static let softShadow = Color(red: 0.18, green: 0.12, blue: 0.06).opacity(0.10)
+    static let progressTrack = Color(red: 0.86, green: 0.86, blue: 0.89)
+    static let accentGradient = LinearGradient(
+        colors: [
+            Color(red: 0.37, green: 0.23, blue: 1.0),
+            Color(red: 0.23, green: 0.20, blue: 0.98)
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
 
     static let keepFill = Color(red: 0.90, green: 0.96, blue: 0.92)
-    static let keepForeground = Color(red: 0.18, green: 0.49, blue: 0.31)
+    static let keepForeground = Color(red: 0.08, green: 0.61, blue: 0.27)
 
-    static let moveFill = Color(red: 1.0, green: 0.94, blue: 0.85)
-    static let moveForeground = Color(red: 0.77, green: 0.48, blue: 0.07)
+    static let moveFill = Color(red: 1.0, green: 0.94, blue: 0.82)
+    static let moveForeground = Color(red: 0.91, green: 0.52, blue: 0.02)
 
     static let editFill = Color(red: 0.91, green: 0.94, blue: 1.0)
-    static let editForeground = Color(red: 0.29, green: 0.40, blue: 0.78)
+    static let editForeground = Color(red: 0.11, green: 0.46, blue: 0.96)
 
     static let deleteFill = Color(red: 1.0, green: 0.92, blue: 0.91)
-    static let deleteForeground = Color(red: 0.78, green: 0.27, blue: 0.27)
+    static let deleteForeground = Color(red: 0.93, green: 0.15, blue: 0.14)
+}
+
+enum OverdueRescueVisualSpec {
+    static let screenHorizontalPadding: CGFloat = 28
+    static let topButtonSize: CGFloat = 58
+    static let cardCorner: CGFloat = 34
+    static let innerCardCorner: CGFloat = 22
+    static let largeCardCorner: CGFloat = 28
+    static let primaryButtonHeight: CGFloat = 68
+    static let secondaryButtonHeight: CGFloat = 62
+    static let primaryButtonCorner: CGFloat = 24
+    static let sheetMaxWidth: CGFloat = 390
+
+    static func primaryButtonBackground(cornerRadius: CGFloat = primaryButtonCorner) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(OverdueRescuePalette.accentGradient)
+            .shadow(color: Color(red: 0.27, green: 0.18, blue: 0.93).opacity(0.22), radius: 18, y: 10)
+    }
+
+    static func glassCard(cornerRadius: CGFloat = largeCardCorner, fill: Color = OverdueRescuePalette.glassFill) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(fill)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(OverdueRescuePalette.glassStroke, lineWidth: 1)
+            )
+            .shadow(color: OverdueRescuePalette.softShadow, radius: 24, y: 12)
+    }
 }
 
 enum OverdueRescueSwipeRevealKind: Equatable {
@@ -1339,9 +1390,9 @@ private struct OverdueRescueDeckView: View {
     private func deckContent(metrics: OverdueRescueDeckLayoutMetrics, scrollFallback: Bool) -> some View {
         VStack(spacing: 0) {
             header(metrics: metrics)
-                .padding(.top, scrollFallback ? 12 : 8)
+                .padding(.top, scrollFallback ? 10 : 6)
 
-            Color.clear.frame(height: 40)
+            Color.clear.frame(height: metrics.dynamicTypeIsExpanded ? 16 : (metrics.isCompactHeight ? 18 : 28))
 
             if let card = viewModel.currentCard {
                 let drag = activeDragResolution(metrics: metrics)
@@ -1362,7 +1413,7 @@ private struct OverdueRescueDeckView: View {
                         .gesture(cardGesture(metrics: metrics), including: voiceOverEnabled ? .subviews : .all)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(width: metrics.cardWidth + 32, height: metrics.deckHeight)
+                .frame(width: min(metrics.containerSize.width + 34, metrics.cardWidth + 64), height: metrics.deckHeight)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Overdue Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: Keep today, \(card.moveButtonTitle), Edit, Delete.")
                 .accessibilityAction(named: Text("Keep today")) {
@@ -1379,7 +1430,7 @@ private struct OverdueRescueDeckView: View {
                     reveal: drag.reveal,
                     progress: drag.progress
                 )
-                .padding(.top, 18)
+                .padding(.top, metrics.dynamicTypeIsExpanded ? 12 : 8)
 
                 OverdueRescueActionGrid(
                     metrics: metrics,
@@ -1389,7 +1440,7 @@ private struct OverdueRescueDeckView: View {
                     delete: viewModel.requestDelete
                 )
                 .frame(width: metrics.contentWidth)
-                .padding(.top, 18)
+                .padding(.top, metrics.dynamicTypeIsExpanded ? 12 : (metrics.isCompactHeight ? 12 : 16))
             } else {
                 Spacer()
             }
@@ -1405,16 +1456,17 @@ private struct OverdueRescueDeckView: View {
     }
 
     private func header(metrics: OverdueRescueDeckLayoutMetrics) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: metrics.dynamicTypeIsExpanded ? 8 : 7) {
             HStack {
                 Button("Close", systemImage: "xmark") {
                     close()
                 }
                 .labelStyle(.iconOnly)
                 .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(Color.lifeboard.textPrimary)
-                .frame(width: 60, height: 60)
-                .background(Circle().fill(Color.white.opacity(0.82)))
+                .foregroundStyle(OverdueRescuePalette.ink)
+                .frame(width: OverdueRescueVisualSpec.topButtonSize, height: OverdueRescueVisualSpec.topButtonSize)
+                .background(Circle().fill(Color.white.opacity(0.84)))
+                .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                 .accessibilityLabel("Close rescue")
 
                 Spacer()
@@ -1434,27 +1486,28 @@ private struct OverdueRescueDeckView: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(Color.lifeboard.textPrimary)
-                        .frame(width: 60, height: 60)
+                        .foregroundStyle(OverdueRescuePalette.ink)
+                        .frame(width: OverdueRescueVisualSpec.topButtonSize, height: OverdueRescueVisualSpec.topButtonSize)
                         .background(Circle().fill(Color.white.opacity(0.82)))
+                        .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                 }
                     .accessibilityLabel("More rescue actions")
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, OverdueRescueVisualSpec.screenHorizontalPadding)
 
-            VStack(spacing: 7) {
+            VStack(spacing: 6) {
                 Text("Overdue Rescue")
                     .font(.lifeboard(.title2))
                     .fontWeight(.bold)
-                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .foregroundStyle(OverdueRescuePalette.ink)
                 Text("Swipe or tap to sort what still matters.")
                     .font(.lifeboard(.callout))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .foregroundStyle(OverdueRescuePalette.secondaryInk)
                     .multilineTextAlignment(.center)
                 Text(viewModel.progressText)
                     .font(.lifeboard(.headline))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
-                    .padding(.top, 8)
+                    .foregroundStyle(OverdueRescuePalette.secondaryInk)
+                    .padding(.top, 14)
                 LifeBoardProgressBar(
                     progress: viewModel.progress,
                     colors: [Color.lifeboard.accentPrimary],
@@ -1535,31 +1588,31 @@ private struct OverdueRescueBackCards: View {
         ZStack(alignment: .center) {
             ForEach(0..<4, id: \.self) { index in
                 let reverseIndex = 3 - index
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
                     .fill(backCardColor(index))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 30, style: .continuous)
-                            .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
+                            .stroke(Color.white.opacity(0.74), lineWidth: 1)
                     )
                     .frame(
-                        width: metrics.cardWidth - CGFloat(reverseIndex) * 8,
-                        height: metrics.cardHeight - CGFloat(reverseIndex) * 5
+                        width: metrics.cardWidth - CGFloat(reverseIndex) * 10,
+                        height: metrics.cardHeight - CGFloat(reverseIndex) * 8
                     )
                     .offset(
                         x: horizontalOffset(reverseIndex),
-                        y: -CGFloat(reverseIndex) * 17
+                        y: -CGFloat(reverseIndex) * 21
                     )
-                    .scaleEffect(1.0 - Double(reverseIndex) * 0.018)
-                    .shadow(color: Color.black.opacity(0.05 + Double(index) * 0.012), radius: 14 + CGFloat(index) * 4, y: 7 + CGFloat(index) * 2)
+                    .scaleEffect(1.0 - Double(reverseIndex) * 0.015)
+                    .shadow(color: Color.black.opacity(0.045 + Double(index) * 0.012), radius: 16 + CGFloat(index) * 4, y: 8 + CGFloat(index) * 2)
             }
         }
     }
 
     private func horizontalOffset(_ reverseIndex: Int) -> CGFloat {
         switch reverseIndex {
-        case 1: return 6
-        case 2: return -8
-        case 3: return 10
+        case 1: return 8
+        case 2: return -12
+        case 3: return 14
         default: return 0
         }
     }
@@ -1578,82 +1631,101 @@ private struct OverdueRescueTaskCard: View {
     let card: OverdueRescueCardModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(card.task.title)
-                    .font(.lifeboard(.title2))
-                    .fontWeight(.bold)
-                    .foregroundStyle(Color.lifeboard.textPrimary)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.76)
+        ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(card.task.title)
+                        .font(.lifeboard(.title2))
+                        .fontWeight(.bold)
+                        .foregroundStyle(OverdueRescuePalette.ink)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.72)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                Label(card.projectLabel, systemImage: "folder")
-                    .font(.lifeboard(.callout))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    Label(card.projectLabel, systemImage: "folder")
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(OverdueRescuePalette.secondaryInk)
 
-                Text(card.confidenceLabel)
-                    .font(.lifeboard(.caption1))
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.lifeboard.accentPrimary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(Color.lifeboard.accentPrimary.opacity(0.10)))
-            }
-
-            HStack(alignment: .bottom, spacing: 12) {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text(card.overdueText)
+                    Text(card.confidenceLabel)
                         .font(.lifeboard(.callout))
                         .fontWeight(.semibold)
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                    Text(card.reasonBody)
-                        .font(.lifeboard(.body))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                        .lineLimit(3)
+                        .foregroundStyle(Color.lifeboard.accentPrimary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .background(Capsule().fill(Color.lifeboard.accentPrimary.opacity(0.11)))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .layoutPriority(1)
+                .padding(.trailing, 78)
 
-                Image(decorative: "rescue_decor_plant")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 72, height: 88)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
+                Spacer(minLength: 0)
+
+                HStack(alignment: .bottom, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(card.overdueText)
+                            .font(.lifeboard(.headline))
+                            .fontWeight(.semibold)
+                            .foregroundStyle(OverdueRescuePalette.secondaryInk)
+                        Text(card.reasonBody)
+                            .font(.lifeboard(.body))
+                            .foregroundStyle(Color(red: 0.38, green: 0.36, blue: 0.33))
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
+
+                    Color.clear.frame(width: 84, height: 1)
+                }
+                .padding(18)
+                .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.innerCardCorner, style: .continuous)
+                        .fill(Color.white.opacity(0.72))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.innerCardCorner, style: .continuous)
+                                .stroke(Color.white.opacity(0.78), lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(0.06), radius: 16, y: 8)
+                )
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.white.opacity(0.70))
-                    .shadow(color: Color.black.opacity(0.05), radius: 12, y: 6)
-            )
+            .padding(30)
+
+            Image(decorative: "rescue_decor_sparkles")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 46, height: 46)
+                .opacity(0.74)
+                .padding(.top, 30)
+                .padding(.trailing, 24)
+                .accessibilityHidden(true)
+
+            Image(decorative: "rescue_decor_plant")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 106, height: 128)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .offset(x: -22, y: -82)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
-        .padding(28)
         .background(
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
+            RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [Color(red: 1.0, green: 0.99, blue: 0.95), Color.white],
+                        colors: [
+                            Color(red: 1.0, green: 0.985, blue: 0.93),
+                            Color(red: 1.0, green: 0.995, blue: 0.985)
+                        ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 34, style: .continuous)
-                        .stroke(Color(red: 0.96, green: 0.86, blue: 0.68), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
+                        .stroke(Color(red: 0.97, green: 0.87, blue: 0.67), lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(0.10), radius: 28, y: 14)
+                .shadow(color: Color.black.opacity(0.12), radius: 32, y: 18)
         )
-        .overlay(alignment: .topTrailing) {
-            Image(decorative: "rescue_decor_sparkles")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 48, height: 48)
-                .opacity(0.7)
-                .padding(20)
-                .accessibilityHidden(true)
-        }
+        .clipShape(RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous))
     }
 }
 
@@ -1663,28 +1735,28 @@ private struct OverdueRescueRevealPanel: View {
     let metrics: OverdueRescueDeckLayoutMetrics
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 34, style: .continuous)
+        RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
             .fill(panelFill)
             .overlay(
-                RoundedRectangle(cornerRadius: 34, style: .continuous)
-                    .stroke(panelForeground.opacity(0.16), lineWidth: 1)
+                RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
+                    .stroke(panelForeground.opacity(0.18), lineWidth: 1)
             )
-            .frame(width: metrics.cardWidth, height: metrics.cardHeight)
-            .shadow(color: Color.black.opacity(0.05 * easedProgress), radius: 16, y: 8)
+            .frame(width: metrics.cardWidth * 0.96, height: metrics.cardHeight * 0.96)
+            .shadow(color: Color.black.opacity(0.08 * easedProgress), radius: 22, y: 12)
             .overlay(alignment: reveal == .keep ? .leading : .trailing) {
                 if reveal != .none {
                     VStack(spacing: 12) {
                         Image(systemName: icon)
-                            .font(.system(size: 42, weight: .semibold))
+                            .font(.system(size: 54, weight: .semibold))
                         Text(title)
-                            .font(.lifeboard(.title2))
+                            .font(.lifeboard(.screenTitle))
                             .fontWeight(.bold)
                             .multilineTextAlignment(.center)
                     }
                     .foregroundStyle(panelForeground)
                     .opacity(easedProgress)
                     .scaleEffect(0.86 + 0.14 * easedProgress)
-                    .padding(.horizontal, 36)
+                    .padding(.horizontal, 44)
                 }
             }
             .offset(x: panelOffsetX, y: 0)
@@ -1698,8 +1770,8 @@ private struct OverdueRescueRevealPanel: View {
 
     private var panelOffsetX: CGFloat {
         switch reveal {
-        case .keep: return -metrics.cardWidth * 0.12
-        case .move: return metrics.cardWidth * 0.12
+        case .keep: return -metrics.cardWidth * 0.20
+        case .move: return metrics.cardWidth * 0.20
         case .none: return 0
         }
     }
@@ -1832,11 +1904,12 @@ private struct OverdueRescueSwipeHint: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
+                .font(.system(size: 19, weight: .medium))
             Text(text)
         }
         .font(.lifeboard(.caption1))
-        .foregroundStyle(Color.lifeboard.textSecondary)
-        .frame(height: 24)
+        .foregroundStyle(OverdueRescuePalette.secondaryInk)
+        .frame(height: 28)
         .accessibilityHidden(true)
     }
 
@@ -1914,14 +1987,15 @@ private struct OverdueRescueActionGrid: View {
                 .minimumScaleFactor(0.78)
                 .frame(maxWidth: .infinity, minHeight: metrics.actionButtonHeight)
                 .background(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(fill)
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(fill.opacity(0.72))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                .stroke(foreground.opacity(0.12), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                                .stroke(foreground.opacity(0.10), lineWidth: 1)
                         )
+                        .shadow(color: Color.black.opacity(0.045), radius: 14, y: 8)
                 )
-                .contentShape(RoundedRectangle(cornerRadius: 28))
+                .contentShape(RoundedRectangle(cornerRadius: 26))
         }
         .buttonStyle(.plain)
         .scaleOnPress()
@@ -1961,7 +2035,7 @@ private struct OverdueRescueQuickEditSheet: View {
     var body: some View {
         VStack(spacing: 22) {
             Capsule()
-                .fill(Color.lifeboard.strokeHairline)
+                .fill(Color(red: 0.78, green: 0.78, blue: 0.82))
                 .frame(width: 58, height: 6)
                 .padding(.top, 12)
             HStack {
@@ -1971,33 +2045,40 @@ private struct OverdueRescueQuickEditSheet: View {
                 Text("Adjust task")
                     .font(.lifeboard(.title2))
                     .fontWeight(.bold)
-                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .foregroundStyle(OverdueRescuePalette.ink)
                 Spacer()
                 Button("Close", systemImage: "xmark") {
                     cancel()
                     dismiss()
                 }
                 .labelStyle(.iconOnly)
-                .frame(width: 54, height: 54)
+                .font(.title2.weight(.semibold))
+                .frame(width: 58, height: 58)
                 .background(Circle().fill(Color.white.opacity(0.84)))
-                .foregroundStyle(Color.lifeboard.textPrimary)
+                .foregroundStyle(OverdueRescuePalette.ink)
+                .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
             }
 
             HStack {
                 Text(card.task.title)
                     .font(.lifeboard(.title3))
                     .fontWeight(.bold)
-                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .foregroundStyle(OverdueRescuePalette.ink)
                     .lineLimit(3)
                 Spacer()
                 OverdueRescuePlant()
-                    .frame(width: 86, height: 94)
+                    .frame(width: 104, height: 108)
             }
-            .padding(22)
+            .padding(.leading, 24)
+            .padding(.trailing, 16)
+            .padding(.vertical, 20)
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.white.opacity(0.68))
-                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.lifeboard.strokeHairline))
+                    .fill(Color.white.opacity(0.70))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .stroke(Color(red: 0.96, green: 0.86, blue: 0.68).opacity(0.76), lineWidth: 1)
+                    )
             )
 
             VStack(spacing: 0) {
@@ -2044,8 +2125,8 @@ private struct OverdueRescueQuickEditSheet: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.white.opacity(0.76))
-                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.lifeboard.strokeHairline))
+                    .fill(Color.white.opacity(0.78))
+                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color(red: 0.85, green: 0.88, blue: 0.92).opacity(0.75), lineWidth: 1))
             )
 
             HStack(spacing: 16) {
@@ -2059,7 +2140,9 @@ private struct OverdueRescueQuickEditSheet: View {
                         .foregroundStyle(Color.lifeboard.accentPrimary)
                     Text("Based on project relevance and overdue status.")
                         .font(.lifeboard(.body))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .foregroundStyle(OverdueRescuePalette.secondaryInk)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
             }
@@ -2067,7 +2150,7 @@ private struct OverdueRescueQuickEditSheet: View {
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .fill(Color.lifeboard.accentPrimary.opacity(0.08))
-                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.lifeboard.accentPrimary.opacity(0.12)))
+                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.lifeboard.accentPrimary.opacity(0.16), lineWidth: 1))
             )
 
             Spacer()
@@ -2080,17 +2163,18 @@ private struct OverdueRescueQuickEditSheet: View {
             .fontWeight(.bold)
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, minHeight: 68)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.lifeboard.accentPrimary)
-            )
+            .background(OverdueRescueVisualSpec.primaryButtonBackground())
             .buttonStyle(.plain)
             .scaleOnPress()
         }
         .padding(.horizontal, 28)
         .padding(.bottom, 24)
+        .frame(maxWidth: OverdueRescueVisualSpec.sheetMaxWidth)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(OverdueRescueBackground())
         .presentationDetents([.large])
+        .presentationCornerRadius(36)
+        .presentationBackground(.clear)
         .presentationDragIndicator(.hidden)
     }
 
@@ -2108,7 +2192,7 @@ private struct OverdueRescueQuickEditSheet: View {
                 .frame(width: 28)
             Text(title)
                 .font(.lifeboard(.headline))
-                .foregroundStyle(Color.lifeboard.textPrimary)
+                .foregroundStyle(OverdueRescuePalette.ink)
             Spacer()
             Text(value)
                 .font(.lifeboard(.headline))
@@ -2145,27 +2229,31 @@ private struct OverdueRescueSafeFixesView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 22) {
             HStack {
                 Button("Close", systemImage: "xmark") { dismiss() }
                     .labelStyle(.iconOnly)
                     .font(.title2.weight(.semibold))
-                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .foregroundStyle(OverdueRescuePalette.ink)
                     .frame(width: 58, height: 58)
                     .background(Circle().fill(Color.white.opacity(0.84)))
+                    .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                 Spacer()
             }
             OverdueRescueShieldHero()
-                .frame(width: 220, height: 180)
+                .frame(width: 244, height: 210)
+                .padding(.top, 8)
             Text("Apply \(viewModel.safeFixes.count) safe fixes?")
                 .font(.lifeboard(.title1))
                 .fontWeight(.bold)
-                .foregroundStyle(Color.lifeboard.textPrimary)
+                .foregroundStyle(OverdueRescuePalette.ink)
                 .multilineTextAlignment(.center)
             Text("LifeBoard found \(viewModel.safeFixes.count) changes it is confident about.")
                 .font(.lifeboard(.title3))
-                .foregroundStyle(Color.lifeboard.textSecondary)
+                .foregroundStyle(OverdueRescuePalette.secondaryInk)
                 .multilineTextAlignment(.center)
+                .lineSpacing(4)
+                .padding(.horizontal, 24)
 
             VStack(spacing: 0) {
                 if viewModel.safeFixBreakdown.move > 0 {
@@ -2186,16 +2274,23 @@ private struct OverdueRescueSafeFixesView: View {
             }
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Color.white.opacity(0.72))
-                    .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.lifeboard.strokeHairline))
+                OverdueRescueVisualSpec.glassCard(cornerRadius: 28, fill: Color.white.opacity(0.70))
             )
 
-            Label("These changes are non-destructive and can be undone.", systemImage: "shield")
-                .font(.lifeboard(.body))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 34)
+            HStack(spacing: 14) {
+                Image(systemName: "shield")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.accentPrimary)
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(Color.lifeboard.accentPrimary.opacity(0.10)))
+                Text("These changes are non-destructive\nand can be undone.")
+                    .font(.lifeboard(.body))
+                    .foregroundStyle(OverdueRescuePalette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 34)
 
             Spacer()
             Button("Apply \(viewModel.safeFixes.count) fixes") {
@@ -2205,8 +2300,8 @@ private struct OverdueRescueSafeFixesView: View {
             .font(.lifeboard(.button))
             .fontWeight(.bold)
             .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 68)
-            .background(RoundedRectangle(cornerRadius: 24).fill(Color.lifeboard.accentPrimary))
+            .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.primaryButtonHeight)
+            .background(OverdueRescueVisualSpec.primaryButtonBackground())
             .disabled(viewModel.safeFixes.isEmpty)
             Button("Review first") {
                 dismiss()
@@ -2214,12 +2309,18 @@ private struct OverdueRescueSafeFixesView: View {
             .font(.lifeboard(.button))
             .fontWeight(.bold)
             .foregroundStyle(Color.lifeboard.accentPrimary)
-            .frame(maxWidth: .infinity, minHeight: 62)
-            .background(RoundedRectangle(cornerRadius: 22).stroke(Color.lifeboard.accentPrimary.opacity(0.32)))
+            .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.secondaryButtonHeight)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color.lifeboard.accentPrimary.opacity(0.32), lineWidth: 1.2)
+            )
         }
         .padding(28)
+        .frame(maxWidth: OverdueRescueVisualSpec.sheetMaxWidth)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(OverdueRescueBackground())
         .presentationDetents([.large])
+        .presentationBackground(.clear)
     }
 
     private func safeRow(icon: String, title: String, value: String, color: Color) -> some View {
@@ -2231,7 +2332,7 @@ private struct OverdueRescueSafeFixesView: View {
                 .background(RoundedRectangle(cornerRadius: 18).fill(color.opacity(0.12)))
             Text(title)
                 .font(.lifeboard(.headline))
-                .foregroundStyle(Color.lifeboard.textPrimary)
+                .foregroundStyle(OverdueRescuePalette.ink)
             Spacer()
             Text(value)
                 .font(.lifeboard(.headline))
@@ -2255,25 +2356,26 @@ private struct OverdueRescuePauseView: View {
                     Button("Close", systemImage: "xmark") { onDismiss() }
                         .labelStyle(.iconOnly)
                         .font(.title2.weight(.semibold))
-                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .foregroundStyle(OverdueRescuePalette.ink)
                         .frame(width: 58, height: 58)
                         .background(Circle().fill(Color.white.opacity(0.84)))
+                        .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                     Spacer()
                 }
                 .padding(.horizontal, 28)
                 .padding(.top, 32)
 
                 OverdueRescueCupHero()
-                    .frame(width: 220, height: 210)
+                    .frame(width: 250, height: 248)
 
                 VStack(spacing: 10) {
                     Text("Pause rescue?")
                         .font(.lifeboard(.title1))
                         .fontWeight(.bold)
-                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .foregroundStyle(OverdueRescuePalette.ink)
                     Text("You reviewed \(viewModel.sprintResolvedCount) of \(viewModel.sprintTotal) tasks.\nYour changes are saved.\n\(viewModel.remainingCount) tasks can wait.")
                         .font(.lifeboard(.title3))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .foregroundStyle(OverdueRescuePalette.secondaryInk)
                         .multilineTextAlignment(.center)
                         .lineSpacing(8)
                 }
@@ -2286,7 +2388,10 @@ private struct OverdueRescuePauseView: View {
                             .font(.lifeboard(.button))
                             .fontWeight(.bold)
                             .frame(maxWidth: .infinity, minHeight: 68)
-                            .background(RoundedRectangle(cornerRadius: 24).stroke(Color.lifeboard.accentPrimary.opacity(0.38)))
+                            .background(
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .stroke(Color.lifeboard.accentPrimary.opacity(0.38), lineWidth: 1.2)
+                            )
                     }
                     .foregroundStyle(Color.lifeboard.accentPrimary)
 
@@ -2297,7 +2402,7 @@ private struct OverdueRescuePauseView: View {
                             .font(.lifeboard(.button))
                             .fontWeight(.bold)
                             .frame(maxWidth: .infinity, minHeight: 68)
-                            .background(RoundedRectangle(cornerRadius: 24).fill(Color.lifeboard.accentPrimary))
+                            .background(OverdueRescueVisualSpec.primaryButtonBackground())
                     }
                     .foregroundStyle(.white)
                 }
@@ -2315,10 +2420,10 @@ private struct OverdueRescuePauseView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Resume overdue rescue")
                                 .font(.lifeboard(.headline))
-                                .foregroundStyle(Color.lifeboard.textPrimary)
+                                .foregroundStyle(OverdueRescuePalette.ink)
                             Text("\(viewModel.summary.reviewed) done · \(viewModel.remainingCount) left")
                                 .font(.lifeboard(.title3))
-                                .foregroundStyle(Color.lifeboard.textSecondary)
+                                .foregroundStyle(OverdueRescuePalette.secondaryInk)
                             LifeBoardProgressBar(progress: viewModel.progress, colors: [Color.lifeboard.accentPrimary])
                         }
                         Image(systemName: "chevron.right")
@@ -2327,9 +2432,7 @@ private struct OverdueRescuePauseView: View {
                     }
                     .padding(22)
                     .background(
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .fill(Color.white.opacity(0.68))
-                            .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.lifeboard.statusWarning.opacity(0.18)))
+                        OverdueRescueVisualSpec.glassCard(cornerRadius: 28, fill: Color.white.opacity(0.68))
                     )
                 }
                 .buttonStyle(.plain)
@@ -2337,6 +2440,8 @@ private struct OverdueRescuePauseView: View {
 
                 Color.clear.frame(height: max(28, bottomInset))
             }
+            .frame(maxWidth: OverdueRescueVisualSpec.sheetMaxWidth)
+            .frame(maxWidth: .infinity)
         }
     }
 }
@@ -2350,34 +2455,37 @@ private struct OverdueRescueCompletionView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 26) {
+            VStack(spacing: 25) {
                 HStack {
                     Button("Close", systemImage: "xmark", action: viewToday)
                         .labelStyle(.iconOnly)
                         .font(.title2.weight(.semibold))
-                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .foregroundStyle(OverdueRescuePalette.ink)
                         .frame(width: 58, height: 58)
                         .background(Circle().fill(Color.white.opacity(0.84)))
+                        .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                     Spacer()
                     Button("More", systemImage: "ellipsis") {}
                         .labelStyle(.iconOnly)
                         .font(.title2.weight(.semibold))
-                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .foregroundStyle(OverdueRescuePalette.ink)
                         .frame(width: 58, height: 58)
                         .background(Circle().fill(Color.white.opacity(0.84)))
+                        .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                 }
                 .padding(.horizontal, 28)
                 .padding(.top, 32)
 
                 OverdueRescueSunriseHero()
-                    .frame(width: 260, height: 220)
+                    .frame(width: 294, height: 256)
+                    .padding(.top, 6)
                 Text("Board cleaned up")
                     .font(.lifeboard(.title1))
                     .fontWeight(.bold)
-                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .foregroundStyle(OverdueRescuePalette.ink)
                 Text("You sorted what still matters.")
                     .font(.lifeboard(.title3))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .foregroundStyle(OverdueRescuePalette.secondaryInk)
 
                 HStack(spacing: 14) {
                     statCard(icon: "checkmark.circle", value: summary.kept, label: "kept", color: Color.lifeboard.statusSuccess)
@@ -2388,14 +2496,14 @@ private struct OverdueRescueCompletionView: View {
 
                 Text("Your board should feel lighter now.")
                     .font(.lifeboard(.body))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .foregroundStyle(OverdueRescuePalette.secondaryInk)
 
                 Button("View today", action: viewToday)
                     .font(.lifeboard(.button))
                     .fontWeight(.bold)
                     .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, minHeight: 68)
-                    .background(RoundedRectangle(cornerRadius: 24).fill(Color.lifeboard.accentPrimary))
+                    .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.primaryButtonHeight)
+                    .background(OverdueRescueVisualSpec.primaryButtonBackground())
                     .padding(.horizontal, 42)
 
                 if remaining > 0 {
@@ -2403,13 +2511,18 @@ private struct OverdueRescueCompletionView: View {
                         .font(.lifeboard(.button))
                         .fontWeight(.bold)
                         .foregroundStyle(Color.lifeboard.accentPrimary)
-                        .frame(maxWidth: .infinity, minHeight: 62)
-                        .background(RoundedRectangle(cornerRadius: 22).stroke(Color.lifeboard.accentPrimary.opacity(0.32)))
+                        .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.secondaryButtonHeight)
+                        .background(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(Color.lifeboard.accentPrimary.opacity(0.32), lineWidth: 1.2)
+                        )
                         .padding(.horizontal, 42)
                 }
 
                 Color.clear.frame(height: max(28, bottomInset))
             }
+            .frame(maxWidth: OverdueRescueVisualSpec.sheetMaxWidth)
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -2426,7 +2539,15 @@ private struct OverdueRescueCompletionView: View {
         }
         .foregroundStyle(color)
         .frame(maxWidth: .infinity, minHeight: 126)
-        .background(RoundedRectangle(cornerRadius: 24).fill(color.opacity(0.07)))
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(color.opacity(0.065))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(color.opacity(0.10), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.04), radius: 14, y: 8)
+        )
     }
 }
 
@@ -2505,9 +2626,9 @@ private struct OverdueRescueBackground: View {
     var body: some View {
         LinearGradient(
             colors: [
-                Color(red: 1.0, green: 0.995, blue: 0.97),
-                Color(red: 1.0, green: 0.97, blue: 0.91),
-                Color(red: 1.0, green: 0.995, blue: 0.98)
+                OverdueRescuePalette.backgroundTop,
+                OverdueRescuePalette.backgroundMid,
+                OverdueRescuePalette.backgroundBottom
             ],
             startPoint: .top,
             endPoint: .bottom
@@ -2533,15 +2654,15 @@ private struct OverdueRescueCupHero: View {
             Image(decorative: "rescue_decor_sparkles")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 56, height: 56)
+                .frame(width: 62, height: 62)
                 .opacity(0.8)
-                .offset(x: -72, y: -68)
+                .offset(x: -84, y: -78)
             Image(decorative: "rescue_decor_sparkles")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 36, height: 36)
+                .frame(width: 40, height: 40)
                 .opacity(0.6)
-                .offset(x: 76, y: -44)
+                .offset(x: 86, y: -46)
         }
     }
 }
@@ -2553,8 +2674,8 @@ private struct OverdueRescueShieldHero: View {
                 .resizable()
                 .scaledToFit()
             OverdueRescuePlant()
-                .frame(width: 72, height: 88)
-                .offset(x: 82, y: 32)
+                .frame(width: 88, height: 108)
+                .offset(x: 98, y: 36)
         }
     }
 }
@@ -2568,18 +2689,18 @@ private struct OverdueRescueSunriseHero: View {
             Image(decorative: "rescue_decor_sparkles")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 44, height: 44)
+                .frame(width: 50, height: 50)
                 .opacity(0.7)
-                .offset(x: -88, y: -52)
+                .offset(x: -104, y: -62)
             Image(decorative: "rescue_decor_sparkles")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 28, height: 28)
+                .frame(width: 32, height: 32)
                 .opacity(0.5)
-                .offset(x: 92, y: -38)
+                .offset(x: 106, y: -44)
             OverdueRescuePlant()
-                .frame(width: 80, height: 96)
-                .offset(x: 86, y: 16)
+                .frame(width: 92, height: 110)
+                .offset(x: 98, y: 20)
         }
     }
 }
