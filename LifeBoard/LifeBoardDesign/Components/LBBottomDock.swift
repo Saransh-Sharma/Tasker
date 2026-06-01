@@ -11,6 +11,8 @@ struct LBBottomDock: View {
     let onChat: () -> Void
     let onCreate: () -> Void
 
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
+
     private var items: [DockItem] {
         return [
             DockItem(item: .home, title: "Home", systemImage: "house", selectedSystemImage: "house.fill", accessibilityID: "home.bottomBar.home"),
@@ -33,7 +35,11 @@ struct LBBottomDock: View {
             }
             .padding(.horizontal, LBSpacingTokens.sm)
             .frame(height: 68)
-            .background(LBColorTokens.glassStrong.opacity(0.62), in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
+            .background {
+                RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous)
+                    .fill(LBColorTokens.glassStrong.opacity(0.62))
+                    .modifier(LBBottomDockMaterialModifier(isEnabled: usesMaterialBackground))
+            }
             .overlay {
                 RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous)
                     .stroke(LBColorTokens.glassBorder, lineWidth: 1)
@@ -48,6 +54,10 @@ struct LBBottomDock: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.bottomBar")
         .accessibilityValue("expanded")
+    }
+
+    private var usesMaterialBackground: Bool {
+        scrollOptimizedRendering == false && state.isMinimized == false
     }
 
     private func dockButton(_ item: DockItem) -> some View {
@@ -131,4 +141,16 @@ private struct DockItem: Identifiable {
     let accessibilityID: String
 
     var id: HomeBottomBarItem { item }
+}
+
+private struct LBBottomDockMaterialModifier: ViewModifier {
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
+        } else {
+            content
+        }
+    }
 }
