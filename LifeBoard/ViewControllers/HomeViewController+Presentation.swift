@@ -1287,10 +1287,10 @@ extension HomeViewController {
                 },
                 onStartTriage: { [weak self] in
                     guard let self else { return }
-                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "start_triage", countsSnapshot: summary.analyticsSnapshot)
+                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "open_rescue", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.setQuickView(.today)
                     self.viewModel.openRescue()
-                    self.viewModel.trackDailySummaryActionResult(cta: "start_triage", success: true, error: nil)
+                    self.viewModel.trackDailySummaryActionResult(cta: "open_rescue", success: true, error: nil)
                     dismissSummary {}
                 },
                 onRescueOverdue: { [weak self] in

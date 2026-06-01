@@ -61,7 +61,7 @@ public enum InsightsActionResolver {
         case (.today, "overdueNextDecision"):
             return .openBacklogRecovery
         case (.today, "nextDecision"):
-            return .openBacklogRecovery
+            return .startNextDecision
         case (.today, "protectFocus"):
             return .protectFocus
         case (.today, "habitCheck"):
