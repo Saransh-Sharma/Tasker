@@ -110,6 +110,7 @@ extension HomeViewController {
 
     func scheduleInsightsPreparationIfNeeded() {
         guard faceCoordinator.insightsViewModel == nil else {
+            faceCoordinator.insightsViewModel?.onAppear()
             faceCoordinator.setAnalyticsSurfaceState(.ready)
             emitAnalyticsFirstInteractiveFrameIfNeeded()
             applyPendingInsightsLaunchRequestIfNeeded()

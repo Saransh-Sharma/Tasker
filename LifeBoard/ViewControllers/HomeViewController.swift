@@ -98,6 +98,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
     var pendingSearchMutationRefreshTask: Task<Void, Never>?
     var pendingBackgroundSearchPrewarmTask: Task<Void, Never>?
     var pendingBackgroundInsightsPrewarmTask: Task<Void, Never>?
+    var pendingIPadModalPreviousPresentationDelegate: UIAdaptivePresentationControllerDelegate?
+    var currentSnackbarViewController: UIViewController?
+    var currentSnackbarDismissWorkItem: DispatchWorkItem?
     let surfacePrewarmPolicy = HomeSurfacePrewarmPolicy()
     var pendingOnboardingEvaluationTask: Task<Void, Never>?
     var awaitsAnalyticsFirstInteractiveFrame = false

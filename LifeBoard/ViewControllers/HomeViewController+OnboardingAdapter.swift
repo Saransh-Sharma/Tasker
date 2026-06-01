@@ -24,7 +24,10 @@ extension HomeViewController {
         }
         if let blockingController = presentedViewController {
             if let presentationController = blockingController.presentationController {
-                presentationController.delegate = self
+                if presentationController.delegate !== self {
+                    pendingIPadModalPreviousPresentationDelegate = presentationController.delegate
+                    presentationController.delegate = self
+                }
             } else {
                 viewModel?.trackHomeInteraction(
                     action: "ipad_modal_request_waiting_for_presented_controller",
@@ -49,8 +52,9 @@ extension HomeViewController {
     func resetPendingIPadModalWaitState() {
         if let presentationController = presentedViewController?.presentationController,
            presentationController.delegate === self {
-            presentationController.delegate = nil
+            presentationController.delegate = pendingIPadModalPreviousPresentationDelegate
         }
+        pendingIPadModalPreviousPresentationDelegate = nil
     }
 
     func refreshPersistentSyncOutageBanner() {

@@ -1208,6 +1208,13 @@ extension HomeViewController {
     }
 
     func resolveAndPresentTaskDetail(taskID: UUID, attemptsRemaining: Int = 2) {
+        if presentedViewController != nil {
+            dismiss(animated: true) { [weak self] in
+                self?.resolveAndPresentTaskDetail(taskID: taskID, attemptsRemaining: attemptsRemaining)
+            }
+            return
+        }
+
         if let task = viewModel?.taskSnapshot(for: taskID) {
             if isUsingIPadNativeShell {
                 iPadShellState.destination = .tasks
@@ -1512,8 +1519,14 @@ extension HomeViewController {
         if let reason {
             logDebug("🎯 HomeViewController insights refresh reason=\(reason.rawValue)")
         }
-        insightsViewModel?.refresh()
-        faceCoordinator.insightsViewModel?.refresh()
+        let primary = insightsViewModel
+        let coordinated = faceCoordinator.insightsViewModel
+        if let primary {
+            primary.refresh()
+        }
+        if let coordinated, coordinated !== primary {
+            coordinated.refresh()
+        }
     }
 
     // MARK: - Theme

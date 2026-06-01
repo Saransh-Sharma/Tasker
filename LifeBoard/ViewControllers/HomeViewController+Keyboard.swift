@@ -62,12 +62,7 @@ extension HomeViewController {
     }
 
     func setEmbeddedChatPromptFocused(_ isFocused: Bool) {
-        guard isEmbeddedChatPromptFocused != isFocused else {
-            refreshLayoutMetrics()
-            mountBottomBarOverlayIfNeeded(animated: true)
-            updateBottomBarBottomConstraint(animated: true)
-            return
-        }
+        guard isEmbeddedChatPromptFocused != isFocused else { return }
         isEmbeddedChatPromptFocused = isFocused
         refreshLayoutMetrics()
         mountBottomBarOverlayIfNeeded(animated: true)
