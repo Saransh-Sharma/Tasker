@@ -99,15 +99,17 @@ enum TaskListWidgetCalendarProjection {
             let dayStart = calendar.startOfDay(for: date)
             let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
             let dayEvents = events(from: sourceEvents, start: dayStart, end: dayEnd)
+            let fullTimedEvents = dayEvents.filter { $0.isAllDay == false && $0.isBusy }
+            let fullAllDayEvents = dayEvents.filter(\.isAllDay)
             return TaskListWidgetCalendarDay(
                 date: dayStart,
                 eventCount: dayEvents.count,
-                timedEvents: dayEvents
-                    .filter { $0.isAllDay == false && $0.isBusy }
+                timedEventCount: fullTimedEvents.count,
+                allDayEventCount: fullAllDayEvents.count,
+                timedEvents: fullTimedEvents
                     .prefix(3)
                     .map(calendarEvent(from:)),
-                allDayEvents: dayEvents
-                    .filter(\.isAllDay)
+                allDayEvents: fullAllDayEvents
                     .prefix(2)
                     .map(calendarEvent(from:))
             )
@@ -348,8 +350,8 @@ enum TaskListWidgetTimelineProjection {
             let calendarDay = preferences.showCalendarEventsInTimeline
                 ? calendarSnapshot.weekDays.first { calendar.isDate($0.date, inSameDayAs: dayStart) }
                 : nil
-            let calendarAllDayCount = calendarDay?.allDayEvents.count ?? 0
-            let calendarTimedCount = calendarDay.map { max(0, $0.eventCount - $0.allDayEvents.count) } ?? 0
+            let calendarAllDayCount = calendarDay?.allDayEventCount ?? 0
+            let calendarTimedCount = calendarDay?.timedEventCount ?? 0
             let allDayCount = taskAllDayCount + calendarAllDayCount
             let timedCount = taskTimedCount + calendarTimedCount
             let tints = dayTasks.map { $0.priority.colorHex } + (calendarDay?.timedEvents.compactMap(\.calendarColorHex) ?? [])

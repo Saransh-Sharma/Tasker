@@ -240,20 +240,47 @@ public struct TaskListWidgetCalendarDay: Codable, Equatable, Hashable, Identifia
     public var id: String
     public var date: Date
     public var eventCount: Int
+    public var timedEventCount: Int
+    public var allDayEventCount: Int
     public var timedEvents: [TaskListWidgetCalendarEvent]
     public var allDayEvents: [TaskListWidgetCalendarEvent]
 
     public init(
         date: Date,
         eventCount: Int,
+        timedEventCount: Int? = nil,
+        allDayEventCount: Int? = nil,
         timedEvents: [TaskListWidgetCalendarEvent] = [],
         allDayEvents: [TaskListWidgetCalendarEvent] = []
     ) {
         self.id = TaskListWidgetCalendarDay.id(for: date)
         self.date = date
         self.eventCount = eventCount
+        self.timedEventCount = timedEventCount ?? max(0, eventCount - allDayEvents.count)
+        self.allDayEventCount = allDayEventCount ?? allDayEvents.count
         self.timedEvents = timedEvents
         self.allDayEvents = allDayEvents
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case date
+        case eventCount
+        case timedEventCount
+        case allDayEventCount
+        case timedEvents
+        case allDayEvents
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        date = try container.decode(Date.self, forKey: .date)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? Self.id(for: date)
+        eventCount = try container.decode(Int.self, forKey: .eventCount)
+        timedEvents = try container.decodeIfPresent([TaskListWidgetCalendarEvent].self, forKey: .timedEvents) ?? []
+        allDayEvents = try container.decodeIfPresent([TaskListWidgetCalendarEvent].self, forKey: .allDayEvents) ?? []
+        timedEventCount = try container.decodeIfPresent(Int.self, forKey: .timedEventCount) ?? max(0, eventCount - allDayEvents.count)
+        allDayEventCount = try container.decodeIfPresent(Int.self, forKey: .allDayEventCount) ?? allDayEvents.count
     }
 
     private static func id(for date: Date) -> String {
