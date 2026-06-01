@@ -1,5 +1,15 @@
 import SwiftUI
 
+private struct FocusTaskSyncSignature: Equatable {
+    let id: UUID
+    let isComplete: Bool
+
+    init(_ task: TaskDefinition) {
+        id = task.id
+        isComplete = task.isComplete
+    }
+}
+
 struct SunriseEvaFocusWhySheet: View {
     let focusTasks: [TaskDefinition]
     let shuffleCandidates: [TaskDefinition]
@@ -31,7 +41,7 @@ struct SunriseEvaFocusWhySheet: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
             .onAppear(perform: syncInitialState)
-            .onChange(of: focusTasks.map(\.id)) { _, _ in
+            .onChange(of: focusTasks.map(FocusTaskSyncSignature.init)) { _, _ in
                 guard hasDraftChanges == false else { return }
                 syncDraftFocusTasks(focusTasks)
             }
@@ -1219,7 +1229,7 @@ struct RefineFocusSheet: View {
 
     private func refineRow(_ task: TaskDefinition) -> some View {
         let isSelected = selectedIDs.contains(task.id)
-        let isDisabled = !isSelected && selectedIDs.count >= 3
+        let isDisabled = !isSelected && selectedIDs.count >= 3 && pendingReplacementTask == nil
 
         return Button {
             toggle(task)
