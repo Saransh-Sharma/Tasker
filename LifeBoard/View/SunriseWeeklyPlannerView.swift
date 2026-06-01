@@ -1306,7 +1306,7 @@ private struct WeeklyPlannerProposalSheet: View {
                     detail: "Review what \(AssistantIdentityText.currentSnapshot().displayName) wants to change before applying it."
                 ) {
                     HStack(spacing: 12) {
-                        EvaMascotView(placement: .weeklySuggestion, size: .inline)
+                        SunriseDecorImage(asset: .decisionSign, size: 44, opacity: 0.9)
                         Text("\(AssistantIdentityText.currentSnapshot().displayName) has a planning recommendation ready for review.")
                             .font(.lifeboard(.support))
                             .foregroundStyle(Color.lifeboard.textSecondary)

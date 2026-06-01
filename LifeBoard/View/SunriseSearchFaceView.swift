@@ -480,20 +480,20 @@ struct HomeSearchHabitResultRow: View {
     }
 
     private var subtitle: String {
-        let streak = row.currentStreak == 1 ? "1 day streak" : "\(row.currentStreak) day streak"
+        let activeDays = row.currentStreak == 1 ? "1 active day" : "\(row.currentStreak) active days"
         switch row.state {
         case .overdue:
-            return "Overdue - \(streak)"
+            return "Needs rescue - \(activeDays)"
         case .lapsedToday:
-            return "Lapsed today - \(streak)"
+            return "Lapsed today - \(activeDays)"
         case .due:
-            return "Due - \(streak)"
+            return "Due - \(activeDays)"
         case .tracking:
-            return "Tracking - \(streak)"
+            return "Tracking - \(activeDays)"
         case .completedToday:
-            return "Completed today - \(streak)"
+            return "Completed today - \(activeDays)"
         case .skippedToday:
-            return "Skipped today - \(streak)"
+            return "Skipped today - \(activeDays)"
         }
     }
 }

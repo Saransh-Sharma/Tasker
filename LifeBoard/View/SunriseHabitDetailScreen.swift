@@ -746,14 +746,14 @@ private struct SunriseHabitMetricGrid: View {
     private var metricTiles: some View {
         SunriseHabitMetricTile(
             title: "Current",
-            subtitle: "Streak",
+            subtitle: "Active",
             value: metrics.currentStreakDisplay,
             valueColor: accentColor,
             accessibilityIdentifier: SunriseHabitDetailAccessibilityID.currentStreakMetric
         )
         SunriseHabitMetricTile(
             title: "Longest",
-            subtitle: "Streak",
+            subtitle: "Active",
             value: metrics.bestStreakDisplay,
             valueColor: Color.lifeboard.textPrimary,
             accessibilityIdentifier: SunriseHabitDetailAccessibilityID.bestStreakMetric
@@ -885,7 +885,7 @@ private struct SunriseHabitCalendarSection: View {
             if isLoading {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Refreshing streaks")
+                    Text("Refreshing rhythm")
                         .font(.lifeboard(.callout))
                         .foregroundStyle(Color.lifeboard.textSecondary)
                 }

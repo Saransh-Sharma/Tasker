@@ -3829,11 +3829,11 @@ private struct TimelineEmptyStateCard: View {
     @MainActor
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
-            EvaMascotView(
-                placement: model.showsCalendarAction ? .timelineEmptySchedule : .restReminder,
-                size: .inline
+            SunriseDecorImage(
+                asset: model.showsCalendarAction ? .happySun : .cloud,
+                size: 44,
+                opacity: 0.9
             )
-            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(model.title)

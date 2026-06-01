@@ -108,7 +108,7 @@ struct SunriseQuietTrackingComposerView: View {
 
                     Spacer(minLength: 0)
 
-                    Text("\(selectedEntry.currentStreak)d streak")
+                    Text("\(selectedEntry.currentStreak)d active")
                         .font(.lifeboard(.caption1).weight(.semibold))
                         .foregroundStyle(Color.lifeboard.accentSecondary)
                         .padding(.horizontal, spacing.s8)
