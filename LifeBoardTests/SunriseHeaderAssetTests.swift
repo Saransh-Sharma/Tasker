@@ -12,6 +12,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
         super.setUp()
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.locale = Locale(identifier: "en_US")
         self.calendar = calendar
         TimeOfDayHeaderAsset.resetCacheForTests()
     }
@@ -618,7 +619,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
         XCTAssertEqual(model.title, "Rise and Shine")
         XCTAssertEqual(model.sectionTitle, "Select start time")
-        XCTAssertEqual(model.selectedTimeText, "8:00 AM")
+        XCTAssertEqual(model.selectedTimeText, "8:00\u{202F}AM")
         XCTAssertEqual(model.timeOptions.map { "\($0.hourText) \($0.meridiemText)" }, [
             "7:30 AM",
             "7:45 AM",
@@ -626,7 +627,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
             "8:15 AM",
             "8:30 AM"
         ])
-        XCTAssertEqual(model.timeOptions.filter(\.isSelected).map(\.accessibilityText), ["8:00 AM, selected start time."])
+        XCTAssertEqual(model.timeOptions.filter(\.isSelected).map(\.accessibilityText), ["8:00\u{202F}AM, selected start time."])
     }
 
     func testTimelineAnchorRitualEveningOptionsCenterOnDefaultEndTime() {
@@ -638,7 +639,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
         XCTAssertEqual(model.title, "Wind Down")
         XCTAssertEqual(model.sectionTitle, "Select end time")
-        XCTAssertEqual(model.selectedTimeText, "10:00 PM")
+        XCTAssertEqual(model.selectedTimeText, "10:00\u{202F}PM")
         XCTAssertEqual(model.timeOptions.map { "\($0.hourText) \($0.meridiemText)" }, [
             "9:30 PM",
             "9:45 PM",
@@ -646,7 +647,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
             "10:15 PM",
             "10:30 PM"
         ])
-        XCTAssertEqual(model.timeOptions.filter(\.isSelected).map(\.accessibilityText), ["10:00 PM, selected end time."])
+        XCTAssertEqual(model.timeOptions.filter(\.isSelected).map(\.accessibilityText), ["10:00\u{202F}PM, selected end time."])
     }
 
     func testTimelineAnchorRitualOptionsCenterOnCustomSavedTime() {
@@ -656,7 +657,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
             calendar: calendar
         )
 
-        XCTAssertEqual(model.selectedTimeText, "6:20 AM")
+        XCTAssertEqual(model.selectedTimeText, "6:20\u{202F}AM")
         XCTAssertEqual(model.timeOptions.map { "\($0.hourText) \($0.meridiemText)" }, [
             "5:50 AM",
             "6:05 AM",
@@ -664,6 +665,27 @@ final class SunriseHeaderAssetTests: XCTestCase {
             "6:35 AM",
             "6:50 AM"
         ])
+    }
+
+    func testTimelineAnchorRitualUsesTwentyFourHourLocaleWithoutMeridiem() {
+        var localizedCalendar = calendar!
+        localizedCalendar.locale = Locale(identifier: "en_GB")
+        let model = TimelineAnchorRitualModel(
+            selection: .windDown,
+            selectedDate: date(hour: 22),
+            calendar: localizedCalendar
+        )
+
+        XCTAssertEqual(model.selectedTimeText, "22:00")
+        XCTAssertEqual(model.timeOptions.map(\.hourText), [
+            "21:30",
+            "21:45",
+            "22:00",
+            "22:15",
+            "22:30"
+        ])
+        XCTAssertEqual(model.timeOptions.map(\.meridiemText), ["", "", "", "", ""])
+        XCTAssertEqual(model.timeOptions.filter(\.isSelected).map(\.accessibilityText), ["22:00, selected end time."])
     }
 
     func testTimelineAnchorRitualDraftDoesNotPersistUntilSave() {

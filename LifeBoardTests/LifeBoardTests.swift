@@ -11981,33 +11981,48 @@ final class InsightsActionRoutingTests: XCTestCase {
     func testHeroCTAResolvesEmptyPartialAndRichStates() {
         XCTAssertEqual(
             InsightsActionResolver.intent(
-                for: .hero(tab: .today, availability: .empty, primaryCTATitle: "Add task")
+                for: .hero(tab: .today, availability: .empty, primaryCTAIntent: .addTask)
             ),
             .addTask
         )
         XCTAssertEqual(
             InsightsActionResolver.intent(
-                for: .hero(tab: .today, availability: .partial, primaryCTATitle: "Open today")
+                for: .hero(tab: .today, availability: .partial, primaryCTAIntent: .openToday)
             ),
             .openToday
         )
         XCTAssertEqual(
             InsightsActionResolver.intent(
-                for: .hero(tab: .today, availability: .rich, primaryCTATitle: "Keep momentum")
+                for: .hero(tab: .today, availability: .rich, primaryCTAIntent: .protectFocus)
             ),
             .protectFocus
         )
         XCTAssertEqual(
             InsightsActionResolver.intent(
-                for: .hero(tab: .week, availability: .rich, primaryCTATitle: "Clean backlog")
+                for: .hero(tab: .week, availability: .rich, primaryCTAIntent: .openBacklogRecovery)
             ),
             .openBacklogRecovery
         )
         XCTAssertEqual(
             InsightsActionResolver.intent(
-                for: .hero(tab: .systems, availability: .partial, primaryCTATitle: "Set one reminder")
+                for: .hero(tab: .systems, availability: .partial, primaryCTAIntent: .openReminderSettings)
             ),
             .openReminderSettings
+        )
+    }
+
+    func testHeroCTAResolutionUsesExplicitIntentInsteadOfTabTextHeuristics() {
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .today, availability: .rich, primaryCTAIntent: .openReminderSettings)
+            ),
+            .openReminderSettings
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .systems, availability: .rich, primaryCTAIntent: .protectFocus)
+            ),
+            .protectFocus
         )
     }
 }
