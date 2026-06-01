@@ -1422,6 +1422,64 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testCommitFocusNowSetPersistsDraftOrderAndFiltersInvalidTasks() {
+        let suiteName = "HomeViewModelPersistenceTests.CommitFocusNow.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let tasks = (1...4).map { index in
+            makeTask(name: "Commit \(index)", project: inbox, dueDate: Date(), priority: .high)
+        }
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let result = viewModel.commitFocusNowSet(
+            taskIDs: [tasks[2].id, UUID(), tasks[3].id, tasks[2].id, tasks[0].id],
+            source: "unit_test"
+        )
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(result)
+        XCTAssertEqual(viewModel.pinnedFocusTaskIDs, [tasks[2].id, tasks[3].id, tasks[0].id])
+        XCTAssertEqual(
+            defaults.stringArray(forKey: HomeViewModel.pinnedFocusTaskIDsKey),
+            [tasks[2].id.uuidString, tasks[3].id.uuidString, tasks[0].id.uuidString]
+        )
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testCommitFocusNowSetRejectsEmptyOrClosedDraft() {
+        let suiteName = "HomeViewModelPersistenceTests.CommitFocusNowEmpty.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let completed = makeTask(name: "Completed", project: inbox, dueDate: Date(), priority: .high, isComplete: true)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [completed])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertFalse(viewModel.commitFocusNowSet(taskIDs: [completed.id], source: "unit_test"))
+        XCTAssertTrue(viewModel.pinnedFocusTaskIDs.isEmpty)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testPinnedTaskPrunesAfterCompletion() {
         let suiteName = "HomeViewModelPersistenceTests.PinPruneCompletion.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
