@@ -431,6 +431,22 @@
 		B8F9A0B1C2D3E4F506172839 /* LLMPersonalMemoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */; };
 		B93F762182E74294AC55C6CB /* LifeBoard/Domain/Interfaces/TaskDefinitionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA45AF6FFE4463E49D8FEA68 /* LifeBoard/Domain/Interfaces/TaskDefinitionRepositoryProtocol.swift */; };
 		BA046E8ED5086F9E39ACB225 /* LifeBoard/View/SunriseDailyReflectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2BA3F253548BE9F1EE2AB4B /* LifeBoard/View/SunriseDailyReflectionView.swift */; };
+		D5A200000000000000000001 /* ReflectPlanStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000001 /* ReflectPlanStyle.swift */; };
+		D5A200000000000000000002 /* SunriseReflectPlanScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000002 /* SunriseReflectPlanScreen.swift */; };
+		D5A200000000000000000003 /* ReflectPlanHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000003 /* ReflectPlanHeader.swift */; };
+		D5A200000000000000000004 /* StatusChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000004 /* StatusChip.swift */; };
+		D5A200000000000000000005 /* YesterdaySummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000005 /* YesterdaySummaryCard.swift */; };
+		D5A200000000000000000006 /* HabitStreakMiniCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000006 /* HabitStreakMiniCard.swift */; };
+		D5A200000000000000000007 /* TodayPlanCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000007 /* TodayPlanCard.swift */; };
+		D5A200000000000000000008 /* TodayTaskRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000008 /* TodayTaskRow.swift */; };
+		D5A200000000000000000009 /* FocusPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000009 /* FocusPill.swift */; };
+		D5A20000000000000000000A /* PlanningSummaryRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000A /* PlanningSummaryRow.swift */; };
+		D5A20000000000000000000B /* AddContextCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000B /* AddContextCard.swift */; };
+		D5A20000000000000000000C /* ContextChipGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000C /* ContextChipGroup.swift */; };
+		D5A20000000000000000000D /* ReflectPlanChipFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000D /* ReflectPlanChipFlow.swift */; };
+		D5A20000000000000000000E /* ReflectPlanWrappingHStackLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000E /* ReflectPlanWrappingHStackLayout.swift */; };
+		D5A20000000000000000000F /* StickySaveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000F /* StickySaveButton.swift */; };
+		D5A200000000000000000010 /* SwapTaskPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000010 /* SwapTaskPicker.swift */; };
 		BD300CBF97B95F0D2A2CA092 /* WatchWidgetSnapshotSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2B9CCE514C217DC9C76773 /* WatchWidgetSnapshotSync.swift */; };
 		BD8C64B243D148C623D1B023 /* HomeViewModel+Timeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2687D1B80519E0EB4CB71E2F /* HomeViewModel+Timeline.swift */; };
 		BEB8BC780A4A962C58A77BC4 /* LifeBoard/Services/V2FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34CC91CCAA408A3ADB2D8693 /* LifeBoard/Services/V2FeatureFlags.swift */; };
@@ -1269,6 +1285,22 @@
 		E1C5A4B1D2E3F4012345678D /* LifeBoard/UseCases/Task/DeleteTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Task/DeleteTaskDefinitionUseCase.swift; sourceTree = SOURCE_ROOT; };
 		E1C5A4B1D2E3F4012345678E /* LifeBoard/UseCases/Task/RescheduleTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Task/RescheduleTaskDefinitionUseCase.swift; sourceTree = SOURCE_ROOT; };
 		E2BA3F253548BE9F1EE2AB4B /* LifeBoard/View/SunriseDailyReflectionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/View/SunriseDailyReflectionView.swift; sourceTree = SOURCE_ROOT; };
+		D5A100000000000000000001 /* ReflectPlanStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectPlanStyle.swift; sourceTree = "<group>"; };
+		D5A100000000000000000002 /* SunriseReflectPlanScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseReflectPlanScreen.swift; sourceTree = "<group>"; };
+		D5A100000000000000000003 /* ReflectPlanHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectPlanHeader.swift; sourceTree = "<group>"; };
+		D5A100000000000000000004 /* StatusChip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatusChip.swift; sourceTree = "<group>"; };
+		D5A100000000000000000005 /* YesterdaySummaryCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = YesterdaySummaryCard.swift; sourceTree = "<group>"; };
+		D5A100000000000000000006 /* HabitStreakMiniCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitStreakMiniCard.swift; sourceTree = "<group>"; };
+		D5A100000000000000000007 /* TodayPlanCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayPlanCard.swift; sourceTree = "<group>"; };
+		D5A100000000000000000008 /* TodayTaskRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayTaskRow.swift; sourceTree = "<group>"; };
+		D5A100000000000000000009 /* FocusPill.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FocusPill.swift; sourceTree = "<group>"; };
+		D5A10000000000000000000A /* PlanningSummaryRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PlanningSummaryRow.swift; sourceTree = "<group>"; };
+		D5A10000000000000000000B /* AddContextCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AddContextCard.swift; sourceTree = "<group>"; };
+		D5A10000000000000000000C /* ContextChipGroup.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContextChipGroup.swift; sourceTree = "<group>"; };
+		D5A10000000000000000000D /* ReflectPlanChipFlow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectPlanChipFlow.swift; sourceTree = "<group>"; };
+		D5A10000000000000000000E /* ReflectPlanWrappingHStackLayout.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectPlanWrappingHStackLayout.swift; sourceTree = "<group>"; };
+		D5A10000000000000000000F /* StickySaveButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StickySaveButton.swift; sourceTree = "<group>"; };
+		D5A100000000000000000010 /* SwapTaskPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SwapTaskPicker.swift; sourceTree = "<group>"; };
 		E46838AD356183D58300A941 /* LifeBoard/Domain/Interfaces/SectionRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Interfaces/SectionRepositoryProtocol.swift; sourceTree = SOURCE_ROOT; };
 		E4B4D0D6C85806F24EEF40AD /* LifeBoardWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LifeBoardWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E4F394C64907F22C89881E3A /* LifeBoard/Domain/Models/ReminderDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/ReminderDefinition.swift; sourceTree = SOURCE_ROOT; };
@@ -2162,6 +2194,22 @@
 				37E2466DBE2A76A73458F530 /* LifeBoard/View/SunriseFocusTimerView.swift */,
 				6D63FBA200D736491232884A /* LifeBoard/View/SunriseFocusSessionSummaryView.swift */,
 				E2BA3F253548BE9F1EE2AB4B /* LifeBoard/View/SunriseDailyReflectionView.swift */,
+				D5A100000000000000000001 /* ReflectPlanStyle.swift */,
+				D5A100000000000000000002 /* SunriseReflectPlanScreen.swift */,
+				D5A100000000000000000003 /* ReflectPlanHeader.swift */,
+				D5A100000000000000000004 /* StatusChip.swift */,
+				D5A100000000000000000005 /* YesterdaySummaryCard.swift */,
+				D5A100000000000000000006 /* HabitStreakMiniCard.swift */,
+				D5A100000000000000000007 /* TodayPlanCard.swift */,
+				D5A100000000000000000008 /* TodayTaskRow.swift */,
+				D5A100000000000000000009 /* FocusPill.swift */,
+				D5A10000000000000000000A /* PlanningSummaryRow.swift */,
+				D5A10000000000000000000B /* AddContextCard.swift */,
+				D5A10000000000000000000C /* ContextChipGroup.swift */,
+				D5A10000000000000000000D /* ReflectPlanChipFlow.swift */,
+				D5A10000000000000000000E /* ReflectPlanWrappingHStackLayout.swift */,
+				D5A10000000000000000000F /* StickySaveButton.swift */,
+				D5A100000000000000000010 /* SwapTaskPicker.swift */,
 				D4F10000000000000000010C /* SunriseWeeklyPlannerView.swift */,
 				D4F10000000000000000010D /* SunriseWeeklyReviewView.swift */,
 				D4F10000000000000000010F /* SunriseReflectionNoteComposerView.swift */,
@@ -3758,6 +3806,22 @@
 				3A549BEBEF3902410F96971A /* LifeBoard/View/SunriseFocusTimerView.swift in Sources */,
 				A912CB15A1588398C547FCE3 /* LifeBoard/View/SunriseFocusSessionSummaryView.swift in Sources */,
 				BA046E8ED5086F9E39ACB225 /* LifeBoard/View/SunriseDailyReflectionView.swift in Sources */,
+				D5A200000000000000000001 /* ReflectPlanStyle.swift in Sources */,
+				D5A200000000000000000002 /* SunriseReflectPlanScreen.swift in Sources */,
+				D5A200000000000000000003 /* ReflectPlanHeader.swift in Sources */,
+				D5A200000000000000000004 /* StatusChip.swift in Sources */,
+				D5A200000000000000000005 /* YesterdaySummaryCard.swift in Sources */,
+				D5A200000000000000000006 /* HabitStreakMiniCard.swift in Sources */,
+				D5A200000000000000000007 /* TodayPlanCard.swift in Sources */,
+				D5A200000000000000000008 /* TodayTaskRow.swift in Sources */,
+				D5A200000000000000000009 /* FocusPill.swift in Sources */,
+				D5A20000000000000000000A /* PlanningSummaryRow.swift in Sources */,
+				D5A20000000000000000000B /* AddContextCard.swift in Sources */,
+				D5A20000000000000000000C /* ContextChipGroup.swift in Sources */,
+				D5A20000000000000000000D /* ReflectPlanChipFlow.swift in Sources */,
+				D5A20000000000000000000E /* ReflectPlanWrappingHStackLayout.swift in Sources */,
+				D5A20000000000000000000F /* StickySaveButton.swift in Sources */,
+				D5A200000000000000000010 /* SwapTaskPicker.swift in Sources */,
 				D4F200000000000000000109 /* WeeklyPlannerViewModel.swift in Sources */,
 				D4F20000000000000000010A /* WeeklyReviewViewModel.swift in Sources */,
 				FFCF1FC469B2AE9FC88CF3D1 /* LifeBoard/Presentation/ViewModels/InsightsViewModel.swift in Sources */,
