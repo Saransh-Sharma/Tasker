@@ -9,7 +9,7 @@ public enum DailyReflectionClaimState: Equatable {
 }
 
 /// Bottom sheet for daily reflection prompt.
-/// Shows today's progress summary and awards XP on completion.
+/// Shows today's progress summary without centering historical reward metrics.
 public struct SunriseDailyReflectionView: View {
 
     let tasksCompleted: Int
@@ -41,9 +41,7 @@ public struct SunriseDailyReflectionView: View {
                             .fill(Color.lifeboard.accentWash)
                             .frame(width: 58, height: 58)
 
-                        Image(systemName: "sparkles.rectangle.stack.fill")
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(Color.lifeboard.accentPrimary)
+                        SunriseDecorImage(asset: .thinkingCup, size: 46, opacity: 0.92)
                     }
 
                     VStack(alignment: .leading, spacing: spacing.s4) {
@@ -73,16 +71,16 @@ public struct SunriseDailyReflectionView: View {
                         tone: tasksCompleted > 0 ? .success : .neutral
                     )
                     LifeBoardHeroMetricTile(
-                        title: "XP",
-                        value: "\(xpEarned)",
-                        detail: "Momentum earned today",
-                        tone: xpEarned > 0 ? .accent : .neutral
+                        title: "Rhythm",
+                        value: tasksCompleted > 0 ? "Protected" : "Ready",
+                        detail: tasksCompleted > 0 ? "Progress stayed visible" : "A reset is available",
+                        tone: tasksCompleted > 0 ? .accent : .neutral
                     )
                     LifeBoardHeroMetricTile(
-                        title: "Streak",
+                        title: "Active",
                         value: "\(streakDays)d",
-                        detail: streakDays > 0 ? "Continuity stays visible" : "Ready to restart",
-                        tone: streakDays > 0 ? .warning : .neutral
+                        detail: streakDays > 0 ? "Active-day history" : "Ready to restart",
+                        tone: .neutral
                     )
                 }
             }
@@ -195,11 +193,11 @@ public struct SunriseDailyReflectionView: View {
     private var secondaryCTA: String {
         switch claimState {
         case .ready:
-            return "+10 XP"
+            return "Save today's reflection"
         case .submitting:
-            return "Applying reward"
-        case .claimed(let xp):
-            return "+\(xp) XP secured"
+            return "Saving reflection"
+        case .claimed:
+            return "Reflection saved"
         case .alreadyClaimed:
             return "Already completed today"
         case .unavailable:
@@ -212,9 +210,9 @@ public struct SunriseDailyReflectionView: View {
         case .ready:
             return nil
         case .submitting:
-            return ("Claiming reflection reward...", Color.lifeboard.textSecondary)
-        case .claimed(let xp):
-            return ("Reflection claimed. +\(xp) XP awarded.", Color.lifeboard.statusSuccess)
+            return ("Saving reflection...", Color.lifeboard.textSecondary)
+        case .claimed:
+            return ("Reflection saved for today.", Color.lifeboard.statusSuccess)
         case .alreadyClaimed:
             return ("Reflection already completed today.", Color.lifeboard.textSecondary)
         case .unavailable(let message):
@@ -739,7 +737,7 @@ private struct LegacySunriseReflectPlanScreen: View {
 
                 if snapshot.habitGrid.isEmpty == false {
                     VStack(alignment: .leading, spacing: spacing.s8) {
-                        Text("Habit streaks")
+                        Text("Habit rhythm")
                             .font(.lifeboard(.caption1).weight(.semibold))
                             .foregroundStyle(Color.lifeboard.textTertiary)
                         ReflectionHabitMiniGridView(items: snapshot.habitGrid, spacing: spacing)
@@ -820,7 +818,7 @@ private struct LegacySunriseReflectPlanScreen: View {
                     }
 
                     if let habitTitle = plan.protectedHabitTitle {
-                        let value = plan.protectedHabitStreak.map { "\(habitTitle) · \($0)d streak" } ?? habitTitle
+                        let value = plan.protectedHabitStreak.map { "\(habitTitle) · \($0)d active" } ?? habitTitle
                         planDetailRow(title: "Protected habit", value: value)
                     }
 
