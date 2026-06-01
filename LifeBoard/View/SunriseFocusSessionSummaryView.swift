@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Sheet shown after a focus session ends, displaying duration and XP earned.
+/// Sheet shown after a focus session ends.
 public struct SunriseFocusSessionSummaryView: View {
 
     private let durationSeconds: Int
@@ -26,75 +26,71 @@ public struct SunriseFocusSessionSummaryView: View {
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var minutesFocused: Int { durationSeconds / 60 }
+    private var focusStyle: LBRoleStyle { LBColorTokens.role(.focus) }
 
     public var body: some View {
         VStack(spacing: spacing.s16) {
             Spacer().frame(height: spacing.s8)
 
-            EvaMascotView(placement: .focusComplete, size: .card)
+            SunriseDecorImage(asset: .thinkingCup, placement: .emptyState)
 
-            Text("Session Complete")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundColor(Color.lifeboard.textPrimary)
+            Text("Focus protected")
+                .font(.title2.bold())
+                .fontDesign(.rounded)
+                .foregroundStyle(LBColorTokens.navy)
 
-            // XP + Duration Card
             VStack(spacing: spacing.s8) {
-                Text("+\(xpAwarded) XP")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(Color.lifeboard.accentPrimary)
+                Text("\(minutesFocused) min")
+                    .font(.largeTitle.bold())
+                    .fontDesign(.rounded)
+                    .foregroundStyle(focusStyle.deep)
+                    .monospacedDigit()
 
-                Text("\(minutesFocused) min focused")
+                Text("Time protected for the task you chose.")
                     .font(.lifeboard(.body))
-                    .foregroundColor(Color.lifeboard.textSecondary)
+                    .fontDesign(.rounded)
+                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .multilineTextAlignment(.center)
             }
             .padding(spacing.s16)
             .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.lifeboard.surfacePrimary)
-            )
+            .background(focusStyle.softSurface.opacity(0.74), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(focusStyle.border, lineWidth: 1))
 
             VStack(spacing: spacing.s4) {
-                Text("Today: \(dailyXPSoFar) XP")
-                    .font(.lifeboard(.caption1))
-                    .foregroundColor(Color.lifeboard.textSecondary)
-
-                Text("Next: complete another task to keep momentum.")
-                    .font(.lifeboard(.caption2))
-                    .foregroundColor(Color.lifeboard.textTertiary)
+                Text("Next: choose another small action when you are ready.")
+                    .font(.lifeboard(.callout))
+                    .fontDesign(.rounded)
+                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .multilineTextAlignment(.center)
             }
 
             Spacer()
 
             if let onContinueMomentum {
-                Button(action: onContinueMomentum) {
-                    Text("Complete Another Task")
-                        .font(.lifeboard(.bodyEmphasis))
-                        .foregroundColor(Color.lifeboard.accentPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.lifeboard.accentPrimary, lineWidth: 1.5)
-                        )
-                }
+                Button("Choose next action", systemImage: "arrow.right", action: onContinueMomentum)
+                    .font(.lifeboard(.bodyEmphasis))
+                    .fontDesign(.rounded)
+                    .foregroundStyle(focusStyle.deep)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(LBColorTokens.glassStrong, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(focusStyle.border, lineWidth: 1))
             }
 
-            Button(action: onDismiss) {
-                Text("Done")
-                    .font(.lifeboard(.bodyEmphasis))
-                    .foregroundColor(Color.lifeboard.textInverse)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.lifeboard.accentPrimary)
-                    )
-            }
+            Button("Done", systemImage: "checkmark", action: onDismiss)
+                .font(.lifeboard(.bodyEmphasis))
+                .fontDesign(.rounded)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background(
+                    LinearGradient(colors: LBColorTokens.actionGradient(for: .focus), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                )
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.bottom, spacing.s16)
+        .background(LBColorTokens.canvas.ignoresSafeArea())
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Session complete. \(xpAwarded) XP earned. \(minutesFocused) minutes focused.")
+        .accessibilityLabel("Focus protected. \(minutesFocused) minutes focused.")
     }
 }

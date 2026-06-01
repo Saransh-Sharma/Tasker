@@ -110,6 +110,28 @@ final class FocusNowHeroImageResolverTests: XCTestCase {
         XCTAssertEqual(state.selectedTaskForSwap?.id, focus[2].id)
     }
 
+    func testSelectAndFlipTogglesSameCardAndMovesDifferentCardToFront() {
+        let focus = [
+            makeTask(title: "Plan tomorrow schedule"),
+            makeTask(title: "Workout for 15 mins"),
+            makeTask(title: "Codex Orbit Cool Off")
+        ]
+        var state = FocusNowDraftState()
+        state.syncFocusTasks(focus)
+
+        state.selectAndFlip(focus[1])
+        XCTAssertEqual(state.flippedFocusTaskID, focus[1].id)
+        XCTAssertEqual(state.draftFocusTasks.map(\.id), [focus[1].id, focus[0].id, focus[2].id])
+
+        state.selectAndFlip(focus[1])
+        XCTAssertNil(state.flippedFocusTaskID)
+        XCTAssertEqual(state.selectedTaskForSwap?.id, focus[1].id)
+
+        state.selectAndFlip(focus[2])
+        XCTAssertEqual(state.flippedFocusTaskID, focus[2].id)
+        XCTAssertEqual(state.draftFocusTasks.map(\.id), [focus[2].id, focus[1].id, focus[0].id])
+    }
+
     func testDraftStateShuffleDoesNotMutateDraftOrHeroAssignments() {
         let focus = [
             makeTask(title: "Plan tomorrow schedule"),
@@ -13127,43 +13149,51 @@ final class XPExactPreviewParityTests: XCTestCase {
 
 @MainActor
 final class XPRewardPreviewCopyRegressionTests: XCTestCase {
-    func testCompletionRewardSurfacesUseExactPreviewAPI() throws {
-        let rewardSurfaceFiles = [
+    func testPrimaryTaskSurfacesDoNotUseCompletionRewardPreviewAPI() throws {
+        let primaryTaskSurfaceFiles = [
             "LifeBoard/View/SunriseTaskRowView.swift",
-            "LifeBoard/View/SunriseTaskDetailScreen.swift",
-            "LifeBoard/View/AddTaskXPPreview.swift"
+            "LifeBoard/View/SunriseTaskDetailScreen.swift"
         ]
 
-        for relativePath in rewardSurfaceFiles {
+        for relativePath in primaryTaskSurfaceFiles {
             let source = try loadWorkspaceFile(relativePath)
-            XCTAssertTrue(
+            XCTAssertFalse(
                 source.contains("completionXPIfCompletedNow("),
-                "\(relativePath) should use exact completion preview API."
+                "\(relativePath) should not calculate XP previews in primary task UI."
             )
             XCTAssertFalse(
                 source.contains("completionEstimate("),
-                "\(relativePath) should not use range-based completion estimate API."
+                "\(relativePath) should not calculate estimated XP previews in primary task UI."
+            )
+            XCTAssertFalse(
+                source.contains("AddTaskXPPreview("),
+                "\(relativePath) should not embed the legacy XP preview component."
+            )
+            XCTAssertFalse(
+                source.contains("XPBadge("),
+                "\(relativePath) should not render XP badges in primary task UI."
             )
         }
     }
 
-    func testCompletionRewardSurfacesDoNotUseApproximateCopy() throws {
-        let rewardCopyFiles = [
+    func testPrimaryTaskSurfacesDoNotUseRewardCopy() throws {
+        let primaryTaskCopyFiles = [
             "LifeBoard/View/SunriseTaskRowView.swift",
-            "LifeBoard/View/TaskDetailComponents.swift",
-            "LifeBoard/View/AddTaskXPPreview.swift"
+            "LifeBoard/View/SunriseTaskDetailScreen.swift",
+            "LifeBoard/View/TaskDetailComponents.swift"
         ]
 
-        for relativePath in rewardCopyFiles {
+        for relativePath in primaryTaskCopyFiles {
             let source = try loadWorkspaceFile(relativePath)
             XCTAssertFalse(source.contains("Est. +"), "\(relativePath) should not show estimated XP labels.")
             XCTAssertFalse(source.contains("~+"), "\(relativePath) should not show approximate compact XP labels.")
-            XCTAssertFalse(source.contains("Estimated reward"), "\(relativePath) should use reward wording.")
-            XCTAssertFalse(source.contains("XP pending"), "\(relativePath) should always show deterministic XP.")
-            XCTAssertFalse(source.contains("Reward pending"), "\(relativePath) should always expose deterministic reward accessibility copy.")
+            XCTAssertFalse(source.contains("Estimated reward"), "\(relativePath) should not use reward wording.")
+            XCTAssertFalse(source.contains("XP pending"), "\(relativePath) should not show XP pending copy.")
+            XCTAssertFalse(source.contains("Reward pending"), "\(relativePath) should not expose reward accessibility copy.")
             XCTAssertFalse(source.contains("(cap)"), "\(relativePath) should not show daily cap copy.")
             XCTAssertFalse(source.contains("to cap"), "\(relativePath) should not show daily cap copy.")
             XCTAssertFalse(source.contains("Daily cap reached"), "\(relativePath) should not show daily cap copy.")
+            XCTAssertFalse(source.contains("+XP"), "\(relativePath) should not show XP gain copy.")
         }
     }
 

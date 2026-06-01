@@ -572,9 +572,9 @@ struct FocusCardDeck: View {
     var body: some View {
         GeometryReader { proxy in
             let availableWidth = proxy.size.width
-            let cardWidth = min(max(availableWidth * 0.56, 204), 292)
-            let cardHeight = min(max(cardWidth * 1.42, 292), 340)
-            let offsets = [0, cardWidth * 0.48, cardWidth * 0.86]
+            let cardWidth = min(max(availableWidth * 0.58, 214), 308)
+            let cardHeight = min(max(cardWidth * 1.42, 304), 354)
+            let offsets = [0, cardWidth * 0.44, cardWidth * 0.82]
             let totalWidth = offsets[min(tasks.prefix(3).count - 1, 2)] + cardWidth
             let leadingInset = max(0, (availableWidth - totalWidth) / 2)
 
@@ -597,13 +597,13 @@ struct FocusCardDeck: View {
                     )
                     .frame(width: cardWidth, height: cardHeight)
                     .offset(x: leadingInset + offsets[index], y: CGFloat(index) * 10)
-                    .scaleEffect(1 - CGFloat(index) * 0.025, anchor: .topLeading)
+                    .scaleEffect(1 - CGFloat(index) * 0.032, anchor: .topLeading)
                     .zIndex(Double(10 - index))
                     .accessibilityIdentifier("focusNow.card.\(index)")
                 }
             }
         }
-        .frame(height: 354)
+        .frame(height: 372)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }
@@ -624,54 +624,37 @@ struct FocusTaskCard: View {
     let onStartTimer: () -> Void
 
     var body: some View {
-        ZStack {
-            if reduceMotion {
-                FocusTaskCardFront(
-                    task: task,
-                    insight: insight,
-                    heroImage: heroImage,
-                    onTap: onTap,
-                    onQuickSwap: onQuickSwap
-                )
-                .opacity(isFlipped ? 0 : 1)
-
-                FocusTaskCardBack(
-                    task: task,
-                    heroImage: heroImage,
-                    onFlipBack: onFlipBack,
-                    onViewDetails: onViewDetails,
-                    onStartTimer: onStartTimer
-                )
-                .opacity(isFlipped ? 1 : 0)
-            } else {
-                FocusTaskCardFront(
-                    task: task,
-                    insight: insight,
-                    heroImage: heroImage,
-                    onTap: onTap,
-                    onQuickSwap: onQuickSwap
-                )
-                .rotation3DEffect(.degrees(isFlipped ? 90 : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.62)
-                .animation(isFlipped ? .easeIn(duration: 0.21) : .easeOut(duration: 0.21).delay(0.21), value: isFlipped)
-
-                FocusTaskCardBack(
-                    task: task,
-                    heroImage: heroImage,
-                    onFlipBack: onFlipBack,
-                    onViewDetails: onViewDetails,
-                    onStartTimer: onStartTimer
-                )
-                .rotation3DEffect(.degrees(isFlipped ? 0 : -90), axis: (x: 0, y: 1, z: 0), perspective: 0.62)
-                .animation(isFlipped ? .easeOut(duration: 0.21).delay(0.21) : .easeIn(duration: 0.21), value: isFlipped)
-            }
+        FocusCardFlipView(
+            isFlipped: isFlipped,
+            reduceMotion: reduceMotion,
+            perspective: 0.62,
+            duration: 0.42
+        ) {
+            FocusTaskCardFront(
+                task: task,
+                insight: insight,
+                heroImage: heroImage,
+                onTap: onTap,
+                onQuickSwap: onQuickSwap
+            )
+        } back: {
+            FocusTaskCardBack(
+                task: task,
+                heroImage: heroImage,
+                onFlipBack: onFlipBack,
+                onViewDetails: onViewDetails,
+                onStartTimer: onStartTimer
+            )
         }
-        .shadow(color: heroImage.shadowColor.opacity(isActive ? 0.22 : 0.14), radius: isActive ? 24 : 16, x: 0, y: isActive ? 16 : 10)
+        .shadow(color: heroImage.shadowColor.opacity(isActive ? 0.26 : 0.14), radius: isActive ? 28 : 18, x: 0, y: isActive ? 18 : 12)
+        .shadow(color: Color.black.opacity(isActive ? 0.08 : 0.045), radius: isActive ? 18 : 12, x: 0, y: isActive ? 16 : 10)
         .overlay {
             RoundedRectangle(cornerRadius: 28)
-                .stroke(isSelectedForSwap ? heroImage.accentColor.opacity(0.5) : Color.clear, lineWidth: 2)
+                .stroke(isSelectedForSwap ? heroImage.accentColor.opacity(0.56) : Color.white.opacity(0.46), lineWidth: isSelectedForSwap ? 2 : 1)
         }
         .accessibilityElement(children: .contain)
-        .animation(reduceMotion ? .easeInOut(duration: 0.16) : nil, value: isFlipped)
+        .scaleEffect(isActive ? 1 : 0.992)
+        .animation(.easeInOut(duration: 0.2), value: isActive)
     }
 }
 
@@ -740,6 +723,7 @@ struct FocusTaskCardFront: View {
             }
         }
         .background(heroImage.surfaceColor, in: RoundedRectangle(cornerRadius: 28))
+        .background(.white.opacity(0.34), in: RoundedRectangle(cornerRadius: 28))
         .overlay {
             RoundedRectangle(cornerRadius: 28)
                 .stroke(heroImage.borderColor.opacity(0.85), lineWidth: 1)
@@ -795,12 +779,17 @@ struct FocusTaskCardBack: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
-                Button("Back", systemImage: "chevron.left", action: onFlipBack)
-                    .labelStyle(.iconOnly)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(heroImage.accentColor)
-                    .frame(width: 44, height: 44)
-                    .background(ReflectPlanStyle.cream, in: Circle())
+                Button(action: onFlipBack) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(heroImage.accentColor)
+                        .frame(width: 44, height: 44)
+                        .background(ReflectPlanStyle.cream, in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Back to card front")
+                .accessibilityIdentifier("focusNow.card.back")
                 Spacer()
             }
 
@@ -831,6 +820,7 @@ struct FocusTaskCardBack: View {
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 52)
                     .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 16))
+                    .accessibilityIdentifier("focusNow.card.startTimer")
             }
 
             Image(heroImage.assetName)
@@ -845,6 +835,7 @@ struct FocusTaskCardBack: View {
         }
         .padding(18)
         .background(heroImage.surfaceColor, in: RoundedRectangle(cornerRadius: 28))
+        .background(.white.opacity(0.36), in: RoundedRectangle(cornerRadius: 28))
         .overlay {
             RoundedRectangle(cornerRadius: 28)
                 .stroke(heroImage.borderColor.opacity(0.85), lineWidth: 1)

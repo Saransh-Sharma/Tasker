@@ -398,6 +398,7 @@
 		B1A000000000000000000004 /* ChatChromeComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000014 /* ChatChromeComponents.swift */; };
 		B1A000000000000000000005 /* QuickFilterChromeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000015 /* QuickFilterChromeTests.swift */; };
 		B1A000000000000000000006 /* SunriseEvaSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000016 /* SunriseEvaSheets.swift */; };
+		B1A000000000000000000008 /* FocusCardFlipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000018 /* FocusCardFlipView.swift */; };
 		B1A000000000000000000007 /* ChatContextSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000017 /* ChatContextSupport.swift */; };
 		B1A1C1D1E1F1020304050612 /* BootstrapFailureViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A1C1D1E1F1020304050602 /* BootstrapFailureViewController.swift */; };
 		B1A1C1D1E1F1020304050615 /* ProjectSelectionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A1C1D1E1F1020304050605 /* ProjectSelectionViewModel.swift */; };
@@ -1094,6 +1095,7 @@
 		B1A000000000000000000015 /* QuickFilterChromeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickFilterChromeTests.swift; sourceTree = "<group>"; };
 		B1A000000000000000000016 /* SunriseEvaSheets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseEvaSheets.swift; sourceTree = "<group>"; };
 		B1A000000000000000000017 /* ChatContextSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatContextSupport.swift; sourceTree = "<group>"; };
+		B1A000000000000000000018 /* FocusCardFlipView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FocusCardFlipView.swift; sourceTree = "<group>"; };
 		B1A1C1D1E1F1020304050602 /* BootstrapFailureViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BootstrapFailureViewController.swift; sourceTree = "<group>"; };
 		B1A1C1D1E1F1020304050605 /* ProjectSelectionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSelectionViewModel.swift; sourceTree = "<group>"; };
 		B1C2D3E72F90000100AA1001 /* LifeBoardWidgets/TaskWidgetFoundation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardWidgets/TaskWidgetFoundation.swift; sourceTree = SOURCE_ROOT; };
@@ -2135,6 +2137,7 @@
 				D1A100000000000000000005 /* HomeMiniMomentumProgressBar.swift */,
 				D1A100000000000000000007 /* HomeMomentumSummaryCard.swift */,
 				D1A100000000000000000008 /* HomeMomentumProgressBar.swift */,
+				B1A000000000000000000018 /* FocusCardFlipView.swift */,
 				B1A000000000000000000016 /* SunriseEvaSheets.swift */,
 				17DC0A5BC84D9C6C792B2AB6 /* LifeBoard/View/HomeXPHeroView.swift */,
 				D4F10000000000000000010B /* HomeWeeklySummaryCard.swift */,
@@ -3636,6 +3639,7 @@
 				D1A200000000000000000005 /* HomeMiniMomentumProgressBar.swift in Sources */,
 				D1A200000000000000000007 /* HomeMomentumSummaryCard.swift in Sources */,
 				D1A200000000000000000008 /* HomeMomentumProgressBar.swift in Sources */,
+				B1A000000000000000000008 /* FocusCardFlipView.swift in Sources */,
 				B1A000000000000000000006 /* SunriseEvaSheets.swift in Sources */,
 				355015C0A77A72D864F1AC64 /* SunriseAppShellView.swift in Sources */,
 				A11D5A110000000000000011 /* SunriseDaySwipeSide.swift in Sources */,
