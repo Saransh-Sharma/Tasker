@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import LifeBoard
 
 final class OverdueTriageServiceTests: XCTestCase {
@@ -133,6 +134,34 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .active, to: .loading))
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .paused, to: .editing))
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .confirmingDelete, to: .applyingBulk))
+    }
+
+    func testRevealContentKeepsSafeViewportMarginsOnIPhoneWidth() {
+        let metrics = OverdueRescueDeckLayoutMetrics.make(
+            size: CGSize(width: 393, height: 852),
+            bottomInset: 34,
+            dynamicTypeSize: .large
+        )
+        let keepFrame = metrics.revealContentFrame(for: .keep)
+        let moveFrame = metrics.revealContentFrame(for: .move)
+
+        XCTAssertGreaterThanOrEqual(keepFrame.minX, 20)
+        XCTAssertLessThanOrEqual(moveFrame.maxX, metrics.containerSize.width - 20)
+        XCTAssertGreaterThanOrEqual(keepFrame.width, 96)
+        XCTAssertEqual(keepFrame.width, moveFrame.width)
+    }
+
+    func testRevealContentKeepsSafeViewportMarginsOnNarrowIPhoneWidth() {
+        let metrics = OverdueRescueDeckLayoutMetrics.make(
+            size: CGSize(width: 320, height: 700),
+            bottomInset: 0,
+            dynamicTypeSize: .large
+        )
+        let keepFrame = metrics.revealContentFrame(for: .keep)
+        let moveFrame = metrics.revealContentFrame(for: .move)
+
+        XCTAssertGreaterThanOrEqual(keepFrame.minX, 20)
+        XCTAssertLessThanOrEqual(moveFrame.maxX, metrics.containerSize.width - 20)
     }
 
     func testDragResolverRightDragBelowThresholdRevealsKeepWithoutCommit() {

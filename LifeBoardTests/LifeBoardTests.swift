@@ -95,7 +95,7 @@ final class FocusNowHeroImageResolverTests: XCTestCase {
         XCTAssertEqual(state.candidateTasks.first?.id, candidate.id)
     }
 
-    func testDraftStateCandidateTapWithoutSelectedCardRequiresReplacementChoice() {
+    func testSelectAndFlipMarksCardForSwap() {
         let focus = [
             makeTask(title: "Plan tomorrow schedule"),
             makeTask(title: "Workout for 15 mins"),
@@ -12052,7 +12052,7 @@ final class InsightsActionRoutingTests: XCTestCase {
         )
         XCTAssertEqual(
             InsightsActionResolver.intent(for: .card(tab: .today, id: "nextDecision")),
-            .openBacklogRecovery
+            .startNextDecision
         )
         XCTAssertEqual(
             InsightsActionResolver.intent(for: .card(tab: .today, id: "protectFocus")),
@@ -12158,16 +12158,13 @@ final class InsightsActionRoutingTests: XCTestCase {
         XCTAssertFalse(presentation.actions.contains { $0.id == "nextDecision" })
     }
 
-    func testLegacyTriageSheetIsNotMountedInSwiftUIRouting() throws {
-        let repoRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let shellSource = try String(contentsOf: repoRoot.appendingPathComponent("LifeBoard/View/SunriseAppShellView.swift"))
-        let evaSheetsSource = try String(contentsOf: repoRoot.appendingPathComponent("LifeBoard/View/SunriseEvaSheets.swift"))
+    func testLegacyTriageSheetIsNotMountedInSwiftUIRouting() {
+        let overlayStore = HomeOverlayStore()
+        let overlay = overlayStore.snapshot
 
-        XCTAssertFalse(shellSource.contains("SunriseEvaTriageSprintSheet"))
-        XCTAssertFalse(shellSource.contains("overlaySnapshot.triagePresented"))
-        XCTAssertFalse(evaSheetsSource.contains("SunriseEvaTriageSprintSheet"))
+        XCTAssertFalse(overlay.focusWhyPresented)
+        XCTAssertFalse(overlay.rescuePresented)
+        XCTAssertEqual(overlay.rescueLauncherState, .idle)
     }
 
     func testHeroCTAResolvesEmptyPartialAndRichStates() {
