@@ -1104,6 +1104,7 @@ struct SunriseAppShellView: View {
                 insightProvider: { taskID in
                     viewModel.evaFocusInsight(for: taskID)
                 },
+                isStartingFocus: isNextActionFocusRequestInFlight,
                 onToggleComplete: { task in
                     trackTaskToggle(task, source: "focus_why_sheet")
                     onToggleComplete(task)

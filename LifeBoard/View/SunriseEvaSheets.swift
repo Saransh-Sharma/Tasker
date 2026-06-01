@@ -4,6 +4,7 @@ struct SunriseEvaFocusWhySheet: View {
     let focusTasks: [TaskDefinition]
     let shuffleCandidates: [TaskDefinition]
     let insightProvider: (UUID) -> EvaFocusTaskInsight?
+    let isStartingFocus: Bool
     let onToggleComplete: (TaskDefinition) -> Void
     let onStartFocus: ([TaskDefinition], TaskDefinition, Int) -> Void
     let onShuffleCandidates: () -> Void
@@ -12,31 +13,18 @@ struct SunriseEvaFocusWhySheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @State private var draftFocusTasks: [TaskDefinition] = []
-    @State private var candidateTasks: [TaskDefinition] = []
-    @State private var activeFocusTaskID: UUID?
-    @State private var flippedFocusTaskID: UUID?
-    @State private var selectedMode: FocusNowMode = .currentSet
-    @State private var assignedHeroImagesByTaskID: [UUID: TaskHeroImage] = [:]
+    @State private var draftState = FocusNowDraftState()
     @State private var detailTask: TaskDefinition?
     @State private var timerTask: TaskDefinition?
     @State private var replacementCandidate: TaskDefinition?
     @State private var selectedDurationSeconds: Int = FocusDurationStore.lastUsedDurationSeconds()
-    @State private var undoState: FocusUndoState?
     @State private var toastMessage: String?
     @State private var showDiscardConfirmation = false
     @State private var showRefineSheet = false
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
-    private var activeTask: TaskDefinition? {
-        if let activeFocusTaskID, let active = draftFocusTasks.first(where: { $0.id == activeFocusTaskID }) {
-            return active
-        }
-        return draftFocusTasks.first
-    }
-    private var hasDraftChanges: Bool {
-        draftFocusTasks.map(\.id) != focusTasks.prefix(3).map(\.id)
-    }
+    private var activeTask: TaskDefinition? { draftState.activeTask }
+    private var hasDraftChanges: Bool { draftState.hasUnsavedChanges(comparedTo: focusTasks) }
 
     var body: some View {
         rootScreen
@@ -49,6 +37,9 @@ struct SunriseEvaFocusWhySheet: View {
             }
             .onChange(of: shuffleCandidates.map(\.id)) { _, _ in
                 syncCandidates(shuffleCandidates)
+            }
+            .onChange(of: isStartingFocus) { _, newValue in
+                draftState.isStartingFocus = newValue
             }
             .sheet(item: $detailTask, content: detailSheet)
             .sheet(item: $timerTask, content: durationSheet)
@@ -87,35 +78,37 @@ struct SunriseEvaFocusWhySheet: View {
                 ReflectPlanStyle.canvas.ignoresSafeArea()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: spacing.s16) {
+                    VStack(alignment: .leading, spacing: 14) {
                         FocusNowHeader(
-                            selectedCount: draftFocusTasks.count,
+                            selectedCount: draftState.draftFocusTasks.count,
                             onClose: attemptClose
                         )
 
-                        if draftFocusTasks.isEmpty {
+                        if draftState.draftFocusTasks.isEmpty {
                             FocusNowEmptyState()
                         } else {
                             FocusCardDeck(
-                                tasks: draftFocusTasks,
-                                activeTaskID: activeFocusTaskID ?? draftFocusTasks.first?.id,
-                                flippedTaskID: flippedFocusTaskID,
-                                assignedHeroImagesByTaskID: assignedHeroImagesByTaskID,
+                                tasks: draftState.draftFocusTasks,
+                                activeTaskID: draftState.activeFocusTaskID ?? draftState.draftFocusTasks.first?.id,
+                                flippedTaskID: draftState.flippedFocusTaskID,
+                                selectedCardForSwapID: draftState.selectedCardForSwapID,
+                                assignedHeroImagesByTaskID: draftState.assignedHeroImagesByTaskID,
                                 insightProvider: insightProvider,
                                 reduceMotion: reduceMotion,
                                 onCardTap: handleCardTap,
-                                onFlipBack: { flippedFocusTaskID = nil },
+                                onFlipBack: { draftState.flippedFocusTaskID = nil },
                                 onQuickSwap: quickSwap,
                                 onViewDetails: { detailTask = $0 },
                                 onStartTimer: presentDurationPicker
                             )
                             .accessibilityIdentifier("focusNow.deck")
 
-                            FocusModeSegmentedControl(selectedMode: $selectedMode)
+                            FocusModeSegmentedControl(selectedMode: $draftState.selectedMode)
 
                             CandidateSection(
-                                candidates: candidateTasks,
-                                selectedMode: selectedMode,
+                                candidates: draftState.candidateTasks,
+                                selectedMode: draftState.selectedMode,
+                                isShuffling: draftState.isShuffling,
                                 insightProvider: insightProvider,
                                 onCandidateTap: handleCandidateTap,
                                 onSwapTap: handleCandidateTap
@@ -123,25 +116,27 @@ struct SunriseEvaFocusWhySheet: View {
                         }
 
                         ShuffleAgainCard(
-                            isDisabled: false,
+                            isShuffling: draftState.isShuffling,
+                            isDisabled: draftState.isShuffling,
                             onShuffle: shuffleAgain
                         )
 
                         FocusBottomActions(
                             canStart: activeTask != nil,
+                            isStarting: draftState.isStartingFocus,
                             onStartFocus: {
                                 guard let activeTask else { return }
                                 presentDurationPicker(for: activeTask)
                             },
                             onRefineSet: {
-                                flippedFocusTaskID = nil
+                                draftState.flippedFocusTaskID = nil
                                 showRefineSheet = true
                             }
                         )
 
                         if let toastMessage {
                             Button {
-                                if undoState != nil {
+                                if draftState.undoState != nil {
                                     undoLastChange()
                                 }
                             } label: {
@@ -153,7 +148,7 @@ struct SunriseEvaFocusWhySheet: View {
                                     .background(ReflectPlanStyle.cream, in: Capsule())
                             }
                             .buttonStyle(.plain)
-                            .disabled(undoState == nil)
+                            .disabled(draftState.undoState == nil)
                             .transition(.opacity)
                             .accessibilityIdentifier("focusNow.toast")
                         }
@@ -161,7 +156,7 @@ struct SunriseEvaFocusWhySheet: View {
                 }
                 .scrollIndicators(.hidden)
                 .padding(.horizontal, spacing.s16)
-                .padding(.top, spacing.s8)
+                .padding(.top, 6)
                 .padding(.bottom, spacing.s24)
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -187,19 +182,11 @@ struct SunriseEvaFocusWhySheet: View {
 
     private func refineSheet() -> some View {
         RefineFocusSheet(
-            selectedTasks: draftFocusTasks,
-            candidateTasks: candidateTasks,
+            selectedTasks: draftState.draftFocusTasks,
+            candidateTasks: draftState.candidateTasks,
             insightProvider: insightProvider,
             onApply: { refinedTasks in
-                undoState = FocusUndoState(tasks: draftFocusTasks, candidates: candidateTasks)
-                let previousDraft = draftFocusTasks
-                draftFocusTasks = deduplicatedTopThree(refinedTasks)
-                activeFocusTaskID = draftFocusTasks.first?.id
-                flippedFocusTaskID = nil
-                let selectedIDs = Set(draftFocusTasks.map(\.id))
-                let returnedCandidates = previousDraft.filter { !selectedIDs.contains($0.id) }
-                candidateTasks = Array((candidateTasks + returnedCandidates).filter { !selectedIDs.contains($0.id) }.prefix(6))
-                assignHeroImages()
+                draftState.applyRefinedTasks(refinedTasks)
                 showRefineSheet = false
                 showToast("Focus set updated · Undo")
             }
@@ -212,10 +199,12 @@ struct SunriseEvaFocusWhySheet: View {
         FocusDurationPickerSheet(
             task: task,
             selectedDurationSeconds: $selectedDurationSeconds,
+            isStarting: draftState.isStartingFocus,
             onStart: { duration in
                 FocusDurationStore.saveLastUsedDurationSeconds(duration)
+                draftState.pendingTimerDuration = duration
                 timerTask = nil
-                onStartFocus(draftFocusTasks, task, duration)
+                onStartFocus(draftState.draftFocusTasks, task, duration)
             }
         )
         .presentationDetents([.medium])
@@ -225,7 +214,7 @@ struct SunriseEvaFocusWhySheet: View {
     @ViewBuilder
     private func replacementDialogActions() -> some View {
         if let replacementCandidate {
-            ForEach(draftFocusTasks, id: \.id) { focusTask in
+            ForEach(draftState.draftFocusTasks, id: \.id) { focusTask in
                 Button(focusTask.title) {
                     replace(focusTask, with: replacementCandidate)
                     self.replacementCandidate = nil
@@ -240,96 +229,61 @@ struct SunriseEvaFocusWhySheet: View {
     private func syncInitialState() {
         syncDraftFocusTasks(focusTasks)
         syncCandidates(shuffleCandidates)
+        draftState.isStartingFocus = isStartingFocus
     }
 
     private func syncDraftFocusTasks(_ tasks: [TaskDefinition]) {
-        draftFocusTasks = Array(tasks.filter { !$0.isComplete }.prefix(3))
-        activeFocusTaskID = draftFocusTasks.first?.id
-        assignHeroImages()
+        draftState.syncFocusTasks(tasks)
     }
 
     private func syncCandidates(_ tasks: [TaskDefinition]) {
-        let selectedIDs = Set(draftFocusTasks.map(\.id))
-        candidateTasks = Array(tasks.filter { !selectedIDs.contains($0.id) }.prefix(6))
-    }
-
-    private func assignHeroImages() {
-        var resolver = TaskHeroImageResolver(existingAssignments: assignedHeroImagesByTaskID)
-        assignedHeroImagesByTaskID = resolver.assignImages(for: draftFocusTasks)
+        draftState.syncCandidates(tasks)
     }
 
     private func handleCardTap(_ task: TaskDefinition) {
-        if activeFocusTaskID != task.id {
-            moveTaskToFront(task)
-            activeFocusTaskID = task.id
-        }
-
         withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : .easeInOut(duration: 0.42)) {
-            flippedFocusTaskID = flippedFocusTaskID == task.id ? nil : task.id
+            draftState.selectAndFlip(task)
         }
-    }
-
-    private func moveTaskToFront(_ task: TaskDefinition) {
-        guard let index = draftFocusTasks.firstIndex(where: { $0.id == task.id }), index > 0 else { return }
-        draftFocusTasks.remove(at: index)
-        draftFocusTasks.insert(task, at: 0)
-        assignHeroImages()
     }
 
     private func quickSwap(_ task: TaskDefinition) {
-        guard let candidate = candidateTasks.first else {
+        guard draftState.quickSwap(task) else {
             showToast("No better fits right now")
             return
         }
-        replace(task, with: candidate)
         showToast("Swapped into Focus Now · Undo")
     }
 
     private func handleCandidateTap(_ candidate: TaskDefinition) {
-        guard let activeTask else {
+        guard let target = draftState.selectedTaskForSwap else {
             replacementCandidate = candidate
             return
         }
-        replace(activeTask, with: candidate)
-        showToast("Added to Focus Now · Undo")
+        replace(target, with: candidate)
+        showToast("Swapped into Focus Now · Undo")
     }
 
     private func replace(_ oldTask: TaskDefinition, with newTask: TaskDefinition) {
-        guard let index = draftFocusTasks.firstIndex(where: { $0.id == oldTask.id }) else { return }
-        undoState = FocusUndoState(tasks: draftFocusTasks, candidates: candidateTasks)
-        draftFocusTasks[index] = newTask
-        draftFocusTasks = deduplicatedTopThree(draftFocusTasks)
-        activeFocusTaskID = newTask.id
-        flippedFocusTaskID = nil
-        candidateTasks.removeAll { $0.id == newTask.id }
-        if !candidateTasks.contains(where: { $0.id == oldTask.id }) {
-            candidateTasks.insert(oldTask, at: 0)
-        }
-        assignedHeroImagesByTaskID[newTask.id] = nil
-        assignHeroImages()
-    }
-
-    private func deduplicatedTopThree(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
-        var seen = Set<UUID>()
-        var unique: [TaskDefinition] = []
-        for task in tasks where seen.insert(task.id).inserted {
-            unique.append(task)
-        }
-        return Array(unique.prefix(3))
+        draftState.replace(oldTask, with: newTask)
     }
 
     private func presentDurationPicker(for task: TaskDefinition) {
-        flippedFocusTaskID = nil
+        draftState.flippedFocusTaskID = nil
         selectedDurationSeconds = FocusDurationStore.defaultDurationSeconds(for: task)
+        draftState.pendingTimerDuration = selectedDurationSeconds
         timerTask = task
     }
 
     private func shuffleAgain() {
         withAnimation(reduceMotion ? .easeInOut(duration: 0.14) : .easeOut(duration: 0.24)) {
-            flippedFocusTaskID = nil
+            draftState.beginShuffle()
         }
         onShuffleCandidates()
         showToast("Fresh picks ready")
+        _Concurrency.Task { @MainActor in
+            try? await _Concurrency.Task.sleep(nanoseconds: 420_000_000)
+            draftState.endShuffle()
+        }
     }
 
     private func showToast(_ message: String) {
@@ -339,13 +293,7 @@ struct SunriseEvaFocusWhySheet: View {
     }
 
     private func undoLastChange() {
-        guard let undoState else { return }
-        draftFocusTasks = undoState.tasks
-        candidateTasks = undoState.candidates
-        activeFocusTaskID = draftFocusTasks.first?.id
-        flippedFocusTaskID = nil
-        self.undoState = nil
-        assignHeroImages()
+        draftState.undoLastChange()
         showToast("Restored previous Focus Now set")
     }
 
@@ -382,6 +330,148 @@ enum FocusNowMode: String, CaseIterable, Identifiable {
 struct FocusUndoState {
     let tasks: [TaskDefinition]
     let candidates: [TaskDefinition]
+    let assignedHeroImagesByTaskID: [UUID: TaskHeroImage]
+    let activeFocusTaskID: UUID?
+    let selectedCardForSwapID: UUID?
+}
+
+struct FocusNowDraftState {
+    var draftFocusTasks: [TaskDefinition] = []
+    var candidateTasks: [TaskDefinition] = []
+    var activeFocusTaskID: UUID?
+    var flippedFocusTaskID: UUID?
+    var selectedCardForSwapID: UUID?
+    var selectedMode: FocusNowMode = .currentSet
+    var assignedHeroImagesByTaskID: [UUID: TaskHeroImage] = [:]
+    var originalFocusTaskIDs: [UUID] = []
+    var pendingTimerDuration: Int?
+    var undoState: FocusUndoState?
+    var isShuffling = false
+    var isStartingFocus = false
+
+    var activeTask: TaskDefinition? {
+        if let activeFocusTaskID, let active = draftFocusTasks.first(where: { $0.id == activeFocusTaskID }) {
+            return active
+        }
+        return draftFocusTasks.first
+    }
+
+    var selectedTaskForSwap: TaskDefinition? {
+        guard let selectedCardForSwapID else { return nil }
+        return draftFocusTasks.first(where: { $0.id == selectedCardForSwapID })
+    }
+
+    mutating func syncFocusTasks(_ tasks: [TaskDefinition]) {
+        draftFocusTasks = Array(tasks.filter { !$0.isComplete }.prefix(3))
+        originalFocusTaskIDs = draftFocusTasks.map(\.id)
+        activeFocusTaskID = draftFocusTasks.first?.id
+        selectedCardForSwapID = nil
+        flippedFocusTaskID = nil
+        assignHeroImages()
+    }
+
+    mutating func syncCandidates(_ tasks: [TaskDefinition]) {
+        let selectedIDs = Set(draftFocusTasks.map(\.id))
+        candidateTasks = Array(tasks.filter { !selectedIDs.contains($0.id) }.prefix(6))
+    }
+
+    func hasUnsavedChanges(comparedTo tasks: [TaskDefinition]) -> Bool {
+        draftFocusTasks.map(\.id) != Array(tasks.filter { !$0.isComplete }.prefix(3)).map(\.id)
+    }
+
+    mutating func selectAndFlip(_ task: TaskDefinition) {
+        moveTaskToFront(task)
+        activeFocusTaskID = task.id
+        selectedCardForSwapID = task.id
+        flippedFocusTaskID = flippedFocusTaskID == task.id ? nil : task.id
+    }
+
+    mutating func quickSwap(_ task: TaskDefinition) -> Bool {
+        guard let candidate = candidateTasks.first else { return false }
+        replace(task, with: candidate)
+        return true
+    }
+
+    mutating func replace(_ oldTask: TaskDefinition, with newTask: TaskDefinition) {
+        guard let index = draftFocusTasks.firstIndex(where: { $0.id == oldTask.id }) else { return }
+        saveUndoState()
+        draftFocusTasks[index] = newTask
+        draftFocusTasks = deduplicatedTopThree(draftFocusTasks)
+        activeFocusTaskID = newTask.id
+        selectedCardForSwapID = newTask.id
+        flippedFocusTaskID = nil
+        candidateTasks.removeAll { $0.id == newTask.id }
+        if !candidateTasks.contains(where: { $0.id == oldTask.id }) {
+            candidateTasks.insert(oldTask, at: 0)
+        }
+        assignedHeroImagesByTaskID[newTask.id] = nil
+        assignHeroImages()
+    }
+
+    mutating func applyRefinedTasks(_ tasks: [TaskDefinition]) {
+        saveUndoState()
+        let previousDraft = draftFocusTasks
+        draftFocusTasks = deduplicatedTopThree(tasks)
+        activeFocusTaskID = draftFocusTasks.first?.id
+        selectedCardForSwapID = draftFocusTasks.first?.id
+        flippedFocusTaskID = nil
+        let selectedIDs = Set(draftFocusTasks.map(\.id))
+        let returnedCandidates = previousDraft.filter { !selectedIDs.contains($0.id) }
+        candidateTasks = Array((candidateTasks + returnedCandidates).filter { !selectedIDs.contains($0.id) }.prefix(6))
+        assignHeroImages()
+    }
+
+    mutating func beginShuffle() {
+        flippedFocusTaskID = nil
+        isShuffling = true
+    }
+
+    mutating func endShuffle() {
+        isShuffling = false
+    }
+
+    mutating func undoLastChange() {
+        guard let undoState else { return }
+        draftFocusTasks = undoState.tasks
+        candidateTasks = undoState.candidates
+        assignedHeroImagesByTaskID = undoState.assignedHeroImagesByTaskID
+        activeFocusTaskID = undoState.activeFocusTaskID ?? draftFocusTasks.first?.id
+        selectedCardForSwapID = undoState.selectedCardForSwapID
+        flippedFocusTaskID = nil
+        self.undoState = nil
+        assignHeroImages()
+    }
+
+    mutating func assignHeroImages() {
+        var resolver = TaskHeroImageResolver(existingAssignments: assignedHeroImagesByTaskID)
+        assignedHeroImagesByTaskID = resolver.assignImages(for: draftFocusTasks)
+    }
+
+    private mutating func moveTaskToFront(_ task: TaskDefinition) {
+        guard let index = draftFocusTasks.firstIndex(where: { $0.id == task.id }), index > 0 else { return }
+        draftFocusTasks.remove(at: index)
+        draftFocusTasks.insert(task, at: 0)
+        assignHeroImages()
+    }
+
+    private mutating func saveUndoState() {
+        undoState = FocusUndoState(
+            tasks: draftFocusTasks,
+            candidates: candidateTasks,
+            assignedHeroImagesByTaskID: assignedHeroImagesByTaskID,
+            activeFocusTaskID: activeFocusTaskID,
+            selectedCardForSwapID: selectedCardForSwapID
+        )
+    }
+}
+
+func deduplicatedTopThree(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
+    var seen = Set<UUID>()
+    var unique: [TaskDefinition] = []
+    for task in tasks where seen.insert(task.id).inserted {
+        unique.append(task)
+    }
+    return Array(unique.prefix(3))
 }
 
 struct FocusNowHeader: View {
@@ -389,7 +479,7 @@ struct FocusNowHeader: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(spacing: LBSpacingTokens.sm) {
+        VStack(spacing: 8) {
             HStack {
                 Button("Back", systemImage: "chevron.left", action: onClose)
                     .labelStyle(.iconOnly)
@@ -407,6 +497,7 @@ struct FocusNowHeader: View {
                 .font(.lifeboard(.title1).weight(.bold))
                 .foregroundStyle(LBColorTokens.navy)
                 .multilineTextAlignment(.center)
+                .padding(.top, -4)
 
             Text("Tap or swap until this set feels right.")
                 .font(.lifeboard(.callout))
@@ -458,6 +549,7 @@ struct FocusCardDeck: View {
     let tasks: [TaskDefinition]
     let activeTaskID: UUID?
     let flippedTaskID: UUID?
+    let selectedCardForSwapID: UUID?
     let assignedHeroImagesByTaskID: [UUID: TaskHeroImage]
     let insightProvider: (UUID) -> EvaFocusTaskInsight?
     let reduceMotion: Bool
@@ -468,30 +560,40 @@ struct FocusCardDeck: View {
     let onStartTimer: (TaskDefinition) -> Void
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(Array(tasks.prefix(3).enumerated()).reversed(), id: \.element.id) { index, task in
-                let hero = assignedHeroImagesByTaskID[task.id] ?? .genericClouds
-                FocusTaskCard(
-                    task: task,
-                    insight: insightProvider(task.id),
-                    heroImage: hero,
-                    isActive: activeTaskID == task.id || (activeTaskID == nil && index == 0),
-                    isFlipped: flippedTaskID == task.id,
-                    reduceMotion: reduceMotion,
-                    onTap: { onCardTap(task) },
-                    onFlipBack: onFlipBack,
-                    onQuickSwap: { onQuickSwap(task) },
-                    onViewDetails: { onViewDetails(task) },
-                    onStartTimer: { onStartTimer(task) }
-                )
-                .frame(width: max(248, 310 - CGFloat(index * 18)), height: 360)
-                .offset(x: CGFloat(index) * 34, y: CGFloat(index) * 18)
-                .scaleEffect(1 - CGFloat(index) * 0.045)
-                .zIndex(Double(10 - index))
-                .accessibilityIdentifier("focusNow.card.\(index)")
+        GeometryReader { proxy in
+            let availableWidth = proxy.size.width
+            let cardWidth = min(max(availableWidth * 0.56, 204), 292)
+            let cardHeight = min(max(cardWidth * 1.42, 292), 340)
+            let offsets = [0, cardWidth * 0.48, cardWidth * 0.86]
+            let totalWidth = offsets[min(tasks.prefix(3).count - 1, 2)] + cardWidth
+            let leadingInset = max(0, (availableWidth - totalWidth) / 2)
+
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(tasks.prefix(3).enumerated()).reversed(), id: \.element.id) { index, task in
+                    let hero = assignedHeroImagesByTaskID[task.id] ?? .genericClouds
+                    FocusTaskCard(
+                        task: task,
+                        insight: insightProvider(task.id),
+                        heroImage: hero,
+                        isActive: activeTaskID == task.id || (activeTaskID == nil && index == 0),
+                        isSelectedForSwap: selectedCardForSwapID == task.id,
+                        isFlipped: flippedTaskID == task.id,
+                        reduceMotion: reduceMotion,
+                        onTap: { onCardTap(task) },
+                        onFlipBack: onFlipBack,
+                        onQuickSwap: { onQuickSwap(task) },
+                        onViewDetails: { onViewDetails(task) },
+                        onStartTimer: { onStartTimer(task) }
+                    )
+                    .frame(width: cardWidth, height: cardHeight)
+                    .offset(x: leadingInset + offsets[index], y: CGFloat(index) * 10)
+                    .scaleEffect(1 - CGFloat(index) * 0.025, anchor: .topLeading)
+                    .zIndex(Double(10 - index))
+                    .accessibilityIdentifier("focusNow.card.\(index)")
+                }
             }
         }
-        .frame(height: 420)
+        .frame(height: 354)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }
@@ -502,6 +604,7 @@ struct FocusTaskCard: View {
     let insight: EvaFocusTaskInsight?
     let heroImage: TaskHeroImage
     let isActive: Bool
+    let isSelectedForSwap: Bool
     let isFlipped: Bool
     let reduceMotion: Bool
     let onTap: () -> Void
@@ -517,6 +620,7 @@ struct FocusTaskCard: View {
                     task: task,
                     insight: insight,
                     heroImage: heroImage,
+                    onTap: onTap,
                     onQuickSwap: onQuickSwap
                 )
                 .opacity(isFlipped ? 0 : 1)
@@ -534,6 +638,7 @@ struct FocusTaskCard: View {
                     task: task,
                     insight: insight,
                     heroImage: heroImage,
+                    onTap: onTap,
                     onQuickSwap: onQuickSwap
                 )
                 .rotation3DEffect(.degrees(isFlipped ? 90 : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.62)
@@ -551,11 +656,11 @@ struct FocusTaskCard: View {
             }
         }
         .shadow(color: heroImage.shadowColor.opacity(isActive ? 0.22 : 0.14), radius: isActive ? 24 : 16, x: 0, y: isActive ? 16 : 10)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(task.title). \(task.projectName ?? "Inbox"). \(insight?.rationale.first?.label ?? "Tap card for focus options.")")
-        .accessibilityHint("Tap card for focus options")
-        .accessibilityAddTraits(.isButton)
-        .onTapGesture(perform: onTap)
+        .overlay {
+            RoundedRectangle(cornerRadius: 28)
+                .stroke(isSelectedForSwap ? heroImage.accentColor.opacity(0.5) : Color.clear, lineWidth: 2)
+        }
+        .accessibilityElement(children: .contain)
         .animation(reduceMotion ? .easeInOut(duration: 0.16) : nil, value: isFlipped)
     }
 }
@@ -564,69 +669,64 @@ struct FocusTaskCardFront: View {
     let task: TaskDefinition
     let insight: EvaFocusTaskInsight?
     let heroImage: TaskHeroImage
+    let onTap: () -> Void
     let onQuickSwap: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top) {
-                    Image(systemName: task.iconSymbolName ?? heroImage.symbolName)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(heroImage.accentColor)
-                        .frame(width: 38, height: 38)
-                        .background(heroImage.tokenColor, in: Circle())
-                        .accessibilityHidden(true)
+        GeometryReader { proxy in
+            let topHeight = proxy.size.height * 0.52
+            let heroHeight = proxy.size.height * 0.34
+            let stripHeight = max(48, proxy.size.height * 0.14)
 
-                    Spacer()
+            VStack(alignment: .leading, spacing: 0) {
+                Button(action: onTap) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        topContent
+                            .frame(height: topHeight, alignment: .topLeading)
 
-                    Text(task.projectName ?? "Inbox")
-                        .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navySoft)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(heroImage.pillColor, in: Capsule())
+                        ZStack(alignment: .top) {
+                            Image(decorative: heroImage.assetName)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity)
+                                .frame(height: heroHeight)
+                                .clipped()
+
+                            LinearGradient(
+                                colors: [heroImage.surfaceColor.opacity(0.75), Color.clear],
+                                startPoint: .top,
+                                endPoint: .center
+                            )
+                        }
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Task. \(task.title). \(task.projectName ?? "Inbox"). \(summaryText). Double tap for focus options.")
 
-                Text(task.title)
-                    .font(.lifeboard(.title3).weight(.bold))
-                    .foregroundStyle(LBColorTokens.navy)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
+                Button(action: onQuickSwap) {
+                    HStack {
+                        Text("Tap to swap")
+                            .font(.lifeboard(.caption1).weight(.semibold))
+                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .lineLimit(1)
 
-                Text(summaryText)
-                    .font(.lifeboard(.callout))
-                    .foregroundStyle(LBColorTokens.navyMuted)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
+                        Spacer(minLength: 8)
 
-            Spacer(minLength: 0)
-
-            ZStack(alignment: .bottomTrailing) {
-                Image(heroImage.assetName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 152)
-                    .clipped()
-                    .accessibilityHidden(true)
-
-                LinearGradient(
-                    colors: [Color.white.opacity(0.34), Color.clear],
-                    startPoint: .top,
-                    endPoint: .center
-                )
-
-                Button("Swap task", systemImage: "arrow.triangle.2.circlepath", action: onQuickSwap)
-                    .labelStyle(.iconOnly)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(heroImage.accentColor)
-                    .frame(width: 48, height: 48)
-                    .background(ReflectPlanStyle.cream.opacity(0.92), in: Circle())
-                    .padding(12)
-                    .accessibilityIdentifier("focusNow.card.swap")
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(heroImage.accentColor)
+                            .frame(width: 42, height: 42)
+                            .background(ReflectPlanStyle.cream.opacity(0.94), in: Circle())
+                            .shadow(color: ReflectPlanStyle.shadow.opacity(0.7), radius: 8, x: 0, y: 4)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: stripHeight)
+                    .background(ReflectPlanStyle.cream.opacity(0.82))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Swap this task.")
+                .accessibilityIdentifier("focusNow.card.swap")
             }
         }
         .background(heroImage.surfaceColor, in: RoundedRectangle(cornerRadius: 28))
@@ -637,8 +737,41 @@ struct FocusTaskCardFront: View {
         .clipShape(RoundedRectangle(cornerRadius: 28))
     }
 
+    private var topContent: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Image(systemName: task.iconSymbolName ?? heroImage.symbolName)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(heroImage.accentColor)
+                .frame(width: 44, height: 44)
+                .background(heroImage.tokenColor, in: Circle())
+                .accessibilityHidden(true)
+
+            Text(task.title)
+                .font(.lifeboard(.headline).weight(.bold))
+                .foregroundStyle(LBColorTokens.navy)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(summaryText)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(LBColorTokens.navyMuted)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(task.projectName ?? "Inbox")
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(heroImage.accentColor)
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(heroImage.pillColor, in: Capsule())
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var summaryText: String {
-        insight?.rationale.first?.label ?? "Make progress on what matters."
+        FocusTaskReasonResolver.reason(for: task, insight: insight)
     }
 }
 
@@ -668,7 +801,7 @@ struct FocusTaskCardBack: View {
                     .font(.lifeboard(.title2).weight(.bold))
                     .foregroundStyle(LBColorTokens.navy)
 
-                Text("Review the task or start a timer.")
+                Text("Review the task or start a focused block.")
                     .font(.lifeboard(.callout))
                     .foregroundStyle(LBColorTokens.navyMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -741,6 +874,7 @@ struct FocusModeSegmentedControl: View {
 struct CandidateSection: View {
     let candidates: [TaskDefinition]
     let selectedMode: FocusNowMode
+    let isShuffling: Bool
     let insightProvider: (UUID) -> EvaFocusTaskInsight?
     let onCandidateTap: (TaskDefinition) -> Void
     let onSwapTap: (TaskDefinition) -> Void
@@ -782,6 +916,9 @@ struct CandidateSection: View {
                         }
                     }
                 }
+                .redacted(reason: isShuffling ? .placeholder : [])
+                .opacity(isShuffling ? 0.74 : 1)
+                .animation(.easeInOut(duration: 0.18), value: isShuffling)
                 .background(ReflectPlanStyle.cream.opacity(0.9), in: RoundedRectangle(cornerRadius: 22))
                 .overlay {
                     RoundedRectangle(cornerRadius: 22).stroke(ReflectPlanStyle.peachBorder.opacity(0.58), lineWidth: 1)
@@ -798,55 +935,74 @@ struct CandidateTaskRow: View {
     let onSwapTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                Image(systemName: task.iconSymbolName ?? "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.role(.focus).deep)
-                    .frame(width: 36, height: 36)
-                    .background(ReflectPlanStyle.blueSurface, in: Circle())
+        HStack(spacing: 12) {
+            Button(action: onTap) {
+                HStack(spacing: 12) {
+                    iconToken
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(task.title)
-                        .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
-                        .lineLimit(2)
-                    Text(insight?.rationale.first?.label ?? "Make progress on what matters.")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(LBColorTokens.navyMuted)
-                        .lineLimit(2)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(task.title)
+                            .font(.lifeboard(.callout).weight(.semibold))
+                            .foregroundStyle(LBColorTokens.navy)
+                            .lineLimit(2)
+                        Text(summaryText)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 0)
                 }
-
-                Spacer(minLength: 0)
-
-                Button("Swap into Focus Now", systemImage: "arrow.triangle.2.circlepath", action: onSwapTap)
-                    .labelStyle(.iconOnly)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(LBColorTokens.navyMuted)
-                    .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(task.title). \(summaryText).")
+            .accessibilityHint("Double tap to swap into Focus Now.")
+
+            Button("Swap into Focus Now", systemImage: "arrow.triangle.2.circlepath", action: onSwapTap)
+                .labelStyle(.iconOnly)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(LBColorTokens.navyMuted)
+                .frame(width: 44, height: 44)
+                .background(ReflectPlanStyle.blueSurface.opacity(0.52), in: Circle())
+                .accessibilityLabel("Swap into Focus Now")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(task.title). \(insight?.rationale.first?.label ?? "Swap into Focus Now").")
-        .accessibilityHint("Double tap to swap into Focus Now.")
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private var iconToken: some View {
+        Group {
+            let hero = TaskHeroImageResolver().preferredImages(for: task).first ?? .genericClouds
+            Image(systemName: task.iconSymbolName ?? hero.symbolName)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(hero.accentColor)
+                .frame(width: 38, height: 38)
+                .background(hero.tokenColor, in: Circle())
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var summaryText: String {
+        FocusTaskReasonResolver.reason(for: task, insight: insight)
     }
 }
 
 struct ShuffleAgainCard: View {
+    let isShuffling: Bool
     let isDisabled: Bool
     let onShuffle: () -> Void
 
     var body: some View {
         Button(action: onShuffle) {
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
                 Image(systemName: "shuffle")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(LBColorTokens.violetDeep)
-                    .frame(width: 42, height: 42)
-                    .background(LBColorTokens.violetSoft, in: Circle())
+                    .frame(width: 48, height: 48)
+                    .background(ReflectPlanStyle.cream.opacity(0.9), in: Circle())
+                    .rotationEffect(.degrees(isShuffling ? 360 : 0))
+                    .animation(.easeInOut(duration: 0.42), value: isShuffling)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Shuffle Again")
@@ -859,9 +1015,20 @@ struct ShuffleAgainCard: View {
 
                 Spacer()
             }
-            .padding(14)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 22))
+            .background(
+                LinearGradient(
+                    colors: [
+                        ReflectPlanStyle.cream.opacity(0.94),
+                        Color(lifeboardHex: "#FFF1EA").opacity(0.86),
+                        Color(lifeboardHex: "#F7F1FF").opacity(0.78)
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ),
+                in: RoundedRectangle(cornerRadius: 22)
+            )
             .overlay {
                 RoundedRectangle(cornerRadius: 22).stroke(ReflectPlanStyle.peachBorder.opacity(0.58), lineWidth: 1)
             }
@@ -874,31 +1041,64 @@ struct ShuffleAgainCard: View {
 
 struct FocusBottomActions: View {
     let canStart: Bool
+    let isStarting: Bool
     let onStartFocus: () -> Void
     let onRefineSet: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
             Button(action: onStartFocus) {
-                Label("Start focus", systemImage: "play.fill")
-                    .font(.lifeboard(.bodyEmphasis))
-                    .foregroundStyle(Color.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 58)
-                    .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
+                HStack(spacing: 12) {
+                    Image(systemName: isStarting ? "hourglass" : "play.fill")
+                        .font(.system(size: 17, weight: .bold))
+                        .frame(width: 48, height: 48)
+                        .background(Color.white.opacity(0.14), in: Circle())
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(isStarting ? "Starting..." : "Start focus")
+                            .font(.lifeboard(.bodyEmphasis))
+                        Text("Lock in and get going")
+                            .font(.lifeboard(.caption1))
+                            .opacity(0.82)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(Color.white)
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 74)
+                .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 20))
             }
             .buttonStyle(.plain)
-            .disabled(!canStart)
+            .disabled(!canStart || isStarting)
+            .accessibilityLabel("Start focus. Lock in and get going.")
 
             Button(action: onRefineSet) {
-                Label("Refine set", systemImage: "slider.horizontal.3")
-                    .font(.lifeboard(.bodyEmphasis))
-                    .foregroundStyle(LBColorTokens.navy)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 58)
-                    .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 18))
+                HStack(spacing: 12) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 48, height: 48)
+                        .background(ReflectPlanStyle.peachSurfaceStrong, in: Circle())
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Refine set")
+                            .font(.lifeboard(.bodyEmphasis))
+                        Text("Adjust until it's right")
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(LBColorTokens.navyMuted)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(LBColorTokens.navy)
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 74)
+                .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 20))
             }
             .buttonStyle(.plain)
+            .disabled(isStarting)
         }
     }
 }
@@ -911,6 +1111,7 @@ struct RefineFocusSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedIDs: [UUID]
+    @State private var pendingReplacementTask: TaskDefinition?
 
     private var allTasks: [TaskDefinition] {
         var seen = Set<UUID>()
@@ -935,12 +1136,14 @@ struct RefineFocusSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Refine set")
+                        Text("Refine Focus Now")
                             .font(.lifeboard(.title2).weight(.bold))
                             .foregroundStyle(LBColorTokens.navy)
                         Text("Choose up to three tasks for this focus block.")
                             .font(.lifeboard(.callout))
                             .foregroundStyle(LBColorTokens.navyMuted)
+                        SelectedCountPill(count: selectedIDs.count)
+                            .padding(.top, 4)
                     }
 
                     VStack(spacing: 0) {
@@ -960,26 +1163,57 @@ struct RefineFocusSheet: View {
             }
             .background(ReflectPlanStyle.canvas.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) {
-                Button("Apply \(selectedIDs.count) selected") {
-                    let selectedTasks = selectedIDs.compactMap { id in
-                        allTasks.first(where: { $0.id == id })
+                HStack(spacing: 10) {
+                    Button("Cancel", role: .cancel) {
+                        dismiss()
                     }
-                    onApply(selectedTasks)
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundStyle(LBColorTokens.navy)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 54)
+                    .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 18))
+
+                    Button("Done") {
+                        let selectedTasks = selectedIDs.compactMap { id in
+                            allTasks.first(where: { $0.id == id })
+                        }
+                        onApply(selectedTasks)
+                    }
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 54)
+                    .background(selectedIDs.isEmpty ? LBColorTokens.navyMuted.opacity(0.48) : LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
+                    .disabled(selectedIDs.isEmpty)
                 }
-                .font(.lifeboard(.bodyEmphasis))
-                .foregroundStyle(Color.white)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 54)
-                .background(selectedIDs.isEmpty ? LBColorTokens.navyMuted.opacity(0.48) : LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
-                .disabled(selectedIDs.isEmpty)
                 .padding(16)
                 .background(ReflectPlanStyle.canvas)
             }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+            .confirmationDialog(
+                "Replace which task?",
+                isPresented: Binding(
+                    get: { pendingReplacementTask != nil },
+                    set: { if !$0 { pendingReplacementTask = nil } }
+                ),
+                titleVisibility: .visible,
+                actions: {
+                    if let pendingReplacementTask {
+                        ForEach(selectedIDs, id: \.self) { selectedID in
+                            if let selectedTask = allTasks.first(where: { $0.id == selectedID }) {
+                                Button(selectedTask.title) {
+                                    replace(selectedTask, with: pendingReplacementTask)
+                                }
+                            }
+                        }
+                    }
+                    Button("Cancel", role: .cancel) {
+                        pendingReplacementTask = nil
+                    }
+                },
+                message: {
+                    Text("Choose the focus task to swap out.")
                 }
-            }
+            )
         }
     }
 
@@ -1023,7 +1257,15 @@ struct RefineFocusSheet: View {
             selectedIDs.remove(at: index)
         } else if selectedIDs.count < 3 {
             selectedIDs.append(task.id)
+        } else {
+            pendingReplacementTask = task
         }
+    }
+
+    private func replace(_ oldTask: TaskDefinition, with newTask: TaskDefinition) {
+        guard let index = selectedIDs.firstIndex(of: oldTask.id) else { return }
+        selectedIDs[index] = newTask.id
+        pendingReplacementTask = nil
     }
 }
 
@@ -1140,6 +1382,7 @@ struct FocusTaskDetailSheet: View {
 struct FocusDurationPickerSheet: View {
     let task: TaskDefinition
     @Binding var selectedDurationSeconds: Int
+    let isStarting: Bool
     let onStart: (Int) -> Void
     @State private var customMinutes = ""
 
@@ -1191,14 +1434,63 @@ struct FocusDurationPickerSheet: View {
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 54)
                 .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
+                .disabled(isStarting)
             }
             .padding(18)
             .background(ReflectPlanStyle.canvas.ignoresSafeArea())
         }
+        .accessibilityLabel("Choose focus timer duration.")
     }
 
     private var startTitle: String {
-        "Start \(FocusDurationStore.label(for: selectedDurationSeconds)) focus"
+        isStarting ? "Starting focus" : "Start \(FocusDurationStore.label(for: selectedDurationSeconds)) focus"
+    }
+}
+
+struct FocusTaskReasonResolver {
+    static func reason(for task: TaskDefinition, insight: EvaFocusTaskInsight?) -> String {
+        if let label = insight?.rationale.first?.label.trimmingCharacters(in: .whitespacesAndNewlines),
+           label.isEmpty == false,
+           label != "Make progress on what matters." {
+            return label
+        }
+
+        let text = searchableText(for: task)
+        if text.containsAny(["read", "book", "study", "learn", "pages"]) {
+            return "Recharge while you learn."
+        }
+        if text.containsAny(["run", "walk", "workout", "exercise", "movement", "move", "wellness", "body", "stretch", "gym"]) {
+            return "Move your body, reset your energy."
+        }
+        if text.containsAny(["meditate", "mindful", "calm", "breathe", "breathing", "journal"]) {
+            return "Create a quiet reset before the next push."
+        }
+        if text.containsAny(["cool off", "recover", "recovery", "break", "pause", "recharge", "decompress", "breather"]) {
+            return "Give your brain a breather."
+        }
+        if text.containsAny(["plan", "schedule", "calendar", "tomorrow", "morning", "setup"]) {
+            return "Create a planned day before it starts."
+        }
+        if text.containsAny(["write", "draft", "admin", "paper", "note", "review", "document", "investor", "update", "meeting"]) {
+            return "Clarify the next update while context is fresh."
+        }
+        if text.containsAny(["deep work", "focus", "block", "ship", "build", "code"]) {
+            return "Protect your most important time."
+        }
+        return "Keep today narrow and move one useful thing forward."
+    }
+
+    private static func searchableText(for task: TaskDefinition) -> String {
+        [
+            task.title,
+            task.projectName ?? "",
+            task.details ?? "",
+            String(describing: task.category),
+            String(describing: task.context),
+            String(describing: task.energy)
+        ]
+        .joined(separator: " ")
+        .lowercased()
     }
 }
 
@@ -1297,16 +1589,19 @@ struct TaskHeroImageResolver {
         .joined(separator: " ")
         .lowercased()
 
+        if text.containsAny(["run", "walk", "workout", "exercise", "movement", "move", "wellness", "body", "stretch", "gym", "hike"]) {
+            return [.greenPath, .meditation, .genericClouds]
+        }
         if text.containsAny(["plan", "schedule", "calendar", "tomorrow", "morning", "setup"]) {
             return [.sunrisePath, .deskNotebook, .genericClouds]
         }
-        if text.containsAny(["write", "draft", "admin", "paper", "note", "review", "document", "inbox", "meeting"]) {
+        if text.containsAny(["write", "draft", "admin", "paper", "note", "review", "document", "inbox", "meeting", "investor", "update"]) {
             return [.deskNotebook, .sunrisePath, .genericClouds]
         }
-        if text.containsAny(["walk", "workout", "move", "movement", "wellness", "body", "chore"]) {
-            return [.greenPath, .meditation, .genericClouds]
+        if text.containsAny(["meditate", "mindful", "calm", "breathe", "breathing", "reflect", "journal"]) {
+            return [.meditation, .recoveryLake, .genericClouds]
         }
-        if text.containsAny(["recover", "cool", "break", "pause", "recharge", "reflect", "calm", "decompress"]) {
+        if text.containsAny(["recover", "cool", "cool off", "break", "pause", "recharge", "decompress", "breather"]) {
             return [.recoveryLake, .meditation, .genericClouds]
         }
         if text.containsAny(["deep work", "focus", "block", "ship", "build", "code"]) {
