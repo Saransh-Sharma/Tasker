@@ -141,108 +141,72 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
     }
 
     /// Executes make.
-    public static func make(palette: LifeBoardBrandPalette) -> LifeBoardColorTokens {
-        let bgCanvas = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk0 : palette.neutralIvory
-        }
-        let bgCanvasSecondary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : palette.neutralCream
-        }
-        let bgElevated = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : UIColor(lifeboardHex: "#FFFCF8")
-        }
-
-        let surfacePrimary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : UIColor(lifeboardHex: "#FFFCF8")
-        }
-        let surfaceSecondary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk2 : palette.neutralCream
-        }
-        let surfaceTertiary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk3 : palette.neutralMist
-        }
-
-        let divider = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkBorder1 : palette.neutralMist
-        }
-        let strokeHairline = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkBorder1 : palette.neutralStone
-        }
-        let strokeStrong = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkBorder2 : palette.neutralSandGray
-        }
-
-        let textPrimary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkText1 : palette.neutralInk
-        }
-        let textSecondary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkText2 : palette.neutralUmber
-        }
-        let textTertiary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkText3 : UIColor(lifeboardHex: "#6A594B")
-        }
-        let textQuaternary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkDisabled : UIColor(lifeboardHex: "#A19386")
-        }
-        let textInverse = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk0 : palette.neutralIvory
-        }
-
-        let actionPrimary = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.brandMarigold : palette.brandEmerald
-        }
-        let actionPrimaryPressed = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(lifeboardHex: "#E2A81E") : UIColor(lifeboardHex: "#223114")
-        }
-        let accentMuted = UIColor { traits in
-            if traits.userInterfaceStyle == .dark {
-                return palette.brandMarigold.withAlphaComponent(0.14)
+    public static func make(palette _: LifeBoardBrandPalette) -> LifeBoardColorTokens {
+        func adaptive(
+            light: String,
+            dark: String,
+            lightAlpha: CGFloat = 1,
+            darkAlpha: CGFloat = 1
+        ) -> UIColor {
+            UIColor { traits in
+                let color = traits.userInterfaceStyle == .dark ? dark : light
+                let alpha = traits.userInterfaceStyle == .dark ? darkAlpha : lightAlpha
+                return UIColor(lifeboardHex: color).withAlphaComponent(alpha)
             }
-            return palette.brandEmerald.withAlphaComponent(0.12)
-        }
-        let accentWash = UIColor { traits in
-            if traits.userInterfaceStyle == .dark {
-                return palette.brandMarigold.withAlphaComponent(0.10)
-            }
-            return palette.brandEmerald.withAlphaComponent(0.08)
-        }
-        let accentRing = UIColor { traits in
-            let base = traits.userInterfaceStyle == .dark ? palette.brandMagenta : palette.brandEmerald
-            return base.withAlphaComponent(traits.userInterfaceStyle == .dark ? 0.36 : 0.28)
         }
 
-        let accentSecondary = palette.brandMagenta
-        let accentSecondaryPressed = UIColor(lifeboardHex: "#8F184B")
-        let accentSecondaryMuted = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.brandMagenta.withAlphaComponent(0.18) : palette.brandMagenta.withAlphaComponent(0.10)
-        }
-        let accentSecondaryWash = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? palette.brandMagenta.withAlphaComponent(0.10) : palette.brandMagenta.withAlphaComponent(0.08)
-        }
+        let navy = adaptive(light: "#071B52", dark: "#F7F1E7")
+        let navyMuted = adaptive(light: "#48607F", dark: "#C9D2E3")
+        let textTertiary = adaptive(light: "#7A8BA5", dark: "#9DAAC2")
+        let violet = adaptive(light: "#6842FF", dark: "#A890FF")
+        let violetPressed = adaptive(light: "#4F2CFF", dark: "#C3B5FF")
+        let violetSoft = adaptive(light: "#EEE9FF", dark: "#29243F")
+        let gold = adaptive(light: "#FFB300", dark: "#FFD36A")
+        let leaf = adaptive(light: "#28B53F", dark: "#6EE581")
+        let sky = adaptive(light: "#2F8CFF", dark: "#78B7FF")
+        let coral = adaptive(light: "#FF7A3D", dark: "#FF9A70")
+        let rose = adaptive(light: "#F64F95", dark: "#FF89B8")
 
-        let statusSuccess = palette.brandEmerald
-        let statusWarning = palette.brandMarigold
-        let statusDanger = palette.brandRed
-        let stateInfo = palette.brandSandstone
+        let bgCanvas = adaptive(light: "#FFFDFC", dark: "#080C17")
+        let bgCanvasSecondary = adaptive(light: "#FFF8EF", dark: "#10101A")
+        let bgElevated = adaptive(light: "#F7FBFF", dark: "#111827")
 
-        let priorityMax = palette.brandRed
-        let priorityHigh = palette.brandMagenta
-        let priorityLow = palette.brandEmerald
-        let priorityNone = palette.brandSandstone
+        let surfacePrimary = adaptive(light: "#FFFFFF", dark: "#171C2B", lightAlpha: 0.92, darkAlpha: 0.88)
+        let surfaceSecondary = adaptive(light: "#F8FAFF", dark: "#20263A", lightAlpha: 0.90, darkAlpha: 0.84)
+        let surfaceTertiary = adaptive(light: "#FFF7DF", dark: "#292414", lightAlpha: 0.82, darkAlpha: 0.80)
 
-        let overlayScrim = UIColor { traits in
-            if traits.userInterfaceStyle == .dark {
-                return UIColor.black.withAlphaComponent(0.54)
-            }
-            return UIColor(lifeboardHex: "#221B13").withAlphaComponent(0.20)
-        }
+        let divider = adaptive(light: "#E7ECF5", dark: "#30384C")
+        let strokeHairline = adaptive(light: "#DDE3EE", dark: "#3A4258")
+        let strokeStrong = adaptive(light: "#B9C7DC", dark: "#56617B")
 
-        let overlayGlassTint = UIColor { traits in
-            if traits.userInterfaceStyle == .dark {
-                return palette.neutralDarkInk2.withAlphaComponent(0.82)
-            }
-            return palette.neutralIvory.withAlphaComponent(0.88)
-        }
+        let textPrimary = navy
+        let textSecondary = navyMuted
+        let textQuaternary = adaptive(light: "#9AA8BA", dark: "#7E8AA2")
+        let textInverse = adaptive(light: "#FFFFFF", dark: "#071B52")
+
+        let actionPrimary = violet
+        let actionPrimaryPressed = violetPressed
+        let accentMuted = adaptive(light: "#EEE9FF", dark: "#29243F", lightAlpha: 0.74, darkAlpha: 0.88)
+        let accentWash = adaptive(light: "#F6F2FF", dark: "#231D3B", lightAlpha: 0.82, darkAlpha: 0.84)
+        let accentRing = adaptive(light: "#6842FF", dark: "#A890FF", lightAlpha: 0.28, darkAlpha: 0.38)
+
+        let accentSecondary = gold
+        let accentSecondaryPressed = adaptive(light: "#D88900", dark: "#FFE0A0")
+        let accentSecondaryMuted = adaptive(light: "#FFF7DF", dark: "#332611", lightAlpha: 0.92, darkAlpha: 0.84)
+        let accentSecondaryWash = adaptive(light: "#FFF9EC", dark: "#292414", lightAlpha: 0.82, darkAlpha: 0.82)
+
+        let statusSuccess = leaf
+        let statusWarning = gold
+        let statusDanger = coral
+        let stateInfo = sky
+
+        let priorityMax = coral
+        let priorityHigh = rose
+        let priorityLow = leaf
+        let priorityNone = textTertiary
+
+        let overlayScrim = adaptive(light: "#071B52", dark: "#000000", lightAlpha: 0.18, darkAlpha: 0.54)
+        let overlayGlassTint = adaptive(light: "#FFFFFF", dark: "#171C2B", lightAlpha: 0.88, darkAlpha: 0.86)
 
         return LifeBoardColorTokens(
             bgCanvas: bgCanvas,
@@ -251,9 +215,9 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
             surfacePrimary: surfacePrimary,
             surfaceSecondary: surfaceSecondary,
             surfaceTertiary: surfaceTertiary,
-            brandPrimary: palette.brandEmerald,
-            brandSecondary: palette.brandMagenta,
-            brandHighlight: palette.brandMarigold,
+            brandPrimary: navy,
+            brandSecondary: violet,
+            brandHighlight: gold,
             actionPrimary: actionPrimary,
             actionPrimaryPressed: actionPrimaryPressed,
             actionFocus: accentRing,
@@ -287,9 +251,9 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
             overlayGlassTint: overlayGlassTint,
             taskCheckboxBorder: textTertiary,
             taskCheckboxFill: actionPrimary,
-            taskOverdue: UIColor(lifeboardHex: "#B13126"),
-            chartPrimary: palette.brandEmerald,
-            chartSecondary: palette.brandMarigold,
+            taskOverdue: adaptive(light: "#FFF0E8", dark: "#351F17"),
+            chartPrimary: leaf,
+            chartSecondary: sky,
             chipSelectedBackground: accentWash,
             chipUnselectedBackground: surfaceSecondary,
             priorityMax: priorityMax,
