@@ -33,49 +33,22 @@ public enum InsightsActionIntent: Equatable, Sendable {
 }
 
 public enum InsightsActionSource: Equatable {
-    case hero(tab: InsightsViewModel.InsightsTab, availability: InsightsAvailabilityState, primaryCTATitle: String)
+    case hero(tab: InsightsViewModel.InsightsTab, availability: InsightsAvailabilityState, primaryCTAIntent: InsightsActionIntent)
     case card(tab: InsightsViewModel.InsightsTab, id: String)
 }
 
 public enum InsightsActionResolver {
     public static func intent(for source: InsightsActionSource) -> InsightsActionIntent {
         switch source {
-        case .hero(let tab, let availability, let primaryCTATitle):
-            return heroIntent(tab: tab, availability: availability, primaryCTATitle: primaryCTATitle)
+        case .hero(_, _, let primaryCTAIntent):
+            return heroIntent(primaryCTAIntent: primaryCTAIntent)
         case .card(let tab, let id):
             return cardIntent(tab: tab, id: id)
         }
     }
 
-    private static func heroIntent(
-        tab: InsightsViewModel.InsightsTab,
-        availability: InsightsAvailabilityState,
-        primaryCTATitle: String
-    ) -> InsightsActionIntent {
-        let normalizedTitle = primaryCTATitle.lowercased()
-        if normalizedTitle.contains("add") {
-            return .addTask
-        }
-
-        switch tab {
-        case .today:
-            switch availability {
-            case .empty:
-                return .addTask
-            case .partial:
-                return .openToday
-            case .rich:
-                return normalizedTitle.contains("momentum") ? .protectFocus : .startNextDecision
-            }
-        case .week:
-            return normalizedTitle.contains("backlog") || normalizedTitle.contains("clean")
-                ? .openBacklogRecovery
-                : .expandDetails(.weeklyRhythm)
-        case .systems:
-            return normalizedTitle.contains("reminder") || normalizedTitle.contains("tune")
-                ? .openReminderSettings
-                : .openWeeklyPlanner
-        }
+    private static func heroIntent(primaryCTAIntent: InsightsActionIntent) -> InsightsActionIntent {
+        primaryCTAIntent
     }
 
     private static func cardIntent(
@@ -129,6 +102,7 @@ struct InsightsDiagnosisPresentation: Equatable {
     let role: LBRole
     let asset: SunriseDecorAsset
     let primaryCTATitle: String
+    let primaryCTAIntent: InsightsActionIntent
 }
 
 struct InsightsMetricPresentation: Identifiable, Equatable {
@@ -193,25 +167,33 @@ struct InsightsTabPresentation: Equatable {
             availability = .rich
         }
 
-        let staleDetail = state.duePressureMetrics.first?.detail ?? "Open loops are ready for a decision."
+        let staleDetail = state.duePressureMetrics.first?.detail ?? String(localized: "insights.today.duePressure.fallback", defaultValue: "Open loops are ready for a decision.")
         let diagnosisTitle: String
         let diagnosisExplanation: String
         let ctaTitle: String
+        let ctaIntent: InsightsActionIntent
         switch availability {
         case .empty:
-            diagnosisTitle = "No signal yet"
-            diagnosisExplanation = "Add a task, habit, or calendar connection to unlock useful progress insights."
-            ctaTitle = "Add task"
+            diagnosisTitle = String(localized: "insights.today.diagnosis.empty.title", defaultValue: "No signal yet")
+            diagnosisExplanation = String(localized: "insights.today.diagnosis.empty.explanation", defaultValue: "Add a task, habit, or calendar connection to unlock useful progress insights.")
+            ctaTitle = String(localized: "insights.today.diagnosis.empty.cta", defaultValue: "Add task")
+            ctaIntent = .addTask
         case .partial:
-            diagnosisTitle = "A pattern is starting"
-            diagnosisExplanation = "LifeBoard has enough activity to guide the next move, but not enough completions to call it a trend."
-            ctaTitle = "Open today"
+            diagnosisTitle = String(localized: "insights.today.diagnosis.partial.title", defaultValue: "A pattern is starting")
+            diagnosisExplanation = String(localized: "insights.today.diagnosis.partial.explanation", defaultValue: "LifeBoard has enough activity to guide the next move, but not enough completions to call it a trend.")
+            ctaTitle = String(localized: "insights.today.diagnosis.partial.cta", defaultValue: "Open today")
+            ctaIntent = .openToday
         case .rich:
-            diagnosisTitle = openCount > 0 ? "Pressure is visible." : "Momentum is visible."
+            diagnosisTitle = openCount > 0
+                ? String(localized: "insights.today.diagnosis.rich.pressure.title", defaultValue: "Pressure is visible.")
+                : String(localized: "insights.today.diagnosis.rich.momentum.title", defaultValue: "Momentum is visible.")
             diagnosisExplanation = openCount > 0
-                ? "Next: clear or reschedule the oldest open loop."
-                : "Next: protect the progress already made today."
-            ctaTitle = openCount > 0 ? "Review today" : "Keep momentum"
+                ? String(localized: "insights.today.diagnosis.rich.pressure.explanation", defaultValue: "Next: clear or reschedule the oldest open loop.")
+                : String(localized: "insights.today.diagnosis.rich.momentum.explanation", defaultValue: "Next: protect the progress already made today.")
+            ctaTitle = openCount > 0
+                ? String(localized: "insights.today.diagnosis.rich.pressure.cta", defaultValue: "Review today")
+                : String(localized: "insights.today.diagnosis.rich.momentum.cta", defaultValue: "Keep momentum")
+            ctaIntent = openCount > 0 ? .startNextDecision : .protectFocus
         }
 
         let overdueCount = Int(state.duePressureMetrics.first(where: { $0.id == "overdue" })?.value ?? "") ?? 0
@@ -220,19 +202,24 @@ struct InsightsTabPresentation: Equatable {
             ? [
                 InsightsActionPresentation(
                     id: "overdueRescue",
-                    title: "Overdue Rescue",
-                    message: "Tasks need your attention · \(overdueCount) overdue · Est. \(estimatedMinutes) min",
+                    title: String(localized: "insights.today.action.overdueRescue.title", defaultValue: "Overdue Rescue"),
+                    message: String(
+                        format: String(localized: "insights.today.action.overdueRescue.message", defaultValue: "Tasks need your attention · %lld overdue · Est. %lld min"),
+                        locale: Locale.current,
+                        overdueCount,
+                        estimatedMinutes
+                    ),
                     systemImage: "lifepreserver",
                     role: .warning,
-                    ctaTitle: "Start rescue"
+                    ctaTitle: String(localized: "insights.today.action.overdueRescue.cta", defaultValue: "Start rescue")
                 )
             ]
             : []
         let todayActions = overdueRescueAction + [
-            InsightsActionPresentation(id: "nextDecision", title: "Next decision", message: firstDetail(from: state.duePressureMetrics, fallback: "Choose one task to remove from today."), systemImage: "exclamationmark.arrow.triangle.2.circlepath", role: .warning, ctaTitle: "Choose next task"),
-            InsightsActionPresentation(id: "protectFocus", title: "Protect focus", message: firstDetail(from: state.focusMetrics, fallback: momentumGuidanceText), systemImage: "sparkles", role: .focus, ctaTitle: "Plan focus block"),
-            InsightsActionPresentation(id: "habitCheck", title: "Habit check", message: firstDetail(from: state.recoveryMetrics, fallback: "Update the smallest pending habit signal."), systemImage: "checkmark.seal", role: .routine, ctaTitle: "Update habits"),
-            InsightsActionPresentation(id: "yesterdayReview", title: "Yesterday review", message: firstDetail(from: state.momentumMetrics, fallback: "Review carry-over and keep tomorrow tight."), systemImage: "arrow.uturn.backward.circle", role: .assistant, ctaTitle: "Review carry-over")
+            InsightsActionPresentation(id: "nextDecision", title: String(localized: "insights.today.action.nextDecision.title", defaultValue: "Next decision"), message: firstDetail(from: state.duePressureMetrics, fallback: String(localized: "insights.today.action.nextDecision.fallback", defaultValue: "Choose one task to remove from today.")), systemImage: "exclamationmark.arrow.triangle.2.circlepath", role: .warning, ctaTitle: String(localized: "insights.today.action.nextDecision.cta", defaultValue: "Choose next task")),
+            InsightsActionPresentation(id: "protectFocus", title: String(localized: "insights.today.action.protectFocus.title", defaultValue: "Protect focus"), message: firstDetail(from: state.focusMetrics, fallback: momentumGuidanceText), systemImage: "sparkles", role: .focus, ctaTitle: String(localized: "insights.today.action.protectFocus.cta", defaultValue: "Plan focus block")),
+            InsightsActionPresentation(id: "habitCheck", title: String(localized: "insights.today.action.habitCheck.title", defaultValue: "Habit check"), message: firstDetail(from: state.recoveryMetrics, fallback: String(localized: "insights.today.action.habitCheck.fallback", defaultValue: "Update the smallest pending habit signal.")), systemImage: "checkmark.seal", role: .routine, ctaTitle: String(localized: "insights.today.action.habitCheck.cta", defaultValue: "Update habits")),
+            InsightsActionPresentation(id: "yesterdayReview", title: String(localized: "insights.today.action.yesterdayReview.title", defaultValue: "Yesterday review"), message: firstDetail(from: state.momentumMetrics, fallback: String(localized: "insights.today.action.yesterdayReview.fallback", defaultValue: "Review carry-over and keep tomorrow tight.")), systemImage: "arrow.uturn.backward.circle", role: .assistant, ctaTitle: String(localized: "insights.today.action.yesterdayReview.cta", defaultValue: "Review carry-over"))
         ]
 
         return InsightsTabPresentation(
@@ -242,21 +229,28 @@ struct InsightsTabPresentation: Equatable {
             diagnosis: InsightsDiagnosisPresentation(
                 title: diagnosisTitle,
                 explanation: diagnosisExplanation,
-                evidence: "\(state.tasksCompletedToday) done - \(openCount) open - \(staleDetail)",
+                evidence: String(
+                    format: String(localized: "insights.today.diagnosis.evidence", defaultValue: "%lld done - %lld open - %@"),
+                    locale: Locale.current,
+                    state.tasksCompletedToday,
+                    openCount,
+                    staleDetail
+                ),
                 role: openCount > 0 ? .warning : .focus,
                 asset: openCount > 0 ? .happySun : .growthPlant,
-                primaryCTATitle: ctaTitle
+                primaryCTATitle: ctaTitle,
+                primaryCTAIntent: ctaIntent
             ),
             metrics: [
-                InsightsMetricPresentation(id: "closed", label: "Closed", value: "\(state.tasksCompletedToday)", detail: "Done today", role: .task, systemImage: "checkmark.circle"),
-                InsightsMetricPresentation(id: "focus", label: "Focus", value: metricValue(from: state.focusMetrics, fallback: "0m"), detail: firstDetail(from: state.focusMetrics, fallback: momentumGuidanceText), role: .focus, systemImage: "target"),
-                InsightsMetricPresentation(id: "habits", label: "Habits", value: "\(state.recoveryCount)", detail: "Recovery signals", role: .routine, systemImage: "repeat.circle"),
-                InsightsMetricPresentation(id: "open", label: "Open", value: "\(openCount)", detail: "Still active", role: openCount > 0 ? .warning : .task, systemImage: "tray")
+                InsightsMetricPresentation(id: "closed", label: String(localized: "insights.today.metric.closed.label", defaultValue: "Closed"), value: "\(state.tasksCompletedToday)", detail: String(localized: "insights.today.metric.closed.detail", defaultValue: "Done today"), role: .task, systemImage: "checkmark.circle"),
+                InsightsMetricPresentation(id: "focus", label: String(localized: "insights.today.metric.focus.label", defaultValue: "Focus"), value: metricValue(from: state.focusMetrics, fallback: String(localized: "insights.today.metric.focus.valueFallback", defaultValue: "0m")), detail: firstDetail(from: state.focusMetrics, fallback: momentumGuidanceText), role: .focus, systemImage: "target"),
+                InsightsMetricPresentation(id: "habits", label: String(localized: "insights.today.metric.habits.label", defaultValue: "Habits"), value: "\(state.recoveryCount)", detail: String(localized: "insights.today.metric.habits.detail", defaultValue: "Recovery signals"), role: .routine, systemImage: "repeat.circle"),
+                InsightsMetricPresentation(id: "open", label: String(localized: "insights.today.metric.open.label", defaultValue: "Open"), value: "\(openCount)", detail: String(localized: "insights.today.metric.open.detail", defaultValue: "Still active"), role: openCount > 0 ? .warning : .task, systemImage: "tray")
             ],
             actions: todayActions,
             details: InsightsDetailPresentation(
-                title: "Today details",
-                summary: "XP, pressure, recovery, and completion mix stay here when you need them."
+                title: String(localized: "insights.today.details.title", defaultValue: "Today details"),
+                summary: String(localized: "insights.today.details.summary", defaultValue: "XP, pressure, recovery, and completion mix stay here when you need them.")
             )
         )
     }
@@ -280,16 +274,18 @@ struct InsightsTabPresentation: Equatable {
         let explanation: String
         switch availability {
         case .empty:
-            title = "No weekly signal yet"
-            explanation = "Use LifeBoard for a few tasks this week to reveal momentum, backlog, and recovery patterns."
+            title = String(localized: "insights.week.diagnosis.empty.title", defaultValue: "No weekly signal yet")
+            explanation = String(localized: "insights.week.diagnosis.empty.explanation", defaultValue: "Use LifeBoard for a few tasks this week to reveal momentum, backlog, and recovery patterns.")
         case .partial:
-            title = "A weekly pattern is forming"
-            explanation = "A few active days are visible. More completions will make the diagnosis sharper."
+            title = String(localized: "insights.week.diagnosis.partial.title", defaultValue: "A weekly pattern is forming")
+            explanation = String(localized: "insights.week.diagnosis.partial.explanation", defaultValue: "A few active days are visible. More completions will make the diagnosis sharper.")
         case .rich:
-            title = isBacklogVisible ? "Backlog drag is visible." : "Weekly momentum is visible."
+            title = isBacklogVisible
+                ? String(localized: "insights.week.diagnosis.rich.backlog.title", defaultValue: "Backlog drag is visible.")
+                : String(localized: "insights.week.diagnosis.rich.momentum.title", defaultValue: "Weekly momentum is visible.")
             explanation = isBacklogVisible
-                ? "Next: close, reschedule, or delete old work before it drags into next week."
-                : "Next: protect the days that are already working."
+                ? String(localized: "insights.week.diagnosis.rich.backlog.explanation", defaultValue: "Next: close, reschedule, or delete old work before it drags into next week.")
+                : String(localized: "insights.week.diagnosis.rich.momentum.explanation", defaultValue: "Next: protect the days that are already working.")
         }
 
         return InsightsTabPresentation(
@@ -299,26 +295,35 @@ struct InsightsTabPresentation: Equatable {
             diagnosis: InsightsDiagnosisPresentation(
                 title: title,
                 explanation: explanation,
-                evidence: "\(state.weeklyTotalXP) XP - \(activeDays) active days - \(nonEmpty(carryOver) ?? "No carry-over signal yet.")",
+                evidence: String(
+                    format: String(localized: "insights.week.diagnosis.evidence", defaultValue: "%lld XP - %lld active days - %@"),
+                    locale: Locale.current,
+                    state.weeklyTotalXP,
+                    activeDays,
+                    nonEmpty(carryOver) ?? String(localized: "insights.week.carryOverSignal.fallback", defaultValue: "No carry-over signal yet.")
+                ),
                 role: isBacklogVisible ? .warning : .routine,
                 asset: .mountain,
-                primaryCTATitle: isBacklogVisible ? "Clean backlog" : "See momentum"
+                primaryCTATitle: isBacklogVisible
+                    ? String(localized: "insights.week.diagnosis.rich.backlog.cta", defaultValue: "Clean backlog")
+                    : String(localized: "insights.week.diagnosis.rich.momentum.cta", defaultValue: "See momentum"),
+                primaryCTAIntent: isBacklogVisible ? .openBacklogRecovery : .expandDetails(.weeklyRhythm)
             ),
             metrics: [
-                InsightsMetricPresentation(id: "closed", label: "Closed", value: metricValue(from: state.weeklySummaryMetrics, fallback: "+\(max(0, state.weeklyTotalXP - state.previousWeekTotalXP))"), detail: "Weekly movement", role: .task, systemImage: "checkmark.circle"),
-                InsightsMetricPresentation(id: "activeDays", label: "Active days", value: "\(activeDays)", detail: "Days with XP", role: .routine, systemImage: "calendar"),
-                InsightsMetricPresentation(id: "carryOver", label: "Carry-over", value: state.weeklyOperating == nil ? "Thin" : "Live", detail: nonEmpty(carryOver) ?? "No carry-over trend yet", role: isBacklogVisible ? .warning : .assistant, systemImage: "arrow.clockwise"),
-                InsightsMetricPresentation(id: "focus", label: "Focus", value: "\(state.averageDailyXP)", detail: "Avg daily XP", role: .focus, systemImage: "target")
+                InsightsMetricPresentation(id: "closed", label: String(localized: "insights.week.metric.closed.label", defaultValue: "Closed"), value: metricValue(from: state.weeklySummaryMetrics, fallback: "+\(max(0, state.weeklyTotalXP - state.previousWeekTotalXP))"), detail: String(localized: "insights.week.metric.closed.detail", defaultValue: "Weekly movement"), role: .task, systemImage: "checkmark.circle"),
+                InsightsMetricPresentation(id: "activeDays", label: String(localized: "insights.week.metric.activeDays.label", defaultValue: "Active days"), value: "\(activeDays)", detail: String(localized: "insights.week.metric.activeDays.detail", defaultValue: "Days with XP"), role: .routine, systemImage: "calendar"),
+                InsightsMetricPresentation(id: "carryOver", label: String(localized: "insights.week.metric.carryOver.label", defaultValue: "Carry-over"), value: state.weeklyOperating == nil ? String(localized: "insights.week.metric.carryOver.thin", defaultValue: "Thin") : String(localized: "insights.week.metric.carryOver.live", defaultValue: "Live"), detail: nonEmpty(carryOver) ?? String(localized: "insights.week.metric.carryOver.detailFallback", defaultValue: "No carry-over trend yet"), role: isBacklogVisible ? .warning : .assistant, systemImage: "arrow.clockwise"),
+                InsightsMetricPresentation(id: "focus", label: String(localized: "insights.week.metric.focus.label", defaultValue: "Focus"), value: "\(state.averageDailyXP)", detail: String(localized: "insights.week.metric.focus.detail", defaultValue: "Avg daily XP"), role: .focus, systemImage: "target")
             ],
             actions: [
-                InsightsActionPresentation(id: "weeklyMomentum", title: "Weekly momentum", message: nonEmpty(state.patternSummary) ?? "See how this week compares with your usual rhythm.", systemImage: "chart.bar.xaxis", role: .routine, ctaTitle: "See momentum"),
-                InsightsActionPresentation(id: "backlogDrag", title: "Backlog drag", message: nonEmpty(carryOver) ?? "Old work will appear here once carry-over is visible.", systemImage: "tray.and.arrow.down", role: .warning, ctaTitle: "Clean backlog"),
-                InsightsActionPresentation(id: "projectMix", title: "Project mix", message: state.projectLeaderboard.first.map { "\($0.title): \($0.detail)" } ?? "Balance Work, Personal, Habits, Focus, and Routines.", systemImage: "folder", role: .assistant, ctaTitle: "Balance week"),
-                InsightsActionPresentation(id: "recovery", title: "Recovery", message: nonEmpty(state.weeklyOperating?.recoverySummary) ?? "Run a weekly review to tighten the next plan.", systemImage: "heart", role: .personal, ctaTitle: "Run weekly review")
+                InsightsActionPresentation(id: "weeklyMomentum", title: String(localized: "insights.week.action.weeklyMomentum.title", defaultValue: "Weekly momentum"), message: nonEmpty(state.patternSummary) ?? String(localized: "insights.week.action.weeklyMomentum.fallback", defaultValue: "See how this week compares with your usual rhythm."), systemImage: "chart.bar.xaxis", role: .routine, ctaTitle: String(localized: "insights.week.action.weeklyMomentum.cta", defaultValue: "See momentum")),
+                InsightsActionPresentation(id: "backlogDrag", title: String(localized: "insights.week.action.backlogDrag.title", defaultValue: "Backlog drag"), message: nonEmpty(carryOver) ?? String(localized: "insights.week.action.backlogDrag.fallback", defaultValue: "Old work will appear here once carry-over is visible."), systemImage: "tray.and.arrow.down", role: .warning, ctaTitle: String(localized: "insights.week.action.backlogDrag.cta", defaultValue: "Clean backlog")),
+                InsightsActionPresentation(id: "projectMix", title: String(localized: "insights.week.action.projectMix.title", defaultValue: "Project mix"), message: state.projectLeaderboard.first.map { "\($0.title): \($0.detail)" } ?? String(localized: "insights.week.action.projectMix.fallback", defaultValue: "Balance Work, Personal, Habits, Focus, and Routines."), systemImage: "folder", role: .assistant, ctaTitle: String(localized: "insights.week.action.projectMix.cta", defaultValue: "Balance week")),
+                InsightsActionPresentation(id: "recovery", title: String(localized: "insights.week.action.recovery.title", defaultValue: "Recovery"), message: nonEmpty(state.weeklyOperating?.recoverySummary) ?? String(localized: "insights.week.action.recovery.fallback", defaultValue: "Run a weekly review to tighten the next plan."), systemImage: "heart", role: .personal, ctaTitle: String(localized: "insights.week.action.recovery.cta", defaultValue: "Run weekly review"))
             ],
             details: InsightsDetailPresentation(
-                title: "Week details",
-                summary: "Momentum bars, project mix, priority mix, and operating review."
+                title: String(localized: "insights.week.details.title", defaultValue: "Week details"),
+                summary: String(localized: "insights.week.details.summary", defaultValue: "Momentum bars, project mix, priority mix, and operating review.")
             )
         )
     }
@@ -340,14 +345,14 @@ struct InsightsTabPresentation: Equatable {
         let explanation: String
         switch availability {
         case .empty:
-            title = "Your system is under-instrumented."
-            explanation = "Start tracking tasks, reminders, focus rituals, or reviews to make system health visible."
+            title = String(localized: "insights.systems.diagnosis.empty.title", defaultValue: "Your system is under-instrumented.")
+            explanation = String(localized: "insights.systems.diagnosis.empty.explanation", defaultValue: "Start tracking tasks, reminders, focus rituals, or reviews to make system health visible.")
         case .partial:
-            title = "Your system is coming online."
-            explanation = "Tasks are visible, but reminders, focus rituals, or reviews are still thin."
+            title = String(localized: "insights.systems.diagnosis.partial.title", defaultValue: "Your system is coming online.")
+            explanation = String(localized: "insights.systems.diagnosis.partial.explanation", defaultValue: "Tasks are visible, but reminders, focus rituals, or reviews are still thin.")
         case .rich:
-            title = "System health is visible."
-            explanation = "Next: tune the weakest reminder, focus, or review loop."
+            title = String(localized: "insights.systems.diagnosis.rich.title", defaultValue: "System health is visible.")
+            explanation = String(localized: "insights.systems.diagnosis.rich.explanation", defaultValue: "Next: tune the weakest reminder, focus, or review loop.")
         }
 
         return InsightsTabPresentation(
@@ -357,26 +362,35 @@ struct InsightsTabPresentation: Equatable {
             diagnosis: InsightsDiagnosisPresentation(
                 title: title,
                 explanation: explanation,
-                evidence: "\(state.reminderResponse.totalDeliveries) reminders - \(state.focusHealthMetrics.count) focus signals - \(activeDays) active days",
+                evidence: String(
+                    format: String(localized: "insights.systems.diagnosis.evidence", defaultValue: "%lld reminders - %lld focus signals - %lld active days"),
+                    locale: Locale.current,
+                    state.reminderResponse.totalDeliveries,
+                    state.focusHealthMetrics.count,
+                    activeDays
+                ),
                 role: availability == .rich ? .assistant : .warning,
                 asset: .thinkingCup,
-                primaryCTATitle: hasReminderSignal ? "Tune reminders" : "Set one reminder"
+                primaryCTATitle: hasReminderSignal
+                    ? String(localized: "insights.systems.diagnosis.reminders.cta", defaultValue: "Tune reminders")
+                    : String(localized: "insights.systems.diagnosis.empty.cta", defaultValue: "Set one reminder"),
+                primaryCTAIntent: .openReminderSettings
             ),
             metrics: [
-                InsightsMetricPresentation(id: "reminders", label: "Reminders", value: "\(state.reminderResponse.totalDeliveries)", detail: state.reminderResponse.detail, role: .assistant, systemImage: "bell.badge"),
-                InsightsMetricPresentation(id: "focusRituals", label: "Focus rituals", value: "\(state.focusHealthMetrics.count)", detail: firstDetail(from: state.focusHealthMetrics, fallback: "Create one protected block."), role: .focus, systemImage: "target"),
-                InsightsMetricPresentation(id: "reviews", label: "Reviews", value: "\(state.recoveryHealthMetrics.count)", detail: firstDetail(from: state.recoveryHealthMetrics, fallback: "Review rhythm is thin."), role: .personal, systemImage: "moon.stars"),
-                InsightsMetricPresentation(id: "activeDays", label: "Active days", value: "\(activeDays)", detail: "Current operating rhythm", role: .task, systemImage: "checkmark.seal")
+                InsightsMetricPresentation(id: "reminders", label: String(localized: "insights.systems.metric.reminders.label", defaultValue: "Reminders"), value: "\(state.reminderResponse.totalDeliveries)", detail: state.reminderResponse.detail, role: .assistant, systemImage: "bell.badge"),
+                InsightsMetricPresentation(id: "focusRituals", label: String(localized: "insights.systems.metric.focusRituals.label", defaultValue: "Focus rituals"), value: "\(state.focusHealthMetrics.count)", detail: firstDetail(from: state.focusHealthMetrics, fallback: String(localized: "insights.systems.metric.focusRituals.detailFallback", defaultValue: "Create one protected block.")), role: .focus, systemImage: "target"),
+                InsightsMetricPresentation(id: "reviews", label: String(localized: "insights.systems.metric.reviews.label", defaultValue: "Reviews"), value: "\(state.recoveryHealthMetrics.count)", detail: firstDetail(from: state.recoveryHealthMetrics, fallback: String(localized: "insights.systems.metric.reviews.detailFallback", defaultValue: "Review rhythm is thin.")), role: .personal, systemImage: "moon.stars"),
+                InsightsMetricPresentation(id: "activeDays", label: String(localized: "insights.systems.metric.activeDays.label", defaultValue: "Active days"), value: "\(activeDays)", detail: String(localized: "insights.systems.metric.activeDays.detail", defaultValue: "Current operating rhythm"), role: .task, systemImage: "checkmark.seal")
             ],
             actions: [
-                InsightsActionPresentation(id: "reminderResponse", title: "Reminder response", message: state.reminderResponse.detail, systemImage: "bell.badge", role: .assistant, ctaTitle: "Tune reminders"),
-                InsightsActionPresentation(id: "consistency", title: "Consistency", message: firstDetail(from: state.streakMetrics, fallback: "Active days and recurring completion build the rhythm."), systemImage: "checkmark.seal", role: .task, ctaTitle: "View rhythm"),
-                InsightsActionPresentation(id: "focusHealth", title: "Focus health", message: firstDetail(from: state.focusHealthMetrics, fallback: "Create a focus ritual to protect execution time."), systemImage: "target", role: .focus, ctaTitle: "Create focus ritual"),
-                InsightsActionPresentation(id: "planningQuality", title: "Planning quality", message: firstDetail(from: state.recoveryHealthMetrics, fallback: "Compare planned work with completed work and reschedules."), systemImage: "list.bullet.clipboard", role: .routine, ctaTitle: "Improve planning")
+                InsightsActionPresentation(id: "reminderResponse", title: String(localized: "insights.systems.action.reminderResponse.title", defaultValue: "Reminder response"), message: state.reminderResponse.detail, systemImage: "bell.badge", role: .assistant, ctaTitle: String(localized: "insights.systems.action.reminderResponse.cta", defaultValue: "Tune reminders")),
+                InsightsActionPresentation(id: "consistency", title: String(localized: "insights.systems.action.consistency.title", defaultValue: "Consistency"), message: firstDetail(from: state.streakMetrics, fallback: String(localized: "insights.systems.action.consistency.fallback", defaultValue: "Active days and recurring completion build the rhythm.")), systemImage: "checkmark.seal", role: .task, ctaTitle: String(localized: "insights.systems.action.consistency.cta", defaultValue: "View rhythm")),
+                InsightsActionPresentation(id: "focusHealth", title: String(localized: "insights.systems.action.focusHealth.title", defaultValue: "Focus health"), message: firstDetail(from: state.focusHealthMetrics, fallback: String(localized: "insights.systems.action.focusHealth.fallback", defaultValue: "Create a focus ritual to protect execution time.")), systemImage: "target", role: .focus, ctaTitle: String(localized: "insights.systems.action.focusHealth.cta", defaultValue: "Create focus ritual")),
+                InsightsActionPresentation(id: "planningQuality", title: String(localized: "insights.systems.action.planningQuality.title", defaultValue: "Planning quality"), message: firstDetail(from: state.recoveryHealthMetrics, fallback: String(localized: "insights.systems.action.planningQuality.fallback", defaultValue: "Compare planned work with completed work and reschedules.")), systemImage: "list.bullet.clipboard", role: .routine, ctaTitle: String(localized: "insights.systems.action.planningQuality.cta", defaultValue: "Improve planning"))
             ],
             details: InsightsDetailPresentation(
-                title: "System details",
-                summary: "Reminder response, focus health, recovery health, streak resilience, and achievements."
+                title: String(localized: "insights.systems.details.title", defaultValue: "System details"),
+                summary: String(localized: "insights.systems.details.summary", defaultValue: "Reminder response, focus health, recovery health, streak resilience, and achievements.")
             )
         )
     }
@@ -384,11 +398,17 @@ struct InsightsTabPresentation: Equatable {
     private static func attentionPill(for availability: InsightsAvailabilityState, count: Int) -> String {
         switch availability {
         case .empty:
-            return "No signal yet"
+            return String(localized: "insights.attention.empty", defaultValue: "No signal yet")
         case .partial:
-            return "Thin signal"
+            return String(localized: "insights.attention.partial", defaultValue: "Thin signal")
         case .rich:
-            return count == 1 ? "1 item needs attention" : "\(max(0, count)) items need attention"
+            return count == 1
+                ? String(localized: "insights.attention.rich.singular", defaultValue: "1 item needs attention")
+                : String(
+                    format: String(localized: "insights.attention.rich.plural", defaultValue: "%lld items need attention"),
+                    locale: Locale.current,
+                    max(0, count)
+                )
         }
     }
 
@@ -538,12 +558,12 @@ private struct SunriseInsightsTodayView: View {
 
     private func performHeroAction() {
         let intent = InsightsActionResolver.intent(
-            for: .hero(
-                tab: .today,
-                availability: presentation.availability,
-                primaryCTATitle: presentation.diagnosis.primaryCTATitle
+                for: .hero(
+                    tab: .today,
+                    availability: presentation.availability,
+                    primaryCTAIntent: presentation.diagnosis.primaryCTAIntent
+                )
             )
-        )
         if intent == .openToday, reflectionEligible {
             onOpenReflection()
             return
@@ -633,12 +653,12 @@ private struct SunriseInsightsWeekView: View {
 
     private func performHeroAction() {
         let intent = InsightsActionResolver.intent(
-            for: .hero(
-                tab: .week,
-                availability: presentation.availability,
-                primaryCTATitle: presentation.diagnosis.primaryCTATitle
+                for: .hero(
+                    tab: .week,
+                    availability: presentation.availability,
+                    primaryCTAIntent: presentation.diagnosis.primaryCTAIntent
+                )
             )
-        )
         perform(intent)
     }
 
@@ -718,12 +738,12 @@ private struct SunriseInsightsSystemsView: View {
 
     private func performHeroAction() {
         let intent = InsightsActionResolver.intent(
-            for: .hero(
-                tab: .systems,
-                availability: presentation.availability,
-                primaryCTATitle: presentation.diagnosis.primaryCTATitle
+                for: .hero(
+                    tab: .systems,
+                    availability: presentation.availability,
+                    primaryCTAIntent: presentation.diagnosis.primaryCTAIntent
+                )
             )
-        )
         perform(intent)
     }
 
