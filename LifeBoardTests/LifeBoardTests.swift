@@ -21,7 +21,10 @@ final class FocusNowHeroImageResolverTests: XCTestCase {
         XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Plan tomorrow schedule")).first, .sunrisePath)
         XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Write draft notes")).first, .deskNotebook)
         XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Walk and reset body")).first, .greenPath)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Go for a run")).first, .greenPath)
         XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Recover and decompress")).first, .recoveryLake)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Codex Orbit Cool Off")).first, .recoveryLake)
+        XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Mindful breathing pause")).first, .meditation)
         XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Deep work code block")).first, .meditation)
         XCTAssertEqual(resolver.preferredImages(for: makeTask(title: "Sort loose ideas")).first, .genericClouds)
     }
@@ -55,6 +58,75 @@ final class FocusNowHeroImageResolverTests: XCTestCase {
         XCTAssertEqual(secondAssignments[tasks[0].id], firstAssignments[tasks[0].id])
         XCTAssertEqual(secondAssignments[tasks[1].id], firstAssignments[tasks[1].id])
         XCTAssertEqual(secondAssignments[tasks[2].id], firstAssignments[tasks[2].id])
+    }
+
+    func testReasonResolverUsesTaskSpecificFallbackCopy() {
+        XCTAssertEqual(
+            FocusTaskReasonResolver.reason(for: makeTask(title: "Workout for 15 mins"), insight: nil),
+            "Move your body, reset your energy."
+        )
+        XCTAssertEqual(
+            FocusTaskReasonResolver.reason(for: makeTask(title: "Read 10 pages"), insight: nil),
+            "Recharge while you learn."
+        )
+        XCTAssertEqual(
+            FocusTaskReasonResolver.reason(for: makeTask(title: "Deep work block"), insight: nil),
+            "Protect your most important time."
+        )
+    }
+
+    func testDraftStateQuickSwapReplacesOneCardAndUndoRestores() {
+        let focus = [
+            makeTask(title: "Plan tomorrow schedule"),
+            makeTask(title: "Workout for 15 mins"),
+            makeTask(title: "Codex Orbit Cool Off")
+        ]
+        let candidate = makeTask(title: "Read 10 pages")
+        var state = FocusNowDraftState()
+        state.syncFocusTasks(focus)
+        state.syncCandidates([candidate])
+
+        XCTAssertTrue(state.quickSwap(focus[1]))
+        XCTAssertEqual(state.draftFocusTasks.map(\.id), [focus[0].id, candidate.id, focus[2].id])
+        XCTAssertEqual(state.candidateTasks.first?.id, focus[1].id)
+
+        state.undoLastChange()
+        XCTAssertEqual(state.draftFocusTasks.map(\.id), focus.map(\.id))
+        XCTAssertEqual(state.candidateTasks.first?.id, candidate.id)
+    }
+
+    func testDraftStateCandidateTapWithoutSelectedCardRequiresReplacementChoice() {
+        let focus = [
+            makeTask(title: "Plan tomorrow schedule"),
+            makeTask(title: "Workout for 15 mins"),
+            makeTask(title: "Codex Orbit Cool Off")
+        ]
+        var state = FocusNowDraftState()
+        state.syncFocusTasks(focus)
+
+        XCTAssertNil(state.selectedTaskForSwap)
+
+        state.selectAndFlip(focus[2])
+        XCTAssertEqual(state.selectedTaskForSwap?.id, focus[2].id)
+    }
+
+    func testDraftStateShuffleDoesNotMutateDraftOrHeroAssignments() {
+        let focus = [
+            makeTask(title: "Plan tomorrow schedule"),
+            makeTask(title: "Workout for 15 mins"),
+            makeTask(title: "Codex Orbit Cool Off")
+        ]
+        var state = FocusNowDraftState()
+        state.syncFocusTasks(focus)
+        let taskIDs = state.draftFocusTasks.map(\.id)
+        let heroAssignments = state.assignedHeroImagesByTaskID
+
+        state.beginShuffle()
+        state.syncCandidates([makeTask(title: "Draft investor update")])
+        state.endShuffle()
+
+        XCTAssertEqual(state.draftFocusTasks.map(\.id), taskIDs)
+        XCTAssertEqual(state.assignedHeroImagesByTaskID, heroAssignments)
     }
 
     private func makeTask(title: String) -> TaskDefinition {
