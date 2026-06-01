@@ -2143,6 +2143,7 @@ public final class HomeViewModel: ObservableObject {
         updateFocusSelection(composedFocusTasks(from: openTasks))
         refreshTodayAgendaForCurrentFocusSelection()
         refreshEvaInsights(openTasks: openTasks)
+        reloadTaskListWidgetTimelines()
         trackHomeInteraction(action: "focus_now_set_committed", metadata: [
             "source": source,
             "focus_count": committedIDs.count
@@ -2793,7 +2794,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public func startTriage() {
-        openRescue()
+        startTriage(scope: .visible)
     }
 
     public func startFocusSession(
@@ -2932,14 +2933,15 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public func startTriage(scope: EvaTriageScope) {
-        trackHomeInteraction(action: "triage_redirected_to_rescue", metadata: [
-            "scope": scope.rawValue
-        ])
-        openRescue()
+        routeLegacyEvaActionToRescue(action: "triage_redirected_to_rescue", scope: scope)
     }
 
     public func startNextDecision(scope: EvaTriageScope = .visible) {
-        trackHomeInteraction(action: "next_decision_redirected_to_rescue", metadata: [
+        routeLegacyEvaActionToRescue(action: "next_decision_redirected_to_rescue", scope: scope)
+    }
+
+    private func routeLegacyEvaActionToRescue(action: String, scope: EvaTriageScope) {
+        trackHomeInteraction(action: action, metadata: [
             "scope": scope.rawValue
         ])
         openRescue()
