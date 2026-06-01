@@ -140,6 +140,7 @@
 		753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */; };
 		753EFCB52445A24700A739E3 /* LifeBoardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCB42445A24700A739E3 /* LifeBoardTests.swift */; };
 		753EFCC02445A24800A739E3 /* LifeBoardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCBF2445A24800A739E3 /* LifeBoardUITests.swift */; };
+		B7C8D9E0F1A2233445566791 /* OverdueTriageServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2233445566790 /* OverdueTriageServiceTests.swift */; };
 		7551BCCE2EAB665F003C6916 /* PerformanceMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCB12EAB665F003C6916 /* PerformanceMetrics.swift */; };
 		7551BCCF2EAB665F003C6916 /* TaskDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC02EAB665F003C6916 /* TaskDeletionTests.swift */; };
 		7551BCD02EAB665F003C6916 /* XCUIApplication+LaunchArguments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCAE2EAB665F003C6916 /* XCUIApplication+LaunchArguments.swift */; };
@@ -849,6 +850,7 @@
 		753EFCBB2445A24800A739E3 /* LifeBoardUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LifeBoardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCBF2445A24800A739E3 /* LifeBoardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardUITests.swift; sourceTree = "<group>"; };
 		753EFCC12445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B7C8D9E0F1A2233445566790 /* OverdueTriageServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueTriageServiceTests.swift; sourceTree = "<group>"; };
 		7551BCAC2EAB665F003C6916 /* BaseUITest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseUITest.swift; sourceTree = "<group>"; };
 		7551BCAD2EAB665F003C6916 /* XCTestCase+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+Utilities.swift"; sourceTree = "<group>"; };
 		7551BCAE2EAB665F003C6916 /* XCUIApplication+LaunchArguments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCUIApplication+LaunchArguments.swift"; sourceTree = "<group>"; };
@@ -1907,6 +1909,7 @@
 				F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */,
 				F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */,
 				B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */,
+				B7C8D9E0F1A2233445566790 /* OverdueTriageServiceTests.swift */,
 				B7C8D9E0F1A223344556677C /* SunriseFocusZoneStatusTests.swift */,
 				B7C8D9E0F1A223344556677E /* SunriseFocusZonePresentationTests.swift */,
 				F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */,
@@ -3904,6 +3907,7 @@
 				F0A1B2C3D4E5F60718293B4D /* HomeFilterStateTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4E /* HomeTaskSectionBuilderTests.swift in Sources */,
 				B7C8D9E0F1A223344556677B /* OverdueAgeFormatterTests.swift in Sources */,
+				B7C8D9E0F1A2233445566791 /* OverdueTriageServiceTests.swift in Sources */,
 				B7C8D9E0F1A223344556677D /* SunriseFocusZoneStatusTests.swift in Sources */,
 				B7C8D9E0F1A223344556677F /* SunriseFocusZonePresentationTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */,
