@@ -2289,7 +2289,7 @@ public final class HomeViewModel: ObservableObject {
                             "kind": kind.rawValue,
                             "date_stamp": normalizedDateStamp,
                             "source": "notification",
-                            "snapshot": summary.analyticsSnapshot
+                            "snapshot": summary.analyticsSnapshot.metadataValue
                         ]
                     )
                     completion(.success(summary))
@@ -2303,14 +2303,14 @@ public final class HomeViewModel: ObservableObject {
     public func trackDailySummaryCTA(
         kind: LifeBoardDailySummaryKind,
         cta: String,
-        countsSnapshot: [String: Any]
+        countsSnapshot: DailySummaryAnalyticsSnapshot
     ) {
         trackHomeInteraction(
             action: "daily_summary_cta_tapped",
             metadata: [
                 "kind": kind.rawValue,
                 "cta": cta,
-                "counts_snapshot": countsSnapshot
+                "counts_snapshot": countsSnapshot.metadataValue
             ]
         )
     }

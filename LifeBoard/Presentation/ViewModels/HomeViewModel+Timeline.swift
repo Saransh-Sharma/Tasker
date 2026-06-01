@@ -322,7 +322,11 @@ extension HomeViewModel {
             return nil
         }
         guard let startDate = item.startDate else { return nil }
-        guard Calendar.current.isDate(startDate, inSameDayAs: selectedDay) else { return nil }
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: selectedDay)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
+        let endDate = item.endDate ?? startDate
+        guard startDate < dayEnd, endDate > dayStart else { return nil }
         return item
     }
 
@@ -545,7 +549,7 @@ extension HomeViewModel {
                 continue
             }
             selected.append(gap)
-            if activeGap != nil || selected.count >= 1 {
+            if selected.count >= 2 {
                 break
             }
         }
@@ -875,4 +879,3 @@ extension HomeViewModel {
         return "\(max(minutes, 1))m"
     }
 }
-

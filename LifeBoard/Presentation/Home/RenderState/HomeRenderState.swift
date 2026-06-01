@@ -1028,12 +1028,12 @@ struct HomeOverlaySnapshot: Equatable {
             && lhs.triageScope == rhs.triageScope
             && lhs.triageQueueLoading == rhs.triageQueueLoading
             && lhs.triageQueueErrorMessage == rhs.triageQueueErrorMessage
-            && lhs.triageQueue.map(\.task.id) == rhs.triageQueue.map(\.task.id)
+            && lhs.triageQueue == rhs.triageQueue
             && lhs.rescueLauncherState == rhs.rescueLauncherState
             && lhs.rescuePresented == rhs.rescuePresented
-            && String(describing: lhs.rescuePlan) == String(describing: rhs.rescuePlan)
+            && lhs.rescuePlan == rhs.rescuePlan
             && lhs.lastBatchRunID == rhs.lastBatchRunID
-            && String(describing: lhs.lastXPResult) == String(describing: rhs.lastXPResult)
+            && lhs.lastXPResult == rhs.lastXPResult
             && lhs.replanState == rhs.replanState
     }
 }

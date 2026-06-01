@@ -165,33 +165,64 @@ public struct NightlyRetrospectiveSummary: Equatable, Sendable {
     public let eveningCompletedCount: Int
 }
 
-public enum DailySummaryModalData: Equatable, Sendable {
-    case morning(MorningPlanSummary)
-    case nightly(NightlyRetrospectiveSummary)
+public enum DailySummaryAnalyticsValue: Equatable, Sendable {
+    case int(Int)
+    case double(Double)
+    case string(String)
+    case bool(Bool)
 
-    public var analyticsSnapshot: [String: Any] {
+    var metadataValue: Any {
         switch self {
-        case .morning(let summary):
-            return [
-                "open_today_count": summary.openTodayCount,
-                "high_priority_count": summary.highPriorityCount,
-                "overdue_count": summary.overdueCount,
-                "potential_xp": summary.potentialXP,
-                "focus_count": summary.focusTasks.count,
-                "blocked_count": summary.blockedCount,
-                "long_task_count": summary.longTaskCount
-            ]
-        case .nightly(let summary):
-            return [
-                "completed_count": summary.completedCount,
-                "total_count": summary.totalCount,
-                "xp_earned": summary.xpEarned,
-                "carry_over_due_today_count": summary.carryOverDueTodayCount,
-                "carry_over_overdue_count": summary.carryOverOverdueCount,
-                "tomorrow_preview_count": summary.tomorrowPreview.count,
-                "streak_count": summary.streakCount
-            ]
+        case .int(let value):
+            return value
+        case .double(let value):
+            return value
+        case .string(let value):
+            return value
+        case .bool(let value):
+            return value
         }
     }
 }
 
+public struct DailySummaryAnalyticsSnapshot: Equatable, Sendable {
+    public let values: [String: DailySummaryAnalyticsValue]
+
+    public init(_ values: [String: DailySummaryAnalyticsValue]) {
+        self.values = values
+    }
+
+    public var metadataValue: [String: Any] {
+        values.mapValues(\.metadataValue)
+    }
+}
+
+public enum DailySummaryModalData: Equatable, Sendable {
+    case morning(MorningPlanSummary)
+    case nightly(NightlyRetrospectiveSummary)
+
+    public var analyticsSnapshot: DailySummaryAnalyticsSnapshot {
+        switch self {
+        case .morning(let summary):
+            return DailySummaryAnalyticsSnapshot([
+                "open_today_count": .int(summary.openTodayCount),
+                "high_priority_count": .int(summary.highPriorityCount),
+                "overdue_count": .int(summary.overdueCount),
+                "potential_xp": .int(summary.potentialXP),
+                "focus_count": .int(summary.focusTasks.count),
+                "blocked_count": .int(summary.blockedCount),
+                "long_task_count": .int(summary.longTaskCount)
+            ])
+        case .nightly(let summary):
+            return DailySummaryAnalyticsSnapshot([
+                "completed_count": .int(summary.completedCount),
+                "total_count": .int(summary.totalCount),
+                "xp_earned": .int(summary.xpEarned),
+                "carry_over_due_today_count": .int(summary.carryOverDueTodayCount),
+                "carry_over_overdue_count": .int(summary.carryOverOverdueCount),
+                "tomorrow_preview_count": .int(summary.tomorrowPreview.count),
+                "streak_count": .int(summary.streakCount)
+            ])
+        }
+    }
+}
