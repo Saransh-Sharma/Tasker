@@ -100,8 +100,7 @@ final class OverdueRescueDeckTests: XCTestCase {
     }
 
     func testMoveLaterSkipsWeekendForHighUrgencyTasks() {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let calendar = Calendar.current
         let friday = calendar.date(from: DateComponents(year: 2026, month: 5, day: 29))!
         let task = rescueTask(
             title: "High risk",
@@ -236,14 +235,14 @@ final class OverdueRescueDeckTests: XCTestCase {
         )
 
         viewModel.keepToday(source: .tap)
-        await Task.yield()
+        await _Concurrency.Task<Never, Never>.yield()
 
         XCTAssertEqual(viewModel.state, .completed)
         XCTAssertEqual(viewModel.summary.kept, 1)
         XCTAssertEqual(viewModel.cards.count, 0)
 
         viewModel.undoLast()
-        await Task.yield()
+        await _Concurrency.Task<Never, Never>.yield()
 
         XCTAssertEqual(viewModel.state, .active)
         XCTAssertEqual(viewModel.summary.kept, 0)
