@@ -26,7 +26,7 @@ struct HabitStreakMiniCard: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.86)
                 Spacer(minLength: 4)
-                Text("\(habit.currentStreak)d")
+                Text("\(habit.currentStreak)d active")
                     .font(.lifeboard(.caption1).weight(.semibold))
                     .foregroundStyle(LBColorTokens.navyMuted)
             }
@@ -48,7 +48,7 @@ struct HabitStreakMiniCard: View {
                 .stroke(ReflectPlanStyle.peachBorder.opacity(0.62), lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(habit.title), \(habit.currentStreak) day streak.")
+        .accessibilityLabel("\(habit.title), \(habit.currentStreak) active days.")
     }
 
     private var shortTitle: String {

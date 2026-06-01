@@ -535,7 +535,7 @@ struct HabitBoardScreen: View {
             Text("Loading habit board")
                 .font(.lifeboard(.headline))
                 .foregroundStyle(Color.lifeboard.textPrimary)
-            Text("Pulling your latest streak history.")
+            Text("Pulling your latest rhythm history.")
                 .font(.lifeboard(.body))
                 .foregroundStyle(Color.lifeboard.textSecondary)
                 .multilineTextAlignment(.center)
@@ -583,13 +583,18 @@ struct HabitBoardScreen: View {
 
     private var boardEmptyState: some View {
         VStack(spacing: spacing.s12) {
-            EvaMascotView(placement: .habitEmpty, size: .card)
+            Image(systemName: "sun.max.fill")
+                .font(.system(size: 28, weight: .semibold, design: .rounded))
+                .foregroundStyle(LBColorTokens.role(.routine).deep)
+                .frame(width: 64, height: 64)
+                .background(LBColorTokens.role(.routine).softSurface, in: Circle())
+                .overlay(Circle().stroke(LBColorTokens.role(.routine).border, lineWidth: 1))
 
             Text("No habits yet")
                 .font(.lifeboard(.headline))
                 .foregroundStyle(Color.lifeboard.textPrimary)
 
-            Text("Create your first habit to start building streak momentum.")
+            Text("Create your first habit when you are ready to add a small daily cue.")
                 .font(.lifeboard(.body))
                 .foregroundStyle(Color.lifeboard.textSecondary)
                 .multilineTextAlignment(.center)

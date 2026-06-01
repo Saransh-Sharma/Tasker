@@ -22,11 +22,11 @@ struct HomeMiniMomentumCardView: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                    Text("\(progress.earnedXP) XP")
+                    Text("Daily rhythm")
                         .font(.lifeboard(.bodyEmphasis))
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(1)
-                        .accessibilityIdentifier("home.dailyScoreLabel")
+                        .accessibilityIdentifier("home.dailyRhythmLabel")
 
                     Spacer(minLength: spacing.s4)
 
@@ -37,14 +37,14 @@ struct HomeMiniMomentumCardView: View {
                         .accessibilityIdentifier("home.completionRateLabel")
 
                     Label {
-                        Text("\(progress.streakDays)d")
+                        Text("\(progress.streakDays)d active")
                     } icon: {
-                        Image(systemName: "flame.fill")
+                        Image(systemName: "leaf.fill")
                     }
                     .font(.lifeboard(.caption1))
-                    .foregroundStyle(progress.isStreakSafeToday ? Color.lifeboard.textSecondary : Color.lifeboard.statusWarning)
+                    .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(1)
-                    .accessibilityIdentifier("home.streakLabel")
+                    .accessibilityIdentifier("home.activeDaysLabel")
 
                     if reflectionEligible {
                         Text("Reflection ready")
@@ -75,8 +75,8 @@ struct HomeMiniMomentumCardView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             reflectionEligible
-            ? "Momentum summary. \(progress.earnedXP) XP, \(completionPercent) percent done, \(progress.streakDays) day streak, reflection available."
-            : "Momentum summary. \(progress.earnedXP) XP, \(completionPercent) percent done, \(progress.streakDays) day streak."
+            ? "Daily rhythm summary. \(completionPercent) percent done, \(progress.streakDays) active days, reflection available."
+            : "Daily rhythm summary. \(completionPercent) percent done, \(progress.streakDays) active days."
         )
         .accessibilityHint("Opens analytics")
         .accessibilityIdentifier("home.momentumMiniCard")
