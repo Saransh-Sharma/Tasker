@@ -16600,16 +16600,75 @@ final class DailyReflectionUseCasesTests: XCTestCase {
 
         viewModel.swapTask(slotIndex: 0, with: swapOption)
         XCTAssertEqual(viewModel.editablePlan?.topTasks.first?.id, swapOption.id)
+        XCTAssertTrue(viewModel.hasTaskSwaps)
+        XCTAssertTrue(viewModel.hasUnsavedChanges)
 
         let enrichmentLoaded = await waitForCondition(timeout: 2.0) {
             viewModel.optionalContext?.status == .loaded
         }
         XCTAssertTrue(enrichmentLoaded)
         XCTAssertEqual(viewModel.editablePlan?.topTasks.first?.id, swapOption.id)
+        XCTAssertTrue(viewModel.hasTaskSwaps)
         XCTAssertEqual(
             viewModel.editablePlan?.focusWindow,
             viewModel.optionalContext?.suggestedPlan.focusWindow
         )
+    }
+
+    @MainActor
+    func testDailyReflectPlanViewModelTracksContextEditsAndDiscard() async {
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
+        let calendar = Calendar.autoupdatingCurrent
+        let reflectionDate = calendar.startOfDay(for: Date())
+        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
+        let tasks = [
+            TaskDefinition(title: "Carryover", priority: .max, type: .morning, dueDate: reflectionDate, isComplete: false),
+            TaskDefinition(title: "Planning task", priority: .high, type: .morning, dueDate: planningDate, isComplete: false)
+        ]
+        let coordinator = V3TestHarness.makeCoordinator(
+            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: tasks),
+            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: tasks),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()]),
+            habitRuntimeReadRepository: CapturingHabitRuntimeReadRepository()
+        )
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: reflectionDate) ?? reflectionDate
+        XCTAssertNoThrow(
+            try coordinator.dailyReflectionStore.markCompleted(
+                on: yesterday,
+                completedAt: reflectionDate,
+                payload: nil as ReflectionPayload?
+            )
+        )
+
+        let viewModel = DailyReflectPlanViewModel(useCaseCoordinator: coordinator, calendar: calendar)
+
+        let baselineLoaded = await waitForCondition(timeout: 1.0) {
+            viewModel.loadState == DailyReflectionLoadState.fullyLoaded
+                && viewModel.editablePlan != nil
+        }
+        XCTAssertTrue(baselineLoaded)
+        XCTAssertFalse(viewModel.hasContextEdits)
+        XCTAssertFalse(viewModel.hasUnsavedChanges)
+
+        viewModel.noteText = "Protect the first hour"
+        XCTAssertTrue(viewModel.hasContextEdits)
+        XCTAssertTrue(viewModel.hasUnsavedChanges)
+
+        viewModel.toggleMood(.good)
+        viewModel.toggleEnergy(.okay)
+        viewModel.toggleFriction(.meetings)
+        XCTAssertEqual(viewModel.selectedMood, .good)
+        XCTAssertEqual(viewModel.selectedEnergy, .okay)
+        XCTAssertEqual(viewModel.selectedFrictionTags, [.meetings])
+
+        viewModel.discardChanges()
+
+        XCTAssertEqual(viewModel.noteText, "")
+        XCTAssertNil(viewModel.selectedMood)
+        XCTAssertNil(viewModel.selectedEnergy)
+        XCTAssertTrue(viewModel.selectedFrictionTags.isEmpty)
+        XCTAssertFalse(viewModel.hasContextEdits)
+        XCTAssertFalse(viewModel.hasUnsavedChanges)
     }
 
     @MainActor
