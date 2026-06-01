@@ -481,7 +481,7 @@ struct HomeDailyReflectionEntryCard: View {
 
 import SwiftUI
 
-struct SunriseReflectPlanScreen: View {
+private struct LegacySunriseReflectPlanScreen: View {
     @ObservedObject var viewModel: DailyReflectPlanViewModel
     let onClose: () -> Void
 

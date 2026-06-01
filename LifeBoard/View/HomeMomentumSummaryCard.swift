@@ -25,7 +25,7 @@ struct HomeMomentumSummaryCard: View {
             HStack(spacing: spacing.s12) {
                 NavPieChart(
                     score: progress.earnedXP,
-                    maxScore: max(1, progress.earnedXP),
+                    maxScore: max(1, progress.todayTargetXP, progress.earnedXP + progress.remainingPotentialXP),
                     accessibilityContainerID: "home.navXpPieChart",
                     accessibilityButtonID: "home.navXpPieChart.button",
                     onTap: { onChartTap?() }

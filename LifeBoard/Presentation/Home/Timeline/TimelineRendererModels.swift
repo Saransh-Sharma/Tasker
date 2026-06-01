@@ -16,7 +16,7 @@ enum SunriseTimelineRendererMode: Equatable {
 enum SunriseTimelineRendererPolicy {
     static func mode(
         layoutClass: LifeBoardLayoutClass,
-        dayLayoutMode _: TimelineDayLayoutMode,
+        dayLayoutMode _: TimelineDayLayoutMode, // Reserved for future timeline density modes.
         isAccessibilitySize: Bool
     ) -> SunriseTimelineRendererMode {
         if isAccessibilitySize {
@@ -229,4 +229,3 @@ enum VisualTimelineElement: Equatable, Identifiable {
         return lhs.id.localizedStandardCompare(rhs.id) == .orderedAscending
     }
 }
-

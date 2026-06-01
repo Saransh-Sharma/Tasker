@@ -800,7 +800,9 @@ struct SunriseTaskDetailScreen: View {
     }
 
     private var showsContextDisclosure: Bool {
-        true
+        viewModel.recentReflectionNotes.isEmpty == false
+            || viewModel.projectMotivation != nil
+            || detailXPPreview.awardedXP > 0
     }
 
     private var taskAccentColor: Color {
