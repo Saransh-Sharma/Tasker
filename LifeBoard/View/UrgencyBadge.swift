@@ -3,7 +3,7 @@
 //  LifeBoard
 //
 //  Pill-shaped urgency indicator for task rows.
-//  Red for Overdue, Amber for Due Soon, Green for Today.
+//  Sunrise role styling for rescue, due soon, and today.
 //
 
  import SwiftUI
@@ -40,10 +40,10 @@ public struct UrgencyBadge: View {
         switch level {
         case .overdue:
             badgeContent(
-                icon: "exclamationmark.circle.fill",
-                text: "Overdue",
-                backgroundColor: Color.lifeboard.statusDanger.opacity(0.15),
-                foregroundColor: Color.lifeboard.statusDanger
+                icon: "lifepreserver",
+                text: "Rescue",
+                backgroundColor: LBColorTokens.role(.warning).softSurface,
+                foregroundColor: LBColorTokens.role(.warning).deep
             )
         case .dueSoon:
             badgeContent(

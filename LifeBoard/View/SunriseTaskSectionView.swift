@@ -367,14 +367,14 @@ struct SunriseTaskSectionView: View {
 
     private var sectionIcon: String {
         if isOverdueSection {
-            return "exclamationmark.triangle.fill"
+            return "lifepreserver"
         }
         return project.icon.systemImageName
     }
 
     private var sectionTitle: String {
         if isOverdueSection {
-            return "Overdue"
+            return "Rescue"
         }
         return project.name
     }

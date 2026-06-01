@@ -169,7 +169,7 @@ struct SwapTaskPicker: View {
         return [
             SwapTaskPickerSection(title: "Suggested alternatives", options: suggested),
             SwapTaskPickerSection(title: "Quick wins", options: quickWins),
-            SwapTaskPickerSection(title: "Overdue carryover", options: carryover),
+            SwapTaskPickerSection(title: "Rescue carry-forward", options: carryover),
             SwapTaskPickerSection(title: "Project-matched tasks", options: projectMatched)
         ]
     }
@@ -184,7 +184,7 @@ struct SwapTaskPicker: View {
             return "Quick win"
         }
         if option.isCarryover || isOverdue(option) {
-            return "Carryover"
+            return "Carry-forward"
         }
         return ""
     }

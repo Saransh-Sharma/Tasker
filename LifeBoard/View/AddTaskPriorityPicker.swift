@@ -52,7 +52,7 @@ struct AddTaskPriorityPicker_Previews: PreviewProvider {
         VStack(spacing: 20) {
             AddTaskPriorityPicker(selectedPriority: $selectedPriority)
 
-            Text("Selected: \(selectedPriority.displayNameWithXP)")
+            Text("Selected: \(selectedPriority.displayName)")
                 .font(.lifeboard(.caption1))
                 .foregroundColor(Color.lifeboard.textTertiary)
         }
@@ -62,11 +62,4 @@ struct AddTaskPriorityPicker_Previews: PreviewProvider {
     }
 }
 
-// MARK: - TaskPriority Extension
-
-private extension TaskPriority {
-    var displayNameWithXP: String {
-        "\(displayName) (\(scorePoints) XP)"
-    }
-}
 #endif

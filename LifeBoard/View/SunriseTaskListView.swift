@@ -3,8 +3,8 @@
 //  LifeBoard
 //
 //  Top-level task list with project-grouped collapsible sections.
-//  Groups tasks by projectID, sorts Overdue > Inbox > alphabetical.
-//  Part of the "Obsidian & Gems" design system.
+//  Groups tasks by projectID, sorts rescue work > Inbox > alphabetical.
+//  Part of the Sunrise Glass design system.
 //
 
 import SwiftUI
@@ -1089,11 +1089,11 @@ struct SunriseTaskListView: View {
         project.isInbox || project.name.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame
     }
 
-    /// Synthetic project for the overdue section header
+    /// Synthetic project for the rescue section header.
     private var overdueProject: Project {
         Project(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000099")!,
-            name: "Overdue",
+            name: "Rescue",
             icon: .flag
         )
     }
@@ -1102,16 +1102,16 @@ struct SunriseTaskListView: View {
 
     private var emptyStateView: some View {
         VStack(spacing: LifeBoardTheme.Spacing.md) {
-            EvaMascotView(placement: emptyStateMascotPlacement, size: .card)
-                .breathingPulse(min: 0.4, max: 0.6, duration: 3.0)
+            SunriseDecorImage(asset: emptyStateDecorAsset, placement: .emptyState)
 
             Text("All clear")
                 .font(.lifeboard(.title3))
-                .foregroundColor(Color.lifeboard.textTertiary)
+                .foregroundStyle(Color.lifeboard.textPrimary)
 
             Text(resolvedEmptyStateMessage)
                 .font(.lifeboard(.callout))
-                .foregroundColor(Color.lifeboard.textQuaternary)
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .multilineTextAlignment(.center)
 
             if let title = emptyStateActionTitle {
                 Button(title) {
@@ -1126,12 +1126,18 @@ struct SunriseTaskListView: View {
         .padding(.vertical, LifeBoardTheme.Spacing.xxxl)
     }
 
-    private var emptyStateMascotPlacement: EvaMascotPlacement {
+    private var emptyStateDecorAsset: SunriseDecorAsset {
         switch activeQuickView {
         case .evening:
-            return .restReminder
+            return .rescueMoonrise
+        case .overdue:
+            return .rescueShield
+        case .upcoming:
+            return .mountain
+        case .done:
+            return .growthPlant
         default:
-            return .habitEmpty
+            return .happySun
         }
     }
 
@@ -1144,7 +1150,7 @@ struct SunriseTaskListView: View {
         case .upcoming:
             return "No upcoming tasks in 14 days"
         case .overdue:
-            return "No overdue tasks"
+            return "Nothing to rescue"
         case .done:
             return "No completed tasks in last 30 days"
         case .morning:
@@ -1183,9 +1189,9 @@ private struct OverdueGroupedSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.md) {
             TaskSectionHeaderRow(
-                accentColor: Color.lifeboard(.taskOverdue),
-                iconSystemName: "exclamationmark.triangle.fill",
-                title: "Overdue",
+                accentColor: LBColorTokens.role(.warning).base,
+                iconSystemName: "lifepreserver",
+                title: "Rescue",
                 taskCount: totalTaskCount,
                 isExpanded: isExpanded,
                 onToggle: {

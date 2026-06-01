@@ -322,12 +322,7 @@ private enum TaskRowDerivedStateCache {
             tagNameByID: tagNameByID,
             metadataPolicy: metadataPolicy
         )
-        let xpPreview = XPCalculationEngine.completionXPIfCompletedNow(
-            priorityRaw: task.priority.rawValue,
-            estimatedDuration: task.estimatedDuration,
-            dueDate: task.dueDate,
-            isGamificationV2Enabled: isGamificationV2Enabled
-        )
+        let xpPreview: XPCompletionPreview? = nil
 
         let accessibilityStateValue = task.isComplete ? "done" : "open"
         var labelParts: [String] = ["Task: \(task.title)"]
@@ -698,8 +693,6 @@ struct SunriseTaskRowView: View, Equatable {
                         statusChipView(statusChip)
                     }
 
-                    compactXPBadge
-
                     if isSunriseSearchCard {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 17, weight: .semibold))
@@ -869,32 +862,6 @@ struct SunriseTaskRowView: View, Equatable {
             .fixedSize()
             .transition(.scale.combined(with: .opacity))
             .animation(LifeBoardAnimation.bouncy, value: displayModel.statusChip)
-    }
-
-    private var compactXPBadge: some View {
-        let preview = derivedState.xpPreview
-
-        return Text(preview?.compactLabel ?? "+0")
-            .font(isSunriseSearchCard ? .lifeboard(.caption2) : .lifeboard(.caption2))
-            .fontWeight(task.priority == .max || task.priority == .high ? .bold : .medium)
-            .foregroundColor(task.priority == .max || task.priority == .high ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
-            .padding(.horizontal, isSunriseSearchCard ? 7 : 5)
-            .padding(.vertical, isSunriseSearchCard ? 4 : 3)
-            .background(
-                Capsule()
-                    .fill(task.priority == .max || task.priority == .high ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
-            )
-            .overlay(
-                Capsule()
-                    .stroke(task.priority == .max || task.priority == .high ? Color.lifeboard.accentPrimary.opacity(0.3) : .clear, lineWidth: 1)
-            )
-            .fixedSize()
-            .scaleEffect(task.isComplete ? 1.15 : 1.0)
-            .animation(LifeBoardAnimation.bouncy, value: task.isComplete)
-            .accessibilityLabel(preview.map { "Reward \($0.shortLabel)" } ?? "Reward +0 XP")
-            .accessibilityHint(
-                "Reward factors: \(XPCalculationEngine.estimateReasonHints(estimatedDuration: task.estimatedDuration, isFocusSessionActive: false, isPinnedInFocusStrip: false))"
-            )
     }
 
     private var isSunriseSearchCard: Bool {
