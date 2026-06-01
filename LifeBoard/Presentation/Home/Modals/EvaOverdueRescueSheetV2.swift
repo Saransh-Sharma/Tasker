@@ -460,7 +460,7 @@ struct OverdueRescueCardModel: Identifiable, Equatable, Sendable {
             projectLabel: task.projectID == ProjectConstants.inboxProjectID
                 ? "No project"
                 : (projectsByID[task.projectID]?.name ?? task.projectName ?? "No project"),
-            confidenceLabel: confidence >= 0.75 ? "High confidence" : (confidence >= 0.45 ? "Needs your call" : "Needs your call"),
+            confidenceLabel: confidence >= 0.75 ? "High confidence" : "Needs your call",
             reasonTitle: reason.title,
             reasonBody: reason.body,
             moveDate: moveDate,
@@ -550,15 +550,7 @@ enum OverdueRescueMoveLaterResolver {
 
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
         let lowUrgency = task.priority == .none || task.priority == .low
-        if lowUrgency, isWorkingDay(tomorrow, calendar: calendar) {
-            return tomorrow
-        }
-
-        if isWorkingDay(tomorrow, calendar: calendar), lowUrgency {
-            return tomorrow
-        }
-
-        if isWorkingDay(tomorrow, calendar: calendar), task.priority.isHighPriority == false {
+        if isWorkingDay(tomorrow, calendar: calendar), lowUrgency || task.priority.isHighPriority == false {
             return tomorrow
         }
 
@@ -624,9 +616,6 @@ enum OverdueRescueEligibilityService {
         let today = calendar.startOfDay(for: referenceDate)
         guard dueDate < today else { return false }
         if let deferred = task.deferredFromWeekStart, calendar.isDate(deferred, inSameDayAs: today) {
-            return false
-        }
-        if task.recurrenceSeriesID != nil, dueDate >= today {
             return false
         }
         return true
@@ -737,7 +726,13 @@ final class OverdueRescueViewModel: ObservableObject {
         self.projectsByID = projectsByID
         self.sessionScope = scope
         self.sessionStore = sessionStore
-        let savedSession = try? sessionStore.loadSync(scope: scope)
+        let savedSession: OverdueRescueSessionState?
+        do {
+            savedSession = try sessionStore.loadSync(scope: scope)
+        } catch {
+            logError("[OverdueRescue] Failed to load saved session scope=\(scope.storageKey): \(error)")
+            savedSession = nil
+        }
         self.runID = savedSession?.runID ?? UUID()
         self.onUpdate = onUpdate
         self.onDelete = onDelete
