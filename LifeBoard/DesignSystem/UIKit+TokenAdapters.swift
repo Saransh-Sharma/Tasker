@@ -28,10 +28,11 @@ public extension UIColor {
     static var lifeboard: LifeBoardColorTokens {
         LifeBoardUIKitTokens.color
     }
+}
 
-    /// Executes lifeboard.
+public extension UIColor {
     static func lifeboard(_ role: LifeBoardColorRole) -> UIColor {
-        LifeBoardUIKitTokens.color.color(for: role)
+        LifeBoardThreadSafeTokenResolver.color(for: role)
     }
 }
 

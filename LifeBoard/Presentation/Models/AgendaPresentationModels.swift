@@ -77,12 +77,6 @@ public struct AgendaRowPresentationModel: Equatable, Hashable {
     }
 }
 
-public enum InsightsModuleVisibility: Equatable {
-    case visible
-    case empty(message: String)
-    case hidden
-}
-
 public struct InsightsTabBlueprint: Equatable {
     public let heroQuestion: String
     public let supportModuleIDs: [String]

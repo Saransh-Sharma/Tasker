@@ -134,6 +134,7 @@ struct LifeBoardSnackbar: View {
 struct SnackbarModifier: ViewModifier {
     /// Executes body.
     @Binding var snackbar: SnackbarData?
+    var bottomPadding: CGFloat = 0
 
     func body(content: Content) -> some View {
         ZStack(alignment: .bottom) {
@@ -144,6 +145,7 @@ struct SnackbarModifier: ViewModifier {
                     snackbar = nil
                 }
                 .id(data.id)
+                .padding(.bottom, bottomPadding)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(100)
             }
@@ -154,7 +156,7 @@ struct SnackbarModifier: ViewModifier {
 
 extension View {
     /// Executes lifeboardSnackbar.
-    func lifeboardSnackbar(_ snackbar: Binding<SnackbarData?>) -> some View {
-        modifier(SnackbarModifier(snackbar: snackbar))
+    func lifeboardSnackbar(_ snackbar: Binding<SnackbarData?>, bottomPadding: CGFloat = 0) -> some View {
+        modifier(SnackbarModifier(snackbar: snackbar, bottomPadding: bottomPadding))
     }
 }

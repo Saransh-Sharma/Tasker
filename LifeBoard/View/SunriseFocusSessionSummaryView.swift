@@ -6,7 +6,6 @@ public struct SunriseFocusSessionSummaryView: View {
     private let durationSeconds: Int
     private let xpAwarded: Int
     private let dailyXPSoFar: Int
-    private let dailyXPCap: Int
     private let onDismiss: () -> Void
     private let onContinueMomentum: (() -> Void)?
 
@@ -14,14 +13,12 @@ public struct SunriseFocusSessionSummaryView: View {
         durationSeconds: Int,
         xpAwarded: Int,
         dailyXPSoFar: Int,
-        dailyXPCap: Int,
         onDismiss: @escaping () -> Void,
         onContinueMomentum: (() -> Void)? = nil
     ) {
         self.durationSeconds = durationSeconds
         self.xpAwarded = xpAwarded
         self.dailyXPSoFar = dailyXPSoFar
-        self.dailyXPCap = dailyXPCap
         self.onDismiss = onDismiss
         self.onContinueMomentum = onContinueMomentum
     }
@@ -29,11 +26,6 @@ public struct SunriseFocusSessionSummaryView: View {
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var minutesFocused: Int { durationSeconds / 60 }
-
-    private var dailyProgress: CGFloat {
-        guard dailyXPCap > 0 else { return 0 }
-        return min(1.0, CGFloat(dailyXPSoFar) / CGFloat(dailyXPCap))
-    }
 
     public var body: some View {
         VStack(spacing: spacing.s16) {
@@ -62,23 +54,10 @@ public struct SunriseFocusSessionSummaryView: View {
                     .fill(Color.lifeboard.surfacePrimary)
             )
 
-            // Daily Progress
             VStack(spacing: spacing.s4) {
-                Text("Today: \(dailyXPSoFar)/\(dailyXPCap) XP")
+                Text("Today: \(dailyXPSoFar) XP")
                     .font(.lifeboard(.caption1))
                     .foregroundColor(Color.lifeboard.textSecondary)
-
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.lifeboard.surfaceTertiary)
-                        Capsule()
-                            .fill(dailyXPSoFar >= dailyXPCap ? Color.lifeboard.statusSuccess : Color.lifeboard.accentPrimary)
-                            .frame(width: geo.size.width * dailyProgress)
-                            .animation(.easeInOut(duration: 0.3), value: dailyProgress)
-                    }
-                }
-                .frame(height: GamificationTokens.progressBarHeight)
 
                 Text("Next: complete another task to keep momentum.")
                     .font(.lifeboard(.caption2))

@@ -25,6 +25,7 @@ extension XCUIApplication {
         case disableLLM = "-DISABLE_LLM"
         case testRoute = "-LIFEBOARD_TEST_ROUTE"
         case testSeedEstablishedWorkspace = "-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE"
+        case testSeedSearchWorkspace = "-LIFEBOARD_TEST_SEED_SEARCH_WORKSPACE"
         case testSeedRescueWorkspace = "-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE"
         case testSeedCompactRescueWorkspace = "-LIFEBOARD_TEST_SEED_COMPACT_RESCUE_WORKSPACE"
         case testSeedFocusWorkspace = "-LIFEBOARD_TEST_SEED_FOCUS_WORKSPACE"
@@ -123,7 +124,11 @@ extension XCUIApplication {
     }
 
     /// Launches a deterministic workspace that exercises Home timeline tasks, meetings, habits, projects, and life areas.
-    func launchSeededTimelineWorkspace(calendarMode: String = "active", skipOnboarding: Bool = true) {
+    func launchSeededTimelineWorkspace(
+        calendarMode: String = "active",
+        skipOnboarding: Bool = true,
+        evaActivationCompleted: Bool = false
+    ) {
         launchArguments = [
             LaunchArgumentKey.resetAppState.rawValue,
             LaunchArgumentKey.uiTesting.rawValue,
@@ -135,6 +140,9 @@ extension XCUIApplication {
         ]
         if skipOnboarding {
             launchArguments.append(LaunchArgumentKey.skipOnboarding.rawValue)
+        }
+        if evaActivationCompleted {
+            launchArguments.append(LaunchArgumentKey.testEvaActivationCompleted.rawValue)
         }
         launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         launch()

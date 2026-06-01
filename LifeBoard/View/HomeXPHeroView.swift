@@ -5,19 +5,15 @@ import SwiftUI
 public struct HomeXPHeroView: View {
 
     let dailyXP: Int
-    let dailyCap: Int
     let level: Int
     let streakDays: Int
 
+    private let dailyTargetXP = 30
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var progress: CGFloat {
-        guard dailyCap > 0 else { return 0 }
-        return min(1.0, CGFloat(dailyXP) / CGFloat(dailyCap))
-    }
-
-    private var capReached: Bool {
-        dailyXP >= dailyCap
+        guard dailyTargetXP > 0 else { return 0 }
+        return min(max(CGFloat(dailyXP) / CGFloat(dailyTargetXP), 0), 1)
     }
 
     public var body: some View {
@@ -31,7 +27,7 @@ public struct HomeXPHeroView: View {
                     Text("\(dailyXP)")
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(Color.lifeboard.accentPrimary)
-                    Text("/ \(dailyCap) XP")
+                    Text("XP")
                         .font(.lifeboard(.caption1))
                         .foregroundColor(Color.lifeboard.textTertiary)
                 }
@@ -46,7 +42,7 @@ public struct HomeXPHeroView: View {
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.vertical, spacing.s12)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Today's XP: \(dailyXP) of \(dailyCap). Level \(level). \(streakDays) day streak.")
+        .accessibilityLabel("Today's XP: \(dailyXP). Level \(level). \(streakDays) day streak.")
     }
 
     // MARK: - Subviews
@@ -84,7 +80,7 @@ public struct HomeXPHeroView: View {
                 Capsule()
                     .fill(Color.lifeboard.surfaceTertiary)
                 Capsule()
-                    .fill(capReached ? Color.lifeboard.statusSuccess : Color.lifeboard.accentPrimary)
+                    .fill(Color.lifeboard.accentPrimary)
                     .frame(width: geo.size.width * progress)
                     .animation(.easeInOut(duration: 0.3), value: progress)
             }

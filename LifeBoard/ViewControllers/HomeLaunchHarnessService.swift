@@ -3,6 +3,7 @@ import UIKit
 
 struct HomeLaunchHarnessWorkspaceSeeders {
     let establishedSeed: (@escaping () -> Void) -> Void
+    let searchSeed: (@escaping () -> Void) -> Void
     let rescueSeed: (@escaping () -> Void) -> Void
     let focusSeed: (@escaping () -> Void) -> Void
     let habitBoardSeed: (@escaping () -> Void) -> Void
@@ -11,6 +12,7 @@ struct HomeLaunchHarnessWorkspaceSeeders {
 
     init(
         establishedSeed: @escaping (@escaping () -> Void) -> Void,
+        searchSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         rescueSeed: @escaping (@escaping () -> Void) -> Void,
         focusSeed: @escaping (@escaping () -> Void) -> Void,
         habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
@@ -18,6 +20,7 @@ struct HomeLaunchHarnessWorkspaceSeeders {
         fullTimelineSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() }
     ) {
         self.establishedSeed = establishedSeed
+        self.searchSeed = searchSeed
         self.rescueSeed = rescueSeed
         self.focusSeed = focusSeed
         self.habitBoardSeed = habitBoardSeed
@@ -36,12 +39,14 @@ final class UITestWorkspaceSeeder {
 
     func seed(completion: @escaping () -> Void) {
         seeders.establishedSeed {
-            self.seeders.rescueSeed {
-                self.seeders.focusSeed {
-                    self.seeders.habitBoardSeed {
-                        self.seeders.quietTrackingSeed {
-                            self.seeders.fullTimelineSeed {
-                                completion()
+            self.seeders.searchSeed {
+                self.seeders.rescueSeed {
+                    self.seeders.focusSeed {
+                        self.seeders.habitBoardSeed {
+                            self.seeders.quietTrackingSeed {
+                                self.seeders.fullTimelineSeed {
+                                    completion()
+                                }
                             }
                         }
                     }
@@ -84,6 +89,7 @@ final class HomeLaunchHarnessService {
 
     func seedUITestWorkspacesIfNeeded(
         establishedSeed: @escaping (@escaping () -> Void) -> Void,
+        searchSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         rescueSeed: @escaping (@escaping () -> Void) -> Void,
         focusSeed: @escaping (@escaping () -> Void) -> Void,
         habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
@@ -94,6 +100,7 @@ final class HomeLaunchHarnessService {
         seedUITestWorkspacesIfNeeded(
             seeders: HomeLaunchHarnessWorkspaceSeeders(
                 establishedSeed: establishedSeed,
+                searchSeed: searchSeed,
                 rescueSeed: rescueSeed,
                 focusSeed: focusSeed,
                 habitBoardSeed: habitBoardSeed,

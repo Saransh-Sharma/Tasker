@@ -10,10 +10,11 @@ struct LBBottomDock: View {
     let onSearch: () -> Void
     let onChat: () -> Void
     let onCreate: () -> Void
+
     @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     private var items: [DockItem] {
-        [
+        return [
             DockItem(item: .home, title: "Home", systemImage: "house", selectedSystemImage: "house.fill", accessibilityID: "home.bottomBar.home"),
             DockItem(item: .calendar, title: "Schedule", systemImage: HomeCalendarBottomBarSymbol.symbolName(for: Date()), selectedSystemImage: HomeCalendarBottomBarSymbol.symbolName(for: Date()), accessibilityID: "home.bottomBar.calendar"),
             DockItem(item: .chat, title: "Eva", systemImage: "sparkles", selectedSystemImage: "sparkles", accessibilityID: "home.chatButton"),
@@ -22,8 +23,6 @@ struct LBBottomDock: View {
     }
 
     var body: some View {
-        let isFlattened = scrollOptimizedRendering || state.isMinimized
-
         ZStack {
             HStack(spacing: 0) {
                 ForEach(items.prefix(2)) { item in
@@ -36,24 +35,29 @@ struct LBBottomDock: View {
             }
             .padding(.horizontal, LBSpacingTokens.sm)
             .frame(height: 68)
-            .modifier(LBBottomDockMaterialModifier(isEnabled: isFlattened == false))
-            .background(LBColorTokens.glassStrong.opacity(isFlattened ? 0.86 : 0.62), in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
+            .background {
+                RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous)
+                    .fill(LBColorTokens.glassStrong.opacity(0.62))
+                    .modifier(LBBottomDockMaterialModifier(isEnabled: usesMaterialBackground))
+            }
             .overlay {
                 RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous)
                     .stroke(LBColorTokens.glassBorder, lineWidth: 1)
             }
-            .shadow(color: LBColorTokens.dockShadow.opacity(isFlattened ? 0 : 1), radius: isFlattened ? 0 : 18, x: 0, y: isFlattened ? 0 : 8)
+            .shadow(color: LBColorTokens.dockShadow.opacity(1), radius: 18, x: 0, y: 8)
 
             LBFloatingAddButton(action: handleCreate)
                 .offset(y: -6)
         }
         .padding(.top, 14)
-        .scaleEffect(state.isMinimized ? 0.96 : 1, anchor: .bottom)
-        .offset(y: state.isMinimized ? 16 : 0)
-        .animation(isFlattened ? nil : (shellPhase == .interactive ? .spring(response: 0.38, dampingFraction: 0.86) : .easeOut(duration: 0.14)), value: state.isMinimized)
+        .animation(nil, value: state.isMinimized)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.bottomBar")
-        .accessibilityValue(state.isMinimized ? "minimized" : "expanded")
+        .accessibilityValue("expanded")
+    }
+
+    private var usesMaterialBackground: Bool {
+        scrollOptimizedRendering == false && state.isMinimized == false
     }
 
     private func dockButton(_ item: DockItem) -> some View {
@@ -129,6 +133,16 @@ struct LBBottomDock: View {
     }
 }
 
+private struct DockItem: Identifiable {
+    let item: HomeBottomBarItem
+    let title: String
+    let systemImage: String
+    let selectedSystemImage: String
+    let accessibilityID: String
+
+    var id: HomeBottomBarItem { item }
+}
+
 private struct LBBottomDockMaterialModifier: ViewModifier {
     let isEnabled: Bool
 
@@ -139,14 +153,4 @@ private struct LBBottomDockMaterialModifier: ViewModifier {
             content
         }
     }
-}
-
-private struct DockItem: Identifiable {
-    let item: HomeBottomBarItem
-    let title: String
-    let systemImage: String
-    let selectedSystemImage: String
-    let accessibilityID: String
-
-    var id: HomeBottomBarItem { item }
 }

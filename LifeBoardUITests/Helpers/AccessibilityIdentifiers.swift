@@ -96,6 +96,28 @@ enum AccessibilityIdentifiers {
         static let insightsContentToday = "home.insights.content.today"
         static let insightsContentWeek = "home.insights.content.week"
         static let insightsContentSystems = "home.insights.content.systems"
+        static let insightsHeroCard = "home.insights.hero"
+        static let insightsHeroMetric = "home.insights.hero.metric"
+        static let insightsActionNextDecision = "home.insights.action.nextDecision"
+        static let insightsActionProtectFocus = "home.insights.action.protectFocus"
+        static let insightsActionHabitCheck = "home.insights.action.habitCheck"
+        static let insightsActionYesterdayReview = "home.insights.action.yesterdayReview"
+        static let insightsActionWeeklyMomentum = "home.insights.action.weeklyMomentum"
+        static let insightsActionBacklogDrag = "home.insights.action.backlogDrag"
+        static let insightsActionProjectMix = "home.insights.action.projectMix"
+        static let insightsActionRecovery = "home.insights.action.recovery"
+        static let insightsActionReminderResponse = "home.insights.action.reminderResponse"
+        static let insightsActionConsistency = "home.insights.action.consistency"
+        static let insightsActionFocusHealth = "home.insights.action.focusHealth"
+        static let insightsActionPlanningQuality = "home.insights.action.planningQuality"
+        static let insightsWeekHero = "home.insights.weekHero"
+        static let insightsDisclosureTodayDetails = "home.insights.disclosure.todayDetails"
+        static let insightsDisclosureWeekDetails = "home.insights.disclosure.weekDetails"
+        static let insightsDisclosureSystemDetails = "home.insights.disclosure.systemdetails"
+        static let insightsWeeklyRhythm = "home.insights.weeklyRhythm"
+        static let insightsStreakResilience = "home.insights.streakResilience"
+        static let insightsWeekSummary = "home.insights.weekSummary"
+        static let insightsProjectLeaderboard = "home.insights.projectLeaderboard"
         static let habitsSection = "home.habits.section"
         static let habitsRecoverySection = "home.habits.recovery"
         static let habitsSectionAction = "home.habits.section.action"
@@ -416,6 +438,8 @@ enum AccessibilityIdentifiers {
         static let priorityP1 = "search.priority.p1"
         static let priorityP2 = "search.priority.p2"
         static let priorityP3 = "search.priority.p3"
+        static func suggestion(_ rawValue: String) -> String { "search.suggestion.\(rawValue)" }
+        static func habitResult(_ id: String) -> String { "search.habitResult.\(id)" }
     }
 
     // MARK: - Analytics Screen

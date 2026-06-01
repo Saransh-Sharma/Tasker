@@ -13,11 +13,7 @@ struct HomeMomentumSummaryCard: View {
     private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
 
     private var progressRatio: Double {
-        min(1, Double(progress.earnedXP) / Double(safeTodayTargetXP))
-    }
-
-    private var safeTodayTargetXP: Int {
-        max(1, progress.todayTargetXP)
+        min(1, max(0, completionRate))
     }
 
     private var completionPercent: Int {
@@ -29,7 +25,7 @@ struct HomeMomentumSummaryCard: View {
             HStack(spacing: spacing.s12) {
                 NavPieChart(
                     score: progress.earnedXP,
-                    maxScore: safeTodayTargetXP,
+                    maxScore: max(1, progress.todayTargetXP, progress.earnedXP + progress.remainingPotentialXP),
                     accessibilityContainerID: "home.navXpPieChart",
                     accessibilityButtonID: "home.navXpPieChart.button",
                     onTap: { onChartTap?() }
@@ -42,7 +38,7 @@ struct HomeMomentumSummaryCard: View {
                 )
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(progress.earnedXP)/\(safeTodayTargetXP) XP")
+                    Text("\(progress.earnedXP) XP")
                         .font(.lifeboard(.bodyEmphasis))
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .accessibilityIdentifier("home.dailyScoreLabel")

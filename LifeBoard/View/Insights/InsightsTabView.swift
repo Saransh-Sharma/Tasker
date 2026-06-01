@@ -10,70 +10,98 @@ public struct InsightsTabView: View {
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
+    let onPerformInsightAction: (InsightsActionIntent) -> Void
+    var bottomInset: CGFloat = 0
+    var topContentInset: CGFloat = 0
+    var onBackToTasks: (() -> Void)? = nil
+    var onOpenSettings: (() -> Void)? = nil
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var scrollTraceCoordinator = InsightsScrollTraceCoordinator()
+    @State private var pendingDetailAnchor: InsightsDetailAnchor?
+    @State private var isWeekDetailsExpanded = false
+    @State private var isSystemsDetailsExpanded = false
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                VStack(alignment: .leading, spacing: spacing.s4) {
-                    Text("Insights")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color.lifeboard.textTertiary)
+        SunriseDestinationScaffold(
+            title: "Insights",
+            subtitle: "Your progress at a glance.",
+            headerSymbolName: "chart.bar.xaxis",
+            leadingSystemImage: "line.3.horizontal",
+            leadingAccessibilityLabel: "Back to tasks",
+            leadingAccessibilityIdentifier: "home.sunrise.collapseHint",
+            leadingAction: { onBackToTasks?() },
+            trailingSystemImage: "gearshape",
+            trailingAccessibilityLabel: "Settings",
+            trailingAction: { onOpenSettings?() },
+            metricPillTitle: attentionPillTitle,
+            bottomInset: 0,
+            topContentInset: topContentInset
+        ) {
+            VStack(spacing: LBSpacingTokens.md) {
+                SunriseInsightsHeaderView(
+                    selectedTab: viewModel.selectedTab,
+                    onSelectTab: { tab in
+                        viewModel.selectTab(tab)
+                    }
+                )
 
-                    Text("What needs attention")
-                        .font(.lifeboard(.title3))
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.lifeboard.textPrimary)
-
-                    Text("One answer first. Details stay tucked away.")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                }
-
-                tabSelector
-            }
-            .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
-            .padding(.horizontal, spacing.screenHorizontal)
-            .padding(.vertical, spacing.s12)
-
-            ScrollView {
-                ZStack {
-                    SunriseInsightsContentView(
-                        viewModel: viewModel,
-                        homeProgress: homeProgress,
-                        homeCompletionRate: homeCompletionRate,
-                        reflectionEligible: reflectionEligible,
-                        dailyReflectionEntryState: dailyReflectionEntryState,
-                        momentumGuidanceText: momentumGuidanceText,
-                        animateMomentumCard: animateMomentumCard,
-                        onOpenReflection: onOpenReflection
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        SunriseInsightsContentView(
+                            viewModel: viewModel,
+                            homeProgress: homeProgress,
+                            homeCompletionRate: homeCompletionRate,
+                            reflectionEligible: reflectionEligible,
+                            dailyReflectionEntryState: dailyReflectionEntryState,
+                            momentumGuidanceText: momentumGuidanceText,
+                            animateMomentumCard: animateMomentumCard,
+                            onOpenReflection: onOpenReflection,
+                            onPerformInsightAction: onPerformInsightAction,
+                            pendingDetailAnchor: $pendingDetailAnchor,
+                            isWeekDetailsExpanded: $isWeekDetailsExpanded,
+                            isSystemsDetailsExpanded: $isSystemsDetailsExpanded
+                        )
+                        .padding(.bottom, bottomInset + spacing.s24)
+                    }
+                    .padding(.bottom, spacing.s16)
+                    .scrollIndicators(.hidden)
+                    .onScrollGeometryChange(
+                        for: CGFloat.self,
+                        of: { geometry in
+                            max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+                        },
+                        action: { oldOffset, newOffset in
+                            scrollTraceCoordinator.recordScrollActivity(
+                                oldOffset: oldOffset,
+                                newOffset: newOffset
+                            )
+                        }
                     )
+                    .onChange(of: pendingDetailAnchor) { _, anchor in
+                        guard let anchor else { return }
+                        switch anchor {
+                        case .weeklyRhythm:
+                            isWeekDetailsExpanded = true
+                        case .streakResilience:
+                            isSystemsDetailsExpanded = true
+                        }
+                        DispatchQueue.main.async {
+                            withAnimation(LifeBoardAnimation.snappy) {
+                                proxy.scrollTo(anchor, anchor: .top)
+                            }
+                            pendingDetailAnchor = nil
+                        }
+                    }
+                    .accessibilityIdentifier("home.insights.scroll")
                 }
-                .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
-                .padding(.bottom, spacing.s16)
             }
-            .onScrollGeometryChange(
-                for: CGFloat.self,
-                of: { geometry in
-                    max(0, geometry.contentOffset.y + geometry.contentInsets.top)
-                },
-                action: { oldOffset, newOffset in
-                    scrollTraceCoordinator.recordScrollActivity(
-                        oldOffset: oldOffset,
-                        newOffset: newOffset
-                    )
-                }
-            )
-            .onDisappear {
-                scrollTraceCoordinator.finishIfNeeded()
-            }
-            .accessibilityIdentifier("home.insights.scroll")
         }
         .accessibilityIdentifier("home.insights.container")
-        .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
+        .onDisappear {
+            scrollTraceCoordinator.finishIfNeeded()
+        }
         .onAppear { viewModel.onAppear() }
         .onChange(of: viewModel.selectedTab) { _, _ in
             LifeBoardPerformanceTrace.event("InsightsTabSwitch")
@@ -81,99 +109,15 @@ public struct InsightsTabView: View {
         }
     }
 
-    private var tabSelector: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: spacing.s8) {
-                tabButtons
-            }
-
-            VStack(spacing: spacing.s8) {
-                tabButtons
-            }
-        }
+    private var attentionPillTitle: String {
+        let presentation = InsightsTabPresentation.build(
+            tab: viewModel.selectedTab,
+            viewModel: viewModel,
+            momentumGuidanceText: momentumGuidanceText
+        )
+        return presentation.attentionPillTitle
     }
 
-    private var tabButtons: some View {
-        ForEach(InsightsViewModel.InsightsTab.allCases, id: \.self) { tab in
-            Button(action: { viewModel.selectTab(tab) }) {
-                VStack(alignment: .leading, spacing: spacing.s2) {
-                    Text(tab.rawValue)
-                        .font(.lifeboard(.callout))
-                        .fontWeight(.semibold)
-                        .foregroundStyle(
-                            viewModel.selectedTab == tab
-                                ? Color.lifeboard.textPrimary
-                                : Color.lifeboard.textTertiary
-                        )
-                    Text(tabSubtitle(for: tab))
-                        .font(.lifeboard(.caption2))
-                        .foregroundStyle(
-                            viewModel.selectedTab == tab
-                                ? Color.lifeboard.textSecondary
-                                : Color.lifeboard.textQuaternary
-                        )
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, spacing.s12)
-                .padding(.vertical, spacing.s12)
-                .lifeboardChromeSurface(
-                    cornerRadius: 18,
-                    accentColor: accentColor(for: tab),
-                    level: .e1
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(viewModel.selectedTab == tab ? accentColor(for: tab).opacity(0.14) : Color.clear)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(
-                            viewModel.selectedTab == tab
-                                ? accentColor(for: tab).opacity(0.26)
-                                : Color.clear,
-                            lineWidth: 1
-                        )
-                )
-            }
-            .buttonStyle(.plain)
-            .scaleOnPress()
-            .accessibilityIdentifier(accessibilityIdentifier(for: tab))
-            .accessibilityAddTraits(viewModel.selectedTab == tab ? .isSelected : [])
-        }
-    }
-
-    private func tabSubtitle(for tab: InsightsViewModel.InsightsTab) -> String {
-        switch tab {
-        case .today:
-            return "Momentum"
-        case .week:
-            return "Patterns"
-        case .systems:
-            return "Health"
-        }
-    }
-
-    private func accessibilityIdentifier(for tab: InsightsViewModel.InsightsTab) -> String {
-        switch tab {
-        case .today:
-            return "home.insights.tab.today"
-        case .week:
-            return "home.insights.tab.week"
-        case .systems:
-            return "home.insights.tab.systems"
-        }
-    }
-
-    private func accentColor(for tab: InsightsViewModel.InsightsTab) -> Color {
-        switch tab {
-        case .today:
-            return Color.lifeboard.accentPrimary
-        case .week:
-            return Color.lifeboard.accentSecondary
-        case .systems:
-            return Color.lifeboard.statusSuccess
-        }
-    }
 }
 
 @MainActor

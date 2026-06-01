@@ -19,7 +19,7 @@ public struct LifeBoardTokenTraitContext: Hashable, Sendable {
     public static let unspecified = LifeBoardTokenTraitContext()
 }
 
-public struct LifeBoardBrandPalette: Equatable {
+public struct LifeBoardBrandPalette: Equatable, @unchecked Sendable {
     public let brandEmerald: UIColor
     public let brandMagenta: UIColor
     public let brandMarigold: UIColor
@@ -45,7 +45,6 @@ public struct LifeBoardBrandPalette: Equatable {
     public let inkDark: UIColor
     public let parchmentLight: UIColor
 
-    @MainActor
     public static let sarvam = LifeBoardBrandPalette(
         brandEmerald: UIColor(lifeboardHex: "#293A18"),
         brandMagenta: UIColor(lifeboardHex: "#B1205F"),
@@ -72,6 +71,18 @@ public struct LifeBoardBrandPalette: Equatable {
         inkDark: UIColor(lifeboardHex: "#10130D"),
         parchmentLight: UIColor(lifeboardHex: "#F6EFE2")
     )
+}
+
+public enum LifeBoardThreadSafeTokenResolver {
+    private static let sarvamColorTokens = LifeBoardColorTokens.make(palette: .sarvam)
+
+    /// - Parameter traits: Reserved for future trait-aware token resolution; currently unused.
+    public static func color(
+        for role: LifeBoardColorRole,
+        traits _: LifeBoardTokenTraitContext = .unspecified
+    ) -> UIColor {
+        sarvamColorTokens.color(for: role)
+    }
 }
 
 public struct LifeBoardPatternTokens: Equatable {

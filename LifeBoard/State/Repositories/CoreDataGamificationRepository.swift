@@ -13,7 +13,7 @@ private final class GamificationRepositoryCompletion<Value: Sendable>: @unchecke
     }
 }
 
-public final class CoreDataGamificationRepository: GamificationRepositoryProtocol, @unchecked Sendable {
+public final class CoreDataGamificationRepository: AtomicGamificationRecordingRepositoryProtocol, @unchecked Sendable {
     private let readContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
     private let schemaValidationError: NSError?
@@ -229,6 +229,120 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                         key: event.idempotencyKey,
                         callback: callback
                     )
+                    return
+                }
+                callback.deliver(.failure(error))
+            }
+        }
+    }
+
+    public func recordXPEventAtomically(
+        event: XPEventDefinition,
+        periodKey: String,
+        completion: @escaping @Sendable (Result<AtomicXPRecordingResult, Error>) -> Void
+    ) {
+        guard guardSchemaReady(completion: completion) else { return }
+        let callback = GamificationRepositoryCompletion(completion)
+        backgroundContext.perform {
+            do {
+                _ = try V2CoreDataRepositorySupport.requireID(event.id, field: "xpEvent.id")
+                let normalizedIdempotencyKey = try V2CoreDataRepositorySupport.requireNonEmpty(
+                    event.idempotencyKey,
+                    field: "xpEvent.idempotencyKey"
+                )
+                let normalizedDateKey = try V2CoreDataRepositorySupport.requireNonEmpty(
+                    periodKey,
+                    field: "dailyXPAggregate.dateKey"
+                )
+
+                let existingEvent = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
+                    in: self.backgroundContext,
+                    entityName: "XPEvent",
+                    predicate: NSPredicate(format: "idempotencyKey == %@", normalizedIdempotencyKey),
+                    sort: [NSSortDescriptor(key: "id", ascending: true)]
+                )
+                if existingEvent != nil {
+                    if self.backgroundContext.hasChanges {
+                        try self.backgroundContext.save()
+                    }
+                    self.completeIdempotentReplay(key: normalizedIdempotencyKey, callback: callback)
+                    return
+                }
+
+                let eventObject = try V2CoreDataRepositorySupport.upsertByID(
+                    in: self.backgroundContext,
+                    entityName: "XPEvent",
+                    id: event.id
+                )
+                self.applyXPEventValues(event, normalizedIdempotencyKey: normalizedIdempotencyKey, to: eventObject)
+
+                let aggregateObject = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
+                    in: self.backgroundContext,
+                    entityName: "DailyXPAggregate",
+                    predicate: NSPredicate(format: "dateKey == %@", normalizedDateKey),
+                    sort: [
+                        NSSortDescriptor(key: "totalXP", ascending: false),
+                        NSSortDescriptor(key: "eventCount", ascending: false),
+                        NSSortDescriptor(key: "updatedAt", ascending: false),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ],
+                    createIfMissing: true
+                )
+                guard let aggregateObject else {
+                    throw NSError(
+                        domain: "CoreDataGamificationRepository",
+                        code: 500,
+                        userInfo: [NSLocalizedDescriptionKey: "Failed to create canonical DailyXPAggregate row"]
+                    )
+                }
+                let aggregateID = (aggregateObject.value(forKey: "id") as? UUID) ?? UUID()
+                let updatedDailyXP = Int(aggregateObject.value(forKey: "totalXP") as? Int32 ?? 0) + event.delta
+                let updatedEventCount = Int(aggregateObject.value(forKey: "eventCount") as? Int32 ?? 0) + 1
+                aggregateObject.setValue(aggregateID, forKey: "id")
+                aggregateObject.setValue(normalizedDateKey, forKey: "dateKey")
+                aggregateObject.setValue(Int32(updatedDailyXP), forKey: "totalXP")
+                aggregateObject.setValue(Int32(updatedEventCount), forKey: "eventCount")
+                aggregateObject.setValue(Date(), forKey: "updatedAt")
+
+                let profileObject = try V2CoreDataRepositorySupport.canonicalWriteRepairObject(
+                    in: self.backgroundContext,
+                    entityName: "GamificationProfile",
+                    predicate: NSPredicate(value: true),
+                    sort: [
+                        NSSortDescriptor(key: "updatedAt", ascending: false),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ],
+                    createIfMissing: true
+                )
+                guard let profileObject else {
+                    throw NSError(
+                        domain: "CoreDataGamificationRepository",
+                        code: 500,
+                        userInfo: [NSLocalizedDescriptionKey: "Failed to create canonical GamificationProfile row"]
+                    )
+                }
+
+                var profile = self.profile(from: profileObject)
+                let previousLevel = profile.level
+                if profile.gamificationV2ActivatedAt == nil {
+                    profile.gamificationV2ActivatedAt = event.createdAt
+                }
+                profile.xpTotal += Int64(event.delta)
+                let levelInfo = XPCalculationEngine.levelForXP(profile.xpTotal)
+                profile.level = levelInfo.level
+                profile.nextLevelXP = levelInfo.nextThreshold
+                profile.updatedAt = Date()
+                self.applyProfileValues(profile, to: profileObject)
+
+                try self.backgroundContext.save()
+                self.finalizeWrite(callback: callback, value: AtomicXPRecordingResult(
+                    profile: profile,
+                    previousLevel: previousLevel,
+                    dailyXPSoFar: updatedDailyXP
+                ))
+            } catch {
+                if Self.isIdempotencyConstraintConflict(error) {
+                    self.completeIdempotentReplay(key: event.idempotencyKey, callback: callback)
                     return
                 }
                 callback.deliver(.failure(error))
@@ -611,6 +725,23 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         }
     }
 
+    private func finalizeWrite<Value: Sendable>(
+        callback: GamificationRepositoryCompletion<Value>,
+        value: Value
+    ) {
+        readContext.perform {
+            let registeredObjectCount = self.readContext.registeredObjects.count
+            self.readContext.reset()
+            #if DEBUG
+            logDebug(
+                "gamification_read_context_reset_after_write " +
+                    "registered_objects=\(registeredObjectCount)"
+            )
+            #endif
+            callback.deliver(.success(value))
+        }
+    }
+
     private func completeIdempotentReplay(
         key: String,
         callback: GamificationRepositoryCompletion<Void>
@@ -628,6 +759,74 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                 idempotencyKey: key
             )))
         }
+    }
+
+    private func completeIdempotentReplay<Value: Sendable>(
+        key: String,
+        callback: GamificationRepositoryCompletion<Value>
+    ) {
+        readContext.perform {
+            let registeredObjectCount = self.readContext.registeredObjects.count
+            self.readContext.reset()
+            #if DEBUG
+            logDebug(
+                "gamification_read_context_reset_after_write " +
+                    "registered_objects=\(registeredObjectCount)"
+            )
+            #endif
+            callback.deliver(.failure(GamificationRepositoryWriteError.idempotentReplay(
+                idempotencyKey: key
+            )))
+        }
+    }
+
+    private func applyXPEventValues(
+        _ event: XPEventDefinition,
+        normalizedIdempotencyKey: String,
+        to object: NSManagedObject
+    ) {
+        object.setValue(event.id, forKey: "id")
+        object.setValue(event.occurrenceID, forKey: "occurrenceID")
+        object.setValue(event.taskID, forKey: "taskID")
+        object.setValue(Int32(event.delta), forKey: "delta")
+        object.setValue(event.reason, forKey: "reason")
+        object.setValue(normalizedIdempotencyKey, forKey: "idempotencyKey")
+        object.setValue(event.createdAt, forKey: "createdAt")
+        object.setValue(event.category?.rawValue, forKey: "category")
+        object.setValue(event.source?.rawValue, forKey: "source")
+        object.setValue(event.qualityWeight.map { Float($0) }, forKey: "qualityWeight")
+        object.setValue(event.periodKey, forKey: "periodKey")
+        object.setValue(event.metadataBlob, forKey: "metadataBlob")
+    }
+
+    private func profile(from object: NSManagedObject) -> GamificationSnapshot {
+        GamificationSnapshot(
+            id: object.value(forKey: "id") as? UUID ?? UUID(),
+            xpTotal: object.value(forKey: "xpTotal") as? Int64 ?? 0,
+            level: Int(object.value(forKey: "level") as? Int32 ?? 1),
+            currentStreak: Int(object.value(forKey: "currentStreak") as? Int32 ?? 0),
+            bestStreak: Int(object.value(forKey: "bestStreak") as? Int32 ?? 0),
+            lastActiveDate: object.value(forKey: "lastActiveDate") as? Date,
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date(),
+            gamificationV2ActivatedAt: object.value(forKey: "gamificationV2ActivatedAt") as? Date,
+            nextLevelXP: object.value(forKey: "nextLevelXP") as? Int64 ?? 0,
+            returnStreak: Int(object.value(forKey: "returnStreak") as? Int32 ?? 0),
+            bestReturnStreak: Int(object.value(forKey: "bestReturnStreak") as? Int32 ?? 0)
+        )
+    }
+
+    private func applyProfileValues(_ profile: GamificationSnapshot, to object: NSManagedObject) {
+        object.setValue(profile.id, forKey: "id")
+        object.setValue(profile.xpTotal, forKey: "xpTotal")
+        object.setValue(Int32(profile.level), forKey: "level")
+        object.setValue(Int32(profile.currentStreak), forKey: "currentStreak")
+        object.setValue(Int32(profile.bestStreak), forKey: "bestStreak")
+        object.setValue(profile.lastActiveDate, forKey: "lastActiveDate")
+        object.setValue(profile.updatedAt, forKey: "updatedAt")
+        object.setValue(profile.gamificationV2ActivatedAt, forKey: "gamificationV2ActivatedAt")
+        object.setValue(profile.nextLevelXP, forKey: "nextLevelXP")
+        object.setValue(Int32(profile.returnStreak), forKey: "returnStreak")
+        object.setValue(Int32(profile.bestReturnStreak), forKey: "bestReturnStreak")
     }
 
     private static func isIdempotencyConstraintConflict(_ error: Error) -> Bool {

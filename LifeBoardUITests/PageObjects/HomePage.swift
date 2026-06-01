@@ -180,6 +180,13 @@ class HomePage {
     }
 
     var searchButton: XCUIElement {
+        let visibleHomeSearchButtons = app.buttons.matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.searchButton)
+        )
+        if let visibleHomeSearchButton = firstHittableElement(in: visibleHomeSearchButtons) {
+            return visibleHomeSearchButton
+        }
+
         let bottomSearchByLabel = bottomBar.buttons.matching(
             NSPredicate(
                 format: "label == 'Search' OR identifier == %@",
@@ -192,8 +199,7 @@ class HomePage {
 
         return app.buttons.matching(
             NSPredicate(
-                format: "identifier == %@ OR (label CONTAINS[c] 'Search' AND identifier != %@)",
-                AccessibilityIdentifiers.Home.searchButton,
+                format: "label CONTAINS[c] 'Search' AND identifier != %@",
                 AccessibilityIdentifiers.Home.topNavSearchButton
             )
         ).firstMatch
@@ -751,6 +757,10 @@ class HomePage {
         if identified.exists {
             return identified
         }
+        let identifiedAny = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.insightsScroll]
+        if identifiedAny.exists {
+            return identifiedAny
+        }
         return app.scrollViews.firstMatch
     }
 
@@ -782,6 +792,37 @@ class HomePage {
             }
         }
         return nil
+    }
+
+    private func firstVisibleElement(in query: XCUIElementQuery) -> XCUIElement? {
+        for index in 0..<query.count {
+            let candidate = query.element(boundBy: index)
+            if candidate.exists, candidate.frame.width > 0, candidate.frame.height > 0 {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    private func smallestVisibleElement(
+        in query: XCUIElementQuery,
+        matchingTitle title: String,
+        maximumHeight: CGFloat? = nil
+    ) -> XCUIElement? {
+        var best: XCUIElement?
+        var bestArea = CGFloat.greatestFiniteMagnitude
+        for index in 0..<query.count {
+            let candidate = query.element(boundBy: index)
+            guard candidate.exists, candidate.frame.width > 0, candidate.frame.height > 0 else { continue }
+            if let maximumHeight, candidate.frame.height > maximumHeight { continue }
+            guard rowMatchesTitle(candidate, title: title) else { continue }
+            let area = candidate.frame.width * candidate.frame.height
+            if area < bestArea {
+                best = candidate
+                bestArea = area
+            }
+        }
+        return best
     }
 
     private func rowMatchesTitle(_ row: XCUIElement, title: String) -> Bool {
@@ -852,6 +893,7 @@ class HomePage {
         let candidates: [XCUIElement] = [
             app.buttons[AccessibilityIdentifiers.Home.settingsButton],
             app.descendants(matching: .any)[AccessibilityIdentifiers.Home.settingsButton],
+            app.buttons["Menu"],
             app.buttons.matching(
                 NSPredicate(
                     format: "label CONTAINS[c] 'Settings' OR label CONTAINS[c] 'gear' OR identifier CONTAINS[c] 'settings'"
@@ -861,11 +903,8 @@ class HomePage {
 
         for candidate in candidates {
             guard candidate.waitForExistence(timeout: 2) else { continue }
-            if candidate.isHittable {
-                candidate.tap()
-            } else {
-                candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            }
+            guard candidate.isHittable else { continue }
+            candidate.tap()
 
             if settingsPage.verifyIsDisplayed(timeout: 2) {
                 return settingsPage
@@ -878,9 +917,57 @@ class HomePage {
 
     /// Tap search button
     func tapSearch() {
-        let button = searchButton
-        XCTAssertTrue(button.waitForExistence(timeout: 3), "Search button should exist before tapping")
-        tapElement(button)
+        XCTAssertTrue(openSearchFromHome(), "Search face should open from Home")
+    }
+
+    @discardableResult
+    func openSearchFromHome(timeout: TimeInterval = 5) -> Bool {
+        if searchView.exists {
+            return waitForSearchFaceOpen(timeout: timeout)
+        }
+
+        let visibleSearchButtons = app.buttons.matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.searchButton)
+        )
+        if let button = firstHittableElement(in: visibleSearchButtons) {
+            button.tap()
+            if waitForSearchFaceOpen(timeout: timeout) { return true }
+        }
+
+        let menuButton = app.buttons[AccessibilityIdentifiers.Home.projectFilterButton]
+        if menuButton.waitForExistence(timeout: 1), menuButton.isHittable {
+            menuButton.tap()
+            let menuSearch = app.buttons["home.focus.menu.search"]
+            if menuSearch.waitForExistence(timeout: 2), menuSearch.isHittable {
+                menuSearch.tap()
+                if waitForSearchFaceOpen(timeout: timeout) { return true }
+            }
+        }
+
+        if let fallbackSearch = firstHittableElement(
+            in: app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Search'"))
+        ) {
+            fallbackSearch.tap()
+            if waitForSearchFaceOpen(timeout: timeout) { return true }
+        }
+
+        let list = taskListScrollView
+        if list.exists {
+            list.swipeDown()
+            if waitForSearchFaceOpen(timeout: timeout) { return true }
+        }
+
+        return false
+    }
+
+    @discardableResult
+    func openInsights(timeout: TimeInterval = 5) -> Bool {
+        if insightsContainer.exists {
+            return insightsContainer.waitForExistence(timeout: timeout)
+        }
+        guard chartsButton.waitForExistence(timeout: timeout) else { return false }
+        tapElement(chartsButton)
+        return insightsContainer.waitForExistence(timeout: timeout)
     }
 
     /// Tap charts button
@@ -899,8 +986,9 @@ class HomePage {
 
     @discardableResult
     func waitForSearchFaceOpen(timeout: TimeInterval = 3) -> Bool {
-        guard waitForSunriseState("fullReveal", timeout: timeout) else { return false }
-        return searchView.waitForExistence(timeout: timeout)
+        guard searchView.waitForExistence(timeout: timeout) else { return false }
+        guard searchChromeContainer.waitForExistence(timeout: timeout) else { return false }
+        return searchField.waitForExistence(timeout: timeout)
     }
 
     func topSafeAreaBoundary() -> CGFloat {
@@ -1033,11 +1121,18 @@ class HomePage {
 
     /// Get SwiftUI task row by title using stable row accessibility identifiers.
     func taskRow(containingTitle title: String) -> XCUIElement {
+        let stableRows = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
+        )
+        if let smallestStableRow = smallestVisibleElement(in: stableRows, matchingTitle: title) {
+            return smallestStableRow
+        }
+
         let rowsContainingTitle = app.otherElements.matching(
             NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
         ).containing(.staticText, identifier: title)
-        if let hittableRow = firstHittableElement(in: rowsContainingTitle) {
-            return hittableRow
+        if let visibleRow = firstVisibleElement(in: rowsContainingTitle) {
+            return visibleRow
         }
 
         let rowContainingTitle = rowsContainingTitle.firstMatch
@@ -1046,13 +1141,17 @@ class HomePage {
         }
 
         let genericContainingRows = app.otherElements.containing(.staticText, identifier: title)
-        if let hittableGenericRow = firstHittableElement(in: genericContainingRows) {
-            return hittableGenericRow
+        if let boundedGenericRow = smallestVisibleElement(
+            in: genericContainingRows,
+            matchingTitle: title,
+            maximumHeight: 260
+        ) {
+            return boundedGenericRow
         }
 
-        let genericContainingRow = genericContainingRows.firstMatch
-        if genericContainingRow.exists {
-            return genericContainingRow
+        let exactTitleText = app.staticTexts[title]
+        if exactTitleText.exists {
+            return exactTitleText
         }
 
         let rowsByLabel = taskRowQuery.matching(

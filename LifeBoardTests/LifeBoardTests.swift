@@ -9,6 +9,7 @@
 import XCTest
 import Combine
 import CoreData
+import SwiftUI
 import UserNotifications
 import MLXLMCommon
 @testable import LifeBoard
@@ -3454,6 +3455,26 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 }
 
+final class LifeBoardColorAdapterConcurrencyTests: XCTestCase {
+    func testLifeBoardColorRoleResolutionIsSafeOffMainActor() async {
+        let roles: [LifeBoardColorRole] = [
+            .bgCanvas,
+            .surfacePrimary,
+            .accentPrimary,
+            .statusWarning,
+            .textPrimary
+        ]
+
+        await _Concurrency.Task.detached(priority: .userInitiated) {
+            for role in roles {
+                _ = Color.lifeboard(role)
+                let resolvedColor = LifeBoardThreadSafeTokenResolver.color(for: role)
+                XCTAssertNotNil(resolvedColor.cgColor, "Expected \(role) to resolve without MainActor theme access")
+            }
+        }.value
+    }
+}
+
 @MainActor
 final class TaskListWidgetSourceContractTests: XCTestCase {
     func testSceneDelegateRestrictsTaskScopesToDocumentedRoutes() throws {
@@ -3583,6 +3604,17 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertFalse(source.contains("Color.lifeboard("))
         XCTAssertFalse(source.contains("dynamic(light:"))
         XCTAssertFalse(source.contains("Color(hex:"))
+    }
+
+    func testAppDesignSystemMayUseThreadSafeLifeBoardColorAdapter() throws {
+        let source = try loadWorkspaceFile("LifeBoard/DesignSystem/SwiftUI+TokenAdapters.swift")
+
+        XCTAssertTrue(source.contains("static func lifeboard(_ role: LifeBoardColorRole) -> Color"))
+        XCTAssertTrue(source.contains("LifeBoardThreadSafeTokenResolver.color(for: role"))
+        XCTAssertFalse(
+            source.contains("LifeBoardThemeManager.shared.tokens(for: layoutClass, traits: traits).color"),
+            "Color.lifeboard(_:) must not resolve through MainActor theme manager state."
+        )
     }
 
     func testWidgetFoundationDefinesWeightedContextAndAccessibilityPrimitives() throws {
@@ -11888,6 +11920,114 @@ private extension Calendar {
 }
 
 @MainActor
+final class InsightsActionRoutingTests: XCTestCase {
+    func testTodayActionCardsResolveToOperationalWorkflows() {
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .today, id: "nextDecision")),
+            .startNextDecision
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .today, id: "protectFocus")),
+            .protectFocus
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .today, id: "habitCheck")),
+            .openHabitCheck
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .today, id: "yesterdayReview")),
+            .openYesterdayReview
+        )
+    }
+
+    func testWeekActionCardsResolveToReflectiveWorkflows() {
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .week, id: "weeklyMomentum")),
+            .expandDetails(.weeklyRhythm)
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .week, id: "backlogDrag")),
+            .openBacklogRecovery
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .week, id: "projectMix")),
+            .openProjectMix
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .week, id: "recovery")),
+            .openWeeklyReview
+        )
+    }
+
+    func testSystemsActionCardsResolveToSystemHealthWorkflows() {
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .systems, id: "reminderResponse")),
+            .openReminderSettings
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .systems, id: "consistency")),
+            .expandDetails(.streakResilience)
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .systems, id: "focusHealth")),
+            .protectFocus
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(for: .card(tab: .systems, id: "planningQuality")),
+            .openWeeklyPlanner
+        )
+    }
+
+    func testHeroCTAResolvesEmptyPartialAndRichStates() {
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .today, availability: .empty, primaryCTAIntent: .addTask)
+            ),
+            .addTask
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .today, availability: .partial, primaryCTAIntent: .openToday)
+            ),
+            .openToday
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .today, availability: .rich, primaryCTAIntent: .protectFocus)
+            ),
+            .protectFocus
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .week, availability: .rich, primaryCTAIntent: .openBacklogRecovery)
+            ),
+            .openBacklogRecovery
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .systems, availability: .partial, primaryCTAIntent: .openReminderSettings)
+            ),
+            .openReminderSettings
+        )
+    }
+
+    func testHeroCTAResolutionUsesExplicitIntentInsteadOfTabTextHeuristics() {
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .today, availability: .rich, primaryCTAIntent: .openReminderSettings)
+            ),
+            .openReminderSettings
+        )
+        XCTAssertEqual(
+            InsightsActionResolver.intent(
+                for: .hero(tab: .systems, availability: .rich, primaryCTAIntent: .protectFocus)
+            ),
+            .protectFocus
+        )
+    }
+}
+
+@MainActor
 final class InsightsViewModelPerformanceLogicTests: XCTestCase {
     func testOnAppearLoadsSelectedTabOnly() {
         let repository = InsightsRepositorySpy()
@@ -12573,12 +12713,10 @@ final class XPCalculationEngineExactPreviewTests: XCTestCase {
             estimatedDuration: nil,
             dueDate: dueDate,
             completedAt: completedAt,
-            dailyEarnedSoFar: 0,
             isGamificationV2Enabled: true
         )
 
         XCTAssertEqual(preview.awardedXP, 17)
-        XCTAssertFalse(preview.isCapped)
     }
 
     func testCompletionXPIfCompletedNowOmitsBonusForOverdueTask() {
@@ -12589,12 +12727,10 @@ final class XPCalculationEngineExactPreviewTests: XCTestCase {
             estimatedDuration: nil,
             dueDate: dueDate,
             completedAt: completedAt,
-            dailyEarnedSoFar: 0,
             isGamificationV2Enabled: true
         )
 
         XCTAssertEqual(preview.awardedXP, 11)
-        XCTAssertFalse(preview.isCapped)
     }
 
     func testCompletionXPIfCompletedNowAppliesEffortWeight() {
@@ -12604,27 +12740,23 @@ final class XPCalculationEngineExactPreviewTests: XCTestCase {
             estimatedDuration: 90 * 60,
             dueDate: nil,
             completedAt: completedAt,
-            dailyEarnedSoFar: 0,
             isGamificationV2Enabled: true
         )
 
         XCTAssertEqual(preview.awardedXP, 17)
-        XCTAssertFalse(preview.isCapped)
     }
 
-    func testCompletionXPIfCompletedNowClampsToRemainingCapHeadroom() {
+    func testCompletionXPIfCompletedNowIgnoresExistingDailyTotal() {
         let completedAt = Date(timeIntervalSince1970: 1_700_000_000)
         let preview = XPCalculationEngine.completionXPIfCompletedNow(
             priorityRaw: TaskPriority.max.rawValue,
             estimatedDuration: nil,
             dueDate: completedAt,
             completedAt: completedAt,
-            dailyEarnedSoFar: 245,
             isGamificationV2Enabled: true
         )
 
-        XCTAssertEqual(preview.awardedXP, 5)
-        XCTAssertTrue(preview.isCapped)
+        XCTAssertEqual(preview.awardedXP, 24)
     }
 
     func testCompletionXPIfCompletedNowUsesLegacyFixedRewardWhenV2Disabled() {
@@ -12634,12 +12766,10 @@ final class XPCalculationEngineExactPreviewTests: XCTestCase {
             estimatedDuration: 120 * 60,
             dueDate: completedAt,
             completedAt: completedAt,
-            dailyEarnedSoFar: 10_000,
             isGamificationV2Enabled: false
         )
 
         XCTAssertEqual(preview.awardedXP, 10)
-        XCTAssertFalse(preview.isCapped)
     }
 }
 
@@ -12656,7 +12786,6 @@ final class XPExactPreviewParityTests: XCTestCase {
             estimatedDuration: 60 * 60,
             dueDate: dueDate,
             completedAt: completedAt,
-            dailyEarnedSoFar: 0,
             isGamificationV2Enabled: true
         )
 
@@ -12682,7 +12811,7 @@ final class XPExactPreviewParityTests: XCTestCase {
         XCTAssertEqual(preview.awardedXP, awarded)
     }
 
-    func testPreviewMatchesGamificationEngineAwardWhenNearDailyCap() throws {
+    func testPreviewMatchesGamificationEngineAwardWithHighExistingDailyTotal() throws {
         let repository = InMemoryGamificationEngineRepository()
         let engine = GamificationEngine(repository: repository)
         let completedAt = Date(timeIntervalSince1970: 1_700_000_200)
@@ -12704,7 +12833,6 @@ final class XPExactPreviewParityTests: XCTestCase {
             estimatedDuration: nil,
             dueDate: completedAt,
             completedAt: completedAt,
-            dailyEarnedSoFar: 245,
             isGamificationV2Enabled: true
         )
 
@@ -12728,8 +12856,83 @@ final class XPExactPreviewParityTests: XCTestCase {
         wait(for: [completionExpectation], timeout: 2.0)
         let result = try XCTUnwrap(recordedResult.read()).get()
         XCTAssertEqual(preview.awardedXP, result.awardedXP)
-        XCTAssertTrue(preview.isCapped)
         XCTAssertEqual(result.dailyXPSoFar, 245 + preview.awardedXP)
+    }
+
+    func testHighExistingDailyTotalDoesNotReduceAnyAwardCategory() throws {
+        let baselineRepository = InMemoryGamificationEngineRepository()
+        let baselineEngine = GamificationEngine(repository: baselineRepository)
+        let highTotalRepository = InMemoryGamificationEngineRepository()
+        let highTotalEngine = GamificationEngine(repository: highTotalRepository)
+        let completedAt = Date(timeIntervalSince1970: 1_700_000_300)
+        let dateKey = XPCalculationEngine.periodKey(for: completedAt)
+        highTotalRepository.seed(
+            dailyAggregates: [
+                dateKey: DailyXPAggregateDefinition(
+                    id: UUID(),
+                    dateKey: dateKey,
+                    totalXP: 10_000,
+                    eventCount: 100,
+                    updatedAt: completedAt
+                )
+            ]
+        )
+
+        let cases: [XPEventContext] = [
+            XPEventContext(
+                category: .complete,
+                taskID: UUID(),
+                dueDate: completedAt,
+                completedAt: completedAt,
+                priority: max(0, Int(TaskPriority.max.rawValue) - 1),
+                estimatedDuration: nil
+            ),
+            XPEventContext(
+                category: .habitPositiveComplete,
+                habitID: UUID(),
+                completedAt: completedAt
+            ),
+            XPEventContext(
+                category: .focus,
+                sessionID: UUID(),
+                completedAt: completedAt,
+                focusDurationSeconds: 10 * 60
+            ),
+            XPEventContext(
+                category: .reflection,
+                completedAt: completedAt
+            ),
+            XPEventContext(
+                category: .weeklyPlan,
+                completedAt: completedAt,
+                fromDay: "2026-01-01"
+            ),
+            XPEventContext(
+                category: .weeklyReview,
+                completedAt: completedAt,
+                fromDay: "2026-01-08"
+            )
+        ]
+
+        var runningHighDailyXP = 10_000
+        for context in cases {
+            let baselineResult = try record(context, using: baselineEngine)
+            let highTotalResult = try record(context, using: highTotalEngine)
+            runningHighDailyXP += baselineResult.awardedXP
+            XCTAssertEqual(highTotalResult.awardedXP, baselineResult.awardedXP)
+            XCTAssertEqual(highTotalResult.dailyXPSoFar, runningHighDailyXP)
+        }
+    }
+
+    private func record(_ context: XPEventContext, using engine: GamificationEngine) throws -> XPEventResult {
+        let recordedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
+        let completionExpectation = expectation(description: "record \(context.category.rawValue)")
+        engine.recordEvent(context: context) { result in
+            recordedResult.write(result)
+            completionExpectation.fulfill()
+        }
+        wait(for: [completionExpectation], timeout: 2.0)
+        return try XCTUnwrap(recordedResult.read()).get()
     }
 }
 
@@ -12767,6 +12970,11 @@ final class XPRewardPreviewCopyRegressionTests: XCTestCase {
             XCTAssertFalse(source.contains("Est. +"), "\(relativePath) should not show estimated XP labels.")
             XCTAssertFalse(source.contains("~+"), "\(relativePath) should not show approximate compact XP labels.")
             XCTAssertFalse(source.contains("Estimated reward"), "\(relativePath) should use reward wording.")
+            XCTAssertFalse(source.contains("XP pending"), "\(relativePath) should always show deterministic XP.")
+            XCTAssertFalse(source.contains("Reward pending"), "\(relativePath) should always expose deterministic reward accessibility copy.")
+            XCTAssertFalse(source.contains("(cap)"), "\(relativePath) should not show daily cap copy.")
+            XCTAssertFalse(source.contains("to cap"), "\(relativePath) should not show daily cap copy.")
+            XCTAssertFalse(source.contains("Daily cap reached"), "\(relativePath) should not show daily cap copy.")
         }
     }
 
@@ -16392,16 +16600,75 @@ final class DailyReflectionUseCasesTests: XCTestCase {
 
         viewModel.swapTask(slotIndex: 0, with: swapOption)
         XCTAssertEqual(viewModel.editablePlan?.topTasks.first?.id, swapOption.id)
+        XCTAssertTrue(viewModel.hasTaskSwaps)
+        XCTAssertTrue(viewModel.hasUnsavedChanges)
 
         let enrichmentLoaded = await waitForCondition(timeout: 2.0) {
             viewModel.optionalContext?.status == .loaded
         }
         XCTAssertTrue(enrichmentLoaded)
         XCTAssertEqual(viewModel.editablePlan?.topTasks.first?.id, swapOption.id)
+        XCTAssertTrue(viewModel.hasTaskSwaps)
         XCTAssertEqual(
             viewModel.editablePlan?.focusWindow,
             viewModel.optionalContext?.suggestedPlan.focusWindow
         )
+    }
+
+    @MainActor
+    func testDailyReflectPlanViewModelTracksContextEditsAndDiscard() async {
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
+        let calendar = Calendar.autoupdatingCurrent
+        let reflectionDate = calendar.startOfDay(for: Date())
+        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
+        let tasks = [
+            TaskDefinition(title: "Carryover", priority: .max, type: .morning, dueDate: reflectionDate, isComplete: false),
+            TaskDefinition(title: "Planning task", priority: .high, type: .morning, dueDate: planningDate, isComplete: false)
+        ]
+        let coordinator = V3TestHarness.makeCoordinator(
+            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: tasks),
+            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: tasks),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()]),
+            habitRuntimeReadRepository: CapturingHabitRuntimeReadRepository()
+        )
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: reflectionDate) ?? reflectionDate
+        XCTAssertNoThrow(
+            try coordinator.dailyReflectionStore.markCompleted(
+                on: yesterday,
+                completedAt: reflectionDate,
+                payload: nil as ReflectionPayload?
+            )
+        )
+
+        let viewModel = DailyReflectPlanViewModel(useCaseCoordinator: coordinator, calendar: calendar)
+
+        let baselineLoaded = await waitForCondition(timeout: 1.0) {
+            viewModel.loadState == DailyReflectionLoadState.fullyLoaded
+                && viewModel.editablePlan != nil
+        }
+        XCTAssertTrue(baselineLoaded)
+        XCTAssertFalse(viewModel.hasContextEdits)
+        XCTAssertFalse(viewModel.hasUnsavedChanges)
+
+        viewModel.noteText = "Protect the first hour"
+        XCTAssertTrue(viewModel.hasContextEdits)
+        XCTAssertTrue(viewModel.hasUnsavedChanges)
+
+        viewModel.toggleMood(.good)
+        viewModel.toggleEnergy(.okay)
+        viewModel.toggleFriction(.meetings)
+        XCTAssertEqual(viewModel.selectedMood, .good)
+        XCTAssertEqual(viewModel.selectedEnergy, .okay)
+        XCTAssertEqual(viewModel.selectedFrictionTags, [.meetings])
+
+        viewModel.discardChanges()
+
+        XCTAssertEqual(viewModel.noteText, "")
+        XCTAssertNil(viewModel.selectedMood)
+        XCTAssertNil(viewModel.selectedEnergy)
+        XCTAssertTrue(viewModel.selectedFrictionTags.isEmpty)
+        XCTAssertFalse(viewModel.hasContextEdits)
+        XCTAssertFalse(viewModel.hasUnsavedChanges)
     }
 
     @MainActor

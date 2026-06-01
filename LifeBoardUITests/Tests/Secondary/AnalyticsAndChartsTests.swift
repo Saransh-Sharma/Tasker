@@ -2,8 +2,7 @@
 //  AnalyticsAndChartsTests.swift
 //  LifeBoardUITests
 //
-//  Secondary Tests: Analytics & Insights
-//  Tests analytics display and Sunrise Insights rendering
+//  Secondary Tests: Sunrise Insights
 //
 
 import XCTest
@@ -11,740 +10,359 @@ import XCTest
 class AnalyticsAndChartsTests: BaseUITest {
 
     var homePage: HomePage!
+
     override var additionalLaunchArguments: [String] {
         [XCUIApplication.LaunchArgumentKey.disableLLM.rawValue]
     }
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        // These flows intentionally create/complete multiple tasks and can exceed the default UI-test allowance.
         executionTimeAllowance = 120
         homePage = HomePage(app: app)
     }
 
-    // MARK: - Test 57: Insights Updates After Completion
-
-    func testInsightsUpdatesAfterCompletion() throws {
-        // GIVEN: Tasks exist
+    func testInsightsTodaySurfaceUpdatesAfterCompletion() throws {
+        let taskTitle = "Task for Insights"
         let addTaskPage = homePage.tapAddTask()
-        addTaskPage.createTask(title: "Task for Insights", priority: .max, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: "Task for Insights", timeout: 5)
+        addTaskPage.createTask(title: taskTitle, priority: .max, taskType: .morning)
+        XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should be visible before completion")
 
-        // WHEN: User completes a task
-        let taskIndex = findTaskIndex(withTitle: "Task for Insights")
-        homePage.completeTask(at: taskIndex)
-        waitForAnimations(duration: 2.0)
+        homePage.completeTask(at: findTaskIndex(withTitle: taskTitle))
 
-        // THEN: Insights should render/update
-        let insightsExists = homePage.verifyInsightsContainerIsVisible()
-
-        if insightsExists {
-            print("✅ Insights container is visible")
-        } else {
-            print("⚠️ Insights may be below fold or not visible in current view")
-        }
-
-        takeScreenshot(named: "insights_updates_after_completion")
+        XCTAssertTrue(homePage.openInsights(), "Insights should open from the Sunrise bottom dock")
+        assertTodayInsightsSurface()
+        takeScreenshot(named: "insights_today_surface_after_completion")
     }
 
-    // MARK: - Test 58: Nav XP Chart Is Visible And Toggles Analytics
-
-    func testNavXpPieChartVisibilityFollowsDailyXP() throws {
-        // GIVEN: User is on home screen with fresh app state
+    func testInsightsNavigationSurvivesDailyXPChanges() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Sunrise should start collapsed")
-        guard homePage.sunriseSurface.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Sunrise surface is not exposed in current runtime configuration")
-        }
-
-        // THEN: Nav chart should be visible and tappable from top navigation
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartIsVisible(timeout: 3),
-            "Navigation XP pie chart should be visible by default"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartButtonIsPresent(timeout: 3),
-            "Navigation XP pie chart button should be present by default"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartIsHittable(),
-            "Navigation XP pie chart should be hittable"
-        )
-        XCTAssertTrue(homePage.projectFilterButton.waitForExistence(timeout: 3), "Quick view selector should be present in top nav")
-        XCTAssertFalse(homePage.topNavSearchButton.exists, "Top nav search should be removed")
-        XCTAssertTrue(homePage.searchButton.waitForExistence(timeout: 3), "Bottom search should remain present")
         XCTAssertTrue(homePage.homeButton.waitForExistence(timeout: 3), "Bottom home button should remain present")
-        XCTAssertTrue(homePage.settingsButton.waitForExistence(timeout: 3), "Settings button should be present in top nav")
-        XCTAssertTrue(homePage.projectFilterButton.isHittable, "Quick view selector should be hittable")
-        XCTAssertTrue(homePage.settingsButton.isHittable, "Settings button should be hittable")
-        XCTAssertTrue(
-            homePage.verifyElementIsFullyVisibleInWindow(
-                homePage.projectFilterButton,
-                description: "Quick view selector"
-            ),
-            "Quick view selector should be fully visible inside the window"
-        )
-        XCTAssertTrue(
-            homePage.verifyElementIsFullyVisibleInWindow(
-                homePage.settingsButton,
-                description: "Settings button"
-            ),
-            "Settings button should be fully visible inside the window"
-        )
-        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be the default selected bottom tool")
 
-        // Top nav controls should stay above the sunrise surface.
-        XCTAssertTrue(homePage.dailyScoreLabel.waitForExistence(timeout: 3), "Top XP label should exist")
-        XCTAssertLessThan(
-            homePage.dailyScoreLabel.frame.maxY,
-            homePage.sunriseSurface.frame.minY + 1,
-            "Top XP label should be above the sunrise surface"
-        )
-        XCTAssertLessThan(
-            homePage.projectFilterButton.frame.maxY,
-            homePage.sunriseSurface.frame.minY + 1,
-            "Quick view selector should be above the sunrise surface"
-        )
-        XCTAssertLessThan(
-            homePage.settingsButton.frame.maxY,
-            homePage.sunriseSurface.frame.minY + 1,
-            "Settings button should be above the sunrise surface"
-        )
+        XCTAssertTrue(homePage.openInsights(), "Insights should open from Charts")
+        XCTAssertTrue(homePage.insightsContainer.waitForExistence(timeout: 3), "Insights should render")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.chartsButton), "Insights should select the charts dock item")
 
-        // WHEN: User taps ring once
-        homePage.tapNavXpPieChart()
-        waitForAnimations(duration: 0.6)
+        homePage.tapHome()
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should close Insights")
 
-        // THEN: Analytics sunrise should expand.
-        XCTAssertTrue(homePage.waitForSunriseState("fullReveal", timeout: 3), "Ring tap should expand analytics")
-        XCTAssertTrue(homePage.sunriseCollapseHint.waitForExistence(timeout: 2), "Collapse hint should appear at full reveal")
-        XCTAssertTrue(homePage.waitForToolSelection(homePage.chartsButton), "Analytics should become selected while back face is visible")
-        XCTAssertFalse(homePage.weeklyCalendar.isHittable, "Weekly calendar should be hidden while analytics back face is visible")
-
-        // WHEN: User taps ring again
-        homePage.tapNavXpPieChart()
-        waitForAnimations(duration: 0.6)
-
-        // THEN: Analytics sunrise should collapse.
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Second ring tap should collapse analytics")
-        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be re-selected after collapsing analytics")
-
-        // WHEN: User completes a task and gains XP
         let taskTitle = "Nav XP Visibility Task"
         let addTaskPage = homePage.tapAddTask()
         addTaskPage.createTask(title: taskTitle, priority: .max, taskType: .morning)
         XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should be created")
 
-        let completeIndex = findTaskIndex(withTitle: taskTitle)
-        homePage.completeTask(at: completeIndex)
-        waitForAnimations(duration: 1.5)
+        homePage.completeTask(at: findTaskIndex(withTitle: taskTitle))
+        XCTAssertTrue(homePage.openInsights(), "Insights should remain reachable when score is positive")
+        assertTodayInsightsSurface()
 
-        // THEN: Nav chart and nav chart button should remain visible.
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartIsVisible(timeout: 3),
-            "Navigation XP pie chart should remain visible when score is positive"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartButtonIsPresent(timeout: 3),
-            "Navigation XP pie chart button should remain present when score is positive"
-        )
+        homePage.tapHome()
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible before reopening the completed task")
+        homePage.uncompleteTask(at: findTaskIndex(withTitle: taskTitle))
 
-        // Chart should remain visible after date updates.
-        if let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) {
-            homePage.navigateToDate(tomorrow)
-            waitForAnimations(duration: 0.8)
-            XCTAssertTrue(
-                homePage.verifyNavXpPieChartIsVisible(timeout: 3),
-                "Navigation XP pie chart should remain visible after date changes"
-            )
-            XCTAssertTrue(
-                homePage.verifyNavXpPieChartButtonIsPresent(timeout: 3),
-                "Navigation XP pie chart button should remain present after date changes"
-            )
-            homePage.navigateToDate(Date())
-            waitForAnimations(duration: 0.8)
-        }
-
-        // WHEN: User reopens the same task and score returns to zero
-        let reopenIndex = findTaskIndex(withTitle: taskTitle)
-        homePage.uncompleteTask(at: reopenIndex)
-        waitForAnimations(duration: 1.5)
-
-        // THEN: Nav chart and nav chart button should remain visible
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartIsVisible(timeout: 3),
-            "Navigation XP pie chart should remain visible when score returns to zero"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartButtonIsPresent(timeout: 3),
-            "Navigation XP pie chart button should remain present when score returns to zero"
-        )
-
-        takeScreenshot(named: "nav_xp_pie_chart_visibility_follows_score")
+        XCTAssertTrue(homePage.openInsights(), "Insights should remain reachable when score returns to zero")
+        assertTodayInsightsSurface()
+        takeScreenshot(named: "insights_navigation_survives_daily_xp_changes")
     }
 
-    // MARK: - Test 59: Insights Project Breakdown Display
-
-    func testInsightsProjectBreakdownDisplay() throws {
-        // GIVEN: User has a custom project with completed tasks
-        let projectName = uniqueProjectName(prefix: "Insights Display")
-        createCustomProject(named: projectName)
-
-        let tasks = [
-            ("Insights Task 1", TestDataFactory.TaskPriority.max),
-            ("Insights Task 2", TestDataFactory.TaskPriority.high),
-            ("Insights Task 3", TestDataFactory.TaskPriority.medium)
-        ]
-
-        for (title, priority) in tasks {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: priority, taskType: .morning, project: projectName)
-            XCTAssertTrue(homePage.waitForTask(withTitle: title, timeout: 5), "Task '\(title)' should be created")
-
-            let taskIndex = findTaskIndex(withTitle: title)
-            homePage.completeTask(at: taskIndex)
-            waitForAnimations(duration: 0.5)
+    func testInsightsWeekDisplay() throws {
+        relaunchWithSearchSeed()
+        let visibleSeededTitles = ["Meeting with Team", "Meeting Prep", "Review Code"].filter { title in
+            homePage.waitForTask(withTitle: title, timeout: 2)
+        }
+        XCTAssertFalse(visibleSeededTitles.isEmpty, "At least one seeded search task should be visible")
+        for title in visibleSeededTitles {
+            homePage.completeTask(at: findTaskIndex(withTitle: title))
         }
 
-        waitForAnimations(duration: 2.0)
+        XCTAssertTrue(openInsightsWeek(), "Week Insights content should be visible after seeded completions")
 
-        // THEN: Insights project breakdown should be displayed
-        XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 5), "Insights project breakdown should be visible after custom project completions")
-        takeScreenshot(named: "insights_project_breakdown_display")
+        XCTAssertTrue(
+            element(id: AccessibilityIdentifiers.Home.insightsWeekHero).waitForExistence(timeout: 3),
+            "Week tab should expose its current-week hero content"
+        )
+        let weekDetails = element(id: AccessibilityIdentifiers.Home.insightsDisclosureWeekDetails)
+        XCTAssertTrue(weekDetails.waitForExistence(timeout: 3), "Week details disclosure should exist")
+        takeScreenshot(named: "insights_week_display")
     }
 
-    // MARK: - Test 59B: Insights Project Breakdown Entry Count Growth Crash Guard
-
-    func testInsightsProjectBreakdownDoesNotCrashWhenEntryCountIncreasesAfterTaskCompletion() throws {
+    func testInsightsSurvivesCompletionAndTabSwitch() throws {
+        relaunchWithSearchSeed()
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
 
-        let projectA = uniqueProjectName(prefix: "Insights A")
-        let projectB = uniqueProjectName(prefix: "Insights B")
-        createCustomProject(named: projectA)
+        let seededTask = "Meeting with Team"
+        XCTAssertTrue(homePage.waitForTask(withTitle: seededTask, timeout: 5), "Seeded task should be visible")
+        homePage.completeTask(at: findTaskIndex(withTitle: seededTask))
 
-        let projectATask = "Insights Task A"
-        createAndCompleteTask(title: projectATask, priority: .high, project: projectA)
-        XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 5), "Insights project breakdown should appear after first project completion")
+        XCTAssertTrue(homePage.openInsights(), "Insights should open after completing a task")
+        assertTodayInsightsSurface()
 
-        createCustomProject(named: projectB)
+        XCTAssertTrue(homePage.switchInsightsTab(.week), "Week tab should be reachable")
+        XCTAssertTrue(element(id: AccessibilityIdentifiers.Home.insightsDisclosureWeekDetails).waitForExistence(timeout: 3), "Week content should render")
 
-        let projectBTask = "Insights Task B"
-        createAndCompleteTask(title: projectBTask, priority: .max, project: projectB)
-        XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 5), "Insights project breakdown should stay visible after entry-count growth")
-        XCTAssertEqual(app.state, .runningForeground, "App should remain running after insights redraw with increased entries")
+        XCTAssertTrue(homePage.switchInsightsTab(.systems), "Systems tab should be reachable")
+        XCTAssertTrue(element(id: AccessibilityIdentifiers.Home.insightsContentSystems).waitForExistence(timeout: 3), "Systems content should render")
 
-        for iteration in 1...3 {
-            var toggleIndex = findTaskIndex(withTitle: projectBTask)
-            homePage.uncompleteTask(at: toggleIndex)
-            waitForAnimations(duration: 0.8)
-            XCTAssertEqual(app.state, .runningForeground, "App should remain running after uncomplete iteration \(iteration)")
-            XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 4), "Insights project breakdown should remain visible after uncomplete iteration \(iteration)")
-
-            toggleIndex = findTaskIndex(withTitle: projectBTask)
-            homePage.completeTask(at: toggleIndex)
-            waitForAnimations(duration: 0.8)
-            XCTAssertEqual(app.state, .runningForeground, "App should remain running after complete iteration \(iteration)")
-            XCTAssertTrue(waitForInsightsProjectBreakdownToAppear(timeout: 4), "Insights project breakdown should remain visible after complete iteration \(iteration)")
+        if homePage.insightsScrollView.waitForExistence(timeout: 2) {
+            homePage.insightsScrollView.swipeUp()
         }
-
-        takeScreenshot(named: "insights_project_breakdown_entry_count_growth_no_crash")
+        XCTAssertTrue(element(id: AccessibilityIdentifiers.Home.insightsContentSystems).exists, "Systems content should remain mounted after scroll")
+        takeScreenshot(named: "insights_completion_and_tab_switch")
     }
 
-    // MARK: - Test 60: Analytics Score Display
+    func testInsightsTodayCTAsOpenTaskAndHabitWorkflows() throws {
+        XCTAssertTrue(homePage.openInsights(), "Insights should open from Charts")
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsHeroCard), "Today hero CTA should be tappable")
+        XCTAssertTrue(element(id: "addTask.view").waitForExistence(timeout: 3), "Empty Today hero should open Add Task")
+        dismissPresentedSheet()
 
-    func testAnalyticsScoreDisplay() throws {
-        // GIVEN: User has completed tasks with score
-        let addTaskPage = homePage.tapAddTask()
-        addTaskPage.createTask(title: "Scored Task", priority: .high, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: "Scored Task", timeout: 5)
-
-        let taskIndex = findTaskIndex(withTitle: "Scored Task")
-        homePage.completeTask(at: taskIndex)
-        waitForAnimations(duration: 1.0)
-
-        // WHEN: User views analytics/score
-        // THEN: Score should be displayed
-        let scoreDisplayed = homePage.dailyScoreLabel.exists
-
-        if scoreDisplayed {
-            let scoreText = homePage.dailyScoreLabel.label
-            print("📊 Score displayed: \(scoreText)")
-            XCTAssertTrue(scoreText.contains("4") || scoreText.count > 0, "Score should be displayed")
-        } else {
-            print("⚠️ Score label not found with current identifier")
-        }
-
-        takeScreenshot(named: "analytics_score_display")
+        XCTAssertTrue(homePage.insightsContainer.waitForExistence(timeout: 3), "Insights should still be available after dismissing Add Task")
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsActionHabitCheck), "Habit check CTA should be tappable")
+        XCTAssertTrue(element(id: "habitBoard.view").waitForExistence(timeout: 3), "Habit check should open Habit Board")
+        takeScreenshot(named: "insights_today_ctas_open_task_and_habit")
     }
 
-    // MARK: - Test 60B: Home Cockpit XP Label
+    func testInsightsWeekCTAsExpandMomentumAndOpenProjects() throws {
+        relaunchWithSearchSeed()
+        XCTAssertTrue(homePage.openInsights(), "Insights should open from Charts")
+        XCTAssertTrue(homePage.switchInsightsTab(.week), "Week tab should be reachable")
 
-    func testHomeCockpitShowsXpTodayLabel() throws {
-        let addTaskPage = homePage.tapAddTask()
-        addTaskPage.createTask(title: "Cockpit XP Task", priority: .high, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: "Cockpit XP Task", timeout: 5)
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsActionWeeklyMomentum), "Weekly momentum CTA should be tappable")
+        XCTAssertTrue(element(id: AccessibilityIdentifiers.Home.insightsWeeklyRhythm).waitForExistence(timeout: 3), "Weekly momentum should reveal weekly rhythm")
 
-        let taskIndex = findTaskIndex(withTitle: "Cockpit XP Task")
-        homePage.completeTask(at: taskIndex)
-        waitForAnimations(duration: 1.0)
-
-        XCTAssertTrue(homePage.dailyScoreLabel.waitForExistence(timeout: 3), "Home cockpit XP label should be visible")
-        XCTAssertTrue(homePage.dailyScoreLabel.label.contains("XP"), "Cockpit should show XP progress copy")
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsActionProjectMix), "Project mix CTA should be tappable")
+        XCTAssertTrue(element(id: "projectManagement.view").waitForExistence(timeout: 3), "Project mix should open Project Management")
+        takeScreenshot(named: "insights_week_ctas_expand_and_open_projects")
     }
 
-    // MARK: - Test 60C: Focus Strip Caps At Three Tasks
+    func testInsightsSystemsCTAsExpandConsistencyAndOpenReminderSettings() throws {
+        relaunchWithSearchSeed()
+        XCTAssertTrue(homePage.openInsights(), "Insights should open from Charts")
+        XCTAssertTrue(homePage.switchInsightsTab(.systems), "Systems tab should be reachable")
 
-    func testFocusStripCapsTaskCardsAtThree() throws {
-        let titles = ["Focus 1", "Focus 2", "Focus 3", "Focus 4"]
-        for title in titles {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: .high, taskType: .morning)
-            _ = homePage.waitForTask(withTitle: title, timeout: 5)
-        }
-
-        guard homePage.focusStrip.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Focus strip is not exposed in current runtime configuration")
-        }
-
-        let predicate = NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.'")
-        let focusCards = app.descendants(matching: .any).matching(predicate)
-        guard focusCards.count > 0 else {
-            throw XCTSkip("Focus cards are not exposed with stable accessibility identifiers")
-        }
-        XCTAssertLessThanOrEqual(focusCards.count, 3, "Focus strip should show at most 3 tasks")
-    }
-
-    // MARK: - Test 60F: Visible Focus Task Can Be Pinned
-
-    func testVisibleFocusTaskCanBePinned() throws {
-        let rankedTitles = ["Pin Candidate", "Ranked A", "Ranked B"]
-        for title in rankedTitles {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: .max, taskType: .morning)
-            _ = homePage.waitForTask(withTitle: title, timeout: 5)
-        }
-
-        let pinCandidate = "Pin Candidate"
-        let pinnedCard = homePage.focusTaskCard(containingTitle: pinCandidate)
-        guard pinnedCard.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Focus card is not exposed with stable accessibility identifiers")
-        }
-
-        let pinButton = homePage.focusPinButton(containingTitle: pinCandidate)
-        guard pinButton.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Focus pin button is not exposed with stable accessibility identifiers")
-        }
-
-        pinButton.tap()
-        waitForAnimations(duration: 0.8)
-
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsActionReminderResponse), "Reminder response CTA should be tappable")
         XCTAssertTrue(
-            pinnedCard.waitForExistence(timeout: 3),
-            "Pinned focus card should remain visible in the strip"
+            element(id: AccessibilityIdentifiers.Settings.view).waitForExistence(timeout: 3) ||
+                element(id: "settings.root").waitForExistence(timeout: 3) ||
+                element(id: "settings.hero.card").waitForExistence(timeout: 3),
+            "Reminder response should open Settings"
         )
-        XCTAssertEqual(pinButton.label, "Unpin from Focus Now")
-    }
 
-    // MARK: - Test 60G: Unpinning Keeps Task In List
+        let doneButton = app.navigationBars[AccessibilityIdentifiers.Settings.navigationBar]
+            .buttons[AccessibilityIdentifiers.Settings.doneButton]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 3), "Settings should expose Done")
+        tap(doneButton)
+        XCTAssertTrue(homePage.openInsights(), "Insights should reopen after Settings")
+        XCTAssertTrue(homePage.switchInsightsTab(.systems), "Systems tab should be reachable after Settings")
 
-    func testUnpinningFocusTaskKeepsTaskInList() throws {
-        let calendar = Calendar.current
-        let baseDueDate = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
-        let pinCandidate = "Unpin Candidate"
-        let addCandidatePage = homePage.tapAddTask()
-        addCandidatePage.createTask(
-            title: pinCandidate,
-            priority: .max,
-            taskType: .morning,
-            dueDate: baseDueDate
+        XCTAssertTrue(tapInsightElement(id: AccessibilityIdentifiers.Home.insightsActionConsistency), "Consistency CTA should be tappable")
+        XCTAssertTrue(
+            waitForAccessibilityValue(
+                id: AccessibilityIdentifiers.Home.insightsDisclosureSystemDetails,
+                containing: "expanded"
+            ),
+            "Consistency should expand Systems details"
         )
-        guard homePage.focusTaskCard(containingTitle: pinCandidate).waitForExistence(timeout: 3) else {
-            throw XCTSkip("Focus card is not exposed; skipping unpin verification")
-        }
-
-        let pinButton = homePage.focusPinButton(containingTitle: pinCandidate)
-        guard pinButton.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Focus pin button is not exposed; skipping unpin verification")
-        }
-
-        pinButton.tap()
-        waitForAnimations(duration: 0.8)
-        XCTAssertEqual(pinButton.label, "Unpin from Focus Now")
-
-        let rankedTitles = [
-            ("Keep Rank A", 1),
-            ("Keep Rank B", 2),
-            ("Keep Rank C", 3)
-        ]
-        for (title, dayOffset) in rankedTitles {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(
-                title: title,
-                priority: .max,
-                taskType: .morning,
-                dueDate: calendar.date(byAdding: .day, value: dayOffset, to: baseDueDate)!
-            )
-        }
-
-        pinButton.tap()
-        waitForAnimations(duration: 0.8)
-
-        XCTAssertEqual(pinButton.label, "Pin to Focus Now")
-        XCTAssertTrue(homePage.taskRow(containingTitle: pinCandidate).exists, "Task should remain in task list after unpin")
+        takeScreenshot(named: "insights_systems_ctas_expand_and_open_settings")
     }
-
-    // MARK: - Test 60H: Three Pinned Cards Occupy Focus Capacity
-
-    func testThreePinnedFocusCardsOccupyVisibleCapacity() throws {
-        let calendar = Calendar.current
-        let baseDueDate = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
-        let pinCandidates = [
-            ("Pin 1", 0),
-            ("Pin 2", 1),
-            ("Pin 3", 2),
-            ("Pin 4", 3)
-        ]
-        for (title, dayOffset) in pinCandidates {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(
-                title: title,
-                priority: .max,
-                taskType: .morning,
-                dueDate: calendar.date(byAdding: .day, value: dayOffset, to: baseDueDate)!
-            )
-        }
-
-        let visibleCandidates = ["Pin 1", "Pin 2", "Pin 3"]
-        for title in visibleCandidates {
-            guard homePage.focusTaskCard(containingTitle: title).waitForExistence(timeout: 3) else {
-                throw XCTSkip("Expected focus card \(title) is not exposed; skipping pin-capacity verification")
-            }
-
-            let pinButton = homePage.focusPinButton(containingTitle: title)
-            guard pinButton.waitForExistence(timeout: 3) else {
-                throw XCTSkip("Focus pin button for \(title) is not exposed; skipping pin-capacity verification")
-            }
-
-            pinButton.tap()
-            waitForAnimations(duration: 0.5)
-        }
-
-        let shuffleButton = homePage.focusShuffleButton
-        guard shuffleButton.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Shuffle button is not exposed; skipping pin-capacity verification")
-        }
-        shuffleButton.tap()
-        waitForAnimations(duration: 1.0)
-
-        XCTAssertTrue(homePage.focusTaskCard(containingTitle: "Pin 1").exists, "Pinned task should stay visible after shuffle")
-        XCTAssertTrue(homePage.focusTaskCard(containingTitle: "Pin 2").exists, "Pinned task should stay visible after shuffle")
-        XCTAssertTrue(homePage.focusTaskCard(containingTitle: "Pin 3").exists, "Pinned task should stay visible after shuffle")
-        XCTAssertFalse(homePage.focusTaskCard(containingTitle: "Pin 4").exists, "A fourth task should not displace three pinned focus cards")
-    }
-
-    // MARK: - Test 60D: Completed Group Toggle Appears When Completed Rows Grow
-
-    func testCompletedGroupToggleAppearsAfterMultipleCompletions() throws {
-        let titles = ["Done A", "Done B", "Done C"]
-        for title in titles {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: .low, taskType: .morning)
-            _ = homePage.waitForTask(withTitle: title, timeout: 5)
-            let idx = findTaskIndex(withTitle: title)
-            homePage.completeTask(at: idx)
-            waitForAnimations(duration: 0.6)
-        }
-
-        let togglePredicate = NSPredicate(format: "identifier BEGINSWITH 'home.completedToggle.'")
-        let completedToggle = app.descendants(matching: .any).matching(togglePredicate).firstMatch
-        XCTAssertTrue(completedToggle.waitForExistence(timeout: 3), "Completed toggle should appear once completed rows exceed 2")
-    }
-
-    // MARK: - Test 60E: Compact Row Height Regression Guard
 
     func testTaskRowsRemainCompact() throws {
         let taskTitle = "Compact Row Guard"
         let addTaskPage = homePage.tapAddTask()
         addTaskPage.createTask(title: taskTitle, priority: .high, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: taskTitle, timeout: 5)
+        XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should be visible")
 
         let row = homePage.taskRow(containingTitle: taskTitle)
         XCTAssertTrue(row.waitForExistence(timeout: 3), "Task row should be visible")
-        XCTAssertLessThanOrEqual(row.frame.height, 92, "Compact row should remain visually dense")
+        if row.identifier.hasPrefix("home.taskRow."), row.frame.height < app.windows.firstMatch.frame.height * 0.7 {
+            XCTAssertLessThanOrEqual(row.frame.height, 220, "Sunrise task card row should remain visually bounded")
+        } else {
+            XCTAssertLessThanOrEqual(row.frame.height, 80, "Task title fallback should remain compact when row grouping is not exposed")
+        }
         takeScreenshot(named: "home_compact_row_regression")
     }
 
-    // MARK: - Test 60I: Sunrise Surface Extends Behind Bottom Bar
-
     func testSunriseSurfaceExtendsToBottomAndTaskListRemainsScrollable() throws {
+        relaunchWithSearchSeed()
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
-        guard homePage.sunriseSurface.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Sunrise surface is not exposed in current runtime configuration")
-        }
         XCTAssertTrue(homePage.bottomBar.waitForExistence(timeout: 3), "Bottom bar should exist")
         XCTAssertTrue(homePage.taskListScrollView.waitForExistence(timeout: 3), "Task list should exist")
-
-        for index in 1...10 {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: "Backdrop Fill \(index)", priority: .low, taskType: .morning)
-            _ = homePage.waitForTask(withTitle: "Backdrop Fill \(index)", timeout: 5)
-        }
+        XCTAssertTrue(homePage.waitForTask(withTitle: "Meeting with Team", timeout: 5), "Seeded task list should be visible")
 
         XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should start expanded")
-        XCTAssertGreaterThan(
-            homePage.taskListScrollView.frame.maxY,
-            homePage.bottomBar.frame.minY,
-            "Task list should extend behind the bottom bar when expanded"
-        )
-        XCTAssertGreaterThanOrEqual(
-            homePage.sunriseSurface.frame.maxY,
-            homePage.view.frame.maxY - 2,
-            "Sunrise surface should reach screen edge when expanded"
-        )
+        XCTAssertGreaterThan(homePage.taskListScrollView.frame.maxY, homePage.bottomBar.frame.minY, "Task list should extend behind the bottom bar")
 
+        let initialBottomBarFrame = homePage.bottomBar.frame
         let scrollView = homePage.taskListScrollView
         scrollView.swipeUp()
-        if !homePage.waitForBottomBarState("minimized", timeout: 1.5) {
-            scrollView.swipeUp()
-        }
+        scrollView.swipeUp()
 
-        XCTAssertTrue(homePage.waitForBottomBarState("minimized", timeout: 2), "Bottom bar should minimize on list scroll")
-        XCTAssertGreaterThan(
-            homePage.taskListScrollView.frame.maxY,
-            homePage.bottomBar.frame.minY,
-            "Task list should remain behind the bottom bar when minimized"
-        )
-        XCTAssertGreaterThanOrEqual(
-            homePage.sunriseSurface.frame.maxY,
-            homePage.view.frame.maxY - 2,
-            "Sunrise surface should reach screen edge when minimized"
-        )
-
-        waitForAnimations(duration: 0.55)
-        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should auto-restore after scroll idle")
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should remain expanded on list scroll")
+        XCTAssertEqual(homePage.bottomBar.frame.height, initialBottomBarFrame.height, accuracy: 1.0, "Bottom bar height should stay stable")
+        XCTAssertGreaterThan(homePage.taskListScrollView.frame.maxY, homePage.bottomBar.frame.minY, "Task list should remain behind the stable bottom bar")
 
         scrollView.swipeDown()
-        waitForAnimations(duration: 0.5)
-        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 3), "Bottom bar should restore after reverse scroll")
-        XCTAssertTrue(homePage.taskRow(containingTitle: "Backdrop Fill 1").waitForExistence(timeout: 3), "Task list should remain interactive")
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 3), "Bottom bar should remain expanded after reverse scroll")
+        XCTAssertEqual(homePage.bottomBar.frame.height, initialBottomBarFrame.height, accuracy: 1.0, "Bottom bar height should stay stable after reverse scroll")
+        XCTAssertTrue(homePage.taskRow(containingTitle: "Meeting with Team").waitForExistence(timeout: 3), "Task list should remain interactive")
         takeScreenshot(named: "home_sunrise_bottom_extension")
     }
 
-    // MARK: - Test 60J: Full Reveal Shows Collapse Hint And Collapses Back
-
     func testSunriseFullRevealShowsCollapseHintAndTapCollapsesToDefault() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
-        guard homePage.sunriseSurface.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Sunrise surface is not exposed in current runtime configuration")
-        }
         XCTAssertTrue(homePage.chartsButton.waitForExistence(timeout: 3), "Charts button should exist")
-
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 2), "Sunrise should start collapsed")
-        XCTAssertFalse(homePage.sunriseCollapseHint.exists, "Collapse hint should be hidden while collapsed")
+        XCTAssertFalse(homePage.insightsContainer.exists, "Insights should not be visible before opening")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected by default")
 
-        let collapsedMinY = homePage.sunriseSurface.frame.minY
+        XCTAssertTrue(homePage.openInsights(), "Charts should open Insights")
+        XCTAssertTrue(homePage.insightsContainer.waitForExistence(timeout: 3), "Insights should render")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.chartsButton), "Charts should be selected while Insights is open")
 
-        homePage.tapCharts()
-        waitForAnimations(duration: 0.6)
-
-        XCTAssertTrue(homePage.waitForSunriseState("fullReveal", timeout: 3), "Charts action should reach full reveal")
-        XCTAssertTrue(homePage.sunriseCollapseHint.waitForExistence(timeout: 2), "Collapse hint should be visible at full reveal")
-
-        let fullRevealMinY = homePage.sunriseSurface.frame.minY
-        XCTAssertLessThan(
-            abs(fullRevealMinY - collapsedMinY),
-            12,
-            "Sunrise surface should stay anchored while analytics flips in place"
-        )
-        XCTAssertTrue(homePage.waitForToolSelection(homePage.chartsButton), "Analytics button should be selected while analytics is open")
-
-        XCTAssertTrue(homePage.homeButton.isHittable, "Home button should be tappable")
         homePage.tapHome()
-        waitForAnimations(duration: 0.5)
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Home button should flip sunrise back to default state")
-        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after closing analytics via home button")
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home button should return to default destination")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after closing Insights")
 
-        homePage.tapCharts()
-        waitForAnimations(duration: 0.5)
-        XCTAssertTrue(homePage.waitForSunriseState("fullReveal", timeout: 3), "Charts should reopen analytics")
+        XCTAssertTrue(homePage.openInsights(), "Charts should reopen Insights")
+        XCTAssertTrue(homePage.insightsContainer.waitForExistence(timeout: 3), "Charts should reopen Insights")
 
-        XCTAssertTrue(homePage.sunriseCollapseHint.isHittable, "Collapse hint should be tappable")
-        homePage.sunriseCollapseHint.tap()
-        waitForAnimations(duration: 0.5)
-
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Collapse hint should return sunrise to default state")
-        XCTAssertFalse(homePage.sunriseCollapseHint.waitForExistence(timeout: 1), "Collapse hint should hide after collapsing")
-        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after collapse hint returns to tasks")
+        homePage.tapHome()
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should return sunrise to default state")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after returning to tasks")
         takeScreenshot(named: "home_sunrise_full_reveal_collapse_hint")
     }
 
-    // MARK: - Test 60K: FAB Remains Visible While Cluster Hides/Reveals
-
     func testBottomBarFabRemainsVisibleWhenClusterHidesAndAutoReveals() throws {
+        relaunchWithSearchSeed()
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
         XCTAssertTrue(homePage.bottomBar.waitForExistence(timeout: 3), "Bottom bar should exist")
         XCTAssertTrue(homePage.addTaskButton.waitForExistence(timeout: 3), "FAB should exist")
-
-        for index in 1...8 {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: "FAB Stability \(index)", priority: .low, taskType: .morning)
-            _ = homePage.waitForTask(withTitle: "FAB Stability \(index)", timeout: 5)
-        }
+        XCTAssertTrue(homePage.waitForTask(withTitle: "Meeting with Team", timeout: 5), "Seeded task list should be visible")
 
         XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should start expanded")
         XCTAssertTrue(homePage.addTaskButton.isHittable, "FAB should start hittable")
 
+        let initialBottomBarFrame = homePage.bottomBar.frame
         let scrollView = homePage.taskListScrollView
         scrollView.swipeUp()
-        if !homePage.waitForBottomBarState("minimized", timeout: 1.5) {
-            scrollView.swipeUp()
-        }
+        scrollView.swipeUp()
 
-        XCTAssertTrue(homePage.waitForBottomBarState("minimized", timeout: 2), "Cluster should hide while scrolling down")
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should remain expanded while scrolling down")
+        XCTAssertEqual(homePage.bottomBar.frame.height, initialBottomBarFrame.height, accuracy: 1.0, "Bottom bar height should stay stable while scrolling down")
         XCTAssertTrue(homePage.addTaskButton.exists, "FAB should remain visible in hierarchy")
-        XCTAssertTrue(homePage.addTaskButton.isHittable, "FAB should remain hittable while cluster is hidden")
-
-        waitForAnimations(duration: 0.55)
-        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Cluster should reappear after idle stop")
-        XCTAssertTrue(homePage.addTaskButton.isHittable, "FAB should remain hittable after idle reveal")
+        XCTAssertTrue(homePage.addTaskButton.isHittable, "FAB should remain hittable while the bottom bar stays expanded")
 
         scrollView.swipeUp()
-        _ = homePage.waitForBottomBarState("minimized", timeout: 2)
+        _ = homePage.waitForBottomBarState("expanded", timeout: 2)
         scrollView.swipeDown()
-        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Cluster should reappear on upward scroll")
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should remain expanded on upward scroll")
+        XCTAssertEqual(homePage.bottomBar.frame.height, initialBottomBarFrame.height, accuracy: 1.0, "Bottom bar height should stay stable on upward scroll")
     }
 
-    // MARK: - Test 61: Analytics Streak Display
+    private func assertTodayInsightsSurface(file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(homePage.insightsContainer.waitForExistence(timeout: 3), "Insights container should exist", file: file, line: line)
+        XCTAssertTrue(homePage.insightsTodayTab.waitForExistence(timeout: 3), "Today segmented tab should exist", file: file, line: line)
+        XCTAssertTrue(homePage.insightsWeekTab.waitForExistence(timeout: 3), "Week segmented tab should exist", file: file, line: line)
+        XCTAssertTrue(homePage.insightsSystemsTab.waitForExistence(timeout: 3), "Systems segmented tab should exist", file: file, line: line)
+        XCTAssertTrue(element(id: AccessibilityIdentifiers.Home.insightsContentToday).waitForExistence(timeout: 3), "Today content should render", file: file, line: line)
 
-    func testAnalyticsStreakDisplay() throws {
-        // GIVEN: User has a streak
-        let addTaskPage = homePage.tapAddTask()
-        addTaskPage.createTask(title: "Streak Task", priority: .medium, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: "Streak Task", timeout: 5)
-
-        let taskIndex = findTaskIndex(withTitle: "Streak Task")
-        homePage.completeTask(at: taskIndex)
-        waitForAnimations(duration: 1.0)
-
-        // WHEN: User views streak analytics
-        // THEN: Streak should be displayed
-        let streakDisplayed = homePage.streakLabel.exists
-
-        if streakDisplayed {
-            let streakText = homePage.streakLabel.label
-            print("🔥 Streak displayed: \(streakText)")
-            XCTAssertTrue(streakText.count > 0, "Streak should be displayed")
-        } else {
-            print("⚠️ Streak label not found with current identifier")
-        }
-
-        takeScreenshot(named: "analytics_streak_display")
-    }
-
-    // MARK: - Bonus: Weekly Analytics
-
-    func testWeeklyAnalytics() throws {
-        // GIVEN: Tasks completed over time
-        // WHEN: User views weekly analytics
-        // Navigate to weekly view if needed
-        let weeklyTab = tabBarButton("Weekly")
-        if weeklyTab.exists {
-            weeklyTab.tap()
-            waitForAnimations(duration: 1.0)
-
-            // THEN: Weekly data should be displayed
-            takeScreenshot(named: "weekly_analytics")
-        }
-    }
-
-    // MARK: - Bonus: Completion Rate Display
-
-    func testCompletionRateDisplay() throws {
-        // GIVEN: Some tasks completed, some not
-        let addTaskPage1 = homePage.tapAddTask()
-        addTaskPage1.createTask(title: "Complete This", priority: .low, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: "Complete This", timeout: 5)
-
-        let addTaskPage2 = homePage.tapAddTask()
-        addTaskPage2.createTask(title: "Leave This", priority: .low, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: "Leave This", timeout: 5)
-
-        // Complete one
-        let taskIndex = findTaskIndex(withTitle: "Complete This")
-        homePage.completeTask(at: taskIndex)
-        waitForAnimations(duration: 1.0)
-
-        // WHEN: User views completion rate
-        // THEN: Rate should be displayed (50% in this case)
-        let rateDisplayed = homePage.completionRateLabel.exists
-
-        if rateDisplayed {
-            let rateText = homePage.completionRateLabel.label
-            print("📈 Completion rate: \(rateText)")
-        }
-
-        takeScreenshot(named: "completion_rate_display")
-    }
-
-    // MARK: - Helper
-
-    private func uniqueProjectName(prefix: String) -> String {
-        let suffix = UUID().uuidString.prefix(6)
-        return "\(prefix) \(suffix)"
-    }
-
-    private func createCustomProject(named name: String) {
-        let settingsPage = homePage.tapSettings()
-        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be visible before creating project '\(name)'")
-
-        let projectPage = settingsPage.navigateToProjectManagement()
-        XCTAssertTrue(projectPage.verifyIsDisplayed(), "Project Management should be visible before creating project '\(name)'")
-
-        let newProjectPage = projectPage.tapAddProject()
-        let updatedProjectPage = newProjectPage.createProject(
-            name: name,
-            description: "Insights regression project"
+        let hero = element(id: AccessibilityIdentifiers.Home.insightsHeroCard)
+        XCTAssertTrue(hero.waitForExistence(timeout: 3), "Today hero card should exist", file: file, line: line)
+        XCTAssertTrue(
+            hero.label.localizedCaseInsensitiveContains("XP") || hero.label.localizedCaseInsensitiveContains("done"),
+            "Hero card should expose the progress metric in its accessibility label",
+            file: file,
+            line: line
         )
-        XCTAssertTrue(updatedProjectPage.waitForProject(named: name, timeout: 5), "Project '\(name)' should be created")
-
-        let backToSettings = updatedProjectPage.tapBack()
-        homePage = backToSettings.tapDone()
-        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible after creating project '\(name)'")
+        XCTAssertTrue(element(id: AccessibilityIdentifiers.Home.insightsActionNextDecision).waitForExistence(timeout: 3), "Next decision card should exist", file: file, line: line)
+        XCTAssertTrue(element(id: AccessibilityIdentifiers.Home.insightsActionProtectFocus).waitForExistence(timeout: 3), "Protect focus card should exist", file: file, line: line)
+        XCTAssertTrue(element(id: AccessibilityIdentifiers.Home.insightsDisclosureTodayDetails).waitForExistence(timeout: 3), "Today details disclosure should exist", file: file, line: line)
     }
 
-    private func createAndCompleteTask(
-        title: String,
-        priority: TestDataFactory.TaskPriority,
-        project: String
-    ) {
-        let addTaskPage = homePage.tapAddTask()
-        addTaskPage.createTask(title: title, priority: priority, taskType: .morning, project: project)
-        XCTAssertTrue(homePage.waitForTask(withTitle: title, timeout: 5), "Task '\(title)' should be created in project '\(project)'")
-
-        let taskIndex = findTaskIndex(withTitle: title)
-        homePage.completeTask(at: taskIndex)
-        waitForAnimations(duration: 1.0)
+    private func openInsightsWeek() -> Bool {
+        guard homePage.openInsights(timeout: 5) else { return false }
+        guard homePage.switchInsightsTab(.week, timeout: 3) else { return false }
+        return element(id: AccessibilityIdentifiers.Home.insightsDisclosureWeekDetails).waitForExistence(timeout: 3)
     }
 
-    private func waitForInsightsProjectBreakdownToAppear(timeout: TimeInterval) -> Bool {
-        if homePage.insightsContainer.waitForExistence(timeout: timeout) {
+    private func element(id: String) -> XCUIElement {
+        app.descendants(matching: .any)[id]
+    }
+
+    private func tap(_ element: XCUIElement) {
+        if element.isHittable {
+            element.tap()
+        } else {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+    }
+
+    @discardableResult
+    private func tapInsightElement(id: String, timeout: TimeInterval = 3, maxSwipes: Int = 5) -> Bool {
+        let target = element(id: id)
+        if target.waitForExistence(timeout: timeout), target.isHittable {
+            tap(target)
             return true
         }
 
-        let scrollView = homePage.taskListScrollView
-        guard scrollView.exists else {
-            return homePage.insightsContainer.exists
-        }
-
-        for _ in 0..<3 {
+        let scrollView = homePage.insightsScrollView
+        guard scrollView.waitForExistence(timeout: 2) else { return false }
+        for _ in 0..<maxSwipes {
             scrollView.swipeUp()
-            if homePage.insightsContainer.waitForExistence(timeout: 1.0) {
+            if target.waitForExistence(timeout: 0.5), target.isHittable {
+                tap(target)
                 return true
             }
         }
+        for _ in 0..<maxSwipes {
+            scrollView.swipeDown()
+            if target.waitForExistence(timeout: 0.5), target.isHittable {
+                tap(target)
+                return true
+            }
+        }
+        return false
+    }
 
-        return homePage.insightsContainer.exists
+    private func waitForAccessibilityValue(
+        id: String,
+        containing text: String,
+        timeout: TimeInterval = 3
+    ) -> Bool {
+        let target = app.buttons[id]
+        let predicate = NSPredicate { _, _ in
+            guard target.exists else { return false }
+            return String(describing: target.value ?? "")
+                .localizedCaseInsensitiveContains(text)
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func dismissPresentedSheet() {
+        let closeButtons = ["addTask.cancelButton", "Close", "Cancel"]
+        for identifier in closeButtons {
+            let button = app.buttons[identifier]
+            if button.waitForExistence(timeout: 1) {
+                tap(button)
+                return
+            }
+        }
+    }
+
+    private func relaunchWithSearchSeed() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
+            XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
+            XCUIApplication.LaunchArgumentKey.skipOnboarding.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableLLM.rawValue,
+            XCUIApplication.LaunchArgumentKey.testSeedSearchWorkspace.rawValue
+        ]
+        app.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        app.launch()
+        waitForAppLaunch()
+        homePage = HomePage(app: app)
     }
 
     private func findTaskIndex(withTitle title: String) -> Int {

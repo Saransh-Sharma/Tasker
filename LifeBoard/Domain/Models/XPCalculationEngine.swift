@@ -3,7 +3,6 @@ import Foundation
 public enum XPDisplayEstimate: Equatable {
     case exact(Int)
     case range(min: Int, max: Int)
-    case capped(Int)
 
     public var shortLabel: String {
         switch self {
@@ -11,8 +10,6 @@ public enum XPDisplayEstimate: Equatable {
             return "Est. +\(value) XP"
         case .range(let min, let max):
             return "Est. +\(min)-\(max) XP"
-        case .capped(let value):
-            return "Est. +\(value) XP (cap)"
         }
     }
 
@@ -22,33 +19,28 @@ public enum XPDisplayEstimate: Equatable {
             return "~+\(value)"
         case .range(let min, let max):
             return "~+\(min)-\(max)"
-        case .capped(let value):
-            return "~+\(value) cap"
         }
     }
 }
 
 public struct XPCompletionPreview: Equatable {
     public let awardedXP: Int
-    public let isCapped: Bool
 
-    public init(awardedXP: Int, isCapped: Bool) {
+    public init(awardedXP: Int) {
         self.awardedXP = awardedXP
-        self.isCapped = isCapped
     }
 
     public var shortLabel: String {
-        isCapped ? "+\(awardedXP) XP (cap)" : "+\(awardedXP) XP"
+        "+\(awardedXP) XP"
     }
 
     public var compactLabel: String {
-        isCapped ? "+\(awardedXP) cap" : "+\(awardedXP)"
+        "+\(awardedXP)"
     }
 }
 
 public struct XPCalculationEngine {
 
-    public static let dailyCap: Int = 250
     public static let focusMinimumSeconds: Int = 300 // 5 minutes
     public static let focusXPPerMinute: Int = 1
     private static let earlyLevelThresholds: [Int64] = [0, 40, 100, 180, 280, 400, 550, 730, 940, 1_180]
@@ -126,13 +118,9 @@ public struct XPCalculationEngine {
     public static func calculateFinalXP(
         base: Int,
         bonus: Int,
-        qualityWeight: Double,
-        dailyEarnedSoFar: Int,
-        cap: Int = dailyCap
+        qualityWeight: Double
     ) -> Int {
-        let raw = Int(round(Double(base + bonus) * qualityWeight))
-        let remaining = max(0, cap - dailyEarnedSoFar)
-        return min(raw, remaining)
+        Int(round(Double(base + bonus) * qualityWeight))
     }
 
     public static func focusSessionXP(durationSeconds: Int) -> Int {
@@ -146,19 +134,16 @@ public struct XPCalculationEngine {
         estimatedDuration: TimeInterval?,
         dueDate: Date?,
         completedAt: Date = Date(),
-        dailyEarnedSoFar: Int,
-        cap: Int = dailyCap,
         isGamificationV2Enabled: Bool,
         isFocusSessionActive: Bool = false,
         isPinnedInFocusStrip: Bool = false
     ) -> XPCompletionPreview {
-        // Legacy path awards a fixed +10 without V2 quality weighting or cap semantics.
+        // Legacy path awards a fixed +10 without V2 quality weighting.
         guard isGamificationV2Enabled else {
-            return XPCompletionPreview(awardedXP: baseXP(for: .complete), isCapped: false)
+            return XPCompletionPreview(awardedXP: baseXP(for: .complete))
         }
 
         let priority = max(0, Int(priorityRaw) - 1)
-        let safeDailyEarned = max(0, dailyEarnedSoFar)
         let quality = qualityWeight(
             priority: priority,
             estimatedDuration: estimatedDuration,
@@ -166,10 +151,12 @@ public struct XPCalculationEngine {
             isPinnedInFocusStrip: isPinnedInFocusStrip
         )
         let bonus = isOnTimeCompletion(dueDate: dueDate, completedAt: completedAt) ? onTimeBonusXP() : 0
-        let raw = Int(round(Double(baseXP(for: .complete) + bonus) * quality))
-        let remaining = max(0, cap - safeDailyEarned)
-        let awardedXP = min(raw, remaining)
-        return XPCompletionPreview(awardedXP: awardedXP, isCapped: awardedXP < raw)
+        let awardedXP = calculateFinalXP(
+            base: baseXP(for: .complete),
+            bonus: bonus,
+            qualityWeight: quality
+        )
+        return XPCompletionPreview(awardedXP: awardedXP)
     }
 
     @available(*, deprecated, message: "Use completionXPIfCompletedNow(...) for precise XP rewards.")
@@ -177,9 +164,7 @@ public struct XPCalculationEngine {
         priorityRaw: Int32,
         estimatedDuration: TimeInterval?,
         isFocusSessionActive: Bool = false,
-        isPinnedInFocusStrip: Bool = false,
-        dailyEarnedSoFar: Int? = nil,
-        cap: Int = dailyCap
+        isPinnedInFocusStrip: Bool = false
     ) -> XPDisplayEstimate {
         let priority = max(0, Int(priorityRaw) - 1)
         let quality = qualityWeight(
@@ -192,24 +177,10 @@ public struct XPCalculationEngine {
         let minRaw = Int(round(Double(baseXP(for: .complete)) * quality))
         let maxRaw = Int(round(Double(baseXP(for: .complete) + onTimeBonusXP()) * quality))
 
-        let minXP: Int
-        let maxXP: Int
-        if let dailyEarnedSoFar {
-            let remaining = max(0, cap - dailyEarnedSoFar)
-            minXP = min(minRaw, remaining)
-            maxXP = min(maxRaw, remaining)
-        } else {
-            minXP = minRaw
-            maxXP = maxRaw
+        if minRaw == maxRaw {
+            return .exact(maxRaw)
         }
-
-        if minXP == maxXP {
-            if maxXP < maxRaw {
-                return .capped(maxXP)
-            }
-            return .exact(maxXP)
-        }
-        return .range(min: minXP, max: maxXP)
+        return .range(min: minRaw, max: maxRaw)
     }
 
     public static func estimateReasonHints(
@@ -220,7 +191,7 @@ public struct XPCalculationEngine {
         _ = estimatedDuration
         _ = isFocusSessionActive
         _ = isPinnedInFocusStrip
-        return "priority · on-time · focus · effort · cap"
+        return "priority · on-time · focus · effort"
     }
 
     // MARK: - Level Curve

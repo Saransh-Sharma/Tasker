@@ -2,7 +2,7 @@
 version: "2.0.0"
 name: "LifeBoard Sunrise Glass"
 status: "radical-redesign-source-of-truth"
-last_updated: "2026-05-10"
+last_updated: "2026-06-01"
 platforms:
   primary:
     - "iOS 16+"
@@ -24,10 +24,22 @@ product:
   forbidden_visible_names:
     - "any previous product name"
   forbidden_positioning:
-    - "clinical or diagnostic framing"
+    - "clinical or medical diagnostic framing"
     - "shame-based productivity"
     - "punitive streak loss"
     - "autonomous schedule mutation"
+
+revamp_alignment:
+  updated_surfaces:
+    - "Insights"
+    - "Overdue Rescue decision deck"
+    - "Inbox and weekly triage"
+    - "Rise and Shine ritual anchor"
+    - "Wind Down ritual anchor"
+  canonical_patterns:
+    insights: "primary interpretation first, metric strip second, action cards third, details disclosed on demand"
+    rescue: "one-card decision deck with undoable keep, move, edit, and delete choices"
+    rituals: "scenic strip card opens image-led ritual sheet with locale-aware time chips"
 
 ios_principles:
   hierarchy: "Make the next meaningful action visually obvious before secondary metrics."
@@ -468,6 +480,16 @@ LifeBoard should feel like opening a quiet morning window onto the day: schedule
 
 The current repository already has useful product architecture. Keep the product model; replace the visual system.
 
+### Current revamp synthesis
+
+The latest Sunrise Glass revamp moves LifeBoard away from generic list cards and toward guided, visual decision surfaces:
+
+- **Insights is now interpretation-led**: each tab starts with the clearest read on the user's day, week, or operating system, then offers metrics and actions only after the primary interpretation is visible.
+- **Overdue work is now a rescue flow**: overdue pressure is handled as a forgiving decision sprint with large cards, visible progress, undo, and non-swipe alternatives. It must feel like sorting what still matters, not being punished for falling behind.
+- **Triage is a one-decision-at-a-time pattern**: inbox and weekly planning decisions should show one task, one progress line, and clear placement choices before showing the next task.
+- **Rise and Shine / Wind Down are rituals**: routine anchors use real scenic strip artwork on the timeline and open immersive bottom sheets for time adjustment.
+- **Details are progressive**: dense analysis, weekly bars, system metrics, and review summaries belong in expandable sections, not in the first read.
+
 ### Keep from the current product model
 
 - **Single day command center**: Home should continue to combine tasks, schedule context, routines, focus blocks, habit cues, and assistant guidance.
@@ -493,11 +515,12 @@ The current repository already has useful product architecture. Keep the product
 
 1. **New token layer**: introduce LifeBoard color, typography, spacing, radius, material, elevation, semantic role, and habit palette tokens.
 2. **New Home shell**: scenic hero, large month/day identity, compact time-of-day label, date navigator, filter row, timeline spine.
-3. **New timeline cards**: semantic pastel cards for routine, task, meeting, personal, focus, meal, and wind-down.
+3. **New timeline cards**: semantic pastel cards for task, meeting, personal, focus, and meal, plus scenic ritual anchors for Rise and Shine and Wind Down.
 4. **New habit matrix**: selected-day column, continuous heatmap, non-punitive no-activity states, stable color families.
 5. **New bottom dock**: iOS-native glass navigation with raised central add action.
 6. **New creation sheets**: calm bottom sheets with native date/time pickers and progressive disclosure.
-7. **New widgets and marketing visuals**: same navy/violet/sunrise system, less dark chrome.
+7. **New Insights, rescue, and triage surfaces**: interpretation cards, metric strips, action cards, decision decks, and undoable review flows.
+8. **New widgets and marketing visuals**: same navy/violet/sunrise system, less dark chrome.
 
 ## 1. North Star
 
@@ -807,7 +830,7 @@ Suggested mapping:
 | Personal | Person outline |
 | Filter | Horizontal sliders |
 | Wake | Sun outline |
-| Wind down | Moon with star |
+| Wind Down | Moon with star |
 | Lunch | Fork and knife |
 | Workout | Running figure, shoe, or dumbbell |
 | Read | Open book |
@@ -967,24 +990,49 @@ Common specs:
 - Background: semantic soft gradient.
 - Pressed: scale 0.985 and reduce shadow.
 
-### 11.3 Routine cards
+### 11.3 Ritual anchor cards
 
-Wake and wind-down cards are warm anchors.
+Rise and Shine and Wind Down are scenic ritual anchors, not ordinary task cards.
 
-Wake card:
+Common ritual card rules:
 
-- Gold sun icon.
-- Sunrise gradient.
-- Optional subtle hills/birds on right.
-- Title: `Wake Up`.
-- Copy: `Start your day with intention`.
+- Use the `routine_morning_strip` or `routine_evening_strip` asset as the full card background.
+- Apply a lateral readability scrim so text remains legible without flattening the artwork.
+- Reserve artwork space on the leading side and keep title/copy grouped on the readable side.
+- Use a 24pt continuous radius, 1pt themed border, and a light elevation shadow.
+- Tap opens the ritual sheet for time adjustment.
+- Accessibility label must include role, time, title, and fallback subtitle.
 
-Wind-down card:
+Rise and Shine card:
 
-- Moon/star icon in gold.
-- Cream/gold gradient with tiny stars.
+- Asset: `routine_morning_strip`.
+- Title: `Rise and Shine`.
+- Subtitle pattern: `{time} - Start the day`.
+- Text: deep navy over warm sunrise scrim.
+- Purpose: define when the user's timeline begins.
+
+Wind Down card:
+
+- Asset: `routine_evening_strip`.
 - Title: `Wind Down`.
-- Copy: `Reflect, relax, and prepare for tomorrow`.
+- Subtitle pattern: `{time} - Close the day`.
+- Text: warm cream over violet evening scrim.
+- Purpose: define when the user's timeline closes.
+
+### 11.3.1 Ritual anchor sheets
+
+Ritual sheets are immersive bottom sheets for changing Rise and Shine or Wind Down timing.
+
+- Top: scenic hero image, short height, with a visible close button in circular material.
+- Transition: soft wave between hero image and content surface.
+- Centerpiece: floating circular token, themed by ritual (`alarm.fill` for Rise and Shine, `moon.fill` for Wind Down).
+- Copy: large serif title, concise subtitle, and selected-time pill.
+- Selector: five time chips centered on the current selection at 15-minute intervals.
+- Primary action: `Save changes` as a themed gradient capsule.
+- Footer copy stays gentle: `A beautiful day begins with intention.` for morning and `Rest well. Tomorrow is a new beginning.` for evening.
+- Time formatting must follow the user's calendar locale and time style. Do not hardcode `en_US_POSIX` for visible ritual times.
+- At accessibility Dynamic Type sizes, chips may scroll horizontally and the sheet must preserve 44pt minimum targets.
+- Reduce Motion disables token spring settling; Reduce Transparency uses a solid surface instead of glass.
 
 ### 11.4 Task cards
 
@@ -1215,6 +1263,31 @@ Prompt pattern:
 - Body: `Want help protecting focus or moving a flexible task?`
 - Actions: `Ask Assistant`, `Move a task`, `Leave as is`.
 
+### 15.1 Decision sprint surfaces
+
+Use decision sprints when the user must process a queue of ambiguous work: inbox triage, weekly placement, or overdue rescue.
+
+Decision sprint rules:
+
+- Show one task at a time.
+- Show progress in human terms: `Card 2/7`, `3 of 9 decided`, or `2 of 12`.
+- Keep the user's current decision visible before secondary metadata.
+- Prefer large tap targets and optional swipe gestures; never make swipe the only way to decide.
+- Provide an edit path before destructive actions.
+- Provide undo for every supported mutation.
+- Batch actions are allowed only when confidence is high, changes are non-destructive, and the user sees a confirmation first.
+- Pause and resume must preserve context.
+- Error states should say the sprint is paused and offer retry or close.
+
+Decision copy should be direct and forgiving:
+
+- `Sort what still matters.`
+- `Keep today`
+- `Move later`
+- `Review first`
+- `Apply safe fixes`
+- `You're all triaged.`
+
 ## 16. Screen recipes
 
 ### 16.1 Daily Timeline
@@ -1225,7 +1298,7 @@ Structure:
 2. Date navigator and relative-day chip.
 3. Filter row.
 4. Timeline spine.
-5. Semantic event cards.
+5. Scenic ritual anchors plus semantic event cards.
 6. Optional habit preview.
 7. Bottom dock.
 
@@ -1236,6 +1309,7 @@ Success criteria:
 - Tasks feel actionable.
 - Routines create emotional rhythm.
 - Gaps feel intentional.
+- Rise and Shine and Wind Down feel like adjustable bookends, not regular chores.
 
 ### 16.2 Looking Back
 
@@ -1304,12 +1378,113 @@ LifeBoard calendar surfaces provide orientation, not full external-calendar mana
 
 Insights should be reflective and actionable.
 
-- Use navy editorial headings and pastel glass cards.
-- Prioritize consistency, recovery, focus protection, and planning quality.
-- Avoid making points, levels, or raw productivity totals the hero.
-- Every insight should answer: `What can I do next?`
+Structure:
 
-### 16.8 Profile and Settings
+1. Sunrise destination scaffold with title `Insights`, subtitle `Your progress at a glance.`, chart symbol, back-to-tasks control, settings control, and an attention pill.
+2. Segmented control: `Today`, `Week`, `Systems`.
+3. Primary interpretation card.
+4. Four-card metric strip.
+5. Action cards.
+6. Optional reflection card.
+7. Expandable details.
+
+Presentation states:
+
+- **Empty**: say there is no useful signal yet and point to the smallest setup action.
+- **Partial**: say a pattern is starting and explain what signal is still thin.
+- **Rich**: name the main pressure or momentum pattern and provide a concrete next action.
+
+Primary interpretation card:
+
+- Use a pastel role surface and a decorative Sunrise asset.
+- Label the card as the primary signal or primary interpretation. `Diagnosis` may be used as an internal component concept, but visible copy must not feel clinical.
+- Title names the pattern, not the metric.
+- Explanation names the next move.
+- Evidence line may include compact counts, but it must support the interpretation.
+- CTA is a small glass pill inside the card.
+
+Metric strip:
+
+- Four compact cards.
+- Use role icons and semantic color only as accents.
+- Today metrics should cover closed work, focus, habits/recovery, and open work.
+- Week metrics should cover weekly movement, active days, carry-over, and focus rhythm.
+- Systems metrics should cover reminders, focus rituals, reviews, and active days.
+
+Action cards:
+
+- Each card includes icon well, title, two-line message, CTA label, and trailing chevron.
+- Today actions include Overdue Rescue when overdue count is non-zero.
+- Week actions include momentum, backlog drag, project mix, and recovery.
+- Systems actions include reminder response, consistency, focus health, and planning quality.
+- Each action must route to a real next step, not just expand a static statistic.
+
+Expandable details:
+
+- Keep dense analysis behind disclosure cards.
+- Today details may include momentum summary, due pressure, focus pulse, completion mix, and recovery.
+- Week details may include weekly bars, summary metrics, leaderboard, priority mix, task-type mix, and operating review.
+- Systems details may include reminder response, focus health, recovery health, streak resilience, and achievement velocity.
+- Programmatic jumps to a detail anchor should expand the relevant disclosure first.
+
+Success criteria:
+
+- The hero answers `What is happening?`
+- The first visible action answers `What can I do next?`
+- Raw XP, points, levels, and achievement velocity never become the main hero.
+- Overdue pressure is framed as recovery, not failure.
+
+### 16.8 Overdue Rescue and triage
+
+Overdue Rescue is the canonical decision-deck pattern for stale or overdue work. Triage uses the same one-decision-at-a-time discipline at smaller scale.
+
+Overdue Rescue deck:
+
+- Full-screen or large sheet over a warm cream sunrise gradient.
+- Header has close, overflow menu, title `Overdue Rescue`, helper copy, progress text, and progress bar.
+- Deck uses stacked cards behind the active card to signal a finite sprint.
+- Active card shows task title, project, confidence label, overdue age, and a short reason.
+- Decorative rescue assets such as plant, sparkles, shield, cup, and sunrise are allowed because this surface is intentionally restorative.
+- Swipe right commits `Keep today`; swipe left commits `Move later`.
+- Tap alternatives are always visible: `Keep today`, `Move later`, `Edit`, `Delete`.
+- Swipe reveal panels use green for keep and amber for move. Delete red appears only inside the explicit delete path.
+- Drag offset and tilt must be restrained; motion should feel tactile, not arcade-like.
+
+Overdue Rescue states:
+
+- **Large stack preflight**: name the stack size and offer `Apply safe fixes` or `Start manual review`.
+- **Safe fixes confirmation**: show count, breakdown, non-destructive/undo reassurance, `Apply fixes`, and `Review first`.
+- **Quick edit**: let the user adjust due date, duration, project, and priority without leaving the sprint.
+- **Delete confirmation**: use a custom overlay with task-specific accessibility copy and clear `Delete task` / `Cancel` choices.
+- **Pause**: show reviewed count, remaining count, and saved-state reassurance.
+- **Completed**: show kept, moved, and deleted stats, then offer `View today`; if more remain, offer `Review remaining`.
+- **Error**: say rescue is paused, show the error, and offer retry or close.
+
+Inbox triage:
+
+- Use a compact sprint sheet for untriaged inbox work.
+- Title the mode as a triage sprint, not an assistant command.
+- Show current card progress, task title, suggested project, due bucket, duration, and state hint.
+- Primary action is accept; secondary actions are edit, skip, and delete.
+- `Apply all high confidence` is allowed only for multi-item queues and must remain undoable through the assistant action pipeline.
+- Empty state says `You're all triaged.` and confirms the inbox is clear for now.
+
+Weekly planner triage:
+
+- Use triage cards inside the weekly planning task step.
+- Show task title, project, due date, priority, current placement, and linked outcome when present.
+- Placement choices are `This Week`, `Next Week`, and `Later`.
+- Drag feedback may tint the card toward the target bucket, but buttons remain the reliable path.
+- Completion reveals lane summaries so the user can review the resulting week.
+
+Success criteria:
+
+- A user can process the queue with one thumb.
+- A user can process the same queue with VoiceOver custom actions.
+- Every destructive or broad action has confirmation and undo.
+- The experience feels like reducing cognitive load, not being judged.
+
+### 16.9 Profile and Settings
 
 - More solid surfaces, less scenic art.
 - Use grouped iOS settings patterns.
@@ -1406,6 +1581,12 @@ Habit cell pattern:
 
 `Habit, Drink water, Tuesday May 13, completed, current streak 6 days.`
 
+Decision deck pattern:
+
+`Overdue Rescue, card 2 of 12, Prepare launch notes, high confidence, overdue by 3 days. Actions available: Keep today, Move later, Edit, Delete.`
+
+Decision sprint controls must expose VoiceOver custom actions for each primary decision and must not rely on drag gestures alone.
+
 ### 19.4 Reduce Transparency
 
 - Use solid white surfaces.
@@ -1472,7 +1653,13 @@ Build these as reusable components:
 - `LifeBoardTimelineSpine`
 - `LifeBoardTimelineCard`
 - `LifeBoardMeetingFlockCard`
-- `LifeBoardRoutineCard`
+- `LifeBoardRitualAnchorCard`
+- `LifeBoardRitualAnchorSheet`
+- `LifeBoardInsightInterpretationCard`
+- `LifeBoardInsightMetricStrip`
+- `LifeBoardInsightActionCard`
+- `LifeBoardDecisionDeck`
+- `LifeBoardDecisionActionGrid`
 - `LifeBoardHabitMatrix`
 - `LifeBoardHabitCell`
 - `LifeBoardHabitProgressCard`
@@ -1499,7 +1686,7 @@ Build these as reusable components:
 Add checks that fail when:
 
 - Visible copy uses a previous product name.
-- Clinical or diagnostic terms appear in user-facing design copy.
+- Clinical or medical diagnostic terms appear in user-facing design copy.
 - New UI hardcodes colors outside LifeBoard tokens.
 - Touch targets fall below 44pt.
 - Timeline cards lack accessibility labels.
@@ -1513,15 +1700,23 @@ LifeBoard copy is calm, concise, and nonjudgmental.
 Preferred phrases:
 
 - `Start your day with intention`
+- `Rise and Shine`
+- `Wind Down`
 - `Recharge and reset`
 - `Focus time, no distractions`
 - `Unwind and learn`
 - `Reflect, relax, and prepare for tomorrow`
 - `Small steps, big changes.`
 - `Plan the week, set priorities`
+- `Sort what still matters.`
+- `Keep today`
+- `Move later`
+- `Apply safe fixes`
+- `Review first`
 - `Move your body`
 - `Leave this gap open`
 - `Try one small step`
+- `You're all triaged.`
 
 Avoid:
 
@@ -1567,6 +1762,9 @@ Avoid:
 - Show empty, loading, error, and degraded states honestly.
 - Use explicit confirmation for meaningful assistant changes.
 - Keep external calendar context read-only.
+- Make overdue and triage flows feel like recovery sprints.
+- Keep swipe actions paired with visible tap alternatives.
+- Use scenic ritual artwork for Rise and Shine and Wind Down.
 
 ### Don't
 
@@ -1580,6 +1778,10 @@ Avoid:
 - Do not rely on color alone.
 - Do not let assistant prompts crowd the day.
 - Do not imply LifeBoard silently changed anything.
+- Do not frame overdue work as failure.
+- Do not make delete available without an explicit confirmation path.
+- Do not make swipe the only path through rescue or triage.
+- Do not use plain generic cards for ritual anchors when scenic strip assets are available.
 
 ## 24. Acceptance checklist
 
@@ -1597,6 +1799,9 @@ A new LifeBoard screen is acceptable only when:
 - It avoids shame-based or clinical framing.
 - It keeps calendar trust boundaries clear.
 - It does not hardcode legacy visual colors.
+- Insights begin with interpretation, then metrics, then actions, then optional details.
+- Overdue Rescue and triage expose visible progress, tap alternatives, confirmation, and undo.
+- Rise and Shine and Wind Down use scenic ritual anchors and locale-aware time controls.
 
 ## 25. Quick reference
 

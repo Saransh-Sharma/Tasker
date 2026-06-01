@@ -107,7 +107,7 @@ class NavigationTests: BaseUITest {
 
         // Verify modal elements
         XCTAssertTrue(addTaskPage.titleField.exists, "Title field should exist")
-        XCTAssertTrue(addTaskPage.saveButton.exists, "Save button should exist")
+        XCTAssertTrue(addTaskPage.createButton.exists, "Create button should exist")
         XCTAssertTrue(addTaskPage.cancelButton.exists, "Cancel button should exist")
 
         takeScreenshot(named: "modal_presentation_add_task")
@@ -133,41 +133,81 @@ class NavigationTests: BaseUITest {
         takeScreenshot(named: "modal_dismissal_add_task")
     }
 
-    func testHomeBottomBarActions() throws {
+    func testHomeBottomBarInsightsAction() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
         XCTAssertTrue(homePage.verifyBottomBarExists(), "Home bottom bar should exist")
 
-        homePage.tapCharts()
-        waitForAnimations(duration: 0.4)
+        XCTAssertTrue(homePage.openInsights(), "Insights should open from the bottom dock")
+        XCTAssertTrue(homePage.insightsContainer.waitForExistence(timeout: 3), "Insights screen should be displayed")
+    }
 
-        homePage.tapSearch()
+    func testHomeSearchActionOpensSearch() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
+        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open from the Home search affordance")
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should be displayed")
-        XCTAssertTrue(homePage.searchField.waitForExistence(timeout: 3), "Search field should appear on top backdrop")
-        homePage.tapSearch()
-        XCTAssertTrue(homePage.waitForSunriseState("collapsed", timeout: 3), "Search should collapse on second search tap")
+        XCTAssertTrue(homePage.searchField.waitForExistence(timeout: 3), "Search field should appear")
+    }
 
-        homePage.tapChat()
-        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 3), "Chat screen should present")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+    func testHomeAddTaskActionPresentsModal() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
         let addTaskPage = homePage.tapAddTask()
         XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add task should be displayed from bottom bar")
         addTaskPage.tapCancel()
     }
 
-    func testHomeBottomBarMinimizeOnScroll() throws {
+    func testSunriseDestinationsCrashSmoke() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
+        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open")
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should be displayed")
+        homePage.tapSearchBackChip()
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Search should close back to Home")
+
+        XCTAssertTrue(homePage.openInsights(), "Insights should open")
+        XCTAssertTrue(homePage.insightsTodayTab.waitForExistence(timeout: 3), "Today tab should exist")
+        homePage.insightsWeekTab.tap()
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Home.insightsContentWeek].waitForExistence(timeout: 3), "Week content should exist")
+        homePage.insightsSystemsTab.tap()
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Home.insightsContentSystems].waitForExistence(timeout: 3), "Systems content should exist")
+        if homePage.insightsScrollView.exists {
+            homePage.insightsScrollView.swipeUp()
+        }
+        XCTAssertEqual(app.state, .runningForeground, "App should remain running after destination switching")
+    }
+
+    func testHomeBottomBarStaysStableOnScroll() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
         XCTAssertTrue(homePage.verifyBottomBarExists(), "Home bottom bar should exist")
+        XCTAssertTrue(homePage.addTaskButton.waitForExistence(timeout: 3), "Add Task button should exist")
+        let initialFrame = homePage.bottomBar.frame
+        let initialScrollMinY = homePage.taskListScrollView.frame.minY
 
         homePage.taskListScrollView.swipeUp()
         homePage.taskListScrollView.swipeUp()
-        XCTAssertTrue(homePage.waitForBottomBarState("minimized", timeout: 2), "Bottom bar should minimize after downward scroll")
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should remain expanded after downward scroll")
+        XCTAssertEqual(homePage.bottomBar.frame.height, initialFrame.height, accuracy: 1.0, "Bottom bar height should not change after downward scroll")
+        XCTAssertTrue(homePage.addTaskButton.isHittable, "Add Task button should remain hittable after downward scroll")
+        XCTAssertGreaterThan(
+            homePage.taskListScrollView.frame.maxY,
+            homePage.bottomBar.frame.minY,
+            "Home content should continue behind the stable bottom bar"
+        )
+        XCTAssertEqual(
+            homePage.taskListScrollView.frame.minY,
+            initialScrollMinY,
+            accuracy: 1.0,
+            "Scrolling should not resize or jump the Home scroll container"
+        )
 
         waitForAnimations(duration: 0.55)
-        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should auto-restore after scroll idle")
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should remain expanded after scroll idle")
+        XCTAssertEqual(homePage.bottomBar.frame.height, initialFrame.height, accuracy: 1.0, "Bottom bar height should not change while idle")
+        XCTAssertTrue(homePage.addTaskButton.isHittable, "Add Task button should remain hittable after scroll idle")
 
         homePage.taskListScrollView.swipeDown()
-        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should expand after upward scroll")
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should remain expanded after upward scroll")
+        XCTAssertEqual(homePage.bottomBar.frame.height, initialFrame.height, accuracy: 1.0, "Bottom bar height should not change after upward scroll")
+        XCTAssertTrue(homePage.addTaskButton.isHittable, "Add Task button should remain hittable after upward scroll")
     }
 
     // MARK: - Bonus: Navigation Stack - Settings → Life Management → Back
@@ -277,6 +317,9 @@ class NavigationTests: BaseUITest {
     }
 
     func testIPadSupportsAllOrientations() throws {
+        guard app.windows.firstMatch.frame.width >= 700 else {
+            throw XCTSkip("Requires iPad window class")
+        }
         let iPadTasksDestination = app.buttons["home.ipad.destination.tasks"]
         guard iPadTasksDestination.waitForExistence(timeout: 3) else {
             throw XCTSkip("Requires iPad native shell destination controls")
@@ -306,6 +349,9 @@ class NavigationTests: BaseUITest {
     }
 
     func testIPadSidebarCanSwitchAcrossCoreDestinations() throws {
+        guard app.windows.firstMatch.frame.width >= 700 else {
+            throw XCTSkip("Requires iPad window class")
+        }
         let iPadTasksDestination = app.buttons["home.ipad.destination.tasks"]
         guard iPadTasksDestination.waitForExistence(timeout: 3) else {
             throw XCTSkip("Requires iPad native shell destination controls")

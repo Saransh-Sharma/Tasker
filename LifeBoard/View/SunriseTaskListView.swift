@@ -15,10 +15,11 @@ import SwiftUI
 enum TaskListLayoutStyle: Equatable {
     case inset
     case edgeToEdgeHome
+    case sunriseSearch
 
     var taskContentHorizontalInset: CGFloat {
         switch self {
-        case .inset:
+        case .inset, .sunriseSearch:
             return LifeBoardTheme.Spacing.lg
         case .edgeToEdgeHome:
             return 0
@@ -33,6 +34,8 @@ enum TaskListLayoutStyle: Equatable {
         switch self {
         case .inset:
             return LifeBoardTheme.Spacing.xs
+        case .sunriseSearch:
+            return LifeBoardTheme.Spacing.sm
         case .edgeToEdgeHome:
             return 0
         }
@@ -44,7 +47,7 @@ enum TaskListLayoutStyle: Equatable {
 
     var headerHorizontalPadding: CGFloat {
         switch self {
-        case .inset:
+        case .inset, .sunriseSearch:
             return 0
         case .edgeToEdgeHome:
             return LifeBoardTheme.Spacing.md
@@ -55,6 +58,8 @@ enum TaskListLayoutStyle: Equatable {
         switch self {
         case .inset:
             return .card
+        case .sunriseSearch:
+            return .sunriseSearchCard
         case .edgeToEdgeHome:
             return .flatHomeList
         }
@@ -62,7 +67,7 @@ enum TaskListLayoutStyle: Equatable {
 
     var taskMetadataPolicy: TaskRowMetadataPolicy {
         switch self {
-        case .inset:
+        case .inset, .sunriseSearch:
             return .default
         case .edgeToEdgeHome:
             return .homeUnifiedList

@@ -183,16 +183,11 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         XCTAssertEqual(viewModel.progressState.earnedXP, viewModel.dailyScore)
-        if V2FeatureFlags.gamificationV2Enabled {
-            XCTAssertEqual(viewModel.progressState.remainingPotentialXP, max(0, viewModel.dailyXPCap - viewModel.dailyScore))
-            XCTAssertEqual(viewModel.progressState.todayTargetXP, viewModel.dailyXPCap)
-        } else {
-            XCTAssertEqual(viewModel.progressState.remainingPotentialXP, viewModel.pointsPotential)
-            XCTAssertEqual(
-                viewModel.progressState.todayTargetXP,
-                viewModel.progressState.earnedXP + viewModel.progressState.remainingPotentialXP
-            )
-        }
+        XCTAssertEqual(viewModel.progressState.remainingPotentialXP, viewModel.pointsPotential)
+        XCTAssertEqual(
+            viewModel.progressState.todayTargetXP,
+            viewModel.progressState.earnedXP + viewModel.progressState.remainingPotentialXP
+        )
         XCTAssertEqual(viewModel.progressState.isStreakSafeToday, viewModel.progressState.earnedXP > 0)
 
         guard let openTask = viewModel.morningTasks.first else {
@@ -203,16 +198,11 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         XCTAssertEqual(viewModel.progressState.earnedXP, viewModel.dailyScore)
-        if V2FeatureFlags.gamificationV2Enabled {
-            XCTAssertEqual(viewModel.progressState.remainingPotentialXP, max(0, viewModel.dailyXPCap - viewModel.dailyScore))
-            XCTAssertEqual(viewModel.progressState.todayTargetXP, viewModel.dailyXPCap)
-        } else {
-            XCTAssertEqual(viewModel.progressState.remainingPotentialXP, viewModel.pointsPotential)
-            XCTAssertEqual(
-                viewModel.progressState.todayTargetXP,
-                viewModel.progressState.earnedXP + viewModel.progressState.remainingPotentialXP
-            )
-        }
+        XCTAssertEqual(viewModel.progressState.remainingPotentialXP, viewModel.pointsPotential)
+        XCTAssertEqual(
+            viewModel.progressState.todayTargetXP,
+            viewModel.progressState.earnedXP + viewModel.progressState.remainingPotentialXP
+        )
         XCTAssertEqual(viewModel.progressState.isStreakSafeToday, viewModel.progressState.earnedXP > 0)
 
         defaults.removePersistentDomain(forName: suiteName)
@@ -1919,7 +1909,6 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             currentStreak: 3,
             didLevelUp: false,
             dailyXPSoFar: 12,
-            dailyCap: 100,
             unlockedAchievements: [],
             crossedMilestone: nil,
             celebration: nil

@@ -29,6 +29,8 @@ struct SunriseScheduleScreen: View {
     @State private var activeDaySunriseSwipeSide: SunriseDaySwipeSide?
     @State private var isDaySunriseSwipeChromeVisible = true
     @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
+    @State private var scheduleScrollTraceInterval: LifeBoardPerformanceInterval?
+    @State private var eventDetailOpenTraceInterval: LifeBoardPerformanceInterval?
     @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
     @State private var headerActivationID = TimeOfDayHeaderAsset.makeActivationID()
 
@@ -107,6 +109,12 @@ struct SunriseScheduleScreen: View {
                         presentationState.dismissEventDetail()
                     }
                 )
+                .onAppear {
+                    finishEventDetailOpenTraceIfNeeded()
+                }
+                .onDisappear {
+                    finishEventDetailOpenTraceIfNeeded()
+                }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .presentationBackground(LBColorTokens.canvas)
@@ -236,6 +244,9 @@ struct SunriseScheduleScreen: View {
                     restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: newSafeAreaTop),
                     size: daySunriseSwipeContainerSize(proxy.size)
                 )
+            }
+            .onDisappear {
+                finishScheduleScrollTraceIfNeeded()
             }
         }
     }
@@ -618,7 +629,10 @@ struct SunriseScheduleScreen: View {
                     accessibilityIdentifier: "schedule.timeline.expanded",
                     accessibilityLabelText: String(localized: "Live timeline for the selected day."),
                     initialVisibleHour: targetHour,
-                    onSelectEvent: { presentationState.selectEvent(id: $0.id) }
+                    onSelectEvent: { event in
+                        beginEventDetailOpenTrace()
+                        presentationState.selectEvent(id: event.id)
+                    }
                 )
             }
             .padding(LBSpacingTokens.md)
@@ -985,6 +999,11 @@ struct SunriseScheduleScreen: View {
     }
 
     private func handleScrollOffsetChange(_ newOffset: CGFloat) {
+        guard newOffset.isFinite else { return }
+        let normalizedOffset = max(0, newOffset)
+        if normalizedOffset > 2 {
+            recordScheduleScrollActivity()
+        }
         if let nextState = scrollChromeStateTracker.consume(offset: newOffset) {
             updateDaySunriseSwipeChromeVisibility(for: nextState)
         }
@@ -1071,7 +1090,33 @@ struct SunriseScheduleScreen: View {
             try? await Task.sleep(nanoseconds: 180_000_000)
             guard Task.isCancelled == false else { return }
             isScrollActive = false
+            finishScheduleScrollTraceIfNeeded()
             handleScrollIdle()
+        }
+    }
+
+    private func recordScheduleScrollActivity() {
+        if scheduleScrollTraceInterval == nil {
+            scheduleScrollTraceInterval = LifeBoardPerformanceTrace.begin("ScheduleScrollSession")
+        }
+    }
+
+    private func beginEventDetailOpenTrace() {
+        finishEventDetailOpenTraceIfNeeded()
+        eventDetailOpenTraceInterval = LifeBoardPerformanceTrace.begin("ScheduleEventDetailOpen")
+    }
+
+    private func finishEventDetailOpenTraceIfNeeded() {
+        if let eventDetailOpenTraceInterval {
+            LifeBoardPerformanceTrace.end(eventDetailOpenTraceInterval)
+            self.eventDetailOpenTraceInterval = nil
+        }
+    }
+
+    private func finishScheduleScrollTraceIfNeeded() {
+        if let scheduleScrollTraceInterval {
+            LifeBoardPerformanceTrace.end(scheduleScrollTraceInterval)
+            self.scheduleScrollTraceInterval = nil
         }
     }
 }

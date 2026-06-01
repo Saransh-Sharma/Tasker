@@ -122,6 +122,7 @@ struct SunriseWeeklyPlannerView: View {
                 )
             }
             .lifeboardSnackbar($snackbar)
+            .accessibilityIdentifier("weeklyPlanner.view")
         }
     }
 

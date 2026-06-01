@@ -108,6 +108,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var successMessage: String?
     @Published public var activeSwapSlot: Int?
+    @Published public private(set) var closeAttempted: Bool = false
 
     private let loadCoordinator: DailyReflectionLoadCoordinatorProtocol
     private let saveUseCase: SaveDailyReflectionAndPlanUseCase
@@ -120,6 +121,8 @@ public final class DailyReflectPlanViewModel: ObservableObject {
     private var loadTask: Task<Void, Never>?
     private var enrichmentTask: Task<Void, Never>?
     private var currentLoadID = UUID()
+    private var baselineEditablePlan: EditableDailyPlan?
+    private var savedContextState = DailyReflectionContextEditState()
     private static let enrichmentTimeoutSeconds: TimeInterval = 0.8
 
     public init(
@@ -154,6 +157,19 @@ public final class DailyReflectPlanViewModel: ObservableObject {
         isSaving == false && snapshot != nil && editablePlan != nil
     }
 
+    public var hasContextEdits: Bool {
+        currentContextState != savedContextState
+    }
+
+    public var hasTaskSwaps: Bool {
+        guard let editablePlan, let baselineEditablePlan else { return false }
+        return editablePlan.topTasks.map(\.id) != baselineEditablePlan.topTasks.map(\.id)
+    }
+
+    public var hasUnsavedChanges: Bool {
+        hasContextEdits || hasTaskSwaps
+    }
+
     public var planningStatusMessage: String? {
         optionalContext?.status.message
     }
@@ -176,6 +192,13 @@ public final class DailyReflectPlanViewModel: ObservableObject {
         snapshot = nil
         editablePlan = nil
         activeSwapSlot = nil
+        closeAttempted = false
+        baselineEditablePlan = nil
+        savedContextState = DailyReflectionContextEditState()
+        selectedMood = nil
+        selectedEnergy = nil
+        selectedFrictionTags = []
+        noteText = ""
         loadState = .loadingCore
 
         let loadID = currentLoadID
@@ -213,10 +236,12 @@ public final class DailyReflectPlanViewModel: ObservableObject {
 
                 self.optionalContext = baselineContext
                 self.snapshot = coreBundle.coreSnapshot.makeSnapshot(optionalContext: baselineContext)
-                self.editablePlan = self.warmStartPlan(
+                let baselinePlan = self.warmStartPlan(
                     planningDate: resolvedTarget.planningDate,
                     baselineContext: baselineContext
                 )
+                self.editablePlan = baselinePlan
+                self.baselineEditablePlan = baselinePlan
                 LifeBoardPerformanceTrace.event("ReflectionBaselinePlanReady")
                 self.loadState = .fullyLoaded
 
@@ -229,11 +254,22 @@ public final class DailyReflectPlanViewModel: ObservableObject {
                     self.optionalContext = cachedContext.optionalContext
                     self.snapshot = coreBundle.coreSnapshot.makeSnapshot(optionalContext: cachedContext.optionalContext)
                     if var plan = self.editablePlan {
-                        plan = self.mergeEnrichmentMetadata(
+                        let merged = self.mergeEnrichmentMetadata(
                             into: plan,
                             suggestion: cachedContext.optionalContext.suggestedPlan
                         )
-                        self.editablePlan = plan
+                        self.editablePlan = merged
+                        if self.hasTaskSwaps == false {
+                            self.baselineEditablePlan = merged
+                        } else {
+                            plan.focusWindow = merged.focusWindow
+                            plan.protectedHabitID = merged.protectedHabitID
+                            plan.protectedHabitTitle = merged.protectedHabitTitle
+                            plan.protectedHabitStreak = merged.protectedHabitStreak
+                            plan.primaryRisk = merged.primaryRisk
+                            plan.primaryRiskDetail = merged.primaryRiskDetail
+                            self.editablePlan = plan
+                        }
                     }
                     LifeBoardPerformanceTrace.event("ReflectionEnrichmentApplied")
                     shouldRefreshInBackground = cachedContext.isStale
@@ -257,11 +293,22 @@ public final class DailyReflectPlanViewModel: ObservableObject {
                     self.snapshot = coreBundle.coreSnapshot.makeSnapshot(optionalContext: enrichedContext)
 
                     if var plan = self.editablePlan {
-                        plan = self.mergeEnrichmentMetadata(
+                        let merged = self.mergeEnrichmentMetadata(
                             into: plan,
                             suggestion: enrichedContext.suggestedPlan
                         )
-                        self.editablePlan = plan
+                        self.editablePlan = merged
+                        if self.hasTaskSwaps == false {
+                            self.baselineEditablePlan = merged
+                        } else {
+                            plan.focusWindow = merged.focusWindow
+                            plan.protectedHabitID = merged.protectedHabitID
+                            plan.protectedHabitTitle = merged.protectedHabitTitle
+                            plan.protectedHabitStreak = merged.protectedHabitStreak
+                            plan.primaryRisk = merged.primaryRisk
+                            plan.primaryRiskDetail = merged.primaryRiskDetail
+                            self.editablePlan = plan
+                        }
                     }
 
                     switch enrichedContext.status {
@@ -294,11 +341,13 @@ public final class DailyReflectPlanViewModel: ObservableObject {
 
     public func toggleMood(_ mood: ReflectionMood) {
         selectedMood = selectedMood == mood ? nil : mood
+        LifeBoardFeedback.selection()
         trackChipSelected(kind: "mood", value: mood.rawValue)
     }
 
     public func toggleEnergy(_ energy: ReflectionEnergy) {
         selectedEnergy = selectedEnergy == energy ? nil : energy
+        LifeBoardFeedback.selection()
         trackChipSelected(kind: "energy", value: energy.rawValue)
     }
 
@@ -308,6 +357,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
         } else {
             selectedFrictionTags.insert(tag)
         }
+        LifeBoardFeedback.selection()
         trackChipSelected(kind: "friction", value: tag.rawValue)
     }
 
@@ -316,6 +366,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
         editablePlan.swapTask(at: slotIndex, with: option)
         self.editablePlan = editablePlan
         activeSwapSlot = nil
+        LifeBoardFeedback.success()
         analyticsTracker?(
             "reflection_plan_swapped",
             baseAnalyticsMetadata(mode: target?.mode).merging(
@@ -330,6 +381,36 @@ public final class DailyReflectPlanViewModel: ObservableObject {
 
     public func swapOptions(for slotIndex: Int) -> [DailyPlanTaskOption] {
         editablePlan?.swapOptions(for: slotIndex) ?? []
+    }
+
+    public func requestSwap(slotIndex: Int) {
+        activeSwapSlot = slotIndex
+        LifeBoardFeedback.light()
+    }
+
+    public func requestClose() {
+        if hasUnsavedChanges {
+            closeAttempted = true
+            LifeBoardFeedback.warning()
+        } else {
+            closeAttempted = false
+        }
+    }
+
+    public func clearCloseAttempt() {
+        closeAttempted = false
+    }
+
+    public func discardChanges() {
+        selectedMood = savedContextState.mood
+        selectedEnergy = savedContextState.energy
+        selectedFrictionTags = savedContextState.frictionTags
+        noteText = savedContextState.noteText
+        if let baselineEditablePlan {
+            editablePlan = baselineEditablePlan
+        }
+        activeSwapSlot = nil
+        closeAttempted = false
     }
 
     public func save(replaceManualDraft: Bool = false) {
@@ -368,6 +449,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
                 switch result {
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
+                    LifeBoardFeedback.warning()
                     self.analyticsTracker?(
                         "reflection_save_failed",
                         self.baseAnalyticsMetadata(mode: snapshot.mode).merging(
@@ -383,6 +465,11 @@ public final class DailyReflectPlanViewModel: ObservableObject {
                     self.successMessage = saveResult.preservedExistingManualDraft
                         ? "Reflection saved. Existing manual plan kept."
                         : "Reflection saved. Next board updated."
+                    self.savedContextState = self.currentContextState
+                    if let editablePlan = self.editablePlan {
+                        self.baselineEditablePlan = editablePlan
+                    }
+                    LifeBoardFeedback.success()
                     self.analyticsTracker?(
                         "reflection_saved",
                         self.baseAnalyticsMetadata(mode: snapshot.mode).merging(
@@ -419,8 +506,36 @@ public final class DailyReflectPlanViewModel: ObservableObject {
         return Self.dayTitle(for: date, calendar: calendar)
     }
 
+    public func focusWindowLabel(for plan: EditableDailyPlan) -> String {
+        guard let interval = plan.focusWindow else { return "Not set yet" }
+        return Self.timeRangeLabel(interval)
+    }
+
+    public func protectedHabitLabel(for plan: EditableDailyPlan) -> String {
+        guard let title = plan.protectedHabitTitle, title.isEmpty == false else {
+            return "Not set yet"
+        }
+        if let streak = plan.protectedHabitStreak {
+            return "\(title) · \(streak)d streak"
+        }
+        return title
+    }
+
+    public func clearFirstLabel(for plan: EditableDailyPlan) -> String {
+        plan.primaryRiskDetail ?? plan.primaryRisk?.title ?? "Clear yesterday's carryover first so today doesn't stack."
+    }
+
     private func isActiveLoad(_ loadID: UUID) -> Bool {
         !Task.isCancelled && loadID == currentLoadID
+    }
+
+    private var currentContextState: DailyReflectionContextEditState {
+        DailyReflectionContextEditState(
+            mood: selectedMood,
+            energy: selectedEnergy,
+            frictionTags: selectedFrictionTags,
+            noteText: noteText
+        )
     }
 
     private func warmStartPlan(
@@ -507,5 +622,31 @@ public final class DailyReflectPlanViewModel: ObservableObject {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = calendar.timeZone
         return formatter.string(from: calendar.startOfDay(for: date))
+    }
+
+    private static func timeRangeLabel(_ interval: DateInterval) -> String {
+        let formatter = DateIntervalFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: interval.start, to: interval.end)
+    }
+}
+
+private struct DailyReflectionContextEditState: Equatable {
+    var mood: ReflectionMood?
+    var energy: ReflectionEnergy?
+    var frictionTags: Set<ReflectionFrictionTag>
+    var noteText: String
+
+    init(
+        mood: ReflectionMood? = nil,
+        energy: ReflectionEnergy? = nil,
+        frictionTags: Set<ReflectionFrictionTag> = [],
+        noteText: String = ""
+    ) {
+        self.mood = mood
+        self.energy = energy
+        self.frictionTags = frictionTags
+        self.noteText = noteText
     }
 }

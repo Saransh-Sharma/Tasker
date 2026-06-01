@@ -231,7 +231,7 @@ public extension Notification {
 }
 
 /// Result returned after recording an XP event, used by UI for celebrations.
-public struct XPCelebrationPayload: Sendable {
+public struct XPCelebrationPayload: Equatable, Sendable {
     public let awardedXP: Int
     public let level: Int
     public let didLevelUp: Bool
@@ -240,7 +240,7 @@ public struct XPCelebrationPayload: Sendable {
     public let occurredAt: Date
 }
 
-public struct XPEventResult: Sendable {
+public struct XPEventResult: Equatable, Sendable {
     public let awardedXP: Int
     public let totalXP: Int64
     public let level: Int
@@ -248,7 +248,6 @@ public struct XPEventResult: Sendable {
     public let currentStreak: Int
     public let didLevelUp: Bool
     public let dailyXPSoFar: Int
-    public let dailyCap: Int
     public let unlockedAchievements: [AchievementUnlockDefinition]
     public let crossedMilestone: XPCalculationEngine.Milestone?
     public let celebration: XPCelebrationPayload?
@@ -314,7 +313,7 @@ public struct XPEventContext: Sendable {
 }
 
 /// Central gamification engine replacing RecordXPUseCase.
-/// Handles XP calculation, daily caps, level progression, streaks, and achievements.
+/// Handles XP calculation, daily totals, level progression, streaks, and achievements.
 public final class GamificationEngine: @unchecked Sendable {
 
     private let repository: GamificationRepositoryProtocol
@@ -439,7 +438,6 @@ public final class GamificationEngine: @unchecked Sendable {
 
                 var snapshot = GamificationWidgetSnapshot(
                     dailyXP: dailyXP,
-                    dailyCap: XPCalculationEngine.dailyCap,
                     level: levelInfo.level,
                     totalXP: profile.xpTotal,
                     nextLevelXP: levelInfo.nextThreshold,
@@ -685,14 +683,14 @@ public final class GamificationEngine: @unchecked Sendable {
     ) -> Void) {
         let periodKey = XPCalculationEngine.periodKey(for: context.completedAt)
 
-        // Fetch daily aggregate to know cap headroom
+        // Fetch daily aggregate for historical totals only. It no longer limits awards.
         repository.fetchDailyAggregate(dateKey: periodKey) { [weak self] aggResult in
             guard let self = self else { return }
             switch aggResult {
             case .failure(let error):
                 completion(.failure(error))
             case .success(let existingAgg):
-                let dailyEarnedSoFar = existingAgg?.totalXP ?? 0
+                let existingDailyXP = existingAgg?.totalXP ?? 0
 
                 // Calculate XP
                 let base: Int
@@ -725,14 +723,13 @@ public final class GamificationEngine: @unchecked Sendable {
                 let finalXP = XPCalculationEngine.calculateFinalXP(
                     base: base,
                     bonus: bonus,
-                    qualityWeight: weight,
-                    dailyEarnedSoFar: dailyEarnedSoFar
+                    qualityWeight: weight
                 )
 
                 let shouldRecordZeroXPEvent = XPCalculationEngine.isHabitCategory(context.category)
 
                 guard finalXP > 0 || shouldRecordZeroXPEvent else {
-                    // Cap reached — return current state
+                    // Zero-XP actions still return the current state without writing a positive event.
                     self.fetchCurrentState { stateResult in
                         switch stateResult {
                         case .failure(let error):
@@ -746,8 +743,7 @@ public final class GamificationEngine: @unchecked Sendable {
                                 previousLevel: levelInfo.level,
                                 currentStreak: profile.currentStreak,
                                 didLevelUp: false,
-                                dailyXPSoFar: dailyEarnedSoFar,
-                                dailyCap: XPCalculationEngine.dailyCap,
+                                dailyXPSoFar: existingDailyXP,
                                 unlockedAchievements: [],
                                 crossedMilestone: nil,
                                 celebration: nil
@@ -781,6 +777,30 @@ public final class GamificationEngine: @unchecked Sendable {
                     periodKey: periodKey
                 )
 
+                if let atomicRepository = self.repository as? AtomicGamificationRecordingRepositoryProtocol {
+                    atomicRepository.recordXPEventAtomically(event: event, periodKey: periodKey) { atomicResult in
+                        switch atomicResult {
+                        case .failure(let error):
+                            if self.isIdempotentReplayError(error) {
+                                self.completeIdempotentReplay(context: context, completion: completion)
+                            } else {
+                                completion(.failure(error))
+                            }
+                        case .success(let persisted):
+                            self.finishRecordedEvent(
+                                context: context,
+                                event: event,
+                                awardedXP: finalXP,
+                                profile: persisted.profile,
+                                previousLevel: persisted.previousLevel,
+                                dailyXPSoFar: persisted.dailyXPSoFar,
+                                completion: completion
+                            )
+                        }
+                    }
+                    return
+                }
+
                 // Save event
                 self.repository.saveXPEvent(event) { saveResult in
                     if case .failure(let error) = saveResult {
@@ -793,7 +813,7 @@ public final class GamificationEngine: @unchecked Sendable {
                     }
 
                     // Update daily aggregate
-                    let newDailyXP = dailyEarnedSoFar + finalXP
+                    let newDailyXP = existingDailyXP + finalXP
                     let updatedAggregate = DailyXPAggregateDefinition(
                         id: existingAgg?.id ?? UUID(),
                         dateKey: periodKey,
@@ -823,66 +843,84 @@ public final class GamificationEngine: @unchecked Sendable {
                                     completion: completion
                                 )
                             case .success(let (profile, previousLevel)):
-                                // Evaluate achievements
-                                self.evaluateAchievements(triggerEvent: event) { achieveResult in
-                                    let unlocked: [AchievementUnlockDefinition]
-                                    if case .success(let u) = achieveResult {
-                                        unlocked = u
-                                    } else {
-                                        unlocked = []
-                                    }
-
-                                    let levelInfo = XPCalculationEngine.levelForXP(profile.xpTotal)
-                                    let milestone = XPCalculationEngine.milestoneCrossed(
-                                        previousXP: profile.xpTotal - Int64(finalXP),
-                                        newXP: profile.xpTotal
-                                    )
-                                    let didLevelUp = levelInfo.level > previousLevel
-                                    let celebration = XPCelebrationPayload(
-                                        awardedXP: finalXP,
-                                        level: levelInfo.level,
-                                        didLevelUp: didLevelUp,
-                                        crossedMilestone: milestone,
-                                        cooldownSeconds: Self.celebrationCooldownSeconds,
-                                        occurredAt: Date()
-                                    )
-                                    self.updateStreak { streakResult in
-                                        let resolvedStreak: Int
-                                        if case .success(let streakProfile) = streakResult {
-                                            resolvedStreak = streakProfile.currentStreak
-                                        } else {
-                                            resolvedStreak = profile.currentStreak
-                                        }
-
-                                        let result = XPEventResult(
-                                            awardedXP: finalXP,
-                                            totalXP: profile.xpTotal,
-                                            level: levelInfo.level,
-                                            previousLevel: previousLevel,
-                                            currentStreak: resolvedStreak,
-                                            didLevelUp: didLevelUp,
-                                            dailyXPSoFar: newDailyXP,
-                                            dailyCap: XPCalculationEngine.dailyCap,
-                                            unlockedAchievements: unlocked,
-                                            crossedMilestone: milestone,
-                                            celebration: celebration
-                                        )
-
-                                        self.emitXPFunnelTelemetry(context: context, result: result)
-                                        self.writeWidgetSnapshot()
-                                        self.emitLedgerMutation(
-                                            context: context,
-                                            result: result,
-                                            didChange: true,
-                                            originatingEventID: event.id
-                                        )
-                                        completion(.success(result))
-                                    }
-                                }
+                                self.finishRecordedEvent(
+                                    context: context,
+                                    event: event,
+                                    awardedXP: finalXP,
+                                    profile: profile,
+                                    previousLevel: previousLevel,
+                                    dailyXPSoFar: newDailyXP,
+                                    completion: completion
+                                )
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private func finishRecordedEvent(
+        context: XPEventContext,
+        event: XPEventDefinition,
+        awardedXP: Int,
+        profile: GamificationSnapshot,
+        previousLevel: Int,
+        dailyXPSoFar: Int,
+        completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void
+    ) {
+        evaluateAchievements(triggerEvent: event) { achieveResult in
+            let unlocked: [AchievementUnlockDefinition]
+            if case .success(let u) = achieveResult {
+                unlocked = u
+            } else {
+                unlocked = []
+            }
+
+            let levelInfo = XPCalculationEngine.levelForXP(profile.xpTotal)
+            let milestone = XPCalculationEngine.milestoneCrossed(
+                previousXP: profile.xpTotal - Int64(awardedXP),
+                newXP: profile.xpTotal
+            )
+            let didLevelUp = levelInfo.level > previousLevel
+            let celebration = XPCelebrationPayload(
+                awardedXP: awardedXP,
+                level: levelInfo.level,
+                didLevelUp: didLevelUp,
+                crossedMilestone: milestone,
+                cooldownSeconds: Self.celebrationCooldownSeconds,
+                occurredAt: Date()
+            )
+            self.updateStreak { streakResult in
+                let resolvedStreak: Int
+                if case .success(let streakProfile) = streakResult {
+                    resolvedStreak = streakProfile.currentStreak
+                } else {
+                    resolvedStreak = profile.currentStreak
+                }
+
+                let result = XPEventResult(
+                    awardedXP: awardedXP,
+                    totalXP: profile.xpTotal,
+                    level: levelInfo.level,
+                    previousLevel: previousLevel,
+                    currentStreak: resolvedStreak,
+                    didLevelUp: didLevelUp,
+                    dailyXPSoFar: dailyXPSoFar,
+                    unlockedAchievements: unlocked,
+                    crossedMilestone: milestone,
+                    celebration: celebration
+                )
+
+                self.emitXPFunnelTelemetry(context: context, result: result)
+                self.writeWidgetSnapshot()
+                self.emitLedgerMutation(
+                    context: context,
+                    result: result,
+                    didChange: true,
+                    originatingEventID: event.id
+                )
+                completion(.success(result))
             }
         }
     }
@@ -941,7 +979,6 @@ public final class GamificationEngine: @unchecked Sendable {
                                 currentStreak: profile.currentStreak,
                                 didLevelUp: false,
                                 dailyXPSoFar: dailyXP,
-                                dailyCap: XPCalculationEngine.dailyCap,
                                 unlockedAchievements: [],
                                 crossedMilestone: nil,
                                 celebration: nil
@@ -1032,7 +1069,6 @@ public final class GamificationEngine: @unchecked Sendable {
                             currentStreak: profile.currentStreak,
                             didLevelUp: didLevelUp,
                             dailyXPSoFar: max(0, dailyXP),
-                            dailyCap: XPCalculationEngine.dailyCap,
                             unlockedAchievements: [],
                             crossedMilestone: crossedMilestone,
                             celebration: celebration
@@ -1249,7 +1285,6 @@ public final class GamificationEngine: @unchecked Sendable {
                 "source": context.source.rawValue,
                 "awarded_xp": String(result.awardedXP),
                 "daily_xp_so_far": String(result.dailyXPSoFar),
-                "daily_cap": String(result.dailyCap),
                 "total_xp": String(result.totalXP),
                 "level": String(result.level),
                 "reached_30_xp_threshold": result.dailyXPSoFar >= 30 ? "true" : "false",
@@ -1304,7 +1339,6 @@ public final class GamificationEngine: @unchecked Sendable {
                     currentStreak: profile.currentStreak,
                     didLevelUp: false,
                     dailyXPSoFar: dailyXP,
-                    dailyCap: XPCalculationEngine.dailyCap,
                     unlockedAchievements: [],
                     crossedMilestone: nil,
                     celebration: nil

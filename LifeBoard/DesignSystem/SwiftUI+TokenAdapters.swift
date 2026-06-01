@@ -239,11 +239,12 @@ public extension Color {
     static var lifeboard: LifeBoardSwiftUIColorTokens {
         LifeBoardSwiftUITokens.color
     }
+}
 
-    /// Executes lifeboard.
+public extension Color {
     static func lifeboard(_ role: LifeBoardColorRole) -> Color {
         Color(uiColor: UIColor { traits in
-            LifeBoardThemeManager.shared.tokens(for: .phone, traits: traits.lifeboardTokenTraits).color.color(for: role)
+            LifeBoardThreadSafeTokenResolver.color(for: role, traits: traits.lifeboardTokenTraits)
         })
     }
 }

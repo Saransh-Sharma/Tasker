@@ -87,10 +87,18 @@ class BaseUITest: XCTestCase {
 
     // MARK: - Seeded Timeline Launch
 
-    func launchSeededTimelineWorkspace(calendarMode: String = "active", skipOnboarding: Bool = true) {
+    func launchSeededTimelineWorkspace(
+        calendarMode: String = "active",
+        skipOnboarding: Bool = true,
+        evaActivationCompleted: Bool = false
+    ) {
         app?.terminate()
         app = XCUIApplication()
-        app.launchSeededTimelineWorkspace(calendarMode: calendarMode, skipOnboarding: skipOnboarding)
+        app.launchSeededTimelineWorkspace(
+            calendarMode: calendarMode,
+            skipOnboarding: skipOnboarding,
+            evaActivationCompleted: evaActivationCompleted
+        )
         ensureHomeTimelineReady()
     }
 
@@ -153,6 +161,83 @@ class BaseUITest: XCTestCase {
         if skip.waitForExistence(timeout: 1), skip.isHittable {
             skip.tap()
         }
+    }
+
+    @discardableResult
+    func ensurePerformanceAppReady(
+        timeout: TimeInterval = 14,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let home = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
+            let bottomBar = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.bottomBar]
+            if home.exists || bottomBar.exists {
+                return true
+            }
+
+            dismissOnboardingIfNeeded()
+
+            if let blockingDescription = blockingSetupSurfaceDescription() {
+                XCTFail(
+                    "Performance test cannot start while setup is blocking the app: \(blockingDescription). Sign in or complete setup before measurement; sign-in time must not be included in performance metrics.",
+                    file: file,
+                    line: line
+                )
+                return false
+            }
+
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.15))
+        }
+
+        if let blockingDescription = blockingSetupSurfaceDescription() {
+            XCTFail(
+                "Performance test app did not reach Home because setup is blocking it: \(blockingDescription).",
+                file: file,
+                line: line
+            )
+        } else {
+            XCTFail("Performance test app did not reach Home before measurement started.", file: file, line: line)
+        }
+        return false
+    }
+
+    private func blockingSetupSurfaceDescription() -> String? {
+        let setupIdentifiers = [
+            AccessibilityIdentifiers.Onboarding.flow,
+            AccessibilityIdentifiers.Onboarding.prompt,
+            AccessibilityIdentifiers.Onboarding.finish,
+            "eva.activation.intro",
+            "eva.activation.about_you",
+            "eva.activation.goals",
+            "eva.activation.model_choice",
+            "eva.activation.install_model",
+            "eva.activation.downloading_model"
+        ]
+        for identifier in setupIdentifiers {
+            if app.descendants(matching: .any)[identifier].exists {
+                return identifier
+            }
+        }
+
+        let blockingTextPredicate = NSPredicate(
+            format: "label MATCHES[c] %@ OR value MATCHES[c] %@",
+            ".*(sign in|login|log in|passkey|passcode|password|authenticate|authentication|apple id|icloud).*",
+            ".*(sign in|login|log in|passkey|passcode|password|authenticate|authentication|apple id|icloud).*"
+        )
+        if app.descendants(matching: .any).matching(blockingTextPredicate).firstMatch.exists {
+            return "sign-in/passkey prompt in app"
+        }
+
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        if springboard.alerts.matching(blockingTextPredicate).firstMatch.exists
+            || springboard.sheets.matching(blockingTextPredicate).firstMatch.exists
+            || springboard.descendants(matching: .any).matching(blockingTextPredicate).firstMatch.exists {
+            return "system sign-in/passkey prompt"
+        }
+
+        return nil
     }
 
     // MARK: - Wait Helpers

@@ -1279,6 +1279,7 @@ struct ChatView: View {
         }
 
         let tID = threadID
+        let contextTrace = LifeBoardPerformanceTrace.begin("ChatContextBuild")
         let contextStartedAt = Date()
         let contextPayload = await buildContextPayloadForCurrentTurn(
             threadID: tID,
@@ -1288,6 +1289,7 @@ struct ChatView: View {
                 for: resolvedChatBudget.maxContextTokens
             )
         )
+        LifeBoardPerformanceTrace.end(contextTrace)
         guard !Task.isCancelled else {
             await MainActor.run {
                 llm.cancelGeneration(reason: "run_cancelled_after_context")
@@ -1319,6 +1321,7 @@ struct ChatView: View {
         await MainActor.run {
             updatePendingResponsePhase(.assemblingPrompt, for: runID)
         }
+        let promptAssemblyTrace = LifeBoardPerformanceTrace.begin("ChatPromptAssembly")
         let memoryBlock = LLMPersonalMemoryDefaultsStore.promptBlock(for: activeModelConfiguration)
         let executiveContext = await buildExecutiveContextPrompt(
             tokenBudget: resolvedChatBudget.executiveContextTokens
@@ -1336,6 +1339,7 @@ struct ChatView: View {
             slashContext: slashCommandContext,
             taskContext: contextPayload.payload
         )
+        LifeBoardPerformanceTrace.end(promptAssemblyTrace)
         logWarning(
             event: "chat_prompt_component_sizes",
             message: "Computed runtime prompt component sizes for current turn",

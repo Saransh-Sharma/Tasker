@@ -273,15 +273,15 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 32), HomeCalendarBottomBarSymbol.defaultSymbol)
     }
 
-    func testCollapsedChromeStateMinimizesBottomBar() {
+    func testCollapsedChromeStateKeepsBottomBarExpanded() {
         let state = HomeBottomBarState()
 
         state.handleChromeStateChange(.collapsed)
 
-        XCTAssertTrue(state.isMinimized)
+        XCTAssertFalse(state.isMinimized)
     }
 
-    func testExpandedChromeStateRestoresBottomBar() {
+    func testExpandedChromeStateKeepsBottomBarExpanded() {
         let state = HomeBottomBarState()
         state.isMinimized = true
 
@@ -290,7 +290,7 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertFalse(state.isMinimized)
     }
 
-    func testNearTopChromeStateRestoresBottomBar() {
+    func testNearTopChromeStateKeepsBottomBarExpanded() {
         let state = HomeBottomBarState()
         state.isMinimized = true
 
@@ -299,7 +299,7 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertFalse(state.isMinimized)
     }
 
-    func testIdleChromeStateRestoresBottomBar() {
+    func testIdleChromeStateKeepsBottomBarExpanded() {
         let state = HomeBottomBarState()
         state.isMinimized = true
 

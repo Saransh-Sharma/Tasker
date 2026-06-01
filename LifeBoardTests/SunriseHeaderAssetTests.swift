@@ -12,6 +12,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
         super.setUp()
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.locale = Locale(identifier: "en_US")
         self.calendar = calendar
         TimeOfDayHeaderAsset.resetCacheForTests()
     }
@@ -142,6 +143,40 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(LBHeaderTimeContext.assistantCopy(for: .afternoon, gapStart: start, gapEnd: end, now: start).title, "Protect the next block")
         XCTAssertEqual(LBHeaderTimeContext.assistantCopy(for: .evening, gapStart: start, gapEnd: end, now: start).title, "Evening buffer")
         XCTAssertEqual(LBHeaderTimeContext.assistantCopy(for: .night, gapStart: start, gapEnd: end, now: start).title, "Wind down gently")
+    }
+
+    func testRoutineAnchorVisualStyleResolvesWakeAssetAndCopy() {
+        let style = TimelineRoutineAnchorVisualStyle.resolve(
+            anchorID: "wake",
+            title: "Rise and shine",
+            subtitle: "Start the day"
+        )
+
+        XCTAssertEqual(style?.assetName, "routine_morning_strip")
+        XCTAssertEqual(style?.displayTitle, "Rise and shine")
+        XCTAssertEqual(style?.subtitleText(timeText: "8:00 AM"), "8:00 AM • Start the day")
+        XCTAssertEqual(style?.accessibilityLabel(timeText: "8:00 AM"), "Routine, 8:00 AM, Rise and shine, Start the day.")
+    }
+
+    func testRoutineAnchorVisualStyleResolvesSleepAssetAndTitleCase() {
+        let style = TimelineRoutineAnchorVisualStyle.resolve(
+            anchorID: "sleep",
+            title: "Wind down",
+            subtitle: "Close the day"
+        )
+
+        XCTAssertEqual(style?.assetName, "routine_evening_strip")
+        XCTAssertEqual(style?.displayTitle, "Wind Down")
+        XCTAssertEqual(style?.subtitleText(timeText: "10:00 PM"), "10:00 PM • Close the day")
+        XCTAssertEqual(style?.accessibilityLabel(timeText: "10:00 PM"), "Routine, 10:00 PM, Wind Down, Close the day.")
+    }
+
+    func testRoutineAnchorVisualStyleIgnoresUnknownAnchors() {
+        XCTAssertNil(TimelineRoutineAnchorVisualStyle.resolve(
+            anchorID: "lunch",
+            title: "Lunch",
+            subtitle: nil
+        ))
     }
 
     @MainActor
@@ -575,8 +610,182 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(SunriseHomeScreen.chromeOffset(forScrollMinY: -64), 64)
     }
 
+    func testTimelineAnchorRitualMorningOptionsCenterOnDefaultStartTime() {
+        let model = TimelineAnchorRitualModel(
+            selection: .wake,
+            selectedDate: date(hour: 8),
+            calendar: calendar
+        )
+
+        XCTAssertEqual(model.title, "Rise and Shine")
+        XCTAssertEqual(model.sectionTitle, "Select start time")
+        XCTAssertEqual(model.selectedTimeText, "8:00\u{202F}AM")
+        XCTAssertEqual(model.timeOptions.map { "\($0.hourText) \($0.meridiemText)" }, [
+            "7:30 AM",
+            "7:45 AM",
+            "8:00 AM",
+            "8:15 AM",
+            "8:30 AM"
+        ])
+        XCTAssertEqual(model.timeOptions.filter(\.isSelected).map(\.accessibilityText), ["8:00\u{202F}AM, selected start time."])
+    }
+
+    func testTimelineAnchorRitualEveningOptionsCenterOnDefaultEndTime() {
+        let model = TimelineAnchorRitualModel(
+            selection: .windDown,
+            selectedDate: date(hour: 22),
+            calendar: calendar
+        )
+
+        XCTAssertEqual(model.title, "Wind Down")
+        XCTAssertEqual(model.sectionTitle, "Select end time")
+        XCTAssertEqual(model.selectedTimeText, "10:00\u{202F}PM")
+        XCTAssertEqual(model.timeOptions.map { "\($0.hourText) \($0.meridiemText)" }, [
+            "9:30 PM",
+            "9:45 PM",
+            "10:00 PM",
+            "10:15 PM",
+            "10:30 PM"
+        ])
+        XCTAssertEqual(model.timeOptions.filter(\.isSelected).map(\.accessibilityText), ["10:00\u{202F}PM, selected end time."])
+    }
+
+    func testTimelineAnchorRitualOptionsCenterOnCustomSavedTime() {
+        let model = TimelineAnchorRitualModel(
+            selection: .wake,
+            selectedDate: date(hour: 6, minute: 20),
+            calendar: calendar
+        )
+
+        XCTAssertEqual(model.selectedTimeText, "6:20\u{202F}AM")
+        XCTAssertEqual(model.timeOptions.map { "\($0.hourText) \($0.meridiemText)" }, [
+            "5:50 AM",
+            "6:05 AM",
+            "6:20 AM",
+            "6:35 AM",
+            "6:50 AM"
+        ])
+    }
+
+    func testTimelineAnchorRitualUsesTwentyFourHourLocaleWithoutMeridiem() {
+        var localizedCalendar = calendar!
+        localizedCalendar.locale = Locale(identifier: "en_GB")
+        let model = TimelineAnchorRitualModel(
+            selection: .windDown,
+            selectedDate: date(hour: 22),
+            calendar: localizedCalendar
+        )
+
+        XCTAssertEqual(model.selectedTimeText, "22:00")
+        XCTAssertEqual(model.timeOptions.map(\.hourText), [
+            "21:30",
+            "21:45",
+            "22:00",
+            "22:15",
+            "22:30"
+        ])
+        XCTAssertEqual(model.timeOptions.map(\.meridiemText), ["", "", "", "", ""])
+        XCTAssertEqual(model.timeOptions.filter(\.isSelected).map(\.accessibilityText), ["22:00, selected end time."])
+    }
+
+    func testTimelineAnchorRitualDraftDoesNotPersistUntilSave() {
+        let store = makeWorkspacePreferencesStore()
+        store.save(LifeBoardWorkspacePreferences(
+            timelineRiseAndShineHour: 8,
+            timelineRiseAndShineMinute: 0,
+            timelineWindDownHour: 22,
+            timelineWindDownMinute: 0
+        ))
+
+        _ = TimelineAnchorRitualModel(
+            selection: .wake,
+            selectedDate: date(hour: 9, minute: 15),
+            calendar: calendar
+        )
+
+        let preferences = store.load()
+        XCTAssertEqual(preferences.timelineRiseAndShineHour, 8)
+        XCTAssertEqual(preferences.timelineRiseAndShineMinute, 0)
+        XCTAssertEqual(preferences.timelineWindDownHour, 22)
+        XCTAssertEqual(preferences.timelineWindDownMinute, 0)
+    }
+
+    func testTimelineAnchorRitualSaveWritesOnlySelectedAnchor() {
+        let store = makeWorkspacePreferencesStore()
+        store.save(LifeBoardWorkspacePreferences(
+            timelineRiseAndShineHour: 8,
+            timelineRiseAndShineMinute: 0,
+            timelineWindDownHour: 22,
+            timelineWindDownMinute: 0
+        ))
+
+        TimelineAnchorRitualModel.save(
+            selectedDate: date(hour: 9, minute: 15),
+            selection: .wake,
+            to: store,
+            calendar: calendar
+        )
+
+        var preferences = store.load()
+        XCTAssertEqual(preferences.timelineRiseAndShineHour, 9)
+        XCTAssertEqual(preferences.timelineRiseAndShineMinute, 15)
+        XCTAssertEqual(preferences.timelineWindDownHour, 22)
+        XCTAssertEqual(preferences.timelineWindDownMinute, 0)
+
+        TimelineAnchorRitualModel.save(
+            selectedDate: date(hour: 21, minute: 45),
+            selection: .windDown,
+            to: store,
+            calendar: calendar
+        )
+
+        preferences = store.load()
+        XCTAssertEqual(preferences.timelineRiseAndShineHour, 9)
+        XCTAssertEqual(preferences.timelineRiseAndShineMinute, 15)
+        XCTAssertEqual(preferences.timelineWindDownHour, 21)
+        XCTAssertEqual(preferences.timelineWindDownMinute, 45)
+    }
+
+    func testTimelineAnchorRitualLayoutStandardWidthFitsFixedChipRow() {
+        let metrics = TimelineAnchorRitualLayoutPolicy.metrics(sheetWidth: 430)
+
+        XCTAssertEqual(metrics.chipLayoutMode, .fixed)
+        XCTAssertEqual(metrics.contentWidth, 382, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(metrics.chipRowWidth, metrics.selectorInnerWidth + 0.001)
+        XCTAssertEqual(metrics.selectorCardWidth, metrics.contentWidth)
+        XCTAssertEqual(metrics.ctaWidth, metrics.contentWidth)
+    }
+
+    func testTimelineAnchorRitualLayoutNarrowWidthUsesContainedHorizontalScroll() {
+        let metrics = TimelineAnchorRitualLayoutPolicy.metrics(sheetWidth: 320)
+
+        XCTAssertEqual(metrics.chipLayoutMode, .scrolling)
+        XCTAssertEqual(metrics.contentWidth, 272, accuracy: 0.001)
+        XCTAssertGreaterThan(metrics.chipRowWidth, metrics.selectorInnerWidth)
+        XCTAssertEqual(metrics.selectorCardWidth, metrics.contentWidth)
+        XCTAssertEqual(metrics.ctaWidth, metrics.contentWidth)
+    }
+
+    func testTimelineAnchorRitualLayoutAccessibilityTextDoesNotForceFixedChips() {
+        let metrics = TimelineAnchorRitualLayoutPolicy.metrics(
+            sheetWidth: 430,
+            isAccessibilitySize: true
+        )
+
+        XCTAssertEqual(metrics.chipLayoutMode, .scrolling)
+        XCTAssertEqual(metrics.selectorCardWidth, metrics.sheetWidth - metrics.contentInset * 2)
+        XCTAssertEqual(metrics.ctaWidth, metrics.sheetWidth - metrics.contentInset * 2)
+    }
+
     private func date(hour: Int, minute: Int = 0, day: Int = 8) -> Date {
         calendar.date(from: DateComponents(year: 2026, month: 5, day: day, hour: hour, minute: minute))!
+    }
+
+    private func makeWorkspacePreferencesStore() -> LifeBoardWorkspacePreferencesStore {
+        let suiteName = "LifeBoardTests.timelineAnchorRitual.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return LifeBoardWorkspacePreferencesStore(defaults: defaults)
     }
 
     private func timelineItem(

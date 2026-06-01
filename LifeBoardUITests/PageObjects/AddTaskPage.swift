@@ -210,6 +210,20 @@ class AddTaskPage {
             return descendantButton
         }
 
+        let legacySaveButton = app.buttons[AccessibilityIdentifiers.AddTask.saveButton]
+        if legacySaveButton.exists {
+            return legacySaveButton
+        }
+
+        let labeledPrimaryAction = app.buttons.matching(
+            NSPredicate(
+                format: "label == 'Create' OR label == 'Save' OR label == 'Add Task' OR label == 'Add'"
+            )
+        ).firstMatch
+        if labeledPrimaryAction.exists {
+            return labeledPrimaryAction
+        }
+
         return app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.createButton]
     }
 
