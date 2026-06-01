@@ -7,10 +7,6 @@ import AppIntents
 @main
 struct LifeBoardWidgetBundle: WidgetBundle {
     var body: some Widget {
-        TodayXPWidget()
-        WeeklyScoreboardWidget()
-        NextMilestoneWidget()
-        StreakResilienceWidget()
         FocusSeedWidget()
 
         TaskListStaticWidget(
@@ -31,8 +27,8 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         }
         TaskListStaticWidget(
             kind: "OverdueRescueWidget",
-            displayName: "Overdue Rescue",
-            description: "Rescue your oldest overdue task first.",
+            displayName: "Rescue",
+            description: "Choose the next task worth saving.",
             families: [.systemSmall]
         ) { entry in
             OverdueRescueWidgetView(entry: entry)
@@ -56,7 +52,7 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         TaskListStaticWidget(
             kind: "EveningWrapWidget",
             displayName: "Evening Wrap",
-            description: "Check progress and prepare carry-over.",
+            description: "Check progress and prepare the next useful action.",
             families: [.systemSmall]
         ) { entry in
             EveningWrapWidgetView(entry: entry)
@@ -128,8 +124,8 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         }
         TaskListStaticWidget(
             kind: "OverdueBoardWidget",
-            displayName: "Overdue Board",
-            description: "See overdue work ranked for recovery.",
+            displayName: "Rescue Board",
+            description: "Review work that needs a calmer next decision.",
             families: [.systemMedium]
         ) { entry in
             OverdueBoardWidgetView(entry: entry)
@@ -153,7 +149,7 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         TaskListStaticWidget(
             kind: "QuickViewSwitcherWidget",
             displayName: "Quick View Switcher",
-            description: "Jump between Today, Upcoming, and Overdue.",
+            description: "Jump between Today, Upcoming, and Rescue.",
             families: [.systemMedium]
         ) { entry in
             QuickViewSwitcherWidgetView(entry: entry)
@@ -210,7 +206,7 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         TaskListStaticWidget(
             kind: "TodayPlannerBoardWidget",
             displayName: "Today Planner Board",
-            description: "Plan across overdue, now, and next lanes.",
+            description: "Plan across rescue, now, and next lanes.",
             families: [.systemLarge]
         ) { entry in
             TodayPlannerBoardWidgetView(entry: entry)
@@ -234,7 +230,7 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         TaskListStaticWidget(
             kind: "BacklogHealthWidget",
             displayName: "Backlog Health",
-            description: "Monitor overdue, blocked, and intake pressure.",
+            description: "Monitor rescue, blocked, and intake pressure.",
             families: [.systemLarge]
         ) { entry in
             BacklogHealthWidgetView(entry: entry)
@@ -333,8 +329,8 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         }
         TaskListStaticWidget(
             kind: "RectangularOverdueAlertWidget",
-            displayName: "Rectangular Overdue Alert",
-            description: "Lock screen overdue summary.",
+            displayName: "Rectangular Rescue Cue",
+            description: "Lock screen rescue summary.",
             families: [.accessoryRectangular],
             usesContainerBackground: false
         ) { entry in
@@ -380,7 +376,7 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         TaskListStaticWidget(
             kind: "DeskTodayBoardWidget",
             displayName: "Desk Today Board",
-            description: "StandBy-ready summary of today and overdue work.",
+            description: "StandBy-ready summary of today and recovery work.",
             families: [.systemMedium]
         ) { entry in
             DeskTodayBoardWidgetView(entry: entry)
@@ -956,7 +952,7 @@ public enum TaskWidgetScope: String, AppEnum {
         [
             .today: "Today",
             .upcoming: "Upcoming",
-            .overdue: "Overdue"
+            .overdue: "Rescue"
         ]
     }
 }

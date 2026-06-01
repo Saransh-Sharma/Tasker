@@ -9,8 +9,8 @@ struct WeeklyScoreboardWidget: Widget {
             WeeklyScoreboardWidgetView(entry: entry)
                 .modifier(TaskWidgetContainerBackgroundModifier(enabled: true))
         }
-        .configurationDisplayName("Weekly XP")
-        .description("View your XP for the week.")
+        .configurationDisplayName("Weekly Rhythm")
+        .description("View your active rhythm for the week.")
         .supportedFamilies([.systemMedium])
     }
 }
@@ -70,7 +70,7 @@ struct WeeklyScoreboardWidgetView: View {
         TaskWidgetScene { context in
             HStack(alignment: .top, spacing: context.panelSpacing) {
                 VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                    TaskWidgetSectionHeader(eyebrow: "XP", title: "This Week", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Rhythm", title: "This Week", detail: nil, accent: WidgetBrand.textPrimary)
                     Text("\(entry.snapshot.weeklyTotalXP)")
                         .font(TaskWidgetTypography.display)
                         .foregroundStyle(WidgetBrand.magenta)
@@ -111,7 +111,7 @@ struct WeeklyScoreboardWidgetView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .accessibilityElement(children: .combine)
-                            .accessibilityLabel("\(dayLabels[index]) \(xp) XP")
+                            .accessibilityLabel("\(dayLabels[index]) \(xp) activity signal")
                             .accessibilityHint(index == todayIndex ? "Today" : (index > todayIndex ? "Future day" : "Past day"))
                         }
                     }
@@ -128,7 +128,7 @@ struct WeeklyScoreboardWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Weekly XP total \(entry.snapshot.weeklyTotalXP). Scale personal max. \(freshnessText).")
+        .accessibilityLabel("Weekly rhythm total \(entry.snapshot.weeklyTotalXP). Scale personal max. \(freshnessText).")
         .widgetURL(URL(string: "lifeboard://insights"))
     }
 

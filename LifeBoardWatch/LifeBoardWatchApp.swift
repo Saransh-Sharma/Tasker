@@ -22,7 +22,7 @@ private struct WatchHomeView: View {
                 .foregroundStyle(.tint)
             Text("LifeBoard")
                 .font(.headline)
-            Text("Add LifeBoard complications to your watch face for schedule and habit streaks.")
+            Text("Add LifeBoard complications to your watch face for schedule, next action, and habit rhythm.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)

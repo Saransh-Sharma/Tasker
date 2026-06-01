@@ -112,8 +112,8 @@ struct WatchHabitStreakComplication: Widget {
         StaticConfiguration(kind: kind, provider: WatchSnapshotProvider()) { entry in
             WatchHabitStreakComplicationView(entry: entry)
         }
-        .configurationDisplayName("LifeBoard Streak")
-        .description("Primary habit streak and today status.")
+        .configurationDisplayName("LifeBoard Habit")
+        .description("Primary habit rhythm and today status.")
         .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryCorner, .accessoryRectangular])
     }
 }
@@ -300,14 +300,14 @@ private struct WatchHabitStreakComplicationView: View {
         Group {
             switch family {
             case .accessoryInline:
-                Label(inlineText, systemImage: primary?.iconSymbolName ?? "flame")
+                Label(inlineText, systemImage: primary?.iconSymbolName ?? "sun.max")
                     .foregroundStyle(primary.map { WatchSunriseStyle.habitTint(for: $0.todayState) } ?? WatchSunriseStyle.sunriseGold)
             case .accessoryCircular:
                 WatchAccessoryBackground {
-                    Gauge(value: Double(primary?.currentStreak ?? entry.gamificationSnapshot.streakDays), in: 0...Double(max(primary?.bestStreak ?? entry.gamificationSnapshot.bestStreak, 1))) {
-                        Image(systemName: primary?.iconSymbolName ?? "flame")
+                    Gauge(value: Double(completedWeekCount), in: 0...7) {
+                        Image(systemName: primary?.iconSymbolName ?? "sun.max")
                     } currentValueLabel: {
-                        Text("\(primary?.currentStreak ?? entry.gamificationSnapshot.streakDays)d")
+                        Text("\(completedWeekCount)/7")
                             .font(.caption2.weight(.semibold))
                             .minimumScaleFactor(0.65)
                     }
@@ -315,18 +315,18 @@ private struct WatchHabitStreakComplicationView: View {
                     .tint(primary.map { WatchSunriseStyle.habitTint(for: $0.todayState) } ?? WatchSunriseStyle.sunriseGold)
                 }
             case .accessoryCorner:
-                Gauge(value: Double(primary?.currentStreak ?? entry.gamificationSnapshot.streakDays), in: 0...Double(max(primary?.bestStreak ?? entry.gamificationSnapshot.bestStreak, 1))) {
-                    Image(systemName: primary?.iconSymbolName ?? "flame")
+                Gauge(value: Double(completedWeekCount), in: 0...7) {
+                    Image(systemName: primary?.iconSymbolName ?? "sun.max")
                 } currentValueLabel: {
-                    Text("\(primary?.currentStreak ?? entry.gamificationSnapshot.streakDays)d")
+                    Text("\(completedWeekCount)/7")
                 }
                 .gaugeStyle(.accessoryCircular)
                 .tint(primary.map { WatchSunriseStyle.habitTint(for: $0.todayState) } ?? WatchSunriseStyle.sunriseGold)
-                .widgetLabel(primary?.title ?? "Streak")
+                .widgetLabel(primary?.title ?? "Habit")
             case .accessoryRectangular:
-                WatchRectangularShell(title: "Habit Streak") {
+                WatchRectangularShell(title: "Habit Rhythm") {
                     WatchRectangularLine(
-                        symbol: primary?.iconSymbolName ?? "flame",
+                        symbol: primary?.iconSymbolName ?? "sun.max",
                         title: primary?.title ?? "No habit selected",
                         detail: rectangularDetail,
                         tint: primary.map { WatchSunriseStyle.habitTint(for: $0.todayState) } ?? WatchSunriseStyle.sunriseGold
@@ -343,10 +343,9 @@ private struct WatchHabitStreakComplicationView: View {
 
     private var inlineText: String {
         if let primary {
-            return "\(primary.title) \(primary.currentStreak)d"
+            return "\(primary.title) \(WatchFormat.habitStatus(primary.todayState))"
         }
-        let fallback = entry.gamificationSnapshot.streakDays
-        return fallback > 0 ? "Streak \(fallback)d" : "Start a streak"
+        return "Choose a LifeBoard habit"
     }
 
     private var rectangularDetail: String {
@@ -354,12 +353,16 @@ private struct WatchHabitStreakComplicationView: View {
             return "Open LifeBoard to choose a habit"
         }
         let status = WatchFormat.habitStatus(primary.todayState)
-        return "\(primary.currentStreak)d current, best \(primary.bestStreak)d. \(status)"
+        return "\(completedWeekCount) active days this week. \(status)"
     }
 
     private var accessibilityText: String {
-        guard let primary else { return "No primary habit for LifeBoard streak." }
-        return "\(primary.title). Current streak \(primary.currentStreak) days. Best streak \(primary.bestStreak) days. \(WatchFormat.habitStatus(primary.todayState))."
+        guard let primary else { return "No primary habit selected in LifeBoard." }
+        return "\(primary.title). \(completedWeekCount) active days this week. \(WatchFormat.habitStatus(primary.todayState))."
+    }
+
+    private var completedWeekCount: Int {
+        primary?.week.filter { $0.state == .success }.count ?? 0
     }
 }
 
@@ -497,7 +500,7 @@ private enum WatchFormat {
         case .due:
             return "Due today"
         case .overdue:
-            return "Overdue"
+            return "Rescue"
         case .completedToday:
             return "Done today"
         case .lapsedToday:

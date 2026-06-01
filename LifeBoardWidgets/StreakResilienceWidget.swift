@@ -9,8 +9,8 @@ struct StreakResilienceWidget: Widget {
             StreakResilienceWidgetView(entry: entry)
                 .modifier(TaskWidgetContainerBackgroundModifier(enabled: true))
         }
-        .configurationDisplayName("Streak")
-        .description("Track your streak and best record.")
+        .configurationDisplayName("Active Rhythm")
+        .description("Track active days and weekly rhythm.")
         .supportedFamilies([.systemSmall])
     }
 }
@@ -47,12 +47,12 @@ struct StreakResilienceWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Consistency", title: "Streak", detail: nil, accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Consistency", title: "Active Days", detail: nil, accent: WidgetBrand.textPrimary)
 
                 Spacer(minLength: 0)
 
                 HStack(alignment: .center, spacing: 14) {
-                    Image(systemName: "flame.fill")
+                    Image(systemName: "leaf.fill")
                         .widgetAccentedRenderingMode(.accented)
                         .font(.system(size: 54, weight: .semibold, design: .rounded))
                         .foregroundStyle(entry.snapshot.streakDays > 0 ? WidgetBrand.sunriseGold : WidgetBrand.line)
@@ -75,7 +75,7 @@ struct StreakResilienceWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Current streak \(entry.snapshot.streakDays) days. Best streak \(entry.snapshot.bestStreak) days.")
+        .accessibilityLabel("Current active rhythm \(entry.snapshot.streakDays) days. Best rhythm \(entry.snapshot.bestStreak) days.")
         .widgetURL(URL(string: "lifeboard://insights"))
     }
 }
