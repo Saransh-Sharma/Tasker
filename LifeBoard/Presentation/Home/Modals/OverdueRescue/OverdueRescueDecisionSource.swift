@@ -8,4 +8,10 @@
 import SwiftUI
 import UIKit
 
-// Decomposed into focused files under LifeBoard/Presentation/Home/Modals/OverdueRescue.
+enum OverdueRescueDecisionSource: String, Codable, Sendable {
+    case swipe
+    case tap
+    case edit
+    case delete
+    case bulk
+}

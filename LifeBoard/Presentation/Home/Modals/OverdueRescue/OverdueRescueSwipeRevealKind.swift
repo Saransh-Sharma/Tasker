@@ -8,4 +8,8 @@
 import SwiftUI
 import UIKit
 
-// Decomposed into focused files under LifeBoard/Presentation/Home/Modals/OverdueRescue.
+enum OverdueRescueSwipeRevealKind: Equatable {
+    case none
+    case keep
+    case move
+}
