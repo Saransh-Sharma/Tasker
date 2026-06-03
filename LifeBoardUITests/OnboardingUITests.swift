@@ -286,7 +286,7 @@ final class OnboardingPromptUITests: BaseUITest {
     ) {
         XCTAssertTrue(app.staticTexts["Start from what already fits."].waitForExistence(timeout: 4), file: file, line: line)
         XCTAssertTrue(app.staticTexts["What LifeBoard will reuse"].waitForExistence(timeout: 4), file: file, line: line)
-        XCTAssertTrue(app.staticTexts["Already in place: 1 areas, 1 projects, 3 tasks"].waitForExistence(timeout: 4), file: file, line: line)
+        XCTAssertTrue(app.staticTexts["Already in place: 1 area, 1 project, 3 tasks"].waitForExistence(timeout: 4), file: file, line: line)
         XCTAssertTrue(app.staticTexts["Keep the areas and projects that already fit."].waitForExistence(timeout: 4), file: file, line: line)
         XCTAssertTrue(app.staticTexts["Suggest one light habit only if it improves tomorrow."].waitForExistence(timeout: 4), file: file, line: line)
         XCTAssertTrue(app.staticTexts["Guide you into one small completion without duplicate clutter."].waitForExistence(timeout: 4), file: file, line: line)

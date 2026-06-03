@@ -7295,16 +7295,16 @@ struct AppOnboardingPromptSheetView: View {
 
     private var promptReuseCard: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
-            Text("What LifeBoard will reuse")
+            Text(String(localized: "onboarding.reuse.title"))
                 .lifeboardFont(.bodyEmphasis)
                 .foregroundStyle(OnboardingPromptTheme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
             OnboardingPromptChecklistCard(items: [
-                "Keep the areas and projects that already fit.",
-                "Suggest one light habit only if it improves tomorrow.",
-                "Guide you into one small completion without duplicate clutter.",
-                "Leave your existing setup intact while you review the next layer."
+                String(localized: "onboarding.reuse.item1"),
+                String(localized: "onboarding.reuse.item2"),
+                String(localized: "onboarding.reuse.item3"),
+                String(localized: "onboarding.reuse.item4")
             ])
         }
     }
@@ -7446,14 +7446,7 @@ private struct OnboardingPromptValueCard: View {
                 .foregroundStyle(OnboardingPromptTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text(
-                String.localizedStringWithFormat(
-                    String(localized: "Already in place: %lld areas, %lld projects, %lld tasks"),
-                    snapshot.customLifeAreaCount,
-                    snapshot.customProjectCount,
-                    snapshot.taskCount
-                )
-            )
+            Text(promptSummaryText)
                 .lifeboardFont(.caption1)
                 .foregroundStyle(OnboardingPromptTheme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -7466,6 +7459,33 @@ private struct OnboardingPromptValueCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(OnboardingPromptTheme.border(reduceTransparency: reduceTransparency), lineWidth: 1)
+        )
+    }
+
+    private var promptSummaryText: String {
+        let areas = String.localizedStringWithFormat(
+            snapshot.customLifeAreaCount == 1
+                ? String(localized: "onboarding.summary.area.singular")
+                : String(localized: "onboarding.summary.area.plural"),
+            snapshot.customLifeAreaCount
+        )
+        let projects = String.localizedStringWithFormat(
+            snapshot.customProjectCount == 1
+                ? String(localized: "onboarding.summary.project.singular")
+                : String(localized: "onboarding.summary.project.plural"),
+            snapshot.customProjectCount
+        )
+        let tasks = String.localizedStringWithFormat(
+            snapshot.taskCount == 1
+                ? String(localized: "onboarding.summary.task.singular")
+                : String(localized: "onboarding.summary.task.plural"),
+            snapshot.taskCount
+        )
+        return String.localizedStringWithFormat(
+            String(localized: "onboarding.summary.alreadyInPlace"),
+            areas,
+            projects,
+            tasks
         )
     }
 }
