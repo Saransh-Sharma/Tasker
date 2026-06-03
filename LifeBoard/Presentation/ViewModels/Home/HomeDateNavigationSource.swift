@@ -14,4 +14,11 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+public enum HomeDateNavigationSource: String {
+    case datePicker
+    case weekStrip
+    case swipe
+    case backToToday
+    case replan
+    case dailyReflection
+}

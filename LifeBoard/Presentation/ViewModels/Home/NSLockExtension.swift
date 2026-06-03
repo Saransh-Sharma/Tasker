@@ -14,4 +14,10 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+extension NSLock {
+    func withLock<T>(_ work: () -> T) -> T {
+        lock()
+        defer { unlock() }
+        return work()
+    }
+}

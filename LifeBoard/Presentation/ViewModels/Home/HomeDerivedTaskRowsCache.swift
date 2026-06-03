@@ -14,4 +14,8 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+struct HomeDerivedTaskRowsCache {
+    let revision: UInt64
+    let quickView: HomeQuickView
+    let rows: [TaskDefinition]
+}

@@ -14,4 +14,9 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+public enum FocusPinResult: Equatable {
+    case pinned
+    case alreadyPinned
+    case capacityReached(limit: Int)
+    case taskIneligible
+}

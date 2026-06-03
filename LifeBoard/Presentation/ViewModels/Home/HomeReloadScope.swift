@@ -14,4 +14,11 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+public enum HomeReloadScope: String, CaseIterable, Hashable, Sendable {
+    case visibleTasks
+    case habits
+    case facets
+    case analytics
+    case insightss
+    case savedViews
+}

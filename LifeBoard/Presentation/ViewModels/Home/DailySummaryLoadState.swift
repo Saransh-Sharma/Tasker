@@ -14,4 +14,9 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+struct DailySummaryLoadState: Sendable {
+    var allTasksResult: Result<[TaskDefinition], GetTasksError>?
+    var analytics: DailyAnalytics?
+    var streakCount: Int?
+    var dateTasks: DateTasksResult?
+}

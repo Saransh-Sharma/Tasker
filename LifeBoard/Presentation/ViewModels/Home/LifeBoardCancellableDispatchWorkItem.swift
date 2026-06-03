@@ -14,4 +14,14 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+final class LifeBoardCancellableDispatchWorkItem: @unchecked Sendable {
+    let workItem: DispatchWorkItem
+
+    init(_ workItem: DispatchWorkItem) {
+        self.workItem = workItem
+    }
+
+    func cancel() {
+        workItem.cancel()
+    }
+}

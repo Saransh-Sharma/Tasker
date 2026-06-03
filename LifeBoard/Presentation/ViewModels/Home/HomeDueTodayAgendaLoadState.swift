@@ -14,4 +14,9 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+struct HomeDueTodayAgendaLoadState: Sendable {
+    var agendaHabitRows: [HomeHabitRow] = []
+    var trackingHabitRows: [HomeHabitRow] = []
+    var historyByHabitID: [UUID: [HabitDayMark]] = [:]
+    var libraryRowsByID: [UUID: HabitLibraryRow] = [:]
+}

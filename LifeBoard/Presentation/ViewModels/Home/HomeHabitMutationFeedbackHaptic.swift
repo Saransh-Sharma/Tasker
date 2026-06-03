@@ -14,4 +14,8 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+public enum HomeHabitMutationFeedbackHaptic: Equatable {
+    case selection
+    case success
+    case warning
+}

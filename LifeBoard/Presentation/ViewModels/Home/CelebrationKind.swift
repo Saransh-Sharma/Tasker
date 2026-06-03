@@ -14,4 +14,9 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+public enum CelebrationKind: String {
+    case milestone
+    case levelUp
+    case achievementUnlock
+    case xpBurst
+}

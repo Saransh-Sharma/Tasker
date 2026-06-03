@@ -14,4 +14,9 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+struct HomeTaskDetailRelationshipMetadataState: Sendable {
+    var lifeAreas: [LifeArea] = []
+    var tags: [TagDefinition] = []
+    var availableTasks: [TaskDefinition] = []
+    var recentReflectionNotes: [ReflectionNote] = []
+}

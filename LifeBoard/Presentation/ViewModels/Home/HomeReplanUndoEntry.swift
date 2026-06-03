@@ -14,4 +14,8 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+struct HomeReplanUndoEntry: Equatable {
+    let runID: UUID
+    let action: HomeReplanResolutionKind
+    let candidate: HomeReplanCandidate
+}

@@ -14,4 +14,8 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+struct HomeCanonicalHabitMutationLoadState: Sendable {
+    var projectionRow: HomeHabitRow?
+    var libraryRow: HabitLibraryRow?
+    var historyByHabitID: [UUID: [HabitDayMark]] = [:]
+}

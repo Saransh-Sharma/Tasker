@@ -14,4 +14,6 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+public protocol CelebrationRouter: AnyObject {
+    func route(event: CelebrationEvent) -> CelebrationPresentation?
+}

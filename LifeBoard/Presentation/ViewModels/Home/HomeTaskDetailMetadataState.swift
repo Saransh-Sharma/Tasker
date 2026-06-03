@@ -14,4 +14,8 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+struct HomeTaskDetailMetadataState: Sendable {
+    var projects: [Project]
+    var sections: [LifeBoardProjectSection] = []
+    var weeklyOutcomes: [WeeklyOutcome] = []
+}

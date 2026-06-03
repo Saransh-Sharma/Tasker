@@ -14,4 +14,12 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+public enum HomeOverdueRescueLauncherState: Equatable {
+    case idle
+    case loading
+    case ready
+    case failed(String)
+}
+
+/// ViewModel for the Home screen
+/// Manages all business logic and state for the home view

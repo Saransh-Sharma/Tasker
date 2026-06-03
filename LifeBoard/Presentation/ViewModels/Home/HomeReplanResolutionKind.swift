@@ -14,4 +14,9 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+enum HomeReplanResolutionKind: Equatable {
+    case rescheduled
+    case movedToInbox
+    case completed
+    case deleted
+}

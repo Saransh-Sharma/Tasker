@@ -14,4 +14,10 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+public enum FocusPromotionResult: Equatable {
+    case promoted
+    case alreadyPinned
+    case alreadyVisible
+    case replacementRequired(currentFocusTaskIDs: [UUID])
+    case taskIneligible
+}

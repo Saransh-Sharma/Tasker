@@ -14,4 +14,12 @@ import UIKit
 import WidgetKit
 #endif
 
-// Decomposed into focused files under LifeBoard/Presentation/ViewModels/Home.
+struct HomeTaskReloadNotificationEvent {
+    let source: String
+    let reason: HomeTaskMutationEvent
+    let notificationSource: String?
+    let includeAnalytics: Bool
+    let repostEvent: Bool
+    let isCompletionChange: Bool
+    let isStructured: Bool
+}
