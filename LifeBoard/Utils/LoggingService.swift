@@ -98,6 +98,7 @@ final class LoggingService: @unchecked Sendable {
     /// for debug-level verbosity.
     func configureFromLaunchArguments(_ arguments: [String]) {
         if arguments.contains("-LIFEBOARD_VERBOSE_LOGS")
+            || arguments.contains("-ENABLE_DEBUG_LOGGING")
             || arguments.contains("-LIFEBOARD_VERBOSE_PERF_TRACE") {
             stateLock.lock()
             defer { stateLock.unlock() }

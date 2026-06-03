@@ -3289,6 +3289,7 @@ private struct TimelinePlanningShelf: View {
                     }
                     .accessibilityLabel("All-day commitments")
                     .accessibilityHint(allDayItems.count > 2 ? "Scroll horizontally to browse all all-day items." : "Double-tap an item to inspect it.")
+                    .accessibilityIdentifier("home.timeline.allDayStrip")
                 }
             }
 

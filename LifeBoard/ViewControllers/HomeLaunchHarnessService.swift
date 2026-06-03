@@ -5,6 +5,7 @@ struct HomeLaunchHarnessWorkspaceSeeders {
     let establishedSeed: (@escaping () -> Void) -> Void
     let searchSeed: (@escaping () -> Void) -> Void
     let rescueSeed: (@escaping () -> Void) -> Void
+    let reflectPlanSeed: (@escaping () -> Void) -> Void
     let focusSeed: (@escaping () -> Void) -> Void
     let habitBoardSeed: (@escaping () -> Void) -> Void
     let quietTrackingSeed: (@escaping () -> Void) -> Void
@@ -14,6 +15,7 @@ struct HomeLaunchHarnessWorkspaceSeeders {
         establishedSeed: @escaping (@escaping () -> Void) -> Void,
         searchSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         rescueSeed: @escaping (@escaping () -> Void) -> Void,
+        reflectPlanSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         focusSeed: @escaping (@escaping () -> Void) -> Void,
         habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
         quietTrackingSeed: @escaping (@escaping () -> Void) -> Void,
@@ -22,6 +24,7 @@ struct HomeLaunchHarnessWorkspaceSeeders {
         self.establishedSeed = establishedSeed
         self.searchSeed = searchSeed
         self.rescueSeed = rescueSeed
+        self.reflectPlanSeed = reflectPlanSeed
         self.focusSeed = focusSeed
         self.habitBoardSeed = habitBoardSeed
         self.quietTrackingSeed = quietTrackingSeed
@@ -41,11 +44,13 @@ final class UITestWorkspaceSeeder {
         seeders.establishedSeed {
             self.seeders.searchSeed {
                 self.seeders.rescueSeed {
-                    self.seeders.focusSeed {
-                        self.seeders.habitBoardSeed {
-                            self.seeders.quietTrackingSeed {
-                                self.seeders.fullTimelineSeed {
-                                    completion()
+                    self.seeders.reflectPlanSeed {
+                        self.seeders.focusSeed {
+                            self.seeders.habitBoardSeed {
+                                self.seeders.quietTrackingSeed {
+                                    self.seeders.fullTimelineSeed {
+                                        completion()
+                                    }
                                 }
                             }
                         }
@@ -63,13 +68,22 @@ final class HomeLaunchHarnessService {
 
     func consumeUITestInjectedRouteIfNeeded(routeHandler: (LifeBoardNotificationRoute) -> Void) {
         guard Self.hasConsumedUITestRoute == false else { return }
-        let prefix = "-LIFEBOARD_TEST_ROUTE:"
-        guard let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }) else { return }
-        let payload = String(argument.dropFirst(prefix.count))
+        guard let payload = Self.firstRoutePayload(prefixes: ["-LIFEBOARD_TEST_POST_SEED_ROUTE:", "-LIFEBOARD_TEST_ROUTE:"]) else {
+            return
+        }
         guard payload.isEmpty == false else { return }
         Self.hasConsumedUITestRoute = true
         let route = LifeBoardNotificationRoute.from(payload: payload, fallbackTaskID: nil)
         routeHandler(route)
+    }
+
+    private static func firstRoutePayload(prefixes: [String]) -> String? {
+        for prefix in prefixes {
+            if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }) {
+                return String(argument.dropFirst(prefix.count))
+            }
+        }
+        return nil
     }
 
     func consumeUITestOpenSettingsIfNeeded(
@@ -91,6 +105,7 @@ final class HomeLaunchHarnessService {
         establishedSeed: @escaping (@escaping () -> Void) -> Void,
         searchSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         rescueSeed: @escaping (@escaping () -> Void) -> Void,
+        reflectPlanSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         focusSeed: @escaping (@escaping () -> Void) -> Void,
         habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
         quietTrackingSeed: @escaping (@escaping () -> Void) -> Void,
@@ -102,6 +117,7 @@ final class HomeLaunchHarnessService {
                 establishedSeed: establishedSeed,
                 searchSeed: searchSeed,
                 rescueSeed: rescueSeed,
+                reflectPlanSeed: reflectPlanSeed,
                 focusSeed: focusSeed,
                 habitBoardSeed: habitBoardSeed,
                 quietTrackingSeed: quietTrackingSeed,

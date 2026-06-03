@@ -35,11 +35,13 @@ struct TodayTaskRow: View {
                 .foregroundStyle(LBColorTokens.role(.focus).deep)
                 .frame(minWidth: 52, minHeight: 44, alignment: .trailing)
                 .accessibilityLabel("Swap task \(index + 1)")
+                .accessibilityIdentifier("reflection.plan.today.task.\(index).swap")
         }
         .padding(.horizontal, LBSpacingTokens.md)
         .padding(.vertical, 12)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier("reflection.plan.today.task.\(index)")
     }
 
     private var accessibilityLabel: String {
