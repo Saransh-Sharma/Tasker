@@ -9,4 +9,8 @@ import SwiftUI
 import UIKit
 import Combine
 
-// Decomposed into focused files under LifeBoard/Presentation/Home/Shell/SunriseAppShell.
+extension TimeInterval {
+    var nanoseconds: UInt64 {
+        UInt64((self * 1_000_000_000).rounded())
+    }
+}
