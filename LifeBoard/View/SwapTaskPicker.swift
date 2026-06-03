@@ -53,6 +53,7 @@ struct SwapTaskPicker: View {
                     }
                 }
             }
+            .accessibilityIdentifier("reflection.plan.swap.sheet")
         }
     }
 
@@ -76,6 +77,7 @@ struct SwapTaskPicker: View {
             TextField("Search tasks", text: $searchText)
                 .font(.lifeboard(.callout))
                 .textFieldStyle(.plain)
+                .accessibilityIdentifier("reflection.plan.swap.search")
         }
         .padding(12)
         .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -97,6 +99,7 @@ struct SwapTaskPicker: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(LBSpacingTokens.lg)
         .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .accessibilityIdentifier("reflection.plan.swap.empty")
     }
 
     private func swapOptionRow(_ option: DailyPlanTaskOption) -> some View {
@@ -128,6 +131,7 @@ struct SwapTaskPicker: View {
             .buttonStyle(.plain)
             .foregroundStyle(LBColorTokens.role(.focus).deep)
             .frame(minWidth: 70, minHeight: 44, alignment: .trailing)
+            .accessibilityIdentifier("reflection.plan.swap.option.use.\(option.id.uuidString)")
         }
         .padding(LBSpacingTokens.md)
         .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -137,6 +141,7 @@ struct SwapTaskPicker: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Use \(option.title). \(option.projectName ?? "").")
+        .accessibilityIdentifier("reflection.plan.swap.option.\(option.id.uuidString)")
     }
 
     private var filteredOptions: [DailyPlanTaskOption] {

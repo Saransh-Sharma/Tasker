@@ -171,6 +171,7 @@ struct SunriseEvaFocusWhySheet: View {
             }
             .navigationBarTitleDisplayMode(.inline)
         }
+        .accessibilityIdentifier("focusNow.detail.sheet")
     }
 
     private func detailSheet(for task: TaskDefinition) -> some View {
@@ -552,6 +553,7 @@ struct FocusNowEmptyState: View {
         .padding(LBSpacingTokens.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 24))
+        .accessibilityIdentifier("focusNow.empty")
     }
 }
 
@@ -696,6 +698,7 @@ struct FocusTaskCardFront: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Task. \(task.title). \(task.projectName ?? "Inbox"). \(summaryText). Double tap for focus options.")
+                .accessibilityIdentifier("focusNow.card.front.\(task.id.uuidString)")
 
                 Button(action: onQuickSwap) {
                     HStack {
@@ -740,11 +743,12 @@ struct FocusTaskCardFront: View {
                 .background(heroImage.tokenColor, in: Circle())
                 .accessibilityHidden(true)
 
-            Text(task.title)
-                .font(.lifeboard(.headline).weight(.bold))
-                .foregroundStyle(LBColorTokens.navy)
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
+                Text(task.title)
+                    .font(.lifeboard(.headline).weight(.bold))
+                    .foregroundStyle(LBColorTokens.navy)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("focusNow.card.title.\(task.id.uuidString)")
 
             Text(summaryText)
                 .font(.lifeboard(.caption1))
@@ -903,6 +907,7 @@ struct CandidateSection: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 18))
+                .accessibilityIdentifier("focusNow.candidates.empty")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(candidates.prefix(3).enumerated()), id: \.element.id) { index, candidate in
@@ -926,6 +931,7 @@ struct CandidateSection: View {
                 }
             }
         }
+        .accessibilityIdentifier("focusNow.candidates.section")
     }
 }
 
@@ -959,6 +965,7 @@ struct CandidateTaskRow: View {
             .buttonStyle(.plain)
             .accessibilityLabel("\(task.title). \(summaryText).")
             .accessibilityHint("Double tap to swap into Focus Now.")
+            .accessibilityIdentifier("focusNow.candidate.row.\(task.id.uuidString)")
 
             Button("Swap into Focus Now", systemImage: "arrow.triangle.2.circlepath", action: onSwapTap)
                 .labelStyle(.iconOnly)
@@ -967,6 +974,7 @@ struct CandidateTaskRow: View {
                 .frame(width: 44, height: 44)
                 .background(ReflectPlanStyle.blueSurface.opacity(0.52), in: Circle())
                 .accessibilityLabel("Swap into Focus Now")
+                .accessibilityIdentifier("focusNow.candidate.swap.\(task.id.uuidString)")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -1074,6 +1082,7 @@ struct FocusBottomActions: View {
             .buttonStyle(.plain)
             .disabled(!canStart || isStarting)
             .accessibilityLabel("Start focus. Lock in and get going.")
+            .accessibilityIdentifier("focusNow.startFocus")
 
             Button(action: onRefineSet) {
                 HStack(spacing: 12) {
@@ -1100,6 +1109,7 @@ struct FocusBottomActions: View {
             }
             .buttonStyle(.plain)
             .disabled(isStarting)
+            .accessibilityIdentifier("focusNow.refine.open")
         }
     }
 }
@@ -1186,6 +1196,7 @@ struct RefineFocusSheet: View {
                     .frame(minHeight: 54)
                     .background(selectedIDs.isEmpty ? LBColorTokens.navyMuted.opacity(0.48) : LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
                     .disabled(selectedIDs.isEmpty)
+                    .accessibilityIdentifier("focusNow.refine.done")
                 }
                 .padding(16)
                 .background(ReflectPlanStyle.canvas)
@@ -1216,6 +1227,7 @@ struct RefineFocusSheet: View {
                 }
             )
         }
+        .accessibilityIdentifier("focusNow.refine.sheet")
     }
 
     private func refineRow(_ task: TaskDefinition) -> some View {
@@ -1250,7 +1262,7 @@ struct RefineFocusSheet: View {
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
-        .accessibilityIdentifier("focusNow.refine.row")
+        .accessibilityIdentifier("focusNow.refine.row.\(task.id.uuidString)")
     }
 
     private func toggle(_ task: TaskDefinition) {
@@ -1322,6 +1334,7 @@ struct FocusTaskDetailSheet: View {
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 52)
                         .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 16))
+                        .accessibilityIdentifier("focusNow.taskDetail.startTimer")
 
                     Button("Swap task", systemImage: "arrow.triangle.2.circlepath", action: onSwapTask)
                         .font(.lifeboard(.bodyEmphasis))
@@ -1329,6 +1342,7 @@ struct FocusTaskDetailSheet: View {
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 52)
                         .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 16))
+                        .accessibilityIdentifier("focusNow.taskDetail.swap")
                 }
                 .padding(16)
                 .background(ReflectPlanStyle.canvas)
@@ -1339,6 +1353,7 @@ struct FocusTaskDetailSheet: View {
                 }
             }
         }
+        .accessibilityIdentifier("focusNow.taskDetail.sheet")
     }
 
     private var detailGrid: some View {
@@ -1412,6 +1427,7 @@ struct FocusDurationPickerSheet: View {
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
                         .background(selectedDurationSeconds == minutes * 60 ? LBColorTokens.navy : ReflectPlanStyle.cream, in: Capsule())
+                        .accessibilityIdentifier("focusNow.timer.preset.\(minutes)")
                     }
                 }
 
@@ -1420,6 +1436,7 @@ struct FocusDurationPickerSheet: View {
                     .keyboardType(.numberPad)
                     .padding(12)
                     .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 16))
+                    .accessibilityIdentifier("focusNow.timer.customMinutes")
                     .onChange(of: customMinutes) { _, newValue in
                         guard let minutes = Int(newValue), minutes > 0 else { return }
                         selectedDurationSeconds = min(max(minutes, 1), 180) * 60
@@ -1436,11 +1453,13 @@ struct FocusDurationPickerSheet: View {
                 .frame(minHeight: 54)
                 .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
                 .disabled(isStarting)
+                .accessibilityIdentifier("focusNow.timer.start")
             }
             .padding(18)
             .background(ReflectPlanStyle.canvas.ignoresSafeArea())
         }
         .accessibilityLabel("Choose focus timer duration.")
+        .accessibilityIdentifier("focusNow.timer.sheet")
     }
 
     private var startTitle: String {
