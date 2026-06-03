@@ -38,6 +38,38 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         XCTAssertEqual(captured.read()?.doneTimelineTasks.count, 0)
     }
 
+    func testRescueBatchClearDueDateAlsoClearsScheduleFields() {
+        let useCase = BuildEvaBatchProposalUseCase()
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 4, day: 21, hour: 10))!
+        let scheduledStart = calendar.date(byAdding: .hour, value: -2, to: now)!
+        let scheduledEnd = scheduledStart.addingTimeInterval(60 * 60)
+        var task = makeTask(
+            name: "Rescue unschedule",
+            dueDate: scheduledStart,
+            scheduledStartAt: scheduledStart,
+            isComplete: false
+        )
+        task.scheduledEndAt = scheduledEnd
+        task.isAllDay = true
+
+        let proposal = useCase.execute(
+            source: .rescue,
+            tasksByID: [task.id: task],
+            mutations: [EvaBatchMutationInstruction(taskID: task.id, clearDueDate: true)],
+            now: now
+        )
+
+        guard case .restoreTaskSnapshot(let snapshot) = proposal.envelope.commands.first else {
+            return XCTFail("Expected restoreTaskSnapshot command")
+        }
+
+        XCTAssertNil(snapshot.dueDate)
+        XCTAssertNil(snapshot.scheduledStartAt)
+        XCTAssertNil(snapshot.scheduledEndAt)
+        XCTAssertEqual(snapshot.isAllDay, false)
+    }
+
     func testTodayScopeIncludesPastScheduledTaskWithoutDueDate() {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: Date())

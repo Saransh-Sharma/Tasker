@@ -1700,6 +1700,11 @@ public final class BuildEvaBatchProposalUseCase: @unchecked Sendable {
             }
             if mutation.clearDueDate {
                 task.dueDate = nil
+                if source == .rescue {
+                    task.scheduledStartAt = nil
+                    task.scheduledEndAt = nil
+                    task.isAllDay = false
+                }
             } else if let dueDate = mutation.dueDate {
                 if source == .rescue {
                     var scheduleTask = task
