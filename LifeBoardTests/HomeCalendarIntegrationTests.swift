@@ -290,6 +290,53 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertTrue(timeline.week.days.contains { $0.allDayCount > 0 || $0.timedMarkers.isEmpty == false })
     }
 
+    func testHomeTimelineShowsDateOnlyRescueTasksAsAllDayItems() {
+        let preferences = LifeBoardWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true
+        )
+        workspaceStore.save(preferences)
+
+        let today = Calendar.current.startOfDay(for: Date())
+        let rescuedTask = TaskDefinition(
+            title: "Rescued today",
+            dueDate: today,
+            scheduledStartAt: nil,
+            scheduledEndAt: nil,
+            isAllDay: false,
+            isComplete: false
+        )
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([])
+        let coordinator = makeCoordinator(provider: provider, seedTasks: [rescuedTask])
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineDateOnlyRescueTests")
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
+
+        waitForMainQueue(seconds: 0.45)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            sunriseAnchor: .collapsed
+        )
+
+        XCTAssertTrue(timeline.day.allDayItems.contains { $0.source == .task && $0.taskID == rescuedTask.id })
+        XCTAssertFalse(timeline.day.timedItems.contains { $0.source == .task && $0.taskID == rescuedTask.id })
+        XCTAssertTrue(timeline.week.days.contains { day in
+            Calendar.current.isDate(day.date, inSameDayAs: today)
+                && day.allDayCount > 0
+                && day.timedMarkers.isEmpty
+        })
+    }
+
     func testHiddenCalendarEventStorePersistsEventDaySelections() throws {
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineHiddenCalendarEventStoreTests")
         let store = HomeTimelineHiddenCalendarEventStore(defaults: defaults)
