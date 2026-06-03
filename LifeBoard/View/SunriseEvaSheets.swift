@@ -573,35 +573,41 @@ struct FocusCardDeck: View {
 
     var body: some View {
         GeometryReader { proxy in
+            let visibleTasks = Array(tasks.prefix(3))
             let availableWidth = proxy.size.width
             let cardWidth = min(max(availableWidth * 0.58, 214), 308)
             let cardHeight = min(max(cardWidth * 1.42, 304), 354)
             let offsets = [0, cardWidth * 0.44, cardWidth * 0.82]
-            let totalWidth = offsets[min(tasks.prefix(3).count - 1, 2)] + cardWidth
-            let leadingInset = max(0, (availableWidth - totalWidth) / 2)
 
-            ZStack(alignment: .topLeading) {
-                ForEach(Array(tasks.prefix(3).enumerated()).reversed(), id: \.element.id) { index, task in
-                    let hero = assignedHeroImagesByTaskID[task.id] ?? .genericClouds
-                    FocusTaskCard(
-                        task: task,
-                        insight: insightProvider(task.id),
-                        heroImage: hero,
-                        isActive: activeTaskID == task.id || (activeTaskID == nil && index == 0),
-                        isSelectedForSwap: selectedCardForSwapID == task.id,
-                        isFlipped: flippedTaskID == task.id,
-                        reduceMotion: reduceMotion,
-                        onTap: { onCardTap(task) },
-                        onFlipBack: onFlipBack,
-                        onQuickSwap: { onQuickSwap(task) },
-                        onViewDetails: { onViewDetails(task) },
-                        onStartTimer: { onStartTimer(task) }
-                    )
-                    .frame(width: cardWidth, height: cardHeight)
-                    .offset(x: leadingInset + offsets[index], y: CGFloat(index) * 10)
-                    .scaleEffect(1 - CGFloat(index) * 0.032, anchor: .topLeading)
-                    .zIndex(Double(10 - index))
-                    .accessibilityIdentifier("focusNow.card.\(index)")
+            if visibleTasks.isEmpty {
+                EmptyView()
+            } else {
+                let totalWidth = offsets[min(visibleTasks.count - 1, 2)] + cardWidth
+                let leadingInset = max(0, (availableWidth - totalWidth) / 2)
+
+                ZStack(alignment: .topLeading) {
+                    ForEach(Array(visibleTasks.enumerated()).reversed(), id: \.element.id) { index, task in
+                        let hero = assignedHeroImagesByTaskID[task.id] ?? .genericClouds
+                        FocusTaskCard(
+                            task: task,
+                            insight: insightProvider(task.id),
+                            heroImage: hero,
+                            isActive: activeTaskID == task.id || (activeTaskID == nil && index == 0),
+                            isSelectedForSwap: selectedCardForSwapID == task.id,
+                            isFlipped: flippedTaskID == task.id,
+                            reduceMotion: reduceMotion,
+                            onTap: { onCardTap(task) },
+                            onFlipBack: onFlipBack,
+                            onQuickSwap: { onQuickSwap(task) },
+                            onViewDetails: { onViewDetails(task) },
+                            onStartTimer: { onStartTimer(task) }
+                        )
+                        .frame(width: cardWidth, height: cardHeight)
+                        .offset(x: leadingInset + offsets[index], y: CGFloat(index) * 10)
+                        .scaleEffect(1 - CGFloat(index) * 0.032, anchor: .topLeading)
+                        .zIndex(Double(10 - index))
+                        .accessibilityIdentifier("focusNow.card.\(index)")
+                    }
                 }
             }
         }
