@@ -6,6 +6,7 @@ struct ContextChipGroup<Item: Hashable>: View {
     let selectedItems: Set<Item>
     let allowsMultipleSelection: Bool
     let titleProvider: KeyPath<Item, String>
+    var accessibilityIdentifierPrefix: String?
     let onToggle: (Item) -> Void
 
     var body: some View {
@@ -38,7 +39,18 @@ struct ContextChipGroup<Item: Hashable>: View {
                 .accessibilityLabel("\(item[keyPath: titleProvider])")
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])
                 .accessibilityHint(allowsMultipleSelection ? "Toggles this friction tag." : "Selects this \(title.lowercased()) option.")
+                .accessibilityIdentifier(chipAccessibilityIdentifier(for: item))
             }
         }
+        .accessibilityIdentifier(accessibilityIdentifierPrefix ?? "")
+    }
+
+    private func chipAccessibilityIdentifier(for item: Item) -> String {
+        guard let accessibilityIdentifierPrefix else { return "" }
+        let slug = item[keyPath: titleProvider]
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: "-", with: "_")
+        return "\(accessibilityIdentifierPrefix).\(slug)"
     }
 }

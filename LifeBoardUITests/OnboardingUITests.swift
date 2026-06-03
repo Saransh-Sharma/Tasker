@@ -255,6 +255,7 @@ final class OnboardingPromptUITests: BaseUITest {
         let prompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
         XCTAssertTrue(prompt.waitForExistence(timeout: 12))
         assertCinematicBackdropIsAbsent(in: app)
+        assertEstablishedWorkspacePromptContentFits(prompt: prompt)
 
         let startButton = app.buttons["Review matched setup"].firstMatch
         XCTAssertTrue(startButton.waitForExistence(timeout: 12))
@@ -269,12 +270,54 @@ final class OnboardingPromptUITests: BaseUITest {
         let prompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
         XCTAssertTrue(prompt.waitForExistence(timeout: 12))
         assertCinematicBackdropIsAbsent(in: app)
+        assertEstablishedWorkspacePromptContentFits(prompt: prompt)
 
         let dismissButton = app.buttons["Not now"].firstMatch
         XCTAssertTrue(dismissButton.waitForExistence(timeout: 12))
         dismissButton.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view].waitForExistence(timeout: 12))
+    }
+
+    private func assertEstablishedWorkspacePromptContentFits(
+        prompt: XCUIElement,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertTrue(app.staticTexts["Start from what already fits."].waitForExistence(timeout: 4), file: file, line: line)
+        XCTAssertTrue(app.staticTexts["What LifeBoard will reuse"].waitForExistence(timeout: 4), file: file, line: line)
+        XCTAssertTrue(app.staticTexts["Already in place: 1 areas, 1 projects, 3 tasks"].waitForExistence(timeout: 4), file: file, line: line)
+        XCTAssertTrue(app.staticTexts["Keep the areas and projects that already fit."].waitForExistence(timeout: 4), file: file, line: line)
+        XCTAssertTrue(app.staticTexts["Suggest one light habit only if it improves tomorrow."].waitForExistence(timeout: 4), file: file, line: line)
+        XCTAssertTrue(app.staticTexts["Guide you into one small completion without duplicate clutter."].waitForExistence(timeout: 4), file: file, line: line)
+        XCTAssertTrue(app.staticTexts["Leave your existing setup intact while you review the next layer."].waitForExistence(timeout: 4), file: file, line: line)
+
+        let startButton = app.buttons["Review matched setup"].firstMatch
+        let dismissButton = app.buttons["Not now"].firstMatch
+        XCTAssertTrue(startButton.waitForExistence(timeout: 4), file: file, line: line)
+        XCTAssertTrue(dismissButton.waitForExistence(timeout: 4), file: file, line: line)
+        XCTAssertTrue(startButton.isHittable, file: file, line: line)
+        XCTAssertTrue(dismissButton.isHittable, file: file, line: line)
+
+        assertElementFitsInWindow(prompt, file: file, line: line)
+        assertElementFitsInWindow(startButton, file: file, line: line)
+        assertElementFitsInWindow(dismissButton, file: file, line: line)
+    }
+
+    private func assertElementFitsInWindow(
+        _ element: XCUIElement,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let window = app.windows.firstMatch
+        let windowFrame = window.exists ? window.frame : app.frame
+        let frame = element.frame
+        let tolerance: CGFloat = 1
+
+        XCTAssertGreaterThanOrEqual(frame.minX, windowFrame.minX - tolerance, file: file, line: line)
+        XCTAssertGreaterThanOrEqual(frame.minY, windowFrame.minY - tolerance, file: file, line: line)
+        XCTAssertLessThanOrEqual(frame.maxX, windowFrame.maxX + tolerance, file: file, line: line)
+        XCTAssertLessThanOrEqual(frame.maxY, windowFrame.maxY + tolerance, file: file, line: line)
     }
 }
 

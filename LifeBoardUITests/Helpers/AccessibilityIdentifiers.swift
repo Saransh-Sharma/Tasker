@@ -71,11 +71,22 @@ enum AccessibilityIdentifiers {
         static let rescueStart = "home.rescue.start"
         static let rescueExpand = "home.rescue.expand"
         static let rescueSheet = "home.rescue.sheet"
+        static let rescueActionKeepToday = "home.rescue.action.keepToday"
+        static let rescueActionMoveLater = "home.rescue.action.moveLater"
+        static let rescueCompletionViewToday = "home.rescue.completion.viewToday"
+        static let rescueActionEdit = "home.rescue.action.Edit"
+        static let rescueActionDelete = "home.rescue.action.Delete"
+        static let rescueEditSheet = "home.rescue.edit.sheet"
+        static let rescueEditSave = "home.rescue.edit.save"
+        static let rescueDeleteOverlay = "home.rescue.delete.overlay"
+        static let rescueDeleteConfirm = "home.rescue.delete.confirm"
+        static let rescueDeleteCancel = "home.rescue.delete.cancel"
         static let listDropZone = "home.list.dropzone"
         static let navXpPieChart = "home.navXpPieChart"
         static let weeklyCalendar = "home.weeklyCalendar"
         static let timelineSurface = "home.timeline.surface"
         static let timelineContent = "home.timeline.content"
+        static let timelineAllDayStrip = "home.timeline.allDayStrip"
         static let timelineOverlapCluster = "home.timeline.overlapCluster"
         static let timelineConflictBlock = "home.timeline.conflictBlock"
         static let timelineEndAdd = "home.timeline.endAdd"
@@ -147,6 +158,7 @@ enum AccessibilityIdentifiers {
         static func sunriseHabitRow(_ id: String) -> String { "home.habits.row.\(id)" }
         static func timelineTask(_ id: String) -> String { "home.timeline.task.\(id)" }
         static func timelineEvent(_ id: String) -> String { "home.timeline.event.\(id)" }
+        static func rescueCard(_ id: String) -> String { "home.rescue.card.\(id)" }
         static func sunriseFilter(_ id: String) -> String { "home.sunrise.filter.\(id)" }
 
         // Task Cell
@@ -155,6 +167,56 @@ enum AccessibilityIdentifiers {
         static func taskTitle(index: Int) -> String { "home.taskTitle.\(index)" }
         static func taskPriority(index: Int) -> String { "home.taskPriority.\(index)" }
         static func taskProject(index: Int) -> String { "home.taskProject.\(index)" }
+    }
+
+    enum ReflectPlan {
+        static let screen = "reflection.plan.screen"
+        static let loading = "reflection.plan.loading"
+        static let complete = "reflection.plan.complete"
+        static let close = "reflection.plan.close"
+        static let yesterdayCard = "reflection.plan.yesterday"
+        static let todayCard = "reflection.plan.today"
+        static let save = "reflection.plan.save"
+        static let contextCard = "reflection.plan.context.card"
+        static let contextToggle = "reflection.plan.context.toggle"
+        static let noteField = "reflection.plan.context.note"
+        static let swapSheet = "reflection.plan.swap.sheet"
+        static let swapSearch = "reflection.plan.swap.search"
+
+        static func todayTaskRow(_ index: Int) -> String { "reflection.plan.today.task.\(index)" }
+        static func todayTaskSwap(_ index: Int) -> String { "reflection.plan.today.task.\(index).swap" }
+        static func mood(_ slug: String) -> String { "reflection.plan.context.mood.\(slug)" }
+        static func energy(_ slug: String) -> String { "reflection.plan.context.energy.\(slug)" }
+        static func friction(_ slug: String) -> String { "reflection.plan.context.friction.\(slug)" }
+        static func swapOption(_ id: String) -> String { "reflection.plan.swap.option.\(id)" }
+        static func swapOptionUse(_ id: String) -> String { "reflection.plan.swap.option.use.\(id)" }
+    }
+
+    enum FocusNow {
+        static let detailSheet = "focusNow.detail.sheet"
+        static let deck = "focusNow.deck"
+        static let empty = "focusNow.empty"
+        static let toast = "focusNow.toast"
+        static let startFocus = "focusNow.startFocus"
+        static let refineOpen = "focusNow.refine.open"
+        static let refineSheet = "focusNow.refine.sheet"
+        static let refineDone = "focusNow.refine.done"
+        static let taskDetailSheet = "focusNow.taskDetail.sheet"
+        static let taskDetailStartTimer = "focusNow.taskDetail.startTimer"
+        static let timerSheet = "focusNow.timer.sheet"
+        static let timerStart = "focusNow.timer.start"
+
+        static func card(_ index: Int) -> String { "focusNow.card.\(index)" }
+        static func cardTitle(_ id: String) -> String { "focusNow.card.title.\(id)" }
+        static func candidateRow(_ id: String) -> String { "focusNow.candidate.row.\(id)" }
+        static func candidateSwap(_ id: String) -> String { "focusNow.candidate.swap.\(id)" }
+        static func refineRow(_ id: String) -> String { "focusNow.refine.row.\(id)" }
+        static func timerPreset(minutes: Int) -> String { "focusNow.timer.preset.\(minutes)" }
+    }
+
+    enum Snackbar {
+        static let view = "lifeboard.snackbar"
+        static func action(_ slug: String) -> String { "lifeboard.snackbar.action.\(slug)" }
     }
 
     // MARK: - Add Task Screen

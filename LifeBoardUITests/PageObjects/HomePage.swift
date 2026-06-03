@@ -525,6 +525,11 @@ class HomePage {
             return fallback
         }
 
+        let tappableSection = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueSection]
+        if tappableSection.exists {
+            return tappableSection
+        }
+
         return missingElement(AccessibilityIdentifiers.Home.rescueOpen)
     }
 

@@ -140,6 +140,11 @@
 		753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */; };
 		753EFCB52445A24700A739E3 /* LifeBoardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCB42445A24700A739E3 /* LifeBoardTests.swift */; };
 		753EFCC02445A24800A739E3 /* LifeBoardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCBF2445A24800A739E3 /* LifeBoardUITests.swift */; };
+		7542A0012F7B100100ABC101 /* OverdueRescueTimelineUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7542A0002F7B100100ABC101 /* OverdueRescueTimelineUITests.swift */; };
+		F0A100000000000000000101 /* SeededFeaturePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000102 /* SeededFeaturePages.swift */; };
+		F0A100000000000000000201 /* OverdueRescueSeededUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */; };
+		F0A100000000000000000301 /* ReflectPlanSeededUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000302 /* ReflectPlanSeededUITests.swift */; };
+		F0A100000000000000000401 /* FocusNowSeededUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000402 /* FocusNowSeededUITests.swift */; };
 		B7C8D9E0F1A2233445566791 /* OverdueTriageServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2233445566790 /* OverdueTriageServiceTests.swift */; };
 		7551BCCE2EAB665F003C6916 /* PerformanceMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCB12EAB665F003C6916 /* PerformanceMetrics.swift */; };
 		7551BCCF2EAB665F003C6916 /* TaskDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC02EAB665F003C6916 /* TaskDeletionTests.swift */; };
@@ -590,6 +595,7 @@
 		E0A10000000000000000000E /* HeroWelcomeHighCompressMb.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */; };
 		E0A10000000000000000020B /* MascotSprites in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000020A /* MascotSprites */; };
 		E0A100000000000000000301 /* EvaActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000302 /* EvaActivationTests.swift */; };
+		E0A100000000000000000501 /* EvaHomeIntelligenceUseCasesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000502 /* EvaHomeIntelligenceUseCasesTests.swift */; };
 		E0A100000000000000000401 /* SettingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000402 /* SettingsViewModelTests.swift */; };
 		E15729081BE877C1AF53C8C8 /* LifeBoard/Domain/Models/ExternalSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAA3A6573B0FE5C495C67AC /* LifeBoard/Domain/Models/ExternalSyncModels.swift */; };
 		E19F74D16FD5238F2C77D32A /* TimelineTimeBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60A322E21AF97D46F076D5C8 /* TimelineTimeBlock.swift */; };
@@ -852,6 +858,11 @@
 		753EFCBF2445A24800A739E3 /* LifeBoardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardUITests.swift; sourceTree = "<group>"; };
 		753EFCC12445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B7C8D9E0F1A2233445566790 /* OverdueTriageServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueTriageServiceTests.swift; sourceTree = "<group>"; };
+		7542A0002F7B100100ABC101 /* OverdueRescueTimelineUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueRescueTimelineUITests.swift; sourceTree = "<group>"; };
+		F0A100000000000000000102 /* SeededFeaturePages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeededFeaturePages.swift; sourceTree = "<group>"; };
+		F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueRescueSeededUITests.swift; sourceTree = "<group>"; };
+		F0A100000000000000000302 /* ReflectPlanSeededUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReflectPlanSeededUITests.swift; sourceTree = "<group>"; };
+		F0A100000000000000000402 /* FocusNowSeededUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusNowSeededUITests.swift; sourceTree = "<group>"; };
 		7551BCAC2EAB665F003C6916 /* BaseUITest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseUITest.swift; sourceTree = "<group>"; };
 		7551BCAD2EAB665F003C6916 /* XCTestCase+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+Utilities.swift"; sourceTree = "<group>"; };
 		7551BCAE2EAB665F003C6916 /* XCUIApplication+LaunchArguments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCUIApplication+LaunchArguments.swift"; sourceTree = "<group>"; };
@@ -1283,6 +1294,7 @@
 		E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = HeroWelcomeHighCompressMb.mp4; sourceTree = SOURCE_ROOT; };
 		E0A10000000000000000020A /* MascotSprites */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MascotSprites; sourceTree = "<group>"; };
 		E0A100000000000000000302 /* EvaActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationTests.swift; sourceTree = "<group>"; };
+		E0A100000000000000000502 /* EvaHomeIntelligenceUseCasesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaHomeIntelligenceUseCasesTests.swift; sourceTree = "<group>"; };
 		E0A100000000000000000402 /* SettingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModelTests.swift; sourceTree = "<group>"; };
 		E1A200000000000000000001 /* HomeReplanDayUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReplanDayUITests.swift; sourceTree = "<group>"; };
 		E1C5A4B1D2E3F4012345678C /* LifeBoard/UseCases/Task/UpdateTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Task/UpdateTaskDefinitionUseCase.swift; sourceTree = SOURCE_ROOT; };
@@ -1899,6 +1911,7 @@
 				A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */,
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
 				E0A100000000000000000302 /* EvaActivationTests.swift */,
+				E0A100000000000000000502 /* EvaHomeIntelligenceUseCasesTests.swift */,
 				C7A200000000000000000004 /* ChatCancellationPolicyTests.swift */,
 				E0A100000000000000000402 /* SettingsViewModelTests.swift */,
 				B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */,
@@ -1960,6 +1973,10 @@
 				C7A200000000000000000008 /* HomeTriageAndTop3Tests.swift */,
 				CA1A2000000000000000000D /* HomeCalendarModuleUITests.swift */,
 				7551BCB12F7A100100ABC001 /* HomeTimelineSeededUITests.swift */,
+				7542A0002F7B100100ABC101 /* OverdueRescueTimelineUITests.swift */,
+				F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */,
+				F0A100000000000000000302 /* ReflectPlanSeededUITests.swift */,
+				F0A100000000000000000402 /* FocusNowSeededUITests.swift */,
 				E1A200000000000000000001 /* HomeReplanDayUITests.swift */,
 				7551BCCC2EAB665F003C6916 /* Tests */,
 			);
@@ -1994,6 +2011,7 @@
 				7551BCB72EAB665F003C6916 /* NewProjectPage.swift */,
 				7551BCB82EAB665F003C6916 /* ProjectManagementPage.swift */,
 				7551BCB92EAB665F003C6916 /* SettingsPage.swift */,
+				F0A100000000000000000102 /* SeededFeaturePages.swift */,
 			);
 			path = PageObjects;
 			sourceTree = "<group>";
@@ -3929,6 +3947,7 @@
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
 				E0A100000000000000000301 /* EvaActivationTests.swift in Sources */,
+				E0A100000000000000000501 /* EvaHomeIntelligenceUseCasesTests.swift in Sources */,
 				E0A100000000000000000401 /* SettingsViewModelTests.swift in Sources */,
 				B8E100052F70000100A0A001 /* LifeBoardCTABezelResolverTests.swift in Sources */,
 				B8F9A0B1C2D3E4F506172839 /* LLMPersonalMemoryStoreTests.swift in Sources */,
@@ -3946,6 +3965,11 @@
 				7551BCD02EAB665F003C6916 /* XCUIApplication+LaunchArguments.swift in Sources */,
 				7551BCD12EAB665F003C6916 /* TaskCompletionTests.swift in Sources */,
 				7551BCD12F7A100100ABC001 /* HomeTimelineSeededUITests.swift in Sources */,
+				7542A0012F7B100100ABC101 /* OverdueRescueTimelineUITests.swift in Sources */,
+				F0A100000000000000000101 /* SeededFeaturePages.swift in Sources */,
+				F0A100000000000000000201 /* OverdueRescueSeededUITests.swift in Sources */,
+				F0A100000000000000000301 /* ReflectPlanSeededUITests.swift in Sources */,
+				F0A100000000000000000401 /* FocusNowSeededUITests.swift in Sources */,
 				7551BCD22EAB665F003C6916 /* ProjectManagementTests.swift in Sources */,
 				7551BCD32EAB665F003C6916 /* TestDataFactory.swift in Sources */,
 				7551BCD42EAB665F003C6916 /* AccessibilityIdentifiers.swift in Sources */,
