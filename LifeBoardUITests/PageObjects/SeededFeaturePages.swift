@@ -148,13 +148,11 @@ final class FocusNowPage {
     }
 
     var detailSheet: XCUIElement {
-        app.descendants(matching: .any)[AccessibilityIdentifiers.FocusNow.detailSheet]
+        app.descendants(matching: .other)[AccessibilityIdentifiers.FocusNow.detailSheet]
     }
 
     var detailReady: XCUIElement {
-        app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier == %@ OR label == %@", AccessibilityIdentifiers.FocusNow.detailSheet, "Focus Now")
-        ).firstMatch
+        app.descendants(matching: .other)[AccessibilityIdentifiers.FocusNow.detailSheet]
     }
 
     var deck: XCUIElement {
@@ -186,7 +184,7 @@ final class FocusNowPage {
     }
 
     func openDetail(timeout: TimeInterval = 8) -> Bool {
-        if detailSheet.exists || app.navigationBars.staticTexts["Focus Now"].exists {
+        if detailSheet.exists {
             return true
         }
         guard waitForHomeStrip(timeout: timeout) else { return false }

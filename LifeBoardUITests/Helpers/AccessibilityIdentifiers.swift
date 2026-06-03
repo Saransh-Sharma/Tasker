@@ -182,6 +182,9 @@ enum AccessibilityIdentifiers {
         static let noteField = "reflection.plan.context.note"
         static let swapSheet = "reflection.plan.swap.sheet"
         static let swapSearch = "reflection.plan.swap.search"
+        static let swapEmpty = "reflection.plan.swap.empty"
+        static let todayAddTask = "reflection.plan.today.addTask"
+        static let todayEmpty = "reflection.plan.today.empty"
 
         static func todayTaskRow(_ index: Int) -> String { "reflection.plan.today.task.\(index)" }
         static func todayTaskSwap(_ index: Int) -> String { "reflection.plan.today.task.\(index).swap" }
