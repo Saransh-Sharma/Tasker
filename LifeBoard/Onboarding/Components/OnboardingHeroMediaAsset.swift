@@ -6,4 +6,6 @@ import AVFoundation
 import Network
 import MLXLMCommon
 
-// Decomposed into focused files under LifeBoard/Onboarding.
+enum OnboardingHeroMediaAsset {
+    static let welcomeVideoName = "HeroWelcomeHighCompressMb"
+}

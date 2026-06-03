@@ -6,4 +6,7 @@ import AVFoundation
 import Network
 import MLXLMCommon
 
-// Decomposed into focused files under LifeBoard/Onboarding.
+enum OnboardingMode: String, Codable, Equatable {
+    case guided
+    case custom
+}

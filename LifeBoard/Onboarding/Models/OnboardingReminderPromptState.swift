@@ -6,4 +6,8 @@ import AVFoundation
 import Network
 import MLXLMCommon
 
-// Decomposed into focused files under LifeBoard/Onboarding.
+enum OnboardingReminderPromptState: Equatable {
+    case hidden
+    case prompt
+    case openSettings
+}

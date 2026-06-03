@@ -6,4 +6,7 @@ import AVFoundation
 import Network
 import MLXLMCommon
 
-// Decomposed into focused files under LifeBoard/Onboarding.
+enum OnboardingOutcome: String, Codable, Equatable {
+    case completed
+    case skippedAfterWelcome
+}
