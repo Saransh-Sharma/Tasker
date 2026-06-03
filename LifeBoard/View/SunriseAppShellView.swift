@@ -446,7 +446,53 @@ struct SunriseAppShellView: View {
     private var isRescueEnabled: Bool { V2FeatureFlags.evaRescueEnabled }
     private var visibleAgendaTailItems: [HomeAgendaTailItem] {
         guard isRescueEnabled else { return [] }
-        return tasksSnapshot.agendaTailItems
+        if tasksSnapshot.agendaTailItems.isEmpty == false {
+            return tasksSnapshot.agendaTailItems
+        }
+        guard tasksSnapshot.activeQuickView == .today else { return [] }
+        let rescueRows = tasksSnapshot.overdueTasks
+            .filter { isTimelineRescueEligibleTask($0) }
+            .map(HomeTodayRow.task)
+            .sorted(by: compareTimelineRescueRows(_:_:))
+        guard rescueRows.isEmpty == false else { return [] }
+        let mode: RescueTailMode = rescueRows.count <= 3 ? .compact : .expanded
+        let subtitle = rescueRows.count == 1
+            ? "1 task is 2+ weeks overdue"
+            : "\(rescueRows.count) tasks are 2+ weeks overdue"
+        return [
+            .rescue(
+                RescueTailState(
+                    rows: rescueRows,
+                    mode: mode,
+                    isInlineExpanded: mode == .expanded,
+                    subtitle: subtitle
+                )
+            )
+        ]
+    }
+
+    private func isTimelineRescueEligibleTask(_ task: TaskDefinition) -> Bool {
+        guard !task.isComplete, let dueDate = task.dueDate else { return false }
+        let anchorDay = Calendar.current.startOfDay(for: chromeSnapshot.selectedDate)
+        guard let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: anchorDay) else {
+            return false
+        }
+        return dueDate < cutoff
+    }
+
+    private func compareTimelineRescueRows(_ lhs: HomeTodayRow, _ rhs: HomeTodayRow) -> Bool {
+        guard case .task(let leftTask) = lhs, case .task(let rightTask) = rhs else {
+            return lhs.id < rhs.id
+        }
+        let leftDueDate = leftTask.dueDate ?? Date.distantFuture
+        let rightDueDate = rightTask.dueDate ?? Date.distantFuture
+        if leftDueDate != rightDueDate {
+            return leftDueDate < rightDueDate
+        }
+        if leftTask.priority.scorePoints != rightTask.priority.scorePoints {
+            return leftTask.priority.scorePoints > rightTask.priority.scorePoints
+        }
+        return leftTask.title.localizedStandardCompare(rightTask.title) == .orderedAscending
     }
     private var lifeAreasByID: [UUID: LifeArea] {
         Dictionary(viewModel.lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -863,6 +909,22 @@ struct SunriseAppShellView: View {
         .lifeboardSnackbar($snackbar)
         .overlay(alignment: .bottom) {
             needsReplanFloatingOverlay
+        }
+        .overlay(alignment: .topLeading) {
+            if shouldShowHomeDebugCountsMarker {
+                Text(homeDebugCountsValue)
+                    .font(.caption2)
+                    .foregroundStyle(Color.lifeboard.textPrimary.opacity(0.01))
+                    .lineLimit(1)
+                    .frame(width: 240, height: 24, alignment: .leading)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Home debug counts")
+                    .accessibilityValue(homeDebugCountsValue)
+                    .accessibilityIdentifier("home.debug.counts")
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            rootTimelineRescueLauncher
         }
         .overlay(alignment: .center) {
             rescueLauncherOverlay
@@ -2593,6 +2655,8 @@ struct SunriseAppShellView: View {
                             }
                         }
 
+                        timelineRescueTail
+
                         timelineColumnContent {
                             let snapshot = timelineSnapshot
                             let selectedDayKey = Int(Calendar.current.startOfDay(for: snapshot.selectedDate).timeIntervalSince1970)
@@ -2765,6 +2829,11 @@ struct SunriseAppShellView: View {
                     }
                 )
 
+                if visibleAgendaTailItems.isEmpty == false {
+                    pinnedTimelineRescueLauncher
+                        .zIndex(6)
+                }
+
                 if activeFace != .tasks {
                     daySunriseSwipeOverlay
                 }
@@ -2772,6 +2841,84 @@ struct SunriseAppShellView: View {
             .coordinateSpace(name: Self.daySunriseSwipeCoordinateSpaceName)
         }
         .accessibilityIdentifier("home.timeline.surface")
+    }
+
+    @ViewBuilder
+    private var timelineRescueTail: some View {
+        if isRescueEnabled {
+            ForEach(visibleAgendaTailItems) { item in
+                switch item {
+                case .rescue(let state):
+                    timelineColumnContent {
+                        timelineRescueTailItem(state)
+                            .padding(.horizontal, spacing.s16)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pinnedTimelineRescueLauncher: some View {
+        if isRescueEnabled,
+           let item = visibleAgendaTailItems.first,
+           case .rescue(let state) = item {
+            VStack(spacing: 0) {
+                timelineColumnContent {
+                    timelineRescueTailItem(state)
+                        .padding(.horizontal, spacing.s16)
+                }
+                .padding(.top, spacing.s8)
+                .background(Color.lifeboard.surfacePrimary.opacity(0.96))
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .allowsHitTesting(true)
+        }
+    }
+
+    private func timelineRescueTailItem(_ state: RescueTailState) -> some View {
+        HStack(alignment: .center, spacing: spacing.s12) {
+            Button {
+                viewModel.openRescue()
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Rescue")
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .accessibilityIdentifier("home.rescue.header")
+
+                    Text(state.subtitle)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .multilineTextAlignment(.leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.rescue.open")
+
+            if state.mode == .expanded {
+                Button("Start rescue") {
+                    viewModel.openRescue()
+                }
+                .font(.lifeboard(.caption1).weight(.semibold))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.rescue.start")
+            }
+        }
+        .padding(.vertical, spacing.s12)
+        .padding(.horizontal, spacing.s16)
+        .background(Color.lifeboard.surfaceSecondary.opacity(0.22))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(Color.lifeboard.strokeHairline.opacity(0.55), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .accessibilityIdentifier("home.rescue.section")
     }
 
     private var daySunriseSwipeOverlay: some View {
@@ -3113,6 +3260,56 @@ struct SunriseAppShellView: View {
         chromeSnapshot.activeScope.quickView == .today && tasksSnapshot.dueTodaySection?.rows.isEmpty == false
     }
 
+    @ViewBuilder
+    private var rootTimelineRescueLauncher: some View {
+        if isTodayTimelineVisible,
+           isRescueEnabled,
+           let item = visibleAgendaTailItems.first,
+           case .rescue(let state) = item {
+            HStack {
+                Button {
+                    viewModel.openRescue()
+                } label: {
+                    HStack(spacing: spacing.s8) {
+                        Image(systemName: "lifepreserver")
+                            .font(.system(size: 13, weight: .semibold))
+                            .accessibilityHidden(true)
+
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Rescue")
+                                .font(.lifeboard(.caption1).weight(.semibold))
+                                .foregroundStyle(Color.lifeboard.textPrimary)
+                            Text(state.subtitle)
+                                .font(.lifeboard(.caption2))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.vertical, spacing.s8)
+                    .padding(.horizontal, spacing.s12)
+                    .background(Color.lifeboard.surfacePrimary.opacity(0.96))
+                    .clipShape(Capsule())
+                    .overlay {
+                        Capsule()
+                            .stroke(Color.lifeboard.strokeHairline.opacity(0.65), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.08), radius: 8, y: 3)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Rescue")
+                .accessibilityValue(state.subtitle)
+                .accessibilityIdentifier("home.rescue.open")
+            }
+            .padding(.top, layoutMetrics.safeAreaTop + spacing.s8)
+            .padding(.trailing, spacing.s16)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                viewModel.openRescue()
+            }
+            .zIndex(30)
+        }
+    }
+
     private var passiveTrackingRailCards: [QuietTrackingRailCardPresentation] {
         habitsSnapshot.quietTrackingSummaryState.railCards
     }
@@ -3121,6 +3318,24 @@ struct SunriseAppShellView: View {
         let arguments = ProcessInfo.processInfo.arguments
         return arguments.contains("-UI_TESTING")
             && arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE")
+    }
+
+    private var shouldShowHomeDebugCountsMarker: Bool {
+        Self.launchArguments.contains("-UI_TESTING")
+            && Self.launchArguments.contains("-ENABLE_DEBUG_LOGGING")
+    }
+
+    private var homeDebugCountsValue: String {
+        [
+            "quick=\(tasksSnapshot.activeQuickView.rawValue)",
+            "morning=\(tasksSnapshot.morningTasks.count)",
+            "evening=\(tasksSnapshot.eveningTasks.count)",
+            "overdue=\(tasksSnapshot.overdueTasks.count)",
+            "tail=\(tasksSnapshot.agendaTailItems.count)",
+            "visibleTail=\(visibleAgendaTailItems.count)",
+            "focus=\(tasksSnapshot.focusRows.count)",
+            "todayRows=\(tasksSnapshot.todayAgendaSectionState.totalCount)"
+        ].joined(separator: " ")
     }
 
     private var passiveTrackingRailHorizontalInset: CGFloat {
