@@ -178,6 +178,7 @@ struct SunriseReflectPlanScreen: View {
             .padding(.horizontal, spacing.s16)
             Spacer()
         }
+        .accessibilityIdentifier("reflection.plan.loading")
     }
 
     private var completeState: some View {
@@ -197,6 +198,7 @@ struct SunriseReflectPlanScreen: View {
             Spacer()
         }
         .padding(.horizontal, spacing.s24)
+        .accessibilityIdentifier("reflection.plan.complete")
     }
 
     private var failureState: some View {
@@ -218,6 +220,7 @@ struct SunriseReflectPlanScreen: View {
             Spacer()
         }
         .padding(.horizontal, spacing.s24)
+        .accessibilityIdentifier("reflection.plan.failure")
     }
 
     private var footerStatusMessage: String? {

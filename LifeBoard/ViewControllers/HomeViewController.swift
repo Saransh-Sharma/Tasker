@@ -161,7 +161,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
             navigationCoordinator.handle(.notificationRoute(pendingRoute))
         }
         navigationCoordinator.handle(.pendingShortcutHandoff)
-        navigationCoordinator.handle(.uiTestInjectedRoute)
         navigationCoordinator.handle(.uiTestOpenSettings)
         navigationCoordinator.handle(.pendingWidgetActionCommand)
         navigationCoordinator.handle(.pendingIPadModalRequest)
@@ -194,6 +193,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
                         return
                     }
                     self.uiTestWorkspaceSeeder.seedUITestRescueWorkspaceIfNeeded(
+                        presentationDependencyContainer: self.presentationDependencyContainer,
+                        viewModel: self.viewModel,
+                        completion: completion
+                    )
+                },
+                reflectPlanSeed: { [weak self] completion in
+                    guard let self else {
+                        completion()
+                        return
+                    }
+                    self.uiTestWorkspaceSeeder.seedUITestReflectPlanWorkspaceIfNeeded(
                         presentationDependencyContainer: self.presentationDependencyContainer,
                         viewModel: self.viewModel,
                         completion: completion
@@ -242,8 +252,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
                 }
             )
         ) { [weak self] in
-            self?.viewModel.loadTodayTasks()
-            self?.scheduleOnboardingEvaluationIfNeeded()
+            guard let self else { return }
+            self.viewModel.invalidateTaskCaches()
+            self.viewModel.loadTasksForSelectedDate()
+            self.navigationCoordinator.handle(.uiTestInjectedRoute)
+            self.scheduleOnboardingEvaluationIfNeeded()
         }
     }
 

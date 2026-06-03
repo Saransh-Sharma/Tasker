@@ -63,7 +63,7 @@ struct NextMilestoneWidgetView: View {
                             .foregroundStyle(WidgetBrand.textPrimary)
                             .lineLimit(3)
                         if let target = entry.snapshot.nextMilestoneXP {
-                            Text("\(entry.snapshot.totalXP) / \(target) XP")
+                            Text("\(entry.snapshot.totalXP) / \(target) history")
                                 .font(TaskWidgetTypography.body)
                                 .foregroundStyle(WidgetBrand.textSecondary)
                         }
@@ -73,7 +73,7 @@ struct NextMilestoneWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Next milestone \(entry.snapshot.nextMilestoneName ?? "Unknown"). \(Int(entry.snapshot.milestoneProgress * 100)) percent complete. Total XP \(entry.snapshot.totalXP).")
+        .accessibilityLabel("Next history marker \(entry.snapshot.nextMilestoneName ?? "Unknown"). \(Int(entry.snapshot.milestoneProgress * 100)) percent complete.")
         .widgetURL(URL(string: "lifeboard://insights"))
     }
 }

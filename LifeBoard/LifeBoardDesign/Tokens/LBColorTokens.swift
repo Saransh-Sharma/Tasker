@@ -144,6 +144,127 @@ enum LBColorTokens {
     }
 }
 
+typealias LBSunriseColorTokens = LBColorTokens
+typealias LBSunriseTypographyTokens = LBTypographyTokens
+typealias LBSunriseSpacingTokens = LBSpacingTokens
+typealias LBSunriseRadiusTokens = LBRadiusTokens
+typealias LBSunriseElevationTokens = LBShadowTokens
+typealias LBSunriseRoleTokens = LBRole
+
+enum LBSunriseMaterialTokens {
+    static let glass = LBColorTokens.glass
+    static let glassStrong = LBColorTokens.glassStrong
+    static let border = LBColorTokens.glassBorder
+    static let dimmingOverlay = LBColorTokens.glassDimmingOverlay
+}
+
+enum LBSunriseMotionTokens {
+    static let responsive = Animation.spring(response: 0.38, dampingFraction: 0.86)
+    static let gentle = Animation.easeInOut(duration: 0.22)
+}
+
+enum LBSunriseHabitTokens {
+    static let completed = LBColorTokens.leaf
+    static let dueToday = LBColorTokens.violet
+    static let skipped = LBColorTokens.coral
+    static let bridge = LBColorTokens.sky
+    static let noActivity = LBColorTokens.textTertiary
+}
+
+typealias SunriseScaffold<Content: View> = SunriseDestinationScaffold<Content>
+typealias SunriseScenicHeader<Content: View> = SunriseHeaderView<Content>
+typealias SunriseGlassDock = LBBottomDock
+typealias SunriseEmptyState = LBEmptyState
+typealias SunriseLoadingSkeleton = LBLoadingSkeleton
+typealias SunriseTimelineSpine = LBTimelineSpine
+typealias SunriseRoleCard = LBTimelineCard
+
+struct SunriseGlassButton: View {
+    let title: String
+    var systemImage: String?
+    var action: () -> Void
+
+    var body: some View {
+        LBPrimaryButton(title: title, systemImage: systemImage, action: action)
+    }
+}
+
+struct SunriseInlineBanner: View {
+    let title: String
+    let message: String
+    var role: LBRole = .assistant
+
+    var body: some View {
+        let style = LBColorTokens.role(role)
+        HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
+            Image(systemName: style.symbolName)
+                .font(.headline)
+                .foregroundStyle(style.deep)
+                .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(LBTypographyTokens.cardTitle)
+                    .foregroundStyle(LBColorTokens.navy)
+                Text(message)
+                    .font(LBTypographyTokens.body)
+                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(LBSpacingTokens.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(style.softSurface.opacity(0.74), in: RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous)
+                .stroke(style.border, lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct SunriseUndoSnackbar: View {
+    let message: String
+    let undoTitle: String
+    let undo: () -> Void
+
+    var body: some View {
+        HStack(spacing: LBSpacingTokens.sm) {
+            Text(message)
+                .font(LBTypographyTokens.body)
+                .foregroundStyle(LBColorTokens.navy)
+                .lineLimit(2)
+            Spacer(minLength: LBSpacingTokens.xs)
+            Button(undoTitle, action: undo)
+                .font(LBTypographyTokens.chip)
+                .foregroundStyle(LBColorTokens.violetDeep)
+                .frame(minHeight: 44)
+        }
+        .padding(.horizontal, LBSpacingTokens.md)
+        .padding(.vertical, LBSpacingTokens.sm)
+        .background(LBColorTokens.glassStrong, in: Capsule())
+        .overlay(Capsule().stroke(LBColorTokens.glassBorder, lineWidth: 1))
+        .shadow(color: LBColorTokens.elevationShadow, radius: 14, y: 7)
+    }
+}
+
+struct SunriseDecisionDeck<Content: View>: View {
+    let progressText: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        LBGlassCard(cornerRadius: LBRadiusTokens.largeCard) {
+            VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+                Text(progressText)
+                    .font(LBTypographyTokens.meta)
+                    .foregroundStyle(LBColorTokens.navyMuted)
+                content
+            }
+            .padding(LBSpacingTokens.lg)
+        }
+    }
+}
+
 extension Color {
     init(lifeboardHex hex: String) {
         let sanitized = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)

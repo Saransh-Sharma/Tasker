@@ -157,7 +157,7 @@ struct SunriseHabitLibraryView: View {
             HabitEmptyStateCard(
                 systemImage: "clock.arrow.circlepath",
                 title: "Loading habits",
-                message: "Pulling in your behavior loops and their latest streak signals.",
+                message: "Pulling in your behavior loops and their latest rhythm signals.",
                 showsProgress: true
             )
         } else if filteredRows.isEmpty {
@@ -210,7 +210,7 @@ struct SunriseHabitLibraryView: View {
         case .paused:
             return "Paused habits stay here so they can come back without losing their history."
         case .archived:
-            return "Archived habits keep their streak story, but stay out of your active management flow."
+            return "Archived habits keep their rhythm history, but stay out of your active management flow."
         }
     }
 
@@ -380,7 +380,7 @@ private struct HabitLibraryCard: View {
             )
 
             HStack(spacing: spacing.s8) {
-                HabitMiniMetric(title: "Current", value: "\(row.currentStreak)d")
+                HabitMiniMetric(title: "Active", value: "\(row.currentStreak)d")
                 HabitMiniMetric(title: "Best", value: "\(row.bestStreak)d")
                 HabitMiniMetric(title: stateLabel, value: stateValue)
             }

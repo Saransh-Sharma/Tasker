@@ -341,6 +341,98 @@ enum TaskScheduleNormalizer {
     }
 }
 
+enum TaskRescueScheduleShifter {
+    private static let defaultDuration: TimeInterval = 30 * 60
+
+    static func shift(
+        task: TaskDefinition,
+        to targetDay: Date,
+        calendar: Calendar = .current
+    ) -> TaskScheduleNormalizationResult {
+        let targetStartOfDay = calendar.startOfDay(for: targetDay)
+        let hasTimedDueDate = task.dueDate.map { TaskScheduleNormalizer.isDateOnly($0, calendar: calendar) == false } ?? false
+
+        guard task.isAllDay == false, task.scheduledStartAt != nil || hasTimedDueDate else {
+            return TaskScheduleNormalizationResult(
+                dueDate: targetStartOfDay,
+                scheduledStartAt: nil,
+                scheduledEndAt: nil,
+                isAllDay: true,
+                explicitAllDayIntent: true,
+                clearScheduledStartAt: true,
+                clearScheduledEndAt: true
+            )
+        }
+
+        if let originalStart = task.scheduledStartAt {
+            let shiftedStart = date(on: targetStartOfDay, preservingTimeFrom: originalStart, calendar: calendar)
+            let duration = resolvedDuration(for: task)
+            let shiftedDueDate: Date
+            if let originalDue = task.dueDate,
+               TaskScheduleNormalizer.isDateOnly(originalDue, calendar: calendar) == false {
+                shiftedDueDate = date(on: targetStartOfDay, preservingTimeFrom: originalDue, calendar: calendar)
+            } else {
+                shiftedDueDate = shiftedStart
+            }
+
+            return TaskScheduleNormalizationResult(
+                dueDate: shiftedDueDate,
+                scheduledStartAt: shiftedStart,
+                scheduledEndAt: shiftedStart.addingTimeInterval(duration),
+                isAllDay: false,
+                explicitAllDayIntent: false,
+                clearScheduledStartAt: false,
+                clearScheduledEndAt: false
+            )
+        }
+
+        guard let originalDue = task.dueDate else {
+            return TaskScheduleNormalizationResult(
+                dueDate: targetStartOfDay,
+                scheduledStartAt: nil,
+                scheduledEndAt: nil,
+                isAllDay: true,
+                explicitAllDayIntent: true,
+                clearScheduledStartAt: true,
+                clearScheduledEndAt: true
+            )
+        }
+
+        let shiftedDue = date(on: targetStartOfDay, preservingTimeFrom: originalDue, calendar: calendar)
+        return TaskScheduleNormalizer.normalize(
+            deadlineDate: shiftedDue,
+            existingScheduledStartAt: task.scheduledStartAt,
+            existingScheduledEndAt: task.scheduledEndAt,
+            estimatedDuration: task.estimatedDuration,
+            preserveExistingDuration: true,
+            allDayIntent: false,
+            calendar: calendar
+        )
+    }
+
+    private static func resolvedDuration(for task: TaskDefinition) -> TimeInterval {
+        if let start = task.scheduledStartAt,
+           let end = task.scheduledEndAt,
+           end > start {
+            return end.timeIntervalSince(start)
+        }
+        if let estimatedDuration = task.estimatedDuration, estimatedDuration > 0 {
+            return estimatedDuration
+        }
+        return defaultDuration
+    }
+
+    private static func date(on targetStartOfDay: Date, preservingTimeFrom source: Date, calendar: Calendar) -> Date {
+        let components = calendar.dateComponents([.hour, .minute, .second], from: source)
+        return calendar.date(
+            bySettingHour: components.hour ?? 0,
+            minute: components.minute ?? 0,
+            second: components.second ?? 0,
+            of: targetStartOfDay
+        ) ?? targetStartOfDay
+    }
+}
+
 extension TaskDefinition {
     private enum CodingKeys: String, CodingKey {
         case id

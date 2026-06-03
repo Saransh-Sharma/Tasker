@@ -53,6 +53,7 @@ struct AddContextCard: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Add context. \(isExpanded ? "Hide" : "Optional"). Mood, energy, friction, and note.")
+            .accessibilityIdentifier("reflection.plan.context.toggle")
 
             if isExpanded {
                 expandedContent
@@ -68,6 +69,7 @@ struct AddContextCard: View {
         )
         .shadow(color: ReflectPlanStyle.shadow, radius: 18, x: 0, y: 10)
         .animation(reduceMotion ? nil : LifeBoardAnimation.snappy, value: isExpanded)
+        .accessibilityIdentifier("reflection.plan.context.card")
     }
 
     private var expandedContent: some View {
@@ -91,6 +93,7 @@ struct AddContextCard: View {
                                 .stroke(ReflectPlanStyle.peachBorder.opacity(0.58), lineWidth: 1)
                         )
                         .accessibilityLabel("One-line note. What mattered most?")
+                        .accessibilityIdentifier("reflection.plan.context.note")
                 }
 
                 ContextChipGroup(
@@ -99,6 +102,7 @@ struct AddContextCard: View {
                     selectedItems: Set(selectedMood.map { [$0] } ?? []),
                     allowsMultipleSelection: false,
                     titleProvider: \.title,
+                    accessibilityIdentifierPrefix: "reflection.plan.context.mood",
                     onToggle: onToggleMood
                 )
 
@@ -108,6 +112,7 @@ struct AddContextCard: View {
                     selectedItems: Set(selectedEnergy.map { [$0] } ?? []),
                     allowsMultipleSelection: false,
                     titleProvider: \.title,
+                    accessibilityIdentifierPrefix: "reflection.plan.context.energy",
                     onToggle: onToggleEnergy
                 )
 
@@ -117,6 +122,7 @@ struct AddContextCard: View {
                     selectedItems: selectedFrictionTags,
                     allowsMultipleSelection: true,
                     titleProvider: \.title,
+                    accessibilityIdentifierPrefix: "reflection.plan.context.friction",
                     onToggle: onToggleFriction
                 )
             }

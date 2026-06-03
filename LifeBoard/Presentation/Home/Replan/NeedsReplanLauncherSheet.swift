@@ -54,8 +54,8 @@ struct NeedsReplanLauncherSheet: View {
                     launcherRow(summary.count == 1 ? "1 task needs a decision" : "\(summary.count) tasks need a decision", systemImage: "checklist")
                     if summary.datedCount > 0 {
                         let datedLabel = summary.datedCount == 1
-                            ? "1 overdue or carry-over task"
-                            : "\(summary.datedCount) overdue or carry-over tasks"
+                            ? "1 rescue or carry-forward task"
+                            : "\(summary.datedCount) rescue or carry-forward tasks"
                         launcherRow(datedLabel, systemImage: "calendar.badge.exclamationmark")
                     }
                     if summary.unscheduledCount > 0 {

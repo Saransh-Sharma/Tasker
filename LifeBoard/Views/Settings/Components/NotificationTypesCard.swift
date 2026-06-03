@@ -14,7 +14,7 @@ struct NotificationTypesCard: View {
         [
             NotificationToggleRow(id: "reminders", icon: "bell.badge.fill", title: "Task Reminders", keyPath: \.taskRemindersEnabled),
             NotificationToggleRow(id: "dueSoon", icon: "clock.badge.exclamationmark", title: "Due Soon Nudges", keyPath: \.dueSoonEnabled),
-            NotificationToggleRow(id: "overdue", icon: "exclamationmark.triangle.fill", title: "Overdue Nudges", keyPath: \.overdueNudgesEnabled),
+            NotificationToggleRow(id: "overdue", icon: "lifepreserver", title: "Rescue Nudges", keyPath: \.overdueNudgesEnabled),
             NotificationToggleRow(id: "morning", icon: "sunrise.fill", title: "Morning Agenda", keyPath: \.morningAgendaEnabled),
             NotificationToggleRow(id: "nightly", icon: "moon.stars.fill", title: "Nightly Retrospective", keyPath: \.nightlyRetrospectiveEnabled),
         ]

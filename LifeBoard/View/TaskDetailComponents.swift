@@ -3,7 +3,7 @@
 //  LifeBoard
 //
 //  Reusable subcomponents for the Task Detail Sheet.
-//  Uses the Obsidian & Gems design system tokens throughout.
+//  Uses Sunrise Glass design system tokens throughout.
 //
 
 import SwiftUI
@@ -61,32 +61,6 @@ private struct PriorityPill: View {
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-    }
-}
-
-// MARK: - Score Badge
-
-/// Compact capsule showing task completion reward.
-struct ScoreBadge: View {
-    let preview: XPCompletionPreview?
-    var reasonHint: String = "priority · on-time · focus · effort"
-
-    var body: some View {
-        let label = preview?.shortLabel ?? "+0 XP"
-        HStack(spacing: 3) {
-            Image(systemName: "star.fill")
-                .font(.system(size: 10, weight: .bold))
-            Text(label)
-                .font(.lifeboard(.caption1))
-                .fontWeight(.bold)
-        }
-        .foregroundColor(Color.lifeboard.accentPrimary)
-        .padding(.horizontal, LifeBoardTheme.Spacing.sm)
-        .padding(.vertical, 4)
-        .background(Color.lifeboard.accentMuted)
-        .clipShape(Capsule())
-        .accessibilityLabel(preview.map { "Reward \($0.shortLabel)" } ?? "Reward +0 XP")
-        .accessibilityHint("Reward factors: \(reasonHint)")
     }
 }
 

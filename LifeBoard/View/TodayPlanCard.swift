@@ -103,10 +103,12 @@ struct TodayPlanCard: View {
             .buttonStyle(.plain)
             .foregroundStyle(LBColorTokens.role(.focus).deep)
             .frame(minHeight: 44, alignment: .leading)
+            .accessibilityIdentifier("reflection.plan.today.addTask")
         }
         .padding(LBSpacingTokens.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(ReflectPlanStyle.blueSurfaceStrong.opacity(0.72), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .accessibilityIdentifier("reflection.plan.today.empty")
     }
 
     @ViewBuilder

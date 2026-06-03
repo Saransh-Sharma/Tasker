@@ -139,16 +139,10 @@ struct DailySummaryModalView: View {
                         numericValue: value.highPriorityCount
                     )
                     metricChip(
-                        title: "Overdue",
+                        title: "Rescue",
                         value: "\(value.overdueCount)",
-                        id: "home.dailySummary.hero.overdueCount",
+                        id: "home.dailySummary.hero.rescueCount",
                         numericValue: value.overdueCount
-                    )
-                    metricChip(
-                        title: "XP",
-                        value: "\(value.potentialXP)",
-                        id: "home.dailySummary.hero.potentialXP",
-                        numericValue: value.potentialXP
                     )
                 }
             )
@@ -162,12 +156,6 @@ struct DailySummaryModalView: View {
                         detail: value.totalCount > 0 ? "\(Int((value.completionRate * 100).rounded()))% completion" : "No schedule recorded"
                     )
                     metricChip(
-                        title: "XP",
-                        value: "\(value.xpEarned)",
-                        id: "home.dailySummary.hero.xp",
-                        numericValue: value.xpEarned
-                    )
-                    metricChip(
                         title: "Rate",
                         value: "\(Int((value.completionRate * 100).rounded()))%",
                         id: "home.dailySummary.hero.rate",
@@ -175,9 +163,9 @@ struct DailySummaryModalView: View {
                         numericSuffix: "%"
                     )
                     metricChip(
-                        title: "Streak",
+                        title: "Active",
                         value: "\(value.streakCount)d",
-                        id: "home.dailySummary.hero.streak",
+                        id: "home.dailySummary.hero.activeDays",
                         numericValue: value.streakCount,
                         numericSuffix: "d"
                     )
@@ -202,7 +190,7 @@ struct DailySummaryModalView: View {
 
             sectionCard(title: "Risk & Friction") {
                 VStack(alignment: .leading, spacing: 8) {
-                    riskLine(title: "Overdue tasks", value: summary.overdueCount)
+                    riskLine(title: "Rescue tasks", value: summary.overdueCount)
                     riskLine(title: "Blocked tasks", value: summary.blockedCount)
                     riskLine(title: "Long tasks (60m+)", value: summary.longTaskCount)
                 }
@@ -231,10 +219,10 @@ struct DailySummaryModalView: View {
                 }
             }
 
-            sectionCard(title: "Carry-over") {
+            sectionCard(title: "Carry-forward") {
                 VStack(alignment: .leading, spacing: 8) {
                     riskLine(title: "Open due today", value: summary.carryOverDueTodayCount)
-                    riskLine(title: "Still overdue", value: summary.carryOverOverdueCount)
+                    riskLine(title: "Needs rescue", value: summary.carryOverOverdueCount)
                 }
             }
 
@@ -290,9 +278,9 @@ struct DailySummaryModalView: View {
                     priorityBadge(row.priority)
                     if row.isOverdue {
                         statusBadge(
-                            text: "Overdue",
-                            foreground: Color.lifeboard.statusDanger,
-                            background: Color.lifeboard.statusDanger.opacity(0.14)
+                            text: "Rescue",
+                            foreground: LBColorTokens.role(.warning).deep,
+                            background: LBColorTokens.role(.warning).softSurface
                         )
                     }
                     if row.isBlocked {
@@ -307,7 +295,7 @@ struct DailySummaryModalView: View {
                     if let dueLabel = dueLabel(for: row) {
                         Text(dueLabel)
                             .font(.lifeboard(.caption2))
-                            .foregroundColor(row.isOverdue ? Color.lifeboard.statusDanger : Color.lifeboard.textSecondary)
+                            .foregroundColor(row.isOverdue ? LBColorTokens.role(.warning).deep : Color.lifeboard.textSecondary)
                     }
                     if let estimatedDuration = row.estimatedDuration {
                         Text(durationLabel(seconds: estimatedDuration))
@@ -354,7 +342,7 @@ struct DailySummaryModalView: View {
             title: title,
             value: numericValue != nil ? "\(numericValue ?? 0)\(numericSuffix)" : value,
             detail: detail,
-            tone: title == "Overdue" ? .warning : (title == "XP" ? .accent : .neutral),
+            tone: title == "Rescue" ? .warning : .neutral,
             accessibilityIdentifier: id
         )
     }
@@ -388,7 +376,7 @@ struct DailySummaryModalView: View {
                 }
 
                 if value.overdueCount > 0 {
-                    Button("Rescue Overdue") { onRescueOverdue() }
+                    Button("Open Rescue") { onRescueOverdue() }
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("home.dailySummary.cta.rescueOverdue")
@@ -417,7 +405,7 @@ struct DailySummaryModalView: View {
                     .accessibilityIdentifier("home.dailySummary.cta.reviewDone")
 
                 if value.carryOverOverdueCount > 0 {
-                    Button("Reschedule Overdue") { onRescheduleOverdue() }
+                    Button("Reschedule Rescue Work") { onRescheduleOverdue() }
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("home.dailySummary.cta.rescheduleOverdue")

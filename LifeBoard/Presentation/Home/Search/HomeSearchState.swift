@@ -23,7 +23,7 @@ enum HomeSearchStatusFilter: String, CaseIterable, Equatable, Identifiable {
         case .today:
             return "Today"
         case .overdue:
-            return "Overdue"
+            return "Rescue"
         case .completed:
             return "Completed"
         }
@@ -96,7 +96,7 @@ enum HomeSearchSuggestedCommand: String, CaseIterable, Equatable, Identifiable {
         case .whatNext:
             return "What next?"
         case .overdueTasks:
-            return "Overdue tasks"
+            return "Rescue tasks"
         case .missedHabits:
             return "Missed habits"
         case .nextTwoHours:
@@ -220,10 +220,10 @@ enum HomeSearchCommandResultBuilder {
             let tasks = tasksSnapshot.overdueTasks.filter { $0.isComplete == false }
             return result(
                 command: command,
-                title: "Overdue tasks",
-                subtitle: "\(tasks.count) task\(tasks.count == 1 ? "" : "s") overdue",
+                title: "Rescue tasks",
+                subtitle: "\(tasks.count) task\(tasks.count == 1 ? "" : "s") need a decision",
                 tasks: tasks,
-                emptyTitle: "No overdue tasks",
+                emptyTitle: "Nothing to rescue",
                 emptySubtitle: "There is no stale open work in the current task list."
             )
         case .missedHabits:
@@ -693,7 +693,7 @@ final class HomeSearchState: ObservableObject {
             return activeSuggestedCommandResult.emptySubtitle
         }
         if trimmedQuery.isEmpty && !hasActiveFilters {
-            return "Try asking what to do next, showing overdue tasks, or planning the next block."
+            return "Try asking what to do next, showing rescue tasks, or planning the next block."
         }
         return "Widen your search, clear filters, or ask Eva to reason over your day."
     }

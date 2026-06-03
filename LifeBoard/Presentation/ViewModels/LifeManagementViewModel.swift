@@ -15,7 +15,7 @@ private func lifeManagementTreeAreaAccentHex(_ area: LifeArea?) -> String {
 private func lifeManagementTreeHabitStatusText(_ row: HabitLibraryRow) -> String {
     if row.isArchived { return "Archived" }
     if row.isPaused { return "Paused" }
-    if row.currentStreak > 0 { return "\(row.currentStreak)d streak" }
+    if row.currentStreak > 0 { return "\(row.currentStreak)d active" }
 
     switch row.cadence {
     case .daily:

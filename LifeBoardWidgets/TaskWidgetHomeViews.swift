@@ -129,16 +129,16 @@ struct OverdueRescueWidgetView: View {
     var body: some View {
         SmallStoryShell(
             eyebrow: "Rescue",
-            title: "Overdue",
+            title: "Rescue",
             detail: "\(entry.snapshot.overdueCount)",
-            accent: WidgetBrand.marigold
+            accent: WidgetBrand.sunriseGold
         ) {
             TaskWidgetHeroMetric(
-                eyebrow: "Carry Count",
+                eyebrow: "Rescue Count",
                 value: "\(entry.snapshot.overdueCount)",
                 numericValue: Double(entry.snapshot.overdueCount),
                 supporting: entry.snapshot.overdueTasks.first?.title ?? "Backlog is clear",
-                accent: WidgetBrand.marigold
+                accent: WidgetBrand.sunriseGold
             )
             if let task = entry.snapshot.overdueTasks.first {
                 Text(task.dueLabel)
@@ -216,7 +216,7 @@ struct EveningWrapWidgetView: View {
                 eyebrow: "Done Today",
                 value: "\(entry.snapshot.doneTodayCount)",
                 numericValue: Double(entry.snapshot.doneTodayCount),
-                supporting: entry.snapshot.overdueCount == 0 ? "Ready to reset tomorrow." : "Carry \(entry.snapshot.overdueCount) task\(entry.snapshot.overdueCount == 1 ? "" : "s").",
+                supporting: entry.snapshot.overdueCount == 0 ? "Ready for tomorrow." : "Review \(entry.snapshot.overdueCount) task\(entry.snapshot.overdueCount == 1 ? "" : "s").",
                 accent: WidgetBrand.emerald
             )
         }
@@ -283,14 +283,14 @@ struct DueSoonRadarWidgetView: View {
             eyebrow: "Radar",
             title: "Due Soon",
             detail: "\(entry.snapshot.dueSoonTasks.count)",
-            accent: WidgetBrand.marigold
+            accent: WidgetBrand.sunriseGold
         ) {
             TaskWidgetHeroMetric(
                 eyebrow: "Near Deadlines",
                 value: "\(entry.snapshot.dueSoonTasks.count)",
                 numericValue: Double(entry.snapshot.dueSoonTasks.count),
                 supporting: entry.snapshot.dueSoonTasks.first?.title ?? "No near deadlines",
-                accent: WidgetBrand.marigold
+                accent: WidgetBrand.sunriseGold
             )
             if let task = entry.snapshot.dueSoonTasks.first {
                 Text(task.dueLabel)
@@ -360,7 +360,7 @@ struct ProjectSpotlightWidgetView: View {
                     .lineLimit(2)
                 HStack(spacing: 10) {
                     TaskWidgetSummaryPill(title: "Open", value: "\(slice.openCount)", numericValue: Double(slice.openCount), tint: WidgetBrand.actionPrimary)
-                    TaskWidgetSummaryPill(title: "Overdue", value: "\(slice.overdueCount)", numericValue: Double(slice.overdueCount), tint: WidgetBrand.marigold)
+                    TaskWidgetSummaryPill(title: "Rescue", value: "\(slice.overdueCount)", numericValue: Double(slice.overdueCount), tint: WidgetBrand.sunriseGold)
                 }
             } else {
                 TaskWidgetEmptyState(title: "No active projects yet.", symbol: "square.grid.2x2")
@@ -543,17 +543,17 @@ struct OverdueBoardWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
-                TaskWidgetPanel(accent: WidgetBrand.marigold, padding: 12) {
+                TaskWidgetPanel(accent: WidgetBrand.sunriseGold, padding: 12) {
                     TaskWidgetHeroMetric(
-                        eyebrow: "Overdue Board",
+                        eyebrow: "Rescue Board",
                         value: "\(entry.snapshot.overdueCount)",
                         numericValue: Double(entry.snapshot.overdueCount),
-                        supporting: entry.snapshot.overdueTasks.first?.title ?? "No overdue tasks",
-                        accent: WidgetBrand.marigold
+                        supporting: entry.snapshot.overdueTasks.first?.title ?? "Nothing to rescue",
+                        accent: WidgetBrand.sunriseGold
                     )
                 }
             } trailing: {
-                TaskWidgetPanel(accent: WidgetBrand.marigold, padding: 12) {
+                TaskWidgetPanel(accent: WidgetBrand.sunriseGold, padding: 12) {
                     TaskWidgetSectionHeader(eyebrow: "Recovery", title: "Priority Order", detail: nil, accent: WidgetBrand.textPrimary)
                         TaskWidgetTaskList(
                             tasks: entry.snapshot.overdueTasks,
@@ -654,7 +654,7 @@ struct QuickViewSwitcherWidgetView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ScopeChipView(title: "Today", count: entry.snapshot.todayTopTasks.count, tint: WidgetBrand.actionPrimary, url: TaskWidgetRoutes.today, scope: .today)
                     ScopeChipView(title: "Upcoming", count: entry.snapshot.upcomingTasks.count, tint: WidgetBrand.sandstone, url: TaskWidgetRoutes.upcoming, scope: .upcoming)
-                    ScopeChipView(title: "Overdue", count: entry.snapshot.overdueTasks.count, tint: WidgetBrand.marigold, url: TaskWidgetRoutes.overdue, scope: .overdue)
+                    ScopeChipView(title: "Rescue", count: entry.snapshot.overdueTasks.count, tint: WidgetBrand.sunriseGold, url: TaskWidgetRoutes.overdue, scope: .overdue)
                 }
             }
         }
@@ -677,7 +677,7 @@ struct ProjectSprintWidgetView: View {
                             .lineLimit(2)
                         HStack(spacing: 12) {
                             TaskWidgetSummaryPill(title: "Open", value: "\(lead.openCount)", numericValue: Double(lead.openCount), tint: WidgetBrand.actionPrimary)
-                            TaskWidgetSummaryPill(title: "Overdue", value: "\(lead.overdueCount)", numericValue: Double(lead.overdueCount), tint: WidgetBrand.marigold)
+                            TaskWidgetSummaryPill(title: "Rescue", value: "\(lead.overdueCount)", numericValue: Double(lead.overdueCount), tint: WidgetBrand.sunriseGold)
                         }
                     } else {
                         TaskWidgetEmptyState(title: "No active project slices.", symbol: "square.stack.3d.up")
@@ -691,7 +691,7 @@ struct ProjectSprintWidgetView: View {
                             title: slice.projectName,
                             subtitle: "\(slice.openCount) open",
                             trailing: slice.overdueCount > 0 ? "!\(slice.overdueCount)" : nil,
-                            trailingTint: WidgetBrand.marigold,
+                            trailingTint: WidgetBrand.sunriseGold,
                             destination: slice.projectID.map(TaskWidgetRoutes.project(_:))
                         )
                     }
@@ -730,7 +730,7 @@ struct PriorityMatrixLiteWidgetView: View {
                     TaskWidgetSectionHeader(eyebrow: "Balance", title: "Spread", detail: nil, accent: WidgetBrand.textPrimary)
                     VStack(alignment: .leading, spacing: 8) {
                         TaskWidgetTaskLine(title: "P0 / P1", trailing: "\(high)", trailingTint: WidgetBrand.red)
-                        TaskWidgetTaskLine(title: "P2", trailing: "\(medium)", trailingTint: WidgetBrand.marigold)
+                        TaskWidgetTaskLine(title: "P2", trailing: "\(medium)", trailingTint: WidgetBrand.sunriseGold)
                         TaskWidgetTaskLine(title: "P3+", trailing: "\(low)", trailingTint: WidgetBrand.sandstone)
                     }
                 }
@@ -821,7 +821,7 @@ struct RecoveryWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
-                TaskWidgetPanel(accent: WidgetBrand.marigold, padding: 12) {
+                TaskWidgetPanel(accent: WidgetBrand.sunriseGold, padding: 12) {
                     TaskWidgetSectionHeader(eyebrow: "Resume", title: "Recovery", detail: nil, accent: WidgetBrand.textPrimary)
                     if let task = entry.snapshot.nextTask {
                         Text(task.title)
@@ -840,7 +840,7 @@ struct RecoveryWidgetView: View {
                     TaskWidgetSectionHeader(eyebrow: "Signals", title: "What Matters", detail: nil, accent: WidgetBrand.textPrimary)
                     VStack(alignment: .leading, spacing: 8) {
                         TaskWidgetTaskLine(title: "Now", trailing: "\(entry.snapshot.focusNow.count)", trailingTint: WidgetBrand.actionPrimary)
-                        TaskWidgetTaskLine(title: "Overdue", trailing: "\(entry.snapshot.overdueCount)", trailingTint: WidgetBrand.marigold)
+                        TaskWidgetTaskLine(title: "Rescue", trailing: "\(entry.snapshot.overdueCount)", trailingTint: WidgetBrand.sunriseGold)
                         TaskWidgetTaskLine(title: "Blocked", trailing: "\(entry.snapshot.waitingOn.count)", trailingTint: WidgetBrand.magenta)
                     }
                 }
@@ -867,7 +867,7 @@ struct DoneReflectionWidgetView: View {
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Carry Forward", title: "Next Cue", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Tomorrow", title: "Next Cue", detail: nil, accent: WidgetBrand.textPrimary)
                     if let task = entry.snapshot.nextTask {
                         TaskWidgetTaskLine(title: task.title, subtitle: task.projectLabel, trailing: task.priorityCode, trailingTint: WidgetBrand.priority(task.priorityCode), destination: TaskWidgetRoutes.task(task.id), emphasize: true)
                     } else {
@@ -915,7 +915,7 @@ struct TodayPlannerBoardWidgetView: View {
                 TaskWidgetSectionHeader(eyebrow: "Planner", title: "Today Board", detail: "Done \(entry.snapshot.doneTodayCount)", accent: WidgetBrand.textPrimary)
                 HStack(spacing: 10) {
                     TaskWidgetSummaryPill(title: "Now", value: "\(entry.snapshot.todayTopTasks.count)", numericValue: Double(entry.snapshot.todayTopTasks.count), tint: WidgetBrand.actionPrimary)
-                    TaskWidgetSummaryPill(title: "Overdue", value: "\(entry.snapshot.overdueTasks.count)", numericValue: Double(entry.snapshot.overdueTasks.count), tint: WidgetBrand.marigold)
+                    TaskWidgetSummaryPill(title: "Rescue", value: "\(entry.snapshot.overdueTasks.count)", numericValue: Double(entry.snapshot.overdueTasks.count), tint: WidgetBrand.sunriseGold)
                     TaskWidgetSummaryPill(title: "Later", value: "\(entry.snapshot.upcomingTasks.count)", numericValue: Double(entry.snapshot.upcomingTasks.count), tint: WidgetBrand.sandstone)
                 }
                 TaskWidgetTwoZone(
@@ -940,7 +940,7 @@ struct TodayPlannerBoardWidgetView: View {
                     }
                 } trailing: {
                     VStack(alignment: .leading, spacing: context.panelSpacing) {
-                        TaskWidgetColumn(title: "Overdue", accent: WidgetBrand.marigold, tasks: Array(entry.snapshot.overdueTasks.prefix(context.supportListLimit)), fallback: "Nothing to rescue.")
+                        TaskWidgetColumn(title: "Rescue", accent: WidgetBrand.sunriseGold, tasks: Array(entry.snapshot.overdueTasks.prefix(context.supportListLimit)), fallback: "Nothing to rescue.")
                         TaskWidgetColumn(title: "Later", accent: WidgetBrand.sandstone, tasks: Array(entry.snapshot.upcomingTasks.prefix(context.supportListLimit)), fallback: "Nothing upcoming.")
                     }
                 }
@@ -979,7 +979,7 @@ struct WeekTaskPlannerWidgetView: View {
                                 .foregroundStyle(WidgetBrand.textSecondary)
                             HStack(spacing: 12) {
                                 TaskWidgetSummaryPill(title: "Scheduled", value: "\(datedTasks.count)", numericValue: Double(datedTasks.count), tint: WidgetBrand.sandstone)
-                                TaskWidgetSummaryPill(title: "Overdue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.marigold)
+                                TaskWidgetSummaryPill(title: "Rescue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.sunriseGold)
                             }
                         } else {
                             TaskWidgetEmptyState(title: "No scheduled deadlines.", symbol: "calendar.badge.checkmark")
@@ -1019,7 +1019,7 @@ struct ProjectCockpitWidgetView: View {
                                 .lineLimit(2)
                             HStack(spacing: 14) {
                                 TaskWidgetSummaryPill(title: "Open", value: "\(lead.openCount)", numericValue: Double(lead.openCount), tint: WidgetBrand.actionPrimary)
-                                TaskWidgetSummaryPill(title: "Overdue", value: "\(lead.overdueCount)", numericValue: Double(lead.overdueCount), tint: WidgetBrand.marigold)
+                                TaskWidgetSummaryPill(title: "Rescue", value: "\(lead.overdueCount)", numericValue: Double(lead.overdueCount), tint: WidgetBrand.sunriseGold)
                             }
                         } else {
                             TaskWidgetEmptyState(title: "No active project slices.", symbol: "square.stack.3d.down.right")
@@ -1033,7 +1033,7 @@ struct ProjectCockpitWidgetView: View {
                                 title: slice.projectName,
                                 subtitle: "\(slice.openCount) open",
                                 trailing: slice.overdueCount > 0 ? "!\(slice.overdueCount)" : nil,
-                                trailingTint: WidgetBrand.marigold,
+                            trailingTint: WidgetBrand.sunriseGold,
                                 destination: slice.projectID.map(TaskWidgetRoutes.project(_:))
                             )
                         }
@@ -1056,7 +1056,7 @@ struct BacklogHealthWidgetView: View {
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
                 TaskWidgetSectionHeader(eyebrow: "Backlog", title: "Health", detail: nil, accent: WidgetBrand.textPrimary)
                 HStack(spacing: 12) {
-                    TaskWidgetSummaryPill(title: "Overdue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.marigold)
+                    TaskWidgetSummaryPill(title: "Rescue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.sunriseGold)
                     TaskWidgetSummaryPill(title: "Blocked", value: "\(blocked)", numericValue: Double(blocked), tint: WidgetBrand.magenta)
                     TaskWidgetSummaryPill(title: "Inbox", value: "\(inbox)", numericValue: Double(inbox), tint: WidgetBrand.sandstone)
                 }
@@ -1065,7 +1065,7 @@ struct BacklogHealthWidgetView: View {
                     leadingWeight: context.leadRatio,
                     trailingWeight: context.supportRatio
                 ) {
-                    TaskWidgetPanel(accent: WidgetBrand.marigold, padding: 14) {
+                    TaskWidgetPanel(accent: WidgetBrand.sunriseGold, padding: 14) {
                         Text(entry.snapshot.overdueCount == 0 && blocked == 0 ? "Healthy backlog" : "Recovery recommended")
                             .font(TaskWidgetTypography.titleLarge)
                             .foregroundStyle(WidgetBrand.textPrimary)
@@ -1101,7 +1101,7 @@ struct KanbanLiteWidgetView: View {
                     TaskWidgetColumn(title: "Now", accent: WidgetBrand.actionPrimary, tasks: Array(entry.snapshot.todayTopTasks.prefix(context.supportListLimit)), fallback: "Empty")
                 } trailing: {
                     VStack(alignment: .leading, spacing: context.panelSpacing) {
-                        TaskWidgetColumn(title: "Rescue", accent: WidgetBrand.marigold, tasks: Array(entry.snapshot.overdueTasks.prefix(context.supportListLimit)), fallback: "Empty")
+                        TaskWidgetColumn(title: "Rescue", accent: WidgetBrand.sunriseGold, tasks: Array(entry.snapshot.overdueTasks.prefix(context.supportListLimit)), fallback: "Empty")
                         TaskWidgetColumn(title: "Blocked", accent: WidgetBrand.magenta, tasks: Array(entry.snapshot.waitingOn.prefix(context.supportListLimit)), fallback: "Empty")
                     }
                 }
@@ -1169,7 +1169,7 @@ struct ExecutionDashboardWidgetView: View {
                 HStack(spacing: 12) {
                     TaskWidgetSummaryPill(title: "Done", value: "\(entry.snapshot.doneTodayCount)", numericValue: Double(entry.snapshot.doneTodayCount), tint: WidgetBrand.emerald)
                     TaskWidgetSummaryPill(title: "Open", value: "\(entry.snapshot.openCount)", numericValue: Double(entry.snapshot.openCount), tint: WidgetBrand.actionPrimary)
-                    TaskWidgetSummaryPill(title: "Overdue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.marigold)
+                    TaskWidgetSummaryPill(title: "Rescue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.sunriseGold)
                     TaskWidgetSummaryPill(title: "Blocked", value: "\(entry.snapshot.waitingOn.count)", numericValue: Double(entry.snapshot.waitingOn.count), tint: WidgetBrand.magenta)
                 }
                 TaskWidgetTwoZone(

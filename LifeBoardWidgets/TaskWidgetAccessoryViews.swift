@@ -91,19 +91,19 @@ struct RectangularOverdueAlertWidgetView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("OVERDUE")
                     .font(TaskWidgetTypography.eyebrow)
-                    .foregroundStyle(WidgetBrand.marigold)
+                    .foregroundStyle(WidgetBrand.sunriseGold)
                 Text("\(entry.snapshot.overdueCount)")
                     .font(TaskWidgetTypography.titleLarge)
                     .foregroundStyle(WidgetBrand.textPrimary)
                     .taskWidgetNumericTransition(Double(entry.snapshot.overdueCount), reduceMotion: context.reduceMotion)
-                Text(entry.snapshot.overdueTasks.first?.title ?? "No overdue tasks")
+                Text(entry.snapshot.overdueTasks.first?.title ?? "Nothing to rescue")
                     .font(TaskWidgetTypography.support)
                     .foregroundStyle(WidgetBrand.textSecondary)
                     .lineLimit(1)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(entry.snapshot.overdueTasks.first.map { "Overdue \(entry.snapshot.overdueCount). First task \($0.title)" } ?? "No overdue tasks")
+        .accessibilityLabel(entry.snapshot.overdueTasks.first.map { "Rescue \(entry.snapshot.overdueCount). First task \($0.title)" } ?? "Nothing to rescue")
         .widgetURL(entry.snapshot.overdueTasks.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.overdue)
     }
 }
@@ -229,7 +229,7 @@ struct DeskTodayBoardWidgetView: View {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, style: .softSection, padding: 14) {
                     TaskWidgetStatStrip(items: [
                         TaskWidgetStatItem(title: "Done", value: "\(entry.snapshot.doneTodayCount)", tint: WidgetBrand.emerald),
-                        TaskWidgetStatItem(title: "Overdue", value: "\(entry.snapshot.overdueCount)", tint: WidgetBrand.marigold),
+                        TaskWidgetStatItem(title: "Rescue", value: "\(entry.snapshot.overdueCount)", tint: WidgetBrand.sunriseGold),
                         TaskWidgetStatItem(title: "Next", value: "\(entry.snapshot.upcomingTasks.count)", tint: WidgetBrand.sandstone)
                     ])
                 }
@@ -254,7 +254,7 @@ struct CountdownPanelWidgetView: View {
                 leadingWeight: context.leadRatio,
                 trailingWeight: context.supportRatio
             ) {
-                TaskWidgetPanel(accent: WidgetBrand.marigold, padding: 14) {
+                TaskWidgetPanel(accent: WidgetBrand.sunriseGold, padding: 14) {
                     if let next {
                         Text(next.title)
                             .font(TaskWidgetTypography.display)
@@ -273,7 +273,7 @@ struct CountdownPanelWidgetView: View {
                         eyebrow: "Countdown",
                         value: next?.dueLabel ?? "Clear",
                         supporting: next == nil ? "Your horizon is open." : "Next meaningful deadline in sight.",
-                        accent: WidgetBrand.marigold
+                        accent: WidgetBrand.sunriseGold
                     )
                 }
             }
@@ -337,14 +337,14 @@ struct NightlyResetWidgetView: View {
                         eyebrow: "Nightly Reset",
                         value: "\(entry.snapshot.doneTodayCount)",
                         numericValue: Double(entry.snapshot.doneTodayCount),
-                        supporting: entry.snapshot.overdueTasks.first.map { "Carry-over: \($0.title)" } ?? "All clear for tomorrow",
+                        supporting: entry.snapshot.overdueTasks.first.map { "Rescue: \($0.title)" } ?? "All clear for tomorrow",
                         accent: WidgetBrand.emerald
                     )
                 }
             } trailing: {
-                TaskWidgetPanel(accent: WidgetBrand.marigold, style: .softSection, padding: 14) {
-                    TaskWidgetSectionHeader(eyebrow: "Carry", title: "Into Tomorrow", detail: nil, accent: WidgetBrand.textPrimary)
-                    TaskWidgetSummaryPill(title: "Carry", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.marigold)
+                TaskWidgetPanel(accent: WidgetBrand.sunriseGold, style: .softSection, padding: 14) {
+                    TaskWidgetSectionHeader(eyebrow: "Rescue", title: "Into Tomorrow", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSummaryPill(title: "Rescue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.sunriseGold)
                 }
             }
         }
@@ -375,7 +375,7 @@ struct MorningBriefPanelWidgetView: View {
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, style: .softSection, padding: 14) {
                     TaskWidgetStatStrip(items: [
-                        TaskWidgetStatItem(title: "Overdue", value: "\(entry.snapshot.overdueCount)", tint: WidgetBrand.marigold),
+                        TaskWidgetStatItem(title: "Rescue", value: "\(entry.snapshot.overdueCount)", tint: WidgetBrand.sunriseGold),
                         TaskWidgetStatItem(title: "Focus", value: "\(entry.snapshot.focusNow.count)", tint: WidgetBrand.sandstone)
                     ])
                 }
@@ -406,13 +406,13 @@ struct ProjectPulseWidgetView: View {
                     )
                 }
             } trailing: {
-                TaskWidgetPanel(accent: WidgetBrand.marigold, style: .quiet, padding: 14) {
+                TaskWidgetPanel(accent: WidgetBrand.sunriseGold, style: .quiet, padding: 14) {
                     TaskWidgetSectionHeader(eyebrow: "Portfolio", title: "Watchlist", detail: nil, accent: WidgetBrand.textPrimary)
                     ForEach(Array(entry.snapshot.projectSlices.prefix(context.supportListLimit + 1))) { slice in
                         TaskWidgetTaskLine(
                             title: slice.projectName,
                             trailing: slice.overdueCount > 0 ? "!\(slice.overdueCount)" : "\(slice.openCount)",
-                            trailingTint: slice.overdueCount > 0 ? WidgetBrand.marigold : WidgetBrand.actionPrimary,
+                            trailingTint: slice.overdueCount > 0 ? WidgetBrand.sunriseGold : WidgetBrand.actionPrimary,
                             destination: slice.projectID.map(TaskWidgetRoutes.project(_:))
                         )
                     }

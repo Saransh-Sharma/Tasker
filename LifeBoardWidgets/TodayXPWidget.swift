@@ -9,8 +9,8 @@ struct TodayXPWidget: Widget {
             TodayXPWidgetView(entry: entry)
                 .modifier(TaskWidgetContainerBackgroundModifier(enabled: true))
         }
-        .configurationDisplayName("Today's XP")
-        .description("Track your daily XP progress.")
+        .configurationDisplayName("Today Rhythm")
+        .description("Track today's completion rhythm.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -72,7 +72,7 @@ struct TodayXPWidgetView: View {
     private var smallView: some View {
         TaskWidgetScene(alignment: .topLeading) { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Today", title: "XP", detail: "L\(entry.snapshot.level)", accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Today", title: "Rhythm", detail: nil, accent: WidgetBrand.textPrimary)
 
                 Spacer(minLength: 0)
 
@@ -85,10 +85,10 @@ struct TodayXPWidgetView: View {
                             .font(TaskWidgetTypography.display)
                             .foregroundStyle(WidgetBrand.textPrimary)
                             .taskWidgetNumericTransition(Double(entry.snapshot.dailyXP), reduceMotion: context.reduceMotion)
-                        Text("XP today")
+                        Text("today signal")
                             .font(TaskWidgetTypography.body)
                             .foregroundStyle(WidgetBrand.textSecondary)
-                        TaskWidgetInlineMetadata(items: ["\(entry.snapshot.streakDays)d streak", freshnessText])
+                        TaskWidgetInlineMetadata(items: ["\(entry.snapshot.streakDays)d active", freshnessText])
                     }
                 }
 
@@ -102,14 +102,14 @@ struct TodayXPWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Today's XP \(entry.snapshot.dailyXP). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText).")
+        .accessibilityLabel("Today rhythm \(entry.snapshot.dailyXP). \(entry.snapshot.streakDays) active days. \(freshnessText).")
     }
 
     private var mediumView: some View {
         TaskWidgetScene(alignment: .topLeading) { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Today", title: "XP Arc", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Today", title: "Rhythm Arc", detail: nil, accent: WidgetBrand.textPrimary)
                     Spacer(minLength: 0)
                     Text(freshnessText)
                         .font(TaskWidgetTypography.meta)
@@ -125,7 +125,7 @@ struct TodayXPWidgetView: View {
                             .font(TaskWidgetTypography.display)
                             .foregroundStyle(WidgetBrand.textPrimary)
                             .taskWidgetNumericTransition(Double(entry.snapshot.dailyXP), reduceMotion: context.reduceMotion)
-                        Text("XP today")
+                        Text("today signal")
                             .font(TaskWidgetTypography.title)
                             .foregroundStyle(WidgetBrand.textSecondary)
                         TaskWidgetProgressBar(
@@ -140,7 +140,7 @@ struct TodayXPWidgetView: View {
                 TaskWidgetPanel(accent: WidgetBrand.sunriseGold, style: .softSection, padding: 12) {
                     TaskWidgetStatStrip(items: [
                         TaskWidgetStatItem(title: "Level", value: "L\(entry.snapshot.level)", tint: WidgetBrand.textPrimary),
-                        TaskWidgetStatItem(title: "Streak", value: "\(entry.snapshot.streakDays)d", tint: WidgetBrand.sunriseGoldDeep),
+                        TaskWidgetStatItem(title: "Active", value: "\(entry.snapshot.streakDays)d", tint: WidgetBrand.sunriseGoldDeep),
                         TaskWidgetStatItem(title: "Focus", value: "\(entry.snapshot.focusMinutesToday)m", tint: WidgetBrand.sky)
                     ])
                 }
@@ -148,7 +148,7 @@ struct TodayXPWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Today's XP \(entry.snapshot.dailyXP). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText).")
+        .accessibilityLabel("Today rhythm \(entry.snapshot.dailyXP). \(entry.snapshot.streakDays) active days. \(freshnessText).")
     }
 
     private func xpRing(size: CGFloat, lineWidth: CGFloat, reduceMotion: Bool) -> some View {

@@ -45,6 +45,34 @@ public struct LifeBoardBrandPalette: Equatable, @unchecked Sendable {
     public let inkDark: UIColor
     public let parchmentLight: UIColor
 
+    public static let sunrise = LifeBoardBrandPalette(
+        brandEmerald: UIColor(lifeboardHex: "#28B53F"),
+        brandMagenta: UIColor(lifeboardHex: "#6842FF"),
+        brandMarigold: UIColor(lifeboardHex: "#FFB300"),
+        brandRed: UIColor(lifeboardHex: "#FF7A3D"),
+        brandSandstone: UIColor(lifeboardHex: "#FF7A3D"),
+        neutralIvory: UIColor(lifeboardHex: "#FFFDFC"),
+        neutralCream: UIColor(lifeboardHex: "#FFF8EF"),
+        neutralMist: UIColor(lifeboardHex: "#F7FBFF"),
+        neutralStone: UIColor(lifeboardHex: "#DDE3EE"),
+        neutralSandGray: UIColor(lifeboardHex: "#B9C7DC"),
+        neutralUmber: UIColor(lifeboardHex: "#48607F"),
+        neutralInk: UIColor(lifeboardHex: "#071B52"),
+        neutralDarkInk0: UIColor(lifeboardHex: "#080C17"),
+        neutralDarkInk1: UIColor(lifeboardHex: "#10101A"),
+        neutralDarkInk2: UIColor(lifeboardHex: "#171C2B"),
+        neutralDarkInk3: UIColor(lifeboardHex: "#20263A"),
+        neutralDarkBorder1: UIColor(lifeboardHex: "#3A4258"),
+        neutralDarkBorder2: UIColor(lifeboardHex: "#56617B"),
+        neutralDarkText1: UIColor(lifeboardHex: "#F7F1E7"),
+        neutralDarkText2: UIColor(lifeboardHex: "#C9D2E3"),
+        neutralDarkText3: UIColor(lifeboardHex: "#9DAAC2"),
+        neutralDarkDisabled: UIColor(lifeboardHex: "#7E8AA2"),
+        inkDark: UIColor(lifeboardHex: "#071B52"),
+        parchmentLight: UIColor(lifeboardHex: "#FFF8EF")
+    )
+
+    @available(*, deprecated, message: "Use .sunrise. Sarvam is retained only for migration compatibility.")
     public static let sarvam = LifeBoardBrandPalette(
         brandEmerald: UIColor(lifeboardHex: "#293A18"),
         brandMagenta: UIColor(lifeboardHex: "#B1205F"),
@@ -74,14 +102,14 @@ public struct LifeBoardBrandPalette: Equatable, @unchecked Sendable {
 }
 
 public enum LifeBoardThreadSafeTokenResolver {
-    private static let sarvamColorTokens = LifeBoardColorTokens.make(palette: .sarvam)
+    private static let sunriseColorTokens = LifeBoardColorTokens.make(palette: .sunrise)
 
     /// - Parameter traits: Reserved for future trait-aware token resolution; currently unused.
     public static func color(
         for role: LifeBoardColorRole,
         traits _: LifeBoardTokenTraitContext = .unspecified
     ) -> UIColor {
-        sarvamColorTokens.color(for: role)
+        sunriseColorTokens.color(for: role)
     }
 }
 
@@ -147,7 +175,7 @@ public struct LifeBoardTheme {
     public init(index: Int = 0) {
         // `index` is retained for backward compatibility, but the app now ships a single palette.
         self.index = index
-        self.palette = .sarvam
+        self.palette = .sunrise
         self.patterns = LifeBoardPatternTokens(palette: palette)
         self.widgets = LifeBoardWidgetTokens(palette: palette)
         self.tokens = LifeBoardTokens(

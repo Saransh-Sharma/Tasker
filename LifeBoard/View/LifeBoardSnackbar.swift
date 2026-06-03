@@ -73,6 +73,7 @@ struct LifeBoardSnackbar: View {
                         .foregroundColor(Color.lifeboard.accentPrimary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("lifeboard.snackbar.action.\(action.title.lowercased().replacingOccurrences(of: " ", with: "_"))")
             }
         }
         .padding(.horizontal, spacing.s16)
@@ -116,6 +117,7 @@ struct LifeBoardSnackbar: View {
                 dismissSnackbar()
             }
         }
+        .accessibilityIdentifier("lifeboard.snackbar")
     }
 
     /// Executes dismissSnackbar.

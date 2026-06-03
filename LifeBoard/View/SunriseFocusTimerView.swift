@@ -1,6 +1,7 @@
 import SwiftUI
+import UIKit
 
-/// Full-screen focus session timer with XP tracking.
+/// Full-screen focus session timer using Sunrise focus role styling.
 public struct SunriseFocusTimerView: View {
 
     let taskTitle: String?
@@ -14,6 +15,9 @@ public struct SunriseFocusTimerView: View {
     @State private var timer: Timer?
     @State private var completionSent: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let focusStyle = LBColorTokens.role(.focus)
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
 
     private var remainingSeconds: Int {
@@ -23,10 +27,6 @@ public struct SunriseFocusTimerView: View {
     private var progress: CGFloat {
         guard targetDurationSeconds > 0 else { return 0 }
         return min(1.0, CGFloat(elapsedSeconds) / CGFloat(targetDurationSeconds))
-    }
-
-    private var currentXP: Int {
-        XPCalculationEngine.focusSessionXP(durationSeconds: elapsedSeconds)
     }
 
     private var timeString: String {
@@ -39,110 +39,107 @@ public struct SunriseFocusTimerView: View {
         VStack(spacing: spacing.s16) {
             HStack {
                 Spacer()
-                Button(action: onCancel) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color.lifeboard.textTertiary)
-                        .frame(width: 44, height: 44)
-                }
+                Button("Close", systemImage: "xmark", action: onCancel)
+                    .labelStyle(.iconOnly)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .frame(width: 44, height: 44)
+                    .background(LBColorTokens.glassStrong, in: Circle())
+                    .overlay(Circle().stroke(LBColorTokens.glassBorder, lineWidth: 1))
                 .accessibilityLabel("Close")
             }
             .padding(.horizontal, spacing.screenHorizontal)
 
             Spacer()
 
-            // Timer Ring
             ZStack {
                 Circle()
-                    .stroke(Color.lifeboard.accentSecondaryMuted, lineWidth: GamificationTokens.focusTimerRingWidth)
+                    .stroke(focusStyle.border.opacity(0.56), lineWidth: 12)
 
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
-                        AngularGradient(
-                            gradient: Gradient(colors: [Color.lifeboard.accentPrimary, Color.lifeboard.accentSecondary]),
-                            center: .center,
-                            startAngle: .degrees(-90),
-                            endAngle: .degrees(270)
-                        ),
-                        style: StrokeStyle(lineWidth: GamificationTokens.focusTimerRingWidth, lineCap: .round)
+                        focusStyle.base,
+                        style: StrokeStyle(lineWidth: 12, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .animation(.linear(duration: 1), value: progress)
+                    .animation(reduceMotion ? nil : .linear(duration: 1), value: progress)
 
-                Text(timeString)
-                    .font(.system(size: GamificationTokens.focusTimerFontSize, weight: .light, design: .rounded))
-                    .foregroundColor(Color.lifeboard.textPrimary)
-                    .monospacedDigit()
+                VStack(spacing: 8) {
+                    Text(timeString)
+                        .font(.system(.largeTitle, design: .rounded).weight(.semibold))
+                        .foregroundStyle(LBColorTokens.navy)
+                        .monospacedDigit()
+                    Text(isRunning ? "Protected focus" : "Paused")
+                        .font(.lifeboard(.callout))
+                        .fontDesign(.rounded)
+                        .foregroundStyle(LBColorTokens.navyMuted)
+                }
             }
-            .frame(width: GamificationTokens.focusTimerSize, height: GamificationTokens.focusTimerSize)
+            .frame(width: 248, height: 248)
+            .padding(20)
+            .background(focusStyle.softSurface.opacity(0.72), in: Circle())
+            .overlay(Circle().stroke(focusStyle.border, lineWidth: 1))
 
-            // Task Info
             if let title = taskTitle {
                 VStack(spacing: spacing.s4) {
                     Text(title)
                         .font(.lifeboard(.headline))
-                        .foregroundColor(Color.lifeboard.textPrimary)
-                        .lineLimit(2)
+                        .fontDesign(.rounded)
+                        .foregroundStyle(LBColorTokens.navy)
+                        .lineLimit(3)
                         .multilineTextAlignment(.center)
 
                     if let priority = taskPriority {
                         Text(priority)
                             .font(.lifeboard(.caption1))
-                            .foregroundColor(Color.lifeboard.textTertiary)
+                            .fontDesign(.rounded)
+                            .foregroundStyle(LBColorTokens.navyMuted)
                     }
                 }
+                .padding(.horizontal, spacing.screenHorizontal)
             }
 
             Spacer()
 
-            // Controls
             VStack(spacing: spacing.s12) {
-                Button(action: {
-                    if isRunning {
-                        pauseTimer()
-                    } else {
-                        resumeTimer()
-                    }
-                }) {
-                    Text(isRunning ? "Pause" : "Resume")
-                        .font(.lifeboard(.bodyEmphasis))
-                        .foregroundColor(Color.lifeboard.accentPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.lifeboard.accentPrimary, lineWidth: 1.5)
-                        )
+                Button(isRunning ? "Pause focus" : "Resume focus", systemImage: isRunning ? "pause.fill" : "play.fill") {
+                    isRunning ? pauseTimer() : resumeTimer()
                 }
+                .font(.lifeboard(.bodyEmphasis))
+                .fontDesign(.rounded)
+                .foregroundStyle(focusStyle.deep)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background(LBColorTokens.glassStrong, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(focusStyle.border, lineWidth: 1))
 
-                Button(action: {
+                Button("Finish focus", systemImage: "checkmark") {
                     completeIfNeeded()
-                }) {
-                    Text("Complete Session")
-                        .font(.lifeboard(.bodyEmphasis))
-                        .foregroundColor(Color.lifeboard.textInverse)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.lifeboard.accentPrimary)
-                        )
                 }
-
-                // XP earned so far
-                Text("+\(currentXP) XP earned so far")
-                    .font(.lifeboard(.caption1))
-                    .foregroundColor(Color.lifeboard.textTertiary)
+                .font(.lifeboard(.bodyEmphasis))
+                .fontDesign(.rounded)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(
+                    LinearGradient(colors: LBColorTokens.actionGradient(for: .focus), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                )
             }
             .padding(.horizontal, spacing.screenHorizontal)
             .padding(.bottom, spacing.s16)
         }
-        .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
+        .background(
+            LinearGradient(
+                colors: [LBColorTokens.coolCanvas, focusStyle.softSurface.opacity(0.64), LBColorTokens.canvas],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
         .onAppear { startTimer() }
         .onDisappear { stopTimer() }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Focus timer. \(remainingSeconds / 60) minutes remaining. \(currentXP) XP earned.")
+        .accessibilityLabel("Focus timer. \(remainingSeconds / 60) minutes remaining.")
     }
 
     // MARK: - Timer Control

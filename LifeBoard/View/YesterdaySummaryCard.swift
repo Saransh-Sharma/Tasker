@@ -32,13 +32,13 @@ struct YesterdaySummaryCard: View {
                 .padding(.trailing, 72)
 
                 VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
-                    Text("Habit streaks")
+                    Text("Habit rhythm")
                         .font(.lifeboard(.caption1).weight(.semibold))
                         .foregroundStyle(LBColorTokens.navySoft)
 
                     if snapshot.habitGrid.isEmpty {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("No streak signal yet")
+                            Text("No habit signal yet")
                                 .font(.lifeboard(.callout).weight(.semibold))
                                 .foregroundStyle(LBColorTokens.navy)
                             Text("Start with one protected habit today.")
@@ -74,7 +74,7 @@ struct YesterdaySummaryCard: View {
         )
         .shadow(color: ReflectPlanStyle.shadow, radius: 22, x: 0, y: 12)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Yesterday summary. \(summaryCopy.headline). \(summaryCopy.detail). Habit streaks available.")
+        .accessibilityLabel("Yesterday summary. \(summaryCopy.headline). \(summaryCopy.detail). Habit rhythm available.")
     }
 
     private var iconToken: some View {

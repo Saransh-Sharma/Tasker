@@ -84,7 +84,14 @@ struct SettingsRootView: View {
             }
             .padding(.bottom, spacing.s24)
         }
-        .background(Color.lifeboard(.bgCanvas))
+        .background {
+            LinearGradient(
+                colors: [LBColorTokens.canvas, LBColorTokens.warmCanvas.opacity(0.72), LBColorTokens.coolCanvas.opacity(0.62)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        }
         .onAppear {
             viewModel.reload()
             timelineAnchorDraft = TimelineAnchorDraft(preferences: viewModel.workspacePreferences)
@@ -347,12 +354,7 @@ struct SettingsRootView: View {
 
     private var chiefOfStaffIdentityCard: some View {
         HStack(alignment: .center, spacing: spacing.s12) {
-            EvaMascotView(
-                placement: .settingsIdentity,
-                size: .inline,
-                accessibilityLabel: viewModel.selectedMascotPersona.displayName,
-                mascotID: viewModel.selectedMascotID
-            )
+            SunriseDecorImage(asset: .thinkingCup, size: 58, opacity: 0.92)
             VStack(alignment: .leading, spacing: spacing.s4) {
                 Text(viewModel.selectedMascotPersona.displayName)
                     .font(.lifeboard(.headline))
@@ -509,8 +511,8 @@ struct SettingsRootView: View {
                 LifeBoardSettingsCard {
                     LifeBoardSettingsToggleRow(
                         iconName: "exclamationmark.triangle.fill",
-                        title: "Overdue Nudges",
-                        subtitle: "Get reminders when tasks become overdue.",
+                        title: "Rescue Nudges",
+                        subtitle: "Get reminders when tasks need a calmer follow-up decision.",
                         isOn: Binding(
                             get: { viewModel.preferences.overdueNudgesEnabled },
                             set: { viewModel.togglePreference(\.overdueNudgesEnabled, value: $0) }

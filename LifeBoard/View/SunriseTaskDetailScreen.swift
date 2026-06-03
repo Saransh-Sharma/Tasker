@@ -509,7 +509,6 @@ struct SunriseTaskDetailScreen: View {
     private var contextDisclosure: some View {
         disclosureCard(.context, title: "Context", systemImage: "text.bubble", summary: contextSummary, accessibilityIdentifier: "taskDetail.disclosure.context") {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                LifeBoardHeroMetricTile(title: "Reward", value: detailXPPreview.shortLabel, detail: "Complete now", tone: .accent)
                 if !viewModel.recentReflectionNotes.isEmpty {
                     ForEach(viewModel.recentReflectionNotes.prefix(3), id: \.id) { note in
                         VStack(alignment: .leading, spacing: 4) {
@@ -711,15 +710,6 @@ struct SunriseTaskDetailScreen: View {
         .ignoresSafeArea()
     }
 
-    private var detailXPPreview: XPCompletionPreview {
-        XPCalculationEngine.completionXPIfCompletedNow(
-            priorityRaw: viewModel.selectedPriority.rawValue,
-            estimatedDuration: viewModel.estimatedDuration,
-            dueDate: viewModel.dueDate,
-            isGamificationV2Enabled: isGamificationV2Enabled
-        )
-    }
-
     private var hasReminderBinding: Binding<Bool> {
         Binding(
             get: { viewModel.reminderTime != nil },
@@ -790,7 +780,6 @@ struct SunriseTaskDetailScreen: View {
 
     private var contextSummary: String {
         var parts: [String] = []
-        parts.append("Reward preview")
         if viewModel.contextSummary != "Extra context is hidden" { parts.append(viewModel.contextSummary) }
         return parts.isEmpty ? "Reflections and project context." : parts.joined(separator: " · ")
     }
@@ -802,7 +791,6 @@ struct SunriseTaskDetailScreen: View {
     private var showsContextDisclosure: Bool {
         viewModel.recentReflectionNotes.isEmpty == false
             || viewModel.projectMotivation != nil
-            || detailXPPreview.awardedXP > 0
     }
 
     private var taskAccentColor: Color {

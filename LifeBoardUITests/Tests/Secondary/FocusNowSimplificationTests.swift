@@ -69,6 +69,34 @@ final class FocusNowSimplificationTests: BaseUITest {
         )
     }
 
+    func testFocusNowCardFlipRevealsBackActionsAndCanReturnToFront() throws {
+        relaunchWithFocusSeed()
+        XCTAssertTrue(homePage.focusTitleTap.waitForExistence(timeout: 5), "Focus title tap target should exist")
+
+        if homePage.focusTitleTap.isHittable {
+            homePage.focusTitleTap.tap()
+        } else {
+            homePage.focusTitleTap.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+
+        XCTAssertTrue(app.descendants(matching: .any)["focusNow.deck"].waitForExistence(timeout: 3), "Focus Now deck should render")
+
+        let firstCard = app.descendants(matching: .any)["focusNow.card.0"]
+        XCTAssertTrue(firstCard.waitForExistence(timeout: 3), "First focus card should render")
+        if firstCard.isHittable {
+            firstCard.tap()
+        } else {
+            firstCard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+        }
+
+        XCTAssertTrue(app.buttons["focusNow.card.startTimer"].waitForExistence(timeout: 3), "Flipped card should expose Start timer")
+        XCTAssertTrue(app.buttons["View details"].exists, "Flipped card should expose View details")
+
+        app.buttons["focusNow.card.back"].tap()
+
+        XCTAssertTrue(app.buttons["focusNow.card.swap"].waitForExistence(timeout: 3), "Returning to the front should expose the swap affordance")
+    }
+
     func testHomeShowsWeeklySummaryAsSecondaryAccessInsteadOfPrimaryRail() throws {
         relaunchWithFocusSeed()
 

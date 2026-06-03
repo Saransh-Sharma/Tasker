@@ -110,7 +110,7 @@ struct HomeTimelineProjectionBuilder {
 
         let dayTasks = timelineTasksForSelectedDay(input.taskCandidates, input: input)
         let allDayTasks = dayTasks.filter { task in
-            task.isAllDay
+            timelineAllDayDate(for: task, calendar: input.calendar) != nil
         }
         let inboxTasks = dayTasks.filter { task in
             task.isComplete == false
@@ -141,6 +141,13 @@ struct HomeTimelineProjectionBuilder {
         let allDayItems = allDayTasks.map { timelinePlanItem(from: $0, input: input, lookupContext: lookupContext) } + calendarAllDayItems
         let inboxItems = inboxTasks.map { timelinePlanItem(from: $0, input: input, lookupContext: lookupContext) }
         let baseTimedItems = (timedTaskItems + calendarTimedItems).sorted(by: timelinePlanItemSort)
+        logRescueTimelineClassification(
+            input: input,
+            dayTasks: dayTasks,
+            allDayTasks: allDayTasks,
+            timedItems: timedTaskItems,
+            inboxTasks: inboxTasks
+        )
         let timedBuckets = partitionTimelineItems(
             baseTimedItems,
             wakeAnchor: wakeAnchor,
@@ -809,6 +816,37 @@ struct HomeTimelineProjectionBuilder {
         return (lhs.endDate ?? lhsStart) < (rhs.endDate ?? rhsStart)
     }
 
+    private func logRescueTimelineClassification(
+        input: HomeTimelineProjectionInput,
+        dayTasks: [TaskDefinition],
+        allDayTasks: [TaskDefinition],
+        timedItems: [TimelinePlanItem],
+        inboxTasks: [TaskDefinition]
+    ) {
+        let rescueCandidates = input.taskCandidates.filter {
+            $0.title.localizedCaseInsensitiveContains("rescue")
+        }
+        guard rescueCandidates.isEmpty == false else { return }
+
+        let dayTaskIDs = Set(dayTasks.map(\.id))
+        let allDayTaskIDs = Set(allDayTasks.map(\.id))
+        let timedTaskIDs = Set(timedItems.compactMap(\.taskID))
+        let inboxTaskIDs = Set(inboxTasks.map(\.id))
+        let dayRescueCount = rescueCandidates.filter { dayTaskIDs.contains($0.id) }.count
+        let allDayRescueCount = rescueCandidates.filter { allDayTaskIDs.contains($0.id) }.count
+        let timedRescueCount = rescueCandidates.filter { timedTaskIDs.contains($0.id) }.count
+        let inboxRescueCount = rescueCandidates.filter { inboxTaskIDs.contains($0.id) }.count
+        logDebug(
+            "HOME_TIMELINE rescue_classification " +
+            "candidate_count=\(input.taskCandidates.count) " +
+            "rescue_candidate_count=\(rescueCandidates.count) " +
+            "day=\(dayRescueCount) " +
+            "all_day=\(allDayRescueCount) " +
+            "timed=\(timedRescueCount) " +
+            "inbox=\(inboxRescueCount)"
+        )
+    }
+
     private func timelineAnchorTime(on day: Date, hour: Int, minute: Int, calendar: Calendar) -> Date {
         calendar.date(
             bySettingHour: max(0, min(23, hour)),
@@ -819,14 +857,25 @@ struct HomeTimelineProjectionBuilder {
     }
 
     private func timelinePlacementDate(for task: TaskDefinition, calendar: Calendar) -> Date? {
-        task.scheduledStartAt ?? task.dueDate
+        task.scheduledStartAt ?? (timelineIsDateOnlyDueDate(task.dueDate, calendar: calendar) ? nil : task.dueDate)
     }
 
     private func timelineAllDayDate(for task: TaskDefinition, calendar: Calendar) -> Date? {
         if task.isAllDay {
             return task.dueDate ?? task.scheduledStartAt
         }
+        if timelineIsDateOnlyDueDate(task.dueDate, calendar: calendar) {
+            return task.dueDate
+        }
         return nil
+    }
+
+    private func timelineIsDateOnlyDueDate(_ date: Date?, calendar: Calendar) -> Bool {
+        guard let date else { return false }
+        let components = calendar.dateComponents([.hour, .minute, .second], from: date)
+        return (components.hour ?? 0) == 0
+            && (components.minute ?? 0) == 0
+            && (components.second ?? 0) == 0
     }
 
     private func timelineDayKey(for date: Date, calendar: Calendar) -> String {

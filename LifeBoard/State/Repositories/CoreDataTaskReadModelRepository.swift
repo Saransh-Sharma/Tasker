@@ -20,6 +20,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
     public init(container: NSPersistentContainer) {
         self.context = container.newBackgroundContext()
         self.context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
+        self.context.automaticallyMergesChangesFromParent = true
     }
 
     /// Executes fetchTasks.
@@ -27,6 +28,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
+                self.context.reset()
                 let predicate = self.predicate(for: query)
                 let entities = try self.fetchTaskEntities(
                     predicate: predicate,
@@ -59,6 +61,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
+                self.context.reset()
                 let predicate = self.searchPredicate(for: query)
                 let entities = try self.fetchTaskEntities(
                     predicate: predicate,
@@ -90,6 +93,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
+                self.context.reset()
                 let predicate = self.searchPredicate(for: query, referenceDate: Date())
                 let entities = try self.fetchTaskEntities(
                     predicate: predicate,
@@ -124,6 +128,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
+                self.context.reset()
                 let predicate = self.homeProjectionPredicate(for: query)
                 let entities = try self.fetchTaskEntities(
                     predicate: predicate,
@@ -158,6 +163,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
+                self.context.reset()
                 let predicate = self.needsReplanCandidatePredicate(for: query)
                 let entities = try self.fetchTaskEntities(
                     predicate: predicate,
@@ -192,6 +198,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         let callback = TaskReadModelCompletion(completion)
         context.perform {
             do {
+                self.context.reset()
                 let predicate = self.homeTimelineProjectionPredicate(for: query)
                 let entities = try self.fetchTaskEntities(
                     predicate: predicate,

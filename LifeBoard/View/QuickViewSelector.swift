@@ -170,7 +170,7 @@ public struct QuickViewSelector: View {
         switch quickView {
         case .today: return "sun.max.fill"
         case .upcoming: return "calendar.badge.clock"
-        case .overdue: return "flame.fill"
+        case .overdue: return "lifepreserver"
         case .done: return "checkmark.circle.fill"
         case .morning: return "sunrise.fill"
         case .evening: return "moon.stars.fill"

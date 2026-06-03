@@ -10,6 +10,7 @@ final class HomeUITestWorkspaceSeeder {
     private static var hasSeededUITestEstablishedWorkspace = false
     private static var hasSeededUITestSearchWorkspace = false
     private static var hasSeededUITestRescueWorkspace = false
+    private static var hasSeededUITestReflectPlanWorkspace = false
     private static var hasSeededUITestFocusWorkspace = false
     private static var hasSeededUITestHabitBoardWorkspace = false
     private static var hasSeededUITestQuietTrackingWorkspace = false
@@ -250,7 +251,9 @@ final class HomeUITestWorkspaceSeeder {
         let arguments = ProcessInfo.processInfo.arguments
         let shouldSeedExpandedRescue = arguments.contains("-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE")
         let shouldSeedCompactRescue = arguments.contains("-LIFEBOARD_TEST_SEED_COMPACT_RESCUE_WORKSPACE")
-        guard shouldSeedExpandedRescue || shouldSeedCompactRescue else {
+        let shouldSeedRescueTimeline = arguments.contains("-LIFEBOARD_TEST_SEED_RESCUE_TIMELINE_WORKSPACE")
+        let shouldSeedRescueSuite = arguments.contains("-LIFEBOARD_TEST_SEED_OVERDUE_RESCUE_SUITE")
+        guard shouldSeedExpandedRescue || shouldSeedCompactRescue || shouldSeedRescueTimeline || shouldSeedRescueSuite else {
             completion()
             return
         }
@@ -289,50 +292,134 @@ final class HomeUITestWorkspaceSeeder {
                     )
                 )
 
-                var requests = [
-                    CreateTaskDefinitionRequest(
-                        title: "Rescue oldest",
-                        details: "UI test rescue seed",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(byAdding: .day, value: -20, to: anchorDay),
-                        priority: .max,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        title: "Rescue middle",
-                        details: "UI test rescue seed",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(byAdding: .day, value: -18, to: anchorDay),
-                        priority: .high,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        title: "Rescue newest",
-                        details: "UI test rescue seed",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(byAdding: .day, value: -16, to: anchorDay),
-                        priority: .low,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        title: "Today focus seed",
-                        details: "UI test rescue seed",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(byAdding: .hour, value: 10, to: anchorDay),
-                        priority: .high,
-                        createdAt: now
+                var requests: [CreateTaskDefinitionRequest]
+                var seededRescueTimelineTaskID: UUID?
+                if shouldSeedRescueTimeline {
+                    let taskID = UUID(uuidString: "20000000-0000-0000-0000-000000000101") ?? UUID()
+                    seededRescueTimelineTaskID = taskID
+                    let overdueDay = calendar.date(byAdding: .day, value: -15, to: anchorDay) ?? anchorDay
+                    let scheduledStart = calendar.date(bySettingHour: 9, minute: 30, second: 0, of: overdueDay) ?? overdueDay
+                    let scheduledEnd = scheduledStart.addingTimeInterval(45 * 60)
+                    logDebug(
+                        "UI_TEST_RESCUE_TIMELINE seed task_id=\(taskID.uuidString) " +
+                        "due=\(scheduledStart) scheduled_start=\(scheduledStart) scheduled_end=\(scheduledEnd) is_all_day=false"
                     )
-                ]
+                    requests = [
+                        CreateTaskDefinitionRequest(
+                            id: taskID,
+                            title: "Rescue timeline quick win",
+                            details: "UI test rescue timeline seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: scheduledStart,
+                            scheduledStartAt: scheduledStart,
+                            scheduledEndAt: scheduledEnd,
+                            isAllDay: false,
+                            priority: .high,
+                            estimatedDuration: 45 * 60,
+                            createdAt: now
+                        )
+                    ]
+                } else if shouldSeedRescueSuite {
+                    requests = [
+                        CreateTaskDefinitionRequest(
+                            id: UUID(uuidString: "21000000-0000-0000-0000-000000000001") ?? UUID(),
+                            title: "Rescue suite keep first",
+                            details: "UI test overdue rescue suite seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .day, value: -21, to: anchorDay),
+                            scheduledStartAt: calendar.date(bySettingHour: 8, minute: 30, second: 0, of: calendar.date(byAdding: .day, value: -21, to: anchorDay) ?? anchorDay),
+                            scheduledEndAt: calendar.date(bySettingHour: 9, minute: 15, second: 0, of: calendar.date(byAdding: .day, value: -21, to: anchorDay) ?? anchorDay),
+                            isAllDay: false,
+                            priority: .max,
+                            estimatedDuration: 45 * 60,
+                            createdAt: now
+                        ),
+                        CreateTaskDefinitionRequest(
+                            id: UUID(uuidString: "21000000-0000-0000-0000-000000000002") ?? UUID(),
+                            title: "Rescue suite move later",
+                            details: "UI test overdue rescue suite seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .day, value: -18, to: anchorDay),
+                            priority: .low,
+                            estimatedDuration: 20 * 60,
+                            createdAt: now
+                        ),
+                        CreateTaskDefinitionRequest(
+                            id: UUID(uuidString: "21000000-0000-0000-0000-000000000003") ?? UUID(),
+                            title: "Rescue suite edit me",
+                            details: "UI test overdue rescue suite seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .day, value: -16, to: anchorDay),
+                            priority: .high,
+                            estimatedDuration: 30 * 60,
+                            createdAt: now
+                        ),
+                        CreateTaskDefinitionRequest(
+                            id: UUID(uuidString: "21000000-0000-0000-0000-000000000004") ?? UUID(),
+                            title: "Rescue suite delete guarded",
+                            details: "This task has details so delete requires confirmation.",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .day, value: -15, to: anchorDay),
+                            priority: .high,
+                            createdAt: now
+                        )
+                    ]
+                } else {
+                    requests = [
+                        CreateTaskDefinitionRequest(
+                            title: "Rescue oldest",
+                            details: "UI test rescue seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .day, value: -20, to: anchorDay),
+                            priority: .max,
+                            createdAt: now
+                        ),
+                        CreateTaskDefinitionRequest(
+                            title: "Rescue middle",
+                            details: "UI test rescue seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .day, value: -18, to: anchorDay),
+                            priority: .high,
+                            createdAt: now
+                        ),
+                        CreateTaskDefinitionRequest(
+                            title: "Rescue newest",
+                            details: "UI test rescue seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .day, value: -16, to: anchorDay),
+                            priority: .low,
+                            createdAt: now
+                        ),
+                        CreateTaskDefinitionRequest(
+                            title: "Today focus seed",
+                            details: "UI test rescue seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .hour, value: 10, to: anchorDay),
+                            priority: .high,
+                            createdAt: now
+                        )
+                    ]
+                }
 
-                if includeHiddenRescueRow {
+                if includeHiddenRescueRow && shouldSeedRescueTimeline == false {
                     requests.insert(
                         CreateTaskDefinitionRequest(
                             title: "Rescue hidden",
@@ -352,6 +439,9 @@ final class HomeUITestWorkspaceSeeder {
                     _ = try await createTaskDefinition.executeAsync(request: request)
                 }
                 viewModel?.invalidateTaskCaches()
+                if let seededRescueTimelineTaskID {
+                    logDebug("UI_TEST_RESCUE_TIMELINE seeded task_id=\(seededRescueTimelineTaskID.uuidString)")
+                }
             } catch {
                 logError(
                     event: "ui_test_rescue_workspace_seed_failed",
@@ -364,8 +454,218 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 
+    func seedUITestReflectPlanWorkspaceIfNeeded(
+        presentationDependencyContainer: PresentationDependencyContainer?,
+        viewModel: HomeViewModel?,
+        completion: @escaping () -> Void
+    ) {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_REFLECT_PLAN_SUITE") else {
+            completion()
+            return
+        }
+        guard Self.hasSeededUITestReflectPlanWorkspace == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededUITestReflectPlanWorkspace = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
+                let updateTaskDefinition = presentationDependencyContainer.coordinator.updateTaskDefinition
+                let createHabit = presentationDependencyContainer.coordinator.createHabit
+                let resolveHabitOccurrence = presentationDependencyContainer.coordinator.resolveHabitOccurrence
+                let reflectionStore = presentationDependencyContainer.coordinator.dailyReflectionStore
+
+                let calendar = Calendar.current
+                let now = Date()
+                let today = calendar.startOfDay(for: now)
+                let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+                let completedAt = calendar.date(bySettingHour: 17, minute: 20, second: 0, of: yesterday) ?? yesterday
+
+                let lifeArea = try await manageLifeAreas.createAsync(
+                    name: "Reflection Systems",
+                    color: "#6A4E8A",
+                    icon: "sparkles"
+                )
+                let project = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Reflect Plan Suite",
+                        description: "UI test reflect and plan seed",
+                        lifeAreaID: lifeArea.id
+                    )
+                )
+
+                let completedTaskID = UUID(uuidString: "22000000-0000-0000-0000-000000000001") ?? UUID()
+                let completedSecondID = UUID(uuidString: "22000000-0000-0000-0000-000000000002") ?? UUID()
+                let taskRequests = [
+                    CreateTaskDefinitionRequest(
+                        id: completedTaskID,
+                        title: "Reflect shipped proposal",
+                        details: "Completed yesterday for reflect and plan UI tests",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: yesterday),
+                        priority: .max,
+                        estimatedDuration: 60 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: completedSecondID,
+                        title: "Reflect closed inbox",
+                        details: "Second completed yesterday seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(bySettingHour: 15, minute: 0, second: 0, of: yesterday),
+                        priority: .high,
+                        estimatedDuration: 30 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000003") ?? UUID(),
+                        title: "Reflect carryover contract",
+                        details: "Open carryover from yesterday",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(bySettingHour: 16, minute: 0, second: 0, of: yesterday),
+                        priority: .high,
+                        estimatedDuration: 45 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000004") ?? UUID(),
+                        title: "Plan API review",
+                        details: "Top task candidate for today",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(bySettingHour: 9, minute: 30, second: 0, of: today),
+                        priority: .max,
+                        estimatedDuration: 90 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000005") ?? UUID(),
+                        title: "Plan customer reply",
+                        details: "Planning candidate",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: today),
+                        priority: .high,
+                        estimatedDuration: 25 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000006") ?? UUID(),
+                        title: "Plan 15 min cleanup",
+                        details: "Quick stabilizer candidate",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(bySettingHour: 13, minute: 0, second: 0, of: today),
+                        priority: .low,
+                        estimatedDuration: 15 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000007") ?? UUID(),
+                        title: "Plan swap candidate",
+                        details: "Swap picker replacement candidate",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(bySettingHour: 14, minute: 0, second: 0, of: today),
+                        priority: .low,
+                        estimatedDuration: 20 * 60,
+                        createdAt: now
+                    )
+                ]
+
+                for request in taskRequests {
+                    _ = try await createTaskDefinition.executeAsync(request: request)
+                }
+
+                _ = try await updateTaskDefinitionAsync(
+                    updateTaskDefinition,
+                    request: UpdateTaskDefinitionRequest(
+                        id: completedTaskID,
+                        isComplete: true,
+                        dateCompleted: completedAt
+                    )
+                )
+                _ = try await updateTaskDefinitionAsync(
+                    updateTaskDefinition,
+                    request: UpdateTaskDefinitionRequest(
+                        id: completedSecondID,
+                        isComplete: true,
+                        dateCompleted: completedAt.addingTimeInterval(30 * 60)
+                    )
+                )
+
+                let habitID = UUID(uuidString: "22000000-0000-0000-0000-000000000101") ?? UUID()
+                let habit = try await createHabit.executeAsync(
+                    request: CreateHabitRequest(
+                        id: habitID,
+                        title: "Protect shutdown ritual",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "moon.stars.fill", categoryKey: "reflection"),
+                        colorHex: HabitColorFamily.purple.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: calendar.date(byAdding: .day, value: -8, to: today) ?? now
+                    )
+                )
+                try await resolveHabitOccurrence.executeAsync(
+                    habitID: habit.id,
+                    action: .lapsed,
+                    on: yesterday
+                )
+
+                if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_REFLECT_PLAN_COMPLETED") {
+                    let payload = ReflectionPayload(
+                        reflectionDate: yesterday,
+                        planningDate: today,
+                        mode: .catchUpYesterday,
+                        mood: .good,
+                        energy: .okay,
+                        frictionTags: [.tooMuchPlanned],
+                        note: "Seeded completed reflection"
+                    )
+                    _ = try reflectionStore.markCompleted(on: yesterday, completedAt: now, payload: payload)
+                }
+
+                viewModel?.invalidateTaskCaches()
+            } catch {
+                logError(
+                    event: "ui_test_reflect_plan_workspace_seed_failed",
+                    message: "Failed to seed Reflect and Plan workspace for UI tests",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
     func seedUITestFocusWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, completion: @escaping () -> Void) {
-        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_FOCUS_WORKSPACE") else {
+        let arguments = ProcessInfo.processInfo.arguments
+        let shouldSeedFocusWorkspace = arguments.contains("-LIFEBOARD_TEST_SEED_FOCUS_WORKSPACE")
+        let shouldSeedFocusNowSuite = arguments.contains("-LIFEBOARD_TEST_SEED_FOCUS_NOW_SUITE")
+        guard shouldSeedFocusWorkspace || shouldSeedFocusNowSuite else {
             completion()
             return
         }
@@ -504,10 +804,10 @@ final class HomeUITestWorkspaceSeeder {
                     _ = try await createHabit.executeAsync(request: request)
                 }
 
-                UserDefaults.standard.set(
-                    [focusRowID.uuidString],
-                    forKey: "home.focus.pinnedTaskIDs.v2"
-                )
+                let pinnedIDs = shouldSeedFocusNowSuite
+                    ? [focusRowID.uuidString, focusAID.uuidString, focusBID.uuidString]
+                    : [focusRowID.uuidString]
+                UserDefaults.standard.set(pinnedIDs, forKey: "home.focus.pinnedTaskIDs.v2")
                 UserDefaults.standard.removeObject(forKey: "home.eva.recentShuffleTaskIDs.v1")
             } catch {
                 logError(
@@ -518,6 +818,17 @@ final class HomeUITestWorkspaceSeeder {
             }
 
             completion()
+        }
+    }
+
+    private func updateTaskDefinitionAsync(
+        _ useCase: UpdateTaskDefinitionUseCase,
+        request: UpdateTaskDefinitionRequest
+    ) async throws -> TaskDefinition {
+        try await withCheckedThrowingContinuation { continuation in
+            useCase.execute(request: request) { result in
+                continuation.resume(with: result)
+            }
         }
     }
 

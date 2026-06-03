@@ -1745,10 +1745,24 @@ public final class HomeViewModel: ObservableObject {
     ) {
         var normalizedRequest = request
         normalizedRequest.updatedAt = Date()
+        logDebug(
+            "HOME_TASK_UPDATE request task_id=\(taskID.uuidString) " +
+            "due=\(request.dueDate?.description ?? "nil") clear_due=\(request.clearDueDate) " +
+            "scheduled_start=\(request.scheduledStartAt?.description ?? "nil") clear_start=\(request.clearScheduledStartAt) " +
+            "scheduled_end=\(request.scheduledEndAt?.description ?? "nil") clear_end=\(request.clearScheduledEndAt) " +
+            "is_all_day=\(request.isAllDay.map(String.init(describing:)) ?? "nil")"
+        )
         useCaseCoordinator.updateTaskDefinition.execute(request: normalizedRequest) { [weak self] result in
             Task { @MainActor in
                 switch result {
                 case .success(let task):
+                    logDebug(
+                        "HOME_TASK_UPDATE success task_id=\(task.id.uuidString) " +
+                        "due=\(task.dueDate?.description ?? "nil") " +
+                        "scheduled_start=\(task.scheduledStartAt?.description ?? "nil") " +
+                        "scheduled_end=\(task.scheduledEndAt?.description ?? "nil") " +
+                        "is_all_day=\(task.isAllDay)"
+                    )
                     self?.enqueueReload(
                         source: "update_task",
                         reason: self?.mutationReason(for: request) ?? .updated,
@@ -3833,6 +3847,15 @@ public final class HomeViewModel: ObservableObject {
             self.currentHabitSignals = self.habitSignals(from: allHabitRows)
             self.habitLibraryRowsByID = resolvedLibraryRowsByID
             let rescueSplit = self.splitRescueEligibleTasks(from: openTaskRows, on: day)
+            let rescueTailIDLimit = 5
+            let rescueTailIDs = rescueSplit.rescueEligibleTasks.prefix(rescueTailIDLimit).map { $0.id.uuidString }.joined(separator: ",")
+            let remainingRescueTailIDCount = max(0, rescueSplit.rescueEligibleTasks.count - rescueTailIDLimit)
+            let rescueTailIDSuffix = remainingRescueTailIDCount > 0 ? ",(+\(remainingRescueTailIDCount) more)" : ""
+            logDebug(
+                "HOME_RESCUE_TAIL split quick=\(scope.quickView.rawValue) input=\(openTaskRows.count) " +
+                "rescue=\(rescueSplit.rescueEligibleTasks.count) " +
+                "ids=\(rescueTailIDs)\(rescueTailIDSuffix)"
+            )
 
             let focusRows = self.composeFocusRows(taskRows: rescueSplit.focusTaskRows, habitRows: allHabitRows)
             let agendaTaskRows =
@@ -5608,8 +5631,17 @@ public final class HomeViewModel: ObservableObject {
         assignIfChanged(\.doneTimelineTasks, [])
         assignIfChanged(\.completedTasks, doneTasks)
         assignIfChanged(\.dailyCompletedTasks, doneTasks)
+        let dueTodayAgendaInputTasks: [TaskDefinition]
+        if scope.quickView == .today {
+            let rescueEligibleOverdue = result.matchingOpenTasks.filter {
+                isTaskOverdue($0, relativeTo: scope) && isRescueEligibleTask($0, on: targetDay)
+            }
+            dueTodayAgendaInputTasks = uniqueTasks(openTasks + rescueEligibleOverdue)
+        } else {
+            dueTodayAgendaInputTasks = openTasks
+        }
         refreshDueTodayAgenda(
-            openTaskRows: openTasks,
+            openTaskRows: dueTodayAgendaInputTasks,
             generation: generation,
             targetDay: targetDay,
             scope: scope
@@ -6239,6 +6271,10 @@ public final class HomeViewModel: ObservableObject {
         repostEvent: Bool,
         overrideScopes: Set<HomeReloadScope>? = nil
     ) {
+        logDebug(
+            "HOME_RELOAD enqueue source=\(source) reason=\(reason?.rawValue ?? "nil") " +
+            "invalidate=\(invalidateCaches) include_analytics=\(includeAnalytics) repost=\(repostEvent)"
+        )
         pendingReloadSources.insert(source)
         if let reason {
             pendingReloadReasons.insert(reason)
@@ -6287,6 +6323,12 @@ public final class HomeViewModel: ObservableObject {
         pendingReloadWorkItem = nil
 
         let reloadStartedAt = Date()
+        logDebug(
+            "HOME_RELOAD flush sources=\(sources.sorted().joined(separator: ",")) " +
+            "reasons=\(reasons.map(\.rawValue).sorted().joined(separator: ",")) " +
+            "scopes=\(scopes.map(\.rawValue).sorted().joined(separator: ",")) " +
+            "invalidate=\(shouldInvalidate)"
+        )
         if shouldInvalidate {
             invalidateTaskCaches()
         }
@@ -6357,6 +6399,11 @@ public final class HomeViewModel: ObservableObject {
     }
 
     func completeReloadBatchLifecycle() {
+        logDebug(
+            "HOME_RELOAD complete morning=\(morningTasks.count) evening=\(eveningTasks.count) " +
+            "overdue=\(overdueTasks.count) due_today_rows=\(dueTodayRows.count) " +
+            "today_sections=\(todaySections.count) data_revision=\(dataRevision.rawValue)"
+        )
         isApplyingReloadBatch = false
         if queuedReloadAfterCurrentBatch {
             queuedReloadAfterCurrentBatch = false

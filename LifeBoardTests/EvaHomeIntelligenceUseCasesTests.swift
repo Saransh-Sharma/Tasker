@@ -173,6 +173,42 @@ final class EvaHomeIntelligenceUseCasesTests: XCTestCase {
         XCTAssertEqual(snapshot.isComplete, false)
     }
 
+    func testBuildEvaBatchProposalShiftsTimedRescueMutationToTargetDay() {
+        let useCase = BuildEvaBatchProposalUseCase()
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 4, day: 21, hour: 10))!
+        let today = calendar.startOfDay(for: now)
+        let overdueDay = calendar.date(byAdding: .day, value: -2, to: today)!
+        let overdueStart = calendar.date(bySettingHour: 10, minute: 15, second: 0, of: overdueDay)!
+        let expectedStart = calendar.date(bySettingHour: 10, minute: 15, second: 0, of: today)!
+        let expectedEnd = expectedStart.addingTimeInterval(60 * 60)
+        var task = makeTask(
+            title: "Rescue to today",
+            dueDate: overdueStart,
+            priority: .high,
+            estimatedDuration: 60 * 60
+        )
+        task.scheduledStartAt = overdueStart
+        task.scheduledEndAt = overdueStart.addingTimeInterval(60 * 60)
+        task.isAllDay = false
+
+        let proposal = useCase.execute(
+            source: .rescue,
+            tasksByID: [task.id: task],
+            mutations: [EvaBatchMutationInstruction(taskID: task.id, dueDate: today)],
+            now: now
+        )
+
+        guard case .restoreTaskSnapshot(let snapshot) = proposal.envelope.commands.first else {
+            return XCTFail("Expected restoreTaskSnapshot command")
+        }
+
+        XCTAssertEqual(snapshot.dueDate, expectedStart)
+        XCTAssertEqual(snapshot.scheduledStartAt, expectedStart)
+        XCTAssertEqual(snapshot.scheduledEndAt, expectedEnd)
+        XCTAssertEqual(snapshot.isAllDay, false)
+    }
+
     private func makeTask(
         title: String,
         projectID: UUID = UUID(),

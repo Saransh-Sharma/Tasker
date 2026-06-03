@@ -160,25 +160,25 @@ public struct SunriseFocusZone: View {
 
     private var focusHeaderLabel: some View {
         HStack(spacing: spacing.s4) {
-            EvaMascotView(placement: .focusNextAction, size: .chip)
+            SunriseDecorImage(asset: hasTaskRows ? .thinkingCup : .cloud, size: 28, opacity: hasTaskRows ? 0.92 : 0.64)
                 .opacity(hasTaskRows ? 1.0 : 0.72)
 
             Text(LocalizedStringKey("Focus Now"))
                 .font(.lifeboard(.callout).weight(.semibold))
-                .foregroundColor(Color.lifeboard.textPrimary)
+                .foregroundStyle(Color.lifeboard.textPrimary)
         }
         .frame(minHeight: 36, alignment: .leading)
     }
 
     private var emptyState: some View {
         VStack(spacing: spacing.s4) {
-            EvaMascotView(placement: .focusStart, size: .chip)
+            SunriseDecorImage(asset: .thinkingCup, size: 34, opacity: 0.72)
                 .opacity(0.72)
                 .accessibilityHidden(true)
 
             Text(LocalizedStringKey(Self.emptyStateMessage(maxVisibleRows: maxVisibleRows)))
                 .font(.lifeboard(.caption1))
-                .foregroundColor(Color.lifeboard.textSecondary)
+                .foregroundStyle(Color.lifeboard.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)

@@ -145,7 +145,7 @@ extension HomeChromeSnapshot {
         case .upcoming:
             return quantified(quickViewCounts[.upcoming] ?? 0, singular: "upcoming task", plural: "upcoming tasks")
         case .overdue:
-            return quantified(tasks.overdueTasks.count, singular: "overdue task", plural: "overdue tasks")
+            return quantified(tasks.overdueTasks.count, singular: "rescue task", plural: "rescue tasks")
         case .done:
             return quantified(tasks.doneTimelineTasks.count, singular: "completed task", plural: "completed tasks")
         case .morning:
@@ -169,8 +169,8 @@ extension HomeChromeSnapshot {
 
         return HomeHeaderTodayStatusModel(
             completionText: completionText,
-            streakText: "\(progressState.streakDays)d",
-            streakAccessibilityLabel: "\(progressState.streakDays) day streak"
+            streakText: "\(progressState.streakDays)d active",
+            streakAccessibilityLabel: "\(progressState.streakDays) active days"
         )
     }
 

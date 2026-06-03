@@ -24,10 +24,10 @@ struct HomeMomentumSummaryCard: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             HStack(spacing: spacing.s12) {
                 NavPieChart(
-                    score: progress.earnedXP,
-                    maxScore: max(1, progress.todayTargetXP, progress.earnedXP + progress.remainingPotentialXP),
-                    accessibilityContainerID: "home.navXpPieChart",
-                    accessibilityButtonID: "home.navXpPieChart.button",
+                    score: completionPercent,
+                    maxScore: 100,
+                    accessibilityContainerID: "home.navProgressPieChart",
+                    accessibilityButtonID: "home.navProgressPieChart.button",
                     onTap: { onChartTap?() }
                 )
                 .padding(4)
@@ -38,10 +38,10 @@ struct HomeMomentumSummaryCard: View {
                 )
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(progress.earnedXP) XP")
+                    Text("Daily rhythm")
                         .font(.lifeboard(.bodyEmphasis))
                         .foregroundStyle(Color.lifeboard.textPrimary)
-                        .accessibilityIdentifier("home.dailyScoreLabel")
+                        .accessibilityIdentifier("home.dailyRhythmLabel")
                         .lineLimit(1)
 
                     HStack(spacing: spacing.s8) {
@@ -52,7 +52,7 @@ struct HomeMomentumSummaryCard: View {
                             .lineLimit(1)
 
                         streakIndicator
-                            .accessibilityIdentifier("home.streakLabel")
+                            .accessibilityIdentifier("home.activeDaysLabel")
                     }
                 }
 
@@ -98,19 +98,19 @@ struct HomeMomentumSummaryCard: View {
 
     private var streakIndicator: some View {
         HStack(spacing: 4) {
-            Image(systemName: "flame.fill")
+            Image(systemName: "leaf.fill")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(progress.isStreakSafeToday ? Color.lifeboard.accentSecondary : Color.lifeboard.statusWarning)
+                .foregroundStyle(Color.lifeboard.accentSecondary)
                 .symbolEffect(
                     .pulse,
                     options: .repeating.speed(0.5),
-                    isActive: !progress.isStreakSafeToday && animate
+                    isActive: false
                 )
 
-            Text("\(progress.streakDays)d")
+            Text("\(progress.streakDays)d active")
                 .font(.lifeboard(.caption1))
                 .fontWeight(.medium)
-                .foregroundStyle(progress.isStreakSafeToday ? Color.lifeboard.textSecondary : Color.lifeboard.statusWarning)
+                .foregroundStyle(Color.lifeboard.textSecondary)
         }
     }
 }

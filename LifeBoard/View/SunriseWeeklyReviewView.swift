@@ -160,7 +160,7 @@ private struct WeeklyReviewBlockingStateCard: View {
     var body: some View {
         WeeklySectionCard(title: title, detail: message) {
             HStack(spacing: 12) {
-                EvaMascotView(placement: showsProgress ? .weeklyChecklist : .weeklyReflection, size: .inline)
+                SunriseDecorImage(asset: showsProgress ? .decisionSign : .thinkingCup, size: 44, opacity: 0.9)
 
                 if showsProgress {
                     ProgressView()
@@ -211,7 +211,7 @@ private struct WeeklyReviewRealityStep: View {
                             .font(.lifeboard(.support))
                             .foregroundStyle(Color.lifeboard.textSecondary)
                     } else if selectedHabits.isEmpty {
-                        Text("Habit details will appear here after the review reloads current streaks.")
+                        Text("Habit details will appear here after the review reloads current rhythm.")
                             .font(.lifeboard(.support))
                             .foregroundStyle(Color.lifeboard.textSecondary)
                     } else {
@@ -229,8 +229,8 @@ private struct WeeklyReviewRealityStep: View {
                                 Spacer()
 
                                 LifeBoardStatusPill(
-                                    text: "\(habit.currentStreak)d streak",
-                                    systemImage: "flame.fill",
+                                    text: "\(habit.currentStreak)d active",
+                                    systemImage: "leaf.fill",
                                     tone: .accent
                                 )
                             }

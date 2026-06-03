@@ -522,7 +522,7 @@ struct OverdueRescueCardModel: Identifiable, Equatable, Sendable {
     }
 
     var overdueText: String {
-        overdueDays == 1 ? "Overdue by 1 day" : "Overdue by \(overdueDays) days"
+        overdueDays == 1 ? "Needs a decision for 1 day" : "Needs a decision for \(overdueDays) days"
     }
 
     var isHighConfidence: Bool {
@@ -883,9 +883,27 @@ final class OverdueRescueViewModel: ObservableObject {
     func keepToday(source: OverdueRescueDecisionSource) {
         guard let card = currentCard else { return }
         let today = Calendar.current.startOfDay(for: referenceDate)
+        let schedule = TaskRescueScheduleShifter.shift(task: card.task, to: today)
+        let dueDescription = schedule.dueDate?.description ?? "nil"
+        let startDescription = schedule.scheduledStartAt?.description ?? "nil"
+        let endDescription = schedule.scheduledEndAt?.description ?? "nil"
+        let previousDueDescription = card.task.dueDate?.description ?? "nil"
+        let previousStartDescription = card.task.scheduledStartAt?.description ?? "nil"
+        let previousEndDescription = card.task.scheduledEndAt?.description ?? "nil"
+        let logMessage = "OVERDUE_RESCUE keep_today_request task_id=\(card.id.uuidString) due=\(dueDescription) scheduled_start=\(startDescription) scheduled_end=\(endDescription) is_all_day=\(schedule.isAllDay) previous_due=\(previousDueDescription) previous_start=\(previousStartDescription) previous_end=\(previousEndDescription) previous_all_day=\(card.task.isAllDay)"
+        logDebug(logMessage)
         applyUpdate(
             task: card.task,
-            request: UpdateTaskDefinitionRequest(id: card.id, dueDate: today),
+            request: UpdateTaskDefinitionRequest(
+                id: card.id,
+                dueDate: schedule.dueDate,
+                clearDueDate: schedule.dueDate == nil,
+                scheduledStartAt: schedule.scheduledStartAt,
+                clearScheduledStartAt: schedule.clearScheduledStartAt,
+                scheduledEndAt: schedule.scheduledEndAt,
+                clearScheduledEndAt: schedule.clearScheduledEndAt,
+                isAllDay: schedule.isAllDay
+            ),
             action: .keepToday,
             source: source,
             message: "Kept on today"
@@ -899,9 +917,19 @@ final class OverdueRescueViewModel: ObservableObject {
             recommendation: card.recommendation,
             now: referenceDate
         )
+        let schedule = TaskRescueScheduleShifter.shift(task: card.task, to: dueDate)
         applyUpdate(
             task: card.task,
-            request: UpdateTaskDefinitionRequest(id: card.id, dueDate: dueDate),
+            request: UpdateTaskDefinitionRequest(
+                id: card.id,
+                dueDate: schedule.dueDate,
+                clearDueDate: schedule.dueDate == nil,
+                scheduledStartAt: schedule.scheduledStartAt,
+                clearScheduledStartAt: schedule.clearScheduledStartAt,
+                scheduledEndAt: schedule.scheduledEndAt,
+                clearScheduledEndAt: schedule.clearScheduledEndAt,
+                isAllDay: schedule.isAllDay
+            ),
             action: .moveLater,
             source: source,
             message: card.moveButtonTitle == "Move tomorrow" ? "Moved to tomorrow" : "Moved later"
@@ -1034,6 +1062,11 @@ final class OverdueRescueViewModel: ObservableObject {
                 projectID: record.taskSnapshot.projectID,
                 dueDate: record.taskSnapshot.dueDate,
                 clearDueDate: record.taskSnapshot.dueDate == nil,
+                scheduledStartAt: record.taskSnapshot.scheduledStartAt,
+                clearScheduledStartAt: record.taskSnapshot.scheduledStartAt == nil,
+                scheduledEndAt: record.taskSnapshot.scheduledEndAt,
+                clearScheduledEndAt: record.taskSnapshot.scheduledEndAt == nil,
+                isAllDay: record.taskSnapshot.isAllDay,
                 priority: record.taskSnapshot.priority,
                 isComplete: record.taskSnapshot.isComplete,
                 estimatedDuration: record.taskSnapshot.estimatedDuration,
@@ -1066,7 +1099,14 @@ final class OverdueRescueViewModel: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 switch result {
-                case .success:
+                case .success(let updatedTask):
+                    logDebug(
+                        "OVERDUE_RESCUE update_success task_id=\(updatedTask.id.uuidString) " +
+                        "action=\(action.rawValue) due=\(updatedTask.dueDate?.description ?? "nil") " +
+                        "scheduled_start=\(updatedTask.scheduledStartAt?.description ?? "nil") " +
+                        "scheduled_end=\(updatedTask.scheduledEndAt?.description ?? "nil") " +
+                        "is_all_day=\(updatedTask.isAllDay)"
+                    )
                     self.undoRecords.append(OverdueRescueUndoRecord(taskSnapshot: task, source: source, action: action, runID: nil))
                     switch action {
                     case .keepToday: self.summary.kept += 1
@@ -1398,7 +1438,7 @@ struct EvaOverdueRescueSheetV2: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             viewModel.pause()
         }
-        .accessibilityIdentifier("home.rescue.overlay")
+        .accessibilityIdentifier("home.rescue.sheet")
     }
 }
 
@@ -1462,7 +1502,8 @@ private struct OverdueRescueDeckView: View {
                 .frame(maxWidth: .infinity)
                 .frame(width: min(metrics.containerSize.width + 34, metrics.cardWidth + 64), height: metrics.deckHeight)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Overdue Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: Keep today, \(card.moveButtonTitle), Edit, Delete.")
+                .accessibilityLabel("Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: Keep today, \(card.moveButtonTitle), Edit, Delete.")
+                .accessibilityIdentifier("home.rescue.card.\(card.id.uuidString)")
                 .accessibilityAction(named: Text("Keep today")) {
                     viewModel.keepToday(source: .tap)
                 }
@@ -1543,7 +1584,7 @@ private struct OverdueRescueDeckView: View {
             .padding(.horizontal, OverdueRescueVisualSpec.screenHorizontalPadding)
 
             VStack(spacing: 6) {
-                Text("Overdue Rescue")
+                Text("Rescue")
                     .font(.lifeboard(.title2))
                     .fontWeight(.bold)
                     .foregroundStyle(OverdueRescuePalette.ink)
@@ -1904,6 +1945,7 @@ private struct OverdueRescueDeleteOverlay: View {
                     }
                     .buttonStyle(.plain)
                     .scaleOnPress()
+                    .accessibilityIdentifier("home.rescue.delete.confirm")
 
                     Button(action: onCancel) {
                         Text("Cancel")
@@ -1918,6 +1960,7 @@ private struct OverdueRescueDeleteOverlay: View {
                     }
                     .buttonStyle(.plain)
                     .scaleOnPress()
+                    .accessibilityIdentifier("home.rescue.delete.cancel")
                 }
             }
             .padding(28)
@@ -1935,6 +1978,7 @@ private struct OverdueRescueDeleteOverlay: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(deleteAccessibilityLabel)
+        .accessibilityIdentifier("home.rescue.delete.overlay")
     }
 
     private var deleteAccessibilityLabel: String {
@@ -2010,11 +2054,25 @@ private struct OverdueRescueActionGrid: View {
     }
 
     private var keepButton: some View {
-        actionButton(title: OverdueRescueDeckCopy.keepToday, icon: "checkmark.circle", fill: OverdueRescuePalette.keepFill, foreground: OverdueRescuePalette.keepForeground, action: keep)
+        actionButton(
+            title: OverdueRescueDeckCopy.keepToday,
+            icon: "checkmark.circle",
+            fill: OverdueRescuePalette.keepFill,
+            foreground: OverdueRescuePalette.keepForeground,
+            accessibilityIdentifier: "home.rescue.action.keepToday",
+            action: keep
+        )
     }
 
     private var moveButton: some View {
-        actionButton(title: OverdueRescueDeckCopy.moveLater, icon: "clock", fill: OverdueRescuePalette.moveFill, foreground: OverdueRescuePalette.moveForeground, action: move)
+        actionButton(
+            title: OverdueRescueDeckCopy.moveLater,
+            icon: "clock",
+            fill: OverdueRescuePalette.moveFill,
+            foreground: OverdueRescuePalette.moveForeground,
+            accessibilityIdentifier: "home.rescue.action.moveLater",
+            action: move
+        )
     }
 
     private var editButton: some View {
@@ -2025,7 +2083,14 @@ private struct OverdueRescueActionGrid: View {
         actionButton(title: OverdueRescueDeckCopy.delete, icon: "trash", fill: OverdueRescuePalette.deleteFill, foreground: OverdueRescuePalette.deleteForeground, action: delete)
     }
 
-    private func actionButton(title: String, icon: String, fill: Color, foreground: Color, action: @escaping () -> Void) -> some View {
+    private func actionButton(
+        title: String,
+        icon: String,
+        fill: Color,
+        foreground: Color,
+        accessibilityIdentifier: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Label(title, systemImage: icon)
                 .font(.lifeboard(.button))
@@ -2048,6 +2113,7 @@ private struct OverdueRescueActionGrid: View {
         .buttonStyle(.plain)
         .scaleOnPress()
         .accessibilityHint(accessibilityHint(for: title))
+        .accessibilityIdentifier(accessibilityIdentifier ?? "home.rescue.action.\(title.replacingOccurrences(of: " ", with: ""))")
     }
 
     private func accessibilityHint(for title: String) -> String {
@@ -2105,6 +2171,7 @@ private struct OverdueRescueQuickEditSheet: View {
                 .background(Circle().fill(Color.white.opacity(0.84)))
                 .foregroundStyle(OverdueRescuePalette.ink)
                 .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
+                .accessibilityIdentifier("home.rescue.edit.close")
             }
 
             HStack {
@@ -2137,6 +2204,7 @@ private struct OverdueRescueQuickEditSheet: View {
                 } label: {
                     editRow(icon: "calendar", title: "Due date", value: dueText)
                 }
+                .accessibilityIdentifier("home.rescue.edit.dueDate")
                 Divider()
                 Menu {
                     Button("15 min") { draft.duration = 15 * 60 }
@@ -2147,6 +2215,7 @@ private struct OverdueRescueQuickEditSheet: View {
                 } label: {
                     editRow(icon: "clock", title: "Duration", value: durationText)
                 }
+                .accessibilityIdentifier("home.rescue.edit.duration")
                 Divider()
                 Menu {
                     Button("No project") { draft.projectID = ProjectConstants.inboxProjectID }
@@ -2156,6 +2225,7 @@ private struct OverdueRescueQuickEditSheet: View {
                 } label: {
                     editRow(icon: "folder", title: "Project", value: projectText)
                 }
+                .accessibilityIdentifier("home.rescue.edit.project")
                 Divider()
                 Menu {
                     ForEach(TaskPriority.uiOrder, id: \.self) { priority in
@@ -2170,6 +2240,7 @@ private struct OverdueRescueQuickEditSheet: View {
                         iconColor: draft.priority.isHighPriority ? Color.lifeboard.statusDanger : Color.lifeboard.textSecondary
                     )
                 }
+                .accessibilityIdentifier("home.rescue.edit.priority")
             }
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -2186,7 +2257,7 @@ private struct OverdueRescueQuickEditSheet: View {
                         .font(.lifeboard(.callout))
                         .fontWeight(.semibold)
                         .foregroundStyle(Color.lifeboard.accentPrimary)
-                    Text("Based on project relevance and overdue status.")
+                    Text("Based on project relevance and how long the task has needed a decision.")
                         .font(.lifeboard(.body))
                         .foregroundStyle(OverdueRescuePalette.secondaryInk)
                         .lineLimit(2)
@@ -2214,6 +2285,7 @@ private struct OverdueRescueQuickEditSheet: View {
             .background(OverdueRescueVisualSpec.primaryButtonBackground())
             .buttonStyle(.plain)
             .scaleOnPress()
+            .accessibilityIdentifier("home.rescue.edit.save")
         }
         .padding(.horizontal, 28)
         .padding(.bottom, 24)
@@ -2224,6 +2296,7 @@ private struct OverdueRescueQuickEditSheet: View {
         .presentationCornerRadius(36)
         .presentationBackground(.clear)
         .presentationDragIndicator(.hidden)
+        .accessibilityIdentifier("home.rescue.edit.sheet")
     }
 
     private func editRow(
@@ -2466,7 +2539,7 @@ private struct OverdueRescuePauseView: View {
                             .frame(width: 72, height: 72)
                             .background(Circle().fill(Color.white.opacity(0.58)))
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Resume overdue rescue")
+                            Text("Resume rescue")
                                 .font(.lifeboard(.headline))
                                 .foregroundStyle(OverdueRescuePalette.ink)
                             Text("\(viewModel.summary.reviewed) done · \(viewModel.remainingCount) left")
@@ -2553,6 +2626,7 @@ private struct OverdueRescueCompletionView: View {
                     .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.primaryButtonHeight)
                     .background(OverdueRescueVisualSpec.primaryButtonBackground())
                     .padding(.horizontal, 42)
+                    .accessibilityIdentifier("home.rescue.completion.viewToday")
 
                 if remaining > 0 {
                     Button("Review remaining", systemImage: "list.bullet", action: reviewRemaining)
@@ -2610,7 +2684,7 @@ private struct OverdueRescueLargeStackView: View {
         VStack(spacing: 22) {
             OverdueRescueShieldHero()
                 .frame(width: 220, height: 180)
-            Text("Large overdue stack")
+            Text("Large rescue stack")
                 .font(.lifeboard(.title1))
                 .fontWeight(.bold)
                 .foregroundStyle(Color.lifeboard.textPrimary)

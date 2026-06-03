@@ -5579,7 +5579,8 @@ final class AppOnboardingCoordinator: NSObject {
         )
         controller.modalPresentationStyle = .pageSheet
         if let sheet = controller.sheetPresentationController {
-            sheet.detents = [.medium()]
+            sheet.detents = [.large()]
+            sheet.selectedDetentIdentifier = .large
             sheet.prefersGrabberVisible = false
             sheet.preferredCornerRadius = 30
         }
@@ -7232,61 +7233,323 @@ struct AppOnboardingPromptSheetView: View {
 
     var body: some View {
         ZStack {
-            AppOnboardingBackground()
+            OnboardingPromptBackground()
                 .ignoresSafeArea()
 
-            Group {
-                if layoutClass.isPad {
-                    HStack(alignment: .top, spacing: spacing.s20) {
-                        OnboardingPromptValueCard(snapshot: snapshot)
-                            .frame(width: 290, alignment: .leading)
-                        promptActionCard
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: spacing.sectionGap) {
-                        OnboardingPromptValueCard(snapshot: snapshot)
-                        promptActionCard
-                    }
+            VStack(spacing: 0) {
+                ScrollView(showsIndicators: false) {
+                    promptContent
+                        .padding(.top, spacing.s20)
+                        .padding(.bottom, spacing.s16)
                 }
+
+                promptActionFooter
+                    .padding(.bottom, spacing.s16)
             }
             .lifeboardReadableContent(maxWidth: 760, alignment: .center)
-            .padding(spacing.s20)
-            .onboardingHeroPanel(cornerRadius: 32)
-            .padding(.horizontal, spacing.screenHorizontal)
+            .padding(.horizontal, promptHorizontalPadding)
+
+            OnboardingAccessibilityMarker(
+                identifier: AppOnboardingAccessibilityID.prompt,
+                label: "Onboarding prompt",
+                value: nil
+            )
+            .frame(width: 1, height: 1)
+            .allowsHitTesting(false)
         }
         .interactiveDismissDisabled(true)
-        .accessibilityIdentifier(AppOnboardingAccessibilityID.prompt)
     }
 
-    private var promptActionCard: some View {
+    private var promptHorizontalPadding: CGFloat {
+        layoutClass.isPad ? spacing.s24 : max(16, spacing.screenHorizontal)
+    }
+
+    private var promptContent: some View {
+        ViewThatFits(in: .horizontal) {
+            promptWideContent
+            promptStackedContent
+        }
+        .padding(promptPanelPadding)
+        .onboardingPromptGlassPanel(cornerRadius: 32)
+    }
+
+    private var promptPanelPadding: CGFloat {
+        layoutClass.isPad ? spacing.s24 : spacing.s20
+    }
+
+    private var promptWideContent: some View {
+        HStack(alignment: .top, spacing: spacing.s20) {
+            OnboardingPromptValueCard(snapshot: snapshot)
+                .frame(minWidth: 250, maxWidth: 310, alignment: .leading)
+            promptReuseCard
+                .frame(minWidth: 320, maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var promptStackedContent: some View {
+        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+            OnboardingPromptValueCard(snapshot: snapshot)
+            promptReuseCard
+        }
+    }
+
+    private var promptReuseCard: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
-            Text("What LifeBoard will reuse")
+            Text(String(localized: "onboarding.reuse.title"))
                 .lifeboardFont(.bodyEmphasis)
-                .foregroundStyle(OnboardingTheme.textPrimary)
-            OnboardingChecklistCard(items: [
-                "Keep the areas and projects that already fit.",
-                "Suggest one light habit only if it improves tomorrow.",
-                "Guide you into one small completion without duplicate clutter.",
-                "Leave your existing setup intact while you review the next layer."
+                .foregroundStyle(OnboardingPromptTheme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            OnboardingPromptChecklistCard(items: [
+                String(localized: "onboarding.reuse.item1"),
+                String(localized: "onboarding.reuse.item2"),
+                String(localized: "onboarding.reuse.item3"),
+                String(localized: "onboarding.reuse.item4")
             ])
+        }
+    }
 
-            VStack(spacing: spacing.s12) {
-                Button {
-                    onStart()
-                } label: {
-                    Text("Review matched setup")
-                        .frame(maxWidth: .infinity)
-                }
-                .onboardingPrimaryButton()
-                .accessibilityIdentifier(AppOnboardingAccessibilityID.promptStart)
+    private var promptActionFooter: some View {
+        VStack(spacing: spacing.s12) {
+            Button {
+                onStart()
+            } label: {
+                Text("Review matched setup")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(OnboardingPromptPrimaryCTAButtonStyle())
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.promptStart)
 
-                Button("Not now") {
-                    onNotNow()
+            Button("Not now") {
+                onNotNow()
+            }
+            .onboardingSecondaryButtonStyle(accent: OnboardingPromptTheme.accent)
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.promptDismiss)
+        }
+        .padding(.top, spacing.s12)
+        .padding(.horizontal, spacing.s16)
+        .padding(.bottom, spacing.s4)
+        .onboardingPromptFooterMaterial()
+    }
+}
+
+private struct OnboardingPromptBackground: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        LinearGradient(
+            colors: [
+                OnboardingPromptTheme.canvasWarm,
+                OnboardingPromptTheme.canvasBase,
+                OnboardingPromptTheme.canvasCool
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(alignment: .topTrailing) {
+            Circle()
+                .fill(OnboardingPromptTheme.sunriseGold.opacity(reduceTransparency ? 0.08 : 0.18))
+                .frame(width: 220, height: 220)
+                .blur(radius: reduceTransparency ? 0 : 56)
+                .offset(x: 72, y: -96)
+        }
+        .overlay(alignment: .bottomLeading) {
+            Circle()
+                .fill(OnboardingPromptTheme.assistantSoft.opacity(reduceTransparency ? 0.12 : 0.32))
+                .frame(width: 260, height: 260)
+                .blur(radius: reduceTransparency ? 0 : 64)
+                .offset(x: -112, y: 88)
+        }
+    }
+}
+
+private struct OnboardingPromptChecklistCard: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    let items: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(OnboardingPromptTheme.accent)
+                        .frame(width: 30, height: 30)
+                        .background(
+                            Circle()
+                                .fill(index == 0 ? OnboardingPromptTheme.taskSoft : OnboardingPromptTheme.assistantSoft)
+                        )
+
+                    Text(item)
+                        .lifeboardFont(.caption1)
+                        .foregroundStyle(OnboardingPromptTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
-                .accessibilityIdentifier(AppOnboardingAccessibilityID.promptDismiss)
             }
         }
+        .padding(16)
+        .background(
+            reduceTransparency ? OnboardingPromptTheme.surfaceSolid : OnboardingPromptTheme.surfaceGlass,
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(OnboardingPromptTheme.border(reduceTransparency: reduceTransparency), lineWidth: 1)
+        )
+    }
+}
+
+private enum OnboardingPromptTheme {
+    static let canvasBase = Color(uiColor: UIColor(lifeboardHex: "#FFFDFC"))
+    static let canvasWarm = Color(uiColor: UIColor(lifeboardHex: "#FFF8EF"))
+    static let canvasCool = Color(uiColor: UIColor(lifeboardHex: "#F7FBFF"))
+    static let surfaceGlass = Color.white.opacity(0.88)
+    static let surfaceStrongGlass = Color.white.opacity(0.95)
+    static let surfaceSolid = Color.white
+    static let textPrimary = Color(uiColor: UIColor(lifeboardHex: "#071B52"))
+    static let textSecondary = Color(uiColor: UIColor(lifeboardHex: "#48607F"))
+    static let textTertiary = Color(uiColor: UIColor(lifeboardHex: "#7A8BA5"))
+    static let accent = Color(uiColor: UIColor(lifeboardHex: "#6842FF"))
+    static let accentPressed = Color(uiColor: UIColor(lifeboardHex: "#4F2CFF"))
+    static let accentOnPrimary = Color.white
+    static let sunriseGold = Color(uiColor: UIColor(lifeboardHex: "#FFB300"))
+    static let assistantSoft = Color(uiColor: UIColor(lifeboardHex: "#F6F2FF"))
+    static let taskSoft = Color(uiColor: UIColor(lifeboardHex: "#EFF9EC"))
+    static let shadow = Color(uiColor: UIColor(lifeboardHex: "#071B52"))
+
+    static func border(reduceTransparency: Bool) -> Color {
+        reduceTransparency
+            ? Color(uiColor: UIColor(lifeboardHex: "#DDE3EE"))
+            : Color.white.opacity(0.82)
+    }
+}
+
+private struct OnboardingPromptValueCard: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    let snapshot: OnboardingWorkspaceSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(OnboardingPromptTheme.accent)
+                .frame(width: 42, height: 42)
+                .background(OnboardingPromptTheme.assistantSoft, in: Circle())
+
+            Text("Start from what already fits.")
+                .lifeboardFont(.title2)
+                .foregroundStyle(OnboardingPromptTheme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("LifeBoard can reuse what is already working, keep the setup clean, and guide you into one small win without replaying the whole intro.")
+                .lifeboardFont(.body)
+                .foregroundStyle(OnboardingPromptTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(promptSummaryText)
+                .lifeboardFont(.caption1)
+                .foregroundStyle(OnboardingPromptTheme.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(18)
+        .background(
+            reduceTransparency ? OnboardingPromptTheme.surfaceSolid : OnboardingPromptTheme.assistantSoft.opacity(0.72),
+            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(OnboardingPromptTheme.border(reduceTransparency: reduceTransparency), lineWidth: 1)
+        )
+    }
+
+    private var promptSummaryText: String {
+        let areas = String.localizedStringWithFormat(
+            snapshot.customLifeAreaCount == 1
+                ? String(localized: "onboarding.summary.area.singular")
+                : String(localized: "onboarding.summary.area.plural"),
+            snapshot.customLifeAreaCount
+        )
+        let projects = String.localizedStringWithFormat(
+            snapshot.customProjectCount == 1
+                ? String(localized: "onboarding.summary.project.singular")
+                : String(localized: "onboarding.summary.project.plural"),
+            snapshot.customProjectCount
+        )
+        let tasks = String.localizedStringWithFormat(
+            snapshot.taskCount == 1
+                ? String(localized: "onboarding.summary.task.singular")
+                : String(localized: "onboarding.summary.task.plural"),
+            snapshot.taskCount
+        )
+        return String.localizedStringWithFormat(
+            String(localized: "onboarding.summary.alreadyInPlace"),
+            areas,
+            projects,
+            tasks
+        )
+    }
+}
+
+private struct OnboardingPromptPrimaryCTAButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+
+        return configuration.label
+            .lifeboardFont(.button)
+            .foregroundStyle(OnboardingPromptTheme.accentOnPrimary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .padding(.horizontal, 18)
+            .background(configuration.isPressed ? OnboardingPromptTheme.accentPressed : OnboardingPromptTheme.accent, in: shape)
+            .overlay(
+                shape
+                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+            )
+            .shadow(color: OnboardingPromptTheme.shadow.opacity(0.14), radius: 18, y: 8)
+            .contentShape(shape)
+            .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.98 : 1)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: configuration.isPressed)
+    }
+}
+
+private struct OnboardingPromptGlassPanelModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        content
+            .background(
+                reduceTransparency ? OnboardingPromptTheme.surfaceSolid : OnboardingPromptTheme.surfaceStrongGlass,
+                in: shape
+            )
+            .overlay(
+                shape
+                    .stroke(OnboardingPromptTheme.border(reduceTransparency: reduceTransparency), lineWidth: 1)
+            )
+            .shadow(color: OnboardingPromptTheme.shadow.opacity(0.10), radius: 40, y: 14)
+    }
+}
+
+private struct OnboardingPromptFooterMaterialModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                LinearGradient(
+                    colors: [
+                        OnboardingPromptTheme.canvasBase.opacity(0.0),
+                        OnboardingPromptTheme.canvasBase.opacity(reduceTransparency ? 1.0 : 0.88)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
     }
 }
 
@@ -7334,8 +7597,9 @@ private enum OnboardingTheme {
     static let accentPressed = Color.lifeboard(.actionPrimaryPressed)
     static let accentSecondary = Color.lifeboard(.accentSecondary)
     static let accentOnPrimary = Color.lifeboard(.accentOnPrimary)
-    static let marigold = Color(uiColor: UIColor(lifeboardHex: "#F4C95D"))
-    static let headerAccent = marigold
+    static let sunriseGold = Color(uiColor: UIColor(lifeboardHex: "#FFB300"))
+    static let marigold = sunriseGold
+    static let headerAccent = sunriseGold
     static let success = Color.lifeboard(.statusSuccess)
     static let danger = Color.lifeboard(.statusDanger)
 }
@@ -8304,34 +8568,6 @@ private struct OnboardingFrictionSelectorWidthPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
-    }
-}
-
-private struct OnboardingPromptValueCard: View {
-    let snapshot: OnboardingWorkspaceSnapshot
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Start from what already fits.")
-                .lifeboardFont(.title2)
-                .foregroundStyle(OnboardingTheme.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("LifeBoard can reuse what is already working, keep the setup clean, and guide you into one small win without replaying the whole intro.")
-                .lifeboardFont(.body)
-                .foregroundStyle(OnboardingTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(
-                String.localizedStringWithFormat(
-                    String(localized: "Already in place: %lld areas, %lld projects, %lld tasks"),
-                    snapshot.customLifeAreaCount,
-                    snapshot.customProjectCount,
-                    snapshot.taskCount
-                )
-            )
-                .lifeboardFont(.caption1)
-                .foregroundStyle(OnboardingTheme.textSecondary)
-        }
     }
 }
 
@@ -10297,6 +10533,14 @@ private extension View {
                             .combined(with: .scale(scale: 0.92, anchor: .top))
                     )
             )
+    }
+
+    func onboardingPromptGlassPanel(cornerRadius: CGFloat) -> some View {
+        modifier(OnboardingPromptGlassPanelModifier(cornerRadius: cornerRadius))
+    }
+
+    func onboardingPromptFooterMaterial() -> some View {
+        modifier(OnboardingPromptFooterMaterialModifier())
     }
 
     func onboardingHeroPanel(cornerRadius: CGFloat) -> some View {

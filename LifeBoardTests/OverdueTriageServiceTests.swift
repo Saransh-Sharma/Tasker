@@ -65,6 +65,10 @@ final class OverdueTriageServiceTests: XCTestCase {
 
 @MainActor
 final class OverdueRescueDeckTests: XCTestCase {
+    private final class UpdateRequestCapture: @unchecked Sendable {
+        var request: UpdateTaskDefinitionRequest?
+    }
+
     func testDeckIncludesRecentOverdueAndCapsSprint() {
         let now = fixedDate()
         let tasks = (0..<18).map { index in
@@ -248,13 +252,50 @@ final class OverdueRescueDeckTests: XCTestCase {
     }
 
     func testUndoAfterKeepRestoresCardAndSummary() async {
-        let task = rescueTask(title: "Undo me", priority: .high)
+        let calendar = Calendar.current
+        let referenceDate = fixedDate()
+        let today = calendar.startOfDay(for: referenceDate)
+        let overdueDay = calendar.date(byAdding: .day, value: -3, to: today)!
+        let originalStart = calendar.date(bySettingHour: 9, minute: 30, second: 0, of: overdueDay)!
+        let originalEnd = originalStart.addingTimeInterval(45 * 60)
+        var task = rescueTask(
+            title: "Undo me",
+            priority: .high,
+            dueDate: originalStart,
+            estimatedDuration: 45 * 60
+        )
+        task.scheduledStartAt = originalStart
+        task.scheduledEndAt = originalEnd
+        task.isAllDay = false
+        let originalTask = task
+        let capture = UpdateRequestCapture()
         let viewModel = OverdueRescueViewModel(
             plan: nil,
-            tasksByID: [task.id: task],
+            tasksByID: [originalTask.id: originalTask],
             projectsByID: [:],
-            onUpdate: { _, completion in
-                completion(.success(task))
+            referenceDate: referenceDate,
+            onUpdate: { request, completion in
+                capture.request = request
+                var updatedTask = originalTask
+                if request.clearDueDate {
+                    updatedTask.dueDate = nil
+                } else if let dueDate = request.dueDate {
+                    updatedTask.dueDate = dueDate
+                }
+                if request.clearScheduledStartAt {
+                    updatedTask.scheduledStartAt = nil
+                } else if let scheduledStartAt = request.scheduledStartAt {
+                    updatedTask.scheduledStartAt = scheduledStartAt
+                }
+                if request.clearScheduledEndAt {
+                    updatedTask.scheduledEndAt = nil
+                } else if let scheduledEndAt = request.scheduledEndAt {
+                    updatedTask.scheduledEndAt = scheduledEndAt
+                }
+                if let isAllDay = request.isAllDay {
+                    updatedTask.isAllDay = isAllDay
+                }
+                completion(.success(updatedTask))
             },
             onDelete: { _, completion in completion(.success(())) },
             onRestore: { task, completion in completion(.success(task)) },
@@ -275,7 +316,65 @@ final class OverdueRescueDeckTests: XCTestCase {
 
         XCTAssertEqual(viewModel.state, .active)
         XCTAssertEqual(viewModel.summary.kept, 0)
-        XCTAssertEqual(viewModel.cards.first?.id, task.id)
+        XCTAssertEqual(viewModel.cards.first?.id, originalTask.id)
+        XCTAssertEqual(capture.request?.scheduledStartAt, originalStart)
+        XCTAssertEqual(capture.request?.scheduledEndAt, originalEnd)
+        XCTAssertFalse(capture.request?.clearScheduledStartAt ?? true)
+        XCTAssertFalse(capture.request?.clearScheduledEndAt ?? true)
+        XCTAssertEqual(capture.request?.isAllDay, false)
+    }
+
+    func testKeepTodayPreservesTimedScheduleOnTargetDay() async {
+        let calendar = Calendar.current
+        let referenceDate = fixedDate()
+        let today = calendar.startOfDay(for: referenceDate)
+        let overdueDay = calendar.date(byAdding: .day, value: -3, to: today)!
+        let originalStart = calendar.date(bySettingHour: 9, minute: 30, second: 0, of: overdueDay)!
+        let originalEnd = originalStart.addingTimeInterval(45 * 60)
+        let expectedStart = calendar.date(bySettingHour: 9, minute: 30, second: 0, of: today)!
+        let expectedEnd = expectedStart.addingTimeInterval(45 * 60)
+        var task = rescueTask(
+            title: "Keep timed",
+            priority: .high,
+            dueDate: originalStart,
+            estimatedDuration: 45 * 60
+        )
+        task.scheduledStartAt = originalStart
+        task.scheduledEndAt = originalEnd
+        task.isAllDay = false
+        let originalTask = task
+
+        let capture = UpdateRequestCapture()
+        let viewModel = OverdueRescueViewModel(
+            plan: nil,
+            tasksByID: [originalTask.id: originalTask],
+            projectsByID: [:],
+            referenceDate: referenceDate,
+            onUpdate: { request, completion in
+                capture.request = request
+                var updatedTask = originalTask
+                updatedTask.dueDate = request.dueDate
+                updatedTask.scheduledStartAt = request.scheduledStartAt
+                updatedTask.scheduledEndAt = request.scheduledEndAt
+                updatedTask.isAllDay = request.isAllDay ?? updatedTask.isAllDay
+                completion(.success(updatedTask))
+            },
+            onDelete: { _, completion in completion(.success(())) },
+            onRestore: { task, completion in completion(.success(task)) },
+            onApplyBulk: { _, completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onUndoBulk: { completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onTrack: { _, _ in }
+        )
+
+        viewModel.keepToday(source: .tap)
+        await _Concurrency.Task<Never, Never>.yield()
+
+        XCTAssertEqual(capture.request?.dueDate, expectedStart)
+        XCTAssertEqual(capture.request?.scheduledStartAt, expectedStart)
+        XCTAssertEqual(capture.request?.scheduledEndAt, expectedEnd)
+        XCTAssertEqual(capture.request?.isAllDay, false)
+        XCTAssertFalse(capture.request?.clearScheduledStartAt ?? true)
+        XCTAssertFalse(capture.request?.clearScheduledEndAt ?? true)
     }
 
     private func makeViewModel(tasks: [TaskDefinition]) -> OverdueRescueViewModel {
