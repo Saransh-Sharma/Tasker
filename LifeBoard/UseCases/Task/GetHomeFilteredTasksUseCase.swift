@@ -1701,7 +1701,19 @@ public final class BuildEvaBatchProposalUseCase: @unchecked Sendable {
             if mutation.clearDueDate {
                 task.dueDate = nil
             } else if let dueDate = mutation.dueDate {
-                task.dueDate = dueDate
+                if source == .rescue {
+                    var scheduleTask = task
+                    if let estimatedDuration = mutation.estimatedDuration {
+                        scheduleTask.estimatedDuration = estimatedDuration
+                    }
+                    let schedule = TaskRescueScheduleShifter.shift(task: scheduleTask, to: dueDate)
+                    task.dueDate = schedule.dueDate
+                    task.scheduledStartAt = schedule.scheduledStartAt
+                    task.scheduledEndAt = schedule.scheduledEndAt
+                    task.isAllDay = schedule.isAllDay
+                } else {
+                    task.dueDate = dueDate
+                }
             }
             if mutation.clearEstimatedDuration {
                 task.estimatedDuration = nil
