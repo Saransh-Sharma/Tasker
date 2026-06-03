@@ -457,8 +457,11 @@ struct SunriseAppShellView: View {
         guard rescueRows.isEmpty == false else { return [] }
         let mode: RescueTailMode = rescueRows.count <= 3 ? .compact : .expanded
         let subtitle = rescueRows.count == 1
-            ? "1 task is 2+ weeks overdue"
-            : "\(rescueRows.count) tasks are 2+ weeks overdue"
+            ? String(localized: "home.rescue.subtitle.singular")
+            : String.localizedStringWithFormat(
+                String(localized: "home.rescue.subtitle.plural"),
+                rescueRows.count
+            )
         return [
             .rescue(
                 RescueTailState(
@@ -2884,7 +2887,7 @@ struct SunriseAppShellView: View {
                 viewModel.openRescue()
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Rescue")
+                    Text(String(localized: "Rescue"))
                         .font(.lifeboard(.headline))
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .accessibilityIdentifier("home.rescue.header")
@@ -2901,7 +2904,7 @@ struct SunriseAppShellView: View {
             .accessibilityIdentifier("home.rescue.open")
 
             if state.mode == .expanded {
-                Button("Start rescue") {
+                Button(String(localized: "Start rescue")) {
                     viewModel.openRescue()
                 }
                 .font(.lifeboard(.caption1).weight(.semibold))
@@ -3276,7 +3279,7 @@ struct SunriseAppShellView: View {
                             .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Rescue")
+                            Text(String(localized: "Rescue"))
                                 .font(.lifeboard(.caption1).weight(.semibold))
                                 .foregroundStyle(Color.lifeboard.textPrimary)
                             Text(state.subtitle)
@@ -3299,13 +3302,10 @@ struct SunriseAppShellView: View {
                 .accessibilityLabel("Rescue")
                 .accessibilityValue(state.subtitle)
                 .accessibilityIdentifier("home.rescue.open")
+                .contentShape(Rectangle())
             }
             .padding(.top, layoutMetrics.safeAreaTop + spacing.s8)
             .padding(.trailing, spacing.s16)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                viewModel.openRescue()
-            }
             .zIndex(30)
         }
     }
