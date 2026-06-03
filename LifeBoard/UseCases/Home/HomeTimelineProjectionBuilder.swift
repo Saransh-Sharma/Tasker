@@ -832,24 +832,18 @@ struct HomeTimelineProjectionBuilder {
         let allDayTaskIDs = Set(allDayTasks.map(\.id))
         let timedTaskIDs = Set(timedItems.compactMap(\.taskID))
         let inboxTaskIDs = Set(inboxTasks.map(\.id))
-        let summaries = rescueCandidates.map { task in
-            [
-                "id=\(task.id.uuidString)",
-                "title=\(task.title)",
-                "day=\(dayTaskIDs.contains(task.id))",
-                "all_day=\(allDayTaskIDs.contains(task.id))",
-                "timed=\(timedTaskIDs.contains(task.id))",
-                "inbox=\(inboxTaskIDs.contains(task.id))",
-                "due=\(task.dueDate?.description ?? "nil")",
-                "start=\(task.scheduledStartAt?.description ?? "nil")",
-                "end=\(task.scheduledEndAt?.description ?? "nil")",
-                "is_all_day=\(task.isAllDay)"
-            ].joined(separator: " ")
-        }
+        let dayRescueCount = rescueCandidates.filter { dayTaskIDs.contains($0.id) }.count
+        let allDayRescueCount = rescueCandidates.filter { allDayTaskIDs.contains($0.id) }.count
+        let timedRescueCount = rescueCandidates.filter { timedTaskIDs.contains($0.id) }.count
+        let inboxRescueCount = rescueCandidates.filter { inboxTaskIDs.contains($0.id) }.count
         logDebug(
-            "HOME_TIMELINE rescue_classification selected_day=\(input.selectedDay) " +
+            "HOME_TIMELINE rescue_classification " +
             "candidate_count=\(input.taskCandidates.count) " +
-            "rescue=[\(summaries.joined(separator: " | "))]"
+            "rescue_candidate_count=\(rescueCandidates.count) " +
+            "day=\(dayRescueCount) " +
+            "all_day=\(allDayRescueCount) " +
+            "timed=\(timedRescueCount) " +
+            "inbox=\(inboxRescueCount)"
         )
     }
 

@@ -3847,11 +3847,14 @@ public final class HomeViewModel: ObservableObject {
             self.currentHabitSignals = self.habitSignals(from: allHabitRows)
             self.habitLibraryRowsByID = resolvedLibraryRowsByID
             let rescueSplit = self.splitRescueEligibleTasks(from: openTaskRows, on: day)
-            let rescueTailIDs = rescueSplit.rescueEligibleTasks.map { $0.id.uuidString }.joined(separator: ",")
+            let rescueTailIDLimit = 5
+            let rescueTailIDs = rescueSplit.rescueEligibleTasks.prefix(rescueTailIDLimit).map { $0.id.uuidString }.joined(separator: ",")
+            let remainingRescueTailIDCount = max(0, rescueSplit.rescueEligibleTasks.count - rescueTailIDLimit)
+            let rescueTailIDSuffix = remainingRescueTailIDCount > 0 ? ",(+\(remainingRescueTailIDCount) more)" : ""
             logDebug(
                 "HOME_RESCUE_TAIL split quick=\(scope.quickView.rawValue) input=\(openTaskRows.count) " +
                 "rescue=\(rescueSplit.rescueEligibleTasks.count) " +
-                "ids=\(rescueTailIDs)"
+                "ids=\(rescueTailIDs)\(rescueTailIDSuffix)"
             )
 
             let focusRows = self.composeFocusRows(taskRows: rescueSplit.focusTaskRows, habitRows: allHabitRows)
