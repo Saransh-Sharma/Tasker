@@ -67,6 +67,7 @@ extension HomeViewModel {
 
         let mutationContext = HabitMutationContext(source: source)
         registerSelfOriginatedHabitMutationContext(mutationContext)
+        suppressTaskReloadsForHabitMutationUntil = Date().addingTimeInterval(habitMutationReloadSuppressionSeconds)
         let recoveryReflectionPrompt = recoveryReflectionPromptIfNeeded(for: row, request: request, on: date)
 
         switch request {
@@ -141,6 +142,8 @@ extension HomeViewModel {
             pendingHabitMutationSnapshots.removeValue(forKey: key)
             pendingHabitMutationKeys.remove(key)
             habitMutationErrorMessage = nil
+            suppressCompletionReloadUntil = Date().addingTimeInterval(completionReloadSuppressionSeconds)
+            suppressTaskReloadsForHabitMutationUntil = Date().addingTimeInterval(habitMutationReloadSuppressionSeconds)
             let isSelectedDayMutation = Calendar.current.isDate(date, inSameDayAs: selectedDate)
             if isSelectedDayMutation {
                 habitRecoveryReflectionPrompt = recoveryReflectionPrompt

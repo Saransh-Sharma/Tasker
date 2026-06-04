@@ -19,6 +19,6 @@ public enum HomeReloadScope: String, CaseIterable, Hashable, Sendable {
     case habits
     case facets
     case analytics
-    case insightss
+    case insights
     case savedViews
 }

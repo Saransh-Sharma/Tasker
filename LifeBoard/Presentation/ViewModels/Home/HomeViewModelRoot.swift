@@ -19,7 +19,6 @@ public final class HomeViewModel: ObservableObject {
 
     // MARK: - Published Properties (Observable State)
 
-
     @Published public internal(set) var todayTasks: TodayTasksResult?
 
     @Published public internal(set) var selectedProject: String = "All"
@@ -59,7 +58,6 @@ public final class HomeViewModel: ObservableObject {
     @Published public internal(set) var upcomingTasks: [TaskDefinition] = []
 
     @Published public internal(set) var completedTasks: [TaskDefinition] = []
-
     @Published public internal(set) var doneTimelineTasks: [TaskDefinition] = []
 
     @Published public internal(set) var lifeAreas: [LifeArea] = []
@@ -146,6 +144,8 @@ public final class HomeViewModel: ObservableObject {
 
     var pendingGlobalReplanRefreshRevision: HomeDataRevision?
 
+    var latestFocusOpenTasks: [TaskDefinition] = []
+
     // MARK: - Persistence Keys
 
     static let lastFilterStateKey = "home.focus.lastFilterState.v2"
@@ -186,6 +186,8 @@ public final class HomeViewModel: ObservableObject {
 
     var suppressCompletionReloadUntil: Date?
 
+    var suppressTaskReloadsForHabitMutationUntil: Date?
+
     var lastRecurringTopUpAt: Date?
 
     var pendingRecurringTopUpTask: Task<Void, Never>?
@@ -197,6 +199,8 @@ public final class HomeViewModel: ObservableObject {
     let completionNotificationDebounceMS = 120
 
     let completionReloadSuppressionSeconds: TimeInterval = 0.35
+
+    let habitMutationReloadSuppressionSeconds: TimeInterval = 0.75
 
     let mutationNotificationDebounceMS = 90
 
@@ -212,11 +216,11 @@ public final class HomeViewModel: ObservableObject {
 
     static let mutationNotificationSource = "homeViewModel"
 
-    var pendingLedgerMutationWatchdog: DispatchWorkItem?
+    var pendingLedgerMutationWatchdogTask: Task<Void, Never>?
 
     var lastLedgerMutationObservedAt: Date = .distantPast
 
-    var pendingReloadWorkItem: DispatchWorkItem?
+    var pendingReloadTask: Task<Void, Never>?
 
     var pendingReloadSources: Set<String> = []
 
@@ -236,13 +240,13 @@ public final class HomeViewModel: ObservableObject {
 
     var queuedReloadAfterCurrentBatch = false
 
-    var pendingAnalyticsWorkItem: DispatchWorkItem?
+    var pendingAnalyticsTask: Task<Void, Never>?
 
-    var pendingDeferredAnalyticsRefreshWorkItem: DispatchWorkItem?
+    var pendingDeferredAnalyticsRefreshTask: Task<Void, Never>?
 
     var pendingAnalyticsIncludeGamificationRefresh = false
 
-    var pendingAnalyticsCompletions: [() -> Void] = []
+    var pendingAnalyticsCompletions: [@Sendable () -> Void] = []
 
     var analyticsGeneration: Int = 0
 
@@ -463,7 +467,6 @@ public final class HomeViewModel: ObservableObject {
     }
 
     // Projects
-
     var needsReplanCandidates: [HomeReplanCandidate] {
         get { needsReplanViewModel.passiveCandidates }
         set { needsReplanViewModel.passiveCandidates = newValue }

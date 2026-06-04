@@ -42,6 +42,9 @@ extension HomeViewModel {
 
         if scope.quickView == .today {
             prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
+            latestFocusOpenTasks = openTasks
+        } else if activeScope.quickView == .done {
+            latestFocusOpenTasks = []
         }
         assignIfChanged(\.focusTasks, composedFocusTasks(from: openTasks))
         assignIfChanged(\.focusRows, composedFocusTasks(from: openTasks).map(HomeTodayRow.task))

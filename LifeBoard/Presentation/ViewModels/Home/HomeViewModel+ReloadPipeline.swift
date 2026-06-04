@@ -160,14 +160,26 @@ extension HomeViewModel {
         _ scopes: Set<HomeReloadScope>,
         generation: Int,
         visibleTasksCompletion: (@Sendable () -> Void)? = nil,
-        habitsCompletion: (@Sendable () -> Void)? = nil
+        habitsCompletion: (@Sendable () -> Void)? = nil,
+        facetsCompletion: (@Sendable () -> Void)? = nil,
+        savedViewsCompletion: (@Sendable () -> Void)? = nil
     ) {
         if scopes.contains(.savedViews) {
-            loadSavedViews()
+            loadSavedViews(completion: savedViewsCompletion)
         }
         if scopes.contains(.facets) {
-            loadProjects(generation: generation)
-            loadTags(generation: generation)
+            let tracker = HomeReloadBatchTracker {
+                facetsCompletion?()
+            }
+            tracker.registerOperation()
+            tracker.registerOperation()
+            loadProjects(generation: generation) {
+                Task { @MainActor in tracker.completeOperation() }
+            }
+            loadTags(generation: generation) {
+                Task { @MainActor in tracker.completeOperation() }
+            }
+            tracker.finishSchedulingOperations()
         }
         if scopes.contains(.visibleTasks) {
             applyFocusFilters(
@@ -295,12 +307,18 @@ extension HomeViewModel {
         pendingAdjacentDayPrefetchTask?.cancel()
         let baseDay = normalizedDay(targetDay)
         pendingAdjacentDayPrefetchTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 450_000_000)
+            try? await Task.sleep(for: .milliseconds(450))
             guard !Task.isCancelled else { return }
             guard let self else { return }
             guard self.isCurrentReloadGeneration(generation) else { return }
             guard self.activeScope.quickView == .today else { return }
             guard self.selectedDayMatches(baseDay, scope: self.activeScope) else { return }
+            if let suppressUntil = self.suppressTaskReloadsForHabitMutationUntil,
+               Date() <= suppressUntil {
+                logDebug("HOME_DAY_PREFETCH skipped reason=habit_mutation")
+                self.pendingAdjacentDayPrefetchTask = nil
+                return
+            }
             self.prefetchAdjacentDays(around: baseDay)
             self.pendingAdjacentDayPrefetchTask = nil
         }

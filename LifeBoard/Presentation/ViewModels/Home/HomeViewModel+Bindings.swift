@@ -94,7 +94,7 @@ extension HomeViewModel {
             }
             .store(in: &cancellables)
 
-        let legacyTaskMutationPublishers: [AnyPublisher<HomeTaskReloadNotificationEvent, Never>] = [
+        let taskMutationPublishers: [AnyPublisher<HomeTaskReloadNotificationEvent, Never>] = [
             NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
                 .map { _ in
                     HomeTaskReloadNotificationEvent(
@@ -164,16 +164,22 @@ extension HomeViewModel {
                 .eraseToAnyPublisher()
         ]
 
-        // HomeViewModel remains the task-list reload owner for now. Legacy task
+        // HomeViewModel remains the task-list reload owner for now. Compatibility
         // notifications are bridged into the structured reload window until all
         // producers emit only HomeTaskMutationEvent.
-        Publishers.MergeMany(legacyTaskMutationPublishers)
+        Publishers.MergeMany(taskMutationPublishers)
             .receive(on: RunLoop.main)
             .collect(.byTime(RunLoop.main, .milliseconds(max(completionNotificationDebounceMS, mutationNotificationDebounceMS))))
             .sink { [weak self] events in
                 guard let self else { return }
                 let eligibleEvents = events.filter { event in
                     guard event.notificationSource != Self.mutationNotificationSource else { return false }
+                    if event.isStructured == false,
+                       let suppressUntil = self.suppressTaskReloadsForHabitMutationUntil,
+                       Date() <= suppressUntil {
+                        logDebug("HOME_ROW_STATE vm.notification_suppressed source=\(event.source) reason=habit_mutation")
+                        return false
+                    }
                     if event.isCompletionChange,
                        let suppressUntil = self.suppressCompletionReloadUntil,
                        Date() <= suppressUntil {

@@ -36,7 +36,7 @@ extension HomeViewModel {
         pendingReloadInvalidateCaches = false
         pendingReloadIncludeAnalytics = false
         pendingReloadRepostEvent = false
-        pendingReloadWorkItem = nil
+        pendingReloadTask = nil
 
         let reloadStartedAt = Date()
         logDebug(
@@ -51,23 +51,21 @@ extension HomeViewModel {
         let interval = LifeBoardPerformanceTrace.begin("HomeReloadBatch")
         let generation = nextReloadGeneration()
         let tracker = HomeReloadBatchTracker { [weak self] in
-            Task { @MainActor in
-                LifeBoardPerformanceTrace.end(interval)
-                logWarning(
-                    event: "home_reload_batch_applied",
-                    message: "Applied coalesced Home reload batch",
-                    fields: [
-                        "source_count": String(sources.count),
-                        "reason_count": String(reasons.count),
-                        "scope_count": String(scopes.count),
-                        "invalidate_caches": shouldInvalidate ? "true" : "false",
-                        "include_analytics": shouldIncludeAnalytics ? "true" : "false",
-                        "repost_event": shouldRepostEvent ? "true" : "false",
-                        "duration_ms": String(Int(Date().timeIntervalSince(reloadStartedAt) * 1_000))
-                    ]
-                )
-                self?.completeReloadBatchLifecycle()
-            }
+            LifeBoardPerformanceTrace.end(interval)
+            logWarning(
+                event: "home_reload_batch_applied",
+                message: "Applied coalesced Home reload batch",
+                fields: [
+                    "source_count": String(sources.count),
+                    "reason_count": String(reasons.count),
+                    "scope_count": String(scopes.count),
+                    "invalidate_caches": shouldInvalidate ? "true" : "false",
+                    "include_analytics": shouldIncludeAnalytics ? "true" : "false",
+                    "repost_event": shouldRepostEvent ? "true" : "false",
+                    "duration_ms": String(Int(Date().timeIntervalSince(reloadStartedAt) * 1_000))
+                ]
+            )
+            self?.completeReloadBatchLifecycle()
         }
 
         if scopes.contains(.visibleTasks) {
@@ -76,24 +74,52 @@ extension HomeViewModel {
         if scopes.contains(.habits) {
             tracker.registerOperation()
         }
+        if scopes.contains(.facets) {
+            tracker.registerOperation()
+        }
+        if scopes.contains(.savedViews) {
+            tracker.registerOperation()
+        }
         let visibleTasksCompletion: (@Sendable () -> Void)?
         if scopes.contains(.visibleTasks) {
-            visibleTasksCompletion = { tracker.completeOperation() }
+            visibleTasksCompletion = {
+                Task { @MainActor in tracker.completeOperation() }
+            }
         } else {
             visibleTasksCompletion = nil
         }
         let habitsCompletion: (@Sendable () -> Void)?
         if scopes.contains(.habits) {
-            habitsCompletion = { tracker.completeOperation() }
+            habitsCompletion = {
+                Task { @MainActor in tracker.completeOperation() }
+            }
         } else {
             habitsCompletion = nil
+        }
+        let facetsCompletion: (@Sendable () -> Void)?
+        if scopes.contains(.facets) {
+            facetsCompletion = {
+                Task { @MainActor in tracker.completeOperation() }
+            }
+        } else {
+            facetsCompletion = nil
+        }
+        let savedViewsCompletion: (@Sendable () -> Void)?
+        if scopes.contains(.savedViews) {
+            savedViewsCompletion = {
+                Task { @MainActor in tracker.completeOperation() }
+            }
+        } else {
+            savedViewsCompletion = nil
         }
 
         applyReloadScopes(
             scopes,
             generation: generation,
             visibleTasksCompletion: visibleTasksCompletion,
-            habitsCompletion: habitsCompletion
+            habitsCompletion: habitsCompletion,
+            facetsCompletion: facetsCompletion,
+            savedViewsCompletion: savedViewsCompletion
         )
 
         if scopes.contains(.habits),
@@ -108,7 +134,7 @@ extension HomeViewModel {
         if shouldIncludeAnalytics || scopes.contains(.analytics) {
             tracker.registerOperation()
             loadDailyAnalytics(includeGamificationRefresh: false) {
-                tracker.completeOperation()
+                Task { @MainActor in tracker.completeOperation() }
             }
         }
         tracker.finishSchedulingOperations()
@@ -171,8 +197,8 @@ extension HomeViewModel {
 
     func handleGamificationLedgerMutation(_ mutation: GamificationLedgerMutation) {
         lastLedgerMutationObservedAt = Date()
-        pendingLedgerMutationWatchdog?.cancel()
-        pendingLedgerMutationWatchdog = nil
+        pendingLedgerMutationWatchdogTask?.cancel()
+        pendingLedgerMutationWatchdogTask = nil
 
         dailyScore = max(0, mutation.dailyXPSoFar)
         totalXP = mutation.totalXP
@@ -223,11 +249,18 @@ extension HomeViewModel {
     func scheduleLedgerMutationWatchdog(trigger: String) {
         guard V2FeatureFlags.gamificationV2Enabled else { return }
 
-        pendingLedgerMutationWatchdog?.cancel()
+        pendingLedgerMutationWatchdogTask?.cancel()
         let observedAtScheduleTime = lastLedgerMutationObservedAt
-        let workItem = DispatchWorkItem { [weak self] in
+        let delay = Duration.milliseconds(Int(ledgerMutationWatchdogDelaySeconds * 1_000))
+        pendingLedgerMutationWatchdogTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
             guard let self else { return }
             guard self.lastLedgerMutationObservedAt <= observedAtScheduleTime else { return }
+            self.pendingLedgerMutationWatchdogTask = nil
 
             logWarning(
                 event: "gamification_ledger_watchdog_refresh",
@@ -240,12 +273,6 @@ extension HomeViewModel {
                 object: nil
             )
         }
-
-        pendingLedgerMutationWatchdog = workItem
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + ledgerMutationWatchdogDelaySeconds,
-            execute: workItem
-        )
     }
 
     /// Executes requestInsightsRefresh.

@@ -351,14 +351,15 @@ extension HomeViewModel {
         pendingReloadIncludeAnalytics = pendingReloadIncludeAnalytics || includeAnalytics
         pendingReloadRepostEvent = pendingReloadRepostEvent || repostEvent
 
-        pendingReloadWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [weak self] in
+        pendingReloadTask?.cancel()
+        let delay = Duration.milliseconds(reloadDebounceMS)
+        pendingReloadTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
             self?.flushQueuedReloads()
         }
-        pendingReloadWorkItem = workItem
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + .milliseconds(reloadDebounceMS),
-            execute: workItem
-        )
     }
 }
