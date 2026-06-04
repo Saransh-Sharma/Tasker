@@ -33,15 +33,43 @@ final class SpacingElevationCornerTests: XCTestCase {
     func testLayoutResolverClassifiesBreakpointsAsExpected() {
         let phoneMetrics = LifeBoardLayoutMetrics(width: 390, height: 844, idiom: .phone)
         XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: phoneMetrics), .phone)
+        XCTAssertEqual(phoneMetrics.platform, .phone)
 
         let compactPad = LifeBoardLayoutMetrics(width: 699, height: 1024, idiom: .pad)
         XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: compactPad), .padCompact)
+        XCTAssertEqual(compactPad.platform, .pad)
 
         let regularPad = LifeBoardLayoutMetrics(width: 700, height: 1024, idiom: .pad)
         XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: regularPad), .padRegular)
 
         let expandedPad = LifeBoardLayoutMetrics(width: 1024, height: 1366, idiom: .pad)
         XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: expandedPad), .padExpanded)
+    }
+
+    func testLayoutResolverClassifiesMacCatalystMetricsAsExpandedLayout() {
+        let compactMac = LifeBoardLayoutMetrics(
+            width: 640,
+            height: 900,
+            idiom: .pad,
+            platform: .macCatalyst
+        )
+        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: compactMac), .padCompact)
+
+        let regularMac = LifeBoardLayoutMetrics(
+            width: 900,
+            height: 900,
+            idiom: .pad,
+            platform: .macCatalyst
+        )
+        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: regularMac), .padRegular)
+
+        let expandedMac = LifeBoardLayoutMetrics(
+            width: 1280,
+            height: 900,
+            idiom: .pad,
+            platform: .macCatalyst
+        )
+        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: expandedMac), .padExpanded)
     }
 
     @MainActor

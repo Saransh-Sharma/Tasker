@@ -16,4 +16,11 @@ final class DeviceOrientationPolicyResolverTests: XCTestCase {
 
         XCTAssertEqual(mask, .all)
     }
+
+    func testMacUsesAllOrientationsForCatalystWindows() {
+        let resolver = DeviceOrientationPolicyResolver()
+        let mask = resolver.supportedOrientations(for: .mac)
+
+        XCTAssertEqual(mask, .all)
+    }
 }
