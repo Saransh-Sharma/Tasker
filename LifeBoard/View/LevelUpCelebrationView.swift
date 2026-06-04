@@ -78,8 +78,7 @@ public struct LevelUpCelebrationView: View {
             textOpacity = 1.0
         }
 
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
+        LifeBoardFeedback.success()
 
         scheduleDismiss(after: GamificationTokens.levelUpDuration) {
             dismiss()

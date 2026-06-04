@@ -150,8 +150,7 @@ public struct SunriseFocusTimerView: View {
             Task { @MainActor in
                 elapsedSeconds += 1
                 if elapsedSeconds >= targetDurationSeconds {
-                    let generator = UINotificationFeedbackGenerator()
-                    generator.notificationOccurred(.success)
+                    LifeBoardFeedback.success()
                     completeIfNeeded()
                 }
             }

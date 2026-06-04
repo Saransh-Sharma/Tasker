@@ -89,13 +89,11 @@ public struct MilestoneCelebrationView: View {
             glowOpacity = 1.0
         }
 
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
+        LifeBoardFeedback.success()
 
         if !reduceMotion {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                let second = UINotificationFeedbackGenerator()
-                second.notificationOccurred(.success)
+                LifeBoardFeedback.success()
             }
         }
 
