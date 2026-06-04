@@ -171,13 +171,13 @@ extension HomeViewModel {
             let tracker = HomeReloadBatchTracker {
                 facetsCompletion?()
             }
-            tracker.registerOperation()
-            tracker.registerOperation()
+            let projectsOperationID = tracker.registerOperation()
+            let tagsOperationID = tracker.registerOperation()
             loadProjects(generation: generation) {
-                Task { @MainActor in tracker.completeOperation() }
+                Task { @MainActor in tracker.completeOperation(projectsOperationID) }
             }
             loadTags(generation: generation) {
-                Task { @MainActor in tracker.completeOperation() }
+                Task { @MainActor in tracker.completeOperation(tagsOperationID) }
             }
             tracker.finishSchedulingOperations()
         }

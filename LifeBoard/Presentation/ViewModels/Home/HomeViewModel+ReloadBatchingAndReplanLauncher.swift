@@ -15,12 +15,19 @@ import WidgetKit
 #endif
 
 extension HomeViewModel {
+    func cancelPendingReloadDebounce() {
+        pendingReloadDebounceID += 1
+        pendingReloadTask?.cancel()
+        pendingReloadTask = nil
+    }
+
     func flushQueuedReloads() {
         if isApplyingReloadBatch {
             queuedReloadAfterCurrentBatch = true
             return
         }
         isApplyingReloadBatch = true
+        cancelPendingReloadDebounce()
 
         let reasons = pendingReloadReasons
         let sources = pendingReloadSources
@@ -36,7 +43,6 @@ extension HomeViewModel {
         pendingReloadInvalidateCaches = false
         pendingReloadIncludeAnalytics = false
         pendingReloadRepostEvent = false
-        pendingReloadTask = nil
 
         let reloadStartedAt = Date()
         logDebug(
@@ -68,46 +74,39 @@ extension HomeViewModel {
             self?.completeReloadBatchLifecycle()
         }
 
-        if scopes.contains(.visibleTasks) {
-            tracker.registerOperation()
-        }
-        if scopes.contains(.habits) {
-            tracker.registerOperation()
-        }
-        if scopes.contains(.facets) {
-            tracker.registerOperation()
-        }
-        if scopes.contains(.savedViews) {
-            tracker.registerOperation()
-        }
+        let visibleTasksOperationID = scopes.contains(.visibleTasks) ? tracker.registerOperation() : nil
+        let habitsOperationID = scopes.contains(.habits) ? tracker.registerOperation() : nil
+        let facetsOperationID = scopes.contains(.facets) ? tracker.registerOperation() : nil
+        let savedViewsOperationID = scopes.contains(.savedViews) ? tracker.registerOperation() : nil
+
         let visibleTasksCompletion: (@Sendable () -> Void)?
-        if scopes.contains(.visibleTasks) {
+        if let visibleTasksOperationID {
             visibleTasksCompletion = {
-                Task { @MainActor in tracker.completeOperation() }
+                Task { @MainActor in tracker.completeOperation(visibleTasksOperationID) }
             }
         } else {
             visibleTasksCompletion = nil
         }
         let habitsCompletion: (@Sendable () -> Void)?
-        if scopes.contains(.habits) {
+        if let habitsOperationID {
             habitsCompletion = {
-                Task { @MainActor in tracker.completeOperation() }
+                Task { @MainActor in tracker.completeOperation(habitsOperationID) }
             }
         } else {
             habitsCompletion = nil
         }
         let facetsCompletion: (@Sendable () -> Void)?
-        if scopes.contains(.facets) {
+        if let facetsOperationID {
             facetsCompletion = {
-                Task { @MainActor in tracker.completeOperation() }
+                Task { @MainActor in tracker.completeOperation(facetsOperationID) }
             }
         } else {
             facetsCompletion = nil
         }
         let savedViewsCompletion: (@Sendable () -> Void)?
-        if scopes.contains(.savedViews) {
+        if let savedViewsOperationID {
             savedViewsCompletion = {
-                Task { @MainActor in tracker.completeOperation() }
+                Task { @MainActor in tracker.completeOperation(savedViewsOperationID) }
             }
         } else {
             savedViewsCompletion = nil
@@ -132,9 +131,9 @@ extension HomeViewModel {
         }
 
         if shouldIncludeAnalytics || scopes.contains(.analytics) {
-            tracker.registerOperation()
+            let analyticsOperationID = tracker.registerOperation()
             loadDailyAnalytics(includeGamificationRefresh: false) {
-                Task { @MainActor in tracker.completeOperation() }
+                Task { @MainActor in tracker.completeOperation(analyticsOperationID) }
             }
         }
         tracker.finishSchedulingOperations()
@@ -197,6 +196,7 @@ extension HomeViewModel {
 
     func handleGamificationLedgerMutation(_ mutation: GamificationLedgerMutation) {
         lastLedgerMutationObservedAt = Date()
+        pendingLedgerMutationWatchdogID += 1
         pendingLedgerMutationWatchdogTask?.cancel()
         pendingLedgerMutationWatchdogTask = nil
 
@@ -250,6 +250,8 @@ extension HomeViewModel {
         guard V2FeatureFlags.gamificationV2Enabled else { return }
 
         pendingLedgerMutationWatchdogTask?.cancel()
+        pendingLedgerMutationWatchdogID += 1
+        let watchdogID = pendingLedgerMutationWatchdogID
         let observedAtScheduleTime = lastLedgerMutationObservedAt
         let delay = Duration.milliseconds(Int(ledgerMutationWatchdogDelaySeconds * 1_000))
         pendingLedgerMutationWatchdogTask = Task { @MainActor [weak self] in
@@ -259,8 +261,9 @@ extension HomeViewModel {
                 return
             }
             guard let self else { return }
-            guard self.lastLedgerMutationObservedAt <= observedAtScheduleTime else { return }
+            guard self.pendingLedgerMutationWatchdogID == watchdogID else { return }
             self.pendingLedgerMutationWatchdogTask = nil
+            guard self.lastLedgerMutationObservedAt <= observedAtScheduleTime else { return }
 
             logWarning(
                 event: "gamification_ledger_watchdog_refresh",

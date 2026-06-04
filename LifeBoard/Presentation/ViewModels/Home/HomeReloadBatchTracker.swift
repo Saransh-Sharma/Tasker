@@ -16,8 +16,10 @@ import WidgetKit
 
 @MainActor
 final class HomeReloadBatchTracker {
+    typealias OperationID = UUID
+
     let onComplete: () -> Void
-    var pendingOperations: Int = 0
+    var pendingOperationIDs: Set<OperationID> = []
     var finishedScheduling = false
     var completed = false
 
@@ -25,20 +27,30 @@ final class HomeReloadBatchTracker {
         self.onComplete = onComplete
     }
 
-    func registerOperation() {
-        pendingOperations += 1
+    func registerOperation() -> OperationID {
+        let id = OperationID()
+        pendingOperationIDs.insert(id)
+        return id
     }
 
-    func completeOperation() {
-        pendingOperations = max(0, pendingOperations - 1)
-        if finishedScheduling && pendingOperations == 0 && completed == false {
+    func completeOperation(_ id: OperationID) {
+        guard pendingOperationIDs.remove(id) != nil else {
+            logWarning(
+                event: "home_reload_batch_unknown_operation",
+                message: "Ignored completion for an unknown Home reload batch operation",
+                fields: ["operation_id": id.uuidString]
+            )
+            assertionFailure("Unknown Home reload batch operation completed")
+            return
+        }
+        if finishedScheduling && pendingOperationIDs.isEmpty && completed == false {
             finish()
         }
     }
 
     func finishSchedulingOperations() {
         finishedScheduling = true
-        if pendingOperations == 0 && completed == false {
+        if pendingOperationIDs.isEmpty && completed == false {
             finish()
         }
     }

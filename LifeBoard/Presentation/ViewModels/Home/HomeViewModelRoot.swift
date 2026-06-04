@@ -218,9 +218,13 @@ public final class HomeViewModel: ObservableObject {
 
     var pendingLedgerMutationWatchdogTask: Task<Void, Never>?
 
+    var pendingLedgerMutationWatchdogID: Int = 0
+
     var lastLedgerMutationObservedAt: Date = .distantPast
 
     var pendingReloadTask: Task<Void, Never>?
+
+    var pendingReloadDebounceID: Int = 0
 
     var pendingReloadSources: Set<String> = []
 
