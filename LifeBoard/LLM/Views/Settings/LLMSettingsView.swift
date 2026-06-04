@@ -56,7 +56,7 @@ struct LLMSettingsView: View {
                     .padding(.horizontal, spacing.screenHorizontal)
                     .padding(.top, spacing.s12)
 
-                if layoutClass.isPad {
+                if layoutClass == .padRegular || layoutClass == .padExpanded {
                     padContent
                 } else {
                     phoneContent

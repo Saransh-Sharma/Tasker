@@ -34,7 +34,7 @@ struct SettingsRootView: View {
     }
 
     private var isPadLayout: Bool {
-        layoutClass.isPad
+        layoutClass == .padRegular || layoutClass == .padExpanded
     }
 
     private var sectionTopPadding: CGFloat {
