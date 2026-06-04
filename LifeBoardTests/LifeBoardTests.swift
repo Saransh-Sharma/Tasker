@@ -610,14 +610,14 @@ final class BuildNeedsReplanCandidatesUseCaseTests: XCTestCase {
         let morning = TaskDefinition(
             projectID: projectID,
             title: "Morning",
-            dueDate: morningDue,
-            priority: .low
+            priority: .low,
+            dueDate: morningDue
         )
         let evening = TaskDefinition(
             projectID: projectID,
             title: "Evening",
-            dueDate: eveningDue,
-            priority: .high
+            priority: .high,
+            dueDate: eveningDue
         )
 
         let candidates = BuildNeedsReplanCandidatesUseCase().execute(
