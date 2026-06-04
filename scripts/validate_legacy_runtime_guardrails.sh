@@ -13,6 +13,10 @@ CHAT_SWIFT_ROOT="LifeBoard/LLM/Views/Chat"
 CHAT_MUTATION_BYPASS_PATTERN='\b(createTaskDefinition|updateTaskDefinition|deleteTaskDefinition|completeTaskDefinition|rescheduleTaskDefinition)\b'
 CHAT_SEMANTIC_REBUILD_PATTERN='TaskSemanticRetrievalService\.shared\.(rebuildIndex|index)\('
 PROPOSAL_RUN_GUARD_PATTERN='payload\.runID\s*==\s*nil'
+PROPOSAL_RUN_GUARD_FILES=(
+  "LifeBoard/LLM/Views/Chat/ConversationView.swift"
+  "LifeBoard/LLM/Views/Chat/Conversation"
+)
 
 RUNTIME_FILES=(
   "LifeBoard/AppDelegate.swift"
@@ -92,7 +96,7 @@ if rg -n -P "$CHAT_SEMANTIC_REBUILD_PATTERN" "$CHAT_SWIFT_ROOT" --glob '*.swift'
   exit 1
 fi
 
-if ! rg -n -P "$PROPOSAL_RUN_GUARD_PATTERN" "LifeBoard/LLM/Views/Chat/ConversationView.swift" >/dev/null; then
+if ! rg -n -P "$PROPOSAL_RUN_GUARD_PATTERN" "${PROPOSAL_RUN_GUARD_FILES[@]}" --glob '*.swift' >/dev/null; then
   echo "Proposal card rendering must guard against missing run ID"
   exit 1
 fi

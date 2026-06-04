@@ -758,7 +758,7 @@ struct NeedsReplanSummary: Equatable {
             return "No unfinished past tasks need replanning."
         }
         if unscheduledCount > 0, datedCount > 0 {
-            return "\(datedCount) rescue or carry-forward, \(unscheduledCount) unscheduled"
+            return "\(datedCount) overdue or carry-over, \(unscheduledCount) unscheduled"
         }
         if unscheduledCount > 0 {
             return unscheduledCount == 1
@@ -794,7 +794,7 @@ struct NeedsReplanSummary: Equatable {
             return emptyStateMessage
         }
         if unscheduledCount > 0, datedCount > 0 {
-            return "\(datedCount) rescue or carry-forward, \(unscheduledCount) unscheduled"
+            return "\(datedCount) overdue or carry-over, \(unscheduledCount) unscheduled"
         }
         if unscheduledCount > 0 {
             return unscheduledCount == 1

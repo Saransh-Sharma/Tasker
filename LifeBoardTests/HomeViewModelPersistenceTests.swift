@@ -286,7 +286,12 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         )
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
         viewModel.loadTodayTasks()
-        waitForMainQueueFlush()
+        waitUntil("Expected Needs Replan tray for past scheduled-only task") {
+            if case .trayVisible(let summary) = viewModel.homeReplanState.phase {
+                return summary.count == 1
+            }
+            return false
+        }
 
         guard case .trayVisible(let summary) = viewModel.homeReplanState.phase else {
             return XCTFail("Expected Needs Replan tray for past scheduled-only task")
@@ -335,7 +340,12 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         )
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
         viewModel.loadTodayTasks()
-        waitForMainQueueFlush()
+        waitUntil("Expected clipped replan candidate tray outside visible window") {
+            if case .trayVisible(let summary) = viewModel.homeReplanState.phase {
+                return summary.count == 1
+            }
+            return false
+        }
 
         XCTAssertFalse(viewModel.morningTasks.contains(where: { $0.title == "Clipped Replan Candidate" }))
         guard case .trayVisible(let summary) = viewModel.homeReplanState.phase else {
@@ -469,7 +479,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             ),
             userDefaults: defaults
         )
-        waitForMainQueueFlush()
+        waitUntil("Expected two passive replan candidates") {
+            viewModel.homeReplanState.persistentSummary.count == 2
+        }
 
         viewModel.openNeedsReplanLauncher(for: twoDaysAgo)
         guard case .launcher = viewModel.homeReplanState.phase else {
@@ -501,7 +513,12 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             userDefaults: defaults
         )
         viewModel.loadTodayTasks()
-        waitForMainQueueFlush()
+        waitUntil("Expected top replan tray before dismissal") {
+            if case .trayVisible = viewModel.homeReplanState.phase {
+                return viewModel.homeReplanState.persistentSummary.count == 1
+            }
+            return false
+        }
 
         guard case .trayVisible = viewModel.homeReplanState.phase else {
             defaults.removePersistentDomain(forName: suiteName)
@@ -541,7 +558,12 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             userDefaults: defaults
         )
         viewModel.loadTodayTasks()
-        waitForMainQueueFlush()
+        waitUntil("Expected top replan tray to return on a new day") {
+            if case .trayVisible(let summary) = viewModel.homeReplanState.phase {
+                return summary.count == 1
+            }
+            return false
+        }
 
         guard case .trayVisible(let summary) = viewModel.homeReplanState.phase else {
             defaults.removePersistentDomain(forName: suiteName)
@@ -574,13 +596,16 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             userDefaults: defaults
         )
         viewModel.loadTodayTasks()
-        waitForMainQueueFlush()
+        waitUntil("Expected persistent replan summary across past days") {
+            viewModel.homeReplanState.persistentSummary.count == 2 &&
+                viewModel.homeReplanState.persistentSummary.dayCount == 2
+        }
 
         XCTAssertEqual(viewModel.homeReplanState.persistentSummary.count, 2)
         XCTAssertEqual(viewModel.homeReplanState.persistentSummary.dayCount, 2)
         XCTAssertEqual(
             viewModel.needsReplanCandidatesForTesting(from: [older, recent]).map(\.task.title),
-            ["Recent overdue", "Week-old overdue"]
+            ["Week-old overdue", "Recent overdue"]
         )
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -607,7 +632,10 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         viewModel.setProjectFilters([work.id])
         waitForMainQueueFlush()
         viewModel.setQuickView(.upcoming)
-        waitForMainQueueFlush()
+        waitUntil("Expected upcoming quick view and persistent replan summary") {
+            viewModel.upcomingTasks.contains(where: { $0.title == "Work upcoming" }) &&
+                viewModel.homeReplanState.persistentSummary.count == 1
+        }
 
         XCTAssertTrue(viewModel.upcomingTasks.contains(where: { $0.title == "Work upcoming" }))
         XCTAssertFalse(viewModel.upcomingTasks.contains(where: { $0.title == "Inbox overdue" }))
@@ -1249,7 +1277,11 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
 
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
-        waitForMainQueueFlush()
+        waitUntil("Expected focus and agenda rows to load") {
+            visibleFocusTaskIDs(in: viewModel.focusRows).count == 3 &&
+                taskIDs(in: viewModel.todaySections).count == 2 &&
+                taskIDs(in: viewModel.dueTodayRows).count == 2
+        }
 
         let focusTaskIDs = visibleFocusTaskIDs(in: viewModel.focusRows)
         let agendaTaskIDs = taskIDs(in: viewModel.todaySections)
@@ -1502,7 +1534,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
         XCTAssertEqual(viewModel.pinTaskToFocus(pinnedTask.id), .pinned)
         viewModel.toggleTaskCompletion(pinnedTask)
-        waitForMainQueueFlush()
+        waitUntil("Expected pinned task to be pruned after completion") {
+            viewModel.pinnedFocusTaskIDs.contains(pinnedTask.id) == false
+        }
 
         XCTAssertFalse(viewModel.pinnedFocusTaskIDs.contains(pinnedTask.id))
 
@@ -1529,7 +1563,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
         XCTAssertEqual(viewModel.pinTaskToFocus(pinnedTask.id), .pinned)
         viewModel.deleteTask(pinnedTask)
-        waitForMainQueueFlush()
+        waitUntil("Expected pinned task to be pruned after delete") {
+            viewModel.pinnedFocusTaskIDs.contains(pinnedTask.id) == false
+        }
 
         XCTAssertFalse(viewModel.pinnedFocusTaskIDs.contains(pinnedTask.id))
 
@@ -1843,13 +1879,19 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         }
         defaults.removePersistentDomain(forName: suiteName)
 
-        let now = Date()
+        let calendar = Calendar.current
+        let now = calendar.date(
+            bySettingHour: 10,
+            minute: 0,
+            second: 0,
+            of: calendar.startOfDay(for: Date())
+        ) ?? Date()
         let inbox = Project.createInbox()
         let tasks = [
             makeTask(name: "Focus A", project: inbox, dueDate: now, priority: .high, updatedAt: now),
-            makeTask(name: "Focus B", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 30, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Focus C", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 1, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Candidate D", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 3, to: now), priority: .low, updatedAt: now)
+            makeTask(name: "Focus B", project: inbox, dueDate: calendar.date(byAdding: .minute, value: 30, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Focus C", project: inbox, dueDate: calendar.date(byAdding: .hour, value: 1, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Candidate D", project: inbox, dueDate: calendar.date(byAdding: .hour, value: 3, to: now), priority: .low, updatedAt: now)
         ]
 
         let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
@@ -1876,14 +1918,20 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         }
         defaults.removePersistentDomain(forName: suiteName)
 
-        let now = Date()
+        let calendar = Calendar.current
+        let now = calendar.date(
+            bySettingHour: 10,
+            minute: 0,
+            second: 0,
+            of: calendar.startOfDay(for: Date())
+        ) ?? Date()
         let inbox = Project.createInbox()
         let tasks = [
             makeTask(name: "Pinned One", project: inbox, dueDate: now, priority: .high, updatedAt: now),
-            makeTask(name: "Pinned Two", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 20, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Pinned Three", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 40, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Swap Candidate", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 2, to: now), priority: .low, updatedAt: now),
-            makeTask(name: "Swap Candidate Two", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 4, to: now), priority: .low, updatedAt: now)
+            makeTask(name: "Pinned Two", project: inbox, dueDate: calendar.date(byAdding: .minute, value: 20, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Pinned Three", project: inbox, dueDate: calendar.date(byAdding: .minute, value: 40, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Swap Candidate", project: inbox, dueDate: calendar.date(byAdding: .hour, value: 2, to: now), priority: .low, updatedAt: now),
+            makeTask(name: "Swap Candidate Two", project: inbox, dueDate: calendar.date(byAdding: .hour, value: 4, to: now), priority: .low, updatedAt: now)
         ]
 
         let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
@@ -1909,13 +1957,19 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         }
         defaults.removePersistentDomain(forName: suiteName)
 
-        let now = Date()
+        let calendar = Calendar.current
+        let now = calendar.date(
+            bySettingHour: 10,
+            minute: 0,
+            second: 0,
+            of: calendar.startOfDay(for: Date())
+        ) ?? Date()
         let inbox = Project.createInbox()
         let tasks = [
             makeTask(name: "Pinned One", project: inbox, dueDate: now, priority: .high, updatedAt: now),
-            makeTask(name: "Pinned Two", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 20, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Pinned Three", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 40, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Swap Candidate", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 2, to: now), priority: .low, updatedAt: now)
+            makeTask(name: "Pinned Two", project: inbox, dueDate: calendar.date(byAdding: .minute, value: 20, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Pinned Three", project: inbox, dueDate: calendar.date(byAdding: .minute, value: 40, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Swap Candidate", project: inbox, dueDate: calendar.date(byAdding: .hour, value: 2, to: now), priority: .low, updatedAt: now)
         ]
 
         let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
@@ -2290,7 +2344,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
         )
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
-        waitForMainQueueFlush()
+        waitUntil("Expected compact Rescue tail state") {
+            rescueTailState(from: viewModel)?.totalCount == 2
+        }
 
         guard let rescueTail = rescueTailState(from: viewModel) else {
             return XCTFail("Expected Rescue tail state")
@@ -2326,7 +2382,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
         )
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
-        waitForMainQueueFlush()
+        waitUntil("Expected three-item Rescue tail state") {
+            rescueTailState(from: viewModel)?.totalCount == 3
+        }
 
         guard let rescueTail = rescueTailState(from: viewModel) else {
             return XCTFail("Expected Rescue tail state")
@@ -2362,7 +2420,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
         )
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
-        waitForMainQueueFlush()
+        waitUntil("Expected expanded Rescue tail state") {
+            rescueTailState(from: viewModel)?.totalCount == 4
+        }
 
         guard let rescueTail = rescueTailState(from: viewModel) else {
             return XCTFail("Expected Rescue tail state")
@@ -2406,11 +2466,8 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
     func testHabitLastCellActionAppliesOptimisticStateImmediately() {
         let harness = makeHabitMutationHarness()
-        waitForMainQueueFlush()
 
-        let loadedRows = harness.viewModel.habitHomeSectionState.primaryRows
-            + harness.viewModel.habitHomeSectionState.recoveryRows
-        guard let row = loadedRows.first else {
+        guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
             return XCTFail("Expected habit row after initial load")
         }
 
@@ -2422,7 +2479,6 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
     func testHabitLastCellActionPublishesImmediateMutationFeedback() {
         let harness = makeHabitMutationHarness()
-        waitForMainQueueFlush()
 
         guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
             return XCTFail("Expected habit row after initial load")
@@ -2448,9 +2504,8 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
     func testHabitLastCellActionUpdatesVisibleStreakAndTrailingCellImmediately() {
         let harness = makeHabitMutationHarness()
-        waitForMainQueueFlush()
 
-        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+        guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
             return XCTFail("Expected habit row after initial load")
         }
 
@@ -2476,9 +2531,8 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
     func testHabitMutationRollsBackOptimisticStateOnFailure() {
         let harness = makeHabitMutationHarness()
-        waitForMainQueueFlush()
 
-        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+        guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
             return XCTFail("Expected habit row after initial load")
         }
 
@@ -2494,9 +2548,8 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
     func testHabitMutationFailurePublishesHabitScopedErrorMessage() {
         let harness = makeHabitMutationHarness()
-        waitForMainQueueFlush()
 
-        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+        guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
             return XCTFail("Expected habit row after initial load")
         }
 
@@ -2513,9 +2566,8 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
     func testHabitMutationTriggersSingleHabitScopedReload() {
         let harness = makeHabitMutationHarness()
-        waitForMainQueueFlush()
 
-        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+        guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
             return XCTFail("Expected habit row after initial load")
         }
 
@@ -2527,7 +2579,10 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         harness.schedulingEngine.deferResolveCompletion = true
         harness.viewModel.performHabitLastCellAction(row, source: "test")
         harness.schedulingEngine.completePendingResolve(with: .success(()))
-        waitForMainQueueFlush(seconds: 0.45)
+        waitUntil("Expected single habit-scoped reload") {
+            harness.habitReadRepository.fetchAgendaHabitCallCount == initialTargetedAgendaFetches + 1 &&
+                harness.habitReadRepository.fetchFilteredHabitLibraryCallCount == initialFilteredLibraryFetches + 1
+        }
 
         XCTAssertEqual(harness.habitReadRepository.fetchAgendaCallCount, initialAgendaFetches)
         XCTAssertEqual(harness.habitReadRepository.fetchAgendaHabitCallCount, initialTargetedAgendaFetches + 1)
@@ -2540,18 +2595,20 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
     func testHabitMutationDoesNotTriggerFullTaskProjectionReload() {
         let harness = makeHabitMutationHarness()
-        waitForMainQueueFlush()
 
-        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+        guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
             return XCTFail("Expected habit row after initial load")
         }
 
         let initialProjectionFetches = harness.taskReadRepository.fetchHomeProjectionCallCount
+        let initialTargetedAgendaFetches = harness.habitReadRepository.fetchAgendaHabitCallCount
 
         harness.schedulingEngine.deferResolveCompletion = true
         harness.viewModel.performHabitLastCellAction(row, source: "test")
         harness.schedulingEngine.completePendingResolve(with: .success(()))
-        waitForMainQueueFlush(seconds: 0.45)
+        waitUntil("Expected habit-scoped reload without task projection reload") {
+            harness.habitReadRepository.fetchAgendaHabitCallCount > initialTargetedAgendaFetches
+        }
 
         XCTAssertEqual(harness.taskReadRepository.fetchHomeProjectionCallCount, initialProjectionFetches)
     }
@@ -2567,13 +2624,17 @@ final class HomeViewModelPersistenceTests: XCTestCase {
                 )
             ]
         )
-        waitForMainQueueFlush()
 
-        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+        guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
             return XCTFail("Expected habit row after initial load")
+        }
+        waitUntil("Expected task-backed focus rows") {
+            harness.viewModel.focusNowSectionState.rows.isEmpty == false &&
+                harness.viewModel.focusNowSectionState.rows.allSatisfy { !$0.isHabit }
         }
 
         let initialFocusRows = harness.viewModel.focusNowSectionState.rows
+        let initialTargetedAgendaFetches = harness.habitReadRepository.fetchAgendaHabitCallCount
         XCTAssertFalse(initialFocusRows.isEmpty)
         XCTAssertTrue(initialFocusRows.allSatisfy { !$0.isHabit })
 
@@ -2582,7 +2643,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(harness.viewModel.focusNowSectionState.rows, initialFocusRows)
 
         harness.schedulingEngine.completePendingResolve(with: .success(()))
-        waitForMainQueueFlush(seconds: 0.45)
+        waitUntil("Expected habit-scoped reload after mutation") {
+            harness.habitReadRepository.fetchAgendaHabitCallCount > initialTargetedAgendaFetches
+        }
 
         XCTAssertEqual(harness.viewModel.focusNowSectionState.rows, initialFocusRows)
     }
@@ -2595,15 +2658,19 @@ final class HomeViewModelPersistenceTests: XCTestCase {
                 makeTask(name: "Agenda Task", project: inbox, dueDate: now, priority: .high)
             ]
         )
-        waitForMainQueueFlush()
 
-        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+        guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
             return XCTFail("Expected habit row after initial load")
+        }
+        waitUntil("Expected today agenda shell to load") {
+            harness.viewModel.focusNowSectionState.rows.map(\.title).contains("Agenda Task") ||
+                visibleTodayWorkTitles(in: harness.viewModel).contains("Agenda Task")
         }
 
         let initialTodaySections = harness.viewModel.todaySections
         let initialTodayAgendaSectionState = harness.viewModel.todayAgendaSectionState
         let initialAgendaTailItems = harness.viewModel.agendaTailItems
+        let initialTargetedAgendaFetches = harness.habitReadRepository.fetchAgendaHabitCallCount
 
         harness.schedulingEngine.deferResolveCompletion = true
         harness.viewModel.performHabitLastCellAction(row, source: "test")
@@ -2613,7 +2680,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(harness.viewModel.agendaTailItems, initialAgendaTailItems)
 
         harness.schedulingEngine.completePendingResolve(with: .success(()))
-        waitForMainQueueFlush(seconds: 0.45)
+        waitUntil("Expected habit-scoped reload after agenda shell mutation") {
+            harness.habitReadRepository.fetchAgendaHabitCallCount > initialTargetedAgendaFetches
+        }
 
         XCTAssertEqual(harness.viewModel.todaySections, initialTodaySections)
         XCTAssertEqual(harness.viewModel.todayAgendaSectionState, initialTodayAgendaSectionState)
@@ -2628,10 +2697,13 @@ final class HomeViewModelPersistenceTests: XCTestCase {
                 makeTask(name: "Keep Me", project: inbox, dueDate: now, priority: .low)
             ]
         )
-        waitForMainQueueFlush()
 
-        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+        guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
             return XCTFail("Expected habit row after initial load")
+        }
+        waitUntil("Expected habit and task rows in visible today work") {
+            let titles = visibleTodayWorkTitles(in: harness.viewModel)
+            return titles.contains("Hydrate") && titles.contains("Keep Me")
         }
 
         let initialVisibleTitles = visibleTodayWorkTitles(in: harness.viewModel)
@@ -2690,20 +2762,25 @@ final class HomeViewModelPersistenceTests: XCTestCase {
                 )
             ]
         )
-        waitForMainQueueFlush()
+        waitUntil("Expected stable home habit ordering") {
+            harness.viewModel.habitHomeSectionState.primaryRows.map(\.title) == ["Alpha", "Bravo"]
+        }
 
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Alpha", "Bravo"])
 
         guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first(where: { $0.title == "Alpha" }) else {
             return XCTFail("Expected Alpha habit row")
         }
+        let initialTargetedAgendaFetches = harness.habitReadRepository.fetchAgendaHabitCallCount
 
         harness.schedulingEngine.deferResolveCompletion = true
         harness.viewModel.performHabitLastCellAction(row, source: "test")
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Alpha", "Bravo"])
 
         harness.schedulingEngine.completePendingResolve(with: .success(()))
-        waitForMainQueueFlush(seconds: 0.45)
+        waitUntil("Expected habit-scoped reload to preserve stable ordering") {
+            harness.habitReadRepository.fetchAgendaHabitCallCount > initialTargetedAgendaFetches
+        }
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Alpha", "Bravo"])
     }
 
@@ -2749,7 +2826,10 @@ final class HomeViewModelPersistenceTests: XCTestCase {
                 )
             ]
         )
-        waitForMainQueueFlush()
+        waitUntil("Expected recovery and stable habit rows") {
+            harness.viewModel.habitHomeSectionState.recoveryRows.map(\.title) == ["Recovery Habit"] &&
+                harness.viewModel.habitHomeSectionState.primaryRows.map(\.title) == ["Stable Habit"]
+        }
 
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.recoveryRows.map(\.title), ["Recovery Habit"])
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Stable Habit"])
@@ -2757,6 +2837,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         guard let row = harness.viewModel.habitHomeSectionState.recoveryRows.first else {
             return XCTFail("Expected a visible recovery habit row")
         }
+        let initialTargetedAgendaFetches = harness.habitReadRepository.fetchAgendaHabitCallCount
 
         harness.schedulingEngine.deferResolveCompletion = true
         harness.viewModel.performHabitLastCellAction(row, source: "test")
@@ -2766,7 +2847,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Stable Habit"])
 
         harness.schedulingEngine.completePendingResolve(with: .success(()))
-        waitForMainQueueFlush(seconds: 0.45)
+        waitUntil("Expected habit-scoped reload to keep recovery row in place") {
+            harness.habitReadRepository.fetchAgendaHabitCallCount > initialTargetedAgendaFetches
+        }
 
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.recoveryRows.map(\.title), ["Recovery Habit"])
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.recoveryRows.first?.state, .completedToday)
@@ -2793,7 +2876,10 @@ final class HomeViewModelPersistenceTests: XCTestCase {
                 )
             ]
         )
-        waitForMainQueueFlush()
+        waitUntil("Expected habit row and rescue task state") {
+            harness.viewModel.habitHomeSectionState.primaryRows.isEmpty == false &&
+                rescueTailState(from: harness.viewModel)?.rows.map(\.title) == ["Rescue Old"]
+        }
 
         guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
             return XCTFail("Expected habit row after initial load")
@@ -2856,7 +2942,10 @@ final class HomeViewModelPersistenceTests: XCTestCase {
                 )
             ]
         )
-        waitForMainQueueFlush()
+        waitUntil("Expected habit-backed focus fallback") {
+            harness.viewModel.focusNowSectionState.rows.map(\.title) == ["Overdue A"] &&
+                harness.viewModel.habitHomeSectionState.recoveryRows.contains { $0.title == "Overdue A" }
+        }
 
         XCTAssertEqual(harness.viewModel.focusNowSectionState.rows.map(\.title), ["Overdue A"])
 
@@ -2893,9 +2982,12 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
         XCTAssertEqual(viewModel.activeScope, .today)
         let baselineSelectedDate = viewModel.selectedDate
+        let baselineGeneration = viewModel.reloadGeneration
 
         viewModel.refreshCurrentScopeContent(source: "test_habit_detail_mutation")
-        waitForMainQueueFlush(seconds: 0.45)
+        waitUntil("Expected current scope content refresh to complete") {
+            viewModel.reloadGeneration > baselineGeneration
+        }
 
         XCTAssertEqual(viewModel.activeScope, .today)
         XCTAssertTrue(Calendar.current.isDate(viewModel.selectedDate, inSameDayAs: baselineSelectedDate))
@@ -3056,46 +3148,53 @@ final class HomeViewModelPersistenceTests: XCTestCase {
     }
 
     private func waitForMainQueueFlush() {
-        let expectation = expectation(description: "MainQueueFlush")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            expectation.fulfill()
-        }
-        wait(for: [expectation], timeout: 1.0)
+        waitForMainQueueFlush(seconds: 0.15)
     }
 
     private func waitForMainQueueFlush(seconds: TimeInterval) {
-        let expectation = expectation(description: "MainQueueFlushCustom")
+        let expectation = expectation(description: "MainQueueFlush")
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: seconds + 1.0)
+        wait(for: [expectation], timeout: max(1.0, seconds + 0.5))
+    }
+
+    private func waitUntil(
+        _ description: String,
+        timeout: TimeInterval = 1.2,
+        pollInterval: TimeInterval = 0.02,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        _ condition: @MainActor () -> Bool
+    ) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(pollInterval))
+        }
+        if condition() {
+            return
+        }
+        XCTFail(description, file: file, line: line)
     }
 
     private func waitUntilProjectLoaded(_ projectID: UUID, in viewModel: HomeViewModel, timeout: TimeInterval = 1.0) {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if viewModel.projects.contains(where: { $0.id == projectID }) {
-                return
-            }
-            waitForMainQueueFlush(seconds: 0.05)
+        waitUntil("Expected project \(projectID) to be loaded in HomeViewModel.projects", timeout: timeout) {
+            viewModel.projects.contains(where: { $0.id == projectID })
         }
-        XCTFail("Expected project \(projectID) to be loaded in HomeViewModel.projects")
     }
 
     private func firstLoadedHabitRow(
         in viewModel: HomeViewModel,
         timeout: TimeInterval = 1.2
     ) -> HomeHabitRow? {
-        let deadline = Date().addingTimeInterval(timeout)
-        repeat {
-            let rows = viewModel.habitHomeSectionState.primaryRows
-                + viewModel.habitHomeSectionState.recoveryRows
-            if let row = rows.first {
-                return row
-            }
-            waitForMainQueueFlush(seconds: 0.05)
-        } while Date() < deadline
-        return nil
+        waitUntil("Expected habit row to load", timeout: timeout) {
+            viewModel.habitHomeSectionState.primaryRows.isEmpty == false ||
+                viewModel.habitHomeSectionState.recoveryRows.isEmpty == false
+        }
+        return (viewModel.habitHomeSectionState.primaryRows + viewModel.habitHomeSectionState.recoveryRows).first
     }
 
     private func visibleFocusTaskIDs(in rows: [HomeTodayRow]) -> Set<UUID> {
