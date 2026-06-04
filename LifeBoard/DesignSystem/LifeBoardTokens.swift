@@ -11,10 +11,43 @@ public enum LifeBoardLayoutClass: String, CaseIterable, Sendable {
     }
 }
 
+public enum LifeBoardInterfacePlatform: String, Sendable {
+    case phone
+    case pad
+    case macCatalyst
+
+    public var usesExpandedLayout: Bool {
+        switch self {
+        case .phone:
+            return false
+        case .pad, .macCatalyst:
+            return true
+        }
+    }
+
+    public static func resolve(idiom: UIUserInterfaceIdiom) -> LifeBoardInterfacePlatform {
+        #if targetEnvironment(macCatalyst)
+        if idiom != .phone {
+            return .macCatalyst
+        }
+        #endif
+
+        switch idiom {
+        case .pad:
+            return .pad
+        case .mac:
+            return .macCatalyst
+        default:
+            return .phone
+        }
+    }
+}
+
 public struct LifeBoardLayoutMetrics: Sendable {
     public let width: CGFloat
     public let height: CGFloat
     public let idiom: UIUserInterfaceIdiom
+    public let platform: LifeBoardInterfacePlatform
     public let horizontalSizeClass: UIUserInterfaceSizeClass?
     public let verticalSizeClass: UIUserInterfaceSizeClass?
     public let safeAreaInsets: UIEdgeInsets
@@ -24,6 +57,7 @@ public struct LifeBoardLayoutMetrics: Sendable {
         width: CGFloat,
         height: CGFloat,
         idiom: UIUserInterfaceIdiom,
+        platform: LifeBoardInterfacePlatform? = nil,
         horizontalSizeClass: UIUserInterfaceSizeClass? = nil,
         verticalSizeClass: UIUserInterfaceSizeClass? = nil,
         safeAreaInsets: UIEdgeInsets = .zero
@@ -31,6 +65,7 @@ public struct LifeBoardLayoutMetrics: Sendable {
         self.width = width
         self.height = height
         self.idiom = idiom
+        self.platform = platform ?? LifeBoardInterfacePlatform.resolve(idiom: idiom)
         self.horizontalSizeClass = horizontalSizeClass
         self.verticalSizeClass = verticalSizeClass
         self.safeAreaInsets = safeAreaInsets
@@ -43,7 +78,7 @@ public enum LifeBoardLayoutResolver {
 
     /// Executes classify.
     public static func classify(metrics: LifeBoardLayoutMetrics) -> LifeBoardLayoutClass {
-        guard metrics.idiom == .pad else { return .phone }
+        guard metrics.platform.usesExpandedLayout else { return .phone }
         if metrics.width < padCompactUpperBound {
             return .padCompact
         }
