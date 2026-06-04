@@ -2663,7 +2663,8 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             return XCTFail("Expected habit row after initial load")
         }
         waitUntil("Expected today agenda shell to load") {
-            harness.viewModel.todaySections.isEmpty == false
+            harness.viewModel.focusNowSectionState.rows.map(\.title).contains("Agenda Task") ||
+                visibleTodayWorkTitles(in: harness.viewModel).contains("Agenda Task")
         }
 
         let initialTodaySections = harness.viewModel.todaySections
