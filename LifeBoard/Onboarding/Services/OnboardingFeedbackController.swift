@@ -15,6 +15,7 @@ final class OnboardingFeedbackController {
     var hapticEngine: CHHapticEngine?
 
     func prepare() {
+        guard isFeedbackAvailable else { return }
         selectionGenerator.prepare()
         lightGenerator.prepare()
         mediumGenerator.prepare()
@@ -23,27 +24,32 @@ final class OnboardingFeedbackController {
     }
 
     func selection() {
+        guard isFeedbackAvailable else { return }
         selectionGenerator.selectionChanged()
         selectionGenerator.prepare()
     }
 
     func light() {
+        guard isFeedbackAvailable else { return }
         lightGenerator.impactOccurred()
         lightGenerator.prepare()
     }
 
     func medium() {
+        guard isFeedbackAvailable else { return }
         mediumGenerator.impactOccurred()
         mediumGenerator.prepare()
     }
 
     func successSignature() {
+        guard isFeedbackAvailable else { return }
         guard playSuccessPattern() == false else { return }
         successGenerator.notificationOccurred(.success)
         successGenerator.prepare()
     }
 
     func prepareEngineIfNeeded() {
+        guard isFeedbackAvailable else { return }
         guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
         if hapticEngine == nil {
             hapticEngine = try? CHHapticEngine()
@@ -52,6 +58,7 @@ final class OnboardingFeedbackController {
     }
 
     func playSuccessPattern() -> Bool {
+        guard isFeedbackAvailable else { return false }
         prepareEngineIfNeeded()
         guard let hapticEngine else { return false }
         let events = [
@@ -80,5 +87,13 @@ final class OnboardingFeedbackController {
         } catch {
             return false
         }
+    }
+
+    private var isFeedbackAvailable: Bool {
+        #if targetEnvironment(macCatalyst)
+        return false
+        #else
+        return true
+        #endif
     }
 }

@@ -363,30 +363,45 @@ public extension UIView {
 @MainActor
 public enum LifeBoardFeedback {
     public static func light() {
+        guard isHapticFeedbackAvailable else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     public static func medium() {
+        guard isHapticFeedbackAvailable else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
     public static func heavy() {
+        guard isHapticFeedbackAvailable else { return }
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
     }
 
     public static func success() {
+        guard isHapticFeedbackAvailable else { return }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     public static func warning() {
+        guard isHapticFeedbackAvailable else { return }
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
     }
 
     public static func error() {
+        guard isHapticFeedbackAvailable else { return }
         UINotificationFeedbackGenerator().notificationOccurred(.error)
     }
 
     public static func selection() {
+        guard isHapticFeedbackAvailable else { return }
         UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    private static var isHapticFeedbackAvailable: Bool {
+        #if targetEnvironment(macCatalyst)
+        return false
+        #else
+        return true
+        #endif
     }
 }
