@@ -28,7 +28,7 @@ enum StarterWorkspaceCatalog {
         "health-meal": "health-meals"
     ]
 
-    static let legacyTaskIDMap: [String: String] = [
+    static let taskTemplateIDRemap: [String: String] = [
         "task-home-laundry-basket": "task-home-reset-five",
         "task-learning-read-page": "task-health-reflect-page",
         "task-learning-read-takeaway": "task-health-reflect-takeaway"
@@ -1568,7 +1568,7 @@ enum StarterWorkspaceCatalog {
     }
 
     static func normalizeTaskTemplateID(_ id: String) -> String {
-        legacyTaskIDMap[id] ?? id
+        taskTemplateIDRemap[id] ?? id
     }
 
     static func normalizeHabitTemplateID(_ id: String) -> String {
