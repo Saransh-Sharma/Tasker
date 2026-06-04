@@ -580,7 +580,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(viewModel.homeReplanState.persistentSummary.dayCount, 2)
         XCTAssertEqual(
             viewModel.needsReplanCandidatesForTesting(from: [older, recent]).map(\.task.title),
-            ["Recent overdue", "Week-old overdue"]
+            ["Week-old overdue", "Recent overdue"]
         )
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -1843,13 +1843,19 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         }
         defaults.removePersistentDomain(forName: suiteName)
 
-        let now = Date()
+        let calendar = Calendar.current
+        let now = calendar.date(
+            bySettingHour: 10,
+            minute: 0,
+            second: 0,
+            of: calendar.startOfDay(for: Date())
+        ) ?? Date()
         let inbox = Project.createInbox()
         let tasks = [
             makeTask(name: "Focus A", project: inbox, dueDate: now, priority: .high, updatedAt: now),
-            makeTask(name: "Focus B", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 30, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Focus C", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 1, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Candidate D", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 3, to: now), priority: .low, updatedAt: now)
+            makeTask(name: "Focus B", project: inbox, dueDate: calendar.date(byAdding: .minute, value: 30, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Focus C", project: inbox, dueDate: calendar.date(byAdding: .hour, value: 1, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Candidate D", project: inbox, dueDate: calendar.date(byAdding: .hour, value: 3, to: now), priority: .low, updatedAt: now)
         ]
 
         let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
@@ -1876,14 +1882,20 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         }
         defaults.removePersistentDomain(forName: suiteName)
 
-        let now = Date()
+        let calendar = Calendar.current
+        let now = calendar.date(
+            bySettingHour: 10,
+            minute: 0,
+            second: 0,
+            of: calendar.startOfDay(for: Date())
+        ) ?? Date()
         let inbox = Project.createInbox()
         let tasks = [
             makeTask(name: "Pinned One", project: inbox, dueDate: now, priority: .high, updatedAt: now),
-            makeTask(name: "Pinned Two", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 20, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Pinned Three", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 40, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Swap Candidate", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 2, to: now), priority: .low, updatedAt: now),
-            makeTask(name: "Swap Candidate Two", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 4, to: now), priority: .low, updatedAt: now)
+            makeTask(name: "Pinned Two", project: inbox, dueDate: calendar.date(byAdding: .minute, value: 20, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Pinned Three", project: inbox, dueDate: calendar.date(byAdding: .minute, value: 40, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Swap Candidate", project: inbox, dueDate: calendar.date(byAdding: .hour, value: 2, to: now), priority: .low, updatedAt: now),
+            makeTask(name: "Swap Candidate Two", project: inbox, dueDate: calendar.date(byAdding: .hour, value: 4, to: now), priority: .low, updatedAt: now)
         ]
 
         let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
@@ -1909,13 +1921,19 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         }
         defaults.removePersistentDomain(forName: suiteName)
 
-        let now = Date()
+        let calendar = Calendar.current
+        let now = calendar.date(
+            bySettingHour: 10,
+            minute: 0,
+            second: 0,
+            of: calendar.startOfDay(for: Date())
+        ) ?? Date()
         let inbox = Project.createInbox()
         let tasks = [
             makeTask(name: "Pinned One", project: inbox, dueDate: now, priority: .high, updatedAt: now),
-            makeTask(name: "Pinned Two", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 20, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Pinned Three", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 40, to: now), priority: .high, updatedAt: now),
-            makeTask(name: "Swap Candidate", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 2, to: now), priority: .low, updatedAt: now)
+            makeTask(name: "Pinned Two", project: inbox, dueDate: calendar.date(byAdding: .minute, value: 20, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Pinned Three", project: inbox, dueDate: calendar.date(byAdding: .minute, value: 40, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Swap Candidate", project: inbox, dueDate: calendar.date(byAdding: .hour, value: 2, to: now), priority: .low, updatedAt: now)
         ]
 
         let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
@@ -3056,19 +3074,15 @@ final class HomeViewModelPersistenceTests: XCTestCase {
     }
 
     private func waitForMainQueueFlush() {
-        let expectation = expectation(description: "MainQueueFlush")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            expectation.fulfill()
-        }
-        wait(for: [expectation], timeout: 1.0)
+        waitForMainQueueFlush(seconds: 0.15)
     }
 
     private func waitForMainQueueFlush(seconds: TimeInterval) {
-        let expectation = expectation(description: "MainQueueFlushCustom")
+        let expectation = expectation(description: "MainQueueFlush")
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: seconds + 1.0)
+        wait(for: [expectation], timeout: max(1.0, seconds + 0.5))
     }
 
     private func waitUntilProjectLoaded(_ projectID: UUID, in viewModel: HomeViewModel, timeout: TimeInterval = 1.0) {

@@ -79,6 +79,12 @@ struct BuildNeedsReplanCandidatesUseCase {
         if let lhsDay = lhs.anchorDay, let rhsDay = rhs.anchorDay, lhsDay != rhsDay {
             return lhsDay < rhsDay
         }
+        if lhs.kind != rhs.kind {
+            return priority(for: lhs.kind) < priority(for: rhs.kind)
+        }
+        if lhs.task.isAllDay != rhs.task.isAllDay {
+            return rhs.task.isAllDay
+        }
         if let lhsAnchor = lhs.anchorDate, let rhsAnchor = rhs.anchorDate, lhsAnchor != rhsAnchor {
             return lhsAnchor < rhsAnchor
         }
@@ -89,6 +95,17 @@ struct BuildNeedsReplanCandidatesUseCase {
             return lhs.task.updatedAt < rhs.task.updatedAt
         }
         return lhs.task.title.localizedStandardCompare(rhs.task.title) == .orderedAscending
+    }
+
+    private static func priority(for kind: HomeReplanCandidateKind) -> Int {
+        switch kind {
+        case .scheduledCarryOver:
+            return 0
+        case .pastDue:
+            return 1
+        case .unscheduledBacklog:
+            return 2
+        }
     }
 
     private static func validScheduledEnd(for task: TaskDefinition) -> Date? {

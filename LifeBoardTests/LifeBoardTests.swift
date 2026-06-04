@@ -522,6 +522,39 @@ final class BuildNeedsReplanCandidatesUseCaseTests: XCTestCase {
         XCTAssertEqual(candidates.map(\.task.id), [oldest.id, newer.id])
         XCTAssertNil(candidates.first?.anchorEndDate)
     }
+
+    func testGlobalCandidatesKeepOldestDatedWorkBeforeUnscheduledBacklog() {
+        let projectID = UUID()
+        let calendar = Calendar.current
+        let now = Date(timeIntervalSince1970: 1_724_457_600)
+        let today = calendar.startOfDay(for: now)
+        let olderStart = calendar.date(byAdding: .day, value: -4, to: today)!
+        let newerDue = calendar.date(byAdding: .day, value: -2, to: today)!
+        let scheduledCarryOver = TaskDefinition(
+            projectID: projectID,
+            title: "Scheduled carry-over",
+            scheduledStartAt: olderStart,
+            scheduledEndAt: calendar.date(byAdding: .hour, value: 1, to: olderStart)
+        )
+        let pastDue = TaskDefinition(
+            projectID: projectID,
+            title: "Past due",
+            dueDate: newerDue
+        )
+        let backlog = TaskDefinition(
+            projectID: projectID,
+            title: "Backlog"
+        )
+
+        let candidates = BuildNeedsReplanCandidatesUseCase().execute(
+            tasks: [backlog, pastDue, scheduledCarryOver],
+            projectsByID: [projectID: Project(id: projectID, name: "Active")],
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(candidates.map(\.task.id), [scheduledCarryOver.id, pastDue.id, backlog.id])
+    }
 }
 
 final class InMemoryCacheServiceTests: XCTestCase {
