@@ -835,7 +835,7 @@
 		C537950FC6FD78BB996E7CA5 /* HomeXPHeroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DC0A5BC84D9C6C792B2AB6 /* HomeXPHeroView.swift */; };
 		C5E24F11E95F5281AFA4E8DD /* UIKit+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A94E5E4F9BB3AA846B56A72 /* UIKit+TokenAdapters.swift */; };
 		C5F044673340D4322E0821B9 /* HabitListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903BFF6DB72A0D515603C771 /* HabitListRow.swift */; };
-		C6182C050AFE59B731DAD798 /* LifeBoardWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F9A8B91DCC93833939CAE3C6 /* LifeBoardWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C6182C050AFE59B731DAD798 /* LifeBoardWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F9A8B91DCC93833939CAE3C6 /* LifeBoardWidgets.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C6763538C5D158A7E8967D88 /* TimelineStreamSegment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4D92143BA2F3C1FE24BFFE /* TimelineStreamSegment.swift */; };
 		C68012797DEDCF3D065BBA45 /* InsightsLaunchRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54D0BEA667E2738CDF713A68 /* InsightsLaunchRequest.swift */; };
 		C6D12F2061A8EBCCFD6346DA /* OnboardingFrictionOptionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBA49A78931E2752ADDE59CA /* OnboardingFrictionOptionCard.swift */; };
@@ -4212,13 +4212,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LifeBoard-LifeBoardUITests/Pods-LifeBoard-LifeBoardUITests-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LifeBoard-LifeBoardUITests/Pods-LifeBoard-LifeBoardUITests-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -4233,13 +4229,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LifeBoard/Pods-LifeBoard-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-LifeBoard/Pods-LifeBoard-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -5714,8 +5706,10 @@
 					"-Wl,-no_warn_duplicate_libraries",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = "com.saransh1337.To-Do-List.mac";
 				PRODUCT_MODULE_NAME = LifeBoard;
 				PRODUCT_NAME = LifeBoard;
+				SUPPORTS_MACCATALYST = YES;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -5745,8 +5739,10 @@
 					"-Wl,-no_warn_duplicate_libraries",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = "com.saransh1337.To-Do-List.mac";
 				PRODUCT_MODULE_NAME = LifeBoard;
 				PRODUCT_NAME = LifeBoard;
+				SUPPORTS_MACCATALYST = YES;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

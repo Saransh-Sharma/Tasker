@@ -42,6 +42,7 @@ post_install do |installer|
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |c|
       c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '18.6'
+      c.build_settings['SUPPORTS_MACCATALYST'] = 'YES'
       c.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
       c.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
       c.build_settings['TOOLCHAIN_DIR'] = '$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain'
@@ -82,6 +83,15 @@ post_install do |installer|
     updated = content
       .gsub(/ ?"\$\{TOOLCHAIN_DIR\}\/usr\/lib\/swift\/\$\{PLATFORM_NAME\}"/, '')
       .gsub(/(?:^|\s)-l"c\+\+"/, '')
+    updated = updated.lines.flat_map do |line|
+      next [line] unless line.start_with?('OTHER_LDFLAGS =') && line.include?('GoogleAdsOnDeviceConversion')
+
+      catalyst_safe_flags = line
+        .gsub(/ ?-framework "GoogleAdsOnDeviceConversion"/, '')
+      iphoneos_flags = line.sub('OTHER_LDFLAGS =', 'OTHER_LDFLAGS[sdk=iphoneos*] =')
+      simulator_flags = line.sub('OTHER_LDFLAGS =', 'OTHER_LDFLAGS[sdk=iphonesimulator*] =')
+      [catalyst_safe_flags, iphoneos_flags, simulator_flags]
+    end.join
     File.write(xcconfig_path, updated) if updated != content
   end
 end
