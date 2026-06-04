@@ -555,6 +555,145 @@ final class BuildNeedsReplanCandidatesUseCaseTests: XCTestCase {
 
         XCTAssertEqual(candidates.map(\.task.id), [scheduledCarryOver.id, pastDue.id, backlog.id])
     }
+
+    func testSameDayCandidatesSortScheduledBeforeTimedBeforeAllDayBeforeBacklog() {
+        let projectID = UUID()
+        let calendar = Calendar.current
+        let now = Date(timeIntervalSince1970: 1_724_457_600)
+        let today = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+        let scheduledStart = calendar.date(bySettingHour: 11, minute: 0, second: 0, of: yesterday)!
+        let timedDue = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: yesterday)!
+        let scheduledCarryOver = TaskDefinition(
+            projectID: projectID,
+            title: "Scheduled carry-over",
+            dueDate: nil,
+            scheduledStartAt: scheduledStart,
+            scheduledEndAt: calendar.date(byAdding: .hour, value: 1, to: scheduledStart),
+            isAllDay: false
+        )
+        let timedPastDue = TaskDefinition(
+            projectID: projectID,
+            title: "Timed past due",
+            dueDate: timedDue,
+            isAllDay: false
+        )
+        let allDayPastDue = TaskDefinition(
+            projectID: projectID,
+            title: "All-day past due",
+            dueDate: yesterday,
+            isAllDay: true
+        )
+        let backlog = TaskDefinition(projectID: projectID, title: "Backlog")
+
+        let candidates = BuildNeedsReplanCandidatesUseCase().execute(
+            tasks: [backlog, allDayPastDue, timedPastDue, scheduledCarryOver],
+            projectsByID: [projectID: Project(id: projectID, name: "Active")],
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(
+            candidates.map(\.task.id),
+            [scheduledCarryOver.id, timedPastDue.id, allDayPastDue.id, backlog.id]
+        )
+    }
+
+    func testSameKindSameDayTimedCandidatesSortByAnchorTimeBeforePriority() {
+        let projectID = UUID()
+        let calendar = Calendar.current
+        let now = Date(timeIntervalSince1970: 1_724_457_600)
+        let today = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+        let morningDue = calendar.date(bySettingHour: 8, minute: 0, second: 0, of: yesterday)!
+        let eveningDue = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: yesterday)!
+        let morning = TaskDefinition(
+            projectID: projectID,
+            title: "Morning",
+            dueDate: morningDue,
+            priority: .low
+        )
+        let evening = TaskDefinition(
+            projectID: projectID,
+            title: "Evening",
+            dueDate: eveningDue,
+            priority: .high
+        )
+
+        let candidates = BuildNeedsReplanCandidatesUseCase().execute(
+            tasks: [evening, morning],
+            projectsByID: [projectID: Project(id: projectID, name: "Active")],
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(candidates.map(\.task.id), [morning.id, evening.id])
+    }
+
+    func testScopedCandidatesExcludeBacklogAndPreserveSameDayOrdering() {
+        let projectID = UUID()
+        let calendar = Calendar.current
+        let now = Date(timeIntervalSince1970: 1_724_457_600)
+        let today = calendar.startOfDay(for: now)
+        let scopedDay = calendar.date(byAdding: .day, value: -2, to: today)!
+        let scheduledStart = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: scopedDay)!
+        let timedDue = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: scopedDay)!
+        let scheduledCarryOver = TaskDefinition(
+            projectID: projectID,
+            title: "Scheduled",
+            dueDate: nil,
+            scheduledStartAt: scheduledStart,
+            scheduledEndAt: calendar.date(byAdding: .hour, value: 1, to: scheduledStart)
+        )
+        let timedPastDue = TaskDefinition(
+            projectID: projectID,
+            title: "Timed",
+            dueDate: timedDue
+        )
+        let backlog = TaskDefinition(projectID: projectID, title: "Backlog")
+
+        let candidates = BuildNeedsReplanCandidatesUseCase().execute(
+            tasks: [backlog, timedPastDue, scheduledCarryOver],
+            projectsByID: [projectID: Project(id: projectID, name: "Active")],
+            now: now,
+            calendar: calendar,
+            scopedTo: scopedDay
+        )
+
+        XCTAssertEqual(candidates.map(\.task.id), [scheduledCarryOver.id, timedPastDue.id])
+    }
+}
+
+@MainActor
+final class HomeReloadBatchTrackerTests: XCTestCase {
+    func testDoesNotCompleteUntilAllRegisteredOperationsFinishAfterScheduling() {
+        var completionCount = 0
+        let tracker = HomeReloadBatchTracker {
+            completionCount += 1
+        }
+        let firstOperationID = tracker.registerOperation()
+        let secondOperationID = tracker.registerOperation()
+
+        tracker.completeOperation(firstOperationID)
+        XCTAssertEqual(completionCount, 0)
+
+        tracker.finishSchedulingOperations()
+        XCTAssertEqual(completionCount, 0)
+
+        tracker.completeOperation(secondOperationID)
+        XCTAssertEqual(completionCount, 1)
+    }
+
+    func testCompletesImmediatelyWhenSchedulingFinishesWithoutOperations() {
+        var completionCount = 0
+        let tracker = HomeReloadBatchTracker {
+            completionCount += 1
+        }
+
+        tracker.finishSchedulingOperations()
+
+        XCTAssertEqual(completionCount, 1)
+    }
 }
 
 final class InMemoryCacheServiceTests: XCTestCase {
