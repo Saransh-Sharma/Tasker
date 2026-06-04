@@ -16,6 +16,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install guardrail tools
+        run: |
+          set -euo pipefail
+          brew install ripgrep
+
       - name: Enforce legacy DI/runtime guardrails
         run: |
           set -euo pipefail

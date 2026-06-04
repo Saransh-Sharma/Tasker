@@ -16,6 +16,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install guardrail tools
+        run: |
+          set -euo pipefail
+          brew install ripgrep swiftlint
+
       - name: Run token-law grep guardrails
         run: bash scripts/token-law-guardrails.sh
 
@@ -23,6 +28,4 @@ jobs:
         run: bash scripts/check-no-print-logs.sh
 
       - name: Run SwiftLint token rules
-        uses: norio-nomura/action-swiftlint@3.2.1
-        with:
-          args: --strict --config .swiftlint.yml
+        run: swiftlint --strict --config .swiftlint.yml
