@@ -351,15 +351,18 @@ extension HomeViewModel {
         pendingReloadIncludeAnalytics = pendingReloadIncludeAnalytics || includeAnalytics
         pendingReloadRepostEvent = pendingReloadRepostEvent || repostEvent
 
-        pendingReloadTask?.cancel()
+        cancelPendingReloadDebounce()
         let delay = Duration.milliseconds(reloadDebounceMS)
+        let debounceID = pendingReloadDebounceID
         pendingReloadTask = Task { @MainActor [weak self] in
             do {
                 try await Task.sleep(for: delay)
             } catch {
                 return
             }
-            self?.flushQueuedReloads()
+            guard let self, self.pendingReloadDebounceID == debounceID else { return }
+            self.pendingReloadTask = nil
+            self.flushQueuedReloads()
         }
     }
 }
