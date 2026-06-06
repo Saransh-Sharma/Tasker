@@ -15,9 +15,6 @@ struct LBAssistantPromptCard: View {
                 usesMaterialBackground: false
             ) {
                 HStack(spacing: LBSpacingTokens.md) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(LBColorTokens.violet)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
                             .font(LBTypographyTokens.bodyStrong)

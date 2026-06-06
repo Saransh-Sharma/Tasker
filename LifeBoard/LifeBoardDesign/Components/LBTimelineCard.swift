@@ -58,8 +58,6 @@ struct LBTimelineCard: View, Equatable {
                     usesMaterialBackground: false
                 ) {
                     HStack(spacing: LBSpacingTokens.sm) {
-                        leadingControl(style: style)
-
                         VStack(alignment: .leading, spacing: 4) {
                             Text(model.title)
                                 .font(LBTypographyTokens.cardTitle)
@@ -109,33 +107,6 @@ struct LBTimelineCard: View, Equatable {
             return "home.timeline.task.\(String(model.id.dropFirst("task:".count)))"
         }
         return "home.timeline.\(model.kind.rawValue).\(model.id)"
-    }
-
-    @ViewBuilder
-    private func leadingControl(style: LBRoleStyle) -> some View {
-        if model.kind == .task {
-            let accentColor = taskAccentColor(fallback: style.base)
-            Button(action: { onToggleComplete?() }) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(model.isCompleted ? accentColor : LBColorTokens.glassStrong.opacity(model.temporalState == .past ? 0.58 : 0.94))
-                        .frame(width: 34, height: 34)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(model.isCompleted ? accentColor : accentColor.opacity(model.temporalState == .past ? 0.42 : 0.85), lineWidth: 2)
-                        }
-                    Image(systemName: model.isCompleted ? "checkmark" : "checkmark")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(model.isCompleted ? Color.white : accentColor.opacity(0.0))
-                }
-            }
-            .buttonStyle(.plain)
-            .disabled(!model.isToggleable)
-            .accessibilityLabel(model.isCompleted ? "Reopen task" : "Complete task")
-        } else {
-            LBIconBadge(systemName: model.systemImage, role: model.role)
-                .opacity(model.temporalState == .past ? 0.62 : 1)
-        }
     }
 
     private var cornerRadius: CGFloat {

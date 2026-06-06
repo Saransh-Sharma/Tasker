@@ -46,7 +46,6 @@ struct LBMeetingFlockCard: View {
                         onTapMeeting(meeting)
                     } label: {
                         HStack(spacing: LBSpacingTokens.sm) {
-                            LBIconBadge(systemName: "calendar", role: .meeting, size: 36)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(meeting.title)
                                     .font(LBTypographyTokens.bodyStrong)
