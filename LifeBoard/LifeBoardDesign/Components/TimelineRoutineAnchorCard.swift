@@ -46,6 +46,8 @@ struct TimelineRoutineAnchorCard: View {
                 .resizable()
                 .scaledToFill()
                 .frame(width: proxy.size.width, height: proxy.size.height)
+                .scaleEffect(1.5)
+                .offset(x: artworkOffsetX(for: proxy.size.width))
                 .clipped()
         }
     }
@@ -65,10 +67,6 @@ struct TimelineRoutineAnchorCard: View {
 
     private var textLayer: some View {
         HStack(alignment: .center, spacing: 0) {
-            Color.clear
-                .frame(width: leadingArtworkReserve)
-                .accessibilityHidden(true)
-
             VStack(alignment: .leading, spacing: 4) {
                 Text(style.displayTitle)
                     .font(.lifeboard(.headline))
@@ -86,7 +84,17 @@ struct TimelineRoutineAnchorCard: View {
 
             Spacer(minLength: 0)
         }
+        .padding(.leading, 16)
         .padding(.trailing, 16)
         .padding(.vertical, 14)
+    }
+
+    private func artworkOffsetX(for width: CGFloat) -> CGFloat {
+        switch style.variant {
+        case .morning:
+            return -width * 0.18
+        case .evening:
+            return -width * 0.24
+        }
     }
 }
