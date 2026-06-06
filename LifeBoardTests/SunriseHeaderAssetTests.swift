@@ -389,7 +389,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertNil(SunriseHomeScreen.assistantDisplayDate(for: shortGap, now: now))
     }
 
-    func testTaskAndCalendarCardModelsExposeToggleSemantics() {
+    func testTaskAndCalendarCardModelsKeepCardOnlySemantics() {
         let taskModel = LBTimelineCard.Model(
             id: "task",
             title: "Task",
@@ -397,12 +397,10 @@ final class SunriseHeaderAssetTests: XCTestCase {
             timeText: "9:00 PM",
             role: .task,
             kind: .task,
-            systemImage: "checkmark.square",
             tintHex: "#123456",
             accessoryText: nil,
             temporalState: .future,
             isCompleted: false,
-            isToggleable: true,
             isCurrent: false
         )
         let calendarModel = LBTimelineCard.Model(
@@ -412,22 +410,18 @@ final class SunriseHeaderAssetTests: XCTestCase {
             timeText: "9:00 PM",
             role: .meeting,
             kind: .calendar,
-            systemImage: "calendar",
             tintHex: nil,
             accessoryText: nil,
             temporalState: .future,
             isCompleted: false,
-            isToggleable: false,
             isCurrent: false
         )
 
         XCTAssertEqual(taskModel.kind, .task)
         XCTAssertEqual(taskModel.tintHex, "#123456")
         XCTAssertNil(taskModel.accessoryText)
-        XCTAssertTrue(taskModel.isToggleable)
         XCTAssertEqual(calendarModel.kind, .calendar)
         XCTAssertNil(calendarModel.tintHex)
-        XCTAssertFalse(calendarModel.isToggleable)
     }
 
     func testCalendarCardSubtitleIsEmptyWhenEventIsNotNextUpcoming() {
