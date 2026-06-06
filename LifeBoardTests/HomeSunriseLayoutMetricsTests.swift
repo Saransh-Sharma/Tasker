@@ -2403,6 +2403,72 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertFalse(source.contains("Button(\"+ Create task\""))
     }
 
+    func testLifeBoardDesignTimelinePlacesTypeIconsOnSpine() throws {
+        let screenSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "SunriseHomeScreen.swift"
+        )
+        let itemSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "LBTimelineItem.swift"
+        )
+        let spineSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "LBTimelineSpine.swift"
+        )
+
+        XCTAssertEqual(LBSpacingTokens.timelineRailWidth, 36, accuracy: 0.001)
+        XCTAssertTrue(itemSource.contains("spineIconSystemName"))
+        XCTAssertTrue(spineSource.contains("var iconSystemName: String?"))
+        XCTAssertTrue(spineSource.contains("Button(action: iconAction)"))
+        XCTAssertTrue(screenSource.contains("spineIconSystemName: spineIconSystemName(for: anchor)"))
+        XCTAssertTrue(screenSource.contains("spineIconSystemName: spineIconSystemName(for: item, kind: kind)"))
+        XCTAssertTrue(screenSource.contains("spineIconSystemName: \"calendar\""))
+        XCTAssertTrue(screenSource.contains("spineIconSystemName: \"sparkles\""))
+        XCTAssertTrue(screenSource.contains("anchor.id == \"sleep\" ? \"moon.fill\" : \"sun.max.fill\""))
+        XCTAssertTrue(screenSource.contains("kind == .calendar ? \"calendar\" : \"checkmark.square\""))
+    }
+
+    func testLifeBoardDesignTimelineCardsDoNotRepeatSpineIcons() throws {
+        let timelineCardSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "LBTimelineCard.swift"
+        )
+        let assistantSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "LBAssistantPromptCard.swift"
+        )
+        let routineSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "TimelineRoutineAnchorCard.swift"
+        )
+        let meetingFlockSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "LBMeetingFlockCard.swift"
+        )
+
+        XCTAssertFalse(timelineCardSource.contains("private func leadingControl"))
+        XCTAssertFalse(timelineCardSource.contains("LBIconBadge(systemName: model.systemImage"))
+        XCTAssertFalse(assistantSource.contains("Image(systemName: \"sparkles\")"))
+        XCTAssertTrue(assistantSource.contains("Image(systemName: \"chevron.right\")"))
+        XCTAssertFalse(routineSource.contains(".frame(width: leadingArtworkReserve)"))
+        XCTAssertTrue(routineSource.contains("artworkOffsetX(for: proxy.size.width)"))
+        XCTAssertFalse(meetingFlockSource.contains("LBIconBadge(systemName: \"calendar\""))
+    }
+
     func testTimelineSurfaceMetricsUsePadExpandedReadableWidthAndExpandedValues() {
         let metrics = TimelineSurfaceMetrics.make(for: .padExpanded)
 
@@ -2792,6 +2858,16 @@ private extension HomeSunriseLayoutMetricsTests {
             .appendingPathComponent("LifeBoard")
             .appendingPathComponent("View")
             .appendingPathComponent("SunriseTimelineSurface.swift")
+        return try String(contentsOf: sourceURL, encoding: .utf8)
+    }
+
+    static func sourceFile(_ pathComponents: String...) throws -> String {
+        let workspaceRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = pathComponents.reduce(workspaceRoot) { url, component in
+            url.appendingPathComponent(component)
+        }
         return try String(contentsOf: sourceURL, encoding: .utf8)
     }
 
