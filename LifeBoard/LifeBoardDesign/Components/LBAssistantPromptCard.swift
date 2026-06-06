@@ -32,5 +32,7 @@ struct LBAssistantPromptCard: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Assistant prompt, \(title), \(subtitle)")
     }
 }

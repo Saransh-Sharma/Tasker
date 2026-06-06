@@ -387,12 +387,10 @@ struct SunriseHomeScreen: View {
                                     timeText: timeText(anchor.time),
                                     role: anchorRole,
                                     kind: .anchor,
-                                    systemImage: anchorSystemImage(for: anchor),
                                     tintHex: nil,
                                     accessoryText: nil,
                                     temporalState: temporalState,
                                     isCompleted: false,
-                                    isToggleable: false,
                                     isCurrent: temporalState == .current
                                 ),
                                 onTap: { onAnchorTap(anchor) }
@@ -412,7 +410,8 @@ struct SunriseHomeScreen: View {
                             tintHex: kind == .task ? item.tintHex : nil,
                             temporalState: temporalState,
                             spineIconSystemName: spineIconSystemName(for: item, kind: kind),
-                            spineIconAccessibilityLabel: item.isComplete ? "Reopen task" : "Complete task",
+                            spineIconAccessibilityLabel: item.isComplete ? "Reopen \(item.title)" : "Complete \(item.title)",
+                            spineIconAccessibilityValue: item.isComplete ? "Completed" : "Not completed",
                             spineIconAction: kind == .task ? taskToggleAction : nil
                         ) {
                             LBTimelineCard(
@@ -422,8 +421,7 @@ struct SunriseHomeScreen: View {
                                     now: context.date,
                                     nextUpcomingCalendarItemID: nextUpcomingCalendarItemID
                                 ),
-                                onTap: { onTimelineItemTap(item) },
-                                onToggleComplete: nil
+                                onTap: { onTimelineItemTap(item) }
                             )
                             .equatable()
                         }
@@ -841,12 +839,10 @@ struct SunriseHomeScreen: View {
             timeText: "\(timeText(item.startDate))\(item.endDate == nil ? "" : " – \(timeText(item.endDate))")",
             role: role(for: item),
             kind: kind,
-            systemImage: kind == .calendar ? "calendar" : item.systemImageName,
             tintHex: kind == .task ? item.tintHex : nil,
             accessoryText: nil,
             temporalState: temporalState,
             isCompleted: item.isComplete,
-            isToggleable: item.taskID != nil,
             isCurrent: temporalState == .current
         )
     }
@@ -872,13 +868,6 @@ struct SunriseHomeScreen: View {
 
     private func anchorTitle(for anchor: TimelineAnchorItem) -> String {
         anchor.id == "sleep" ? "Wind Down" : anchor.title
-    }
-
-    private func anchorSystemImage(for anchor: TimelineAnchorItem) -> String {
-        if anchor.id == "sleep" {
-            return LBColorTokens.role(.windDown).symbolName
-        }
-        return anchor.systemImageName.isEmpty ? "sunrise" : anchor.systemImageName
     }
 
     private func spineIconSystemName(for anchor: TimelineAnchorItem) -> String {

@@ -7,6 +7,7 @@ struct LBTimelineItem<Content: View>: View {
     var temporalState: LBTimelineTemporalState = .future
     var spineIconSystemName: String?
     var spineIconAccessibilityLabel: String?
+    var spineIconAccessibilityValue: String?
     var spineIconAction: (() -> Void)?
     @ViewBuilder let content: Content
 
@@ -17,6 +18,7 @@ struct LBTimelineItem<Content: View>: View {
         temporalState: LBTimelineTemporalState = .future,
         spineIconSystemName: String? = nil,
         spineIconAccessibilityLabel: String? = nil,
+        spineIconAccessibilityValue: String? = nil,
         spineIconAction: (() -> Void)? = nil,
         @ViewBuilder content: () -> Content
     ) {
@@ -26,6 +28,7 @@ struct LBTimelineItem<Content: View>: View {
         self.temporalState = temporalState
         self.spineIconSystemName = spineIconSystemName
         self.spineIconAccessibilityLabel = spineIconAccessibilityLabel
+        self.spineIconAccessibilityValue = spineIconAccessibilityValue
         self.spineIconAction = spineIconAction
         self.content = content()
     }
@@ -57,6 +60,7 @@ struct LBTimelineItem<Content: View>: View {
             temporalState: temporalState,
             iconSystemName: spineIconSystemName,
             iconAccessibilityLabel: spineIconAccessibilityLabel,
+            iconAccessibilityValue: spineIconAccessibilityValue,
             iconAction: spineIconAction
         )
     }

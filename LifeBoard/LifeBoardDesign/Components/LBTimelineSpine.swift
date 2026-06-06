@@ -6,6 +6,7 @@ struct LBTimelineSpine: View {
     var temporalState: LBTimelineTemporalState = .future
     var iconSystemName: String?
     var iconAccessibilityLabel: String?
+    var iconAccessibilityValue: String?
     var iconAction: (() -> Void)?
 
     var body: some View {
@@ -32,6 +33,7 @@ struct LBTimelineSpine: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(iconAccessibilityLabel ?? "Timeline action")
+                .accessibilityValue(iconAccessibilityValue ?? "")
             } else {
                 iconMarker(systemName: iconSystemName, baseColor: baseColor)
                     .accessibilityHidden(true)

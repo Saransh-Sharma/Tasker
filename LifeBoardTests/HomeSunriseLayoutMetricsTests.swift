@@ -2424,10 +2424,15 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
         XCTAssertEqual(LBSpacingTokens.timelineRailWidth, 36, accuracy: 0.001)
         XCTAssertTrue(itemSource.contains("spineIconSystemName"))
+        XCTAssertTrue(itemSource.contains("spineIconAccessibilityValue"))
         XCTAssertTrue(spineSource.contains("var iconSystemName: String?"))
+        XCTAssertTrue(spineSource.contains("var iconAccessibilityValue: String?"))
         XCTAssertTrue(spineSource.contains("Button(action: iconAction)"))
+        XCTAssertTrue(spineSource.contains(".accessibilityValue(iconAccessibilityValue ?? \"\")"))
         XCTAssertTrue(screenSource.contains("spineIconSystemName: spineIconSystemName(for: anchor)"))
         XCTAssertTrue(screenSource.contains("spineIconSystemName: spineIconSystemName(for: item, kind: kind)"))
+        XCTAssertTrue(screenSource.contains("spineIconAccessibilityLabel: item.isComplete ? \"Reopen \\(item.title)\" : \"Complete \\(item.title)\""))
+        XCTAssertTrue(screenSource.contains("spineIconAccessibilityValue: item.isComplete ? \"Completed\" : \"Not completed\""))
         XCTAssertTrue(screenSource.contains("spineIconSystemName: \"calendar\""))
         XCTAssertTrue(screenSource.contains("spineIconSystemName: \"sparkles\""))
         XCTAssertTrue(screenSource.contains("anchor.id == \"sleep\" ? \"moon.fill\" : \"sun.max.fill\""))
@@ -2462,11 +2467,16 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
         XCTAssertFalse(timelineCardSource.contains("private func leadingControl"))
         XCTAssertFalse(timelineCardSource.contains("LBIconBadge(systemName: model.systemImage"))
+        XCTAssertTrue(timelineCardSource.contains(".accessibilityLabel(accessibilityLabel)"))
+        XCTAssertTrue(timelineCardSource.contains("model.kind == .task ? (model.isCompleted ? \"Completed\" : \"Not completed\") : \"\""))
         XCTAssertFalse(assistantSource.contains("Image(systemName: \"sparkles\")"))
         XCTAssertTrue(assistantSource.contains("Image(systemName: \"chevron.right\")"))
-        XCTAssertFalse(routineSource.contains(".frame(width: leadingArtworkReserve)"))
-        XCTAssertTrue(routineSource.contains("artworkOffsetX(for: proxy.size.width)"))
+        XCTAssertTrue(assistantSource.contains(".accessibilityLabel(\"Assistant prompt, \\(title), \\(subtitle)\")"))
+        XCTAssertTrue(routineSource.contains(".frame(width: leadingArtworkReserve)"))
+        XCTAssertFalse(routineSource.contains("artworkOffsetX(for: proxy.size.width)"))
+        XCTAssertFalse(routineSource.contains(".scaleEffect(1.5)"))
         XCTAssertFalse(meetingFlockSource.contains("LBIconBadge(systemName: \"calendar\""))
+        XCTAssertTrue(meetingFlockSource.contains(".accessibilityLabel(\"Meeting, \\(meeting.title), \\(meeting.isNow ? \"Now\" : meeting.timeText)\")"))
     }
 
     func testTimelineSurfaceMetricsUsePadExpandedReadableWidthAndExpandedValues() {
@@ -2683,7 +2693,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         let defaultTitle = await MainActor.run { state.emptyStateTitle }
         let defaultVisible = await MainActor.run { state.shouldShowNoResultsMessage }
         XCTAssertTrue(defaultVisible)
-        XCTAssertEqual(defaultTitle, "Start searching")
+        XCTAssertEqual(defaultTitle, "Find anything in LifeBoard")
 
         await MainActor.run {
             state.updateQuery("xyz")
@@ -2854,11 +2864,21 @@ private extension HomeSunriseLayoutMetricsTests {
         let workspaceRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let sourceURL = workspaceRoot
+        let sourceDirectory = workspaceRoot
             .appendingPathComponent("LifeBoard")
-            .appendingPathComponent("View")
-            .appendingPathComponent("SunriseTimelineSurface.swift")
-        return try String(contentsOf: sourceURL, encoding: .utf8)
+            .appendingPathComponent("Presentation")
+            .appendingPathComponent("Home")
+            .appendingPathComponent("Timeline")
+            .appendingPathComponent("Surface")
+        let sourceURLs = try FileManager.default.contentsOfDirectory(
+            at: sourceDirectory,
+            includingPropertiesForKeys: nil
+        )
+        .filter { $0.pathExtension == "swift" }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        return try sourceURLs
+            .map { try String(contentsOf: $0, encoding: .utf8) }
+            .joined(separator: "\n")
     }
 
     static func sourceFile(_ pathComponents: String...) throws -> String {

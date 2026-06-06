@@ -20,18 +20,15 @@ struct LBTimelineCard: View, Equatable {
         let timeText: String
         let role: LBRole
         let kind: Kind
-        let systemImage: String
         let tintHex: String?
         let accessoryText: String?
         let temporalState: LBTimelineTemporalState
         let isCompleted: Bool
-        let isToggleable: Bool
         let isCurrent: Bool
     }
 
     let model: Model
     let onTap: () -> Void
-    var onToggleComplete: (() -> Void)?
 
     nonisolated static func == (lhs: LBTimelineCard, rhs: LBTimelineCard) -> Bool {
         lhs.model == rhs.model
@@ -86,6 +83,8 @@ struct LBTimelineCard: View, Equatable {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityValue(accessibilityValue)
             .accessibilityIdentifier(accessibilityIdentifier)
         }
     }
@@ -107,6 +106,28 @@ struct LBTimelineCard: View, Equatable {
             return "home.timeline.task.\(String(model.id.dropFirst("task:".count)))"
         }
         return "home.timeline.\(model.kind.rawValue).\(model.id)"
+    }
+
+    private var accessibilityLabel: String {
+        [
+            accessibilityKind,
+            model.title,
+            model.subtitle.isEmpty ? model.timeText : "\(model.timeText), \(model.subtitle)"
+        ]
+        .filter { $0.isEmpty == false }
+        .joined(separator: ", ")
+    }
+
+    private var accessibilityKind: String {
+        switch model.kind {
+        case .anchor: return "Routine"
+        case .calendar: return "Meeting"
+        case .task: return "Task"
+        }
+    }
+
+    private var accessibilityValue: String {
+        model.kind == .task ? (model.isCompleted ? "Completed" : "Not completed") : ""
     }
 
     private var cornerRadius: CGFloat {
