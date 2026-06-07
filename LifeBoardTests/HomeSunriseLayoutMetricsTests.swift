@@ -2436,7 +2436,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertTrue(screenSource.contains("spineIconSystemName: \"calendar\""))
         XCTAssertTrue(screenSource.contains("spineIconSystemName: \"sparkles\""))
         XCTAssertTrue(screenSource.contains("anchor.id == \"sleep\" ? \"moon.fill\" : \"sun.max.fill\""))
-        XCTAssertTrue(screenSource.contains("kind == .calendar ? \"calendar\" : \"checkmark.square\""))
+        XCTAssertTrue(screenSource.contains("return item.isComplete ? \"checkmark.square.fill\" : \"checkmark.square\""))
     }
 
     func testLifeBoardDesignTimelineCardsDoNotRepeatSpineIcons() throws {

@@ -875,7 +875,10 @@ struct SunriseHomeScreen: View {
     }
 
     private func spineIconSystemName(for item: TimelinePlanItem, kind: LBTimelineCard.Kind) -> String {
-        kind == .calendar ? "calendar" : "checkmark.square"
+        if kind == .calendar {
+            return "calendar"
+        }
+        return item.isComplete ? "checkmark.square.fill" : "checkmark.square"
     }
 
     private func routineSubtitle(for period: TimeOfDayHeaderAsset.Period) -> String {
