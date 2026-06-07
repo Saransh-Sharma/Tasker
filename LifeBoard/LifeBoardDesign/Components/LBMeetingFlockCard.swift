@@ -46,7 +46,6 @@ struct LBMeetingFlockCard: View {
                         onTapMeeting(meeting)
                     } label: {
                         HStack(spacing: LBSpacingTokens.sm) {
-                            LBIconBadge(systemName: "calendar", role: .meeting, size: 36)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(meeting.title)
                                     .font(LBTypographyTokens.bodyStrong)
@@ -63,6 +62,8 @@ struct LBMeetingFlockCard: View {
                         .background(LBColorTokens.glassStrong.opacity(meeting.isNow ? 0.70 : 0.54), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Meeting, \(meeting.title), \(meeting.isNow ? "Now" : meeting.timeText)")
                 }
             }
             .padding(LBSpacingTokens.md)

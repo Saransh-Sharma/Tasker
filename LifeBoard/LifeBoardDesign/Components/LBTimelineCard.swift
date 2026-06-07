@@ -20,18 +20,15 @@ struct LBTimelineCard: View, Equatable {
         let timeText: String
         let role: LBRole
         let kind: Kind
-        let systemImage: String
         let tintHex: String?
         let accessoryText: String?
         let temporalState: LBTimelineTemporalState
         let isCompleted: Bool
-        let isToggleable: Bool
         let isCurrent: Bool
     }
 
     let model: Model
     let onTap: () -> Void
-    var onToggleComplete: (() -> Void)?
 
     nonisolated static func == (lhs: LBTimelineCard, rhs: LBTimelineCard) -> Bool {
         lhs.model == rhs.model
@@ -58,8 +55,6 @@ struct LBTimelineCard: View, Equatable {
                     usesMaterialBackground: false
                 ) {
                     HStack(spacing: LBSpacingTokens.sm) {
-                        leadingControl(style: style)
-
                         VStack(alignment: .leading, spacing: 4) {
                             Text(model.title)
                                 .font(LBTypographyTokens.cardTitle)
@@ -88,6 +83,8 @@ struct LBTimelineCard: View, Equatable {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityValue(accessibilityValue)
             .accessibilityIdentifier(accessibilityIdentifier)
         }
     }
@@ -111,31 +108,26 @@ struct LBTimelineCard: View, Equatable {
         return "home.timeline.\(model.kind.rawValue).\(model.id)"
     }
 
-    @ViewBuilder
-    private func leadingControl(style: LBRoleStyle) -> some View {
-        if model.kind == .task {
-            let accentColor = taskAccentColor(fallback: style.base)
-            Button(action: { onToggleComplete?() }) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(model.isCompleted ? accentColor : LBColorTokens.glassStrong.opacity(model.temporalState == .past ? 0.58 : 0.94))
-                        .frame(width: 34, height: 34)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(model.isCompleted ? accentColor : accentColor.opacity(model.temporalState == .past ? 0.42 : 0.85), lineWidth: 2)
-                        }
-                    Image(systemName: model.isCompleted ? "checkmark" : "checkmark")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(model.isCompleted ? Color.white : accentColor.opacity(0.0))
-                }
-            }
-            .buttonStyle(.plain)
-            .disabled(!model.isToggleable)
-            .accessibilityLabel(model.isCompleted ? "Reopen task" : "Complete task")
-        } else {
-            LBIconBadge(systemName: model.systemImage, role: model.role)
-                .opacity(model.temporalState == .past ? 0.62 : 1)
+    private var accessibilityLabel: String {
+        [
+            accessibilityKind,
+            model.title,
+            model.subtitle.isEmpty ? model.timeText : "\(model.timeText), \(model.subtitle)"
+        ]
+        .filter { $0.isEmpty == false }
+        .joined(separator: ", ")
+    }
+
+    private var accessibilityKind: String {
+        switch model.kind {
+        case .anchor: return "Routine"
+        case .calendar: return "Meeting"
+        case .task: return "Task"
         }
+    }
+
+    private var accessibilityValue: String {
+        model.kind == .task ? (model.isCompleted ? "Completed" : "Not completed") : ""
     }
 
     private var cornerRadius: CGFloat {

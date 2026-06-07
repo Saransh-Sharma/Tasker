@@ -2403,6 +2403,82 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertFalse(source.contains("Button(\"+ Create task\""))
     }
 
+    func testLifeBoardDesignTimelinePlacesTypeIconsOnSpine() throws {
+        let screenSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "SunriseHomeScreen.swift"
+        )
+        let itemSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "LBTimelineItem.swift"
+        )
+        let spineSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "LBTimelineSpine.swift"
+        )
+
+        XCTAssertEqual(LBSpacingTokens.timelineRailWidth, 36, accuracy: 0.001)
+        XCTAssertTrue(itemSource.contains("spineIconSystemName"))
+        XCTAssertTrue(itemSource.contains("spineIconAccessibilityValue"))
+        XCTAssertTrue(spineSource.contains("var iconSystemName: String?"))
+        XCTAssertTrue(spineSource.contains("var iconAccessibilityValue: String?"))
+        XCTAssertTrue(spineSource.contains("Button(action: iconAction)"))
+        XCTAssertTrue(spineSource.contains(".accessibilityValue(iconAccessibilityValue ?? \"\")"))
+        XCTAssertTrue(screenSource.contains("spineIconSystemName: spineIconSystemName(for: anchor)"))
+        XCTAssertTrue(screenSource.contains("spineIconSystemName: spineIconSystemName(for: item, kind: kind)"))
+        XCTAssertTrue(screenSource.contains("spineIconAccessibilityLabel: item.isComplete ? \"Reopen \\(item.title)\" : \"Complete \\(item.title)\""))
+        XCTAssertTrue(screenSource.contains("spineIconAccessibilityValue: item.isComplete ? \"Completed\" : \"Not completed\""))
+        XCTAssertTrue(screenSource.contains("spineIconSystemName: \"calendar\""))
+        XCTAssertTrue(screenSource.contains("spineIconSystemName: \"sparkles\""))
+        XCTAssertTrue(screenSource.contains("anchor.id == \"sleep\" ? \"moon.fill\" : \"sun.max.fill\""))
+        XCTAssertTrue(screenSource.contains("return item.isComplete ? \"checkmark.square.fill\" : \"checkmark.square\""))
+    }
+
+    func testLifeBoardDesignTimelineCardsDoNotRepeatSpineIcons() throws {
+        let timelineCardSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "LBTimelineCard.swift"
+        )
+        let assistantSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "LBAssistantPromptCard.swift"
+        )
+        let routineSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "TimelineRoutineAnchorCard.swift"
+        )
+        let meetingFlockSource = try Self.sourceFile(
+            "LifeBoard",
+            "LifeBoardDesign",
+            "Components",
+            "LBMeetingFlockCard.swift"
+        )
+
+        XCTAssertFalse(timelineCardSource.contains("private func leadingControl"))
+        XCTAssertFalse(timelineCardSource.contains("LBIconBadge(systemName: model.systemImage"))
+        XCTAssertTrue(timelineCardSource.contains(".accessibilityLabel(accessibilityLabel)"))
+        XCTAssertTrue(timelineCardSource.contains("model.kind == .task ? (model.isCompleted ? \"Completed\" : \"Not completed\") : \"\""))
+        XCTAssertFalse(assistantSource.contains("Image(systemName: \"sparkles\")"))
+        XCTAssertTrue(assistantSource.contains("Image(systemName: \"chevron.right\")"))
+        XCTAssertTrue(assistantSource.contains(".accessibilityLabel(\"Assistant prompt, \\(title), \\(subtitle)\")"))
+        XCTAssertTrue(routineSource.contains(".frame(width: leadingArtworkReserve)"))
+        XCTAssertFalse(routineSource.contains("artworkOffsetX(for: proxy.size.width)"))
+        XCTAssertFalse(routineSource.contains(".scaleEffect(1.5)"))
+        XCTAssertFalse(meetingFlockSource.contains("LBIconBadge(systemName: \"calendar\""))
+        XCTAssertTrue(meetingFlockSource.contains(".accessibilityLabel(\"Meeting, \\(meeting.title), \\(meeting.isNow ? \"Now\" : meeting.timeText)\")"))
+    }
+
     func testTimelineSurfaceMetricsUsePadExpandedReadableWidthAndExpandedValues() {
         let metrics = TimelineSurfaceMetrics.make(for: .padExpanded)
 
@@ -2617,7 +2693,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         let defaultTitle = await MainActor.run { state.emptyStateTitle }
         let defaultVisible = await MainActor.run { state.shouldShowNoResultsMessage }
         XCTAssertTrue(defaultVisible)
-        XCTAssertEqual(defaultTitle, "Start searching")
+        XCTAssertEqual(defaultTitle, "Find anything in LifeBoard")
 
         await MainActor.run {
             state.updateQuery("xyz")
@@ -2788,10 +2864,30 @@ private extension HomeSunriseLayoutMetricsTests {
         let workspaceRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let sourceURL = workspaceRoot
+        let sourceDirectory = workspaceRoot
             .appendingPathComponent("LifeBoard")
-            .appendingPathComponent("View")
-            .appendingPathComponent("SunriseTimelineSurface.swift")
+            .appendingPathComponent("Presentation")
+            .appendingPathComponent("Home")
+            .appendingPathComponent("Timeline")
+            .appendingPathComponent("Surface")
+        let sourceURLs = try FileManager.default.contentsOfDirectory(
+            at: sourceDirectory,
+            includingPropertiesForKeys: nil
+        )
+        .filter { $0.pathExtension == "swift" }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        return try sourceURLs
+            .map { try String(contentsOf: $0, encoding: .utf8) }
+            .joined(separator: "\n")
+    }
+
+    static func sourceFile(_ pathComponents: String...) throws -> String {
+        let workspaceRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = pathComponents.reduce(workspaceRoot) { url, component in
+            url.appendingPathComponent(component)
+        }
         return try String(contentsOf: sourceURL, encoding: .utf8)
     }
 

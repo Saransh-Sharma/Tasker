@@ -1239,23 +1239,7 @@ final class AppOnboardingTests: XCTestCase {
     private func contrast(_ foreground: UIColor, _ background: UIColor, traits: UITraitCollection) -> CGFloat {
         let fg = foreground.resolvedColor(with: traits)
         let bg = background.resolvedColor(with: traits)
-        let lighter = max(relativeLuminance(fg), relativeLuminance(bg))
-        let darker = min(relativeLuminance(fg), relativeLuminance(bg))
-        return (lighter + 0.05) / (darker + 0.05)
-    }
-
-    private func relativeLuminance(_ color: UIColor) -> CGFloat {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
-
-        func channel(_ value: CGFloat) -> CGFloat {
-            value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
-        }
-
-        return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+        return contrastRatio(fg, bg)
     }
 }
 

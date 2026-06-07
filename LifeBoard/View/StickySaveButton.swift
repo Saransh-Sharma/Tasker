@@ -28,7 +28,7 @@ struct StickySaveButton: View {
                 .frame(minHeight: 56)
                 .background(
                     Capsule(style: .continuous)
-                        .fill(isEnabled ? ReflectPlanStyle.greenCTA : LBColorTokens.navyMuted.opacity(0.42))
+                        .fill(isEnabled ? ReflectPlanStyle.greenCTA : ReflectPlanStyle.disabledCTA)
                 )
                 .overlay(
                     Capsule(style: .continuous)

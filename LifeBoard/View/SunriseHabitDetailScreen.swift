@@ -360,7 +360,7 @@ struct SunriseHabitDetailScreen: View {
                                     .overlay {
                                         if colorFamily == family {
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .stroke(Color.white, lineWidth: 2)
+                                                .stroke(Color.lifeboard.accentOnPrimary, lineWidth: 2)
                                                 .padding(3)
                                         }
                                     }
@@ -460,9 +460,9 @@ struct SunriseHabitDetailScreen: View {
     private var sunriseBackground: some View {
         LinearGradient(
             colors: [
-                Color(lifeboardHex: "#FFF8EF"),
-                Color(lifeboardHex: "#FFFDFC"),
-                Color(lifeboardHex: "#F7FBFF")
+                LBColorTokens.warmCanvas,
+                LBColorTokens.canvas,
+                LBColorTokens.coolCanvas
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -1047,6 +1047,10 @@ private struct SunriseHabitWeekdayPickerRow: View {
                         .foregroundStyle(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary, in: Circle())
+                        .overlay {
+                            Circle()
+                                .stroke(isSelected ? Color.lifeboard.accentRing : Color.lifeboard.strokeHairline.opacity(0.7), lineWidth: 1)
+                        }
                 }
                 .buttonStyle(.plain)
             }

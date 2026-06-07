@@ -5,7 +5,33 @@ struct LBTimelineItem<Content: View>: View {
     let role: LBRole
     var tintHex: String?
     var temporalState: LBTimelineTemporalState = .future
+    var spineIconSystemName: String?
+    var spineIconAccessibilityLabel: String?
+    var spineIconAccessibilityValue: String?
+    var spineIconAction: (() -> Void)?
     @ViewBuilder let content: Content
+
+    init(
+        timeText: String,
+        role: LBRole,
+        tintHex: String? = nil,
+        temporalState: LBTimelineTemporalState = .future,
+        spineIconSystemName: String? = nil,
+        spineIconAccessibilityLabel: String? = nil,
+        spineIconAccessibilityValue: String? = nil,
+        spineIconAction: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.timeText = timeText
+        self.role = role
+        self.tintHex = tintHex
+        self.temporalState = temporalState
+        self.spineIconSystemName = spineIconSystemName
+        self.spineIconAccessibilityLabel = spineIconAccessibilityLabel
+        self.spineIconAccessibilityValue = spineIconAccessibilityValue
+        self.spineIconAction = spineIconAction
+        self.content = content()
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: LBSpacingTokens.timelineCardGap) {
@@ -18,12 +44,25 @@ struct LBTimelineItem<Content: View>: View {
                 .frame(width: LBSpacingTokens.timelineTimeColumnWidth, alignment: .trailing)
                 .padding(.top, LBSpacingTokens.sm)
 
-            LBTimelineSpine(role: role, tintHex: tintHex, temporalState: temporalState)
+            spine
                 .frame(width: LBSpacingTokens.timelineRailWidth)
 
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    @ViewBuilder
+    private var spine: some View {
+        LBTimelineSpine(
+            role: role,
+            tintHex: tintHex,
+            temporalState: temporalState,
+            iconSystemName: spineIconSystemName,
+            iconAccessibilityLabel: spineIconAccessibilityLabel,
+            iconAccessibilityValue: spineIconAccessibilityValue,
+            iconAction: spineIconAction
+        )
     }
 
     private var timeColor: Color {

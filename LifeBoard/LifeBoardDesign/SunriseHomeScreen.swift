@@ -373,7 +373,12 @@ struct SunriseHomeScreen: View {
                     switch row.kind {
                     case .anchor(let anchor):
                         let anchorRole = role(for: anchor)
-                        LBTimelineItem(timeText: timeText(anchor.time), role: anchorRole, temporalState: temporalState) {
+                        LBTimelineItem(
+                            timeText: timeText(anchor.time),
+                            role: anchorRole,
+                            temporalState: temporalState,
+                            spineIconSystemName: spineIconSystemName(for: anchor)
+                        ) {
                             LBTimelineCard(
                                 model: LBTimelineCard.Model(
                                     id: anchor.id,
@@ -382,12 +387,10 @@ struct SunriseHomeScreen: View {
                                     timeText: timeText(anchor.time),
                                     role: anchorRole,
                                     kind: .anchor,
-                                    systemImage: anchorSystemImage(for: anchor),
                                     tintHex: nil,
                                     accessoryText: nil,
                                     temporalState: temporalState,
                                     isCompleted: false,
-                                    isToggleable: false,
                                     isCurrent: temporalState == .current
                                 ),
                                 onTap: { onAnchorTap(anchor) }
@@ -396,11 +399,20 @@ struct SunriseHomeScreen: View {
                         }
                     case .item(let item):
                         let kind = cardKind(for: item)
+                        let taskToggleAction: (() -> Void)? = item.taskID == nil ? nil : {
+                            let interval = LifeBoardPerformanceTrace.begin("HomeTimelineTaskToggle")
+                            onTimelineItemToggleComplete(item)
+                            LifeBoardPerformanceTrace.end(interval)
+                        }
                         LBTimelineItem(
                             timeText: timeText(item.startDate),
                             role: role(for: item),
                             tintHex: kind == .task ? item.tintHex : nil,
-                            temporalState: temporalState
+                            temporalState: temporalState,
+                            spineIconSystemName: spineIconSystemName(for: item, kind: kind),
+                            spineIconAccessibilityLabel: item.isComplete ? "Reopen \(item.title)" : "Complete \(item.title)",
+                            spineIconAccessibilityValue: item.isComplete ? "Completed" : "Not completed",
+                            spineIconAction: kind == .task ? taskToggleAction : nil
                         ) {
                             LBTimelineCard(
                                 model: timelineCardModel(
@@ -409,17 +421,17 @@ struct SunriseHomeScreen: View {
                                     now: context.date,
                                     nextUpcomingCalendarItemID: nextUpcomingCalendarItemID
                                 ),
-                                onTap: { onTimelineItemTap(item) },
-                                onToggleComplete: item.taskID == nil ? nil : {
-                                    let interval = LifeBoardPerformanceTrace.begin("HomeTimelineTaskToggle")
-                                    onTimelineItemToggleComplete(item)
-                                    LifeBoardPerformanceTrace.end(interval)
-                                }
+                                onTap: { onTimelineItemTap(item) }
                             )
                             .equatable()
                         }
                     case .meetingFlock(let model, let sourceItems):
-                        LBTimelineItem(timeText: model.timeRange.components(separatedBy: " – ").first ?? model.timeRange, role: .meeting, temporalState: temporalState) {
+                        LBTimelineItem(
+                            timeText: model.timeRange.components(separatedBy: " – ").first ?? model.timeRange,
+                            role: .meeting,
+                            temporalState: temporalState,
+                            spineIconSystemName: "calendar"
+                        ) {
                             LBMeetingFlockCard(model: model) { meeting in
                                 if let item = sourceItems.first(where: { $0.id == meeting.id }) {
                                     onTimelineItemTap(item)
@@ -427,7 +439,12 @@ struct SunriseHomeScreen: View {
                             }
                         }
                     case .gap(let gap):
-                        LBTimelineItem(timeText: timeText(row.sortDate(now: context.date)), role: .assistant, temporalState: temporalState) {
+                        LBTimelineItem(
+                            timeText: timeText(row.sortDate(now: context.date)),
+                            role: .assistant,
+                            temporalState: temporalState,
+                            spineIconSystemName: "sparkles"
+                        ) {
                             let copy = assistantCopy(for: gap)
                             LBAssistantPromptCard(
                                 title: copy.title,
@@ -822,12 +839,10 @@ struct SunriseHomeScreen: View {
             timeText: "\(timeText(item.startDate))\(item.endDate == nil ? "" : " – \(timeText(item.endDate))")",
             role: role(for: item),
             kind: kind,
-            systemImage: kind == .calendar ? "calendar" : item.systemImageName,
             tintHex: kind == .task ? item.tintHex : nil,
             accessoryText: nil,
             temporalState: temporalState,
             isCompleted: item.isComplete,
-            isToggleable: item.taskID != nil,
             isCurrent: temporalState == .current
         )
     }
@@ -855,11 +870,15 @@ struct SunriseHomeScreen: View {
         anchor.id == "sleep" ? "Wind Down" : anchor.title
     }
 
-    private func anchorSystemImage(for anchor: TimelineAnchorItem) -> String {
-        if anchor.id == "sleep" {
-            return LBColorTokens.role(.windDown).symbolName
+    private func spineIconSystemName(for anchor: TimelineAnchorItem) -> String {
+        anchor.id == "sleep" ? "moon.fill" : "sun.max.fill"
+    }
+
+    private func spineIconSystemName(for item: TimelinePlanItem, kind: LBTimelineCard.Kind) -> String {
+        if kind == .calendar {
+            return "calendar"
         }
-        return anchor.systemImageName.isEmpty ? "sunrise" : anchor.systemImageName
+        return item.isComplete ? "checkmark.square.fill" : "checkmark.square"
     }
 
     private func routineSubtitle(for period: TimeOfDayHeaderAsset.Period) -> String {

@@ -320,7 +320,7 @@ public struct SunriseAddHabitSheetView: View {
                                         .overlay {
                                             if HabitColorFamily.family(for: viewModel.selectedColorHex) == family {
                                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                    .stroke(Color.white, lineWidth: 2)
+                                                    .stroke(Color.lifeboard.accentOnPrimary, lineWidth: 2)
                                                     .padding(3)
                                             }
                                         }
@@ -605,6 +605,10 @@ private struct SunriseAddHabitWeekdayPickerRow: View {
                         .foregroundStyle(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary, in: Circle())
+                        .overlay {
+                            Circle()
+                                .stroke(isSelected ? Color.lifeboard.accentRing : Color.lifeboard.strokeHairline.opacity(0.7), lineWidth: 1)
+                        }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.fullLabel)
@@ -713,7 +717,7 @@ private extension View {
                 shape
                     .fill(.clear)
                     .glassEffect(.regular, in: shape)
-                    .overlay(shape.fill(LBColorTokens.glass.opacity(0.50)))
+                    .overlay(shape.fill(LBColorTokens.glass.opacity(0.66)))
             } else {
                 shape
                     .fill(.regularMaterial)

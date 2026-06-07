@@ -389,7 +389,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertNil(SunriseHomeScreen.assistantDisplayDate(for: shortGap, now: now))
     }
 
-    func testTaskAndCalendarCardModelsExposeToggleSemantics() {
+    func testTaskAndCalendarCardModelsKeepCardOnlySemantics() {
         let taskModel = LBTimelineCard.Model(
             id: "task",
             title: "Task",
@@ -397,12 +397,10 @@ final class SunriseHeaderAssetTests: XCTestCase {
             timeText: "9:00 PM",
             role: .task,
             kind: .task,
-            systemImage: "checkmark.square",
             tintHex: "#123456",
             accessoryText: nil,
             temporalState: .future,
             isCompleted: false,
-            isToggleable: true,
             isCurrent: false
         )
         let calendarModel = LBTimelineCard.Model(
@@ -412,22 +410,18 @@ final class SunriseHeaderAssetTests: XCTestCase {
             timeText: "9:00 PM",
             role: .meeting,
             kind: .calendar,
-            systemImage: "calendar",
             tintHex: nil,
             accessoryText: nil,
             temporalState: .future,
             isCompleted: false,
-            isToggleable: false,
             isCurrent: false
         )
 
         XCTAssertEqual(taskModel.kind, .task)
         XCTAssertEqual(taskModel.tintHex, "#123456")
         XCTAssertNil(taskModel.accessoryText)
-        XCTAssertTrue(taskModel.isToggleable)
         XCTAssertEqual(calendarModel.kind, .calendar)
         XCTAssertNil(calendarModel.tintHex)
-        XCTAssertFalse(calendarModel.isToggleable)
     }
 
     func testCalendarCardSubtitleIsEmptyWhenEventIsNotNextUpcoming() {
@@ -827,58 +821,198 @@ final class SunriseHeaderAssetTests: XCTestCase {
         )
     }
 
-    #if canImport(UIKit)
-    private func resolvedColor(
-        _ color: Color,
-        style: UIUserInterfaceStyle,
-        contrast: UIAccessibilityContrast = .normal
-    ) -> UIColor {
-        let traits = UITraitCollection(traitsFrom: [
-            UITraitCollection(userInterfaceStyle: style),
-            UITraitCollection(accessibilityContrast: contrast)
-        ])
-        return UIColor(color).resolvedColor(with: traits)
-    }
-
-    private func contrastRatio(_ foreground: UIColor, _ background: UIColor) -> CGFloat {
-        let lighter = max(relativeLuminance(foreground), relativeLuminance(background))
-        let darker = min(relativeLuminance(foreground), relativeLuminance(background))
-        return (lighter + 0.05) / (darker + 0.05)
-    }
-
-    private func relativeLuminance(_ color: UIColor) -> CGFloat {
-        let components = rgbaComponents(color)
-        func channel(_ value: CGFloat) -> CGFloat {
-            value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
-        }
-        return 0.2126 * channel(components.red)
-            + 0.7152 * channel(components.green)
-            + 0.0722 * channel(components.blue)
-    }
-
-    private func redComponent(_ color: UIColor) -> CGFloat {
-        rgbaComponents(color).red
-    }
-
-    private func greenComponent(_ color: UIColor) -> CGFloat {
-        rgbaComponents(color).green
-    }
-
-    private func blueComponent(_ color: UIColor) -> CGFloat {
-        rgbaComponents(color).blue
-    }
-
-    private func alphaComponent(_ color: UIColor) -> CGFloat {
-        rgbaComponents(color).alpha
-    }
-
-    private func rgbaComponents(_ color: UIColor) -> (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        return (red, green, blue, alpha)
-    }
-    #endif
 }
+
+#if canImport(UIKit)
+final class ReflectPlanStyleTests: XCTestCase {
+    func testReflectPlanSurfacesResolveDarkAndReadable() {
+        let darkCanvas = resolvedColor(ReflectPlanStyle.canvas, style: .dark)
+        let darkCream = resolvedColor(ReflectPlanStyle.cream, style: .dark)
+        let darkPeach = resolvedColor(ReflectPlanStyle.peachSurfaceStrong, style: .dark)
+        let darkBlue = resolvedColor(ReflectPlanStyle.blueSurfaceStrong, style: .dark)
+        let primaryText = resolvedColor(LBColorTokens.navy, style: .dark)
+        let secondaryText = resolvedColor(LBColorTokens.navyMuted, style: .dark)
+
+        XCTAssertLessThan(relativeLuminance(darkCanvas), 0.02)
+        XCTAssertLessThan(relativeLuminance(darkCream), 0.08)
+        XCTAssertGreaterThan(contrastRatio(primaryText, darkCanvas), 10.0)
+        XCTAssertGreaterThan(contrastRatio(primaryText, darkPeach), 7.0)
+        XCTAssertGreaterThan(contrastRatio(primaryText, darkBlue), 7.0)
+        XCTAssertGreaterThan(contrastRatio(secondaryText, darkCream), 4.5)
+    }
+
+    func testReflectPlanActionColorsReadInBothAppearances() {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            XCTAssertGreaterThan(
+                contrastRatio(.white, resolvedColor(ReflectPlanStyle.greenCTA, style: style)),
+                4.5
+            )
+            XCTAssertGreaterThan(
+                contrastRatio(.white, resolvedColor(ReflectPlanStyle.disabledCTA, style: style)),
+                4.5
+            )
+        }
+    }
+
+    func testReflectPlanIncreasedContrastKeepsCardsDarkAndSeparated() {
+        let normalSurface = resolvedColor(ReflectPlanStyle.peachSurfaceStrong, style: .dark)
+        let highContrastSurface = resolvedColor(ReflectPlanStyle.peachSurfaceStrong, style: .dark, contrast: .high)
+        let highContrastBorder = resolvedColor(ReflectPlanStyle.peachBorder, style: .dark, contrast: .high)
+
+        XCTAssertLessThan(relativeLuminance(highContrastSurface), 0.04)
+        XCTAssertGreaterThan(contrastRatio(highContrastBorder, highContrastSurface), 2.0)
+        XCTAssertNotEqual(normalSurface, highContrastSurface)
+    }
+}
+
+final class HabitDetailStyleTests: XCTestCase {
+    func testHabitDetailBackgroundStopsResolveDark() {
+        let darkStops = [
+            resolvedColor(LBColorTokens.warmCanvas, style: .dark),
+            resolvedColor(LBColorTokens.canvas, style: .dark),
+            resolvedColor(LBColorTokens.coolCanvas, style: .dark)
+        ]
+
+        for stop in darkStops {
+            XCTAssertLessThan(relativeLuminance(stop), 0.03)
+        }
+    }
+
+    func testHabitDetailEditorSurfacesMaintainTextContrast() {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let primaryText = resolvedColor(Color.lifeboard(.textPrimary), style: style)
+            let secondaryText = resolvedColor(Color.lifeboard(.textSecondary), style: style)
+            let surfacePrimary = resolvedColor(Color.lifeboard(.surfacePrimary), style: style)
+            let surfaceSecondary = resolvedColor(Color.lifeboard(.surfaceSecondary), style: style)
+            let accentPrimary = resolvedColor(Color.lifeboard(.accentPrimary), style: style)
+            let accentOnPrimary = resolvedColor(Color.lifeboard(.accentOnPrimary), style: style)
+
+            XCTAssertGreaterThan(contrastRatio(primaryText, surfacePrimary), 4.5)
+            XCTAssertGreaterThan(contrastRatio(primaryText, surfaceSecondary), 4.5)
+            XCTAssertGreaterThan(contrastRatio(secondaryText, surfacePrimary), 4.5)
+            XCTAssertGreaterThan(contrastRatio(accentOnPrimary, accentPrimary), 4.5)
+        }
+    }
+
+    func testHabitDetailDarkSeparatorsAndSelectionRingsRemainVisible() {
+        let darkSurface = resolvedColor(Color.lifeboard(.surfaceSecondary), style: .dark)
+        let darkStroke = resolvedColor(Color.lifeboard(.strokeHairline), style: .dark)
+        let darkRing = resolvedColor(Color.lifeboard(.accentRing), style: .dark)
+        let highContrastSurface = resolvedColor(Color.lifeboard(.surfaceSecondary), style: .dark, contrast: .high)
+        let highContrastStroke = resolvedColor(Color.lifeboard(.strokeHairline), style: .dark, contrast: .high)
+        let highContrastRing = resolvedColor(Color.lifeboard(.accentRing), style: .dark, contrast: .high)
+
+        XCTAssertGreaterThan(contrastRatio(darkStroke, darkSurface), 1.4)
+        XCTAssertGreaterThan(contrastRatio(darkRing, darkSurface), 1.8)
+        XCTAssertGreaterThan(contrastRatio(highContrastStroke, highContrastSurface), 1.4)
+        XCTAssertGreaterThan(contrastRatio(highContrastRing, highContrastSurface), 1.8)
+    }
+}
+
+final class TaskDetailStyleTests: XCTestCase {
+    private let traitVariants: [(style: UIUserInterfaceStyle, contrast: UIAccessibilityContrast)] = [
+        (.light, .normal),
+        (.dark, .normal),
+        (.dark, .high)
+    ]
+
+    func testTaskDetailBackgroundStopsResolveDark() {
+        let darkStops = [
+            resolvedColor(LBColorTokens.warmCanvas, style: .dark),
+            resolvedColor(LBColorTokens.canvas, style: .dark),
+            resolvedColor(LBColorTokens.coolCanvas, style: .dark)
+        ]
+        let highContrastDarkStops = [
+            resolvedColor(LBColorTokens.warmCanvas, style: .dark, contrast: .high),
+            resolvedColor(LBColorTokens.canvas, style: .dark, contrast: .high),
+            resolvedColor(LBColorTokens.coolCanvas, style: .dark, contrast: .high)
+        ]
+        let primaryText = resolvedColor(Color.lifeboard(.textPrimary), style: .dark)
+        let highContrastPrimaryText = resolvedColor(Color.lifeboard(.textPrimary), style: .dark, contrast: .high)
+
+        for stop in darkStops {
+            XCTAssertLessThan(relativeLuminance(stop), 0.03)
+            XCTAssertGreaterThan(contrastRatio(primaryText, stop), 10.0)
+        }
+        for stop in highContrastDarkStops {
+            XCTAssertLessThan(relativeLuminance(stop), 0.02)
+            XCTAssertGreaterThan(contrastRatio(highContrastPrimaryText, stop), 12.0)
+        }
+    }
+
+    func testTaskDetailHeroAndDisclosureSurfacesMaintainTextContrast() {
+        for traits in traitVariants {
+            let primaryText = resolvedColor(Color.lifeboard(.textPrimary), style: traits.style, contrast: traits.contrast)
+            let secondaryText = resolvedColor(Color.lifeboard(.textSecondary), style: traits.style, contrast: traits.contrast)
+            let tertiaryText = resolvedColor(Color.lifeboard(.textTertiary), style: traits.style, contrast: traits.contrast)
+            let surfacePrimary = resolvedColor(Color.lifeboard(.surfacePrimary), style: traits.style, contrast: traits.contrast)
+            let surfaceSecondary = resolvedColor(Color.lifeboard(.surfaceSecondary), style: traits.style, contrast: traits.contrast)
+            let iconWell = composited(
+                resolvedColor(Color.lifeboard(.surfacePrimary).opacity(0.78), style: traits.style, contrast: traits.contrast),
+                over: surfaceSecondary
+            )
+            let chevronWell = composited(
+                resolvedColor(Color.lifeboard(.surfacePrimary).opacity(0.70), style: traits.style, contrast: traits.contrast),
+                over: surfaceSecondary
+            )
+
+            XCTAssertGreaterThan(contrastRatio(primaryText, surfacePrimary), 4.5)
+            XCTAssertGreaterThan(contrastRatio(primaryText, surfaceSecondary), 4.5)
+            XCTAssertGreaterThan(contrastRatio(secondaryText, surfacePrimary), 4.5)
+            XCTAssertGreaterThan(contrastRatio(secondaryText, surfaceSecondary), 4.5)
+            XCTAssertGreaterThan(contrastRatio(secondaryText, iconWell), 3.0)
+            XCTAssertGreaterThan(contrastRatio(tertiaryText, chevronWell), 3.0)
+        }
+    }
+
+    func testTaskDetailMetricTilesAndEditorRowsMaintainContrast() {
+        for traits in traitVariants {
+            let surfacePrimary = resolvedColor(Color.lifeboard(.surfacePrimary), style: traits.style, contrast: traits.contrast)
+            let surfaceSecondary = resolvedColor(Color.lifeboard(.surfaceSecondary), style: traits.style, contrast: traits.contrast)
+            let primaryText = resolvedColor(Color.lifeboard(.textPrimary), style: traits.style, contrast: traits.contrast)
+            let secondaryText = resolvedColor(Color.lifeboard(.textSecondary), style: traits.style, contrast: traits.contrast)
+            let accentText = resolvedColor(Color.lifeboard(.accentPrimary), style: traits.style, contrast: traits.contrast)
+            let successText = resolvedColor(LifeBoardDetailTonePalette.successText, style: traits.style, contrast: traits.contrast)
+            let accentMetricFill = composited(
+                resolvedColor(Color.lifeboard(.accentWash).opacity(0.92), style: traits.style, contrast: traits.contrast),
+                over: surfacePrimary
+            )
+            let successMetricFill = resolvedColor(LBColorTokens.role(.task).softSurface, style: traits.style, contrast: traits.contrast)
+            let editorRowFill = composited(
+                resolvedColor(Color.lifeboard(.surfaceSecondary).opacity(0.72), style: traits.style, contrast: traits.contrast),
+                over: surfacePrimary
+            )
+
+            XCTAssertGreaterThan(contrastRatio(accentText, accentMetricFill), 4.0)
+            XCTAssertGreaterThan(contrastRatio(successText, successMetricFill), 3.0)
+            XCTAssertGreaterThan(contrastRatio(primaryText, editorRowFill), 4.5)
+            XCTAssertGreaterThan(contrastRatio(secondaryText, editorRowFill), 4.5)
+            XCTAssertGreaterThan(contrastRatio(primaryText, surfaceSecondary), 4.5)
+        }
+    }
+
+    func testTaskDetailCapsuleAndTaskFitTonesRemainReadable() {
+        for traits in traitVariants {
+            let surfaceSecondary = resolvedColor(Color.lifeboard(.surfaceSecondary), style: traits.style, contrast: traits.contrast)
+            let accentText = resolvedColor(Color.lifeboard(.accentPrimary), style: traits.style, contrast: traits.contrast)
+            let quietText = resolvedColor(Color.lifeboard(.textSecondary), style: traits.style, contrast: traits.contrast)
+            let successText = resolvedColor(LifeBoardDetailTonePalette.successText, style: traits.style, contrast: traits.contrast)
+            let warningText = resolvedColor(LifeBoardDetailTonePalette.warningText, style: traits.style, contrast: traits.contrast)
+            let dangerText = resolvedColor(LifeBoardDetailTonePalette.dangerText, style: traits.style, contrast: traits.contrast)
+            let accentFill = resolvedColor(Color.lifeboard(.accentWash), style: traits.style, contrast: traits.contrast)
+            let quietFill = resolvedColor(Color.lifeboard(.surfaceSecondary), style: traits.style, contrast: traits.contrast)
+            let successFill = resolvedColor(LBColorTokens.role(.task).softSurface, style: traits.style, contrast: traits.contrast)
+            let warningFill = resolvedColor(LBColorTokens.role(.warning).softSurface, style: traits.style, contrast: traits.contrast)
+            let dangerFill = resolvedColor(LBColorTokens.role(.error).softSurface, style: traits.style, contrast: traits.contrast)
+
+            XCTAssertGreaterThan(contrastRatio(accentText, accentFill), 4.0)
+            XCTAssertGreaterThan(contrastRatio(quietText, quietFill), 4.5)
+            XCTAssertGreaterThan(contrastRatio(quietText, surfaceSecondary), 4.5)
+            XCTAssertGreaterThan(contrastRatio(successText, successFill), 4.5)
+            XCTAssertGreaterThan(contrastRatio(warningText, warningFill), 4.5)
+            XCTAssertGreaterThan(contrastRatio(dangerText, dangerFill), 4.5)
+        }
+    }
+}
+
+#endif

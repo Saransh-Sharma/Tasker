@@ -109,6 +109,12 @@ struct PriorityBadge: View {
 
 // MARK: - Shared Status And Metric Components
 
+enum LifeBoardDetailTonePalette {
+    static let successText = LBColorTokens.adaptive(light: "#0F7A25", dark: "#95F0A4", darkHighContrast: "#C8FFD1")
+    static let warningText = LBColorTokens.adaptive(light: "#704600", dark: "#FFE0A0", darkHighContrast: "#FFF0C2")
+    static let dangerText = LBColorTokens.adaptive(light: "#8E2E23", dark: "#FFB7AD", darkHighContrast: "#FFD8D0")
+}
+
 @MainActor
 enum LifeBoardStatusPillTone {
     case accent
@@ -125,11 +131,11 @@ enum LifeBoardStatusPillTone {
         case .neutral:
             return Color.lifeboard.textPrimary
         case .success:
-            return Color.lifeboard.statusSuccess
+            return LifeBoardDetailTonePalette.successText
         case .warning:
-            return Color.lifeboard.statusWarning
+            return LifeBoardDetailTonePalette.warningText
         case .danger:
-            return Color.lifeboard.statusDanger
+            return LifeBoardDetailTonePalette.dangerText
         case .quiet:
             return Color.lifeboard.textSecondary
         }
@@ -142,11 +148,11 @@ enum LifeBoardStatusPillTone {
         case .neutral:
             return Color.lifeboard.surfacePrimary
         case .success:
-            return Color.lifeboard.statusSuccess.opacity(0.12)
+            return LBColorTokens.role(.task).softSurface
         case .warning:
-            return Color.lifeboard.statusWarning.opacity(0.12)
+            return LBColorTokens.role(.warning).softSurface
         case .danger:
-            return Color.lifeboard.statusDanger.opacity(0.12)
+            return LBColorTokens.role(.error).softSurface
         case .quiet:
             return Color.lifeboard.surfaceSecondary
         }
@@ -159,11 +165,11 @@ enum LifeBoardStatusPillTone {
         case .neutral:
             return Color.lifeboard.strokeHairline.opacity(0.9)
         case .success:
-            return Color.lifeboard.statusSuccess.opacity(0.22)
+            return LBColorTokens.role(.task).border
         case .warning:
-            return Color.lifeboard.statusWarning.opacity(0.22)
+            return LBColorTokens.role(.warning).border
         case .danger:
-            return Color.lifeboard.statusDanger.opacity(0.22)
+            return LBColorTokens.role(.error).border
         case .quiet:
             return Color.lifeboard.strokeHairline.opacity(0.72)
         }
@@ -209,9 +215,9 @@ enum LifeBoardHeroMetricTone {
         case .accent:
             return Color.lifeboard.accentPrimary
         case .success:
-            return Color.lifeboard.statusSuccess
+            return LifeBoardDetailTonePalette.successText
         case .warning:
-            return Color.lifeboard.statusWarning
+            return LifeBoardDetailTonePalette.warningText
         case .neutral:
             return Color.lifeboard.textPrimary
         }
@@ -222,9 +228,9 @@ enum LifeBoardHeroMetricTone {
         case .accent:
             return Color.lifeboard.accentWash.opacity(0.92)
         case .success:
-            return Color.lifeboard.statusSuccess.opacity(0.12)
+            return LBColorTokens.role(.task).softSurface
         case .warning:
-            return Color.lifeboard.statusWarning.opacity(0.12)
+            return LBColorTokens.role(.warning).softSurface
         case .neutral:
             return Color.lifeboard.surfacePrimary.opacity(0.8)
         }
@@ -235,9 +241,9 @@ enum LifeBoardHeroMetricTone {
         case .accent:
             return Color.lifeboard.accentPrimary.opacity(0.18)
         case .success:
-            return Color.lifeboard.statusSuccess.opacity(0.18)
+            return LBColorTokens.role(.task).border
         case .warning:
-            return Color.lifeboard.statusWarning.opacity(0.18)
+            return LBColorTokens.role(.warning).border
         case .neutral:
             return Color.lifeboard.strokeHairline.opacity(0.72)
         }

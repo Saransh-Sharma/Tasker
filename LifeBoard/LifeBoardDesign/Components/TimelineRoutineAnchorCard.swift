@@ -67,7 +67,6 @@ struct TimelineRoutineAnchorCard: View {
         HStack(alignment: .center, spacing: 0) {
             Color.clear
                 .frame(width: leadingArtworkReserve)
-                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(style.displayTitle)
@@ -86,6 +85,7 @@ struct TimelineRoutineAnchorCard: View {
 
             Spacer(minLength: 0)
         }
+        .padding(.leading, 16)
         .padding(.trailing, 16)
         .padding(.vertical, 14)
     }

@@ -598,7 +598,7 @@ struct SunriseTaskDetailScreen: View {
             Spacer(minLength: 0)
         }
         .padding(spacing.s12)
-        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.md, fillColor: style.tint.opacity(0.12), strokeColor: style.tint.opacity(0.24))
+        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.md, fillColor: style.fill, strokeColor: style.stroke)
         .accessibilityIdentifier("taskDetail.taskFitHint")
     }
 
@@ -700,9 +700,9 @@ struct SunriseTaskDetailScreen: View {
     private var sunriseBackground: some View {
         LinearGradient(
             colors: [
-                Color(lifeboardHex: "#FFF8EF"),
-                Color(lifeboardHex: "#FFFDFC"),
-                Color(lifeboardHex: "#F7FBFF")
+                LBColorTokens.warmCanvas,
+                LBColorTokens.canvas,
+                LBColorTokens.coolCanvas
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -794,7 +794,7 @@ struct SunriseTaskDetailScreen: View {
     }
 
     private var taskAccentColor: Color {
-        viewModel.isComplete ? Color.lifeboard.statusSuccess : Color(lifeboardHex: "#28B53F")
+        Color.lifeboard.statusSuccess
     }
 
     private var autosaveSymbol: String {
@@ -819,12 +819,19 @@ struct SunriseTaskDetailScreen: View {
         return "Largest window: \(start.formatted(date: .omitted, time: .shortened)) - \(end.formatted(date: .omitted, time: .shortened))"
     }
 
-    private func taskFitStyle(for classification: LifeBoardTaskFitClassification) -> (symbol: String, tint: Color) {
+    private func taskFitStyle(for classification: LifeBoardTaskFitClassification) -> (symbol: String, tint: Color, fill: Color, stroke: Color) {
         switch classification {
-        case .fit: return ("checkmark.circle.fill", Color.lifeboard.statusSuccess)
-        case .tight: return ("exclamationmark.triangle.fill", Color.lifeboard.statusWarning)
-        case .conflict: return ("xmark.octagon.fill", Color.lifeboard.statusDanger)
-        case .unknown: return ("questionmark.circle.fill", Color.lifeboard.textSecondary)
+        case .fit:
+            let role = LBColorTokens.role(.task)
+            return ("checkmark.circle.fill", LifeBoardDetailTonePalette.successText, role.softSurface, role.border)
+        case .tight:
+            let role = LBColorTokens.role(.warning)
+            return ("exclamationmark.triangle.fill", LifeBoardDetailTonePalette.warningText, role.softSurface, role.border)
+        case .conflict:
+            let role = LBColorTokens.role(.error)
+            return ("xmark.octagon.fill", LifeBoardDetailTonePalette.dangerText, role.softSurface, role.border)
+        case .unknown:
+            return ("questionmark.circle.fill", Color.lifeboard.textSecondary, Color.lifeboard.surfaceSecondary, Color.lifeboard.strokeHairline)
         }
     }
 
