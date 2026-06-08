@@ -955,6 +955,7 @@ public enum EvaBatchSource: String, Codable, Equatable, Hashable, Sendable {
 
 public struct EvaBatchMutationInstruction: Codable, Equatable, Hashable, Sendable {
     public let taskID: UUID
+    public var expectedUpdatedAt: Date?
     public var projectID: UUID?
     public var dueDate: Date?
     public var clearDueDate: Bool
@@ -965,6 +966,7 @@ public struct EvaBatchMutationInstruction: Codable, Equatable, Hashable, Sendabl
     /// Initializes a new instance.
     public init(
         taskID: UUID,
+        expectedUpdatedAt: Date? = nil,
         projectID: UUID? = nil,
         dueDate: Date? = nil,
         clearDueDate: Bool = false,
@@ -973,12 +975,42 @@ public struct EvaBatchMutationInstruction: Codable, Equatable, Hashable, Sendabl
         isComplete: Bool? = nil
     ) {
         self.taskID = taskID
+        self.expectedUpdatedAt = expectedUpdatedAt
         self.projectID = projectID
         self.dueDate = dueDate
         self.clearDueDate = clearDueDate
         self.estimatedDuration = estimatedDuration
         self.clearEstimatedDuration = clearEstimatedDuration
         self.isComplete = isComplete
+    }
+}
+
+public enum EvaBatchProposalError: LocalizedError, Equatable {
+    case duplicateTaskID(UUID)
+    case missingTask(UUID)
+    case staleTask(UUID)
+    case completedTask(UUID)
+    case subtask(UUID)
+    case invalidMutation(UUID)
+    case commandCountMismatch(expected: Int, actual: Int)
+
+    public var errorDescription: String? {
+        switch self {
+        case .duplicateTaskID:
+            return "The rescue plan contains the same task more than once."
+        case .missingTask:
+            return "A task in the rescue plan no longer exists."
+        case .staleTask:
+            return "A task changed while the rescue plan was open. Refresh and try again."
+        case .completedTask:
+            return "A task in the rescue plan was already completed."
+        case .subtask:
+            return "Subtasks cannot be moved onto the Today timeline."
+        case .invalidMutation:
+            return "The rescue plan contains conflicting task changes."
+        case .commandCountMismatch:
+            return "The rescue plan could not be applied completely."
+        }
     }
 }
 
@@ -1740,5 +1772,50 @@ public final class BuildEvaBatchProposalUseCase: @unchecked Sendable {
         )
         let threadID = "eva_\(source.rawValue)_\(Int(now.timeIntervalSince1970))"
         return (threadID, envelope)
+    }
+
+    public func executeValidated(
+        source: EvaBatchSource,
+        tasksByID: [UUID: TaskDefinition],
+        mutations: [EvaBatchMutationInstruction],
+        now: Date = Date()
+    ) throws -> (threadID: String, envelope: AssistantCommandEnvelope) {
+        var seen = Set<UUID>()
+        for mutation in mutations {
+            guard seen.insert(mutation.taskID).inserted else {
+                throw EvaBatchProposalError.duplicateTaskID(mutation.taskID)
+            }
+            guard let task = tasksByID[mutation.taskID] else {
+                throw EvaBatchProposalError.missingTask(mutation.taskID)
+            }
+            if let expectedUpdatedAt = mutation.expectedUpdatedAt,
+               abs(task.updatedAt.timeIntervalSince(expectedUpdatedAt)) > 0.001 {
+                throw EvaBatchProposalError.staleTask(mutation.taskID)
+            }
+            guard task.isComplete == false else {
+                throw EvaBatchProposalError.completedTask(mutation.taskID)
+            }
+            guard task.parentTaskID == nil else {
+                throw EvaBatchProposalError.subtask(mutation.taskID)
+            }
+            guard mutation.clearDueDate == false || mutation.dueDate == nil,
+                  mutation.clearEstimatedDuration == false || mutation.estimatedDuration == nil else {
+                throw EvaBatchProposalError.invalidMutation(mutation.taskID)
+            }
+        }
+
+        let proposal = execute(
+            source: source,
+            tasksByID: tasksByID,
+            mutations: mutations,
+            now: now
+        )
+        guard proposal.envelope.commands.count == mutations.count else {
+            throw EvaBatchProposalError.commandCountMismatch(
+                expected: mutations.count,
+                actual: proposal.envelope.commands.count
+            )
+        }
+        return proposal
     }
 }

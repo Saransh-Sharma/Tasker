@@ -1820,14 +1820,24 @@ private struct SunriseEvaOverdueRescueSheet: View {
 
         return recommendations.compactMap { item in
             let selected = selectedActionByTaskID[item.taskID] ?? item.action
+            let expectedUpdatedAt = tasksByID[item.taskID]?.updatedAt
             switch selected {
             case .doToday:
-                return EvaBatchMutationInstruction(taskID: item.taskID, dueDate: today)
+                return EvaBatchMutationInstruction(
+                    taskID: item.taskID,
+                    expectedUpdatedAt: expectedUpdatedAt,
+                    dueDate: today
+                )
             case .move:
-                return EvaBatchMutationInstruction(taskID: item.taskID, dueDate: item.toDate ?? tomorrow)
+                return EvaBatchMutationInstruction(
+                    taskID: item.taskID,
+                    expectedUpdatedAt: expectedUpdatedAt,
+                    dueDate: item.toDate ?? tomorrow
+                )
             case .dropCandidate:
                 return EvaBatchMutationInstruction(
                     taskID: item.taskID,
+                    expectedUpdatedAt: expectedUpdatedAt,
                     projectID: ProjectConstants.inboxProjectID,
                     clearDueDate: true
                 )
