@@ -339,6 +339,26 @@ enum TaskScheduleNormalizer {
             && (components.minute ?? 0) == 0
             && (components.second ?? 0) == 0
     }
+
+    static func hasAllDaySemantics(_ task: TaskDefinition, calendar: Calendar = .current) -> Bool {
+        task.isAllDay || task.dueDate.map { isDateOnly($0, calendar: calendar) } == true
+    }
+
+    static func timelinePlacementDate(
+        for task: TaskDefinition,
+        calendar: Calendar = .current
+    ) -> Date? {
+        guard hasAllDaySemantics(task, calendar: calendar) == false else { return nil }
+        return task.scheduledStartAt ?? task.dueDate
+    }
+
+    static func timelineAllDayDate(
+        for task: TaskDefinition,
+        calendar: Calendar = .current
+    ) -> Date? {
+        guard hasAllDaySemantics(task, calendar: calendar) else { return nil }
+        return task.dueDate ?? task.scheduledStartAt
+    }
 }
 
 enum TaskRescueScheduleShifter {
@@ -350,9 +370,22 @@ enum TaskRescueScheduleShifter {
         calendar: Calendar = .current
     ) -> TaskScheduleNormalizationResult {
         let targetStartOfDay = calendar.startOfDay(for: targetDay)
+        let hasDateOnlyDueDate = task.dueDate.map { TaskScheduleNormalizer.isDateOnly($0, calendar: calendar) } ?? false
         let hasTimedDueDate = task.dueDate.map { TaskScheduleNormalizer.isDateOnly($0, calendar: calendar) == false } ?? false
 
-        guard task.isAllDay == false, task.scheduledStartAt != nil || hasTimedDueDate else {
+        if task.isAllDay || hasDateOnlyDueDate {
+            return TaskScheduleNormalizationResult(
+                dueDate: targetStartOfDay,
+                scheduledStartAt: nil,
+                scheduledEndAt: nil,
+                isAllDay: true,
+                explicitAllDayIntent: true,
+                clearScheduledStartAt: true,
+                clearScheduledEndAt: true
+            )
+        }
+
+        guard task.scheduledStartAt != nil || hasTimedDueDate else {
             return TaskScheduleNormalizationResult(
                 dueDate: targetStartOfDay,
                 scheduledStartAt: nil,

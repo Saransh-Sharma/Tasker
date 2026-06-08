@@ -234,8 +234,18 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                 var deleted = 0
                 var warnings: [String] = []
 
+                var didMutate = false
+
+                var normalizedIdentityCount = 0
                 for project in projects {
-                    self.normalizeProjectIdentity(project)
+                    let didNormalize = self.normalizeProjectIdentity(project)
+                    if didNormalize {
+                        normalizedIdentityCount += 1
+                    }
+                    didMutate = didNormalize || didMutate
+                }
+                if normalizedIdentityCount > 0 {
+                    warnings.append("Project identities were repaired during repair")
                 }
 
                 var inboxCandidates = projects.filter { self.isInboxCandidate($0) }
@@ -246,15 +256,21 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                     canonicalInbox = ProjectMapper.toEntity(from: Project.createInbox(), in: self.backgroundContext)
                     projects.append(canonicalInbox)
                     warnings.append("Inbox was missing and has been recreated during repair")
+                    didMutate = true
                 }
 
-                self.normalizeAsCanonicalInbox(canonicalInbox)
+                let didNormalizeCanonicalInbox = self.normalizeAsCanonicalInbox(canonicalInbox)
+                if didNormalizeCanonicalInbox, warnings.isEmpty {
+                    warnings.append("Canonical Inbox metadata was repaired during repair")
+                }
+                didMutate = didNormalizeCanonicalInbox || didMutate
 
                 for duplicate in inboxCandidates where duplicate.objectID != canonicalInbox.objectID {
-                    self.repointTasks(from: duplicate, to: canonicalInbox)
+                    didMutate = self.repointTasks(from: duplicate, to: canonicalInbox) || didMutate
                     self.backgroundContext.delete(duplicate)
                     merged += 1
                     deleted += 1
+                    didMutate = true
                 }
 
                 projects = projects.filter { !$0.isDeleted }
@@ -263,14 +279,17 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                 for (projectID, group) in groups where group.count > 1 {
                     let canonical = self.selectCanonicalProject(from: group, targetID: projectID)
                     for duplicate in group where duplicate.objectID != canonical.objectID {
-                        self.repointTasks(from: duplicate, to: canonical)
+                        didMutate = self.repointTasks(from: duplicate, to: canonical) || didMutate
                         self.backgroundContext.delete(duplicate)
                         merged += 1
                         deleted += 1
+                        didMutate = true
                     }
                 }
 
-                try self.backgroundContext.save()
+                if didMutate, self.backgroundContext.hasChanges {
+                    try self.backgroundContext.save()
+                }
 
                 inboxCandidates = [canonicalInbox] + inboxCandidates.filter { !$0.isDeleted && $0.objectID != canonicalInbox.objectID }
                 let report = ProjectRepairReport(
@@ -771,29 +790,49 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
     }
 
     /// Executes normalizeProjectIdentity.
-    private func normalizeProjectIdentity(_ entity: ProjectEntity) {
-        if entity.id == nil {
-            let derivedID: UUID
-            if isInboxCandidate(entity) {
-                derivedID = ProjectConstants.inboxProjectID
-            } else {
-                derivedID = Self.stableUUID(from: entity.objectID.uriRepresentation().absoluteString)
-            }
-            entity.id = derivedID
+    @discardableResult
+    private func normalizeProjectIdentity(_ entity: ProjectEntity) -> Bool {
+        guard entity.id == nil else { return false }
+        let derivedID: UUID
+        if isInboxCandidate(entity) {
+            derivedID = ProjectConstants.inboxProjectID
+        } else {
+            derivedID = Self.stableUUID(from: entity.objectID.uriRepresentation().absoluteString)
         }
+        entity.id = derivedID
+        return true
     }
 
     /// Executes normalizeAsCanonicalInbox.
-    private func normalizeAsCanonicalInbox(_ entity: ProjectEntity) {
-        entity.id = ProjectConstants.inboxProjectID
-        entity.isInbox = true
-        entity.isDefault = true
-        entity.name = ProjectConstants.inboxProjectName
-        entity.projectDescription = ProjectConstants.inboxProjectDescription
+    @discardableResult
+    private func normalizeAsCanonicalInbox(_ entity: ProjectEntity) -> Bool {
+        var didChange = false
+        if entity.id != ProjectConstants.inboxProjectID {
+            entity.id = ProjectConstants.inboxProjectID
+            didChange = true
+        }
+        if entity.isInbox == false {
+            entity.isInbox = true
+            didChange = true
+        }
+        if entity.isDefault == false {
+            entity.isDefault = true
+            didChange = true
+        }
+        if entity.name != ProjectConstants.inboxProjectName {
+            entity.name = ProjectConstants.inboxProjectName
+            didChange = true
+        }
+        if entity.projectDescription != ProjectConstants.inboxProjectDescription {
+            entity.projectDescription = ProjectConstants.inboxProjectDescription
+            didChange = true
+        }
+        return didChange
     }
 
     /// Executes repointTasks.
-    private func repointTasks(from source: ProjectEntity, to target: ProjectEntity) {
+    @discardableResult
+    private func repointTasks(from source: ProjectEntity, to target: ProjectEntity) -> Bool {
         let sourceIDs = Set([source.id].compactMap { $0 })
         let targetID = effectiveProjectID(for: target)
 
@@ -804,18 +843,27 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
             predicates.append(NSPredicate(format: "projectID IN %@", Array(sourceIDs)))
         }
         guard predicates.isEmpty == false else {
-            return
+            return false
         }
 
         request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
         do {
+            var didChange = false
             let tasks = try backgroundContext.fetch(request)
             for task in tasks {
-                task.projectID = targetID
-                task.lifeAreaID = target.lifeAreaID
+                if task.projectID != targetID {
+                    task.projectID = targetID
+                    didChange = true
+                }
+                if task.lifeAreaID != target.lifeAreaID {
+                    task.lifeAreaID = target.lifeAreaID
+                    didChange = true
+                }
             }
+            return didChange
         } catch {
             logWarning("Project identity repair could not repoint tasks: \(error.localizedDescription)")
+            return false
         }
     }
 

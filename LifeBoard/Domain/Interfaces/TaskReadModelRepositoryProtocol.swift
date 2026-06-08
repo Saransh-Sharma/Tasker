@@ -261,9 +261,14 @@ public extension TaskReadModelRepositoryProtocol {
                     if task.parentTaskID != nil {
                         return false
                     }
-                    let placement = task.scheduledStartAt ?? task.dueDate
-                    let scheduledForSelectedDay = placement.map { $0 >= selectedStart && $0 < selectedEnd } ?? false
-                    let scheduledForWeek = placement.map { $0 >= query.weekStart && $0 < query.weekEnd } ?? false
+                    let placement = TaskScheduleNormalizer.timelinePlacementDate(for: task, calendar: calendar)
+                    let allDayDate = TaskScheduleNormalizer.timelineAllDayDate(for: task, calendar: calendar)
+                    let scheduledForSelectedDay =
+                        placement.map { $0 >= selectedStart && $0 < selectedEnd } == true
+                        || allDayDate.map { $0 >= selectedStart && $0 < selectedEnd } == true
+                    let scheduledForWeek =
+                        placement.map { $0 >= query.weekStart && $0 < query.weekEnd } == true
+                        || allDayDate.map { $0 >= query.weekStart && $0 < query.weekEnd } == true
                     let unscheduledInbox = task.isComplete == false
                         && task.projectID == ProjectConstants.inboxProjectID
                         && task.scheduledStartAt == nil

@@ -258,9 +258,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         let launchInterval = LifeBoardPerformanceTrace.begin("AppLaunchCriticalPath")
         defer { LifeBoardPerformanceTrace.end(launchInterval) }
 
-        // Override point for customization after application launch.
-        WatchWidgetSnapshotSync.shared.activate()
-
 //        HomeViewController.setDateForViewValue(dateToSetForView: Date.today())
         let launchArguments = ProcessInfo.processInfo.arguments
 
@@ -359,7 +356,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
     private func configureFirebaseIfNeeded(_ shouldConfigureFirebase: Bool) {
         guard shouldConfigureFirebase else {
-            logWarning(
+            logDebug(
                 event: "firebase_startup_mode",
                 message: "Firebase skipped in DEBUG (opt in with launch arg)",
                 fields: [
@@ -386,7 +383,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         let firebaseStartupSource = "release_default_enabled"
         #endif
 
-        logWarning(
+        logInfo(
             event: "firebase_startup_mode",
             message: "Firebase configured for this run",
             fields: [
@@ -427,6 +424,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     func applicationDidBecomeActive(_ application: UIApplication) {
         reconcileNotifications(reason: "app_did_become_active")
         guard case .ready = persistentBootstrapState else { return }
+        if let persistentContainer, AppDelegate.isWriteClosed == false {
+            RescueScheduleRepairService.repair(container: persistentContainer)
+        }
         if FirebaseApp.app() != nil {
             GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_did_become_active")
             LiquidMetalCTARemoteConfigService.shared.refreshIfAvailable(reason: "app_did_become_active")
@@ -507,7 +507,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                     engine.fullReconciliation { result in
                         switch result {
                         case .success:
-                            engine.writeWidgetSnapshot()
                             completion(true)
                         case .failure(let error):
                             logError(
@@ -543,7 +542,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             installPersistentStoreObservers(container: container)
             TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "bootstrap_ready")
 
-            logWarning(
+            logInfo(
                 event: "persistent_sync_mode_activated",
                 message: "Persistent sync mode activated",
                 fields: [
@@ -675,8 +674,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             forName: .NSPersistentStoreRemoteChange,
             object: container.persistentStoreCoordinator,
             queue: nil
-        ) { [weak remoteChangeCoordinator] _ in
+        ) { [weak remoteChangeCoordinator, weak container] _ in
             remoteChangeCoordinator?.handleRemoteChange()
+            if case .writeClosed = AppDelegate.persistentSyncModeSnapshot() {
+                return
+            }
+            if let container {
+                RescueScheduleRepairService.repair(container: container)
+            }
         }
 
         if let cloudKitEventObserver {
@@ -1064,18 +1069,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     private func logCloudKitPreflightTelemetry() {
         let entitlementPresent = runtimeHasCloudKitEntitlement(containerIdentifier: cloudKitContainerIdentifier)
         let mirroringMode = cloudKitMirroringMode()
-        logWarning(
-            event: "cloudkit_preflight",
-            message: "CloudKit runtime preflight diagnostics",
-            fields: [
-                "container_id": cloudKitContainerIdentifier,
-                "entitlement_present": String(entitlementPresent),
-                "mirroring_mode": mirroringMode.reason
-            ]
-        )
+        let preflightFields = [
+            "container_id": cloudKitContainerIdentifier,
+            "entitlement_present": String(entitlementPresent),
+            "mirroring_mode": mirroringMode.reason
+        ]
+        if entitlementPresent {
+            logInfo(
+                event: "cloudkit_preflight",
+                message: "CloudKit runtime preflight diagnostics",
+                fields: preflightFields
+            )
+        } else {
+            logWarning(
+                event: "cloudkit_preflight",
+                message: "CloudKit runtime preflight diagnostics",
+                fields: preflightFields
+            )
+        }
 
         guard case .enabled = mirroringMode else {
-            logWarning(
+            logInfo(
                 event: "cloudkit_preflight_skipped",
                 message: "Skipped CloudKit account status preflight because runtime disables CloudKit",
                 fields: [
@@ -1096,11 +1110,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             if let error {
                 fields["error"] = error.localizedDescription
             }
-            logWarning(
-                event: "cloudkit_account_status",
-                message: "CloudKit account status preflight completed",
-                fields: fields
-            )
+            if error == nil && status == .available {
+                logInfo(
+                    event: "cloudkit_account_status",
+                    message: "CloudKit account status preflight completed",
+                    fields: fields
+                )
+            } else {
+                logWarning(
+                    event: "cloudkit_account_status",
+                    message: "CloudKit account status preflight completed",
+                    fields: fields
+                )
+            }
         }
     }
 
@@ -1602,7 +1624,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                 defer { LifeBoardPerformanceTrace.end(interval) }
                 switch result {
                 case .success:
-                    engine.writeWidgetSnapshot()
                     engine.updateStreak { streakResult in
                         if case .failure(let error) = streakResult {
                             logError(
@@ -1823,17 +1844,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         manageProjects.repairProjectIdentityCollisions { result in
             switch result {
             case .success(let report):
-                logWarning(
-                    event: "project_identity_repair",
-                    message: "Project identity repair completed",
-                    fields: [
-                        "scanned": String(report.scanned),
-                        "merged": String(report.merged),
-                        "deleted": String(report.deleted),
-                        "inbox_candidates": String(report.inboxCandidates),
-                        "warnings_count": String(report.warnings.count)
-                    ]
-                )
+                let fields = [
+                    "scanned": String(report.scanned),
+                    "merged": String(report.merged),
+                    "deleted": String(report.deleted),
+                    "inbox_candidates": String(report.inboxCandidates),
+                    "warnings_count": String(report.warnings.count)
+                ]
+                let didRepair = report.merged > 0 || report.deleted > 0 || report.warnings.isEmpty == false
+                if didRepair {
+                    logWarning(
+                        event: "project_identity_repair",
+                        message: "Project identity repair completed",
+                        fields: fields
+                    )
+                } else {
+                    logInfo(
+                        event: "project_identity_repair",
+                        message: "Project identity repair completed",
+                        fields: fields
+                    )
+                }
             case .failure(let error):
                 logError(
                     event: "project_identity_repair_failed",

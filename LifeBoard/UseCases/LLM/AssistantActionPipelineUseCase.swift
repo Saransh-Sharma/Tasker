@@ -562,7 +562,14 @@ public final class AssistantActionPipelineUseCase: @unchecked Sendable {
                 task.title = title
             }
             if let dueDate {
-                task.dueDate = dueDate
+                if TaskScheduleNormalizer.isDateOnly(dueDate) {
+                    task.dueDate = Calendar.current.startOfDay(for: dueDate)
+                    task.scheduledStartAt = nil
+                    task.scheduledEndAt = nil
+                    task.isAllDay = true
+                } else {
+                    task.dueDate = dueDate
+                }
             }
             task.updatedAt = Date()
             let taskForUpdate = task
