@@ -362,6 +362,7 @@ struct TimelinePlanItem: Equatable, Identifiable {
     let isComplete: Bool
     let tintHex: String?
     let systemImageName: String
+    let lifeAreaSystemImageName: String?
     let accessoryText: String?
     let taskPriority: TaskPriority?
     let isPinnedFocusTask: Bool
@@ -387,6 +388,7 @@ struct TimelinePlanItem: Equatable, Identifiable {
         isComplete: Bool,
         tintHex: String?,
         systemImageName: String,
+        lifeAreaSystemImageName: String? = nil,
         accessoryText: String?,
         taskPriority: TaskPriority? = nil,
         isPinnedFocusTask: Bool = false,
@@ -411,6 +413,7 @@ struct TimelinePlanItem: Equatable, Identifiable {
         self.isComplete = isComplete
         self.tintHex = tintHex
         self.systemImageName = systemImageName
+        self.lifeAreaSystemImageName = lifeAreaSystemImageName
         self.accessoryText = accessoryText
         self.taskPriority = taskPriority
         self.isPinnedFocusTask = isPinnedFocusTask

@@ -60,6 +60,19 @@ enum HomeTaskTintResolver {
         )
     }
 
+    static func lifeAreaIconSymbolName(
+        for task: TaskDefinition,
+        projectsByID: [UUID: Project],
+        lifeAreasByID: [UUID: LifeArea]
+    ) -> String? {
+        if let taskLifeAreaID = task.lifeAreaID {
+            return normalizedIconSymbolName(for: taskLifeAreaID, lifeAreasByID: lifeAreasByID)
+        }
+
+        guard let projectLifeAreaID = projectsByID[task.projectID]?.lifeAreaID else { return nil }
+        return normalizedIconSymbolName(for: projectLifeAreaID, lifeAreasByID: lifeAreasByID)
+    }
+
     static func rowAccentHex(
         for row: HomeTodayRow,
         projectsByID: [UUID: Project],
@@ -111,5 +124,17 @@ enum HomeTaskTintResolver {
         }
 
         return nil
+    }
+
+    private static func normalizedIconSymbolName(
+        for lifeAreaID: UUID,
+        lifeAreasByID: [UUID: LifeArea]
+    ) -> String? {
+        guard let icon = lifeAreasByID[lifeAreaID]?.icon?.trimmingCharacters(in: .whitespacesAndNewlines),
+              icon.isEmpty == false
+        else {
+            return nil
+        }
+        return icon
     }
 }
