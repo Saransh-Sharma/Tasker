@@ -184,6 +184,16 @@ public final class HomeViewModel: ObservableObject {
 
     var timelineSnapshotCache: (key: HomeTimelineSnapshotCacheKey, snapshot: HomeTimelineSnapshot)?
 
+    var timelineProjectionTasks: [TaskDefinition] = []
+
+    var timelineProjectionCacheKey: String?
+
+    var timelineProjectionSelectedDay: Date?
+
+    var timelineProjectionRequestKey: String?
+
+    var timelineProjectionRequestToken: UUID?
+
     var suppressCompletionReloadUntil: Date?
 
     var suppressTaskReloadsForHabitMutationUntil: Date?
