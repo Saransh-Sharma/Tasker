@@ -31,9 +31,16 @@ final class WatchWidgetSnapshotSync: NSObject, WCSessionDelegate, @unchecked Sen
 
     private func send<T: Encodable>(_ value: T, fileName: String) {
         guard WCSession.isSupported() else { return }
-        activate()
         let session = WCSession.default
-        guard session.isPaired, session.isWatchAppInstalled else { return }
+        activate()
+        guard session.activationState == .activated else {
+            logDebug("WATCH_WIDGET_SYNC transfer_skipped file=\(fileName) reason=session_activating")
+            return
+        }
+        guard session.isPaired, session.isWatchAppInstalled else {
+            logDebug("WATCH_WIDGET_SYNC transfer_skipped file=\(fileName) reason=counterpart_unavailable")
+            return
+        }
         guard let data = try? JSONEncoder().encode(value) else { return }
 
         do {
