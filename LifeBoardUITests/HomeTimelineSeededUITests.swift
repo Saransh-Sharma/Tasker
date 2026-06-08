@@ -180,6 +180,25 @@ final class HomeTimelineSeededUITests: BaseUITest {
         )
     }
 
+    func testBottomBarInsightsOpensFromSeededTimelineWithoutCrash() throws {
+        let insightsButton = element(identifier: AccessibilityIdentifiers.Home.bottomBarCharts)
+        XCTAssertTrue(insightsButton.waitForExistence(timeout: 8), "Bottom bar Insights button should exist.")
+
+        tapElement(insightsButton)
+        XCTAssertTrue(waitForInsightsSurface(timeout: 12), "Insights should open from the bottom bar without terminating the app.")
+
+        let homeButton = element(identifier: AccessibilityIdentifiers.Home.bottomBarHome)
+        XCTAssertTrue(homeButton.waitForExistence(timeout: 8), "Bottom bar Home button should exist after opening Insights.")
+        tapElement(homeButton)
+        XCTAssertTrue(
+            ensureHomeTimelineReady(timeout: 10),
+            "Home timeline should be reachable after returning from Insights."
+        )
+
+        tapElement(insightsButton)
+        XCTAssertTrue(waitForInsightsSurface(timeout: 12), "Insights should reopen from the bottom bar without a metadata crash.")
+    }
+
     private func tapFilter(_ id: String) {
         let chip = app.buttons[AccessibilityIdentifiers.Home.sunriseFilter(id)]
         XCTAssertTrue(chip.waitForExistence(timeout: 6), "Expected \(id) Sunrise filter chip to exist.")
@@ -287,6 +306,16 @@ final class HomeTimelineSeededUITests: BaseUITest {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
         return app.descendants(matching: .any).matching(predicate).firstMatch.exists
+    }
+
+    private func waitForInsightsSurface(timeout: TimeInterval) -> Bool {
+        let container = element(identifier: AccessibilityIdentifiers.Home.insightsContainer)
+        let todayContent = element(identifier: AccessibilityIdentifiers.Home.insightsContentToday)
+        let predicate = NSPredicate { _, _ in
+            container.exists || todayContent.exists
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     private func waitForTimelineIdentifiers(

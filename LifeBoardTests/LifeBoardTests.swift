@@ -11123,7 +11123,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             now: { nowDate }
         )
 
-        orchestrator.reconcile(reason: "unit_test")
+        reconcileAndWait(orchestrator, reason: "unit_test")
 
         let morningIDs = Set(
             notificationService.scheduled
@@ -11163,11 +11163,8 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(
             reflectionIDs,
             Set([
-                "daily.reflection.20260224.evening",
                 "daily.reflection.20260224.followup",
-                "daily.reflection.20260225.evening",
                 "daily.reflection.20260225.followup",
-                "daily.reflection.20260226.evening",
                 "daily.reflection.20260226.followup"
             ])
         )
@@ -11180,6 +11177,35 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(
             nightly?.route,
             .dailySummary(kind: .nightly, dateStamp: "20260224")
+        )
+    }
+
+    func testNightlyRetrospectiveDoesNotScheduleDuplicateNotificationsForSameRouteAndFireDate() {
+        let notificationService = CapturingNotificationService()
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [])
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 7, minute: 30)
+        let store = makePreferencesStore()
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        reconcileAndWait(orchestrator, reason: "unit_test_no_duplicate_nightly")
+
+        let grouped = Dictionary(grouping: notificationService.scheduled.filter { $0.kind == .nightlyRetrospective }) { request in
+            "\(request.route.payload)#\(Int(request.fireDate.timeIntervalSince1970))"
+        }
+        XCTAssertTrue(grouped.values.allSatisfy { $0.count == 1 })
+        XCTAssertEqual(
+            notificationService.scheduled
+                .filter { $0.id.hasPrefix("daily.reflection.") && $0.id.hasSuffix(".followup") }
+                .count,
+            3
         )
     }
 
@@ -11209,7 +11235,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             now: { nowDate }
         )
 
-        orchestrator.reconcile(reason: "unit_test_exact_xp")
+        reconcileAndWait(orchestrator, reason: "unit_test_exact_xp")
 
         let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
         XCTAssertEqual(
@@ -11239,7 +11265,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             now: { nowDate }
         )
 
-        orchestrator.reconcile(reason: "unit_test_no_exact_xp")
+        reconcileAndWait(orchestrator, reason: "unit_test_no_exact_xp")
 
         let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
         XCTAssertEqual(
@@ -11277,7 +11303,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             now: { nowDate }
         )
 
-        orchestrator.reconcile(reason: "unit_test")
+        reconcileAndWait(orchestrator, reason: "unit_test")
 
         let reminderID = "task.reminder.\(reminderTask.id.uuidString)"
         let reminder = notificationService.scheduled.first(where: { $0.id == reminderID })
@@ -11345,7 +11371,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             now: { nowDate }
         )
 
-        orchestrator.reconcile(reason: "unit_test")
+        reconcileAndWait(orchestrator, reason: "unit_test")
 
         XCTAssertTrue(notificationService.canceledIDs.contains(where: { $0.hasPrefix("task.reminder.") }))
         XCTAssertTrue(notificationService.canceledIDs.contains(where: { $0.hasPrefix("task.snooze.") }))
@@ -11373,10 +11399,10 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             now: { nowDate }
         )
 
-        orchestrator.reconcile(reason: "first")
+        reconcileAndWait(orchestrator, reason: "first")
         let firstScheduleCalls = notificationService.scheduleInvocationIDs.count
 
-        orchestrator.reconcile(reason: "second_same_state")
+        reconcileAndWait(orchestrator, reason: "second_same_state")
 
         XCTAssertEqual(notificationService.scheduleInvocationIDs.count, firstScheduleCalls)
         XCTAssertTrue(notificationService.canceledIDs.isEmpty)
@@ -11403,7 +11429,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             now: { nowDate }
         )
 
-        orchestrator.reconcile(reason: "first")
+        reconcileAndWait(orchestrator, reason: "first")
         let firstScheduleCalls = notificationService.scheduleInvocationIDs.count
 
         notificationService.pending = notificationService.pending.map { pending in
@@ -11420,7 +11446,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             )
         }
 
-        orchestrator.reconcile(reason: "changed_pending")
+        reconcileAndWait(orchestrator, reason: "changed_pending")
 
         XCTAssertEqual(notificationService.scheduleInvocationIDs.count, firstScheduleCalls + 1)
         XCTAssertTrue(notificationService.canceledIDs.contains(reminderID))
@@ -11455,7 +11481,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             now: { nowDate }
         )
 
-        orchestrator.reconcile(reason: "unit_test_due_soon_lead")
+        reconcileAndWait(orchestrator, reason: "unit_test_due_soon_lead")
 
         guard let dueSoon = notificationService.scheduled.first(where: { $0.kind == .dueSoon }) else {
             return XCTFail("Expected due soon notification")
@@ -11500,7 +11526,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             now: { nowDate }
         )
 
-        orchestrator.reconcile(reason: "unit_test_quiet_hours_task")
+        reconcileAndWait(orchestrator, reason: "unit_test_quiet_hours_task")
 
         let reminderID = "task.reminder.\(reminderTask.id.uuidString)"
         guard let reminder = notificationService.scheduled.first(where: { $0.id == reminderID }) else {
@@ -11544,7 +11570,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             now: { nowDate }
         )
 
-        orchestrator.reconcile(reason: "unit_test_quiet_hours_daily")
+        reconcileAndWait(orchestrator, reason: "unit_test_quiet_hours_daily")
 
         guard let morning = notificationService.scheduled.first(where: { $0.kind == .morningPlan && $0.id == "daily.morning.20260224" }) else {
             return XCTFail("Expected morning plan notification")
@@ -11558,6 +11584,19 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         return LifeBoardNotificationPreferencesStore(defaults: defaults)
+    }
+
+    private func reconcileAndWait(
+        _ orchestrator: TaskNotificationOrchestrator,
+        reason: String,
+        timeout: TimeInterval = 1.0
+    ) {
+        let expectation = expectation(description: "notification reconcile finished")
+        orchestrator.reconcile(reason: reason)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: timeout)
     }
 }
 
@@ -15893,11 +15932,11 @@ final class BuildHomeAgendaUseCaseOrderingTests: XCTestCase {
 
 @MainActor
 final class HomeTimelineProjectionBuilderRegressionTests: XCTestCase {
-    func testMidnightDueTaskStaysTimedUnlessExplicitlyAllDay() {
+    func testDateOnlyDueTaskAppearsInAllDayShelfEvenWhenFlagIsFalse() {
         let calendar = Calendar(identifier: .gregorian)
         let selectedDay = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
-        let midnightTask = TaskDefinition(
-            title: "Midnight deadline",
+        let dateOnlyTask = TaskDefinition(
+            title: "Rescued all-day task",
             dueDate: selectedDay,
             isAllDay: false
         )
@@ -15906,11 +15945,11 @@ final class HomeTimelineProjectionBuilderRegressionTests: XCTestCase {
             selectedDay: selectedDay,
             now: calendar.date(byAdding: .hour, value: 9, to: selectedDay)!,
             calendar: calendar,
-            tasks: [midnightTask]
+            tasks: [dateOnlyTask]
         )
 
-        XCTAssertEqual(snapshot.day.allTimedItems.map(\.taskID), [midnightTask.id])
-        XCTAssertTrue(snapshot.day.allDayItems.isEmpty)
+        XCTAssertEqual(snapshot.day.allDayItems.map(\.taskID), [dateOnlyTask.id])
+        XCTAssertFalse(snapshot.day.allTimedItems.contains { $0.taskID == dateOnlyTask.id })
     }
 
     func testUnscheduledInboxTasksOnlyAppearForToday() {
@@ -15970,12 +16009,55 @@ final class HomeTimelineProjectionBuilderRegressionTests: XCTestCase {
         XCTAssertEqual(itemsByID["thermometer"]?.isMeetingLike, false)
     }
 
+    func testTimelineLifeAreaIconResolvesDirectAreaThenInheritedProjectArea() {
+        let calendar = Calendar(identifier: .gregorian)
+        let selectedDay = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
+        let healthArea = LifeArea(id: UUID(), name: "Health", color: "#34C759", icon: "heart.fill")
+        let careerArea = LifeArea(id: UUID(), name: "Career", color: "#007AFF", icon: "briefcase.fill")
+        let careerProject = Project(id: UUID(), lifeAreaID: careerArea.id, name: "Roadmap", icon: .work)
+        let directTask = TaskDefinition(
+            projectID: careerProject.id,
+            lifeAreaID: healthArea.id,
+            title: "Direct area task",
+            scheduledStartAt: calendar.date(byAdding: .hour, value: 9, to: selectedDay)!,
+            scheduledEndAt: calendar.date(byAdding: .hour, value: 10, to: selectedDay)!
+        )
+        let inheritedTask = TaskDefinition(
+            projectID: careerProject.id,
+            lifeAreaID: nil,
+            title: "Inherited area task",
+            scheduledStartAt: calendar.date(byAdding: .hour, value: 11, to: selectedDay)!,
+            scheduledEndAt: calendar.date(byAdding: .hour, value: 12, to: selectedDay)!
+        )
+        let missingTask = TaskDefinition(
+            title: "Missing area task",
+            scheduledStartAt: calendar.date(byAdding: .hour, value: 13, to: selectedDay)!,
+            scheduledEndAt: calendar.date(byAdding: .hour, value: 14, to: selectedDay)!
+        )
+
+        let snapshot = buildSnapshot(
+            selectedDay: selectedDay,
+            now: calendar.date(byAdding: .hour, value: 8, to: selectedDay)!,
+            calendar: calendar,
+            tasks: [directTask, inheritedTask, missingTask],
+            projects: [careerProject],
+            lifeAreas: [healthArea, careerArea]
+        )
+
+        let itemsByTitle = Dictionary(uniqueKeysWithValues: snapshot.day.allTimedItems.map { ($0.title, $0) })
+        XCTAssertEqual(itemsByTitle["Direct area task"]?.lifeAreaSystemImageName, "heart.fill")
+        XCTAssertEqual(itemsByTitle["Inherited area task"]?.lifeAreaSystemImageName, "briefcase.fill")
+        XCTAssertNil(itemsByTitle["Missing area task"]?.lifeAreaSystemImageName)
+    }
+
     private func buildSnapshot(
         selectedDay: Date,
         now: Date,
         calendar: Calendar,
         tasks: [TaskDefinition] = [],
-        events: [LifeBoardCalendarEventSnapshot] = []
+        events: [LifeBoardCalendarEventSnapshot] = [],
+        projects: [Project] = [],
+        lifeAreas: [LifeArea] = []
     ) -> HomeTimelineSnapshot {
         let input = HomeTimelineSnapshotProjectionInput(
             dataRevision: .zero,
@@ -16007,8 +16089,8 @@ final class HomeTimelineProjectionBuilderRegressionTests: XCTestCase {
             replanState: .hidden,
             taskCandidates: tasks,
             taskIndexByID: Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) }),
-            projects: [],
-            lifeAreas: [],
+            projects: projects,
+            lifeAreas: lifeAreas,
             calendarWeekAgenda: []
         )
 

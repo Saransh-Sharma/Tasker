@@ -508,6 +508,149 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
             XCTAssertEqual(assignedTask?.lifeAreaID, assignedAreaID)
         }
     }
+
+    func testRepairProjectIdentityCollisionsLeavesCleanCanonicalInboxUnchanged() throws {
+        let container = try Self.makeInMemoryContainer()
+        let context = container.viewContext
+
+        context.performAndWait {
+            let inbox = Self.makeProject(
+                in: context,
+                id: ProjectConstants.inboxProjectID,
+                name: ProjectConstants.inboxProjectName,
+                lifeAreaID: nil,
+                isDefault: true
+            )
+            inbox.projectDescription = ProjectConstants.inboxProjectDescription
+            inbox.isInbox = true
+            try? context.save()
+        }
+
+        let repository = CoreDataProjectRepository(container: container)
+        let expectation = expectation(description: "clean repair")
+        repository.repairProjectIdentityCollisions { result in
+            switch result {
+            case .success(let report):
+                XCTAssertEqual(report.scanned, 1)
+                XCTAssertEqual(report.merged, 0)
+                XCTAssertEqual(report.deleted, 0)
+                XCTAssertEqual(report.inboxCandidates, 1)
+                XCTAssertTrue(report.warnings.isEmpty)
+            case .failure(let error):
+                XCTFail("Expected success, got \(error)")
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        context.performAndWait {
+            context.refreshAllObjects()
+            XCTAssertFalse(context.hasChanges)
+            XCTAssertEqual(Self.fetchProjects(in: context).count, 1)
+        }
+    }
+
+    func testRepairProjectIdentityCollisionsRecreatesMissingInbox() throws {
+        let container = try Self.makeInMemoryContainer()
+        let context = container.viewContext
+
+        context.performAndWait {
+            Self.makeProject(in: context, id: UUID(), name: "Roadmap", lifeAreaID: nil, isDefault: false)
+            try? context.save()
+        }
+
+        let repository = CoreDataProjectRepository(container: container)
+        let expectation = expectation(description: "missing inbox repair")
+        repository.repairProjectIdentityCollisions { result in
+            switch result {
+            case .success(let report):
+                XCTAssertEqual(report.scanned, 1)
+                XCTAssertEqual(report.merged, 0)
+                XCTAssertEqual(report.deleted, 0)
+                XCTAssertEqual(report.inboxCandidates, 1)
+                XCTAssertEqual(report.warnings.count, 1)
+            case .failure(let error):
+                XCTFail("Expected success, got \(error)")
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        context.performAndWait {
+            context.refreshAllObjects()
+            let inbox = Self.fetchProjects(in: context).first(where: { $0.id == ProjectConstants.inboxProjectID })
+            XCTAssertEqual(inbox?.name, ProjectConstants.inboxProjectName)
+            XCTAssertEqual(inbox?.projectDescription, ProjectConstants.inboxProjectDescription)
+            XCTAssertEqual(inbox?.isInbox, true)
+            XCTAssertEqual(inbox?.isDefault, true)
+        }
+    }
+
+    func testRepairProjectIdentityCollisionsMergesDuplicateInboxAndRepointsTasks() throws {
+        let container = try Self.makeInMemoryContainer()
+        let context = container.viewContext
+
+        let duplicateID = UUID()
+        let lifeAreaID = UUID()
+        let taskID = UUID()
+
+        context.performAndWait {
+            let canonical = Self.makeProject(
+                in: context,
+                id: ProjectConstants.inboxProjectID,
+                name: ProjectConstants.inboxProjectName,
+                lifeAreaID: lifeAreaID,
+                isDefault: true
+            )
+            canonical.projectDescription = ProjectConstants.inboxProjectDescription
+            canonical.isInbox = true
+
+            let duplicate = Self.makeProject(
+                in: context,
+                id: duplicateID,
+                name: ProjectConstants.inboxProjectName,
+                lifeAreaID: nil,
+                isDefault: false
+            )
+            duplicate.isInbox = true
+
+            Self.makeTask(in: context, id: taskID, title: "Inbox duplicate task", projectID: duplicateID, lifeAreaID: nil)
+            try? context.save()
+        }
+
+        let repository = CoreDataProjectRepository(container: container)
+        let expectation = expectation(description: "duplicate inbox repair")
+        repository.repairProjectIdentityCollisions { result in
+            switch result {
+            case .success(let report):
+                XCTAssertEqual(report.scanned, 2)
+                XCTAssertEqual(report.merged, 1)
+                XCTAssertEqual(report.deleted, 1)
+                XCTAssertEqual(report.inboxCandidates, 2)
+                XCTAssertTrue(report.warnings.isEmpty)
+            case .failure(let error):
+                XCTFail("Expected success, got \(error)")
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        context.performAndWait {
+            context.refreshAllObjects()
+            let projects = Self.fetchProjects(in: context)
+            XCTAssertEqual(projects.count, 1)
+            XCTAssertEqual(projects.first?.id, ProjectConstants.inboxProjectID)
+
+            let taskRequest: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
+            taskRequest.predicate = NSPredicate(format: "id == %@", taskID as CVarArg)
+            let task = (try? context.fetch(taskRequest))?.first
+            XCTAssertEqual(task?.projectID, ProjectConstants.inboxProjectID)
+            XCTAssertEqual(task?.lifeAreaID, lifeAreaID)
+        }
+    }
 }
 
 @MainActor
@@ -2130,13 +2273,14 @@ private extension CoreDataProjectRepositoryLifeAreaMutationTests {
         object.setValue(Date(), forKey: "updatedAt")
     }
 
+    @discardableResult
     nonisolated static func makeProject(
         in context: NSManagedObjectContext,
         id: UUID,
         name: String,
         lifeAreaID: UUID?,
         isDefault: Bool
-    ) {
+    ) -> ProjectEntity {
         let object = NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
         object.setValue(id, forKey: "id")
         object.setValue(name, forKey: "name")
@@ -2147,6 +2291,7 @@ private extension CoreDataProjectRepositoryLifeAreaMutationTests {
         object.setValue(Date(), forKey: "modifiedDate")
         object.setValue(Date(), forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
+        return object as! ProjectEntity
     }
 
     nonisolated static func makeTask(
@@ -2164,5 +2309,11 @@ private extension CoreDataProjectRepositoryLifeAreaMutationTests {
         object.setValue(false, forKey: "isComplete")
         object.setValue(Date(), forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
+    }
+
+    nonisolated static func fetchProjects(in context: NSManagedObjectContext) -> [ProjectEntity] {
+        let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "createdDate", ascending: true)]
+        return (try? context.fetch(request)) ?? []
     }
 }
