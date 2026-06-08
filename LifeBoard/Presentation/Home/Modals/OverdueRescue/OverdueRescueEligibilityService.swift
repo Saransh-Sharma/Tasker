@@ -30,7 +30,7 @@ enum OverdueRescueEligibilityService {
         projectsByID: [UUID: Project],
         referenceDate: Date
     ) -> Bool {
-        guard task.isComplete == false, let dueDate = task.dueDate else { return false }
+        guard task.isComplete == false, task.parentTaskID == nil, let dueDate = task.dueDate else { return false }
         if let project = projectsByID[task.projectID], project.isArchived {
             return false
         }

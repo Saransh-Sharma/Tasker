@@ -53,7 +53,7 @@ extension SunriseAppShellView {
                 plan: overlaySnapshot.rescuePlan,
                 tasksByID: rescueTasksByID,
                 projectsByID: tasksSnapshot.projectsByID,
-                referenceDate: chromeSnapshot.selectedDate,
+                referenceDate: Date(),
                 lastBatchRunID: overlaySnapshot.lastBatchRunID,
                 bottomInset: layoutMetrics.taskListBottomInset,
                 onClose: {
