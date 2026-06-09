@@ -98,6 +98,22 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
         XCTAssertTrue(source.contains("guard item.source == .task else { return item.systemImageName }"))
     }
 
+    func testTimelineCompletionControlUsesCheckboxSymbolsForTaskState() throws {
+        let source = try loadWorkspaceFile("LifeBoard/Presentation/Home/Timeline/Surface/TimelineCompletionRing.swift")
+
+        XCTAssertTrue(source.contains("Image(systemName: isCompleted ? \"checkmark.square.fill\" : \"square\")"))
+        XCTAssertTrue(source.contains(".frame(width: 44, height: 44)"))
+        XCTAssertTrue(source.contains(".accessibilityValue(isCompleted ? \"Completed\" : \"Not completed\")"))
+    }
+
+    func testTimelineNormalTaskCardUsesSharedCompletionControl() throws {
+        let source = try loadWorkspaceFile("LifeBoard/Presentation/Home/Timeline/Surface/TimelineNormalItemCard.swift")
+
+        XCTAssertTrue(source.contains("TimelineCompletionRing("))
+        XCTAssertTrue(source.contains("isCompleted: item.isComplete"))
+        XCTAssertFalse(source.contains("Image(systemName: \"checkmark\")"))
+    }
+
     func testHomeTimelineTaskCardsUseLifeAreaWatermarkAndTintedSurface() throws {
         let normalCardSource = try loadWorkspaceFile("LifeBoard/Presentation/Home/Timeline/Surface/TimelineNormalItemCard.swift")
         let overlapCardSource = try loadWorkspaceFile("LifeBoard/Presentation/Home/Timeline/Surface/TimelineOverlapItemCard.swift")
