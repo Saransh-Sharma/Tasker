@@ -24,21 +24,11 @@ struct TimelineCompletionRing: View {
     }
 
     var ringBody: some View {
-        ZStack {
-            Circle()
-                .strokeBorder(color.opacity(0.82), lineWidth: 2.2)
-                .background(
-                    Circle()
-                        .fill(isCompleted ? color.opacity(0.16) : Color.clear)
-                )
-                .frame(width: 28, height: 28)
-            if isCompleted {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(color)
-            }
-        }
+        Image(systemName: isCompleted ? "checkmark.square.fill" : "square")
+            .font(.system(size: 26, weight: .semibold))
+            .foregroundStyle(color)
+            .symbolRenderingMode(.hierarchical)
         .frame(width: 44, height: 44)
-        .contentShape(Circle())
+        .contentShape(Rectangle())
     }
 }
