@@ -41,6 +41,9 @@ struct SunriseTaskDetailScreen: View {
     @State private var selectedBreakdownSteps: Set<String> = []
     @State private var showingReflectionComposer = false
     @State private var newStepTitle = ""
+    @State private var celebrateCompletion = false
+    @State private var celebrateResetTask: Task<Void, Never>?
+    @State private var showRefine = false
 
     @FocusState private var titleFocused: Bool
     @FocusState private var notesFocused: Bool
@@ -111,15 +114,8 @@ struct SunriseTaskDetailScreen: View {
                 heroCard
                 primaryActionCluster
                 planDisclosure
-                notesDisclosure
                 stepsDisclosure
-                organizeDisclosure
-                if showsLinksDisclosure {
-                    linksDisclosure
-                }
-                if showsContextDisclosure {
-                    contextDisclosure
-                }
+                refineReveal
                 deleteDisclosure
                 metadataFooter
             }
@@ -153,7 +149,10 @@ struct SunriseTaskDetailScreen: View {
     private var lifecycleObservedScreen: some View {
         sheetBoundScreen
         .onAppear(perform: viewModel.onAppear)
-        .onDisappear(perform: viewModel.handleDisappear)
+        .onDisappear {
+            celebrateResetTask?.cancel()
+            viewModel.handleDisappear()
+        }
         .onChange(of: viewModel.aiBreakdownSteps) { _, steps in
             guard showBreakdownSheet else { return }
             selectedBreakdownSteps = selectedBreakdownSteps.intersection(Set(steps))
@@ -285,6 +284,22 @@ struct SunriseTaskDetailScreen: View {
             accentColor: taskAccentColor,
             level: .e2
         )
+        .lifeboardSuccessPulse(isActive: celebrateCompletion)
+        .animation(LifeBoardAnimation.bouncy, value: celebrateCompletion)
+        .onChange(of: viewModel.isComplete) { _, isComplete in
+            guard isComplete else { return }
+            triggerCompletionCelebration()
+        }
+    }
+
+    private func triggerCompletionCelebration() {
+        celebrateResetTask?.cancel()
+        withAnimation(LifeBoardAnimation.bouncy) { celebrateCompletion = true }
+        celebrateResetTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            guard Task.isCancelled == false else { return }
+            withAnimation(LifeBoardAnimation.gentle) { celebrateCompletion = false }
+        }
     }
 
     @ViewBuilder
@@ -343,17 +358,43 @@ struct SunriseTaskDetailScreen: View {
         }
     }
 
-    private var notesDisclosure: some View {
-        disclosureCard(.notes, title: "Notes", systemImage: "note.text", summary: notesSummary, accessibilityIdentifier: nil) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                AddTaskDescriptionField(text: $viewModel.taskDescription, isFocused: $notesFocused)
-                    .accessibilityIdentifier("taskDetail.descriptionField")
-
-                Button(viewModel.isComplete ? "Capture completion note" : "Capture reflection", systemImage: "sparkles") {
-                    showingReflectionComposer = true
-                }
-                .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .accent))
+    private var refineReveal: some View {
+        CalmInlineReveal(
+            title: "Refine",
+            collapsedHint: refineSummary,
+            isExpanded: $showRefine,
+            accessibilityID: "taskDetail.disclosure.details",
+            onToggle: {
+                LifeBoardFeedback.light()
+                withAnimation(LifeBoardAnimation.snappy) { showRefine.toggle() }
             }
+        ) {
+            VStack(alignment: .leading, spacing: spacing.s16) {
+                CalmFieldGroup(title: "Notes") { notesContent }
+                CalmFieldGroup(title: "Organize") { organizeContent }
+                if showsLinksDisclosure {
+                    linksDisclosure
+                }
+                if showsContextDisclosure {
+                    contextDisclosure
+                }
+            }
+        }
+    }
+
+    private var refineSummary: String {
+        [notesSummary, viewModel.detailsSummary].filter { $0.isEmpty == false }.joined(separator: " · ")
+    }
+
+    private var notesContent: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            AddTaskDescriptionField(text: $viewModel.taskDescription, isFocused: $notesFocused)
+                .accessibilityIdentifier("taskDetail.descriptionField")
+
+            Button(viewModel.isComplete ? "Capture completion note" : "Capture reflection", systemImage: "sparkles") {
+                showingReflectionComposer = true
+            }
+            .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .accent))
         }
     }
 
@@ -423,9 +464,8 @@ struct SunriseTaskDetailScreen: View {
         }
     }
 
-    private var organizeDisclosure: some View {
-        disclosureCard(.organize, title: "Organize", systemImage: "square.grid.2x2", summary: viewModel.detailsSummary, accessibilityIdentifier: "taskDetail.disclosure.details") {
-            VStack(alignment: .leading, spacing: spacing.s12) {
+    private var organizeContent: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
                 AddTaskProjectBar(selectedProject: selectedProjectNameBinding, projects: viewModel.projects) { name in
                     viewModel.createProject(name: name) { _ in }
                 }
@@ -474,7 +514,6 @@ struct SunriseTaskDetailScreen: View {
                 if !showsLinksDisclosure {
                     linksFields
                 }
-            }
         }
     }
 
@@ -883,9 +922,8 @@ struct SunriseTaskDetailScreen: View {
     }
 
     private static func defaultExpandedSections(for task: TaskDefinition) -> Set<SunriseTaskDetailSection> {
-        var sections: Set<SunriseTaskDetailSection> = []
-        if task.subtasks.isEmpty == false { sections.insert(.steps) }
-        if task.details?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false { sections.insert(.notes) }
-        return sections
+        // Plan and Steps are the always-visible primary cards in the Calm layout; the rest
+        // lives behind the single "Refine" reveal.
+        [.plan, .steps]
     }
 }

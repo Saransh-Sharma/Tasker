@@ -5,6 +5,17 @@
 
 import SwiftUI
 
+extension AnyTransition {
+    /// Shared reveal idiom for collapsible detail surfaces (`SunriseDetailDisclosureCard`
+    /// and `CalmInlineReveal`): content slides down on insertion, fades on removal.
+    static var sunriseDisclosureReveal: AnyTransition {
+        .asymmetric(
+            insertion: .opacity.combined(with: .move(edge: .top)),
+            removal: .opacity
+        )
+    }
+}
+
 struct SunriseDetailDisclosureCard<Content: View>: View {
     let title: String
     let systemImage: String
@@ -75,7 +86,7 @@ struct SunriseDetailDisclosureCard<Content: View>: View {
 
             if isExpanded {
                 content
-                    .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .top)), removal: .opacity))
+                    .transition(.sunriseDisclosureReveal)
             }
         }
         .padding(spacing.s12)
@@ -117,5 +128,205 @@ struct SunriseTextButtonStyle: ButtonStyle {
             .foregroundStyle(tone.textColor)
             .frame(minHeight: 44)
             .opacity(configuration.isPressed ? 0.72 : 1)
+    }
+}
+
+// MARK: - Calm Canvas kit
+//
+// Shared primitives for the "Calm Canvas" creation/detail surfaces: a single focal
+// input, a living preview, a rail of tappable summary chips, and one quiet reveal for
+// depth. All built from existing tokens — no new shadow / system fonts.
+
+/// A calm, tappable summary pill used in the essentials rail. Shows a value with a quiet
+/// empty state, fills with accent when set, and lifts into an "active" look while its
+/// inline editor is open.
+struct CalmSummaryChip: View {
+    enum FillState {
+        case empty
+        case filled
+        case active
+    }
+
+    let icon: String
+    let label: String
+    let state: FillState
+    var accentColor: Color = LBColorTokens.violet
+    var showsChevron: Bool = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: {
+            LifeBoardFeedback.selection()
+            action()
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                Text(label)
+                    .font(.lifeboard(.callout).weight(.semibold))
+                    .lineLimit(1)
+                if showsChevron {
+                    Image(systemName: "chevron.down")
+                        .font(.lifeboard(.caption2).weight(.bold))
+                        .rotationEffect(.degrees(state == .active ? 180 : 0))
+                        .opacity(0.7)
+                }
+            }
+            .foregroundStyle(foreground)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 40)
+            .background(background)
+            .overlay(border)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .animation(LifeBoardAnimation.snappy, value: state)
+        .accessibilityLabel("\(label)")
+    }
+
+    private var foreground: Color {
+        switch state {
+        case .empty: return LBColorTokens.textTertiary
+        case .filled, .active: return accentColor
+        }
+    }
+
+    @ViewBuilder private var background: some View {
+        switch state {
+        case .empty:
+            Capsule().fill(LBColorTokens.glassStrong.opacity(0.5))
+        case .filled:
+            Capsule().fill(accentColor.opacity(0.10))
+        case .active:
+            Capsule().fill(accentColor.opacity(0.16))
+        }
+    }
+
+    @ViewBuilder private var border: some View {
+        switch state {
+        case .empty:
+            Capsule().strokeBorder(LBColorTokens.hairline, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        case .filled:
+            Capsule().strokeBorder(accentColor.opacity(0.22), lineWidth: 1)
+        case .active:
+            Capsule().strokeBorder(accentColor.opacity(0.40), lineWidth: 1.5)
+        }
+    }
+}
+
+/// One quiet "door" that replaces a stack of competing disclosure cards. Collapsed by
+/// default; reveals grouped depth on tap. Carries an optional accessibility identifier so
+/// existing UI-test contracts (e.g. `addTask.detailsDisclosure`) keep resolving.
+struct CalmInlineReveal<Content: View>: View {
+    let title: String
+    let collapsedHint: String
+    @Binding var isExpanded: Bool
+    var accessibilityID: String?
+    let onToggle: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: isExpanded ? LBSpacingTokens.md : 0) {
+            Button(action: onToggle) {
+                HStack(spacing: LBSpacingTokens.sm) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.lifeboard(.callout).weight(.semibold))
+                            .foregroundStyle(isExpanded ? LBColorTokens.violet : LBColorTokens.navy)
+                        if isExpanded == false {
+                            Text(collapsedHint)
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(LBColorTokens.navyMuted)
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.down")
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(isExpanded ? LBColorTokens.violet : LBColorTokens.textTertiary)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(accessibilityID ?? "")
+
+            if isExpanded {
+                content()
+                    .transition(.sunriseDisclosureReveal)
+            }
+        }
+        .padding(LBSpacingTokens.md)
+        .background(
+            RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous)
+                .fill(LBColorTokens.glass.opacity(isExpanded ? 0.9 : 0.55))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous)
+                .stroke(LBColorTokens.glassBorder, lineWidth: 1)
+        )
+        .animation(LifeBoardAnimation.snappy, value: isExpanded)
+    }
+}
+
+/// A quiet labelled group used inside `CalmInlineReveal`. A small caption over a content
+/// stack — no heavy card chrome — with each row gently staggered in.
+struct CalmFieldGroup<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
+            Text(title.uppercased())
+                .font(.lifeboard(.meta))
+                .tracking(0.8)
+                .foregroundStyle(LBColorTokens.textTertiary)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+#Preview("Calm Canvas kit") {
+    CalmCanvasKitPreview()
+}
+
+private struct CalmCanvasKitPreview: View {
+    @State private var refineExpanded = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: LBSpacingTokens.lg) {
+                HStack(spacing: LBSpacingTokens.xs) {
+                    CalmSummaryChip(icon: "clock", label: "Choose time", state: .empty) {}
+                    CalmSummaryChip(icon: "leaf", label: "Health", state: .filled, accentColor: .green) {}
+                    CalmSummaryChip(icon: "circle.dashed", label: "Any area", state: .active) {}
+                }
+
+                CalmInlineReveal(
+                    title: "Refine",
+                    collapsedHint: "Notes · Project · Priority",
+                    isExpanded: $refineExpanded,
+                    accessibilityID: "preview.refine",
+                    onToggle: { refineExpanded.toggle() }
+                ) {
+                    VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+                        CalmFieldGroup(title: "Notes") {
+                            Text("Add the details that don't need to be up front.")
+                                .font(.lifeboard(.callout))
+                                .foregroundStyle(LBColorTokens.navyMuted)
+                        }
+                        CalmFieldGroup(title: "Organize") {
+                            Text("Project · Priority · Tags")
+                                .font(.lifeboard(.callout))
+                                .foregroundStyle(LBColorTokens.navyMuted)
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+        .background(LBColorTokens.canvas)
     }
 }

@@ -1820,7 +1820,7 @@ private struct SunriseEvaOverdueRescueSheet: View {
 
         return recommendations.compactMap { item in
             let selected = selectedActionByTaskID[item.taskID] ?? item.action
-            let expectedUpdatedAt = tasksByID[item.taskID]?.updatedAt
+            guard let expectedUpdatedAt = tasksByID[item.taskID]?.updatedAt else { return nil }
             switch selected {
             case .doToday:
                 return EvaBatchMutationInstruction(
