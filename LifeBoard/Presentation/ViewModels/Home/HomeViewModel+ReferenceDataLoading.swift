@@ -38,7 +38,6 @@ extension HomeViewModel {
                 switch preparedResult {
                 case .success(let loadedProjects):
                     self.assignIfChanged(\.projects, loadedProjects)
-                    self.seedPinnedProjectsIfNeeded(from: loadedProjects)
                     self.normalizeCustomProjectOrderIfNeeded(from: loadedProjects)
 
                 case .failure(let error):

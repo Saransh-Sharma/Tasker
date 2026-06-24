@@ -75,6 +75,14 @@ extension HomeViewModel {
             var state = activeFilterState
             state.quickView = .today
             state.selectedSavedViewID = nil
+            // Returning to a day timeline always exits a forward "stream" lens
+            // (Upcoming / per-project), so picking a date or swiping days never
+            // strands the user in the stream view.
+            if state.streamsAllForward {
+                state.streamsAllForward = false
+                state.selectedProjectIDs = []
+                state.selectedLifeAreaIDs = []
+            }
             activeFilterState = state
         }
 

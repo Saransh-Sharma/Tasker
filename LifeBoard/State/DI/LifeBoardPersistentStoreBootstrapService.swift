@@ -717,7 +717,15 @@ struct LifeBoardPersistentRuntimeInitializer {
             try backfillOccurrenceKeysIfNeeded(in: context)
             try backfillWeeklyPlanningBucketsIfNeeded(in: context)
             try backfillTimelineScheduleFieldsIfNeeded(in: context)
-            _ = try RescueScheduleRepairService.repair(in: context)
+            do {
+                _ = try RescueScheduleRepairService.repair(in: context)
+            } catch {
+                logWarning(
+                    event: "rescue_schedule_repair_skipped",
+                    message: "Best-effort rescue schedule repair failed during seed; continuing",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
 
             if context.hasChanges {
                 try context.save()

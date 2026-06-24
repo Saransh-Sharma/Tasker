@@ -266,7 +266,9 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                 didMutate = didNormalizeCanonicalInbox || didMutate
 
                 for duplicate in inboxCandidates where duplicate.objectID != canonicalInbox.objectID {
-                    didMutate = self.repointTasks(from: duplicate, to: canonicalInbox) || didMutate
+                    let outcome = self.repointTasks(from: duplicate, to: canonicalInbox)
+                    guard outcome != .failed else { continue }
+                    didMutate = (outcome == .changed) || didMutate
                     self.backgroundContext.delete(duplicate)
                     merged += 1
                     deleted += 1
@@ -279,7 +281,9 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                 for (projectID, group) in groups where group.count > 1 {
                     let canonical = self.selectCanonicalProject(from: group, targetID: projectID)
                     for duplicate in group where duplicate.objectID != canonical.objectID {
-                        didMutate = self.repointTasks(from: duplicate, to: canonical) || didMutate
+                        let outcome = self.repointTasks(from: duplicate, to: canonical)
+                        guard outcome != .failed else { continue }
+                        didMutate = (outcome == .changed) || didMutate
                         self.backgroundContext.delete(duplicate)
                         merged += 1
                         deleted += 1
@@ -830,9 +834,18 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
         return didChange
     }
 
+    /// Outcome of attempting to repoint tasks from one project to another.
+    /// `.failed` is distinct from `.unchanged` so callers can avoid deleting a
+    /// duplicate project whose tasks were never re-pointed (which would orphan them).
+    private enum RepointOutcome {
+        case changed
+        case unchanged
+        case failed
+    }
+
     /// Executes repointTasks.
     @discardableResult
-    private func repointTasks(from source: ProjectEntity, to target: ProjectEntity) -> Bool {
+    private func repointTasks(from source: ProjectEntity, to target: ProjectEntity) -> RepointOutcome {
         let sourceIDs = Set([source.id].compactMap { $0 })
         let targetID = effectiveProjectID(for: target)
 
@@ -843,7 +856,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
             predicates.append(NSPredicate(format: "projectID IN %@", Array(sourceIDs)))
         }
         guard predicates.isEmpty == false else {
-            return false
+            return .unchanged
         }
 
         request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
@@ -860,10 +873,10 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                     didChange = true
                 }
             }
-            return didChange
+            return didChange ? .changed : .unchanged
         } catch {
             logWarning("Project identity repair could not repoint tasks: \(error.localizedDescription)")
-            return false
+            return .failed
         }
     }
 

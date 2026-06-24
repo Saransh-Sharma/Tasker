@@ -6,6 +6,11 @@ import WatchConnectivity
 final class WatchWidgetSnapshotSync: NSObject, WCSessionDelegate, @unchecked Sendable {
     static let shared = WatchWidgetSnapshotSync()
 
+    /// Snapshots encoded before the WCSession finished activating, keyed by file
+    /// name so only the most recent snapshot per file is retried (latest wins).
+    private var pendingTransfers: [String: Data] = [:]
+    private let pendingLock = NSLock()
+
     private override init() {
         super.init()
     }
@@ -31,17 +36,26 @@ final class WatchWidgetSnapshotSync: NSObject, WCSessionDelegate, @unchecked Sen
 
     private func send<T: Encodable>(_ value: T, fileName: String) {
         guard WCSession.isSupported() else { return }
+        guard let data = try? JSONEncoder().encode(value) else { return }
         let session = WCSession.default
         activate()
         guard session.activationState == .activated else {
-            logDebug("WATCH_WIDGET_SYNC transfer_skipped file=\(fileName) reason=session_activating")
+            // Session is still activating; hold the latest snapshot and retry once
+            // activation completes instead of dropping it permanently.
+            pendingLock.lock()
+            pendingTransfers[fileName] = data
+            pendingLock.unlock()
+            logDebug("WATCH_WIDGET_SYNC transfer_queued file=\(fileName) reason=session_activating")
             return
         }
+        transfer(data: data, fileName: fileName, session: session)
+    }
+
+    private func transfer(data: Data, fileName: String, session: WCSession) {
         guard session.isPaired, session.isWatchAppInstalled else {
             logDebug("WATCH_WIDGET_SYNC transfer_skipped file=\(fileName) reason=counterpart_unavailable")
             return
         }
-        guard let data = try? JSONEncoder().encode(value) else { return }
 
         do {
             let url = FileManager.default.temporaryDirectory
@@ -54,11 +68,25 @@ final class WatchWidgetSnapshotSync: NSObject, WCSessionDelegate, @unchecked Sen
         }
     }
 
+    private func flushPendingTransfers(using session: WCSession) {
+        pendingLock.lock()
+        let pending = pendingTransfers
+        pendingTransfers.removeAll()
+        pendingLock.unlock()
+
+        for (fileName, data) in pending {
+            transfer(data: data, fileName: fileName, session: session)
+        }
+    }
+
     func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
-    ) {}
+    ) {
+        guard activationState == .activated else { return }
+        flushPendingTransfers(using: session)
+    }
 
     func sessionDidBecomeInactive(_ session: WCSession) {}
 

@@ -569,6 +569,7 @@ public final class AssistantActionPipelineUseCase: @unchecked Sendable {
                     task.isAllDay = true
                 } else {
                     task.dueDate = dueDate
+                    task.isAllDay = false
                 }
             }
             task.updatedAt = Date()

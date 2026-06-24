@@ -112,14 +112,19 @@ extension HomeViewModel {
             todayTasks = updatedSnapshot
         }
 
-        logDebug(
-            "HOME_ROW_STATE vm.local_apply id=\(updatedTask.id.uuidString) isComplete=\(updatedTask.isComplete) " +
-            "morning=\(morningTasks.contains(where: { $0.id == updatedTask.id })) " +
-            "evening=\(eveningTasks.contains(where: { $0.id == updatedTask.id })) " +
-            "overdue=\(overdueTasks.contains(where: { $0.id == updatedTask.id })) " +
-            "completed=\(completedTasks.contains(where: { $0.id == updatedTask.id })) " +
-            "doneTimeline=\(doneTimelineTasks.contains(where: { $0.id == updatedTask.id }))"
-        )
+        let updatedTaskID = updatedTask.id
+        let inMorning = morningTasks.contains(where: { $0.id == updatedTaskID })
+        let inEvening = eveningTasks.contains(where: { $0.id == updatedTaskID })
+        let inOverdue = overdueTasks.contains(where: { $0.id == updatedTaskID })
+        let inCompleted = completedTasks.contains(where: { $0.id == updatedTaskID })
+        let inDoneTimeline = doneTimelineTasks.contains(where: { $0.id == updatedTaskID })
+        var localApplyMessage = "HOME_ROW_STATE vm.local_apply id=\(updatedTaskID.uuidString) isComplete=\(updatedTask.isComplete) "
+        localApplyMessage += "morning=\(inMorning) "
+        localApplyMessage += "evening=\(inEvening) "
+        localApplyMessage += "overdue=\(inOverdue) "
+        localApplyMessage += "completed=\(inCompleted) "
+        localApplyMessage += "doneTimeline=\(inDoneTimeline)"
+        logDebug(localApplyMessage)
 
         if updatedTask.isComplete {
             removePinnedFocusTaskID(updatedTask.id)

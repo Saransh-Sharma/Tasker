@@ -28,7 +28,7 @@ extension HomeViewModel {
     }
 
     func isOverdueRescueDeckEligibleTask(_ task: TaskDefinition, on referenceDate: Date) -> Bool {
-        guard !task.isComplete, let dueDate = task.dueDate else {
+        guard !task.isComplete, task.parentTaskID == nil, let dueDate = task.dueDate else {
             return false
         }
 

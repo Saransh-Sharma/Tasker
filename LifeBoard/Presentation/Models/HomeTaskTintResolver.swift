@@ -43,6 +43,16 @@ enum HomeTaskTintResolver {
         case .lifeArea(let id, _, _):
             return lifeAreaAccentHex(for: id, lifeAreasByID: lifeAreasByID)
 
+        case .horizon(let bucket):
+            return bucket.accentHex
+
+        case .horizonProject(_, let projectID, _, _):
+            return projectAccentHex(
+                for: projectID,
+                projectsByID: projectsByID,
+                lifeAreasByID: lifeAreasByID
+            )
+
         case .dueTodaySummary, .focusNow, .plainList:
             return nil
         }
@@ -65,8 +75,9 @@ enum HomeTaskTintResolver {
         projectsByID: [UUID: Project],
         lifeAreasByID: [UUID: LifeArea]
     ) -> String? {
-        if let taskLifeAreaID = task.lifeAreaID {
-            return normalizedIconSymbolName(for: taskLifeAreaID, lifeAreasByID: lifeAreasByID)
+        if let taskLifeAreaID = task.lifeAreaID,
+           let icon = normalizedIconSymbolName(for: taskLifeAreaID, lifeAreasByID: lifeAreasByID) {
+            return icon
         }
 
         guard let projectLifeAreaID = projectsByID[task.projectID]?.lifeAreaID else { return nil }

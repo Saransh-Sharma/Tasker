@@ -227,9 +227,11 @@ public final class AddHabitViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         let group = DispatchGroup()
-        var loadedLifeAreas: [LifeArea] = []
-        var loadedProjects: [ProjectWithStats] = []
-        var loadedError: Error?
+        // Writes are serialized by the DispatchGroup before the notify read; the region
+        // isolation checker can't prove this, so opt out explicitly.
+        nonisolated(unsafe) var loadedLifeAreas: [LifeArea] = []
+        nonisolated(unsafe) var loadedProjects: [ProjectWithStats] = []
+        nonisolated(unsafe) var loadedError: Error?
 
         group.enter()
         manageLifeAreasUseCase.list { result in
@@ -1277,9 +1279,10 @@ public final class HabitDetailViewModel: ObservableObject {
         LifeBoardPerformanceTrace.event("HabitDetailReadOnlyRefreshStarted")
 
         let group = DispatchGroup()
-        var latestRow: HabitLibraryRow?
-        var latestHistory: [HabitDayMark] = historyMarks
-        var firstError: Error?
+        // Serialized by the DispatchGroup before the notify read; opt out of region isolation.
+        nonisolated(unsafe) var latestRow: HabitLibraryRow?
+        nonisolated(unsafe) var latestHistory: [HabitDayMark] = historyMarks
+        nonisolated(unsafe) var firstError: Error?
 
         group.enter()
         getHabitLibraryUseCase.execute(habitID: row.habitID, includeArchived: true) { result in
@@ -1579,9 +1582,10 @@ public final class HabitDetailViewModel: ObservableObject {
         isPreparingEditorData = true
 
         let group = DispatchGroup()
-        var loadedLifeAreas: [LifeArea] = lifeAreas
-        var loadedProjects: [ProjectWithStats] = projects
-        var firstError: Error?
+        // Serialized by the DispatchGroup before the notify read; opt out of region isolation.
+        nonisolated(unsafe) var loadedLifeAreas: [LifeArea] = lifeAreas
+        nonisolated(unsafe) var loadedProjects: [ProjectWithStats] = projects
+        nonisolated(unsafe) var firstError: Error?
 
         group.enter()
         manageLifeAreasUseCase.list { result in

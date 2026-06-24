@@ -130,7 +130,7 @@ public struct BreathingPulse: ViewModifier {
         content
             .opacity(reduceMotion ? maxOpacity : (isPulsing ? maxOpacity : minOpacity))
             .onAppear {
-                guard !reduceMotion else { return }
+                guard !reduceMotion, minOpacity != maxOpacity else { return }
                 withAnimation(.easeInOut(duration: duration).repeatForever(autoreverses: true)) {
                     isPulsing = true
                 }
