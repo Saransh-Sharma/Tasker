@@ -78,6 +78,7 @@ extension HomeViewModel {
         guard V2FeatureFlags.evaRescueEnabled else { return }
         let referenceDate = Date()
         evaRescueLauncherState = .loading
+        evaRescueReferenceDate = nil
         useCaseCoordinator.getTasks.getOverdueTasks { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
@@ -89,6 +90,7 @@ extension HomeViewModel {
                     tasks = self.overdueTasks
                     if tasks.isEmpty {
                         self.evaRescueLauncherState = .failed(error.localizedDescription)
+                        self.evaRescueReferenceDate = nil
                         self.errorMessage = error.localizedDescription
                         return
                     }
@@ -100,6 +102,7 @@ extension HomeViewModel {
                     overdueTasks: rescueEligibleTasks,
                     now: referenceDate
                 )
+                self.evaRescueReferenceDate = referenceDate
                 self.evaRescueLauncherState = .ready
                 self.evaRescueSheetPresented = true
                 self.trackHomeInteraction(action: "rescue_open", metadata: [
@@ -136,10 +139,11 @@ extension HomeViewModel {
                 }
 
                 let now = Date()
+                let rescueReferenceDate = self.evaRescueReferenceDate ?? now
                 if source == .rescue,
                    let ineligible = mutations.first(where: { mutation in
                        guard let task = tasksByID[mutation.taskID] else { return true }
-                       return self.isOverdueRescueDeckEligibleTask(task, on: now) == false
+                       return self.isOverdueRescueDeckEligibleTask(task, on: rescueReferenceDate) == false
                    }) {
                     completion(.failure(EvaBatchProposalError.staleTask(ineligible.taskID)))
                     return

@@ -14,36 +14,31 @@ import UIKit
 import WidgetKit
 #endif
 
-extension HomeViewModel {
-    func isRescueEligibleTask(_ task: TaskDefinition, on referenceDate: Date) -> Bool {
+enum OverdueRescueEligibilityPolicy {
+    static func isStaleOverdueTask(
+        _ task: TaskDefinition,
+        referenceDate: Date,
+        calendar: Calendar = .current
+    ) -> Bool {
         guard !task.isComplete, task.parentTaskID == nil, let dueDate = task.dueDate else {
             return false
         }
 
-        let anchorDay = Calendar.current.startOfDay(for: referenceDate)
-        guard let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: anchorDay) else {
+        let anchorDay = calendar.startOfDay(for: referenceDate)
+        guard let cutoff = calendar.date(byAdding: .day, value: -14, to: anchorDay) else {
             return false
         }
         return dueDate < cutoff
     }
+}
+
+extension HomeViewModel {
+    func isRescueEligibleTask(_ task: TaskDefinition, on referenceDate: Date) -> Bool {
+        OverdueRescueEligibilityPolicy.isStaleOverdueTask(task, referenceDate: referenceDate)
+    }
 
     func isOverdueRescueDeckEligibleTask(_ task: TaskDefinition, on referenceDate: Date) -> Bool {
-        guard !task.isComplete, task.parentTaskID == nil, let dueDate = task.dueDate else {
-            return false
-        }
-
-        let calendar = Calendar.current
-        let anchorDay = calendar.startOfDay(for: referenceDate)
-        guard dueDate < anchorDay else {
-            return false
-        }
-        if let deferred = task.deferredFromWeekStart, calendar.isDate(deferred, inSameDayAs: anchorDay) {
-            return false
-        }
-        if task.recurrenceSeriesID != nil, dueDate >= anchorDay {
-            return false
-        }
-        return true
+        isRescueEligibleTask(task, on: referenceDate)
     }
 
     func compareRescueRows(_ lhs: HomeTodayRow, _ rhs: HomeTodayRow) -> Bool {

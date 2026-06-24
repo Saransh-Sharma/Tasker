@@ -457,6 +457,10 @@ public final class HomeViewModel: ObservableObject {
         didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
 
+    @Published public internal(set) var evaRescueReferenceDate: Date? = nil {
+        didSet { scheduleHomeRenderStateRefresh(.overlay) }
+    }
+
     @Published public internal(set) var evaLastBatchRunID: UUID? {
         didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }

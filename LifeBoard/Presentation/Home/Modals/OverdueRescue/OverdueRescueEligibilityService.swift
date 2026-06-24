@@ -30,14 +30,10 @@ enum OverdueRescueEligibilityService {
         projectsByID: [UUID: Project],
         referenceDate: Date
     ) -> Bool {
-        guard task.isComplete == false, task.parentTaskID == nil, let dueDate = task.dueDate else { return false }
-        if let project = projectsByID[task.projectID], project.isArchived {
+        guard OverdueRescueEligibilityPolicy.isStaleOverdueTask(task, referenceDate: referenceDate) else {
             return false
         }
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: referenceDate)
-        guard dueDate < today else { return false }
-        if let deferred = task.deferredFromWeekStart, calendar.isDate(deferred, inSameDayAs: today) {
+        if let project = projectsByID[task.projectID], project.isArchived {
             return false
         }
         return true

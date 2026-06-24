@@ -30,6 +30,7 @@ extension HomeViewModel {
             rescueLauncherState: evaRescueLauncherState,
             rescuePresented: evaRescueSheetPresented,
             rescuePlan: evaRescuePlan,
+            rescueReferenceDate: evaRescueReferenceDate,
             lastBatchRunID: evaLastBatchRunID,
             lastXPResult: lastXPResult,
             replanState: homeReplanState

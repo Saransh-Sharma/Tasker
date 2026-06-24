@@ -1014,6 +1014,7 @@ struct HomeOverlaySnapshot: Equatable {
     let rescueLauncherState: HomeOverdueRescueLauncherState
     let rescuePresented: Bool
     let rescuePlan: EvaRescuePlan?
+    let rescueReferenceDate: Date?
     let lastBatchRunID: UUID?
     let lastXPResult: XPEventResult?
     let replanState: HomeReplanSessionState
@@ -1025,6 +1026,7 @@ struct HomeOverlaySnapshot: Equatable {
             rescueLauncherState: .idle,
             rescuePresented: false,
             rescuePlan: nil,
+            rescueReferenceDate: nil,
             lastBatchRunID: nil,
             lastXPResult: nil,
             replanState: .hidden
@@ -1037,6 +1039,7 @@ struct HomeOverlaySnapshot: Equatable {
             && lhs.rescueLauncherState == rhs.rescueLauncherState
             && lhs.rescuePresented == rhs.rescuePresented
             && lhs.rescuePlan == rhs.rescuePlan
+            && lhs.rescueReferenceDate == rhs.rescueReferenceDate
             && lhs.lastBatchRunID == rhs.lastBatchRunID
             && lhs.lastXPResult == rhs.lastXPResult
             && lhs.replanState == rhs.replanState
