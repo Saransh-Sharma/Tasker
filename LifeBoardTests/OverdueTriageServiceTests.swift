@@ -73,13 +73,13 @@ final class OverdueRescueDeckTests: XCTestCase {
         var taskID: UUID?
     }
 
-    func testDeckIncludesRecentOverdueAndCapsSprint() {
+    func testDeckIncludesStaleOverdueAndCapsSprint() {
         let now = fixedDate()
         let tasks = (0..<18).map { index in
             rescueTask(
                 title: "Task \(index)",
                 priority: index == 0 ? .max : .low,
-                dueDate: Calendar.current.date(byAdding: .day, value: -1, to: now)!
+                dueDate: Calendar.current.date(byAdding: .day, value: -16, to: now)!
             )
         }
         let viewModel = makeViewModel(tasks: tasks)
@@ -93,7 +93,7 @@ final class OverdueRescueDeckTests: XCTestCase {
         var subtask = rescueTask(
             title: "Hidden child",
             priority: .high,
-            dueDate: Calendar.current.date(byAdding: .day, value: -2, to: fixedDate())!
+            dueDate: Calendar.current.date(byAdding: .day, value: -16, to: fixedDate())!
         )
         subtask.parentTaskID = UUID()
 
@@ -109,13 +109,13 @@ final class OverdueRescueDeckTests: XCTestCase {
         let low = rescueTask(
             title: "Low quick",
             priority: .low,
-            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: now)!,
+            dueDate: Calendar.current.date(byAdding: .day, value: -16, to: now)!,
             estimatedDuration: 10 * 60
         )
         let high = rescueTask(
             title: "High priority",
             priority: .high,
-            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: now)!,
+            dueDate: Calendar.current.date(byAdding: .day, value: -16, to: now)!,
             estimatedDuration: 90 * 60
         )
         let viewModel = makeViewModel(tasks: [low, high])
@@ -176,7 +176,7 @@ final class OverdueRescueDeckTests: XCTestCase {
         let task = rescueTask(
             title: "Delete final",
             priority: .low,
-            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: referenceDate)!,
+            dueDate: Calendar.current.date(byAdding: .day, value: -16, to: referenceDate)!,
             details: "Important context"
         )
         let capture = DeleteRequestCapture()
@@ -591,6 +591,7 @@ final class OverdueRescueDeckTests: XCTestCase {
             plan: nil,
             tasksByID: tasksByID,
             projectsByID: [:],
+            referenceDate: fixedDate(),
             onUpdate: { _, completion in completion(.success(tasks[0])) },
             onDelete: { _, completion in completion(.success(())) },
             onRestore: { task, completion in completion(.success(task)) },

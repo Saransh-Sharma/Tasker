@@ -2203,18 +2203,26 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let completedOverdueTask = makeTask(
             name: "Completed Overdue",
             project: inbox,
-            dueDate: calendar.date(byAdding: .day, value: -10, to: now),
+            dueDate: calendar.date(byAdding: .day, value: -18, to: now),
             priority: .high,
             isComplete: true,
             dateCompleted: now
         )
+        var subtaskOverdueTask = makeTask(
+            name: "Subtask Overdue",
+            project: inbox,
+            dueDate: calendar.date(byAdding: .day, value: -18, to: now),
+            priority: .high
+        )
+        subtaskOverdueTask.parentTaskID = oldRescueTask.id
 
         let coordinator = UseCaseCoordinator(
             taskRepository: HomeViewModelMockTaskRepository(tasks: [
                 oldRescueTask,
                 recentOverdueTask,
                 dueTodayTask,
-                completedOverdueTask
+                completedOverdueTask,
+                subtaskOverdueTask
             ]),
             projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
         )
@@ -2242,6 +2250,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertFalse(recommendedTaskIDs.contains(recentOverdueTask.id))
         XCTAssertFalse(recommendedTaskIDs.contains(dueTodayTask.id))
         XCTAssertFalse(recommendedTaskIDs.contains(completedOverdueTask.id))
+        XCTAssertFalse(recommendedTaskIDs.contains(subtaskOverdueTask.id))
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -2256,13 +2265,13 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let now = Date()
         let calendar = Calendar.current
         let inbox = Project.createInbox()
-        var keepToday = makeTask(
-            name: "Seed keep today",
+        var quickMove = makeTask(
+            name: "Seed quick move",
             project: inbox,
             dueDate: calendar.date(byAdding: .day, value: -16, to: now),
             priority: .max
         )
-        keepToday.estimatedDuration = 15 * 60
+        quickMove.estimatedDuration = 15 * 60
         var blocked = makeTask(
             name: "Seed blocked split",
             project: inbox,
@@ -2292,7 +2301,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         longMove.estimatedDuration = 90 * 60
 
         let coordinator = UseCaseCoordinator(
-            taskRepository: HomeViewModelMockTaskRepository(tasks: [keepToday, blocked, staleDrop, longMove]),
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [quickMove, blocked, staleDrop, longMove]),
             projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
         )
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
@@ -2303,9 +2312,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
         XCTAssertTrue(viewModel.evaRescueSheetPresented)
         XCTAssertEqual(viewModel.evaRescueLauncherState, .ready)
-        XCTAssertEqual(viewModel.evaRescuePlan?.doToday.map(\.taskID), [keepToday.id])
         XCTAssertTrue(viewModel.evaRescuePlan?.split.map(\.taskID).contains(blocked.id) == true)
         XCTAssertTrue(viewModel.evaRescuePlan?.dropCandidate.map(\.taskID).contains(staleDrop.id) == true)
+        XCTAssertTrue(viewModel.evaRescuePlan?.move.map(\.taskID).contains(quickMove.id) == true)
         XCTAssertTrue(viewModel.evaRescuePlan?.move.map(\.taskID).contains(longMove.id) == true)
 
         viewModel.setEvaRescuePresented(false)
