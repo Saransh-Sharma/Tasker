@@ -99,10 +99,12 @@ func timelinePlanItemSort(lhs: TimelinePlanItem, rhs: TimelinePlanItem) -> Bool 
 }
 
 extension HomeViewModel {
-    func timelineTaskCandidates() -> [TaskDefinition] {
+    func timelineTaskCandidates(calendar: Calendar = .current) -> [TaskDefinition] {
+        let projectionRequest = timelineProjectionRequestDescriptor(calendar: calendar)
         let currentProjectIDs = activeFilterState.selectedProjectIDs.sorted { $0.uuidString < $1.uuidString }
         if let projectionDay = timelineProjectionSelectedDay,
-           Calendar.current.isDate(projectionDay, inSameDayAs: selectedDate),
+           calendar.isDate(projectionDay, inSameDayAs: selectedDate),
+           timelineProjectionCacheKey == projectionRequest.key,
            timelineProjectionRevision == dataRevision,
            timelineProjectionProjectIDs == currentProjectIDs {
             return timelineSortedTasks(timelineProjectionTasks)
@@ -883,6 +885,39 @@ extension HomeViewModel {
 
     func refreshTimelineTaskProjectionIfNeeded(calendar: Calendar = .current) {
         guard let repository = useCaseCoordinator.taskReadModelRepository else { return }
+        let descriptor = timelineProjectionRequestDescriptor(calendar: calendar)
+        let selectedDay = descriptor.selectedDay
+        let projectIDs = descriptor.projectIDs
+        let key = descriptor.key
+        let queryStart = descriptor.queryStart
+        let weekEnd = descriptor.weekEnd
+        let revision = dataRevision
+
+        guard timelineProjectionCacheKey != key, timelineProjectionRequestKey != key else { return }
+        let token = UUID()
+        timelineProjectionRequestKey = key
+        timelineProjectionRequestToken = token
+        loadTimelineProjectionPage(
+            repository: repository,
+            selectedDay: selectedDay,
+            weekStart: queryStart,
+            weekEnd: weekEnd,
+            projectIDs: projectIDs,
+            offset: 0,
+            accumulated: [:],
+            requestKey: key,
+            revision: revision,
+            token: token
+        )
+    }
+
+    private func timelineProjectionRequestDescriptor(calendar: Calendar = .current) -> (
+        key: String,
+        selectedDay: Date,
+        queryStart: Date,
+        weekEnd: Date,
+        projectIDs: [UUID]
+    ) {
         let selectedDay = calendar.startOfDay(for: selectedDate)
         let weekStart = XPCalculationEngine.startOfWeek(
             for: selectedDay,
@@ -900,24 +935,7 @@ extension HomeViewModel {
             String(dataRevision.rawValue),
             calendar.timeZone.identifier
         ].joined(separator: "|")
-
-        guard timelineProjectionCacheKey != key, timelineProjectionRequestKey != key else { return }
-        let token = UUID()
-        let revision = dataRevision
-        timelineProjectionRequestKey = key
-        timelineProjectionRequestToken = token
-        loadTimelineProjectionPage(
-            repository: repository,
-            selectedDay: selectedDay,
-            weekStart: queryStart,
-            weekEnd: weekEnd,
-            projectIDs: projectIDs,
-            offset: 0,
-            accumulated: [:],
-            requestKey: key,
-            revision: revision,
-            token: token
-        )
+        return (key, selectedDay, queryStart, weekEnd, projectIDs)
     }
 
     private func loadTimelineProjectionPage(
