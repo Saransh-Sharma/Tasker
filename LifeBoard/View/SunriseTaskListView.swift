@@ -890,6 +890,10 @@ struct SunriseTaskListView: View {
             return deterministicSectionID(for: "due_today_summary")
         case .focusNow:
             return deterministicSectionID(for: "focus_now")
+        case .horizon(let bucket):
+            return deterministicSectionID(for: "horizon:\(bucket.rawValue)")
+        case .horizonProject(let horizon, let projectID, _, _):
+            return deterministicSectionID(for: "horizon:\(horizon.rawValue):project:\(projectID.uuidString)")
         case .plainList(let id):
             return deterministicSectionID(for: "plain_list:\(id)")
         }

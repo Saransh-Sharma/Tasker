@@ -250,6 +250,7 @@ extension HomeViewModel {
         homeFilteredTasksUseCase.execute(
             state: filterState,
             scope: scope,
+            projects: projects,
             revision: revision
         ) { [weak self] result in
             Task { @MainActor in
@@ -345,6 +346,7 @@ extension HomeViewModel {
             homeFilteredTasksUseCase.execute(
                 state: state,
                 scope: scope,
+                projects: projects,
                 revision: revision
             ) { result in
                 if case .success = result {

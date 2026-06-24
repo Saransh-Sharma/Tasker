@@ -183,7 +183,7 @@ extension SunriseAppShellView {
 
     var isDaySwipeGestureEnabled: Bool {
         guard isTaskFaceVisible || isScheduleFaceVisible else { return false }
-        guard showDatePicker == false, showAdvancedFilters == false else { return false }
+        guard showDatePicker == false, showAdvancedFilters == false, showManageLensLifeAreas == false else { return false }
         guard overlaySnapshot.replanState.isApplying == false else { return false }
         if case .placement = overlaySnapshot.replanState.phase {
             return false

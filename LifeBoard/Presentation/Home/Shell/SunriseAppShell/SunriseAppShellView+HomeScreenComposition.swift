@@ -10,77 +10,102 @@ import UIKit
 import Combine
 
 extension SunriseAppShellView {
+    /// The Tasks-face Home screen. Extracted with a concrete return type so the large
+    /// initializer is type-checked in isolation, keeping `homeScreenBody` within budget.
+    private var tasksFaceScreen: SunriseHomeScreen {
+        SunriseHomeScreen(
+            chrome: chromeSnapshot,
+            tasks: tasksSnapshot,
+            habits: habitsSnapshot,
+            calendar: calendarSnapshot,
+            timeline: timelineSnapshot,
+            bottomInset: layoutMetrics.taskListBottomInset,
+            safeAreaTop: layoutMetrics.safeAreaTop,
+            isShellInteractive: shellPhase == .interactive,
+            isDaySwipeEnabled: isDaySwipeChromeAvailable,
+            isDaySwipeInteractive: isDaySwipeGestureEnabled,
+            onSelectQuickView: { viewModel.setQuickView($0) },
+            onShowDatePicker: {
+                draftDate = chromeSnapshot.selectedDate
+                showDatePicker = true
+            },
+            onShiftSelectedDay: { dayOffset, source in
+                guard dayOffset != 0 else { return }
+                if source == .datePicker {
+                    shiftSunriseSelectedDay(by: dayOffset)
+                } else {
+                    viewModel.shiftSelectedDay(byDays: dayOffset, source: source)
+                }
+            },
+            onShowAdvancedFilters: {
+                showAdvancedFilters = true
+            },
+            onOpenSettings: {
+                onOpenSettings()
+            },
+            onOpenSearch: {
+                openSearch(source: "sunrise_home")
+            },
+            onOpenChat: {
+                onOpenChat()
+            },
+            onOpenHabitBoard: {
+                showHabitBoardPresented = true
+            },
+            onCycleHabit: { habit in
+                performHabitRowAction(habit, source: "sunrise_habits_row_tap")
+            },
+            onAddHabit: presentHomeAddHabitComposer,
+            onAddTask: onAddTask,
+            onRequestCalendarPermission: onRequestCalendarPermission,
+            onOpenCalendarChooser: onOpenCalendarChooser,
+            onRetryCalendar: onRetryCalendarContext,
+            onTimelineItemTap: { item in
+                if let eventID = item.eventID {
+                    handleHomeCalendarEventSelection(eventID: eventID, allowsTimelineHide: true)
+                    return
+                }
+                if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
+                    onTaskTap(task)
+                }
+            },
+            onTimelineItemToggleComplete: { item in
+                guard let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) else { return }
+                trackTaskToggle(task, source: "sunrise_timeline")
+                onToggleComplete(task)
+            },
+            onAnchorTap: onTimelineAnchorTap,
+            onScrollStateChange: { state in
+                updateDaySunriseSwipeChromeVisibility(for: state)
+                onTaskListScrollChromeStateChange(state)
+            },
+            onSelectLens: { lens in
+                viewModel.applyHomeLens(lens)
+            },
+            onManageLenses: {
+                showManageLensLifeAreas = true
+            },
+            onStreamTaskTap: { task in
+                onTaskTap(task)
+            },
+            onStreamTaskToggleComplete: { task in
+                trackTaskToggle(task, source: "home_stream")
+                onToggleComplete(task)
+            },
+            onResume: { context in
+                viewModel.handleResume(context)
+            },
+            onDismissResume: {
+                viewModel.dismissResumeForSession()
+            }
+        )
+    }
+
     var homeScreenBody: some View {
         let baseHomeScreen = ZStack {
             ZStack(alignment: .top) {
                 if activeFace == .tasks {
-                    SunriseHomeScreen(
-                        chrome: chromeSnapshot,
-                        tasks: tasksSnapshot,
-                        habits: habitsSnapshot,
-                        calendar: calendarSnapshot,
-                        timeline: timelineSnapshot,
-                        bottomInset: layoutMetrics.taskListBottomInset,
-                        safeAreaTop: layoutMetrics.safeAreaTop,
-                        isShellInteractive: shellPhase == .interactive,
-                        isDaySwipeEnabled: isDaySwipeChromeAvailable,
-                        isDaySwipeInteractive: isDaySwipeGestureEnabled,
-                        onSelectQuickView: { viewModel.setQuickView($0) },
-                        onShowDatePicker: {
-                            draftDate = chromeSnapshot.selectedDate
-                            showDatePicker = true
-                        },
-                        onShiftSelectedDay: { dayOffset, source in
-                            guard dayOffset != 0 else { return }
-                            if source == .datePicker {
-                                shiftSunriseSelectedDay(by: dayOffset)
-                            } else {
-                                viewModel.shiftSelectedDay(byDays: dayOffset, source: source)
-                            }
-                        },
-                        onShowAdvancedFilters: {
-                            showAdvancedFilters = true
-                        },
-                        onOpenSettings: {
-                            onOpenSettings()
-                        },
-                        onOpenSearch: {
-                            openSearch(source: "sunrise_home")
-                        },
-                        onOpenChat: {
-                            onOpenChat()
-                        },
-                        onOpenHabitBoard: {
-                            showHabitBoardPresented = true
-                        },
-                        onCycleHabit: { habit in
-                            performHabitRowAction(habit, source: "sunrise_habits_row_tap")
-                        },
-                        onAddHabit: presentHomeAddHabitComposer,
-                        onAddTask: onAddTask,
-                        onRequestCalendarPermission: onRequestCalendarPermission,
-                        onOpenCalendarChooser: onOpenCalendarChooser,
-                        onRetryCalendar: onRetryCalendarContext,
-                        onTimelineItemTap: { item in
-                            if let eventID = item.eventID {
-                                handleHomeCalendarEventSelection(eventID: eventID, allowsTimelineHide: true)
-                                return
-                            }
-                            if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
-                                onTaskTap(task)
-                            }
-                        },
-                        onTimelineItemToggleComplete: { item in
-                            guard let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) else { return }
-                            trackTaskToggle(task, source: "sunrise_timeline")
-                            onToggleComplete(task)
-                        },
-                        onAnchorTap: onTimelineAnchorTap,
-                        onScrollStateChange: { state in
-                            updateDaySunriseSwipeChromeVisibility(for: state)
-                            onTaskListScrollChromeStateChange(state)
-                        }
-                    )
+                    tasksFaceScreen
                 } else if activeFace == .schedule {
                     sunriseScheduleSurface()
                 } else {
@@ -268,6 +293,20 @@ extension SunriseAppShellView {
                 }
             )
         }
+        .sheet(isPresented: $showManageLensLifeAreas) {
+            SunriseLensLifeAreasSheet(
+                lifeAreas: viewModel.lifeAreas,
+                initialPinnedIDs: viewModel.activeFilterState.pinnedLifeAreaIDs,
+                onSave: { pinnedIDs in
+                    viewModel.setPinnedLifeAreas(pinnedIDs)
+                },
+                onCreateLifeArea: { name, completion in
+                    viewModel.createLifeArea(name: name, completion: completion)
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .sheet(item: $selectedHomeCalendarEventDetail) { selection in
             HomeCalendarEventDetailSheet(
                 selection: selection,
@@ -340,96 +379,120 @@ extension SunriseAppShellView {
         let routedHomeScreen = AnyView(applyHabitPresentationRouting(to: baseHomeScreen))
         let observedHomeScreen = applyHomeStateObservers(to: routedHomeScreen)
 
-        return observedHomeScreen
-        .sheet(isPresented: Binding(
-            get: { overlaySnapshot.focusWhyPresented },
-            set: { viewModel.setEvaFocusWhyPresented($0) }
-        )) {
-            SunriseEvaFocusWhySheet(
-                focusTasks: tasksSnapshot.focusTasks,
-                shuffleCandidates: viewModel.focusWhyShuffleCandidates,
-                insightProvider: { taskID in
-                    viewModel.evaFocusInsight(for: taskID)
-                },
-                isStartingFocus: isNextActionFocusRequestInFlight,
-                onToggleComplete: { task in
-                    trackTaskToggle(task, source: "focus_why_sheet")
-                    onToggleComplete(task)
-                },
-                onStartFocus: { draftTasks, task, durationSeconds in
-                    startFocusNowTimer(draftTasks: draftTasks, task: task, durationSeconds: durationSeconds)
-                },
-                onShuffleCandidates: {
-                    refreshFocusWhyShuffleCandidates()
-                },
-                onReplaceFocusTask: { candidate, replacing in
-                    replaceFocusTaskFromWhySheet(candidate, replacing: replacing)
-                }
-            )
-        }
-        .sheet(isPresented: Binding(
-            get: { overlaySnapshot.replanState.launcherSummary != nil },
-            set: { isPresented in
-                if isPresented == false,
-                   overlaySnapshot.replanState.launcherSummary != nil {
-                    viewModel.dismissNeedsReplanLater()
-                }
-            }
-        )) {
-            NeedsReplanLauncherSheet(
-                summary: overlaySnapshot.replanState.launcherSummary ?? .empty,
-                onStart: {
-                    if overlaySnapshot.replanState.launcherSummary?.count == 0 {
-                        viewModel.dismissNeedsReplanSessionUI()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            onAddTask(nil)
-                        }
-                    } else {
-                        viewModel.startNeedsReplanSession()
-                    }
-                },
-                onLater: {
-                    viewModel.dismissNeedsReplanLater()
-                }
-            )
-        }
-        .sheet(item: Binding(
-            get: { viewModel.habitRecoveryReflectionPrompt },
-            set: { if $0 == nil { viewModel.clearHabitRecoveryReflectionPrompt() } }
-        )) { prompt in
-            SunriseReflectionNoteComposerView(
-                viewModel: SunriseReflectionNoteComposerViewModel(
-                    title: "Recovery note",
-                    kind: .habitRecovery,
-                    linkedHabitID: prompt.habitID,
-                    prompt: "What helped \(prompt.habitTitle) recover today?",
-                    saveNoteHandler: { note, completion in
-                        viewModel.saveReflectionNote(note) { result in
-                            Task { @MainActor in
-                                completion(result)
-                            }
-                        }
+        return applyObservedHomeOverlaySheets(to: observedHomeScreen)
+    }
+
+    @ViewBuilder
+    private func applyObservedHomeOverlaySheets<Content: View>(to content: Content) -> some View {
+        content
+            .sheet(isPresented: focusWhySheetPresented) {
+                SunriseEvaFocusWhySheet(
+                    focusTasks: tasksSnapshot.focusTasks,
+                    shuffleCandidates: viewModel.focusWhyShuffleCandidates,
+                    insightProvider: { taskID in
+                        viewModel.evaFocusInsight(for: taskID)
+                    },
+                    isStartingFocus: isNextActionFocusRequestInFlight,
+                    onToggleComplete: { task in
+                        trackTaskToggle(task, source: "focus_why_sheet")
+                        onToggleComplete(task)
+                    },
+                    onStartFocus: { draftTasks, task, durationSeconds in
+                        startFocusNowTimer(draftTasks: draftTasks, task: task, durationSeconds: durationSeconds)
+                    },
+                    onShuffleCandidates: {
+                        refreshFocusWhyShuffleCandidates()
+                    },
+                    onReplaceFocusTask: { candidate, replacing in
+                        replaceFocusTaskFromWhySheet(candidate, replacing: replacing)
                     }
                 )
-            )
-        }
-        .sheet(isPresented: Binding(
+            }
+            .sheet(isPresented: needsReplanLauncherPresented) {
+                NeedsReplanLauncherSheet(
+                    summary: overlaySnapshot.replanState.launcherSummary ?? .empty,
+                    onStart: {
+                        if overlaySnapshot.replanState.launcherSummary?.count == 0 {
+                            viewModel.dismissNeedsReplanSessionUI()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                onAddTask(nil)
+                            }
+                        } else {
+                            viewModel.startNeedsReplanSession()
+                        }
+                    },
+                    onLater: {
+                        viewModel.dismissNeedsReplanLater()
+                    }
+                )
+            }
+            .sheet(item: habitRecoveryReflectionPromptBinding) { prompt in
+                SunriseReflectionNoteComposerView(
+                    viewModel: SunriseReflectionNoteComposerViewModel(
+                        title: "Recovery note",
+                        kind: .habitRecovery,
+                        linkedHabitID: prompt.habitID,
+                        prompt: "What helped \(prompt.habitTitle) recover today?",
+                        saveNoteHandler: { note, completion in
+                            viewModel.saveReflectionNote(note) { result in
+                                Task { @MainActor in
+                                    completion(result)
+                                }
+                            }
+                        }
+                    )
+                )
+            }
+            .sheet(isPresented: padDailyReflectPlanPresented, onDismiss: {
+                dailyReflectPlanViewModel = nil
+            }) {
+                reflectPlanPresentation
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+            }
+            .fullScreenCover(isPresented: phoneDailyReflectPlanPresented, onDismiss: {
+                dailyReflectPlanViewModel = nil
+            }) {
+                reflectPlanPresentation
+            }
+    }
+
+    private var focusWhySheetPresented: Binding<Bool> {
+        Binding(
+            get: { overlaySnapshot.focusWhyPresented },
+            set: { viewModel.setEvaFocusWhyPresented($0) }
+        )
+    }
+
+    private var needsReplanLauncherPresented: Binding<Bool> {
+        Binding(
+            get: { overlaySnapshot.replanState.launcherSummary != nil },
+            set: { isPresented in
+                guard isPresented == false else { return }
+                guard overlaySnapshot.replanState.launcherSummary != nil else { return }
+                viewModel.dismissNeedsReplanLater()
+            }
+        )
+    }
+
+    private var habitRecoveryReflectionPromptBinding: Binding<HabitRecoveryReflectionPrompt?> {
+        Binding(
+            get: { viewModel.habitRecoveryReflectionPrompt },
+            set: { if $0 == nil { viewModel.clearHabitRecoveryReflectionPrompt() } }
+        )
+    }
+
+    private var padDailyReflectPlanPresented: Binding<Bool> {
+        Binding(
             get: { layoutClass.isPad && showDailyReflectPlan },
             set: { showDailyReflectPlan = $0 }
-        ), onDismiss: {
-            dailyReflectPlanViewModel = nil
-        }) {
-            reflectPlanPresentation
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-        }
-        .fullScreenCover(isPresented: Binding(
+        )
+    }
+
+    private var phoneDailyReflectPlanPresented: Binding<Bool> {
+        Binding(
             get: { !layoutClass.isPad && showDailyReflectPlan },
             set: { showDailyReflectPlan = $0 }
-        ), onDismiss: {
-            dailyReflectPlanViewModel = nil
-        }) {
-            reflectPlanPresentation
-        }
+        )
     }
 }

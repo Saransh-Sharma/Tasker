@@ -44,11 +44,11 @@ public struct SavedHomeView: Codable, Equatable, Identifiable, Sendable {
     }
 
     /// Executes asFilterState.
-    public func asFilterState(pinnedProjectIDs: [UUID]) -> HomeFilterState {
+    public func asFilterState(pinnedLifeAreaIDs: [UUID]) -> HomeFilterState {
         HomeFilterState(
             quickView: quickView,
             selectedProjectIDs: selectedProjectIDs,
-            pinnedProjectIDs: pinnedProjectIDs,
+            pinnedLifeAreaIDs: pinnedLifeAreaIDs,
             advancedFilter: advancedFilter,
             showCompletedInline: showCompletedInline,
             selectedSavedViewID: id

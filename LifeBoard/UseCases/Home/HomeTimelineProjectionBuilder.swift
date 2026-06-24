@@ -846,15 +846,17 @@ struct HomeTimelineProjectionBuilder {
         let allDayRescueCount = rescueCandidates.filter { allDayTaskIDs.contains($0.id) }.count
         let timedRescueCount = rescueCandidates.filter { timedTaskIDs.contains($0.id) }.count
         let inboxRescueCount = rescueCandidates.filter { inboxTaskIDs.contains($0.id) }.count
-        logDebug(
-            "HOME_TIMELINE rescue_classification " +
-            "candidate_count=\(input.taskCandidates.count) " +
-            "rescue_candidate_count=\(rescueCandidates.count) " +
-            "day=\(dayRescueCount) " +
-            "all_day=\(allDayRescueCount) " +
-            "timed=\(timedRescueCount) " +
-            "inbox=\(inboxRescueCount)"
-        )
+        let candidateCount = input.taskCandidates.count
+        let rescueCandidateCount = rescueCandidates.count
+        let rescueClassificationMessage =
+            "HOME_TIMELINE rescue_classification "
+            + "candidate_count=\(candidateCount) "
+            + "rescue_candidate_count=\(rescueCandidateCount) "
+            + "day=\(dayRescueCount) "
+            + "all_day=\(allDayRescueCount) "
+            + "timed=\(timedRescueCount) "
+            + "inbox=\(inboxRescueCount)"
+        logDebug(rescueClassificationMessage)
     }
 
     private func timelineAnchorTime(on day: Date, hour: Int, minute: Int, calendar: Calendar) -> Date {

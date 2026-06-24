@@ -146,6 +146,10 @@ public final class HomeViewModel: ObservableObject {
 
     var latestFocusOpenTasks: [TaskDefinition] = []
 
+    /// Most recent per-project activity (open count + nearest due) used to auto-fill the lens row.
+    /// Refreshed whenever we have the unfiltered forward open-task set (Upcoming lens).
+    var cachedLifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity] = [:]
+
     // MARK: - Persistence Keys
 
     static let lastFilterStateKey = "home.focus.lastFilterState.v2"
@@ -189,6 +193,12 @@ public final class HomeViewModel: ObservableObject {
     var timelineProjectionCacheKey: String?
 
     var timelineProjectionSelectedDay: Date?
+
+    /// Filter/revision the cached projection was loaded under, so the fast-path can
+    /// detect when the cache is stale even though the selected day is unchanged.
+    var timelineProjectionRevision: HomeDataRevision?
+
+    var timelineProjectionProjectIDs: [UUID]?
 
     var timelineProjectionRequestKey: String?
 
@@ -271,6 +281,9 @@ public final class HomeViewModel: ObservableObject {
     var homeRenderStateRefreshBatchDepth: Int = 0
 
     var needsHomeRenderStateRefresh = false
+
+    /// True once the user dismisses the Resume prompt; resets next launch.
+    var resumeDismissedForSession = false
 
     var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
 

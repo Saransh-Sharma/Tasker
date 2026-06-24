@@ -80,11 +80,17 @@ public struct HomeFilterState: Codable, Equatable, Sendable {
     public var quickView: HomeQuickView
     public var projectGroupingMode: HomeProjectGroupingMode
     public var selectedProjectIDs: [UUID]
+    public var selectedLifeAreaIDs: [UUID]
     public var customProjectOrderIDs: [UUID]
-    public var pinnedProjectIDs: [UUID]
+    public var pinnedLifeAreaIDs: [UUID]
     public var advancedFilter: HomeAdvancedFilter?
     public var showCompletedInline: Bool
     public var selectedSavedViewID: UUID?
+    /// When true, the Home content renders as a forward time-horizon stream (Upcoming and
+    /// per-life-area lenses): all open tasks across time, grouped Overdue → Someday, rather than the
+    /// day-scoped timeline/agenda. Drives `matchesScope` in `GetHomeFilteredTasksUseCase` and the
+    /// section builder selection in `refreshDueTodayAgenda`.
+    public var streamsAllForward: Bool
 
     /// Initializes a new instance.
     public init(
@@ -92,21 +98,25 @@ public struct HomeFilterState: Codable, Equatable, Sendable {
         quickView: HomeQuickView = .defaultView,
         projectGroupingMode: HomeProjectGroupingMode = .defaultMode,
         selectedProjectIDs: [UUID] = [],
+        selectedLifeAreaIDs: [UUID] = [],
         customProjectOrderIDs: [UUID] = [],
-        pinnedProjectIDs: [UUID] = [],
+        pinnedLifeAreaIDs: [UUID] = [],
         advancedFilter: HomeAdvancedFilter? = nil,
         showCompletedInline: Bool = false,
-        selectedSavedViewID: UUID? = nil
+        selectedSavedViewID: UUID? = nil,
+        streamsAllForward: Bool = false
     ) {
         self.version = version
         self.quickView = quickView
         self.projectGroupingMode = projectGroupingMode
         self.selectedProjectIDs = selectedProjectIDs
+        self.selectedLifeAreaIDs = selectedLifeAreaIDs
         self.customProjectOrderIDs = customProjectOrderIDs
-        self.pinnedProjectIDs = pinnedProjectIDs
+        self.pinnedLifeAreaIDs = pinnedLifeAreaIDs
         self.advancedFilter = advancedFilter
         self.showCompletedInline = showCompletedInline
         self.selectedSavedViewID = selectedSavedViewID
+        self.streamsAllForward = streamsAllForward
     }
 
     public static var `default`: HomeFilterState {
@@ -114,11 +124,13 @@ public struct HomeFilterState: Codable, Equatable, Sendable {
             quickView: .today,
             projectGroupingMode: .defaultMode,
             selectedProjectIDs: [],
+            selectedLifeAreaIDs: [],
             customProjectOrderIDs: [],
-            pinnedProjectIDs: [],
+            pinnedLifeAreaIDs: [],
             advancedFilter: nil,
             showCompletedInline: false,
-            selectedSavedViewID: nil
+            selectedSavedViewID: nil,
+            streamsAllForward: false
         )
     }
 
@@ -126,15 +138,21 @@ public struct HomeFilterState: Codable, Equatable, Sendable {
         Set(selectedProjectIDs)
     }
 
-    public var pinnedProjectIDSet: Set<UUID> {
-        Set(pinnedProjectIDs)
+    public var selectedLifeAreaIDSet: Set<UUID> {
+        Set(selectedLifeAreaIDs)
+    }
+
+    public var pinnedLifeAreaIDSet: Set<UUID> {
+        Set(pinnedLifeAreaIDs)
     }
 
     /// Compatibility helper for legacy filter checks in views.
     public var hasActiveFilters: Bool {
         !selectedProjectIDs.isEmpty
+            || !selectedLifeAreaIDs.isEmpty
             || advancedFilter != nil
             || quickView != .today
+            || streamsAllForward
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -142,11 +160,13 @@ public struct HomeFilterState: Codable, Equatable, Sendable {
         case quickView
         case projectGroupingMode
         case selectedProjectIDs
+        case selectedLifeAreaIDs
         case customProjectOrderIDs
-        case pinnedProjectIDs
+        case pinnedLifeAreaIDs
         case advancedFilter
         case showCompletedInline
         case selectedSavedViewID
+        case streamsAllForward
     }
 
     /// Initializes a new instance.
@@ -157,10 +177,12 @@ public struct HomeFilterState: Codable, Equatable, Sendable {
         quickView = try container.decodeIfPresent(HomeQuickView.self, forKey: .quickView) ?? .defaultView
         projectGroupingMode = try container.decodeIfPresent(HomeProjectGroupingMode.self, forKey: .projectGroupingMode) ?? .defaultMode
         selectedProjectIDs = try container.decodeIfPresent([UUID].self, forKey: .selectedProjectIDs) ?? []
+        selectedLifeAreaIDs = try container.decodeIfPresent([UUID].self, forKey: .selectedLifeAreaIDs) ?? []
         customProjectOrderIDs = try container.decodeIfPresent([UUID].self, forKey: .customProjectOrderIDs) ?? []
-        pinnedProjectIDs = try container.decodeIfPresent([UUID].self, forKey: .pinnedProjectIDs) ?? []
+        pinnedLifeAreaIDs = try container.decodeIfPresent([UUID].self, forKey: .pinnedLifeAreaIDs) ?? []
         advancedFilter = try container.decodeIfPresent(HomeAdvancedFilter.self, forKey: .advancedFilter)
         showCompletedInline = try container.decodeIfPresent(Bool.self, forKey: .showCompletedInline) ?? false
         selectedSavedViewID = try container.decodeIfPresent(UUID.self, forKey: .selectedSavedViewID)
+        streamsAllForward = try container.decodeIfPresent(Bool.self, forKey: .streamsAllForward) ?? false
     }
 }

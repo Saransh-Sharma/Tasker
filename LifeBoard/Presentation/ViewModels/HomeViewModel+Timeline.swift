@@ -100,8 +100,11 @@ func timelinePlanItemSort(lhs: TimelinePlanItem, rhs: TimelinePlanItem) -> Bool 
 
 extension HomeViewModel {
     func timelineTaskCandidates() -> [TaskDefinition] {
+        let currentProjectIDs = activeFilterState.selectedProjectIDs.sorted { $0.uuidString < $1.uuidString }
         if let projectionDay = timelineProjectionSelectedDay,
-           Calendar.current.isDate(projectionDay, inSameDayAs: selectedDate) {
+           Calendar.current.isDate(projectionDay, inSameDayAs: selectedDate),
+           timelineProjectionRevision == dataRevision,
+           timelineProjectionProjectIDs == currentProjectIDs {
             return timelineSortedTasks(timelineProjectionTasks)
         }
 
@@ -900,6 +903,7 @@ extension HomeViewModel {
 
         guard timelineProjectionCacheKey != key, timelineProjectionRequestKey != key else { return }
         let token = UUID()
+        let revision = dataRevision
         timelineProjectionRequestKey = key
         timelineProjectionRequestToken = token
         loadTimelineProjectionPage(
@@ -911,6 +915,7 @@ extension HomeViewModel {
             offset: 0,
             accumulated: [:],
             requestKey: key,
+            revision: revision,
             token: token
         )
     }
@@ -924,6 +929,7 @@ extension HomeViewModel {
         offset: Int,
         accumulated: [UUID: TaskDefinition],
         requestKey: String,
+        revision: HomeDataRevision,
         token: UUID
     ) {
         let pageSize = 500
@@ -958,6 +964,7 @@ extension HomeViewModel {
                             offset: offset + page.tasks.count,
                             accumulated: merged,
                             requestKey: requestKey,
+                            revision: revision,
                             token: token
                         )
                         return
@@ -965,6 +972,8 @@ extension HomeViewModel {
                     self.timelineProjectionTasks = Array(merged.values)
                     self.timelineProjectionCacheKey = requestKey
                     self.timelineProjectionSelectedDay = selectedDay
+                    self.timelineProjectionRevision = revision
+                    self.timelineProjectionProjectIDs = projectIDs
                     self.timelineProjectionRequestKey = nil
                     self.timelineProjectionRequestToken = nil
                     self.timelineSnapshotCache = nil
@@ -973,6 +982,9 @@ extension HomeViewModel {
                 case .failure(let error):
                     self.timelineProjectionRequestKey = nil
                     self.timelineProjectionRequestToken = nil
+                    self.timelineProjectionSelectedDay = nil
+                    self.timelineProjectionRevision = nil
+                    self.timelineProjectionProjectIDs = nil
                     logWarning(
                         event: "home_timeline_projection_failed",
                         message: "Failed to load repository-backed timeline candidates",

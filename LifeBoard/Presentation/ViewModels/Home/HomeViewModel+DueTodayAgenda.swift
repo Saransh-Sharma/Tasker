@@ -166,13 +166,29 @@ extension HomeViewModel {
 
             self.assignIfChanged(\.dueTodayRows, agenda.rows)
             self.assignIfChanged(\.dueTodaySection, nil)
-            let todaySections = HomeMixedSectionBuilder.buildTodaySections(
-                taskRows: agendaTaskRows,
-                habitRows: [],
-                projects: self.projects,
-                lifeAreas: self.lifeAreas,
-                useAdaptiveDayGrouping: true
-            )
+            let todaySections: [HomeListSection]
+            if self.activeFilterState.streamsAllForward {
+                if self.activeFilterState.selectedLifeAreaIDs.isEmpty {
+                    todaySections = HomeHorizonSectionBuilder.buildHorizonSections(
+                        taskRows: agendaTaskRows,
+                        referenceDate: Date()
+                    )
+                } else {
+                    todaySections = HomeLifeAreaStreamSectionBuilder.buildSections(
+                        taskRows: agendaTaskRows,
+                        projects: self.projects,
+                        referenceDate: Date()
+                    )
+                }
+            } else {
+                todaySections = HomeMixedSectionBuilder.buildTodaySections(
+                    taskRows: agendaTaskRows,
+                    habitRows: [],
+                    projects: self.projects,
+                    lifeAreas: self.lifeAreas,
+                    useAdaptiveDayGrouping: true
+                )
+            }
             self.assignIfChanged(\.todaySections, todaySections)
 
             self.assignIfChanged(\.focusRows, focusRows)
