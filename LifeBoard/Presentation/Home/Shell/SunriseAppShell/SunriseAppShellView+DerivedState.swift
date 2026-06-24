@@ -109,12 +109,10 @@ extension SunriseAppShellView {
     }
 
     func isTimelineRescueEligibleTask(_ task: TaskDefinition) -> Bool {
-        guard !task.isComplete, let dueDate = task.dueDate else { return false }
-        let anchorDay = Calendar.current.startOfDay(for: chromeSnapshot.selectedDate)
-        guard let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: anchorDay) else {
-            return false
-        }
-        return dueDate < cutoff
+        OverdueRescueEligibilityPolicy.isStaleOverdueTask(
+            task,
+            referenceDate: chromeSnapshot.selectedDate
+        )
     }
 
     func compareTimelineRescueRows(_ lhs: HomeTodayRow, _ rhs: HomeTodayRow) -> Bool {
