@@ -20,6 +20,7 @@ extension HomeViewModel {
         targetDurationSeconds: Int = 25 * 60,
         completion: @escaping @Sendable (Result<FocusSessionDefinition, Error>) -> Void
     ) {
+        HomeSessionContextStore.recordFocusStart(taskID: taskID)
         useCaseCoordinator.focusSession.startSession(
             taskID: taskID,
             targetDurationSeconds: targetDurationSeconds,

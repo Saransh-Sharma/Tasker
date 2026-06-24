@@ -62,6 +62,8 @@ extension HomeViewModel {
     /// Executes loadTaskDetailMetadata.
 
     func setupBindings() {
+        installResumeForegroundObserver()
+
         calendarIntegrationService.$snapshot
             .receive(on: RunLoop.main)
             .sink { [weak self] snapshot in
