@@ -5991,7 +5991,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = LifeBoardWatch/LifeBoardWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LifeBoardWatch/Info.plist;
@@ -6017,7 +6017,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = LifeBoardWatchWidgets/LifeBoardWatchWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LifeBoardWatchWidgets/Info.plist;
@@ -6045,7 +6045,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = LifeBoardWidgets/LifeBoardWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = LifeBoardWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
@@ -6054,7 +6054,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.9.5;
+				MARKETING_VERSION = 1.9.9;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.TaskerWidgets";
 				PRODUCT_NAME = LifeBoardWidgets;
 				SDKROOT = iphoneos;
@@ -6072,7 +6072,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = LifeBoardWatchWidgets/LifeBoardWatchWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LifeBoardWatchWidgets/Info.plist;
@@ -6146,7 +6146,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LIFEBOARD_MARKETING_VERSION = 1.9.4;
+				LIFEBOARD_MARKETING_VERSION = 1.9.9;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -6202,7 +6202,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LIFEBOARD_MARKETING_VERSION = 1.9.4;
+				LIFEBOARD_MARKETING_VERSION = 1.9.9;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -6377,7 +6377,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = LifeBoardWidgets/LifeBoardWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = LifeBoardWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
@@ -6386,7 +6386,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.9.5;
+				MARKETING_VERSION = 1.9.9;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.TaskerWidgets";
 				PRODUCT_NAME = LifeBoardWidgets;
 				SDKROOT = iphoneos;
@@ -6402,7 +6402,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = LifeBoardWatch/LifeBoardWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LifeBoardWatch/Info.plist;
