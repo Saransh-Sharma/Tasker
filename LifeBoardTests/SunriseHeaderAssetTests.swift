@@ -181,7 +181,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
     @MainActor
     func testOnlyOneFilterChipIsSelected() {
-        let models = SunriseHomeScreen.filterChipModels(selectedContentScope: .tasks)
+        let models = SunriseHomeScreen.todayFacetChipModels(selectedContentScope: .tasks)
         let selectedIDs = models.filter(\.isSelected).map(\.id)
 
         XCTAssertEqual(selectedIDs, ["tasks"])
@@ -194,6 +194,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
         XCTAssertEqual(models.map(\.title), ["All", "Meetings", "Tasks", "Habits", "Filters"])
         XCTAssertEqual(models.map(\.id), ["all", "meetings", "tasks", "habits", "filters"])
+        XCTAssertTrue(models.allSatisfy(\.hidesTitle))
         XCTAssertFalse(models.first(where: { $0.id == "filters" })?.isSelected ?? true)
         XCTAssertTrue(models.first(where: { $0.id == "filters" })?.showsIndicator ?? false)
     }

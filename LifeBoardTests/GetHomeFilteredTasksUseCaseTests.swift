@@ -552,6 +552,38 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         XCTAssertEqual(Set(captured.read()?.openTasks.map(\.title) ?? []), Set(["P1", "P2"]))
     }
 
+    func testLifeAreaStreamFilterMatchesDirectTaskAndProjectLinkage() {
+        let lifeAreaID = UUID()
+        let otherLifeAreaID = UUID()
+        let linkedProject = Project(id: UUID(), lifeAreaID: lifeAreaID, name: "Linked")
+        let otherProject = Project(id: UUID(), lifeAreaID: otherLifeAreaID, name: "Other")
+
+        let direct = makeTask(name: "Direct", projectID: linkedProject.id, lifeAreaID: lifeAreaID)
+        let viaProject = makeTask(name: "ViaProject", projectID: linkedProject.id)
+        let excluded = makeTask(name: "Excluded", projectID: otherProject.id)
+
+        let repository = MockTaskRepository(tasks: [direct, viaProject, excluded])
+        let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
+
+        let expectation = expectation(description: "Life area stream filter")
+        let captured = LockedTestState<HomeFilteredTasksResult?>(nil)
+
+        var state = HomeFilterState.default
+        state.streamsAllForward = true
+        state.selectedLifeAreaIDs = [lifeAreaID]
+
+        useCase.execute(state: state, scope: .today, projects: [linkedProject, otherProject]) { result in
+            if case let .success(value) = result {
+                captured.write(value)
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(Set(captured.read()?.openTasks.map(\.title) ?? []), Set(["Direct", "ViaProject"]))
+    }
+
     func testRevisionCacheAvoidsDuplicateFetchesUntilRevisionChanges() {
         let repository = CountingReadModelRepository(tasks: [
             makeTask(name: "Cached A"),
@@ -655,6 +687,7 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
     private func makeTask(
         name: String,
         projectID: UUID = UUID(),
+        lifeAreaID: UUID? = nil,
         dueDate: Date? = Date(),
         scheduledStartAt: Date? = nil,
         isComplete: Bool = false,
@@ -665,6 +698,7 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         TaskDefinition(
             projectID: projectID,
             projectName: ProjectConstants.inboxProjectName,
+            lifeAreaID: lifeAreaID,
             title: name,
             priority: priority,
             type: type,

@@ -75,6 +75,42 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testSelectingDateExitsForwardStreamLens() {
+        let suiteName = "HomeViewModelPersistenceTests.LensReset.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let project = Project(name: "Marketing")
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox, project])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let lifeAreaID = UUID()
+        viewModel.activeFilterState.pinnedLifeAreaIDs = [lifeAreaID]
+
+        // Enter a per-life-area forward stream lens.
+        viewModel.applyHomeLens(.lifeArea(lifeAreaID))
+        waitForMainQueueFlush()
+        XCTAssertTrue(viewModel.activeFilterState.streamsAllForward)
+        XCTAssertEqual(viewModel.activeFilterState.selectedLifeAreaIDs, [lifeAreaID])
+
+        // Picking a date returns to the day timeline and clears the stream/life-area scope.
+        let target = Calendar.current.date(byAdding: .day, value: 2, to: Date())!
+        viewModel.selectDate(target, source: .datePicker)
+        waitForMainQueueFlush()
+        XCTAssertFalse(viewModel.activeFilterState.streamsAllForward)
+        XCTAssertTrue(viewModel.activeFilterState.selectedLifeAreaIDs.isEmpty)
+        XCTAssertEqual(viewModel.activeFilterState.quickView, .today)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testShiftSelectedDayIntoTodayRestoresTodayScope() {
         let suiteName = "HomeViewModelPersistenceTests.DayStepIntoToday.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {

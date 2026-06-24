@@ -11593,7 +11593,9 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
     ) {
         let expectation = expectation(description: "notification reconcile finished")
         orchestrator.reconcile(reason: reason)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        // reconcile() has no completion callback, so we drain async work with a fixed
+        // delay. Use a safer margin than 0.1s to reduce flakiness on slow CI.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             expectation.fulfill()
         }
         waitForExpectations(timeout: timeout)
@@ -17340,5 +17342,332 @@ private final class MainQueueCalendarEventsProviderStub: CalendarEventsProviderP
 
     func storeChangedPublisher() -> AnyPublisher<Void, Never> {
         Empty<Void, Never>().eraseToAnyPublisher()
+    }
+}
+
+// MARK: - Home lens redesign
+
+final class HomeHorizonSectionBuilderTests: XCTestCase {
+    private let reference = Date(timeIntervalSince1970: 1_700_000_000) // 2023-11-14, midweek
+    private var calendar: Calendar { Calendar.current }
+
+    private func task(_ title: String, dueOffsetDays: Int?, planningBucket: TaskPlanningBucket = .thisWeek) -> TaskDefinition {
+        let due: Date?
+        if let dueOffsetDays {
+            let base = calendar.startOfDay(for: reference)
+            due = calendar.date(byAdding: .day, value: dueOffsetDays, to: base).map { $0.addingTimeInterval(3600) }
+        } else {
+            due = nil
+        }
+        return TaskDefinition(title: title, dueDate: due, planningBucket: planningBucket)
+    }
+
+    private func section(_ sections: [HomeListSection], _ bucket: HomeHorizonBucket) -> HomeListSection? {
+        sections.first { $0.anchor == .horizon(bucket: bucket) }
+    }
+
+    func testBucketsTasksByHorizon() {
+        let tasks = [
+            task("overdue", dueOffsetDays: -2),
+            task("today", dueOffsetDays: 0),
+            task("later", dueOffsetDays: 30),
+            task("someday", dueOffsetDays: nil, planningBucket: .someday)
+        ]
+        let sections = HomeHorizonSectionBuilder.buildHorizonSections(taskRows: tasks, referenceDate: reference)
+
+        XCTAssertEqual(section(sections, .overdue)?.rows.first?.title, "overdue")
+        XCTAssertEqual(section(sections, .today)?.rows.first?.title, "today")
+        XCTAssertEqual(section(sections, .later)?.rows.first?.title, "later")
+        XCTAssertEqual(section(sections, .someday)?.rows.first?.title, "someday")
+    }
+
+    func testUndatedTaskUsesPlanningBucket() {
+        let tasks = [
+            task("plan-later", dueOffsetDays: nil, planningBucket: .later),
+            task("plan-someday", dueOffsetDays: nil, planningBucket: .someday)
+        ]
+        let sections = HomeHorizonSectionBuilder.buildHorizonSections(taskRows: tasks, referenceDate: reference)
+        XCTAssertEqual(section(sections, .later)?.rows.first?.title, "plan-later")
+        XCTAssertEqual(section(sections, .someday)?.rows.first?.title, "plan-someday")
+    }
+
+    func testUndatedTaskUsesPlanningBucketAcrossWeekBuckets() {
+        let tasks = [
+            task("u-today", dueOffsetDays: nil, planningBucket: .today),
+            task("u-thisweek", dueOffsetDays: nil, planningBucket: .thisWeek),
+            task("u-nextweek", dueOffsetDays: nil, planningBucket: .nextWeek)
+        ]
+        let sections = HomeHorizonSectionBuilder.buildHorizonSections(taskRows: tasks, referenceDate: reference)
+        // An undated ".today" planning bucket is intentionally treated as Someday (no real date).
+        XCTAssertEqual(section(sections, .someday)?.rows.first?.title, "u-today")
+        XCTAssertEqual(section(sections, .thisWeek)?.rows.first?.title, "u-thisweek")
+        XCTAssertEqual(section(sections, .nextWeek)?.rows.first?.title, "u-nextweek")
+    }
+
+    func testDueDateThisWeekAndNextWeekBoundaries() {
+        let boundaries = HomeHorizonSectionBuilder.HorizonBoundaries(referenceDate: reference, calendar: calendar)
+        let tasks = [
+            TaskDefinition(title: "this-week", dueDate: boundaries.startOfNextWeek.addingTimeInterval(-3600), planningBucket: .someday),
+            TaskDefinition(title: "next-week-start", dueDate: boundaries.startOfNextWeek.addingTimeInterval(3600), planningBucket: .someday),
+            TaskDefinition(title: "next-week-edge", dueDate: boundaries.startOfWeekAfterNext.addingTimeInterval(-3600), planningBucket: .someday),
+            TaskDefinition(title: "later", dueDate: boundaries.startOfWeekAfterNext.addingTimeInterval(3600), planningBucket: .someday)
+        ]
+        let sections = HomeHorizonSectionBuilder.buildHorizonSections(taskRows: tasks, referenceDate: reference, calendar: calendar)
+        XCTAssertEqual(section(sections, .thisWeek)?.rows.map(\.title), ["this-week"])
+        XCTAssertEqual(Set(section(sections, .nextWeek)?.rows.map(\.title) ?? []), ["next-week-start", "next-week-edge"])
+        XCTAssertEqual(section(sections, .later)?.rows.map(\.title), ["later"])
+    }
+
+    func testSectionsAreOrderedByHorizonAndCarryWarmOverdueAccent() {
+        let tasks = [
+            task("later", dueOffsetDays: 30),
+            task("overdue", dueOffsetDays: -2),
+            task("today", dueOffsetDays: 0)
+        ]
+        let sections = HomeHorizonSectionBuilder.buildHorizonSections(taskRows: tasks, referenceDate: reference)
+        let order = sections.compactMap { section -> HomeHorizonBucket? in
+            if case .horizon(let bucket) = section.anchor { return bucket }
+            return nil
+        }
+        XCTAssertEqual(order, order.sorted { $0.sortIndex < $1.sortIndex })
+        XCTAssertEqual(section(sections, .overdue)?.accentHex, "#FF7A3D")
+    }
+
+    func testEmptyInputYieldsNoSections() {
+        XCTAssertTrue(HomeHorizonSectionBuilder.buildHorizonSections(taskRows: [], referenceDate: reference).isEmpty)
+    }
+}
+
+final class HomeLensResolverTests: XCTestCase {
+    func testActiveLensDefaultsToToday() {
+        XCTAssertEqual(HomeLensResolver.activeLens(for: .default), .today)
+    }
+
+    func testActiveLensUpcomingWhenStreamingWithoutLifeArea() {
+        var state = HomeFilterState.default
+        state.streamsAllForward = true
+        XCTAssertEqual(HomeLensResolver.activeLens(for: state), .upcoming)
+    }
+
+    func testActiveLensLifeAreaWhenStreamingWithLifeArea() {
+        let lifeAreaID = UUID()
+        var state = HomeFilterState.default
+        state.streamsAllForward = true
+        state.selectedLifeAreaIDs = [lifeAreaID]
+        XCTAssertEqual(HomeLensResolver.activeLens(for: state), .lifeArea(lifeAreaID))
+    }
+
+    func testLifeAreaLensesExcludeArchivedAndHonorPinnedOrder() {
+        let areaA = LifeArea(name: "Alpha", color: "#FF0000")
+        let areaB = LifeArea(name: "Beta", color: "#00FF00")
+        let archived = LifeArea(name: "Archived", isArchived: true)
+
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [archived, areaA, areaB],
+            pinnedLifeAreaIDs: [areaB.id],
+            activeLens: .lifeArea(areaB.id)
+        )
+
+        XCTAssertEqual(chips.map(\.title), ["Beta", "Alpha"])
+        XCTAssertEqual(chips.first?.isSelected, true)
+        XCTAssertFalse(chips.contains { $0.lens == .lifeArea(archived.id) })
+    }
+
+    func testLifeAreaLensesRespectLimit() {
+        let areas = (0..<8).map { LifeArea(name: "Area \($0)") }
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: areas,
+            pinnedLifeAreaIDs: [],
+            activeLens: .today,
+            limit: 4
+        )
+        XCTAssertEqual(chips.count, 4)
+    }
+
+    func testLifeAreaLensesCarryAreaColorTint() {
+        let area = LifeArea(name: "Health", color: "#AABBCC")
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [area],
+            pinnedLifeAreaIDs: [area.id],
+            activeLens: .today
+        )
+        XCTAssertEqual(chips.first?.tintHex, LifeAreaColorPalette.normalizeOrMap(hex: "#AABBCC", for: area.id))
+    }
+
+    func testLifeAreaLensesAutoFillByActivity() {
+        let alpha = LifeArea(name: "Alpha")
+        let beta = LifeArea(name: "Beta")
+        let charlie = LifeArea(name: "Charlie")
+        let now = Date()
+        let activity: [UUID: HomeLensLifeAreaActivity] = [
+            alpha.id: HomeLensLifeAreaActivity(openCount: 1, nearestDue: now.addingTimeInterval(86_400 * 5)),
+            beta.id: HomeLensLifeAreaActivity(openCount: 9, nearestDue: now.addingTimeInterval(86_400 * 1)),
+            charlie.id: HomeLensLifeAreaActivity(openCount: 3, nearestDue: nil)
+        ]
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [alpha, beta, charlie],
+            pinnedLifeAreaIDs: [],
+            activeLens: .today,
+            activityByID: activity
+        )
+        XCTAssertEqual(chips.map(\.title), ["Beta", "Alpha", "Charlie"])
+    }
+
+    func testPinnedLifeAreasLeadEvenWhenLessActive() {
+        let alpha = LifeArea(name: "Alpha")
+        let beta = LifeArea(name: "Beta")
+        let activity: [UUID: HomeLensLifeAreaActivity] = [
+            alpha.id: HomeLensLifeAreaActivity(openCount: 0, nearestDue: nil),
+            beta.id: HomeLensLifeAreaActivity(openCount: 5, nearestDue: Date())
+        ]
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [alpha, beta],
+            pinnedLifeAreaIDs: [alpha.id],
+            activeLens: .today,
+            activityByID: activity
+        )
+        XCTAssertEqual(chips.map(\.title), ["Alpha", "Beta"])
+    }
+}
+
+final class LifeAreaLensHeaderTests: XCTestCase {
+    private let reference = Date(timeIntervalSince1970: 1_700_000_000)
+    private var calendar: Calendar { Calendar(identifier: .gregorian) }
+
+    func testSubtitleShowsOpenCountAndNextDue() {
+        let due = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: reference))!
+        let header = LifeAreaLensHeader(lifeAreaName: "Health", openCount: 7, nextDueDate: due)
+        XCTAssertEqual(header.subtitle(referenceDate: reference, calendar: calendar), "Health · 7 open · next due tomorrow")
+    }
+
+    func testSubtitleAllCaughtUpWhenNoOpenTasks() {
+        let header = LifeAreaLensHeader(lifeAreaName: "Health", openCount: 0, nextDueDate: nil)
+        XCTAssertEqual(header.subtitle(referenceDate: reference, calendar: calendar), "Health · all caught up")
+    }
+
+    func testRelativeDueOverdueAndToday() {
+        let overdue = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: reference))!
+        let today = calendar.startOfDay(for: reference)
+        let overdueHeader = LifeAreaLensHeader(lifeAreaName: "Health", openCount: 1, nextDueDate: overdue)
+        let todayHeader = LifeAreaLensHeader(lifeAreaName: "Health", openCount: 1, nextDueDate: today)
+        XCTAssertEqual(overdueHeader.subtitle(referenceDate: reference, calendar: calendar), "Health · 1 open · next due overdue")
+        XCTAssertEqual(todayHeader.subtitle(referenceDate: reference, calendar: calendar), "Health · 1 open · next due today")
+    }
+}
+
+final class HomeLensLifeAreaActivityComputeTests: XCTestCase {
+    func testGroupsOpenTasksByLifeAreaWithNearestDue() {
+        let lifeAreaA = UUID()
+        let lifeAreaB = UUID()
+        let projectA = Project(lifeAreaID: lifeAreaA, name: "P1")
+        let projectB = Project(lifeAreaID: lifeAreaB, name: "P2")
+        let now = Date()
+        let tasks = [
+            TaskDefinition(projectID: projectA.id, lifeAreaID: lifeAreaA, title: "a1", dueDate: now.addingTimeInterval(86_400 * 3)),
+            TaskDefinition(projectID: projectA.id, title: "a2", dueDate: now.addingTimeInterval(86_400 * 1)),
+            TaskDefinition(projectID: projectA.id, title: "a3", dueDate: nil),
+            TaskDefinition(projectID: projectB.id, title: "b1", dueDate: nil),
+            TaskDefinition(projectID: projectB.id, title: "b-done", dueDate: now, isComplete: true)
+        ]
+        let activity = HomeViewModel.computeLifeAreaLensActivity(
+            from: tasks,
+            projects: [projectA, projectB]
+        )
+        XCTAssertEqual(activity[lifeAreaA]?.openCount, 3)
+        XCTAssertEqual(activity[lifeAreaA]?.nearestDue, now.addingTimeInterval(86_400 * 1))
+        XCTAssertEqual(activity[lifeAreaB]?.openCount, 1)
+        XCTAssertNil(activity[lifeAreaB]?.nearestDue)
+    }
+
+    func testResolvesLifeAreaViaProjectWhenTaskHasNoDirectID() {
+        let lifeAreaID = UUID()
+        let project = Project(lifeAreaID: lifeAreaID, name: "P1")
+        let task = TaskDefinition(projectID: project.id, title: "indirect", dueDate: Date())
+        let activity = HomeViewModel.computeLifeAreaLensActivity(from: [task], projects: [project])
+        XCTAssertEqual(activity[lifeAreaID]?.openCount, 1)
+    }
+}
+
+final class HomeChipRailBuilderTests: XCTestCase {
+    func testTodayModeIncludesSeparatorAndIconOnlyFacets() {
+        let items = HomeChipRailBuilder.build(
+            activeLens: .today,
+            lifeAreaChips: [],
+            selectedContentScope: .all,
+            hasActiveFilters: false
+        )
+        XCTAssertTrue(items.contains(.separator))
+        XCTAssertEqual(items.filter {
+            if case .todayFacet = $0 { return true }
+            return false
+        }.count, 4)
+        XCTAssertEqual(items.last, .advancedFilters(hasActiveFilters: false))
+    }
+
+    func testStreamModeOmitsFacetsAndSeparator() {
+        let items = HomeChipRailBuilder.build(
+            activeLens: .upcoming,
+            lifeAreaChips: [],
+            selectedContentScope: .tasks,
+            hasActiveFilters: true
+        )
+        XCTAssertFalse(items.contains(.separator))
+        XCTAssertFalse(items.contains { if case .todayFacet = $0 { return true }; return false })
+        XCTAssertEqual(items.last, .advancedFilters(hasActiveFilters: true))
+    }
+
+    func testTodayFacetModelsUseIconOnlyPresentation() {
+        for scope in SunriseHomeContentScope.allCases {
+            let model = HomeChipRailBuilder.todayFacetChipModel(for: scope, isSelected: scope == .all)
+            XCTAssertTrue(model.hidesTitle)
+        }
+    }
+}
+
+final class HomeLifeAreaStreamSectionBuilderTests: XCTestCase {
+    private let reference = Date(timeIntervalSince1970: 1_700_000_000)
+    private var calendar: Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        return cal
+    }
+
+    func testGroupsByHorizonThenProject() {
+        let projectA = Project(name: "Alpha")
+        let projectB = Project(name: "Beta")
+        let overdue = TaskDefinition(
+            projectID: projectA.id,
+            projectName: projectA.name,
+            title: "Overdue",
+            dueDate: calendar.date(byAdding: .day, value: -1, to: reference)
+        )
+        let today = TaskDefinition(
+            projectID: projectB.id,
+            projectName: projectB.name,
+            title: "Today",
+            dueDate: reference
+        )
+        let sections = HomeLifeAreaStreamSectionBuilder.buildSections(
+            taskRows: [overdue, today],
+            projects: [projectA, projectB],
+            referenceDate: reference,
+            calendar: calendar
+        )
+        XCTAssertEqual(sections.count, 2)
+        XCTAssertTrue(sections.allSatisfy {
+            if case .horizonProject = $0.anchor { return true }
+            return false
+        })
+    }
+
+    func testEmptyInputYieldsNoSections() {
+        XCTAssertTrue(
+            HomeLifeAreaStreamSectionBuilder.buildSections(
+                taskRows: [],
+                projects: [],
+                referenceDate: reference,
+                calendar: calendar
+            ).isEmpty
+        )
     }
 }

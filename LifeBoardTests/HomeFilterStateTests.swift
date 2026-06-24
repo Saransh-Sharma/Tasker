@@ -9,7 +9,7 @@ final class HomeFilterStateTests: XCTestCase {
           "version": 1,
           "quickView": "today",
           "selectedProjectIDs": [],
-          "pinnedProjectIDs": [],
+          "pinnedLifeAreaIDs": [],
           "advancedFilter": null,
           "showCompletedInline": false,
           "selectedSavedViewID": null

@@ -205,7 +205,7 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertEqual(viewModel.state, .confirmingDelete)
 
         viewModel.confirmDelete()
-        await _Concurrency.Task<Never, Never>.yield()
+        await waitForCondition { viewModel.state == .completed }
 
         XCTAssertEqual(capture.taskID, task.id)
         XCTAssertEqual(viewModel.state, .completed)
@@ -381,14 +381,14 @@ final class OverdueRescueDeckTests: XCTestCase {
         )
 
         viewModel.keepToday(source: .tap)
-        await _Concurrency.Task<Never, Never>.yield()
+        await waitForCondition { viewModel.state == .completed }
 
         XCTAssertEqual(viewModel.state, .completed)
         XCTAssertEqual(viewModel.summary.kept, 1)
         XCTAssertEqual(viewModel.cards.count, 0)
 
         viewModel.undoLast()
-        await _Concurrency.Task<Never, Never>.yield()
+        await waitForCondition { viewModel.state == .active }
 
         XCTAssertEqual(viewModel.state, .active)
         XCTAssertEqual(viewModel.summary.kept, 0)
@@ -443,7 +443,7 @@ final class OverdueRescueDeckTests: XCTestCase {
         )
 
         viewModel.keepToday(source: .tap)
-        await _Concurrency.Task<Never, Never>.yield()
+        await waitForCondition { capture.request != nil }
 
         XCTAssertEqual(capture.request?.dueDate, expectedStart)
         XCTAssertEqual(capture.request?.scheduledStartAt, expectedStart)
@@ -563,6 +563,26 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertEqual(mutation?.taskID, task.id)
         XCTAssertEqual(mutation?.expectedUpdatedAt, updatedAt)
         XCTAssertEqual(mutation?.dueDate, calendar.startOfDay(for: applyDate))
+    }
+
+    /// Polls `condition` until it is satisfied or the timeout elapses, draining the
+    /// main queue between checks so view-model completion callbacks can run. Replaces
+    /// brittle single `Task.yield()` synchronizations that race the callback.
+    @MainActor
+    private func waitForCondition(
+        _ condition: () -> Bool,
+        timeout: TimeInterval = 2,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() {
+            if Date() >= deadline {
+                XCTFail("Timed out waiting for condition", file: file, line: line)
+                return
+            }
+            try? await _Concurrency.Task<Never, Never>.sleep(nanoseconds: 1_000_000)
+        }
     }
 
     private func makeViewModel(tasks: [TaskDefinition]) -> OverdueRescueViewModel {

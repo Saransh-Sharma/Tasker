@@ -37,6 +37,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             doneTimelineTasks: lhs.doneTimelineTasks,
             projects: lhs.projects,
             projectsByID: lhs.projectsByID,
+            lifeAreas: lhs.lifeAreas,
+            lifeAreasByID: lhs.lifeAreasByID,
             tagNameByID: lhs.tagNameByID,
             activeQuickView: lhs.activeQuickView,
             todayXPSoFar: lhs.todayXPSoFar,
@@ -48,7 +50,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             focusTasks: lhs.focusTasks,
             focusRows: lhs.focusRows,
             pinnedFocusTaskIDs: lhs.pinnedFocusTaskIDs,
-            todayOpenTaskCount: lhs.todayOpenTaskCount
+            todayOpenTaskCount: lhs.todayOpenTaskCount,
+            lifeAreaLensActivity: lhs.lifeAreaLensActivity
         )
 
         XCTAssertEqual(lhs, rhs)
@@ -311,6 +314,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             doneTimelineTasks: [],
             projects: [],
             projectsByID: [:],
+            lifeAreas: [],
+            lifeAreasByID: [:],
             tagNameByID: [:],
             activeQuickView: .today,
             todayXPSoFar: nil,
@@ -322,7 +327,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             focusTasks: [],
             focusRows: [],
             pinnedFocusTaskIDs: [],
-            todayOpenTaskCount: 0
+            todayOpenTaskCount: 0,
+            lifeAreaLensActivity: [:]
         )
 
         let presentation = snapshot.homeHeaderPresentation(tasks: tasks)
@@ -396,6 +402,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             doneTimelineTasks: tasks.doneTimelineTasks,
             projects: tasks.projects,
             projectsByID: tasks.projectsByID,
+            lifeAreas: tasks.lifeAreas,
+            lifeAreasByID: tasks.lifeAreasByID,
             tagNameByID: tasks.tagNameByID,
             activeQuickView: .overdue,
             todayXPSoFar: tasks.todayXPSoFar,
@@ -407,7 +415,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             focusTasks: tasks.focusTasks,
             focusRows: tasks.focusRows,
             pinnedFocusTaskIDs: tasks.pinnedFocusTaskIDs,
-            todayOpenTaskCount: tasks.todayOpenTaskCount
+            todayOpenTaskCount: tasks.todayOpenTaskCount,
+            lifeAreaLensActivity: tasks.lifeAreaLensActivity
         )
 
         let presentation = snapshot.homeHeaderPresentation(tasks: tasks)
@@ -629,6 +638,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             doneTimelineTasks: base.doneTimelineTasks,
             projects: base.projects,
             projectsByID: base.projectsByID,
+            lifeAreas: base.lifeAreas,
+            lifeAreasByID: base.lifeAreasByID,
             tagNameByID: base.tagNameByID,
             activeQuickView: base.activeQuickView,
             todayXPSoFar: base.todayXPSoFar,
@@ -640,7 +651,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             focusTasks: base.focusTasks,
             focusRows: focusRows,
             pinnedFocusTaskIDs: base.pinnedFocusTaskIDs,
-            todayOpenTaskCount: base.todayOpenTaskCount
+            todayOpenTaskCount: base.todayOpenTaskCount,
+            lifeAreaLensActivity: base.lifeAreaLensActivity
         )
     }
 

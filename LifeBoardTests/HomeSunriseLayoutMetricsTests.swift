@@ -1496,10 +1496,13 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         let calendar = Self.fixedCalendar
         let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
         let base = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 13, minute: 0)
-        let items = (0..<10).map { index in
-            index == 4
-                ? Self.makeTimedItem(id: "task-\(index)", title: "Task \(index)", start: base.addingTimeInterval(Double(index * 5) * 60), end: base.addingTimeInterval(Double(index * 5 + 45) * 60))
-                : Self.makeMeetingItem(id: "event-\(index)", title: "Event \(index)", start: base.addingTimeInterval(Double(index * 5) * 60), end: base.addingTimeInterval(Double(index * 5 + 45) * 60))
+        let items: [TimelinePlanItem] = (0..<10).map { (index: Int) -> TimelinePlanItem in
+            let start: Date = base.addingTimeInterval(Double(index * 5) * 60)
+            let end: Date = base.addingTimeInterval(Double(index * 5 + 45) * 60)
+            if index == 4 {
+                return Self.makeTimedItem(id: "task-\(index)", title: "Task \(index)", start: start, end: end)
+            }
+            return Self.makeMeetingItem(id: "event-\(index)", title: "Event \(index)", start: start, end: end)
         }
         let projection = Self.makeProjection(
             calendar: calendar,
