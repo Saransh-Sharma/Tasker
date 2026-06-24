@@ -2172,7 +2172,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    func testOpenRescueBuildsPlanFromEveryOverdueDeckCandidate() {
+    func testOpenRescueBuildsPlanFromStaleOverdueDeckCandidates() {
         let suiteName = "HomeViewModelPersistenceTests.RescueOpenFilters.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             return XCTFail("Failed to create test UserDefaults suite")
@@ -2233,8 +2233,13 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
         XCTAssertTrue(viewModel.evaRescueSheetPresented)
         XCTAssertEqual(viewModel.evaRescueLauncherState, .ready)
+        guard let rescueReferenceDate = viewModel.evaRescueReferenceDate else {
+            return XCTFail("Expected rescue reference date")
+        }
+        XCTAssertLessThanOrEqual(rescueReferenceDate, Date())
+        XCTAssertEqual(viewModel.buildHomeOverlayState().rescueReferenceDate, rescueReferenceDate)
         XCTAssertTrue(recommendedTaskIDs.contains(oldRescueTask.id))
-        XCTAssertTrue(recommendedTaskIDs.contains(recentOverdueTask.id))
+        XCTAssertFalse(recommendedTaskIDs.contains(recentOverdueTask.id))
         XCTAssertFalse(recommendedTaskIDs.contains(dueTodayTask.id))
         XCTAssertFalse(recommendedTaskIDs.contains(completedOverdueTask.id))
 
@@ -2254,14 +2259,14 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         var keepToday = makeTask(
             name: "Seed keep today",
             project: inbox,
-            dueDate: calendar.date(byAdding: .day, value: -1, to: now),
+            dueDate: calendar.date(byAdding: .day, value: -16, to: now),
             priority: .max
         )
         keepToday.estimatedDuration = 15 * 60
         var blocked = makeTask(
             name: "Seed blocked split",
             project: inbox,
-            dueDate: calendar.date(byAdding: .day, value: -3, to: now),
+            dueDate: calendar.date(byAdding: .day, value: -17, to: now),
             priority: .high
         )
         blocked.dependencies = [
@@ -2281,7 +2286,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         var longMove = makeTask(
             name: "Seed long move",
             project: inbox,
-            dueDate: calendar.date(byAdding: .day, value: -5, to: now),
+            dueDate: calendar.date(byAdding: .day, value: -18, to: now),
             priority: .high
         )
         longMove.estimatedDuration = 90 * 60
@@ -2305,6 +2310,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
         viewModel.setEvaRescuePresented(false)
         waitForMainQueueFlush()
+        XCTAssertNil(viewModel.evaRescueReferenceDate)
 
         viewModel.startTriage(scope: .allInbox)
         waitForMainQueueFlush()
