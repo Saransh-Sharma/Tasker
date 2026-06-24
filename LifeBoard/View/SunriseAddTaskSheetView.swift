@@ -9,6 +9,7 @@ public struct SunriseAddTaskSheetView: View {
     @StateObject private var viewModel: AddTaskViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.lifeboardLayoutClass) private var layoutClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let onTaskCreated: ((UUID) -> Void)?
     private let onDismissWithoutTask: (() -> Void)?
@@ -25,10 +26,26 @@ public struct SunriseAddTaskSheetView: View {
     @State private var showTimeEditor = false
     @State private var showDetails = false
     @State private var didAutoFocusTitleField = false
+    @State private var previewPop = false
+    @State private var previewPopTask: Task<Void, Never>?
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
     private var canCreate: Bool {
         viewModel.viewState.canSubmit && viewModel.scheduledStartAt != nil && !viewModel.isLoading
+    }
+    private var isPreviewAwaiting: Bool {
+        viewModel.taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func triggerPreviewPop() {
+        guard !reduceMotion else { return }
+        previewPopTask?.cancel()
+        withAnimation(LifeBoardAnimation.snappy) { previewPop = true }
+        previewPopTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 220_000_000)
+            guard Task.isCancelled == false else { return }
+            withAnimation(LifeBoardAnimation.snappy) { previewPop = false }
+        }
     }
 
     public init(
@@ -55,38 +72,40 @@ public struct SunriseAddTaskSheetView: View {
 
             ScrollView {
                 VStack(spacing: spacing.s16) {
-                    SunriseAddTaskHeader()
-
-                    AddTaskTitleField(
-                        text: $viewModel.taskName,
-                        isFocused: $titleFieldFocused,
-                        placeholder: "What do you want to do?",
-                        helperText: "Add only what helps you place it in the day.",
-                        onSubmit: handleCreate
-                    )
-
                     SunriseTaskTimelinePreview(
                         title: viewModel.taskName,
                         scheduledStartAt: viewModel.scheduledStartAt,
                         scheduledEndAt: viewModel.scheduledEndAt,
                         duration: viewModel.estimatedDuration,
                         lifeArea: selectedLifeArea,
+                        isAwaiting: isPreviewAwaiting,
                         action: { showTimeEditor = true }
                     )
+                    .scaleEffect(previewPop && !reduceMotion ? 1.03 : 1.0)
+                    .animation(LifeBoardAnimation.snappy, value: previewPop)
 
-                    SunriseAddTaskTimeRow(
+                    AddTaskTitleField(
+                        text: $viewModel.taskName,
+                        isFocused: $titleFieldFocused,
+                        placeholder: "What do you want to do?",
+                        helperText: "Just a name to start — shape the rest below.",
+                        onSubmit: handleCreate
+                    )
+
+                    SunriseTaskEssentials(
+                        viewModel: viewModel,
                         scheduledStartAt: viewModel.scheduledStartAt,
                         scheduledEndAt: viewModel.scheduledEndAt,
-                        action: { showTimeEditor = true }
+                        duration: $viewModel.estimatedDuration,
+                        selectedLifeArea: selectedLifeArea,
+                        onEditTime: { showTimeEditor = true }
                     )
 
-                    SunriseDurationPicker(duration: $viewModel.estimatedDuration)
-
-                    SunriseLifeAreaPicker(viewModel: viewModel)
-
-                    SunriseAddTaskDetailsDisclosure(
+                    CalmInlineReveal(
+                        title: "Refine",
+                        collapsedHint: detailsSummary,
                         isExpanded: $showDetails,
-                        summary: detailsSummary,
+                        accessibilityID: "addTask.detailsDisclosure",
                         onToggle: toggleDetails
                     ) {
                         SunriseAddTaskDetails(
@@ -102,7 +121,7 @@ public struct SunriseAddTaskSheetView: View {
                     }
                 }
                 .padding(.horizontal, spacing.s16)
-                .padding(.top, spacing.s8)
+                .padding(.top, spacing.s12)
                 .padding(.bottom, spacing.s20)
             }
 
@@ -150,6 +169,7 @@ public struct SunriseAddTaskSheetView: View {
         .onAppear(perform: handleAppear)
         .onDisappear {
             successResetTask?.cancel()
+            previewPopTask?.cancel()
             if didCreateTask == false {
                 onDismissWithoutTask?()
             }
@@ -158,6 +178,9 @@ public struct SunriseAddTaskSheetView: View {
             guard let taskID, let pendingBehavior else { return }
             handleCreatedTask(taskID, behavior: pendingBehavior)
         }
+        .onChange(of: viewModel.taskName) { _, _ in triggerPreviewPop() }
+        .onChange(of: viewModel.scheduledStartAt) { _, _ in triggerPreviewPop() }
+        .onChange(of: viewModel.estimatedDuration) { _, _ in triggerPreviewPop() }
     }
 
     private var selectedLifeArea: LifeArea? {
@@ -289,27 +312,69 @@ private enum SunriseTaskSubmissionBehavior {
     case addAnother
 }
 
-private struct SunriseAddTaskHeader: View {
-    var body: some View {
-        HStack(alignment: .center, spacing: LBSpacingTokens.sm) {
-            Image(systemName: "sunrise.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(LBColorTokens.sunriseGold)
-                .frame(width: 42, height: 42)
-                .background(Circle().fill(LBColorTokens.amberSoft))
+/// The essentials rail — a single calm "when & where" unit. A chip rail (Time, Life area)
+/// sits over the always-visible duration presets. The Time chip keeps the
+/// `addTask.schedule.timeRow` identifier and the duration presets keep
+/// `addTask.scheduleEditor` / `addTask.schedule.duration.*`, all of which the UI suite
+/// asserts on directly (no expand step), so they must remain mounted and hittable.
+private struct SunriseTaskEssentials: View {
+    @ObservedObject var viewModel: AddTaskViewModel
+    let scheduledStartAt: Date?
+    let scheduledEndAt: Date?
+    @Binding var duration: TimeInterval?
+    let selectedLifeArea: LifeArea?
+    let onEditTime: () -> Void
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Shape the next block")
-                    .font(.lifeboard(.headline))
-                    .foregroundStyle(LBColorTokens.navy)
-                Text("Pick a time and duration; the rest can wait.")
-                    .font(.lifeboard(.caption1))
-                    .foregroundStyle(LBColorTokens.navyMuted)
+    @State private var showLifeArea = false
+
+    private var timeText: String {
+        guard let scheduledStartAt else { return "Choose time" }
+        return AddTaskViewModel.scheduleRangeLabel(start: scheduledStartAt, end: scheduledEndAt)
+    }
+
+    private var lifeAreaAccent: Color {
+        guard let area = selectedLifeArea else { return LBColorTokens.violet }
+        return Color(lifeboardHex: LifeAreaColorPalette.normalizeOrMap(hex: area.color, for: area.id))
+    }
+
+    private var lifeAreaIcon: String { selectedLifeArea?.icon ?? "circle.dashed" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: LBSpacingTokens.xs) {
+                    CalmSummaryChip(
+                        icon: "clock",
+                        label: timeText,
+                        state: scheduledStartAt == nil ? .empty : .filled,
+                        accentColor: LBColorTokens.violet,
+                        action: onEditTime
+                    )
+                    .accessibilityIdentifier("addTask.schedule.timeRow")
+
+                    CalmSummaryChip(
+                        icon: lifeAreaIcon,
+                        label: selectedLifeArea?.name ?? "Any area",
+                        state: showLifeArea ? .active : (selectedLifeArea == nil ? .empty : .filled),
+                        accentColor: lifeAreaAccent,
+                        action: {
+                            withAnimation(LifeBoardAnimation.snappy) { showLifeArea.toggle() }
+                        }
+                    )
+                }
+                .padding(.horizontal, 1)
             }
-            Spacer(minLength: 0)
+
+            SunriseDurationPicker(duration: $duration)
+
+            if showLifeArea {
+                SunriseLifeAreaPicker(viewModel: viewModel)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .top)),
+                        removal: .opacity
+                    ))
+            }
         }
-        .padding(LBSpacingTokens.md)
-        .sunriseGlassCard(cornerRadius: 24, accentColor: LBColorTokens.sunriseGold)
     }
 }
 
@@ -319,6 +384,7 @@ private struct SunriseTaskTimelinePreview: View {
     let scheduledEndAt: Date?
     let duration: TimeInterval?
     let lifeArea: LifeArea?
+    var isAwaiting: Bool = false
     let action: () -> Void
 
     private var role: LBRoleStyle { LBColorTokens.role(.task) }
@@ -329,8 +395,8 @@ private struct SunriseTaskTimelinePreview: View {
     private var lifeAreaText: String {
         lifeArea?.name ?? "Any life area"
     }
-    private var durationText: String {
-        guard let duration else { return "15m" }
+    private var durationText: String? {
+        guard let duration else { return nil }
         let minutes = max(1, Int((duration / 60).rounded()))
         if minutes < 60 { return "\(minutes)m" }
         let hours = minutes / 60
@@ -353,6 +419,7 @@ private struct SunriseTaskTimelinePreview: View {
                     Circle()
                         .fill(role.base)
                         .frame(width: 10, height: 10)
+                        .breathingPulse(min: isAwaiting ? 0.35 : 1.0, max: 1.0, duration: 1.6)
                     Rectangle()
                         .fill(role.border)
                         .frame(width: 2, height: 56)
@@ -366,18 +433,22 @@ private struct SunriseTaskTimelinePreview: View {
                             .font(.lifeboard(.caption1).weight(.semibold))
                             .foregroundStyle(role.deep)
                         Spacer(minLength: LBSpacingTokens.xs)
-                        Text(durationText)
-                            .font(.lifeboard(.caption1).weight(.semibold))
-                            .foregroundStyle(LBColorTokens.navyMuted)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Capsule().fill(LBColorTokens.glassStrong))
+                        if let durationText {
+                            Text(durationText)
+                                .font(.lifeboard(.caption1).weight(.semibold))
+                                .foregroundStyle(LBColorTokens.navyMuted)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Capsule().fill(LBColorTokens.glassStrong))
+                        }
                     }
 
                     Text(displayTitle)
                         .font(.lifeboard(.headline))
                         .foregroundStyle(LBColorTokens.navy)
                         .lineLimit(2)
+                        .contentTransition(.opacity)
+                        .animation(LifeBoardAnimation.snappy, value: displayTitle)
 
                     Label(lifeAreaText, systemImage: role.symbolName)
                         .font(.lifeboard(.caption1))
@@ -404,54 +475,13 @@ private struct SunriseTaskTimelinePreview: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("addTask.timelinePreview")
-        .accessibilityLabel("Timeline preview. \(displayTitle). \(timeText). \(durationText). \(lifeAreaText).")
+        .accessibilityLabel("Timeline preview. \(displayTitle). \(timeText). \(durationText.map { "\($0). " } ?? "")\(lifeAreaText).")
     }
 
     private static func hourText(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "h a"
         return formatter.string(from: date)
-    }
-}
-
-private struct SunriseAddTaskTimeRow: View {
-    let scheduledStartAt: Date?
-    let scheduledEndAt: Date?
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: LBSpacingTokens.sm) {
-                Image(systemName: "clock.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.violet)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(LBColorTokens.violetSoft))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Time")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(LBColorTokens.textTertiary)
-                    Text(timeText)
-                        .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.textTertiary)
-            }
-            .frame(minHeight: 56)
-            .padding(.horizontal, LBSpacingTokens.md)
-            .sunriseGlassCard(cornerRadius: 18, accentColor: LBColorTokens.violet)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("addTask.schedule.timeRow")
-    }
-
-    private var timeText: String {
-        guard let scheduledStartAt else { return "Choose a start time" }
-        return AddTaskViewModel.scheduleRangeLabel(start: scheduledStartAt, end: scheduledEndAt)
     }
 }
 
@@ -594,103 +624,67 @@ private struct SunriseLifeAreaPicker: View {
     }
 }
 
-private struct SunriseAddTaskDetailsDisclosure<Content: View>: View {
-    @Binding var isExpanded: Bool
-    let summary: String
-    let onToggle: () -> Void
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: isExpanded ? LBSpacingTokens.md : 0) {
-            Button(action: onToggle) {
-                HStack(spacing: LBSpacingTokens.sm) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("More details")
-                            .font(.lifeboard(.callout).weight(.semibold))
-                            .foregroundStyle(LBColorTokens.navy)
-                        Text(summary)
-                            .font(.lifeboard(.caption1))
-                            .foregroundStyle(LBColorTokens.navyMuted)
-                            .lineLimit(2)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(LBColorTokens.textTertiary)
-                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("addTask.detailsDisclosure")
-
-            if isExpanded {
-                content()
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-        }
-        .padding(LBSpacingTokens.md)
-        .sunriseGlassCard(cornerRadius: 22, accentColor: LBColorTokens.violet)
-    }
-}
-
 private struct SunriseAddTaskDetails: View {
     @ObservedObject var viewModel: AddTaskViewModel
     @FocusState.Binding var descriptionFocused: Bool
     let onExpand: () -> Void
 
     var body: some View {
-        VStack(spacing: LBSpacingTokens.md) {
-            AddTaskDescriptionField(
-                text: $viewModel.taskDetails,
-                isFocused: $descriptionFocused
-            )
+        VStack(spacing: LBSpacingTokens.lg) {
+            CalmFieldGroup(title: "Notes") {
+                AddTaskDescriptionField(
+                    text: $viewModel.taskDetails,
+                    isFocused: $descriptionFocused
+                )
+            }
 
-            if viewModel.filteredProjectsForSelectedLifeArea.isEmpty == false {
-                AddTaskEntityPicker(
-                    label: "Project",
-                    items: viewModel.filteredProjectsForSelectedLifeArea.map {
-                        AddTaskEntityPickerItem(id: $0.id, name: $0.name, icon: nil, accentHex: nil)
-                    },
-                    selectedID: Binding(
-                        get: {
-                            viewModel.selectedProjectID == ProjectConstants.inboxProjectID ? nil : viewModel.selectedProjectID
+            CalmFieldGroup(title: "Organize") {
+                if viewModel.filteredProjectsForSelectedLifeArea.isEmpty == false {
+                    AddTaskEntityPicker(
+                        label: "Project",
+                        items: viewModel.filteredProjectsForSelectedLifeArea.map {
+                            AddTaskEntityPickerItem(id: $0.id, name: $0.name, icon: nil, accentHex: nil)
                         },
-                        set: { viewModel.selectProject(id: $0) }
+                        selectedID: Binding(
+                            get: {
+                                viewModel.selectedProjectID == ProjectConstants.inboxProjectID ? nil : viewModel.selectedProjectID
+                            },
+                            set: { viewModel.selectProject(id: $0) }
+                        )
                     )
-                )
-            }
-
-            AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
-
-            if viewModel.sections.isEmpty == false {
-                AddTaskEntityPicker(
-                    label: "Section",
-                    items: viewModel.sections.map {
-                        AddTaskEntityPickerItem(id: $0.id, name: $0.name, icon: nil, accentHex: nil)
-                    },
-                    selectedID: $viewModel.selectedSectionID
-                )
-            }
-
-            AddTaskTagMultiSelect(
-                tags: viewModel.tags,
-                selectedTagIDs: $viewModel.selectedTagIDs,
-                onCreateTag: { name, completion in
-                    viewModel.createTag(name: name) { didCreate in
-                        completion(didCreate)
-                    }
                 }
-            )
 
-            AddTaskEnumChipRow(
-                label: "Energy",
-                displayName: { $0.displayName },
-                icon: { $0.emoji.isEmpty ? "bolt" : $0.emoji },
-                selected: $viewModel.selectedEnergy
-            )
+                AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
 
-            AddTaskRepeatEditor(repeatPattern: $viewModel.repeatPattern)
+                if viewModel.sections.isEmpty == false {
+                    AddTaskEntityPicker(
+                        label: "Section",
+                        items: viewModel.sections.map {
+                            AddTaskEntityPickerItem(id: $0.id, name: $0.name, icon: nil, accentHex: nil)
+                        },
+                        selectedID: $viewModel.selectedSectionID
+                    )
+                }
+
+                AddTaskTagMultiSelect(
+                    tags: viewModel.tags,
+                    selectedTagIDs: $viewModel.selectedTagIDs,
+                    onCreateTag: { name, completion in
+                        viewModel.createTag(name: name) { didCreate in
+                            completion(didCreate)
+                        }
+                    }
+                )
+
+                AddTaskEnumChipRow(
+                    label: "Energy",
+                    displayName: { $0.displayName },
+                    icon: { $0.emoji.isEmpty ? "bolt" : $0.emoji },
+                    selected: $viewModel.selectedEnergy
+                )
+
+                AddTaskRepeatEditor(repeatPattern: $viewModel.repeatPattern)
+            }
 
             TaskEditorSectionCard(
                 section: .relationships,

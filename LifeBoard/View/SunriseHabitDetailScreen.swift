@@ -7,12 +7,6 @@
 
 import SwiftUI
 
-private enum SunriseHabitDetailSection: Hashable {
-    case rhythm
-    case appearance
-    case lifecycle
-}
-
 private enum SunriseHabitCadencePreset: String, CaseIterable, Identifiable {
     case daily
     case weekly
@@ -33,7 +27,7 @@ struct SunriseHabitDetailScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.lifeboardLayoutClass) private var layoutClass
-    @State private var expandedSections: Set<SunriseHabitDetailSection> = []
+    @State private var showDetailReveal = false
     @State private var snackbar: SnackbarData?
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
@@ -125,8 +119,12 @@ struct SunriseHabitDetailScreen: View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             heroCard
             habitProgressCard
-            rhythmDisclosure
-            lifecycleDisclosure
+            detailReveal {
+                VStack(alignment: .leading, spacing: spacing.s16) {
+                    CalmFieldGroup(title: "Rhythm") { rhythmReadOnlyContent }
+                    CalmFieldGroup(title: "Lifecycle") { lifecycleContent }
+                }
+            }
         }
     }
 
@@ -134,10 +132,28 @@ struct SunriseHabitDetailScreen: View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             heroCard
             essentialsEditor
-            rhythmEditorDisclosure
-            appearanceDisclosure
-            lifecycleDisclosure
+            detailReveal {
+                VStack(alignment: .leading, spacing: spacing.s16) {
+                    CalmFieldGroup(title: "Rhythm") { rhythmEditorContent }
+                    CalmFieldGroup(title: "Appearance") { appearanceContent }
+                    CalmFieldGroup(title: "Lifecycle") { lifecycleContent }
+                }
+            }
         }
+    }
+
+    private func detailReveal<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
+        CalmInlineReveal(
+            title: "Details",
+            collapsedHint: rhythmSummary,
+            isExpanded: $showDetailReveal,
+            accessibilityID: SunriseHabitDetailAccessibilityID.detailsDisclosure,
+            onToggle: {
+                LifeBoardFeedback.light()
+                withAnimation(LifeBoardAnimation.snappy) { showDetailReveal.toggle() }
+            },
+            content: content
+        )
     }
 
     private var heroCard: some View {
@@ -150,6 +166,8 @@ struct SunriseHabitDetailScreen: View {
                     Image(systemName: viewModel.row.icon?.symbolName ?? "circle.dashed")
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(accentColor)
+                        .contentTransition(.symbolEffect(.replace))
+                        .animation(LifeBoardAnimation.snappy, value: viewModel.row.icon?.symbolName)
                 }
                 .accessibilityHidden(true)
 
@@ -227,19 +245,17 @@ struct SunriseHabitDetailScreen: View {
         )
     }
 
-    private var rhythmDisclosure: some View {
-        disclosureCard(.rhythm, title: "Rhythm", systemImage: "calendar.badge.clock", summary: rhythmSummary, accessibilityIdentifier: SunriseHabitDetailAccessibilityID.detailsDisclosure) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                definitionLine("Ownership", ownershipSummary)
-                definitionLine("Cadence", cadenceSummary(viewModel.row.cadence))
-                definitionLine("Reminder", reminderSummary)
-                if let notes = viewModel.row.notes, notes.isEmpty == false {
-                    Text(notes)
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                        .padding(spacing.s12)
-                        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.md, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.72))
-                }
+    private var rhythmReadOnlyContent: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            definitionLine("Ownership", ownershipSummary)
+            definitionLine("Cadence", cadenceSummary(viewModel.row.cadence))
+            definitionLine("Reminder", reminderSummary)
+            if let notes = viewModel.row.notes, notes.isEmpty == false {
+                Text(notes)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .padding(spacing.s12)
+                    .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.md, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.72))
             }
         }
     }
@@ -273,9 +289,8 @@ struct SunriseHabitDetailScreen: View {
         .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.card, fillColor: Color.lifeboard.surfacePrimary)
     }
 
-    private var rhythmEditorDisclosure: some View {
-        disclosureCard(.rhythm, title: "Rhythm", systemImage: "calendar.badge.clock", summary: rhythmSummary, accessibilityIdentifier: SunriseHabitDetailAccessibilityID.detailsDisclosure) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
+    private var rhythmEditorContent: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
                 Picker("Cadence", selection: cadencePresetBinding) {
                     ForEach(SunriseHabitCadencePreset.allCases) { cadence in
                         Text(cadence.title).tag(cadence)
@@ -320,13 +335,11 @@ struct SunriseHabitDetailScreen: View {
                 TextField("Notes", text: $viewModel.draft.notes, axis: .vertical)
                     .lineLimit(3...7)
                     .textFieldStyle(LifeBoardTextFieldStyle())
-            }
         }
     }
 
-    private var appearanceDisclosure: some View {
-        disclosureCard(.appearance, title: "Appearance", systemImage: "swatchpalette", summary: appearanceSummary, accessibilityIdentifier: nil) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
+    private var appearanceContent: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
                 TextField("Search icons", text: $viewModel.draft.iconSearchQuery)
                     .textFieldStyle(LifeBoardTextFieldStyle())
 
@@ -370,13 +383,11 @@ struct SunriseHabitDetailScreen: View {
                         }
                     }
                 }
-            }
         }
     }
 
-    private var lifecycleDisclosure: some View {
-        disclosureCard(.lifecycle, title: "Lifecycle", systemImage: "arrow.triangle.branch", summary: "Pause, recover, or archive without losing history.", accessibilityIdentifier: nil) {
-            VStack(alignment: .leading, spacing: spacing.s8) {
+    private var lifecycleContent: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
                 Button(viewModel.row.isPaused ? "Resume habit" : "Pause habit", systemImage: viewModel.row.isPaused ? "play.fill" : "pause.fill") {
                     viewModel.togglePause { Task { @MainActor in notifyMutation() } }
                 }
@@ -400,35 +411,6 @@ struct SunriseHabitDetailScreen: View {
                 Text("Pause keeps history intact. Archive removes the habit from active views.")
                     .font(.lifeboard(.callout))
                     .foregroundStyle(Color.lifeboard.textSecondary)
-            }
-        }
-    }
-
-    private func disclosureCard<Content: View>(
-        _ section: SunriseHabitDetailSection,
-        title: String,
-        systemImage: String,
-        summary: String,
-        accessibilityIdentifier: String?,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        SunriseDetailDisclosureCard(
-            title: title,
-            systemImage: systemImage,
-            summary: summary,
-            isExpanded: expandedSections.contains(section),
-            accessibilityIdentifier: accessibilityIdentifier
-        ) {
-            LifeBoardFeedback.light()
-            withAnimation(LifeBoardAnimation.snappy) {
-                if expandedSections.contains(section) {
-                    expandedSections.remove(section)
-                } else {
-                    expandedSections.insert(section)
-                }
-            }
-        } content: {
-            content()
         }
     }
 

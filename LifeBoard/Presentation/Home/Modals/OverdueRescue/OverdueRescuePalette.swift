@@ -9,33 +9,112 @@ import SwiftUI
 import UIKit
 
 enum OverdueRescuePalette {
-    static let ink = Color(red: 0.03, green: 0.14, blue: 0.36)
-    static let secondaryInk = Color(red: 0.28, green: 0.39, blue: 0.56)
-    static let backgroundTop = Color(red: 1.0, green: 0.995, blue: 0.975)
-    static let backgroundMid = Color(red: 1.0, green: 0.975, blue: 0.925)
-    static let backgroundBottom = Color(red: 1.0, green: 0.995, blue: 0.985)
-    static let glassFill = Color.white.opacity(0.72)
-    static let glassStroke = Color(red: 0.88, green: 0.82, blue: 0.72).opacity(0.42)
-    static let softShadow = Color(red: 0.18, green: 0.12, blue: 0.06).opacity(0.10)
-    static let progressTrack = Color(red: 0.86, green: 0.86, blue: 0.89)
+    static let ink = adaptiveColor(
+        light: uiColor(red: 0.03, green: 0.14, blue: 0.36),
+        dark: uiColor(red: 0.92, green: 0.94, blue: 1.0)
+    )
+    static let secondaryInk = adaptiveColor(
+        light: uiColor(red: 0.28, green: 0.39, blue: 0.56),
+        dark: uiColor(red: 0.72, green: 0.78, blue: 0.90)
+    )
+    static let backgroundTop = adaptiveColor(
+        light: uiColor(red: 1.0, green: 0.995, blue: 0.975),
+        dark: uiColor(red: 0.04, green: 0.055, blue: 0.10)
+    )
+    static let backgroundMid = adaptiveColor(
+        light: uiColor(red: 1.0, green: 0.975, blue: 0.925),
+        dark: uiColor(red: 0.07, green: 0.07, blue: 0.14)
+    )
+    static let backgroundBottom = adaptiveColor(
+        light: uiColor(red: 1.0, green: 0.995, blue: 0.985),
+        dark: uiColor(red: 0.03, green: 0.045, blue: 0.08)
+    )
+    static let glassFill = adaptiveColor(
+        light: uiColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.72),
+        dark: uiColor(red: 0.10, green: 0.12, blue: 0.19, alpha: 0.78)
+    )
+    static let glassStroke = adaptiveColor(
+        light: uiColor(red: 0.88, green: 0.82, blue: 0.72, alpha: 0.42),
+        dark: uiColor(red: 0.58, green: 0.55, blue: 0.86, alpha: 0.30)
+    )
+    static let softShadow = adaptiveColor(
+        light: uiColor(red: 0.18, green: 0.12, blue: 0.06, alpha: 0.10),
+        dark: uiColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.42)
+    )
+    static let progressTrack = adaptiveColor(
+        light: uiColor(red: 0.86, green: 0.86, blue: 0.89),
+        dark: uiColor(red: 0.23, green: 0.27, blue: 0.36)
+    )
+    static let accentPrimary = adaptiveColor(
+        light: uiColor(red: 0.37, green: 0.23, blue: 1.0),
+        dark: uiColor(red: 0.73, green: 0.66, blue: 1.0)
+    )
+    static let accentSoftFill = adaptiveColor(
+        light: uiColor(red: 0.94, green: 0.91, blue: 1.0, alpha: 0.74),
+        dark: uiColor(red: 0.18, green: 0.15, blue: 0.30, alpha: 0.88)
+    )
+    static let accentSoftStroke = adaptiveColor(
+        light: uiColor(red: 0.37, green: 0.23, blue: 1.0, alpha: 0.26),
+        dark: uiColor(red: 0.73, green: 0.66, blue: 1.0, alpha: 0.42)
+    )
     static let accentGradient = LinearGradient(
         colors: [
-            Color(red: 0.37, green: 0.23, blue: 1.0),
-            Color(red: 0.23, green: 0.20, blue: 0.98)
+            adaptiveColor(
+                light: uiColor(red: 0.37, green: 0.23, blue: 1.0),
+                dark: uiColor(red: 0.57, green: 0.45, blue: 1.0)
+            ),
+            adaptiveColor(
+                light: uiColor(red: 0.23, green: 0.20, blue: 0.98),
+                dark: uiColor(red: 0.41, green: 0.34, blue: 0.94)
+            )
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
-    static let keepFill = Color(red: 0.90, green: 0.96, blue: 0.92)
-    static let keepForeground = Color(red: 0.08, green: 0.61, blue: 0.27)
+    static let keepFill = adaptiveColor(
+        light: uiColor(red: 0.90, green: 0.96, blue: 0.92),
+        dark: uiColor(red: 0.07, green: 0.16, blue: 0.11)
+    )
+    static let keepForeground = adaptiveColor(
+        light: uiColor(red: 0.08, green: 0.61, blue: 0.27),
+        dark: uiColor(red: 0.46, green: 0.89, blue: 0.56)
+    )
 
-    static let moveFill = Color(red: 1.0, green: 0.94, blue: 0.82)
-    static let moveForeground = Color(red: 0.91, green: 0.52, blue: 0.02)
+    static let moveFill = adaptiveColor(
+        light: uiColor(red: 1.0, green: 0.94, blue: 0.82),
+        dark: uiColor(red: 0.19, green: 0.15, blue: 0.07)
+    )
+    static let moveForeground = adaptiveColor(
+        light: uiColor(red: 0.91, green: 0.52, blue: 0.02),
+        dark: uiColor(red: 1.0, green: 0.82, blue: 0.48)
+    )
 
-    static let editFill = Color(red: 0.91, green: 0.94, blue: 1.0)
-    static let editForeground = Color(red: 0.11, green: 0.46, blue: 0.96)
+    static let editFill = adaptiveColor(
+        light: uiColor(red: 0.91, green: 0.94, blue: 1.0),
+        dark: uiColor(red: 0.08, green: 0.13, blue: 0.22)
+    )
+    static let editForeground = adaptiveColor(
+        light: uiColor(red: 0.11, green: 0.46, blue: 0.96),
+        dark: uiColor(red: 0.47, green: 0.70, blue: 1.0)
+    )
 
-    static let deleteFill = Color(red: 1.0, green: 0.92, blue: 0.91)
-    static let deleteForeground = Color(red: 0.93, green: 0.15, blue: 0.14)
+    static let deleteFill = adaptiveColor(
+        light: uiColor(red: 1.0, green: 0.92, blue: 0.91),
+        dark: uiColor(red: 0.22, green: 0.08, blue: 0.08)
+    )
+    static let deleteForeground = adaptiveColor(
+        light: uiColor(red: 0.93, green: 0.15, blue: 0.14),
+        dark: uiColor(red: 1.0, green: 0.47, blue: 0.45)
+    )
+
+    private static func adaptiveColor(light: UIColor, dark: UIColor) -> Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? dark : light
+        })
+    }
+
+    private static func uiColor(red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat = 1.0) -> UIColor {
+        UIColor(red: red, green: green, blue: blue, alpha: alpha)
+    }
 }

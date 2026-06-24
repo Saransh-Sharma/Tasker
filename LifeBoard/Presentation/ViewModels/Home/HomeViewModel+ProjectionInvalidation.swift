@@ -62,6 +62,7 @@ extension HomeViewModel {
              \HomeViewModel.evaFocusWhySheetPresented,
              \HomeViewModel.evaRescueSheetPresented,
              \HomeViewModel.evaRescuePlan,
+             \HomeViewModel.evaRescueReferenceDate,
              \HomeViewModel.evaLastBatchRunID,
              \HomeViewModel.homeReplanState,
              \HomeViewModel.homeCalendarSnapshot:

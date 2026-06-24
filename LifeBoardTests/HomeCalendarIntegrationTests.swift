@@ -337,6 +337,158 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         })
     }
 
+    func testHomeTimelineShowsDateOnlyRescueTasksWithStaleScheduleAsAllDayItems() {
+        let preferences = LifeBoardWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true
+        )
+        workspaceStore.save(preferences)
+
+        let systemCalendar = Calendar.current
+        let today = systemCalendar.startOfDay(for: Date())
+        let staleStart = systemCalendar.date(
+            bySettingHour: 9,
+            minute: 30,
+            second: 0,
+            of: systemCalendar.date(byAdding: .day, value: -2, to: today)!
+        )!
+        let rescuedTask = TaskDefinition(
+            title: "Rescued today with stale schedule",
+            dueDate: today,
+            scheduledStartAt: staleStart,
+            scheduledEndAt: staleStart.addingTimeInterval(45 * 60),
+            isAllDay: false,
+            isComplete: false
+        )
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([])
+        let coordinator = makeCoordinator(provider: provider, seedTasks: [rescuedTask])
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineDateOnlyStaleRescueTests")
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
+
+        waitForMainQueue(seconds: 0.45)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            sunriseAnchor: .collapsed
+        )
+
+        XCTAssertTrue(timeline.day.allDayItems.contains { $0.source == .task && $0.taskID == rescuedTask.id })
+        XCTAssertFalse(timeline.day.timedItems.contains { $0.source == .task && $0.taskID == rescuedTask.id })
+        XCTAssertFalse(timeline.day.beforeWakeItems.contains { $0.source == .task && $0.taskID == rescuedTask.id })
+        XCTAssertFalse(timeline.day.afterSleepItems.contains { $0.source == .task && $0.taskID == rescuedTask.id })
+    }
+
+    func testHomeTimelineIncludesAllRescuedAllDayTasksBeyondAgendaDisplayCount() {
+        let preferences = LifeBoardWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true
+        )
+        workspaceStore.save(preferences)
+
+        let systemCalendar = Calendar.current
+        let today = systemCalendar.startOfDay(for: Date())
+        let rescuedTasks = (0..<7).map { index in
+            TaskDefinition(
+                title: "Rescued all-day \(index)",
+                dueDate: today,
+                scheduledStartAt: nil,
+                scheduledEndAt: nil,
+                isAllDay: true,
+                isComplete: false
+            )
+        }
+        let rescuedTaskIDs = Set(rescuedTasks.map(\.id))
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([])
+        let coordinator = makeCoordinator(provider: provider, seedTasks: rescuedTasks)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineAllRescuedAllDayTests")
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
+
+        waitForMainQueue(seconds: 0.45)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            sunriseAnchor: .collapsed
+        )
+        let allDayTaskIDs = Set(timeline.day.allDayItems.compactMap(\.taskID))
+
+        XCTAssertTrue(rescuedTaskIDs.isSubset(of: allDayTaskIDs))
+        XCTAssertEqual(timeline.day.allDayItems.compactMap(\.taskID).filter { rescuedTaskIDs.contains($0) }.count, rescuedTasks.count)
+    }
+
+    func testTimelineTaskCandidatesIgnoreProjectionCacheWhenQueryKeyDoesNotMatch() {
+        let preferences = LifeBoardWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true
+        )
+        workspaceStore.save(preferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([])
+        let coordinator = makeCoordinator(provider: provider, seedTasks: [])
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineProjectionCacheKeyTests")
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
+
+        let today = Calendar.current.startOfDay(for: viewModel.selectedDate)
+        let staleProjectionTask = TaskDefinition(
+            title: "Stale projection task",
+            dueDate: today,
+            scheduledStartAt: nil,
+            scheduledEndAt: nil,
+            isAllDay: true,
+            isComplete: false
+        )
+        let fallbackTask = TaskDefinition(
+            title: "Fresh fallback task",
+            dueDate: today,
+            scheduledStartAt: nil,
+            scheduledEndAt: nil,
+            isAllDay: true,
+            isComplete: false
+        )
+
+        viewModel.timelineProjectionTasks = [staleProjectionTask]
+        viewModel.timelineProjectionSelectedDay = today
+        viewModel.timelineProjectionRevision = viewModel.dataRevision
+        viewModel.timelineProjectionProjectIDs = []
+        viewModel.timelineProjectionCacheKey = "stale-query-key"
+        viewModel.morningTasks = [fallbackTask]
+
+        let candidateIDs = Set(viewModel.timelineTaskCandidates().map(\.id))
+
+        XCTAssertFalse(candidateIDs.contains(staleProjectionTask.id))
+        XCTAssertTrue(candidateIDs.contains(fallbackTask.id))
+    }
+
     func testHiddenCalendarEventStorePersistsEventDaySelections() throws {
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineHiddenCalendarEventStoreTests")
         let store = HomeTimelineHiddenCalendarEventStore(defaults: defaults)

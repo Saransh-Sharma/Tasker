@@ -22,11 +22,14 @@ struct OverdueRescueLargeStackView: View {
             Text("Large rescue stack")
                 .font(.lifeboard(.title1))
                 .fontWeight(.bold)
-                .foregroundStyle(Color.lifeboard.textPrimary)
+                .foregroundStyle(OverdueRescuePalette.ink)
+                .multilineTextAlignment(.center)
             Text("\(count) tasks need review. Start with high-confidence fixes or review manually.")
                 .font(.lifeboard(.title3))
-                .foregroundStyle(Color.lifeboard.textSecondary)
+                .foregroundStyle(OverdueRescuePalette.secondaryInk)
                 .multilineTextAlignment(.center)
+                .lineSpacing(4)
+                .padding(.horizontal, 8)
             Spacer()
             Button("Apply safe fixes") {
                 dismiss()
@@ -35,18 +38,54 @@ struct OverdueRescueLargeStackView: View {
             .font(.lifeboard(.button))
             .fontWeight(.bold)
             .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 68)
-            .background(RoundedRectangle(cornerRadius: 24).fill(Color.lifeboard.accentPrimary))
+            .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.primaryButtonHeight)
+            .background(OverdueRescueVisualSpec.primaryButtonBackground())
+            .opacity(safeCount == 0 ? 0.58 : 1.0)
             .disabled(safeCount == 0)
             Button("Start manual review") {
                 dismiss()
                 startManualReview()
             }
             .font(.lifeboard(.button))
-            .foregroundStyle(Color.lifeboard.accentPrimary)
-            .frame(maxWidth: .infinity, minHeight: 62)
+            .fontWeight(.bold)
+            .foregroundStyle(OverdueRescuePalette.accentPrimary)
+            .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.secondaryButtonHeight)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(OverdueRescuePalette.accentSoftFill)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(OverdueRescuePalette.accentSoftStroke, lineWidth: 1.2)
+                    )
+            )
         }
         .padding(28)
+        .frame(maxWidth: OverdueRescueVisualSpec.sheetMaxWidth)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(OverdueRescueBackground())
+        .presentationDetents([.large])
+        .presentationBackground(.clear)
     }
 }
+
+#if DEBUG
+#Preview("Large Stack - Light") {
+    OverdueRescueLargeStackView(
+        count: 28,
+        safeCount: 12,
+        applySafeFixes: {},
+        startManualReview: {}
+    )
+    .preferredColorScheme(.light)
+}
+
+#Preview("Large Stack - Dark") {
+    OverdueRescueLargeStackView(
+        count: 28,
+        safeCount: 12,
+        applySafeFixes: {},
+        startManualReview: {}
+    )
+    .preferredColorScheme(.dark)
+}
+#endif

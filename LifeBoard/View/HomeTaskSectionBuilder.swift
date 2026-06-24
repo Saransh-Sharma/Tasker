@@ -237,6 +237,172 @@ enum HomeTaskSectionBuilder {
     }
 }
 
+/// Builds time-horizon sections (Overdue / Today / This week / Next week / Later / Someday)
+/// for the Home "stream" lenses: the Upcoming lens and per-project lenses. Unlike
+/// `HomeMixedSectionBuilder`, which groups by project/life-area for a single day, this groups
+/// a forward-looking set of tasks by when they are due, keeping undated work visible in Someday.
+enum HomeHorizonSectionBuilder {
+    static func buildHorizonSections(
+        taskRows: [TaskDefinition],
+        referenceDate: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [HomeListSection] {
+        guard taskRows.isEmpty == false else { return [] }
+
+        let boundaries = HorizonBoundaries(referenceDate: referenceDate, calendar: calendar)
+        let grouped = Dictionary(grouping: taskRows) { task in
+            bucket(for: task, boundaries: boundaries)
+        }
+
+        return grouped
+            .map { bucket, tasks -> HomeListSection in
+                HomeListSection(
+                    anchor: .horizon(bucket: bucket),
+                    rows: sortByPriorityThenDue(tasks).map(HomeTodayRow.task),
+                    accentHex: bucket.accentHex
+                )
+            }
+            .sorted { $0.anchor.horizonSortIndex < $1.anchor.horizonSortIndex }
+    }
+
+    static func bucket(for task: TaskDefinition, boundaries: HorizonBoundaries) -> HomeHorizonBucket {
+        guard let dueDate = task.dueDate else {
+            return undatedBucket(for: task.planningBucket)
+        }
+
+        if dueDate < boundaries.startOfToday {
+            return .overdue
+        }
+        if dueDate < boundaries.startOfTomorrow {
+            return .today
+        }
+        if dueDate < boundaries.startOfNextWeek {
+            return .thisWeek
+        }
+        if dueDate < boundaries.startOfWeekAfterNext {
+            return .nextWeek
+        }
+        return .later
+    }
+
+    private static func undatedBucket(for planningBucket: TaskPlanningBucket) -> HomeHorizonBucket {
+        switch planningBucket {
+        case .thisWeek:
+            return .thisWeek
+        case .nextWeek:
+            return .nextWeek
+        case .later:
+            return .later
+        case .today, .someday:
+            return .someday
+        }
+    }
+
+    static func sortByPriorityThenDue(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
+        tasks.sorted { lhs, rhs in
+            if lhs.priority.scorePoints != rhs.priority.scorePoints {
+                return lhs.priority.scorePoints > rhs.priority.scorePoints
+            }
+            let lhsDate = lhs.dueDate ?? Date.distantFuture
+            let rhsDate = rhs.dueDate ?? Date.distantFuture
+            if lhsDate != rhsDate {
+                return lhsDate < rhsDate
+            }
+            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+    }
+
+    struct HorizonBoundaries {
+        let startOfToday: Date
+        let startOfTomorrow: Date
+        let startOfNextWeek: Date
+        let startOfWeekAfterNext: Date
+
+        init(referenceDate: Date, calendar: Calendar) {
+            let startOfToday = calendar.startOfDay(for: referenceDate)
+            let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday
+            let weekInterval = calendar.dateInterval(of: .weekOfYear, for: referenceDate)
+            let startOfNextWeek = weekInterval?.end
+                ?? calendar.date(byAdding: .day, value: 7, to: startOfToday)
+                ?? startOfToday
+            let startOfWeekAfterNext = calendar.date(byAdding: .day, value: 7, to: startOfNextWeek) ?? startOfNextWeek
+
+            self.startOfToday = startOfToday
+            self.startOfTomorrow = startOfTomorrow
+            // Guard against today being the final day of the calendar week (next-week start
+            // could otherwise fall on or before tomorrow, collapsing the "This week" bucket).
+            self.startOfNextWeek = max(startOfNextWeek, startOfTomorrow)
+            self.startOfWeekAfterNext = max(startOfWeekAfterNext, self.startOfNextWeek)
+        }
+    }
+}
+
+/// Life-area stream lens: horizon buckets subdivided by project within each bucket.
+enum HomeLifeAreaStreamSectionBuilder {
+    private struct GroupKey: Hashable {
+        let bucket: HomeHorizonBucket
+        let projectID: UUID
+    }
+
+    static func buildSections(
+        taskRows: [TaskDefinition],
+        projects: [Project],
+        referenceDate: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [HomeListSection] {
+        guard taskRows.isEmpty == false else { return [] }
+
+        let boundaries = HomeHorizonSectionBuilder.HorizonBoundaries(
+            referenceDate: referenceDate,
+            calendar: calendar
+        )
+        let projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
+        var grouped: [GroupKey: [TaskDefinition]] = [:]
+
+        for task in taskRows {
+            let bucket = HomeHorizonSectionBuilder.bucket(for: task, boundaries: boundaries)
+            grouped[GroupKey(bucket: bucket, projectID: task.projectID), default: []].append(task)
+        }
+
+        return grouped.map { key, tasks in
+            let project = projectsByID[key.projectID]
+            let name = project?.name ?? tasks.first?.projectName ?? "Project"
+            let icon = project?.icon.systemImageName ?? "folder"
+            let accent = project?.color.hexString ?? key.bucket.accentHex
+            return HomeListSection(
+                anchor: .horizonProject(
+                    horizon: key.bucket,
+                    projectID: key.projectID,
+                    name: name,
+                    iconSystemName: icon
+                ),
+                rows: HomeHorizonSectionBuilder.sortByPriorityThenDue(tasks).map(HomeTodayRow.task),
+                identifier: "horizon:\(key.bucket.rawValue):project:\(key.projectID.uuidString)",
+                accentHex: accent
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.anchor.horizonSortIndex != rhs.anchor.horizonSortIndex {
+                return lhs.anchor.horizonSortIndex < rhs.anchor.horizonSortIndex
+            }
+            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+    }
+}
+
+private extension HomeSectionAnchor {
+    var horizonSortIndex: Int {
+        switch self {
+        case .horizon(let bucket):
+            return bucket.sortIndex
+        case .horizonProject(let horizon, _, _, _):
+            return horizon.sortIndex
+        default:
+            return Int.max
+        }
+    }
+}
+
 enum HomeMixedSectionBuilder {
     static func buildTodaySections(
         taskRows: [TaskDefinition],

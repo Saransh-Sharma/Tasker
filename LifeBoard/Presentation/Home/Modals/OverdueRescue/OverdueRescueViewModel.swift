@@ -46,6 +46,8 @@ final class OverdueRescueViewModel: ObservableObject {
 
     let projectsByID: [UUID: Project]
 
+    let nowProvider: @Sendable () -> Date
+
     var resolvedTaskIDs: Set<UUID> = []
 
     let runID: UUID
@@ -73,6 +75,7 @@ final class OverdueRescueViewModel: ObservableObject {
         tasksByID: [UUID: TaskDefinition],
         projectsByID: [UUID: Project],
         referenceDate: Date = Date(),
+        nowProvider: @escaping @Sendable () -> Date = Date.init,
         sessionScope: OverdueRescueSessionScope? = nil,
         sessionStore: UserDefaultsOverdueRescueSessionStore = UserDefaultsOverdueRescueSessionStore(),
         onUpdate: @escaping @Sendable (UpdateTaskDefinitionRequest, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
@@ -112,6 +115,7 @@ final class OverdueRescueViewModel: ObservableObject {
         self.allCount = cards.count
         self.referenceDate = referenceDate
         self.projectsByID = projectsByID
+        self.nowProvider = nowProvider
         self.sessionScope = scope
         self.sessionStore = sessionStore
         let savedSession: OverdueRescueSessionState?

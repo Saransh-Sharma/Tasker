@@ -494,11 +494,11 @@ struct FocusNowHeader: View {
             HStack {
                 Button("Back", systemImage: "chevron.left", action: onClose)
                     .labelStyle(.iconOnly)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.lifeboard(.caption1).weight(.bold))
                     .foregroundStyle(LBColorTokens.navy)
                     .frame(width: 44, height: 44)
                     .background(ReflectPlanStyle.cream, in: Circle())
-                    .shadow(color: ReflectPlanStyle.shadow, radius: 12, x: 0, y: 6)
+                    .lbShadow(LBShadowTokens.card)
                     .accessibilityIdentifier("focusNow.back")
 
                 Spacer()
@@ -536,7 +536,7 @@ struct SelectedCountPill: View {
             .overlay {
                 Capsule().stroke(ReflectPlanStyle.peachBorder.opacity(0.72), lineWidth: 1)
             }
-            .shadow(color: ReflectPlanStyle.shadow, radius: 12, x: 0, y: 7)
+            .lbShadow(LBShadowTokens.card)
     }
 }
 
@@ -654,8 +654,7 @@ struct FocusTaskCard: View {
                 onStartTimer: onStartTimer
             )
         }
-        .shadow(color: heroImage.shadowColor.opacity(isActive ? 0.26 : 0.14), radius: isActive ? 28 : 18, x: 0, y: isActive ? 18 : 12)
-        .shadow(color: Color.black.opacity(isActive ? 0.08 : 0.045), radius: isActive ? 18 : 12, x: 0, y: isActive ? 16 : 10)
+        .lbShadow(isActive ? LBShadowTokens.floating : LBShadowTokens.card)
         .overlay {
             RoundedRectangle(cornerRadius: 28)
                 .stroke(isSelectedForSwap ? heroImage.accentColor.opacity(0.56) : Color.white.opacity(0.46), lineWidth: isSelectedForSwap ? 2 : 1)
@@ -716,11 +715,11 @@ struct FocusTaskCardFront: View {
                         Spacer(minLength: 8)
 
                         Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.lifeboard(.caption1).weight(.bold))
                             .foregroundStyle(heroImage.accentColor)
                             .frame(width: 42, height: 42)
                             .background(ReflectPlanStyle.cream.opacity(0.94), in: Circle())
-                            .shadow(color: ReflectPlanStyle.shadow.opacity(0.7), radius: 8, x: 0, y: 4)
+                            .lbShadow(LBShadowTokens.card)
                     }
                     .padding(.horizontal, 16)
                     .frame(height: stripHeight)
@@ -743,7 +742,7 @@ struct FocusTaskCardFront: View {
     private var topContent: some View {
         VStack(alignment: .leading, spacing: 9) {
             Image(systemName: task.iconSymbolName ?? heroImage.symbolName)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.lifeboard(.callout).weight(.semibold))
                 .foregroundStyle(heroImage.accentColor)
                 .frame(width: 44, height: 44)
                 .background(heroImage.tokenColor, in: Circle())
@@ -791,7 +790,7 @@ struct FocusTaskCardBack: View {
             HStack {
                 Button(action: onFlipBack) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.lifeboard(.caption1).weight(.bold))
                         .foregroundStyle(heroImage.accentColor)
                         .frame(width: 44, height: 44)
                         .background(ReflectPlanStyle.cream, in: Circle())
@@ -975,7 +974,7 @@ struct CandidateTaskRow: View {
 
             Button("Swap into Focus Now", systemImage: "arrow.triangle.2.circlepath", action: onSwapTap)
                 .labelStyle(.iconOnly)
-                .font(.system(size: 14, weight: .bold))
+                .font(.lifeboard(.caption1).weight(.bold))
                 .foregroundStyle(LBColorTokens.navyMuted)
                 .frame(width: 44, height: 44)
                 .background(ReflectPlanStyle.blueSurface.opacity(0.52), in: Circle())
@@ -990,7 +989,7 @@ struct CandidateTaskRow: View {
         Group {
             let hero = TaskHeroImageResolver().preferredImages(for: task).first ?? .genericClouds
             Image(systemName: task.iconSymbolName ?? hero.symbolName)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.lifeboard(.caption1).weight(.semibold))
                 .foregroundStyle(hero.accentColor)
                 .frame(width: 38, height: 38)
                 .background(hero.tokenColor, in: Circle())
@@ -1012,7 +1011,7 @@ struct ShuffleAgainCard: View {
         Button(action: onShuffle) {
             HStack(spacing: 14) {
                 Image(systemName: "shuffle")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.lifeboard(.callout).weight(.bold))
                     .foregroundStyle(LBColorTokens.violetDeep)
                     .frame(width: 48, height: 48)
                     .background(ReflectPlanStyle.cream.opacity(0.9), in: Circle())
@@ -1065,7 +1064,7 @@ struct FocusBottomActions: View {
             Button(action: onStartFocus) {
                 HStack(spacing: 12) {
                     Image(systemName: isStarting ? "hourglass" : "play.fill")
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.lifeboard(.callout).weight(.bold))
                         .frame(width: 48, height: 48)
                         .background(Color.white.opacity(0.14), in: Circle())
 
@@ -1093,7 +1092,7 @@ struct FocusBottomActions: View {
             Button(action: onRefineSet) {
                 HStack(spacing: 12) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.lifeboard(.callout).weight(.semibold))
                         .frame(width: 48, height: 48)
                         .background(ReflectPlanStyle.peachSurfaceStrong, in: Circle())
 
@@ -1245,7 +1244,7 @@ struct RefineFocusSheet: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.lifeboard(.callout).weight(.semibold))
                     .foregroundStyle(isSelected ? LBColorTokens.role(.focus).deep : LBColorTokens.navyMuted)
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -1820,14 +1819,24 @@ private struct SunriseEvaOverdueRescueSheet: View {
 
         return recommendations.compactMap { item in
             let selected = selectedActionByTaskID[item.taskID] ?? item.action
+            guard let expectedUpdatedAt = tasksByID[item.taskID]?.updatedAt else { return nil }
             switch selected {
             case .doToday:
-                return EvaBatchMutationInstruction(taskID: item.taskID, dueDate: today)
+                return EvaBatchMutationInstruction(
+                    taskID: item.taskID,
+                    expectedUpdatedAt: expectedUpdatedAt,
+                    dueDate: today
+                )
             case .move:
-                return EvaBatchMutationInstruction(taskID: item.taskID, dueDate: item.toDate ?? tomorrow)
+                return EvaBatchMutationInstruction(
+                    taskID: item.taskID,
+                    expectedUpdatedAt: expectedUpdatedAt,
+                    dueDate: item.toDate ?? tomorrow
+                )
             case .dropCandidate:
                 return EvaBatchMutationInstruction(
                     taskID: item.taskID,
+                    expectedUpdatedAt: expectedUpdatedAt,
                     projectID: ProjectConstants.inboxProjectID,
                     clearDueDate: true
                 )

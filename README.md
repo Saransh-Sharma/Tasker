@@ -93,7 +93,17 @@ The feature is documented in `docs/calendar/README.md` and covers:
 
 - `./lifeboardctl status` reports environment and project state.
 - `./lifeboardctl clean` removes build artifacts.
-- `./lifeboardctl archive` and `./lifeboardctl export` support release packaging.
+- `./lifeboardctl archive` and `./lifeboardctl export` support iOS release packaging.
+- `./lifeboardctl dmg --clean --configuration release` builds a notarized Mac Catalyst DMG for distribution.
+
+Mac DMG builds require a Developer ID Application certificate and notary credentials stored as the `lifeboard-notary` keychain profile:
+
+```bash
+xcrun notarytool store-credentials lifeboard-notary \
+  --apple-id "<apple-id>" \
+  --team-id "<team-id>" \
+  --password "<app-specific-password>"
+```
 
 ## Tooling
 

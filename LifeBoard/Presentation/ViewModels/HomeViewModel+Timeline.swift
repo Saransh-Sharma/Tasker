@@ -27,6 +27,7 @@ extension HomeViewModel {
         let showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
         let selectedDay = calendar.startOfDay(for: selectedDate)
         let currentMinuteStamp = Int(now.timeIntervalSinceReferenceDate / 60)
+        refreshTimelineTaskProjectionIfNeeded(calendar: calendar)
         let taskCandidates = timelineTaskCandidates()
         let weekAgenda = showCalendarEventsInTimeline
             ? calendarIntegrationService.weekAgenda(anchorDate: selectedDate, weekStartsOn: workspacePreferences.weekStartsOn)
@@ -98,7 +99,17 @@ func timelinePlanItemSort(lhs: TimelinePlanItem, rhs: TimelinePlanItem) -> Bool 
 }
 
 extension HomeViewModel {
-    func timelineTaskCandidates() -> [TaskDefinition] {
+    func timelineTaskCandidates(calendar: Calendar = .current) -> [TaskDefinition] {
+        let projectionRequest = timelineProjectionRequestDescriptor(calendar: calendar)
+        let currentProjectIDs = activeFilterState.selectedProjectIDs.sorted { $0.uuidString < $1.uuidString }
+        if let projectionDay = timelineProjectionSelectedDay,
+           calendar.isDate(projectionDay, inSameDayAs: selectedDate),
+           timelineProjectionCacheKey == projectionRequest.key,
+           timelineProjectionRevision == dataRevision,
+           timelineProjectionProjectIDs == currentProjectIDs {
+            return timelineSortedTasks(timelineProjectionTasks)
+        }
+
         var tasksByID: [UUID: TaskDefinition] = [:]
 
         func insert(_ task: TaskDefinition) {
@@ -256,7 +267,8 @@ extension HomeViewModel {
 
     func timelineTaskUniverseByID() -> [UUID: TaskDefinition] {
         var universe = uniqueTasks(
-            morningTasks
+            timelineProjectionTasks
+            + morningTasks
             + eveningTasks
             + overdueTasks
             + dailyCompletedTasks
@@ -305,6 +317,7 @@ extension HomeViewModel {
             isComplete: task.isComplete,
             tintHex: timelineTintHex(for: task),
             systemImageName: timelineSystemImageName(for: task),
+            lifeAreaSystemImageName: timelineLifeAreaSystemImageName(for: task),
             accessoryText: timelineAccessoryText(for: task),
             taskPriority: task.priority,
             isPinnedFocusTask: pinnedFocusTaskIDs.contains(task.id),
@@ -449,6 +462,7 @@ extension HomeViewModel {
             isComplete: item.isComplete,
             tintHex: item.tintHex,
             systemImageName: item.systemImageName,
+            lifeAreaSystemImageName: item.lifeAreaSystemImageName,
             accessoryText: item.accessoryText,
             taskPriority: item.taskPriority,
             isPinnedFocusTask: item.isPinnedFocusTask,
@@ -698,6 +712,16 @@ extension HomeViewModel {
         return projectsByID[task.projectID]?.color.hexString ?? task.priority.colorHex
     }
 
+    func timelineLifeAreaSystemImageName(for task: TaskDefinition) -> String? {
+        let projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let lifeAreasByID = Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return HomeTaskTintResolver.lifeAreaIconSymbolName(
+            for: task,
+            projectsByID: projectsByID,
+            lifeAreasByID: lifeAreasByID
+        )
+    }
+
     func timelineDayKey(for date: Date, calendar: Calendar) -> String {
         let components = calendar.dateComponents([.year, .month, .day], from: date)
         let year = components.year ?? 0
@@ -848,22 +872,145 @@ extension HomeViewModel {
 
     func timelineIsDateOnlyDueDate(_ date: Date?) -> Bool {
         guard let date else { return false }
-        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
-        return (components.hour ?? 0) == 0 && (components.minute ?? 0) == 0 && (components.second ?? 0) == 0
+        return TaskScheduleNormalizer.isDateOnly(date)
     }
 
     func timelinePlacementDate(for task: TaskDefinition) -> Date? {
-        task.scheduledStartAt ?? (timelineIsDateOnlyDueDate(task.dueDate) ? nil : task.dueDate)
+        TaskScheduleNormalizer.timelinePlacementDate(for: task)
     }
 
     func timelineAllDayDate(for task: TaskDefinition) -> Date? {
-        if task.isAllDay {
-            return task.dueDate ?? task.scheduledStartAt
+        TaskScheduleNormalizer.timelineAllDayDate(for: task)
+    }
+
+    func refreshTimelineTaskProjectionIfNeeded(calendar: Calendar = .current) {
+        guard let repository = useCaseCoordinator.taskReadModelRepository else { return }
+        let descriptor = timelineProjectionRequestDescriptor(calendar: calendar)
+        let selectedDay = descriptor.selectedDay
+        let projectIDs = descriptor.projectIDs
+        let key = descriptor.key
+        let queryStart = descriptor.queryStart
+        let weekEnd = descriptor.weekEnd
+        let revision = dataRevision
+
+        guard timelineProjectionCacheKey != key, timelineProjectionRequestKey != key else { return }
+        let token = UUID()
+        timelineProjectionRequestKey = key
+        timelineProjectionRequestToken = token
+        loadTimelineProjectionPage(
+            repository: repository,
+            selectedDay: selectedDay,
+            weekStart: queryStart,
+            weekEnd: weekEnd,
+            projectIDs: projectIDs,
+            offset: 0,
+            accumulated: [:],
+            requestKey: key,
+            revision: revision,
+            token: token
+        )
+    }
+
+    private func timelineProjectionRequestDescriptor(calendar: Calendar = .current) -> (
+        key: String,
+        selectedDay: Date,
+        queryStart: Date,
+        weekEnd: Date,
+        projectIDs: [UUID]
+    ) {
+        let selectedDay = calendar.startOfDay(for: selectedDate)
+        let weekStart = XPCalculationEngine.startOfWeek(
+            for: selectedDay,
+            startingOn: workspacePreferencesProvider().weekStartsOn
+        )
+        let previousDay = calendar.date(byAdding: .day, value: -1, to: selectedDay) ?? selectedDay
+        let queryStart = min(weekStart, calendar.startOfDay(for: previousDay))
+        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? selectedDay
+        let projectIDs = activeFilterState.selectedProjectIDs.sorted { $0.uuidString < $1.uuidString }
+        let key = [
+            String(selectedDay.timeIntervalSinceReferenceDate),
+            String(queryStart.timeIntervalSinceReferenceDate),
+            String(weekEnd.timeIntervalSinceReferenceDate),
+            projectIDs.map(\.uuidString).joined(separator: ","),
+            String(dataRevision.rawValue),
+            calendar.timeZone.identifier
+        ].joined(separator: "|")
+        return (key, selectedDay, queryStart, weekEnd, projectIDs)
+    }
+
+    private func loadTimelineProjectionPage(
+        repository: TaskReadModelRepositoryProtocol,
+        selectedDay: Date,
+        weekStart: Date,
+        weekEnd: Date,
+        projectIDs: [UUID],
+        offset: Int,
+        accumulated: [UUID: TaskDefinition],
+        requestKey: String,
+        revision: HomeDataRevision,
+        token: UUID
+    ) {
+        let pageSize = 500
+        repository.fetchHomeTimelineProjection(
+            query: HomeTimelineTaskProjectionQuery(
+                selectedDay: selectedDay,
+                weekStart: weekStart,
+                weekEnd: weekEnd,
+                projectIDs: projectIDs,
+                includeCompleted: true,
+                limit: pageSize,
+                offset: offset
+            )
+        ) { [weak self] result in
+            Task { @MainActor in
+                guard let self,
+                      self.timelineProjectionRequestToken == token,
+                      self.timelineProjectionRequestKey == requestKey else {
+                    return
+                }
+                switch result {
+                case .success(let page):
+                    var merged = accumulated
+                    page.tasks.forEach { merged[$0.id] = $0 }
+                    if page.tasks.count == pageSize {
+                        self.loadTimelineProjectionPage(
+                            repository: repository,
+                            selectedDay: selectedDay,
+                            weekStart: weekStart,
+                            weekEnd: weekEnd,
+                            projectIDs: projectIDs,
+                            offset: offset + page.tasks.count,
+                            accumulated: merged,
+                            requestKey: requestKey,
+                            revision: revision,
+                            token: token
+                        )
+                        return
+                    }
+                    self.timelineProjectionTasks = Array(merged.values)
+                    self.timelineProjectionCacheKey = requestKey
+                    self.timelineProjectionSelectedDay = selectedDay
+                    self.timelineProjectionRevision = revision
+                    self.timelineProjectionProjectIDs = projectIDs
+                    self.timelineProjectionRequestKey = nil
+                    self.timelineProjectionRequestToken = nil
+                    self.timelineSnapshotCache = nil
+                    logDebug("HOME_TIMELINE projection_loaded candidate_count=\(merged.count)")
+                    self.scheduleHomeRenderStateRefresh(.timeline)
+                case .failure(let error):
+                    self.timelineProjectionRequestKey = nil
+                    self.timelineProjectionRequestToken = nil
+                    self.timelineProjectionSelectedDay = nil
+                    self.timelineProjectionRevision = nil
+                    self.timelineProjectionProjectIDs = nil
+                    logWarning(
+                        event: "home_timeline_projection_failed",
+                        message: "Failed to load repository-backed timeline candidates",
+                        fields: ["error": error.localizedDescription]
+                    )
+                }
+            }
         }
-        if timelineIsDateOnlyDueDate(task.dueDate) {
-            return task.dueDate
-        }
-        return nil
     }
 
     static func timelineDurationText(_ duration: TimeInterval) -> String {

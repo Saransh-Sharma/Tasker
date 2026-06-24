@@ -100,6 +100,8 @@ struct SunriseAppShellView: View {
 
     @State var showAdvancedFilters = false
 
+    @State var showManageLensLifeAreas = false
+
     @State var showDatePicker = false
 
     @State var draftDate = Date()

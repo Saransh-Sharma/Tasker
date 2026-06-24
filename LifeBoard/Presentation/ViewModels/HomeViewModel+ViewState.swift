@@ -56,7 +56,7 @@ extension HomeViewModel {
             emptyStateMessage: emptyStateMessage,
             emptyStateActionTitle: emptyStateActionTitle,
             showCompletedInline: activeFilterState.showCompletedInline,
-            pinnedProjectIDs: activeFilterState.pinnedProjectIDs
+            pinnedLifeAreaIDs: activeFilterState.pinnedLifeAreaIDs
         )
     }
 }
@@ -98,7 +98,7 @@ public struct HomeViewState {
     public let emptyStateMessage: String?
     public let emptyStateActionTitle: String?
     public let showCompletedInline: Bool
-    public let pinnedProjectIDs: [UUID]
+    public let pinnedLifeAreaIDs: [UUID]
 }
 
 public struct HomeProgressState: Equatable, Sendable {

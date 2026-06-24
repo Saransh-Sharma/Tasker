@@ -69,13 +69,17 @@ final class OverdueRescueDeckTests: XCTestCase {
         var request: UpdateTaskDefinitionRequest?
     }
 
-    func testDeckIncludesRecentOverdueAndCapsSprint() {
+    private final class DeleteRequestCapture: @unchecked Sendable {
+        var taskID: UUID?
+    }
+
+    func testDeckIncludesStaleOverdueAndCapsSprint() {
         let now = fixedDate()
         let tasks = (0..<18).map { index in
             rescueTask(
                 title: "Task \(index)",
                 priority: index == 0 ? .max : .low,
-                dueDate: Calendar.current.date(byAdding: .day, value: -1, to: now)!
+                dueDate: Calendar.current.date(byAdding: .day, value: -16, to: now)!
             )
         }
         let viewModel = makeViewModel(tasks: tasks)
@@ -85,18 +89,33 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertEqual(viewModel.state, .active)
     }
 
+    func testDeckExcludesSubtasksBecauseTimelineDoesNotRenderThem() {
+        var subtask = rescueTask(
+            title: "Hidden child",
+            priority: .high,
+            dueDate: Calendar.current.date(byAdding: .day, value: -16, to: fixedDate())!
+        )
+        subtask.parentTaskID = UUID()
+
+        let viewModel = makeViewModel(tasks: [subtask])
+
+        XCTAssertEqual(viewModel.allCount, 0)
+        XCTAssertTrue(viewModel.cards.isEmpty)
+        XCTAssertEqual(viewModel.state, .completed)
+    }
+
     func testDeckUsesDeterministicPriorityFirstOrdering() {
         let now = fixedDate()
         let low = rescueTask(
             title: "Low quick",
             priority: .low,
-            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: now)!,
+            dueDate: Calendar.current.date(byAdding: .day, value: -16, to: now)!,
             estimatedDuration: 10 * 60
         )
         let high = rescueTask(
             title: "High priority",
             priority: .high,
-            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: now)!,
+            dueDate: Calendar.current.date(byAdding: .day, value: -16, to: now)!,
             estimatedDuration: 90 * 60
         )
         let viewModel = makeViewModel(tasks: [low, high])
@@ -135,9 +154,66 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .active, to: .editing))
         XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .active, to: .paused))
         XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .active, to: .applyingBulk))
+        XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .editing, to: .completed))
+        XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .confirmingDelete, to: .completed))
+        XCTAssertTrue(OverdueRescueViewModel.canTransition(from: .paused, to: .completed))
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .active, to: .loading))
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .paused, to: .editing))
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .confirmingDelete, to: .applyingBulk))
+    }
+
+    func testConfirmedDeleteOfFinalCardCompletesDeck() async {
+        let referenceDate = fixedDate()
+        let scope = OverdueRescueSessionScope(
+            accountScopeID: "test-confirmed-delete-final-card-\(UUID().uuidString)",
+            workspaceID: nil,
+            rescueDay: referenceDate
+        )
+        let store = UserDefaultsOverdueRescueSessionStore()
+        store.clearSync(scope: scope)
+        defer { store.clearSync(scope: scope) }
+
+        let task = rescueTask(
+            title: "Delete final",
+            priority: .low,
+            dueDate: Calendar.current.date(byAdding: .day, value: -16, to: referenceDate)!,
+            details: "Important context"
+        )
+        let capture = DeleteRequestCapture()
+        let viewModel = OverdueRescueViewModel(
+            plan: nil,
+            tasksByID: [task.id: task],
+            projectsByID: [:],
+            referenceDate: referenceDate,
+            sessionScope: scope,
+            sessionStore: store,
+            onUpdate: { _, completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onDelete: { taskID, completion in
+                capture.taskID = taskID
+                completion(.success(()))
+            },
+            onRestore: { task, completion in completion(.success(task)) },
+            onApplyBulk: { _, completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onUndoBulk: { completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onTrack: { _, _ in }
+        )
+
+        XCTAssertEqual(viewModel.state, .active)
+        XCTAssertEqual(viewModel.cards.first?.id, task.id)
+
+        viewModel.requestDelete()
+        XCTAssertEqual(viewModel.state, .confirmingDelete)
+
+        viewModel.confirmDelete()
+        await waitForCondition { viewModel.state == .completed }
+
+        XCTAssertEqual(capture.taskID, task.id)
+        XCTAssertEqual(viewModel.state, .completed)
+        XCTAssertTrue(viewModel.cards.isEmpty)
+        XCTAssertEqual(viewModel.summary.deleted, 1)
+        XCTAssertEqual(viewModel.undoRecords.count, 1)
+        XCTAssertEqual(viewModel.undoRecords.first?.taskSnapshot.id, task.id)
+        XCTAssertEqual(viewModel.undoRecords.first?.action, .delete)
     }
 
     func testRevealContentKeepsSafeViewportMarginsOnIPhoneWidth() {
@@ -305,14 +381,14 @@ final class OverdueRescueDeckTests: XCTestCase {
         )
 
         viewModel.keepToday(source: .tap)
-        await _Concurrency.Task<Never, Never>.yield()
+        await waitForCondition { viewModel.state == .completed }
 
         XCTAssertEqual(viewModel.state, .completed)
         XCTAssertEqual(viewModel.summary.kept, 1)
         XCTAssertEqual(viewModel.cards.count, 0)
 
         viewModel.undoLast()
-        await _Concurrency.Task<Never, Never>.yield()
+        await waitForCondition { viewModel.state == .active }
 
         XCTAssertEqual(viewModel.state, .active)
         XCTAssertEqual(viewModel.summary.kept, 0)
@@ -367,7 +443,7 @@ final class OverdueRescueDeckTests: XCTestCase {
         )
 
         viewModel.keepToday(source: .tap)
-        await _Concurrency.Task<Never, Never>.yield()
+        await waitForCondition { capture.request != nil }
 
         XCTAssertEqual(capture.request?.dueDate, expectedStart)
         XCTAssertEqual(capture.request?.scheduledStartAt, expectedStart)
@@ -377,12 +453,145 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertFalse(capture.request?.clearScheduledEndAt ?? true)
     }
 
+    func testRescueShifterMovesDateOnlyTaskWithStaleScheduleToAllDay() {
+        let calendar = Calendar.current
+        let referenceDate = fixedDate()
+        let today = calendar.startOfDay(for: referenceDate)
+        let overdueDay = calendar.date(byAdding: .day, value: -3, to: today)!
+        let staleStart = calendar.date(bySettingHour: 9, minute: 30, second: 0, of: overdueDay)!
+        var task = rescueTask(
+            title: "All-day stale schedule",
+            priority: .high,
+            dueDate: overdueDay,
+            estimatedDuration: 45 * 60
+        )
+        task.scheduledStartAt = staleStart
+        task.scheduledEndAt = staleStart.addingTimeInterval(45 * 60)
+        task.isAllDay = false
+
+        let schedule = TaskRescueScheduleShifter.shift(task: task, to: today, calendar: calendar)
+
+        XCTAssertEqual(schedule.dueDate, today)
+        XCTAssertNil(schedule.scheduledStartAt)
+        XCTAssertNil(schedule.scheduledEndAt)
+        XCTAssertEqual(schedule.isAllDay, true)
+        XCTAssertEqual(schedule.clearScheduledStartAt, true)
+        XCTAssertEqual(schedule.clearScheduledEndAt, true)
+    }
+
+    func testRescueShifterMovesExistingAllDayTaskToTargetDay() {
+        let calendar = Calendar.current
+        let referenceDate = fixedDate()
+        let today = calendar.startOfDay(for: referenceDate)
+        let overdueDay = calendar.date(byAdding: .day, value: -3, to: today)!
+        let staleStart = calendar.date(bySettingHour: 11, minute: 0, second: 0, of: overdueDay)!
+        var task = rescueTask(
+            title: "Existing all-day",
+            priority: .low,
+            dueDate: overdueDay
+        )
+        task.scheduledStartAt = staleStart
+        task.scheduledEndAt = staleStart.addingTimeInterval(30 * 60)
+        task.isAllDay = true
+
+        let schedule = TaskRescueScheduleShifter.shift(task: task, to: today, calendar: calendar)
+
+        XCTAssertEqual(schedule.dueDate, today)
+        XCTAssertNil(schedule.scheduledStartAt)
+        XCTAssertNil(schedule.scheduledEndAt)
+        XCTAssertEqual(schedule.isAllDay, true)
+        XCTAssertEqual(schedule.clearScheduledStartAt, true)
+        XCTAssertEqual(schedule.clearScheduledEndAt, true)
+    }
+
+    func testSafeFixesUseCurrentDayAtApplyTimeAndCarryExpectedUpdatedAt() {
+        let calendar = Calendar.current
+        let referenceDate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 30, hour: 23))!
+        let applyDate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 31, hour: 1))!
+        let overdueDate = calendar.date(byAdding: .day, value: -3, to: referenceDate)!
+        let updatedAt = calendar.date(byAdding: .hour, value: -4, to: referenceDate)!
+        let task = rescueTask(
+            title: "Safe do today",
+            priority: .high,
+            dueDate: overdueDate,
+            updatedAt: updatedAt
+        )
+        let recommendation = EvaRescueRecommendation(
+            taskID: task.id,
+            action: .doToday,
+            toDate: nil,
+            reasons: [],
+            confidence: 0.9
+        )
+        let plan = EvaRescuePlan(
+            debtScore: 1,
+            debtLevel: .medium,
+            doToday: [recommendation],
+            move: [],
+            split: [],
+            dropCandidate: [],
+            doTodayCap: 1
+        )
+        let capturedMutations = LockedTestState<[EvaBatchMutationInstruction]>([])
+        let viewModel = OverdueRescueViewModel(
+            plan: plan,
+            tasksByID: [task.id: task],
+            projectsByID: [:],
+            referenceDate: referenceDate,
+            nowProvider: { applyDate },
+            onUpdate: { _, completion in completion(.success(task)) },
+            onDelete: { _, completion in completion(.success(())) },
+            onRestore: { task, completion in completion(.success(task)) },
+            onApplyBulk: { mutations, completion in
+                capturedMutations.write(mutations)
+                completion(.success(AssistantActionRunDefinition(
+                    id: UUID(),
+                    threadID: "eva_rescue_test",
+                    proposalData: nil,
+                    status: .applied,
+                    appliedAt: applyDate,
+                    createdAt: applyDate
+                )))
+            },
+            onUndoBulk: { completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onTrack: { _, _ in }
+        )
+
+        viewModel.applySafeFixes()
+
+        let mutation = capturedMutations.read().first
+        XCTAssertEqual(mutation?.taskID, task.id)
+        XCTAssertEqual(mutation?.expectedUpdatedAt, updatedAt)
+        XCTAssertEqual(mutation?.dueDate, calendar.startOfDay(for: applyDate))
+    }
+
+    /// Polls `condition` until it is satisfied or the timeout elapses, draining the
+    /// main queue between checks so view-model completion callbacks can run. Replaces
+    /// brittle single `Task.yield()` synchronizations that race the callback.
+    @MainActor
+    private func waitForCondition(
+        _ condition: () -> Bool,
+        timeout: TimeInterval = 2,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() {
+            if Date() >= deadline {
+                XCTFail("Timed out waiting for condition", file: file, line: line)
+                return
+            }
+            try? await _Concurrency.Task<Never, Never>.sleep(nanoseconds: 1_000_000)
+        }
+    }
+
     private func makeViewModel(tasks: [TaskDefinition]) -> OverdueRescueViewModel {
         let tasksByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
         return OverdueRescueViewModel(
             plan: nil,
             tasksByID: tasksByID,
             projectsByID: [:],
+            referenceDate: fixedDate(),
             onUpdate: { _, completion in completion(.success(tasks[0])) },
             onDelete: { _, completion in completion(.success(())) },
             onRestore: { task, completion in completion(.success(task)) },

@@ -434,6 +434,7 @@ extension HomeViewController {
 
     /// Executes presentTaskDetailView.
     func presentTaskDetailView(for task: TaskDefinition) {
+        HomeSessionContextStore.recordTaskOpened(task.id)
         let detailView = makeTaskDetailView(for: task, containerMode: .sheet)
 
         let hostingController = UIHostingController(rootView: detailView.lifeboardLayoutClass(currentLayoutClass))

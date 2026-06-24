@@ -177,7 +177,31 @@ extension HomeViewModel {
             projects: projects,
             dailyReflectionEntryState: reflectionEntryState,
             dailyPlanDraft: dailyPlanDraftForSelectedDate(),
-            momentumGuidanceText: makeMomentumGuidanceText()
+            momentumGuidanceText: makeMomentumGuidanceText(),
+            lifeAreaLensHeader: makeLifeAreaLensHeader(),
+            resumeContext: resolveResumeContext()
+        )
+    }
+
+    /// Builds the project-lens header (identity + open count + next due) when a per-project lens is
+    /// active. Returns nil for the Today and Upcoming lenses so their headers stay unchanged.
+    func makeLifeAreaLensHeader() -> LifeAreaLensHeader? {
+        guard activeFilterState.streamsAllForward,
+              let lifeAreaID = activeFilterState.selectedLifeAreaIDs.first,
+              let lifeArea = lifeAreas.first(where: { $0.id == lifeAreaID })
+        else {
+            return nil
+        }
+
+        let projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
+        let openForArea = upcomingTasks.filter { task in
+            guard task.isComplete == false else { return false }
+            return HomeViewModel.resolvedLifeAreaID(for: task, projectsByID: projectsByID) == lifeAreaID
+        }
+        return LifeAreaLensHeader(
+            lifeAreaName: lifeArea.name,
+            openCount: openForArea.count,
+            nextDueDate: openForArea.compactMap(\.dueDate).min()
         )
     }
 
@@ -185,6 +209,8 @@ extension HomeViewModel {
         let projectByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
         let tagNameByID = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
         let todayXPSoFar: Int? = progressState.earnedXP
+
+        let lifeAreasByID = Dictionary(uniqueKeysWithValues: lifeAreas.map { ($0.id, $0) })
 
         return HomeTasksState(
             morningTasks: morningTasks,
@@ -201,6 +227,8 @@ extension HomeViewModel {
             doneTimelineTasks: doneTimelineTasks,
             projects: projects,
             projectsByID: projectByID,
+            lifeAreas: lifeAreas,
+            lifeAreasByID: lifeAreasByID,
             tagNameByID: tagNameByID,
             activeQuickView: activeScope.quickView,
             todayXPSoFar: todayXPSoFar,
@@ -212,7 +240,8 @@ extension HomeViewModel {
             focusTasks: focusTasks,
             focusRows: focusRows,
             pinnedFocusTaskIDs: pinnedFocusTaskIDs,
-            todayOpenTaskCount: todayOpenTaskCount
+            todayOpenTaskCount: todayOpenTaskCount,
+            lifeAreaLensActivity: cachedLifeAreaLensActivity
         )
     }
 

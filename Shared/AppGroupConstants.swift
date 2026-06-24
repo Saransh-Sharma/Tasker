@@ -6,6 +6,7 @@ public enum AppGroupConstants {
     public static let taskListSnapshotFileName = "TaskListWidgetSnapshot.json"
     public static let taskListSnapshotBackupFileName = "TaskListWidgetSnapshot.backup.json"
     public static let taskListActionCommandFileName = "TaskListWidgetActionCommand.json"
+    public static let pendingCaptureInboxFileName = "PendingCaptureInbox.json"
 
     public static var containerURL: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: suiteName)
@@ -25,5 +26,9 @@ public enum AppGroupConstants {
 
     public static var taskListActionCommandURL: URL? {
         containerURL?.appendingPathComponent(taskListActionCommandFileName)
+    }
+
+    public static var pendingCaptureInboxURL: URL? {
+        containerURL?.appendingPathComponent(pendingCaptureInboxFileName)
     }
 }

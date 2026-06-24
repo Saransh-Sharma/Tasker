@@ -14,6 +14,46 @@ import UIKit
 import WidgetKit
 #endif
 
+private final class EvaBatchTaskResolutionStore: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tasksByID: [UUID: TaskDefinition] = [:]
+    private var firstError: Error?
+
+    func record(task: TaskDefinition, id: UUID) {
+        lock.lock()
+        tasksByID[id] = task
+        lock.unlock()
+    }
+
+    func recordMissing(id: UUID) {
+        lock.lock()
+        if firstError == nil {
+            firstError = EvaBatchProposalError.missingTask(id)
+        }
+        lock.unlock()
+    }
+
+    func record(error: Error) {
+        lock.lock()
+        if firstError == nil {
+            firstError = error
+        }
+        lock.unlock()
+    }
+
+    func result() -> Result<[UUID: TaskDefinition], Error> {
+        lock.lock()
+        let tasksByID = tasksByID
+        let firstError = firstError
+        lock.unlock()
+
+        if let firstError {
+            return .failure(firstError)
+        }
+        return .success(tasksByID)
+    }
+}
+
 extension HomeViewModel {
     public func startTriage() {
         startTriage(scope: .visible)
@@ -36,8 +76,9 @@ extension HomeViewModel {
 
     public func openRescue() {
         guard V2FeatureFlags.evaRescueEnabled else { return }
-        let referenceDate = selectedDate
+        let referenceDate = Date()
         evaRescueLauncherState = .loading
+        evaRescueReferenceDate = nil
         useCaseCoordinator.getTasks.getOverdueTasks { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
@@ -49,6 +90,7 @@ extension HomeViewModel {
                     tasks = self.overdueTasks
                     if tasks.isEmpty {
                         self.evaRescueLauncherState = .failed(error.localizedDescription)
+                        self.evaRescueReferenceDate = nil
                         self.errorMessage = error.localizedDescription
                         return
                     }
@@ -60,6 +102,7 @@ extension HomeViewModel {
                     overdueTasks: rescueEligibleTasks,
                     now: referenceDate
                 )
+                self.evaRescueReferenceDate = referenceDate
                 self.evaRescueLauncherState = .ready
                 self.evaRescueSheetPresented = true
                 self.trackHomeInteraction(action: "rescue_open", metadata: [
@@ -83,58 +126,116 @@ extension HomeViewModel {
             )))
             return
         }
-        let openTasks = focusOpenTasksForCurrentState()
-            + overdueTasks
-            + completedTasks
-            + doneTimelineTasks
-        let tasksByID = openTasks.reduce(into: [UUID: TaskDefinition]()) { partialResult, task in
-            partialResult[task.id] = task
-        }
-        let proposal = buildEvaBatchProposalUseCase.execute(
-            source: source,
-            tasksByID: tasksByID,
-            mutations: mutations
-        )
-
-        let pipeline = useCaseCoordinator.assistantActionPipeline
-        pipeline.propose(threadID: proposal.threadID, envelope: proposal.envelope) { proposeResult in
-            switch proposeResult {
-            case .failure(let error):
-                Task { @MainActor in
+        resolveEvaBatchTasks(for: mutations) { [weak self] resolution in
+            Task { @MainActor in
+                guard let self else { return }
+                let tasksByID: [UUID: TaskDefinition]
+                switch resolution {
+                case .success(let resolved):
+                    tasksByID = resolved
+                case .failure(let error):
                     completion(.failure(error))
+                    return
                 }
-            case .success(let proposedRun):
-                pipeline.confirm(runID: proposedRun.id) { confirmResult in
-                    switch confirmResult {
+
+                let now = Date()
+                let rescueReferenceDate = self.evaRescueReferenceDate ?? now
+                if source == .rescue,
+                   let ineligible = mutations.first(where: { mutation in
+                       guard let task = tasksByID[mutation.taskID] else { return true }
+                       return self.isOverdueRescueDeckEligibleTask(task, on: rescueReferenceDate) == false
+                   }) {
+                    completion(.failure(EvaBatchProposalError.staleTask(ineligible.taskID)))
+                    return
+                }
+
+                let proposal: (threadID: String, envelope: AssistantCommandEnvelope)
+                do {
+                    proposal = try self.buildEvaBatchProposalUseCase.executeValidated(
+                        source: source,
+                        tasksByID: tasksByID,
+                        mutations: mutations,
+                        now: now
+                    )
+                } catch {
+                    completion(.failure(error))
+                    return
+                }
+
+                let pipeline = self.useCaseCoordinator.assistantActionPipeline
+                pipeline.propose(threadID: proposal.threadID, envelope: proposal.envelope) { proposeResult in
+                    switch proposeResult {
                     case .failure(let error):
                         Task { @MainActor in
                             completion(.failure(error))
                         }
-                    case .success:
-                        pipeline.applyConfirmedRun(id: proposedRun.id) { applyResult in
-                            Task { @MainActor in
-                                switch applyResult {
-                                case .success(let run):
-                                    self.evaLastBatchRunID = run.id
-                                    self.enqueueReload(
-                                        source: "eva_batch_apply",
-                                        reason: .bulkChanged,
-                                        invalidateCaches: true,
-                                        includeAnalytics: false,
-                                        repostEvent: true
-                                    )
-                                    self.trackHomeInteraction(action: source == .triage ? "triage_bulk_apply" : "rescue_apply_confirmed", metadata: [
-                                        "mutation_count": mutations.count
-                                    ])
-                                    completion(.success(run))
-                                case .failure(let error):
+                    case .success(let proposedRun):
+                        pipeline.confirm(runID: proposedRun.id) { confirmResult in
+                            switch confirmResult {
+                            case .failure(let error):
+                                Task { @MainActor in
                                     completion(.failure(error))
+                                }
+                            case .success:
+                                pipeline.applyConfirmedRun(id: proposedRun.id) { applyResult in
+                                    Task { @MainActor in
+                                        switch applyResult {
+                                        case .success(let run):
+                                            self.evaLastBatchRunID = run.id
+                                            self.enqueueReload(
+                                                source: "eva_batch_apply",
+                                                reason: .bulkChanged,
+                                                invalidateCaches: true,
+                                                includeAnalytics: false,
+                                                repostEvent: true
+                                            )
+                                            self.trackHomeInteraction(action: source == .triage ? "triage_bulk_apply" : "rescue_apply_confirmed", metadata: [
+                                                "mutation_count": mutations.count,
+                                                "command_count": proposal.envelope.commands.count,
+                                                "resolved_task_count": tasksByID.count
+                                            ])
+                                            completion(.success(run))
+                                        case .failure(let error):
+                                            completion(.failure(error))
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+        }
+    }
+
+    private func resolveEvaBatchTasks(
+        for mutations: [EvaBatchMutationInstruction],
+        completion: @escaping @Sendable (Result<[UUID: TaskDefinition], Error>) -> Void
+    ) {
+        let ids = Array(Set(mutations.map(\.taskID)))
+        let group = DispatchGroup()
+        let store = EvaBatchTaskResolutionStore()
+        let repository = useCaseCoordinator.taskDefinitionRepository
+
+        for id in ids {
+            group.enter()
+            repository.fetchTaskDefinition(id: id) { result in
+                switch result {
+                case .success(let task):
+                    if let task {
+                        store.record(task: task, id: id)
+                    } else {
+                        store.recordMissing(id: id)
+                    }
+                case .failure(let error):
+                    store.record(error: error)
+                }
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) {
+            completion(store.result())
         }
     }
 

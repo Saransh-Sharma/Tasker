@@ -115,6 +115,7 @@ public final class GetHomeFilteredTasksUseCase: @unchecked Sendable {
     public func execute(
         state: HomeFilterState,
         scope: HomeListScope,
+        projects: [Project] = [],
         revision: HomeDataRevision = .zero,
         completion: @escaping @Sendable (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
     ) {
@@ -143,6 +144,7 @@ public final class GetHomeFilteredTasksUseCase: @unchecked Sendable {
         fetchHomeProjection(
             state: state,
             scope: scope,
+            projects: projects,
             readModel: readModel
         ) { [weak self] result in
             guard let self else { return }
@@ -202,9 +204,11 @@ public final class GetHomeFilteredTasksUseCase: @unchecked Sendable {
     private func fetchHomeProjection(
         state: HomeFilterState,
         scope: HomeListScope,
+        projects: [Project],
         readModel: TaskReadModelRepositoryProtocol,
         completion: @escaping @Sendable (Result<ProjectionAccumulator, Error>) -> Void
     ) {
+        let projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
         let accumulator = ProjectionAccumulatorStore(ProjectionAccumulator(
             scope: scope,
             state: state,
@@ -222,11 +226,15 @@ public final class GetHomeFilteredTasksUseCase: @unchecked Sendable {
             ) { result in
                 switch result {
                 case .success(let slice):
-                    let facetedBatch = self.applyResidualAdvancedFacets(slice.tasks, state: state)
+                    let facetedBatch = self.applyResidualAdvancedFacets(
+                        slice.tasks,
+                        state: state,
+                        projectsByID: projectsByID
+                    )
                     accumulator.update { state in
                         for task in facetedBatch {
                             self.updateQuickViewCounts(&state.quickViewCounts, for: task, scope: scope)
-                            guard self.matchesScope(scope, task: task) else { continue }
+                            guard self.matchesScope(scope, state: state.state, task: task) else { continue }
                             if task.isComplete {
                                 self.insertBoundedSortedTask(
                                     task,
@@ -327,6 +335,11 @@ public final class GetHomeFilteredTasksUseCase: @unchecked Sendable {
     }
 
     private func homeWindowLimit(for state: HomeFilterState, scope: HomeListScope) -> Int {
+        // Forward stream lenses surface a full project / all-projects backlog across time.
+        if state.streamsAllForward {
+            return 600
+        }
+
         switch scope.quickView {
         case .done:
             return 640
@@ -385,7 +398,14 @@ public final class GetHomeFilteredTasksUseCase: @unchecked Sendable {
         return data.base64EncodedString()
     }
 
-    private func matchesScope(_ scope: HomeListScope, task: TaskDefinition) -> Bool {
+    private func matchesScope(_ scope: HomeListScope, state: HomeFilterState, task: TaskDefinition) -> Bool {
+        // Forward "stream" lenses (Upcoming / per-project) show every open task across time,
+        // regardless of due date; the DB-level project + advanced-facet predicate has already
+        // scoped the set, so date gating here would incorrectly hide overdue/undated/far-future work.
+        if state.streamsAllForward {
+            return task.isComplete == false
+        }
+
         let calendar = Calendar.current
         let anchorDate = scope.referenceDate
         let startOfAnchorDay = calendar.startOfDay(for: anchorDate)
@@ -441,17 +461,29 @@ public final class GetHomeFilteredTasksUseCase: @unchecked Sendable {
     }
 
     /// Executes applyResidualAdvancedFacets.
-    private func applyResidualAdvancedFacets(_ tasks: [TaskDefinition], state: HomeFilterState) -> [TaskDefinition] {
-        let projectIDs = Set(state.selectedProjectIDs)
-        let projectFilteredTasks = projectIDs.isEmpty
-            ? tasks
-            : tasks.filter { projectIDs.contains($0.projectID) }
+    private func applyResidualAdvancedFacets(
+        _ tasks: [TaskDefinition],
+        state: HomeFilterState,
+        projectsByID: [UUID: Project]
+    ) -> [TaskDefinition] {
+        var filtered = tasks
 
-        guard let advanced = state.advancedFilter, !advanced.isEmpty else {
-            return projectFilteredTasks
+        if state.streamsAllForward, let lifeAreaID = state.selectedLifeAreaIDs.first {
+            filtered = filtered.filter { task in
+                Self.taskMatchesLifeArea(task, lifeAreaID: lifeAreaID, projectsByID: projectsByID)
+            }
+        } else {
+            let projectIDs = Set(state.selectedProjectIDs)
+            if projectIDs.isEmpty == false {
+                filtered = filtered.filter { projectIDs.contains($0.projectID) }
+            }
         }
 
-        return projectFilteredTasks.filter { task in
+        guard let advanced = state.advancedFilter, !advanced.isEmpty else {
+            return filtered
+        }
+
+        return filtered.filter { task in
             if !advanced.tags.isEmpty {
                 let requestedTagIDs = Set(
                     advanced.tags.compactMap { rawValue in
@@ -485,6 +517,18 @@ public final class GetHomeFilteredTasksUseCase: @unchecked Sendable {
 
             return true
         }
+    }
+
+    private static func taskMatchesLifeArea(
+        _ task: TaskDefinition,
+        lifeAreaID: UUID,
+        projectsByID: [UUID: Project]
+    ) -> Bool {
+        if task.lifeAreaID == lifeAreaID { return true }
+        if let projectLifeAreaID = projectsByID[task.projectID]?.lifeAreaID, projectLifeAreaID == lifeAreaID {
+            return true
+        }
+        return false
     }
 
     /// Executes applyScope.
@@ -955,6 +999,7 @@ public enum EvaBatchSource: String, Codable, Equatable, Hashable, Sendable {
 
 public struct EvaBatchMutationInstruction: Codable, Equatable, Hashable, Sendable {
     public let taskID: UUID
+    public var expectedUpdatedAt: Date?
     public var projectID: UUID?
     public var dueDate: Date?
     public var clearDueDate: Bool
@@ -965,6 +1010,7 @@ public struct EvaBatchMutationInstruction: Codable, Equatable, Hashable, Sendabl
     /// Initializes a new instance.
     public init(
         taskID: UUID,
+        expectedUpdatedAt: Date? = nil,
         projectID: UUID? = nil,
         dueDate: Date? = nil,
         clearDueDate: Bool = false,
@@ -973,12 +1019,42 @@ public struct EvaBatchMutationInstruction: Codable, Equatable, Hashable, Sendabl
         isComplete: Bool? = nil
     ) {
         self.taskID = taskID
+        self.expectedUpdatedAt = expectedUpdatedAt
         self.projectID = projectID
         self.dueDate = dueDate
         self.clearDueDate = clearDueDate
         self.estimatedDuration = estimatedDuration
         self.clearEstimatedDuration = clearEstimatedDuration
         self.isComplete = isComplete
+    }
+}
+
+public enum EvaBatchProposalError: LocalizedError, Equatable {
+    case duplicateTaskID(UUID)
+    case missingTask(UUID)
+    case staleTask(UUID)
+    case completedTask(UUID)
+    case subtask(UUID)
+    case invalidMutation(UUID)
+    case commandCountMismatch(expected: Int, actual: Int)
+
+    public var errorDescription: String? {
+        switch self {
+        case .duplicateTaskID:
+            return "The rescue plan contains the same task more than once."
+        case .missingTask:
+            return "A task in the rescue plan no longer exists."
+        case .staleTask:
+            return "A task changed while the rescue plan was open. Refresh and try again."
+        case .completedTask:
+            return "A task in the rescue plan was already completed."
+        case .subtask:
+            return "Subtasks cannot be moved onto the Today timeline."
+        case .invalidMutation:
+            return "The rescue plan contains conflicting task changes."
+        case .commandCountMismatch:
+            return "The rescue plan could not be applied completely."
+        }
     }
 }
 
@@ -1740,5 +1816,50 @@ public final class BuildEvaBatchProposalUseCase: @unchecked Sendable {
         )
         let threadID = "eva_\(source.rawValue)_\(Int(now.timeIntervalSince1970))"
         return (threadID, envelope)
+    }
+
+    public func executeValidated(
+        source: EvaBatchSource,
+        tasksByID: [UUID: TaskDefinition],
+        mutations: [EvaBatchMutationInstruction],
+        now: Date = Date()
+    ) throws -> (threadID: String, envelope: AssistantCommandEnvelope) {
+        var seen = Set<UUID>()
+        for mutation in mutations {
+            guard seen.insert(mutation.taskID).inserted else {
+                throw EvaBatchProposalError.duplicateTaskID(mutation.taskID)
+            }
+            guard let task = tasksByID[mutation.taskID] else {
+                throw EvaBatchProposalError.missingTask(mutation.taskID)
+            }
+            if let expectedUpdatedAt = mutation.expectedUpdatedAt,
+               abs(task.updatedAt.timeIntervalSince(expectedUpdatedAt)) > 0.001 {
+                throw EvaBatchProposalError.staleTask(mutation.taskID)
+            }
+            guard task.isComplete == false else {
+                throw EvaBatchProposalError.completedTask(mutation.taskID)
+            }
+            guard task.parentTaskID == nil else {
+                throw EvaBatchProposalError.subtask(mutation.taskID)
+            }
+            guard mutation.clearDueDate == false || mutation.dueDate == nil,
+                  mutation.clearEstimatedDuration == false || mutation.estimatedDuration == nil else {
+                throw EvaBatchProposalError.invalidMutation(mutation.taskID)
+            }
+        }
+
+        let proposal = execute(
+            source: source,
+            tasksByID: tasksByID,
+            mutations: mutations,
+            now: now
+        )
+        guard proposal.envelope.commands.count == mutations.count else {
+            throw EvaBatchProposalError.commandCountMismatch(
+                expected: mutations.count,
+                actual: proposal.envelope.commands.count
+            )
+        }
+        return proposal
     }
 }

@@ -59,7 +59,7 @@ public struct SunriseAddHabitSheetView: View {
 
             ScrollView {
                 VStack(spacing: spacing.s16) {
-                    header
+                    livingPreview
                     essentialsCard
                     rhythmCard
                     appearanceCard
@@ -70,7 +70,7 @@ public struct SunriseAddHabitSheetView: View {
                     }
                 }
                 .padding(.horizontal, spacing.s16)
-                .padding(.top, spacing.s8)
+                .padding(.top, spacing.s12)
                 .padding(.bottom, spacing.s20)
             }
 
@@ -126,46 +126,53 @@ public struct SunriseAddHabitSheetView: View {
         }
     }
 
-    private var header: some View {
-        HStack(alignment: .top, spacing: spacing.s12) {
+    /// Living identity preview — the habit takes shape as you choose its name, colour, and
+    /// rhythm. Breathes gently while still unnamed.
+    private var livingPreview: some View {
+        let accent = LifeBoardHexColor.color(viewModel.selectedColorHex, fallback: Color.lifeboard.accentPrimary)
+        let trimmedName = viewModel.habitName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isAwaiting = trimmedName.isEmpty
+        return HStack(alignment: .center, spacing: spacing.s12) {
             ZStack {
                 Circle()
-                    .fill(Color(lifeboardHex: viewModel.selectedColorHex).opacity(0.16))
-                    .frame(width: 56, height: 56)
-
+                    .fill(accent.opacity(0.16))
+                    .frame(width: 60, height: 60)
                 Image(systemName: viewModel.selectedIconSymbolName ?? "repeat.circle.fill")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(Color(lifeboardHex: viewModel.selectedColorHex))
+                    .font(.lifeboard(.title2))
+                    .foregroundStyle(accent)
+                    .contentTransition(.symbolEffect(.replace))
             }
+            .breathingPulse(min: isAwaiting ? 0.5 : 1.0, max: 1.0, duration: 1.8)
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: spacing.s4) {
-                Text("Set a gentle rhythm")
+                Text(isAwaiting ? "New habit" : trimmedName)
                     .font(.lifeboard(.title3))
-                    .foregroundStyle(Color.lifeboard.textPrimary)
-                Text("Choose the habit, where it belongs, and when LifeBoard should surface it.")
+                    .foregroundStyle(isAwaiting ? Color.lifeboard.textTertiary : Color.lifeboard.textPrimary)
+                    .lineLimit(1)
+                Text(cadenceSummary(viewModel.selectedCadence))
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .contentTransition(.opacity)
+                SunriseHabitCadenceDots(cadence: viewModel.selectedCadence, accent: accent)
+                    .padding(.top, 2)
             }
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(spacing.s16)
         .sunriseHabitGlassCard(reduceTransparency: reduceTransparency)
+        .animation(LifeBoardAnimation.snappy, value: viewModel.selectedColorHex)
     }
 
     private var essentialsCard: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            Text("Essentials")
-                .font(.lifeboard(.headline))
-                .foregroundStyle(Color.lifeboard.textPrimary)
-
             AddTaskTitleField(
                 text: $viewModel.habitName,
                 isFocused: $titleFieldFocused,
                 iconSystemName: viewModel.selectedIconSymbolName,
                 iconAccessibilityLabel: viewModel.selectedIconOption?.displayName,
-                onIconTap: expandAppearance,
+                onIconTap: openAppearance,
                 placeholder: "What do you want to repeat?",
                 helperText: "Keep it small enough to show up on an ordinary day.",
                 onSubmit: handleCreate
@@ -195,27 +202,21 @@ public struct SunriseAddHabitSheetView: View {
     }
 
     private var rhythmCard: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            Button {
+        CalmInlineReveal(
+            title: "Rhythm",
+            collapsedHint: rhythmSummary,
+            isExpanded: $showDetails,
+            accessibilityID: "addHabit.rhythmDisclosure",
+            onToggle: {
                 withAnimation(LifeBoardAnimation.snappy) {
                     showDetails.toggle()
                     if showDetails {
                         selectedDetent = .large
                     }
                 }
-            } label: {
-                SunriseHabitDisclosureHeader(
-                    title: "Rhythm",
-                    systemImage: "calendar.badge.clock",
-                    summary: rhythmSummary,
-                    isExpanded: showDetails
-                )
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("addHabit.rhythmDisclosure")
-
-            if showDetails {
-                VStack(alignment: .leading, spacing: spacing.s12) {
+        ) {
+            VStack(alignment: .leading, spacing: spacing.s12) {
                     Picker("Cadence", selection: cadencePresetBinding) {
                         ForEach(SunriseAddHabitCadencePreset.allCases) { cadence in
                             Text(cadence.title).tag(cadence)
@@ -261,29 +262,18 @@ public struct SunriseAddHabitSheetView: View {
                     }
 
                     AddTaskDescriptionField(text: $viewModel.habitNotes, isFocused: $notesFieldFocused)
-                }
             }
         }
-        .padding(spacing.s16)
-        .sunriseHabitGlassCard(reduceTransparency: reduceTransparency)
     }
 
     private var appearanceCard: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            Button {
-                expandAppearance()
-            } label: {
-                SunriseHabitDisclosureHeader(
-                    title: "Appearance",
-                    systemImage: "swatchpalette",
-                    summary: appearanceSummary,
-                    isExpanded: showAppearance
-                )
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("addHabit.appearanceDisclosure")
-
-            if showAppearance {
+        CalmInlineReveal(
+            title: "Appearance",
+            collapsedHint: appearanceSummary,
+            isExpanded: $showAppearance,
+            accessibilityID: "addHabit.appearanceDisclosure",
+            onToggle: toggleAppearance
+        ) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     TextField("Search icons", text: $viewModel.iconSearchQuery)
                         .textFieldStyle(LifeBoardTextFieldStyle())
@@ -332,10 +322,7 @@ public struct SunriseAddHabitSheetView: View {
                         }
                     }
                 }
-            }
         }
-        .padding(spacing.s16)
-        .sunriseHabitGlassCard(reduceTransparency: reduceTransparency)
     }
 
     private var validationText: String? {
@@ -416,12 +403,22 @@ public struct SunriseAddHabitSheetView: View {
         }
     }
 
-    private func expandAppearance() {
+    private func toggleAppearance() {
         withAnimation(LifeBoardAnimation.snappy) {
             showAppearance.toggle()
             if showAppearance {
                 selectedDetent = .large
             }
+        }
+    }
+
+    /// Open-only entry point for the title-field icon so tapping it never collapses an
+    /// already-open Appearance panel.
+    private func openAppearance() {
+        guard showAppearance == false else { return }
+        withAnimation(LifeBoardAnimation.snappy) {
+            showAppearance = true
+            selectedDetent = .large
         }
     }
 
@@ -549,38 +546,37 @@ private extension SunriseAddHabitSheetView {
     }
 }
 
-private struct SunriseHabitDisclosureHeader: View {
-    let title: String
-    let systemImage: String
-    let summary: String
-    let isExpanded: Bool
+/// Seven-dot cadence glyph for the living preview. Mon→Sun; active days filled with the
+/// habit accent, the rest quietly outlined. Daily fills every dot.
+private struct SunriseHabitCadenceDots: View {
+    let cadence: HabitCadenceDraft
+    let accent: Color
+
+    // Calendar weekday integers, displayed Mon…Sun.
+    private let order: [Int] = [2, 3, 4, 5, 6, 7, 1]
+
+    private var activeDays: Set<Int> {
+        switch cadence {
+        case .daily:
+            return Set(order)
+        case .weekly(let days, _, _):
+            return days.isEmpty ? Set([2, 3, 4, 5, 6]) : Set(days)
+        }
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.lifeboard.accentPrimary)
-                .frame(width: 34, height: 34)
-                .background(Color.lifeboard.accentWash, in: Circle())
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.lifeboard(.headline))
-                    .foregroundStyle(Color.lifeboard.textPrimary)
-                Text(summary)
-                    .font(.lifeboard(.caption1))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
-                    .lineLimit(2)
+        HStack(spacing: 5) {
+            ForEach(order, id: \.self) { day in
+                Circle()
+                    .fill(activeDays.contains(day) ? accent : Color.clear)
+                    .frame(width: 7, height: 7)
+                    .overlay(
+                        Circle().strokeBorder(accent.opacity(activeDays.contains(day) ? 0 : 0.35), lineWidth: 1)
+                    )
             }
-
-            Spacer()
-
-            Image(systemName: "chevron.down")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.lifeboard.textTertiary)
-                .rotationEffect(.degrees(isExpanded ? 180 : 0))
         }
-        .contentShape(Rectangle())
+        .animation(LifeBoardAnimation.snappy, value: activeDays)
+        .accessibilityHidden(true)
     }
 }
 

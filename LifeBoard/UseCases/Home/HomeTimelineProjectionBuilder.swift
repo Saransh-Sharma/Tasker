@@ -368,6 +368,7 @@ struct HomeTimelineProjectionBuilder {
             isComplete: task.isComplete,
             tintHex: timelineTintHex(for: task, lookupContext: lookupContext),
             systemImageName: timelineSystemImageName(for: task, projects: input.projects),
+            lifeAreaSystemImageName: timelineLifeAreaSystemImageName(for: task, lookupContext: lookupContext),
             accessoryText: timelineAccessoryText(for: task, now: input.now, calendar: input.calendar),
             taskPriority: task.priority,
             isPinnedFocusTask: input.pinnedFocusTaskIDs.contains(task.id),
@@ -500,6 +501,7 @@ struct HomeTimelineProjectionBuilder {
             isComplete: item.isComplete,
             tintHex: item.tintHex,
             systemImageName: item.systemImageName,
+            lifeAreaSystemImageName: item.lifeAreaSystemImageName,
             accessoryText: item.accessoryText,
             taskPriority: item.taskPriority,
             isPinnedFocusTask: item.isPinnedFocusTask,
@@ -707,6 +709,14 @@ struct HomeTimelineProjectionBuilder {
         return lookupContext.projectsByID[task.projectID]?.color.hexString ?? task.priority.colorHex
     }
 
+    private func timelineLifeAreaSystemImageName(for task: TaskDefinition, lookupContext: LookupContext) -> String? {
+        HomeTaskTintResolver.lifeAreaIconSymbolName(
+            for: task,
+            projectsByID: lookupContext.projectsByID,
+            lifeAreasByID: lookupContext.lifeAreasByID
+        )
+    }
+
     private func timelineChecklistSummary(
         for task: TaskDefinition,
         taskIndexByID: [UUID: TaskDefinition]
@@ -836,15 +846,17 @@ struct HomeTimelineProjectionBuilder {
         let allDayRescueCount = rescueCandidates.filter { allDayTaskIDs.contains($0.id) }.count
         let timedRescueCount = rescueCandidates.filter { timedTaskIDs.contains($0.id) }.count
         let inboxRescueCount = rescueCandidates.filter { inboxTaskIDs.contains($0.id) }.count
-        logDebug(
-            "HOME_TIMELINE rescue_classification " +
-            "candidate_count=\(input.taskCandidates.count) " +
-            "rescue_candidate_count=\(rescueCandidates.count) " +
-            "day=\(dayRescueCount) " +
-            "all_day=\(allDayRescueCount) " +
-            "timed=\(timedRescueCount) " +
-            "inbox=\(inboxRescueCount)"
-        )
+        let candidateCount = input.taskCandidates.count
+        let rescueCandidateCount = rescueCandidates.count
+        let rescueClassificationMessage =
+            "HOME_TIMELINE rescue_classification "
+            + "candidate_count=\(candidateCount) "
+            + "rescue_candidate_count=\(rescueCandidateCount) "
+            + "day=\(dayRescueCount) "
+            + "all_day=\(allDayRescueCount) "
+            + "timed=\(timedRescueCount) "
+            + "inbox=\(inboxRescueCount)"
+        logDebug(rescueClassificationMessage)
     }
 
     private func timelineAnchorTime(on day: Date, hour: Int, minute: Int, calendar: Calendar) -> Date {
@@ -857,17 +869,11 @@ struct HomeTimelineProjectionBuilder {
     }
 
     private func timelinePlacementDate(for task: TaskDefinition, calendar: Calendar) -> Date? {
-        task.scheduledStartAt ?? (timelineIsDateOnlyDueDate(task.dueDate, calendar: calendar) ? nil : task.dueDate)
+        TaskScheduleNormalizer.timelinePlacementDate(for: task, calendar: calendar)
     }
 
     private func timelineAllDayDate(for task: TaskDefinition, calendar: Calendar) -> Date? {
-        if task.isAllDay {
-            return task.dueDate ?? task.scheduledStartAt
-        }
-        if timelineIsDateOnlyDueDate(task.dueDate, calendar: calendar) {
-            return task.dueDate
-        }
-        return nil
+        TaskScheduleNormalizer.timelineAllDayDate(for: task, calendar: calendar)
     }
 
     private func timelineIsDateOnlyDueDate(_ date: Date?, calendar: Calendar) -> Bool {

@@ -46,6 +46,15 @@ extension HomeViewModel {
         } else if activeScope.quickView == .done {
             latestFocusOpenTasks = []
         }
+
+        // Refresh the lens auto-fill signal whenever we have the unfiltered forward backlog
+        // (the Upcoming lens: streaming forward with no project filter selected).
+        if activeFilterState.streamsAllForward, activeFilterState.selectedLifeAreaIDs.isEmpty {
+            cachedLifeAreaLensActivity = Self.computeLifeAreaLensActivity(
+                from: result.matchingOpenTasks,
+                projects: projects
+            )
+        }
         assignIfChanged(\.focusTasks, composedFocusTasks(from: openTasks))
         assignIfChanged(\.focusRows, composedFocusTasks(from: openTasks).map(HomeTodayRow.task))
         refreshFocusWhyCandidatesIfPresented()
@@ -125,7 +134,16 @@ extension HomeViewModel {
         switch scope.quickView {
         case .upcoming:
             assignIfChanged(\.upcomingTasks, openTasks)
-            assignIfChanged(\.emptyStateMessage, "No upcoming tasks in 14 days")
+            if activeFilterState.streamsAllForward {
+                assignIfChanged(
+                    \.emptyStateMessage,
+                    activeFilterState.selectedProjectIDs.isEmpty
+                        ? "Nothing coming up. Your slate is clear."
+                        : "No open tasks in this project."
+                )
+            } else {
+                assignIfChanged(\.emptyStateMessage, "No upcoming tasks in 14 days")
+            }
             assignIfChanged(\.emptyStateActionTitle, nil)
         case .overdue:
             assignIfChanged(\.upcomingTasks, [])
@@ -253,11 +271,11 @@ extension HomeViewModel {
 
     /// Executes seedPinnedProjectsIfNeeded.
 
-    func seedPinnedProjectsIfNeeded(from projects: [Project]) {
-        guard activeFilterState.pinnedProjectIDs.isEmpty else { return }
-        let seeded = Array(projects.prefix(5).map(\.id))
+    func seedPinnedLifeAreasIfNeeded(from lifeAreas: [LifeArea]) {
+        guard activeFilterState.pinnedLifeAreaIDs.isEmpty else { return }
+        let seeded = Array(lifeAreas.prefix(5).map(\.id))
         guard !seeded.isEmpty else { return }
-        activeFilterState.pinnedProjectIDs = seeded
+        activeFilterState.pinnedLifeAreaIDs = seeded
         persistLastFilterState()
     }
 
@@ -276,8 +294,8 @@ extension HomeViewModel {
 
     /// Executes bumpPinnedProject.
 
-    func bumpPinnedProject(_ id: UUID) {
-        var pinned = activeFilterState.pinnedProjectIDs
+    func bumpPinnedLifeArea(_ id: UUID) {
+        var pinned = activeFilterState.pinnedLifeAreaIDs
         pinned.removeAll { $0 == id }
         pinned.insert(id, at: 0)
 
@@ -285,7 +303,7 @@ extension HomeViewModel {
             pinned = Array(pinned.prefix(5))
         }
 
-        activeFilterState.pinnedProjectIDs = pinned
+        activeFilterState.pinnedLifeAreaIDs = pinned
     }
 
     /// Executes refreshEvaInsights.
@@ -405,6 +423,46 @@ extension HomeViewModel {
         guard let dueDate = task.dueDate else { return false }
         let hour = Calendar.current.component(.hour, from: dueDate)
         return hour >= 17 && hour <= 23
+    }
+
+    /// Buckets open tasks by owning project into a lens-row auto-fill signal: open count plus the
+    /// soonest due date among that project's open tasks.
+    nonisolated static func computeLifeAreaLensActivity(
+        from openTasks: [TaskDefinition],
+        projects: [Project]
+    ) -> [UUID: HomeLensLifeAreaActivity] {
+        let projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
+        var openCounts: [UUID: Int] = [:]
+        var nearestDue: [UUID: Date] = [:]
+
+        for task in openTasks where task.isComplete == false {
+            guard let lifeAreaID = resolvedLifeAreaID(for: task, projectsByID: projectsByID) else { continue }
+            openCounts[lifeAreaID, default: 0] += 1
+            if let due = task.dueDate {
+                if let existing = nearestDue[lifeAreaID] {
+                    nearestDue[lifeAreaID] = min(existing, due)
+                } else {
+                    nearestDue[lifeAreaID] = due
+                }
+            }
+        }
+
+        return openCounts.reduce(into: [:]) { result, entry in
+            result[entry.key] = HomeLensLifeAreaActivity(
+                openCount: entry.value,
+                nearestDue: nearestDue[entry.key]
+            )
+        }
+    }
+
+    nonisolated static func resolvedLifeAreaID(
+        for task: TaskDefinition,
+        projectsByID: [UUID: Project]
+    ) -> UUID? {
+        if let direct = task.lifeAreaID {
+            return direct
+        }
+        return projectsByID[task.projectID]?.lifeAreaID
     }
 
     /// Executes rankedFocusTasks.

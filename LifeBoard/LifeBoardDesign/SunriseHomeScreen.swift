@@ -32,6 +32,12 @@ struct SunriseHomeScreen: View {
     let onTimelineItemToggleComplete: (TimelinePlanItem) -> Void
     let onAnchorTap: (TimelineAnchorItem) -> Void
     let onScrollStateChange: (HomeScrollChromeState) -> Void
+    let onSelectLens: (HomeLens) -> Void
+    let onManageLenses: () -> Void
+    let onStreamTaskTap: (TaskDefinition) -> Void
+    let onStreamTaskToggleComplete: (TaskDefinition) -> Void
+    let onResume: (HomeResumeContext) -> Void
+    let onDismissResume: () -> Void
 
     @State private var isScrollActive = false
     @State private var scrollStopTask: Task<Void, Never>?
@@ -180,7 +186,7 @@ struct SunriseHomeScreen: View {
                     model: LBDateHeroHeader.Model(
                         date: chrome.selectedDate,
                         period: context.period,
-                        subtitle: context.greeting,
+                        subtitle: chrome.lifeAreaLensHeader?.subtitle(referenceDate: timeline.date) ?? context.greeting,
                         heroTitleColor: context.foregroundStyle.titleColor,
                         heroSubtitleColor: context.foregroundStyle.controlColor,
                         chromeControlColor: context.foregroundStyle.controlColor,
@@ -299,34 +305,226 @@ struct SunriseHomeScreen: View {
 
     private var content: some View {
         VStack(spacing: LBSpacingTokens.xxs) {
-            filterRow
-
-            stateCards
-
-            if selectedContentScope.showsTimeline {
-                timelineContent
+            if let resumeContext = chrome.resumeContext {
+                LBResumeCard(
+                    context: resumeContext,
+                    onResume: onResume,
+                    onDismiss: onDismissResume
+                )
+                .padding(.bottom, LBSpacingTokens.xs)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            if selectedContentScope.showsHabits {
-                habitContent
+            homeChipRow
+                .onChange(of: activeLens) { _, newLens in
+                    if newLens == .today {
+                        selectedContentScope = .all
+                    }
+                }
+
+            if isStreamLens {
+                streamContent
+            } else {
+                stateCards
+
+                if selectedContentScope.showsTimeline {
+                    timelineContent
+                }
+
+                if selectedContentScope.showsHabits {
+                    habitContent
+                }
             }
         }
         .padding(.horizontal, LBSpacingTokens.screenMargin)
     }
 
-    private var filterRow: some View {
+    // MARK: - Unified chip rail
+
+    private var lifeAreaChips: [HomeLensChip] {
+        HomeLensResolver.lifeAreaLenses(
+            lifeAreas: tasks.lifeAreas,
+            pinnedLifeAreaIDs: chrome.activeFilterState.pinnedLifeAreaIDs,
+            activeLens: activeLens,
+            activityByID: tasks.lifeAreaLensActivity
+        )
+    }
+
+    private var homeChipRailItems: [HomeChipRailItem] {
+        HomeChipRailBuilder.build(
+            activeLens: activeLens,
+            lifeAreaChips: lifeAreaChips,
+            selectedContentScope: selectedContentScope,
+            hasActiveFilters: chrome.activeFilterState.hasActiveFilters
+        )
+    }
+
+    private var homeChipRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: LBSpacingTokens.xs) {
-                ForEach(filterChips) { chip in
-                    LBFilterChip(model: chip.model) {
-                        chip.action()
-                    }
+                ForEach(homeChipRailItems) { item in
+                    homeChipRailItemView(item)
                 }
             }
             .padding(.horizontal, LBSpacingTokens.screenMargin)
         }
         .padding(.horizontal, -LBSpacingTokens.screenMargin)
         .padding(.top, filterRowTopPadding)
+    }
+
+    @ViewBuilder
+    private func homeChipRailItemView(_ item: HomeChipRailItem) -> some View {
+        switch item {
+        case .lens(let chip):
+            LBFilterChip(
+                model: LBFilterChip.Model(
+                    id: chip.id,
+                    title: chip.title,
+                    systemImage: chip.systemImage,
+                    isSelected: chip.isSelected,
+                    leadingDotHex: chip.tintHex,
+                    accessibilityID: "home.sunrise.lens.\(chip.id)"
+                )
+            ) {
+                onSelectLens(chip.lens)
+            }
+        case .separator:
+            LBChipRailSeparator()
+        case .todayFacet(let scope):
+            LBFilterChip(model: HomeChipRailBuilder.todayFacetChipModel(for: scope, isSelected: selectedContentScope == scope)) {
+                selectedContentScope = scope
+            }
+        case .manageLifeAreas:
+            LBFilterChip(model: HomeChipRailBuilder.manageLifeAreasChipModel()) {
+                onManageLenses()
+            }
+        case .advancedFilters(let hasActiveFilters):
+            LBFilterChip(model: HomeChipRailBuilder.advancedFiltersChipModel(hasActiveFilters: hasActiveFilters)) {
+                onShowAdvancedFilters()
+            }
+        }
+    }
+
+    private var activeLens: HomeLens {
+        HomeLensResolver.activeLens(for: chrome.activeFilterState)
+    }
+
+    private var isStreamLens: Bool {
+        chrome.activeFilterState.streamsAllForward
+    }
+
+    // MARK: - Forward stream (Upcoming / per-life-area lenses)
+
+    @ViewBuilder
+    private var streamContent: some View {
+        let sections = tasks.todayAgendaSectionState.sections
+        if sections.isEmpty {
+            let empty = streamEmptyStateModel
+            LBEmptyState(model: empty.model, action: empty.action)
+                .padding(.top, LBSpacingTokens.md)
+        } else {
+            LazyVStack(spacing: LBSpacingTokens.sm) {
+                lifeAreaTodayTimelineStrip
+
+                ForEach(sections) { section in
+                    HomeListSectionView(
+                        section: section,
+                        tagNameByID: tasks.tagNameByID,
+                        projectsByID: tasks.projectsByID,
+                        lifeAreasByID: tasks.lifeAreasByID,
+                        todayXPSoFar: tasks.todayXPSoFar,
+                        isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
+                        isTaskDragEnabled: false,
+                        highlightedTaskID: nil,
+                        completedCollapsed: true,
+                        layoutStyle: .edgeToEdgeHome,
+                        onTaskTap: onStreamTaskTap,
+                        onToggleComplete: onStreamTaskToggleComplete
+                    )
+                }
+            }
+            .padding(.top, LBSpacingTokens.sm)
+        }
+    }
+
+    @ViewBuilder
+    private var lifeAreaTodayTimelineStrip: some View {
+        if case .lifeArea(let lifeAreaID) = activeLens {
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                let rows = lifeAreaTodayTimelineRows(lifeAreaID: lifeAreaID, now: context.date)
+                if rows.isEmpty == false {
+                    LazyVStack(spacing: LBSpacingTokens.xs) {
+                        ForEach(rows.prefix(4)) { row in
+                            if case .item(let item) = row.kind {
+                                LBTimelineCard(
+                                    model: timelineCardModel(
+                                        for: item,
+                                        temporalState: row.temporalState(now: context.date),
+                                        now: context.date,
+                                        nextUpcomingCalendarItemID: nil
+                                    ),
+                                    onTap: { onTimelineItemTap(item) }
+                                )
+                                .equatable()
+                            }
+                        }
+                    }
+                    .padding(.bottom, LBSpacingTokens.xs)
+                }
+            }
+        }
+    }
+
+    private func lifeAreaTodayTimelineRows(lifeAreaID: UUID, now: Date) -> [SunriseTimelineRow] {
+        let calendar = Calendar.current
+        guard calendar.isDateInToday(chrome.selectedDate) || calendar.isDateInToday(now) else { return [] }
+        let allRows = timelineRows(now: now)
+        return allRows.filter { row in
+            switch row.kind {
+            case .item(let item):
+                guard let taskID = item.taskID else { return item.source == .calendarEvent }
+                return streamTaskMatchesLifeArea(taskID: taskID, lifeAreaID: lifeAreaID)
+            default:
+                return false
+            }
+        }
+    }
+
+    private func streamTaskMatchesLifeArea(taskID: UUID, lifeAreaID: UUID) -> Bool {
+        for section in tasks.todayAgendaSectionState.sections {
+            for row in section.rows {
+                if case .task(let task) = row, task.id == taskID {
+                    if task.lifeAreaID == lifeAreaID { return true }
+                    if let projectLifeArea = tasks.projectsByID[task.projectID]?.lifeAreaID,
+                       projectLifeArea == lifeAreaID {
+                        return true
+                    }
+                }
+            }
+        }
+        return false
+    }
+
+    private var streamEmptyStateModel: (model: LBEmptyState.Model, action: () -> Void) {
+        let message = tasks.emptyStateMessage ?? "Nothing here yet. Add a meaningful next step when you're ready."
+        let title: String
+        switch activeLens {
+        case .today:
+            title = "Nothing here yet"
+        case .upcoming:
+            title = "Nothing coming up"
+        case .lifeArea:
+            title = "All clear in this area"
+        }
+        return (
+            LBEmptyState.Model(
+                title: title,
+                message: message,
+                actionTitle: "Add a task",
+                systemImage: "checkmark.circle"
+            ),
+            { onAddTask(nil) }
+        )
     }
 
     @ViewBuilder
@@ -486,54 +684,6 @@ struct SunriseHomeScreen: View {
         }
     }
 
-    private var filterChips: [SunriseFilterChip] {
-        Self.filterChipModels(
-            selectedContentScope: selectedContentScope,
-            hasActiveFilters: chrome.activeFilterState.hasActiveFilters
-        ).map { model in
-            switch model.id {
-            case "all":
-                return SunriseFilterChip(
-                    model: model,
-                    action: {
-                        selectedContentScope = .all
-                    }
-                )
-            case "meetings":
-                return SunriseFilterChip(
-                    model: model,
-                    action: {
-                        selectedContentScope = .meetings
-                    }
-                )
-            case "tasks":
-                return SunriseFilterChip(
-                    model: model,
-                    action: {
-                        selectedContentScope = .tasks
-                    }
-                )
-            case "habits":
-                return SunriseFilterChip(
-                    model: model,
-                    action: {
-                        selectedContentScope = .habits
-                    }
-                )
-            case "filters":
-                return SunriseFilterChip(
-                    model: model,
-                    action: onShowAdvancedFilters
-                )
-            default:
-                return SunriseFilterChip(
-                    model: model,
-                    action: {}
-                )
-            }
-        }
-    }
-
     private var timelineEmptyStateModel: (model: LBEmptyState.Model, action: () -> Void) {
         switch selectedContentScope {
         case .all:
@@ -580,45 +730,15 @@ struct SunriseHomeScreen: View {
     }
 
     nonisolated static func filterChipModels(selectedContentScope: SunriseHomeContentScope, hasActiveFilters: Bool = false) -> [LBFilterChip.Model] {
-        [
-            LBFilterChip.Model(
-                id: "all",
-                title: "All",
-                systemImage: "square.grid.2x2",
-                isSelected: selectedContentScope == .all,
-                accessibilityID: "home.sunrise.filter.all"
-            ),
-            LBFilterChip.Model(
-                id: "meetings",
-                title: "Meetings",
-                systemImage: "calendar",
-                isSelected: selectedContentScope == .meetings,
-                accessibilityID: "home.sunrise.filter.meetings"
-            ),
-            LBFilterChip.Model(
-                id: "tasks",
-                title: "Tasks",
-                systemImage: "checkmark.square",
-                isSelected: selectedContentScope == .tasks,
-                accessibilityID: "home.sunrise.filter.tasks"
-            ),
-            LBFilterChip.Model(
-                id: "habits",
-                title: "Habits",
-                systemImage: "heart",
-                isSelected: selectedContentScope == .habits,
-                accessibilityID: "home.sunrise.filter.habits"
-            ),
-            LBFilterChip.Model(
-                id: "filters",
-                title: "Filters",
-                systemImage: "slider.horizontal.3",
-                isSelected: false,
-                showsIndicator: hasActiveFilters,
-                hidesTitle: true,
-                accessibilityID: "home.sunrise.filter.filters"
-            )
-        ]
+        SunriseHomeContentScope.allCases.map {
+            HomeChipRailBuilder.todayFacetChipModel(for: $0, isSelected: selectedContentScope == $0)
+        } + [HomeChipRailBuilder.advancedFiltersChipModel(hasActiveFilters: hasActiveFilters)]
+    }
+
+    nonisolated static func todayFacetChipModels(selectedContentScope: SunriseHomeContentScope) -> [LBFilterChip.Model] {
+        SunriseHomeContentScope.allCases.map {
+            HomeChipRailBuilder.todayFacetChipModel(for: $0, isSelected: selectedContentScope == $0)
+        }
     }
 
     func timelineRows(now: Date) -> [SunriseTimelineRow] {

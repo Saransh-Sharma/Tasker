@@ -84,7 +84,7 @@ extension OverdueRescueViewModel {
 
     func keepToday(source: OverdueRescueDecisionSource) {
         guard let card = currentCard else { return }
-        let today = Calendar.current.startOfDay(for: referenceDate)
+        let today = Calendar.current.startOfDay(for: nowProvider())
         let schedule = TaskRescueScheduleShifter.shift(task: card.task, to: today)
         let dueDescription = schedule.dueDate?.description ?? "nil"
         let startDescription = schedule.scheduledStartAt?.description ?? "nil"
@@ -117,7 +117,7 @@ extension OverdueRescueViewModel {
         let dueDate = card.moveDate ?? OverdueRescueMoveLaterResolver.resolveMoveDate(
             for: card.task,
             recommendation: card.recommendation,
-            now: referenceDate
+            now: nowProvider()
         )
         let schedule = TaskRescueScheduleShifter.shift(task: card.task, to: dueDate)
         applyUpdate(
@@ -181,13 +181,21 @@ extension OverdueRescueViewModel {
         let fixes = safeFixes
         guard fixes.isEmpty == false else { return }
         guard transition(to: .applyingBulk) else { return }
-        let today = Calendar.current.startOfDay(for: referenceDate)
+        let today = Calendar.current.startOfDay(for: nowProvider())
         let mutations = fixes.compactMap { card -> EvaBatchMutationInstruction? in
             switch card.recommendation?.action {
             case .doToday:
-                return EvaBatchMutationInstruction(taskID: card.id, dueDate: today)
+                return EvaBatchMutationInstruction(
+                    taskID: card.id,
+                    expectedUpdatedAt: card.task.updatedAt,
+                    dueDate: today
+                )
             case .move:
-                return EvaBatchMutationInstruction(taskID: card.id, dueDate: card.moveDate)
+                return EvaBatchMutationInstruction(
+                    taskID: card.id,
+                    expectedUpdatedAt: card.task.updatedAt,
+                    dueDate: card.moveDate
+                )
             default:
                 return nil
             }

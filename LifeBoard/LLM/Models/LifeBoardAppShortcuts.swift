@@ -55,7 +55,13 @@ struct InboxTaskCaptureService {
     let projectRepository: ProjectRepositoryProtocol
     let createTaskDefinitionUseCase: CreateTaskDefinitionUseCase
 
-    func createTask(title: String, details: String?) async throws -> TaskDefinition {
+    /// Creates an Inbox task from a raw title. Natural-language dates ("call mom tomorrow 3pm")
+    /// are extracted via `TaskCaptureParser` unless the caller supplies an explicit due date.
+    func createTask(
+        title: String,
+        details: String?,
+        explicitDueDate: Date? = nil
+    ) async throws -> TaskDefinition {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedTitle.isEmpty == false else {
             throw NSError(
@@ -65,14 +71,21 @@ struct InboxTaskCaptureService {
             )
         }
 
+        let parsed = TaskCaptureParser.parse(trimmedTitle)
+        let resolvedTitle = parsed.cleanTitle.isEmpty ? trimmedTitle : parsed.cleanTitle
+        let resolvedDueDate = explicitDueDate ?? parsed.dueDate
+        let resolvedIsAllDay = explicitDueDate == nil ? parsed.isAllDay : false
+
         let trimmedDetails = details?.trimmingCharacters(in: .whitespacesAndNewlines)
         let inboxProject = try await ensureInboxProject()
         let request = CreateTaskDefinitionRequest(
-            title: trimmedTitle,
+            title: resolvedTitle,
             details: trimmedDetails?.isEmpty == false ? trimmedDetails : nil,
             projectID: inboxProject.id,
             projectName: inboxProject.name,
             lifeAreaID: inboxProject.lifeAreaID,
+            dueDate: resolvedDueDate,
+            isAllDay: resolvedIsAllDay,
             createdAt: Date()
         )
         return try await createTask(request: request)

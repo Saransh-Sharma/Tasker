@@ -84,7 +84,6 @@ extension HomeViewModel {
         state.selectedSavedViewID = nil
         activeFilterState = state
 
-        bumpPinnedProject(projectID)
         persistLastFilterState()
         applyFocusFilters(trackAnalytics: true)
     }
@@ -98,12 +97,41 @@ extension HomeViewModel {
         state.selectedSavedViewID = nil
         activeFilterState = state
 
-        for id in projectIDs {
-            bumpPinnedProject(id)
-        }
-
         persistLastFilterState()
         applyFocusFilters(trackAnalytics: true)
+    }
+
+    /// Sets the pinned lens life areas directly (used by the Manage Life Areas sheet).
+    public func setPinnedLifeAreas(_ lifeAreaIDs: [UUID]) {
+        var unique: [UUID] = []
+        for id in lifeAreaIDs where unique.contains(id) == false {
+            unique.append(id)
+        }
+        let capped = Array(unique.prefix(5))
+        guard activeFilterState.pinnedLifeAreaIDs != capped else { return }
+        activeFilterState.pinnedLifeAreaIDs = capped
+        persistLastFilterState()
+        trackFeatureUsage(action: "home_lens_life_areas_pinned", metadata: ["count": "\(capped.count)"])
+        scheduleHomeRenderStateRefresh()
+    }
+
+    public func createLifeArea(
+        name: String,
+        completion: @escaping @Sendable (Result<LifeArea, Error>) -> Void
+    ) {
+        let generation = reloadGeneration
+        useCaseCoordinator.manageLifeAreas.create(name: name, color: nil, icon: "square.grid.2x2") { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success(let area):
+                    self.loadLifeAreas(generation: generation)
+                    completion(.success(area))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
     }
 
     /// Focus Engine: clear project filter facets.
@@ -193,7 +221,7 @@ extension HomeViewModel {
 
         focusEngineEnabled = true
         activeScope = .fromQuickView(saved.quickView)
-        var restoredState = saved.asFilterState(pinnedProjectIDs: activeFilterState.pinnedProjectIDs)
+        var restoredState = saved.asFilterState(pinnedLifeAreaIDs: activeFilterState.pinnedLifeAreaIDs)
         restoredState.projectGroupingMode = activeFilterState.projectGroupingMode
         restoredState.customProjectOrderIDs = activeFilterState.customProjectOrderIDs
         activeFilterState = restoredState
@@ -325,4 +353,46 @@ extension HomeViewModel {
     }
 
     /// Reschedule all overdue tasks.
+}
+
+// MARK: - Home lenses
+
+extension HomeViewModel {
+    /// Apply a Home lens. Today returns to the day timeline; Upcoming and project lenses switch the
+    /// content region to a forward time-horizon stream (all open tasks across time).
+    public func applyHomeLens(_ lens: HomeLens) {
+        focusEngineEnabled = true
+        switch lens {
+        case .today:
+            var state = activeFilterState
+            state.streamsAllForward = false
+            state.selectedProjectIDs = []
+            state.selectedLifeAreaIDs = []
+            state.quickView = .today
+            state.selectedSavedViewID = nil
+            activeFilterState = state
+            persistLastFilterState()
+            trackFeatureUsage(action: "home_lens_selected", metadata: ["lens": "today"])
+            applySelectedDay(Date(), source: .datePicker, trackAnalytics: true)
+        case .upcoming:
+            applyStreamLens(lifeAreaIDs: [], analyticsLens: "upcoming")
+        case .lifeArea(let lifeAreaID):
+            bumpPinnedLifeArea(lifeAreaID)
+            applyStreamLens(lifeAreaIDs: [lifeAreaID], analyticsLens: "lifeArea")
+        }
+    }
+
+    private func applyStreamLens(lifeAreaIDs: [UUID], analyticsLens: String) {
+        activeScope = .upcoming
+        var state = activeFilterState
+        state.streamsAllForward = true
+        state.selectedLifeAreaIDs = lifeAreaIDs
+        state.selectedProjectIDs = []
+        state.quickView = .upcoming
+        state.selectedSavedViewID = nil
+        activeFilterState = state
+        persistLastFilterState()
+        trackFeatureUsage(action: "home_lens_selected", metadata: ["lens": analyticsLens])
+        applyFocusFilters(trackAnalytics: true)
+    }
 }

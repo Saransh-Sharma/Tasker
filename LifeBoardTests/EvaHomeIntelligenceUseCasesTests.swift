@@ -209,6 +209,118 @@ final class EvaHomeIntelligenceUseCasesTests: XCTestCase {
         XCTAssertEqual(snapshot.isAllDay, false)
     }
 
+    func testBuildEvaBatchProposalMovesDateOnlyRescueMutationToAllDayToday() {
+        let useCase = BuildEvaBatchProposalUseCase()
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 4, day: 21, hour: 10))!
+        let today = calendar.startOfDay(for: now)
+        let overdueDay = calendar.date(byAdding: .day, value: -2, to: today)!
+        let staleStart = calendar.date(bySettingHour: 10, minute: 15, second: 0, of: overdueDay)!
+        var task = makeTask(
+            title: "Rescue all-day to today",
+            dueDate: overdueDay,
+            priority: .high,
+            estimatedDuration: 60 * 60
+        )
+        task.scheduledStartAt = staleStart
+        task.scheduledEndAt = staleStart.addingTimeInterval(60 * 60)
+        task.isAllDay = false
+
+        let proposal = useCase.execute(
+            source: .rescue,
+            tasksByID: [task.id: task],
+            mutations: [EvaBatchMutationInstruction(taskID: task.id, dueDate: today)],
+            now: now
+        )
+
+        guard case .restoreTaskSnapshot(let snapshot) = proposal.envelope.commands.first else {
+            return XCTFail("Expected restoreTaskSnapshot command")
+        }
+
+        XCTAssertEqual(snapshot.dueDate, today)
+        XCTAssertNil(snapshot.scheduledStartAt)
+        XCTAssertNil(snapshot.scheduledEndAt)
+        XCTAssertEqual(snapshot.isAllDay, true)
+    }
+
+    func testBuildEvaBatchProposalValidatedRejectsMissingDuplicateStaleAndIneligibleMutations() throws {
+        let useCase = BuildEvaBatchProposalUseCase()
+        let now = Date()
+        let task = makeTask(
+            title: "Validated rescue",
+            dueDate: Calendar.current.date(byAdding: .day, value: -2, to: now),
+            priority: .high,
+            updatedAt: now
+        )
+
+        XCTAssertThrowsError(try useCase.executeValidated(
+            source: .rescue,
+            tasksByID: [:],
+            mutations: [EvaBatchMutationInstruction(taskID: task.id, dueDate: now)],
+            now: now
+        )) { error in
+            XCTAssertEqual(error as? EvaBatchProposalError, .missingTask(task.id))
+        }
+
+        XCTAssertThrowsError(try useCase.executeValidated(
+            source: .rescue,
+            tasksByID: [task.id: task],
+            mutations: [
+                EvaBatchMutationInstruction(taskID: task.id, dueDate: now),
+                EvaBatchMutationInstruction(taskID: task.id, dueDate: now)
+            ],
+            now: now
+        )) { error in
+            XCTAssertEqual(error as? EvaBatchProposalError, .duplicateTaskID(task.id))
+        }
+
+        XCTAssertThrowsError(try useCase.executeValidated(
+            source: .rescue,
+            tasksByID: [task.id: task],
+            mutations: [
+                EvaBatchMutationInstruction(
+                    taskID: task.id,
+                    expectedUpdatedAt: now.addingTimeInterval(-10),
+                    dueDate: now
+                )
+            ],
+            now: now
+        )) { error in
+            XCTAssertEqual(error as? EvaBatchProposalError, .staleTask(task.id))
+        }
+
+        var completed = task
+        completed.isComplete = true
+        XCTAssertThrowsError(try useCase.executeValidated(
+            source: .rescue,
+            tasksByID: [completed.id: completed],
+            mutations: [EvaBatchMutationInstruction(taskID: completed.id, dueDate: now)],
+            now: now
+        )) { error in
+            XCTAssertEqual(error as? EvaBatchProposalError, .completedTask(completed.id))
+        }
+
+        var subtask = task
+        subtask.parentTaskID = UUID()
+        XCTAssertThrowsError(try useCase.executeValidated(
+            source: .rescue,
+            tasksByID: [subtask.id: subtask],
+            mutations: [EvaBatchMutationInstruction(taskID: subtask.id, dueDate: now)],
+            now: now
+        )) { error in
+            XCTAssertEqual(error as? EvaBatchProposalError, .subtask(subtask.id))
+        }
+
+        XCTAssertThrowsError(try useCase.executeValidated(
+            source: .rescue,
+            tasksByID: [task.id: task],
+            mutations: [EvaBatchMutationInstruction(taskID: task.id, dueDate: now, clearDueDate: true)],
+            now: now
+        )) { error in
+            XCTAssertEqual(error as? EvaBatchProposalError, .invalidMutation(task.id))
+        }
+    }
+
     private func makeTask(
         title: String,
         projectID: UUID = UUID(),

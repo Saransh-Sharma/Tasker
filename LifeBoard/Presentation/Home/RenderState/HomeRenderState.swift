@@ -98,6 +98,10 @@ struct HomeChromeSnapshot: Equatable {
     let dailyReflectionEntryState: DailyReflectionEntryState?
     let dailyPlanDraft: DailyPlanDraft?
     let momentumGuidanceText: String
+    /// Life-area identity + progress shown in the date hero subtitle while a life-area lens is active.
+    let lifeAreaLensHeader: LifeAreaLensHeader?
+    /// Calm "pick up where you left off" prompt shown at the top of Home after a break.
+    let resumeContext: HomeResumeContext?
 
     init(
         selectedDate: Date,
@@ -114,7 +118,9 @@ struct HomeChromeSnapshot: Equatable {
         projects: [Project],
         dailyReflectionEntryState: DailyReflectionEntryState?,
         dailyPlanDraft: DailyPlanDraft?,
-        momentumGuidanceText: String
+        momentumGuidanceText: String,
+        lifeAreaLensHeader: LifeAreaLensHeader? = nil,
+        resumeContext: HomeResumeContext? = nil
     ) {
         self.selectedDate = selectedDate
         self.activeScope = activeScope
@@ -131,6 +137,8 @@ struct HomeChromeSnapshot: Equatable {
         self.dailyReflectionEntryState = dailyReflectionEntryState
         self.dailyPlanDraft = dailyPlanDraft
         self.momentumGuidanceText = momentumGuidanceText
+        self.lifeAreaLensHeader = lifeAreaLensHeader
+        self.resumeContext = resumeContext
     }
 
     static var empty: HomeChromeSnapshot {
@@ -169,6 +177,8 @@ struct HomeTasksSnapshot: Equatable {
     let doneTimelineTasks: [TaskDefinition]
     let projects: [Project]
     let projectsByID: [UUID: Project]
+    let lifeAreas: [LifeArea]
+    let lifeAreasByID: [UUID: LifeArea]
     let tagNameByID: [UUID: String]
     let activeQuickView: HomeQuickView
     let todayXPSoFar: Int?
@@ -181,6 +191,8 @@ struct HomeTasksSnapshot: Equatable {
     let focusRows: [HomeTodayRow]
     let pinnedFocusTaskIDs: [UUID]
     let todayOpenTaskCount: Int
+    /// Per-life-area activity used to auto-fill the Home lens row beyond pinned life areas.
+    let lifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity]
 
     static var empty: HomeTasksSnapshot {
         HomeTasksSnapshot(
@@ -198,6 +210,8 @@ struct HomeTasksSnapshot: Equatable {
             doneTimelineTasks: [],
             projects: [],
             projectsByID: [:],
+            lifeAreas: [],
+            lifeAreasByID: [:],
             tagNameByID: [:],
             activeQuickView: .today,
             todayXPSoFar: nil,
@@ -209,7 +223,8 @@ struct HomeTasksSnapshot: Equatable {
             focusTasks: [],
             focusRows: [],
             pinnedFocusTaskIDs: [],
-            todayOpenTaskCount: 0
+            todayOpenTaskCount: 0,
+            lifeAreaLensActivity: [:]
         )
     }
 
@@ -254,7 +269,8 @@ struct HomeTasksSnapshot: Equatable {
             && lhs.inlineCompletedTasks == rhs.inlineCompletedTasks
             && lhs.doneTimelineTasks == rhs.doneTimelineTasks
             && lhs.projects == rhs.projects
-            && lhs.projectsByID == rhs.projectsByID
+            && lhs.lifeAreas == rhs.lifeAreas
+            && lhs.lifeAreasByID == rhs.lifeAreasByID
             && lhs.tagNameByID == rhs.tagNameByID
             && lhs.activeQuickView == rhs.activeQuickView
             && lhs.todayXPSoFar == rhs.todayXPSoFar
@@ -267,6 +283,7 @@ struct HomeTasksSnapshot: Equatable {
             && lhs.focusRows == rhs.focusRows
             && lhs.pinnedFocusTaskIDs == rhs.pinnedFocusTaskIDs
             && lhs.todayOpenTaskCount == rhs.todayOpenTaskCount
+            && lhs.lifeAreaLensActivity == rhs.lifeAreaLensActivity
     }
 }
 
@@ -362,6 +379,7 @@ struct TimelinePlanItem: Equatable, Identifiable {
     let isComplete: Bool
     let tintHex: String?
     let systemImageName: String
+    let lifeAreaSystemImageName: String?
     let accessoryText: String?
     let taskPriority: TaskPriority?
     let isPinnedFocusTask: Bool
@@ -387,6 +405,7 @@ struct TimelinePlanItem: Equatable, Identifiable {
         isComplete: Bool,
         tintHex: String?,
         systemImageName: String,
+        lifeAreaSystemImageName: String? = nil,
         accessoryText: String?,
         taskPriority: TaskPriority? = nil,
         isPinnedFocusTask: Bool = false,
@@ -411,6 +430,7 @@ struct TimelinePlanItem: Equatable, Identifiable {
         self.isComplete = isComplete
         self.tintHex = tintHex
         self.systemImageName = systemImageName
+        self.lifeAreaSystemImageName = lifeAreaSystemImageName
         self.accessoryText = accessoryText
         self.taskPriority = taskPriority
         self.isPinnedFocusTask = isPinnedFocusTask
@@ -994,6 +1014,7 @@ struct HomeOverlaySnapshot: Equatable {
     let rescueLauncherState: HomeOverdueRescueLauncherState
     let rescuePresented: Bool
     let rescuePlan: EvaRescuePlan?
+    let rescueReferenceDate: Date?
     let lastBatchRunID: UUID?
     let lastXPResult: XPEventResult?
     let replanState: HomeReplanSessionState
@@ -1005,6 +1026,7 @@ struct HomeOverlaySnapshot: Equatable {
             rescueLauncherState: .idle,
             rescuePresented: false,
             rescuePlan: nil,
+            rescueReferenceDate: nil,
             lastBatchRunID: nil,
             lastXPResult: nil,
             replanState: .hidden
@@ -1017,6 +1039,7 @@ struct HomeOverlaySnapshot: Equatable {
             && lhs.rescueLauncherState == rhs.rescueLauncherState
             && lhs.rescuePresented == rhs.rescuePresented
             && lhs.rescuePlan == rhs.rescuePlan
+            && lhs.rescueReferenceDate == rhs.rescueReferenceDate
             && lhs.lastBatchRunID == rhs.lastBatchRunID
             && lhs.lastXPResult == rhs.lastXPResult
             && lhs.replanState == rhs.replanState

@@ -114,6 +114,7 @@ extension HomeViewController {
                 rescueLauncherState: state.rescueLauncherState,
                 rescuePresented: state.rescuePresented,
                 rescuePlan: state.rescuePlan,
+                rescueReferenceDate: state.rescueReferenceDate,
                 lastBatchRunID: state.lastBatchRunID,
                 lastXPResult: state.lastXPResult,
                 replanState: state.replanState

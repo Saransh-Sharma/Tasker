@@ -57,7 +57,7 @@ struct TimelineTaskMarkerRow: View {
                 .fill(markerFill)
                 .frame(width: iconContainer, height: iconContainer)
                 .overlay {
-                    Image(systemName: item.systemImageName)
+                    Image(systemName: markerSystemImageName)
                         .font(.system(size: iconSize, weight: .semibold))
                         .foregroundStyle(markerIconColor)
                         .accessibilityHidden(true)
@@ -119,6 +119,11 @@ struct TimelineTaskMarkerRow: View {
 
     var markerStroke: Color {
         isEmphasized ? palette.progress.opacity(0.8) : palette.halo.opacity(0.58)
+    }
+
+    var markerSystemImageName: String {
+        guard item.source == .task else { return item.systemImageName }
+        return item.isComplete ? "checkmark.square.fill" : "square"
     }
 
     var timeText: String {

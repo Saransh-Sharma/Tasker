@@ -255,7 +255,7 @@ public final class LocalNotificationService: NotificationServiceProtocol, @unche
         if let fireDate {
             fields["fire_date"] = dateFormatter.string(from: fireDate)
         }
-        logWarning(
+        logDebug(
             event: "notification_lifecycle",
             message: "Local notification lifecycle event",
             fields: fields
@@ -835,7 +835,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
                 }
                 requestsToSchedule.forEach { self.notificationService.schedule(request: $0) }
 
-                logWarning(
+                logInfo(
                     event: "notification_reconciled",
                     message: "Notification schedule reconciled",
                     fields: [
@@ -1097,18 +1097,6 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
             }
 
             var requests: [LifeBoardLocalNotificationRequest] = []
-            if eveningFire > nowDate {
-                requests.append(
-                    LifeBoardLocalNotificationRequest(
-                        id: "daily.reflection.\(dateStamp).evening",
-                        kind: .nightlyRetrospective,
-                        title: "Daily Reflection",
-                        body: "Close your day with a 60-second reflection and secure your XP momentum.",
-                        fireDate: eveningFire,
-                        route: .dailySummary(kind: .nightly, dateStamp: dateStamp)
-                    )
-                )
-            }
 
             if let followUpFire = calendar.date(byAdding: .minute, value: 90, to: eveningFire),
                calendar.isDate(followUpFire, inSameDayAs: day),

@@ -83,6 +83,7 @@ extension HomeViewModel {
     /// Executes currentTaskSnapshot.
 
     func currentTaskSnapshot(for id: UUID) -> TaskDefinition? {
+        if let task = timelineProjectionTasks.first(where: { $0.id == id }) { return task }
         if let task = morningTasks.first(where: { $0.id == id }) { return task }
         if let task = eveningTasks.first(where: { $0.id == id }) { return task }
         if let task = overdueTasks.first(where: { $0.id == id }) { return task }

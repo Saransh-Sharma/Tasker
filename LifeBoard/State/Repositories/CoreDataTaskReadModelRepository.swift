@@ -789,7 +789,8 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
             NSSortDescriptor(key: "scheduledStartAt", ascending: true),
             NSSortDescriptor(key: "dueDate", ascending: true),
             NSSortDescriptor(key: "updatedAt", ascending: false),
-            NSSortDescriptor(key: "title", ascending: true, selector: #selector(NSString.localizedStandardCompare(_:)))
+            NSSortDescriptor(key: "title", ascending: true, selector: #selector(NSString.localizedStandardCompare(_:))),
+            NSSortDescriptor(key: "id", ascending: true)
         ]
     }
 

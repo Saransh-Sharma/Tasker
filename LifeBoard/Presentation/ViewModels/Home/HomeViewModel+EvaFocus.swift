@@ -46,6 +46,7 @@ extension HomeViewModel {
         evaRescueSheetPresented = value
         if value == false, evaRescueLauncherState != .loading {
             evaRescueLauncherState = .idle
+            evaRescueReferenceDate = nil
         }
     }
 

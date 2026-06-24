@@ -284,6 +284,8 @@ private func makeTasksSnapshot(
         doneTimelineTasks: [],
         projects: [],
         projectsByID: [:],
+        lifeAreas: [],
+        lifeAreasByID: [:],
         tagNameByID: [:],
         activeQuickView: .today,
         todayXPSoFar: nil,
@@ -295,7 +297,8 @@ private func makeTasksSnapshot(
         focusTasks: focusTasks,
         focusRows: focusTasks.map(HomeTodayRow.task),
         pinnedFocusTaskIDs: [],
-        todayOpenTaskCount: morningTasks.count + eveningTasks.count + overdueTasks.count + focusTasks.count
+        todayOpenTaskCount: morningTasks.count + eveningTasks.count + overdueTasks.count + focusTasks.count,
+        lifeAreaLensActivity: [:]
     )
 }
 

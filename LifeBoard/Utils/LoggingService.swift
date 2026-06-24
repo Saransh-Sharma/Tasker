@@ -5,7 +5,8 @@ import os.signpost
 import Darwin
 #endif
 
-/// Log level enumeration
+/// Log level enumeration.
+/// Use `.warning` only when operator or user attention may be needed; healthy diagnostics belong at `.info` or `.debug`.
 public enum LogLevel: Int {
     case debug = 0
     case info = 1
