@@ -274,6 +274,7 @@ CORE COMMANDS:
 ADVANCED COMMANDS:
     archive         Create distributable archive
     export          Export archive for distribution
+    dmg             Build, sign, and package a notarized Mac Catalyst DMG
     logs            View build and application logs
     cache           Manage build cache with intelligent invalidation
     config          Manage configuration and profiles
@@ -672,6 +673,57 @@ SEE ALSO:
 
 EOF
             ;;
+        "dmg")
+            cat << 'EOF'
+LIFEBOARDCTL DMG - Build Notarized Mac Catalyst DMG
+
+USAGE:
+    lifeboardctl dmg [OPTIONS]
+
+DESCRIPTION:
+    Clean-build, archive, export, and package the LifeBoard Mac Catalyst app
+    into a Developer ID-signed DMG. Notarization and stapling run by default.
+
+OPTIONS:
+    -c, --configuration <CONFIG>
+        Build configuration [debug|release] (default: release)
+
+    -o, --output <PATH>
+        Output DMG path (default: ./build/LifeBoard-<version>-mac.dmg)
+
+    --clean
+        Remove ./build and ./DerivedData before building
+
+    --skip-notarize
+        Build and create the DMG without notarization or stapling
+
+    -v, --verbose
+        Enable detailed logging output
+
+PREREQUISITES:
+    • Developer ID Application certificate in Keychain
+    • Notary credentials stored as keychain profile "lifeboard-notary":
+      xcrun notarytool store-credentials lifeboard-notary \
+        --apple-id "<apple-id>" \
+        --team-id "<team-id>" \
+        --password "<app-specific-password>"
+
+EXAMPLES:
+    # Clean release build with notarization (default)
+    lifeboardctl dmg --clean --configuration release
+
+    # Build DMG without notarization (debugging)
+    lifeboardctl dmg --clean --skip-notarize
+
+    # Custom output path
+    lifeboardctl dmg --output "./build/LifeBoard-Staging-mac.dmg"
+
+SEE ALSO:
+    • lifeboardctl help archive
+    • lifeboardctl help export
+
+EOF
+            ;;
         "logs")
             cat << 'EOF'
 LIFEBOARDCTL LOGS - View Build and Application Logs
@@ -932,7 +984,7 @@ EOF
             ;;
         *)
             log_error "Unknown command: $command"
-            echo "Available commands: setup, build, run, test, clean, status, doctor, archive, export, logs, cache, config, deploy"
+            echo "Available commands: setup, build, run, test, clean, status, doctor, archive, export, dmg, logs, cache, config, deploy"
             echo "Use 'lifeboardctl --help' for general help"
             ;;
     esac
@@ -2641,6 +2693,321 @@ EOF
     fi
 }
 
+# Read DEVELOPMENT_TEAM from the Xcode project
+get_development_team() {
+    grep -m1 'DEVELOPMENT_TEAM = ' "$PROJECT_ROOT/LifeBoard.xcodeproj/project.pbxproj" \
+        | sed 's/.*DEVELOPMENT_TEAM = \([^;]*\);.*/\1/' \
+        | tr -d ' '
+}
+
+# Read MARKETING_VERSION from the Xcode project
+get_marketing_version() {
+    grep -m1 'MARKETING_VERSION = ' "$PROJECT_ROOT/LifeBoard.xcodeproj/project.pbxproj" \
+        | sed 's/.*MARKETING_VERSION = \([^;]*\);.*/\1/' \
+        | tr -d ' '
+}
+
+# Ensure the Metal compiler toolchain is available (required by mlx-swift)
+ensure_metal_toolchain() {
+    local metal_bin="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/metal"
+
+    if [[ ! -x "$metal_bin" ]]; then
+        log_error "Metal compiler not found at $metal_bin"
+        log_info "Install Xcode and select it with: sudo xcode-select -s /Applications/Xcode.app"
+        return 1
+    fi
+
+    if "$metal_bin" --version >/dev/null 2>&1; then
+        log_debug "Metal toolchain is available"
+        return 0
+    fi
+
+    log_warn "Metal Toolchain component is missing; attempting download..."
+    if xcodebuild -downloadComponent MetalToolchain; then
+        if "$metal_bin" --version >/dev/null 2>&1; then
+            log_success "Metal Toolchain installed"
+            return 0
+        fi
+    fi
+
+    log_error "Metal Toolchain is required for Mac Catalyst builds (mlx-swift)"
+    log_info "Install manually with: xcodebuild -downloadComponent MetalToolchain"
+    log_info "If download fails, open Xcode → Settings → Components and install Metal Toolchain"
+    return 1
+}
+
+# Ensure CocoaPods dependencies are installed when needed
+ensure_pods_installed() {
+    if [[ ! -f "$PROJECT_ROOT/Podfile" ]]; then
+        return 0
+    fi
+
+    log_info "Checking CocoaPods dependencies..."
+    if [[ ! -f "$PROJECT_ROOT/Podfile.lock" ]] || [[ "$PROJECT_ROOT/Podfile" -nt "$PROJECT_ROOT/Podfile.lock" ]]; then
+        start_spinner "Updating CocoaPods dependencies"
+        cd "$PROJECT_ROOT"
+        if pod install --repo-update; then
+            stop_spinner
+            log_success "Dependencies updated successfully"
+        else
+            stop_spinner
+            log_error "Failed to update dependencies"
+            return 1
+        fi
+        cd - >/dev/null
+    else
+        log_debug "Dependencies are up to date"
+    fi
+}
+
+# Build, sign, and package a notarized Mac Catalyst DMG
+cmd_dmg() {
+    local configuration="release"
+    local output_path=""
+    local clean_before=0
+    local skip_notarize=0
+    local notary_profile="lifeboard-notary"
+    local destination="generic/platform=macOS,variant=Mac Catalyst"
+    local archive_path=""
+    local export_dir=""
+    local export_plist=""
+    local dmg_start
+    local dmg_log
+    local team_id
+    local marketing_version
+    local app_path
+    local staging_dir
+    local dmg_path
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -c|--configuration)
+                configuration="$2"
+                shift 2
+                ;;
+            -o|--output)
+                output_path="$2"
+                shift 2
+                ;;
+            --clean)
+                clean_before=1
+                shift
+                ;;
+            --skip-notarize)
+                skip_notarize=1
+                shift
+                ;;
+            -v|--verbose)
+                VERBOSE=1
+                LOG_LEVEL="DEBUG"
+                shift
+                ;;
+            *)
+                log_error "Unknown dmg option: $1"
+                echo "Use 'lifeboardctl help dmg' for available options"
+                return 1
+                ;;
+        esac
+    done
+
+    dmg_start=$(date +%s)
+    dmg_log="$LOG_DIR/dmg-$(date +%Y%m%d-%H%M%S).log"
+
+    log_info "Starting Mac Catalyst DMG build..."
+    log_info "Log file: $dmg_log"
+
+    load_config
+    if ! validate_project; then
+        log_error "Project validation failed"
+        return 1
+    fi
+
+    if ! command -v xcodebuild >/dev/null 2>&1; then
+        log_error "xcodebuild not found. Install Xcode command line tools."
+        return 1
+    fi
+
+    team_id=$(get_development_team)
+    if [[ -z "$team_id" ]]; then
+        log_error "Could not read DEVELOPMENT_TEAM from LifeBoard.xcodeproj"
+        return 1
+    fi
+
+    marketing_version=$(get_marketing_version)
+    if [[ -z "$marketing_version" ]]; then
+        marketing_version="unknown"
+    fi
+
+    if [[ -z "$output_path" ]]; then
+        output_path="$PROJECT_ROOT/build/LifeBoard-${marketing_version}-mac.dmg"
+    fi
+
+    mkdir -p "$(dirname "$output_path")"
+    archive_path="$PROJECT_ROOT/build/LifeBoard-mac-$(date +%Y%m%d-%H%M%S).xcarchive"
+    export_dir="$PROJECT_ROOT/build/mac-export-$(date +%Y%m%d-%H%M%S)"
+
+    if [[ $clean_before -eq 1 ]]; then
+        log_info "Cleaning build artifacts..."
+        rm -rf "$PROJECT_ROOT/build" "$PROJECT_ROOT/DerivedData"
+        mkdir -p "$PROJECT_ROOT/build"
+    fi
+
+    if ! ensure_pods_installed; then
+        return 1
+    fi
+
+    if ! ensure_metal_toolchain; then
+        return 1
+    fi
+
+    if [[ $skip_notarize -eq 0 ]]; then
+        if ! xcrun notarytool history --keychain-profile "$notary_profile" >/dev/null 2>&1; then
+            log_error "Notary credentials not found for profile '$notary_profile'"
+            log_info "Store credentials with:"
+            log_info "  xcrun notarytool store-credentials $notary_profile \\"
+            log_info "    --apple-id \"<apple-id>\" --team-id \"$team_id\" --password \"<app-specific-password>\""
+            return 1
+        fi
+    fi
+
+    log_info "Archive configuration: $configuration"
+    log_info "Destination: $destination"
+    log_info "Team ID: $team_id"
+
+    local archive_args=(
+        "-workspace" "$WORKSPACE"
+        "-scheme" "$SCHEME"
+        "-configuration" "$configuration"
+        "-destination" "$destination"
+        "archive"
+        "-archivePath" "$archive_path"
+        "-allowProvisioningUpdates"
+    )
+
+    if [[ $VERBOSE -eq 1 ]]; then
+        archive_args+=("-verbose")
+    else
+        archive_args+=("-quiet")
+    fi
+
+    log_info "Creating Mac Catalyst archive..."
+    cd "$PROJECT_ROOT"
+    if ! xcodebuild "${archive_args[@]}" 2>&1 | tee "$dmg_log"; then
+        log_error "Mac Catalyst archive failed"
+        log_error "Check the log: $dmg_log"
+        cd - >/dev/null
+        return 1
+    fi
+
+    if [[ ! -d "$archive_path" ]]; then
+        log_error "Archive not found at: $archive_path"
+        cd - >/dev/null
+        return 1
+    fi
+
+    export_plist=$(mktemp "${TMPDIR:-/tmp}/lifeboard-mac-export.XXXXXX.plist")
+    cat > "$export_plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>developer-id</string>
+    <key>teamID</key>
+    <string>$team_id</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+</dict>
+</plist>
+EOF
+
+    mkdir -p "$export_dir"
+    log_info "Exporting signed Mac app..."
+    if ! xcodebuild \
+        -exportArchive \
+        -archivePath "$archive_path" \
+        -exportPath "$export_dir" \
+        -exportOptionsPlist "$export_plist" \
+        -allowProvisioningUpdates \
+        2>&1 | tee -a "$dmg_log"; then
+        log_error "Mac app export failed"
+        log_error "Check the log: $dmg_log"
+        rm -f "$export_plist"
+        cd - >/dev/null
+        return 1
+    fi
+
+    rm -f "$export_plist"
+
+    app_path=$(find "$export_dir" -maxdepth 1 -name "*.app" -print -quit)
+    if [[ -z "$app_path" || ! -d "$app_path" ]]; then
+        log_error "Exported .app not found in $export_dir"
+        cd - >/dev/null
+        return 1
+    fi
+
+    log_info "Packaging DMG from: $app_path"
+    staging_dir=$(mktemp -d "${TMPDIR:-/tmp}/lifeboard-dmg.XXXXXX")
+    cp -R "$app_path" "$staging_dir/"
+    ln -s /Applications "$staging_dir/Applications"
+
+    dmg_path="$output_path"
+    rm -f "$dmg_path"
+    if ! hdiutil create \
+        -volname "LifeBoard" \
+        -srcfolder "$staging_dir" \
+        -ov \
+        -format UDZO \
+        "$dmg_path" 2>&1 | tee -a "$dmg_log"; then
+        log_error "Failed to create DMG at $dmg_path"
+        rm -rf "$staging_dir"
+        cd - >/dev/null
+        return 1
+    fi
+    rm -rf "$staging_dir"
+
+    local dmg_size
+    dmg_size=$(du -sh "$dmg_path" | cut -f1)
+    log_success "DMG created: $dmg_path ($dmg_size)"
+
+    if [[ $skip_notarize -eq 0 ]]; then
+        log_info "Submitting DMG for notarization..."
+        if ! xcrun notarytool submit "$dmg_path" \
+            --keychain-profile "$notary_profile" \
+            --wait 2>&1 | tee -a "$dmg_log"; then
+            log_error "Notarization failed"
+            log_error "Inspect with: xcrun notarytool log --keychain-profile $notary_profile <submission-id>"
+            cd - >/dev/null
+            return 1
+        fi
+
+        log_info "Stapling notarization ticket..."
+        if ! xcrun stapler staple "$dmg_path" 2>&1 | tee -a "$dmg_log"; then
+            log_error "Stapling failed for $dmg_path"
+            cd - >/dev/null
+            return 1
+        fi
+
+        if xcrun stapler validate "$dmg_path" >/dev/null 2>&1; then
+            log_success "DMG notarization validated"
+        else
+            log_warn "Stapler validate did not confirm the ticket; check manually with: xcrun stapler validate \"$dmg_path\""
+        fi
+    fi
+
+    local dmg_end
+    local dmg_duration
+    dmg_end=$(date +%s)
+    dmg_duration=$((dmg_end - dmg_start))
+
+    log_success "Mac DMG build completed in ${dmg_duration}s"
+    log_info "Output: $dmg_path"
+    log_info "Archive: $archive_path"
+    log_info "Export: $export_dir"
+
+    cd - >/dev/null
+}
+
 # Cache command
 cmd_cache() {
     local action="status"
@@ -3716,7 +4083,7 @@ main() {
                 show_help
                 exit 0
                 ;;
-            setup|build|run|test|clean|status|doctor|archive|export|logs|cache|config|deploy)
+            setup|build|run|test|clean|status|doctor|archive|export|dmg|logs|cache|config|deploy)
                 local command="$1"
                 shift
                 "cmd_$command" "$@"
