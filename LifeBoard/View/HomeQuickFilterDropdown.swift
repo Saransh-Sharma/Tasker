@@ -241,12 +241,11 @@ public struct HomeQuickFilterDropdown: View {
                 provideHapticFeedback()
             }
 
-            // Pinned projects
-            let pinnedProjects = viewModel.projects.filter {
-                viewModel.activeFilterState.pinnedProjectIDSet.contains($0.id)
-            }
+            let filterProjects = viewModel.projects
+                .filter { $0.isInbox == false && $0.id != ProjectConstants.inboxProjectID }
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
-            ForEach(pinnedProjects, id: \.id) { project in
+            ForEach(filterProjects, id: \.id) { project in
                 LifeBoardFilterRow(
                     title: project.name,
                     isSelected: viewModel.activeFilterState.selectedProjectIDSet.contains(project.id),
@@ -257,8 +256,8 @@ public struct HomeQuickFilterDropdown: View {
                 }
             }
 
-            if pinnedProjects.isEmpty {
-                Text("No pinned projects")
+            if filterProjects.isEmpty {
+                Text("No projects")
                     .font(.lifeboard(.caption1))
                     .foregroundColor(Color.lifeboard.textTertiary)
                     .padding(.horizontal, spacing.s20)
