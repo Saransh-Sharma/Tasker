@@ -84,11 +84,23 @@ extension AppOnboardingJourneyView {
         reduceMotion || isKeyboardEditing
     }
 
-    @ViewBuilder
+    /// The dark cinematic video backs only the welcome intro. Every other
+    /// step sits on the Sunrise Glass canvas with a pastel step wash. The
+    /// slow crossfade out of the video is the sunrise moment itself.
     var backgroundLayer: some View {
-        OnboardingCinematicBackdrop(
-            mode: onboardingBackdropMode,
-            includeWelcomeAccessibilityMarkers: shouldShowWelcomeExperience
+        ZStack {
+            if shouldShowWelcomeExperience {
+                OnboardingCinematicBackdrop(
+                    mode: onboardingBackdropMode,
+                    includeWelcomeAccessibilityMarkers: true
+                )
+            } else {
+                AppOnboardingBackground()
+            }
+        }
+        .animation(
+            pageMotionIsReduced ? .easeOut(duration: 0.2) : .easeInOut(duration: 0.6),
+            value: shouldShowWelcomeExperience
         )
     }
 
