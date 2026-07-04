@@ -482,6 +482,10 @@ components:
     state_priority: "replan, morning plan, evening review, rescue, inbox, resume"
     gates: "Today lens, current calendar date, no active rescue/replan/reflect flow"
     quiet_hours: "apply only to rescue and inbox states"
+    thresholds: "rescue at 1+ eligible task, inbox at 2+ ready items; proactive by design"
+    windows: "morning plan 05:00-10:59, evening review 18:00+, resume 11:00-17:59"
+    snooze: "replan/morning/evening/rescue/inbox snooze to end of day; resume dismisses for the session"
+    all_clear: "transient ~4s leaf confirmation after a compass-launched flow completes"
   creation_sheet:
     detent: "medium by default, large only when content requires it"
     disclosure: "one advanced tier, never nested disclosure stacks"
@@ -1341,6 +1345,15 @@ State priority is normative and deterministic:
 4. `rescue`: overdue pressure needs a recovery sprint.
 5. `inbox`: inbox/backlog work is ready for placement.
 6. `resumeTask`: the user can resume the last interrupted task.
+
+Activation thresholds and windows (normative, matching the shipped engine):
+
+- `morningPlan` activates 05:00-10:59 when no daily plan is committed and open tasks exist.
+- `eveningReview` activates from 18:00 when a reflection target is still open.
+- `rescue` activates at 1 or more deck-eligible overdue tasks; `inbox` at 2 or more ready items. The compass is intentionally proactive; snooze keeps it polite.
+- `resumeTask` activates 11:00-17:59 for the last interrupted, still-open task.
+- Snoozing any state quiets it until the start of the next day; resume dismissal lasts for the session.
+- Completing a compass-launched flow shows a transient all-clear confirmation (~4s), then the card hides.
 
 Behavior contracts:
 

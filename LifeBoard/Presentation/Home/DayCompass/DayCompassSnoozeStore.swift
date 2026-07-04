@@ -18,12 +18,11 @@ final class DayCompassSnoozeStore: @unchecked Sendable {
     ) -> DayCompassSnoozeSnapshot {
         migrateLegacyNeedsReplanDismissalIfNeeded(now: now, calendar: calendar)
 
+        // Expired entries are filtered in-memory only; pruning persists on the
+        // next write so load stays side-effect-free on the hot resolve path.
         let payload = readPayload()
         let snoozedUntil = payload.snoozedUntil.compactMapValues { until in
             until > now ? until : nil
-        }
-        if snoozedUntil != payload.snoozedUntil {
-            writePayload(DayCompassSnoozePayload(snoozedUntil: snoozedUntil))
         }
         return DayCompassSnoozeSnapshot(
             snoozedUntil: snoozedUntil,
@@ -47,8 +46,11 @@ final class DayCompassSnoozeStore: @unchecked Sendable {
         }
     }
 
-    func snooze(flow: DayCompassFlow, until date: Date) {
+    func snooze(flow: DayCompassFlow, until date: Date, now: Date = Date()) {
         var payload = readPayload()
+        payload.snoozedUntil = payload.snoozedUntil.compactMapValues { until in
+            until > now ? until : nil
+        }
         payload.snoozedUntil[flow] = date
         writePayload(payload)
     }

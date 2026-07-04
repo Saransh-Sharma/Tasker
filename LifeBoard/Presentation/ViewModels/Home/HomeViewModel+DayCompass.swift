@@ -23,7 +23,7 @@ extension HomeViewModel {
     func resolveDayCompass(now: Date = Date(), calendar: Calendar = .current) -> DayCompassCardModel? {
         let replanCandidates = dayCompassReplanCandidates
         let inboxCandidates = dayCompassInboxCandidates
-        let snoozes = DayCompassSnoozeStore(userDefaults: userDefaults).load(
+        let snoozes = dayCompassSnoozeStore.load(
             now: now,
             calendar: calendar,
             resumeDismissedForSession: resumeDismissedForSession
@@ -37,7 +37,7 @@ extension HomeViewModel {
             replanCandidateCount: replanCandidates.count,
             replanEarliestTitle: replanCandidates.first?.task.title,
             hasCommittedDailyPlan: dailyPlanDraftForSelectedDate() != nil,
-            hasOpenReflectionTarget: useCaseCoordinator.resolveDailyReflectionTarget.execute() != nil,
+            hasOpenReflectionTarget: hasOpenDayCompassReflectionTarget(now: now, calendar: calendar),
             todayOpenTaskCount: todayOpenTaskCount,
             todayDoneTaskCount: completedTasks.count,
             rescueEligibleCount: dayCompassRescueEligibleCount(now: now),
@@ -54,6 +54,7 @@ extension HomeViewModel {
     func startDayCompassReplanSession() {
         let candidates = dayCompassReplanCandidates
         guard candidates.isEmpty == false else { return }
+        dayCompassLaunchedFlow = .replan
         beginReplanLauncher(with: candidates, scopedTo: nil)
         startNeedsReplanSession()
     }
@@ -61,8 +62,36 @@ extension HomeViewModel {
     func startDayCompassInboxSession() {
         let candidates = dayCompassInboxCandidates
         guard candidates.isEmpty == false else { return }
+        dayCompassLaunchedFlow = .inbox
         beginReplanLauncher(with: candidates, scopedTo: nil)
         startNeedsReplanSession()
+    }
+
+    func startDayCompassRescueSession() {
+        dayCompassLaunchedFlow = .rescue
+        openRescue()
+    }
+
+    /// Arms the all-clear moment when a compass-launched replan or inbox
+    /// session finishes; abandoned sessions clear the stamp silently.
+    func completeDayCompassPlacementSessionIfNeeded() {
+        guard let flow = dayCompassLaunchedFlow, flow == .replan || flow == .inbox else { return }
+        dayCompassLaunchedFlow = nil
+        showDayCompassAllClear(after: flow)
+    }
+
+    func abandonDayCompassPlacementSessionIfNeeded() {
+        guard dayCompassLaunchedFlow == .replan || dayCompassLaunchedFlow == .inbox else { return }
+        dayCompassLaunchedFlow = nil
+    }
+
+    /// Arms the all-clear moment when a compass-launched rescue run drained
+    /// the eligible queue; otherwise the compass simply resurfaces rescue.
+    func completeDayCompassRescueIfNeeded(now: Date = Date()) {
+        guard dayCompassLaunchedFlow == .rescue else { return }
+        dayCompassLaunchedFlow = nil
+        guard dayCompassRescueEligibleCount(now: now) == 0 else { return }
+        showDayCompassAllClear(after: .rescue)
     }
 
     func handleDayCompassResumeTask(taskID: UUID) {
@@ -76,10 +105,28 @@ extension HomeViewModel {
         if flow == .resumeTask {
             resumeDismissedForSession = true
         } else {
-            DayCompassSnoozeStore(userDefaults: userDefaults).snoozeUntilEndOfDay(flow: flow)
+            dayCompassSnoozeStore.snoozeUntilEndOfDay(flow: flow)
         }
         clearDayCompassAllClear()
         scheduleHomeRenderStateRefresh([.chrome])
+    }
+
+    /// Reflection-target lookup cached per day so frequent `.chrome` refreshes
+    /// don't re-run the use case; invalidated when a reflection is saved.
+    func hasOpenDayCompassReflectionTarget(now: Date, calendar: Calendar) -> Bool {
+        let components = calendar.dateComponents([.year, .month, .day], from: now)
+        let dayKey = "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+        if dayCompassReflectionTargetCacheDayKey == dayKey {
+            return dayCompassReflectionTargetCacheValue
+        }
+        let hasTarget = useCaseCoordinator.resolveDailyReflectionTarget.execute() != nil
+        dayCompassReflectionTargetCacheDayKey = dayKey
+        dayCompassReflectionTargetCacheValue = hasTarget
+        return hasTarget
+    }
+
+    func invalidateDayCompassReflectionTargetCache() {
+        dayCompassReflectionTargetCacheDayKey = nil
     }
 
     func showDayCompassAllClear(after flow: DayCompassFlow, durationSeconds: TimeInterval = 4) {

@@ -291,6 +291,19 @@ public final class HomeViewModel: ObservableObject {
 
     var dayCompassAllClearTask: Task<Void, Never>?
 
+    /// Which compass CTA launched the currently running flow, so its completion
+    /// can arm the transient all-clear moment. Nil when the flow was entered
+    /// from a non-compass surface or was abandoned.
+    var dayCompassLaunchedFlow: DayCompassFlow?
+
+    lazy var dayCompassSnoozeStore = DayCompassSnoozeStore(userDefaults: userDefaults)
+
+    /// Day-stamp cache for the reflection-target lookup so `.chrome` refreshes
+    /// don't run the use case on every resolve.
+    var dayCompassReflectionTargetCacheDayKey: String?
+
+    var dayCompassReflectionTargetCacheValue = false
+
     var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
 
     var currentHabitSignals: [LifeBoardHabitSignal] = []

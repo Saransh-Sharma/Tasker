@@ -138,7 +138,7 @@ extension HomeViewController: HomeNavigationCoordinatorDelegate {
         case .replan:
             viewModel.startDayCompassReplanSession()
         case .rescue:
-            viewModel.openRescue()
+            viewModel.startDayCompassRescueSession()
         case .inbox:
             viewModel.startDayCompassInboxSession()
         case .resumeTask:
