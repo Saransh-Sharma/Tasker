@@ -381,7 +381,7 @@ struct TimelineCanvasLayoutPlan: Equatable {
             title: title,
             subtitle: subtitle,
             primaryTitle: "Add task",
-            secondaryTitle: calendarHidden ? "Show calendar" : "Plan with \(AssistantIdentityText.currentSnapshot().displayName)",
+            secondaryTitle: calendarHidden ? "Show calendar" : "Place inbox",
             showsCalendarAction: calendarHidden,
             suggestedDate: projection.wakeAnchor.time.addingTimeInterval(60 * 60),
             temporalStart: temporalStart,

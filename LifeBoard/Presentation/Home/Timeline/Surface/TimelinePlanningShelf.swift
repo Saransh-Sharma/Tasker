@@ -90,8 +90,7 @@ struct TimelinePlanningShelf: View {
             if inboxItems.isEmpty == false {
                 TimelineInboxPlanningCard(
                     inboxItems: inboxItems,
-                    onTaskTap: onTaskTap,
-                    onScheduleInbox: onScheduleInbox
+                    onTaskTap: onTaskTap
                 )
             }
         }

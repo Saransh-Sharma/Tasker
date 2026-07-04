@@ -3,71 +3,78 @@ import SwiftUI
 struct TimelineInboxPlanningCard: View {
     let inboxItems: [TimelinePlanItem]
     let onTaskTap: (TimelinePlanItem) -> Void
-    let onScheduleInbox: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(inboxItems.count == 1 ? "1 inbox task ready" : "\(inboxItems.count) inbox tasks ready")
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                    Text("Fill open time first")
-                        .font(.lifeboard(.headline))
-                        .foregroundStyle(Color.lifeboard.textPrimary)
-                    Text("Pull something unplaced into the timeline before inspecting the rest of the day.")
-                        .font(.lifeboard(.support))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-                Button("Schedule Inbox") {
-                    onScheduleInbox()
-                }
-                .buttonStyle(.plain)
-                .font(.lifeboard(.buttonSmall))
-                .foregroundStyle(Color.lifeboard.accentOnPrimary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color.lifeboard.accentPrimary, in: Capsule())
-                .accessibilityHint("Starts placing inbox tasks into open time.")
-            }
+        let style = LBColorTokens.role(.assistant)
+        LBGlassCard(
+            cornerRadius: LBRadiusTokens.card,
+            borderColor: style.border.opacity(0.78),
+            fill: style.softSurface.opacity(0.56),
+            shadow: nil,
+            usesMaterialBackground: false
+        ) {
+            VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
+                HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
+                    Image(systemName: "tray.full")
+                        .font(LBTypographyTokens.bodyStrong)
+                        .foregroundStyle(style.deep)
+                        .frame(width: 34, height: 34)
+                        .background(style.softSurface.opacity(0.82), in: Circle())
+                        .accessibilityHidden(true)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(inboxItems.prefix(4)) { item in
-                        Button {
-                            onTaskTap(item)
-                        } label: {
-                            Text(item.title)
-                                .font(.lifeboard(.caption1))
-                                .foregroundStyle(Color.lifeboard.textPrimary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(inboxItems.count == 1 ? "1 inbox task ready" : "\(inboxItems.count) inbox tasks ready")
+                            .font(LBTypographyTokens.meta)
+                            .foregroundStyle(LBColorTokens.navyMuted)
+                        Text("Inbox waiting for placement")
+                            .font(LBTypographyTokens.cardTitle)
+                            .foregroundStyle(LBColorTokens.navy)
+                        Text("Day Compass will offer a placement pass when enough unscheduled work needs a home.")
+                            .font(LBTypographyTokens.body)
+                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(inboxItems.prefix(4)) { item in
+                            Button {
+                                onTaskTap(item)
+                            } label: {
+                                Text(item.title)
+                                    .font(LBTypographyTokens.meta)
+                                    .foregroundStyle(LBColorTokens.navy)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 9)
+                                    .background(LBColorTokens.glassStrong.opacity(0.72), in: Capsule())
+                                    .overlay {
+                                        Capsule()
+                                            .stroke(LBColorTokens.hairline.opacity(0.7), lineWidth: 1)
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        if inboxItems.count > 4 {
+                            Text("+\(inboxItems.count - 4) more")
+                                .font(LBTypographyTokens.meta)
+                                .foregroundStyle(LBColorTokens.navyMuted)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 9)
-                                .background(Color.lifeboard.surfacePrimary, in: Capsule())
+                                .background(LBColorTokens.glassStrong.opacity(0.72), in: Capsule())
+                                .accessibilityLabel("\(inboxItems.count - 4) more inbox tasks")
                         }
-                        .buttonStyle(.plain)
                     }
-
-                    if inboxItems.count > 4 {
-                        Text("+\(inboxItems.count - 4) more")
-                            .font(.lifeboard(.caption1).weight(.semibold))
-                            .foregroundStyle(Color.lifeboard.textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .background(Color.lifeboard.surfacePrimary, in: Capsule())
-                            .accessibilityLabel("\(inboxItems.count - 4) more inbox tasks")
-                    }
+                    .padding(.trailing, 4)
                 }
-                .padding(.trailing, 4)
+                .accessibilityLabel("Inbox task previews")
+                .accessibilityHint(inboxItems.count > 4 ? "Scroll horizontally to inspect more inbox tasks." : "Swipe through inbox tasks to inspect them.")
             }
-            .accessibilityLabel("Inbox task previews")
-            .accessibilityHint(inboxItems.count > 4 ? "Scroll horizontally to inspect more inbox tasks." : "Swipe through inbox tasks to inspect them.")
+            .padding(LBSpacingTokens.md)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.lifeboard.surfaceSecondary)
-        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.timeline.inboxShelf")
     }
 }

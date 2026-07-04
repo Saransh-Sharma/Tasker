@@ -521,7 +521,8 @@ struct SunriseHomeScreen: View {
                 title: title,
                 message: message,
                 actionTitle: "Add a task",
-                systemImage: "checkmark.circle"
+                systemImage: "checkmark.circle",
+                actionSystemImage: "plus"
             ),
             { onAddTask(nil) }
         )
@@ -702,7 +703,8 @@ struct SunriseHomeScreen: View {
                     title: "No meetings on this day",
                     message: "Your calendar has nothing meeting-like in this Home view.",
                     actionTitle: "Choose calendars",
-                    systemImage: "calendar"
+                    systemImage: "calendar",
+                    actionSystemImage: "calendar.badge.checkmark"
                 ),
                 onOpenCalendarChooser
             )
@@ -722,7 +724,8 @@ struct SunriseHomeScreen: View {
                     title: "No habits here yet",
                     message: "Nothing is due or tracked in Home right now. Open the Habit Board to review the full system.",
                     actionTitle: "Open Habit Board",
-                    systemImage: "heart"
+                    systemImage: "heart",
+                    actionSystemImage: "arrow.right"
                 ),
                 onOpenHabitBoard
             )
@@ -1592,16 +1595,31 @@ private struct SunriseHabitGridCard: View, Equatable {
     }
 
     private var emptyState: some View {
-        HStack(spacing: LBSpacingTokens.sm) {
+        let style = LBColorTokens.role(.personal)
+        return HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
             Image(systemName: "heart")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(LBColorTokens.violetDeep)
-            Text("No habits here yet.")
-                .font(LBTypographyTokens.body)
-                .foregroundStyle(LBColorTokens.navy)
+                .font(LBTypographyTokens.bodyStrong)
+                .foregroundStyle(style.deep)
+                .frame(width: 34, height: 34)
+                .background(style.softSurface.opacity(0.8), in: Circle())
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Start a habit loop")
+                    .font(LBTypographyTokens.bodyStrong)
+                    .foregroundStyle(LBColorTokens.navy)
+                Text("Create a repeatable routine and Home will show the next check-in here.")
+                    .font(LBTypographyTokens.meta)
+                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Spacer(minLength: LBSpacingTokens.sm)
         }
-        .padding(.top, LBSpacingTokens.xs)
+        .padding(LBSpacingTokens.md)
+        .background(style.softSurface.opacity(0.5), in: RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous)
+                .stroke(style.border.opacity(0.68), lineWidth: 1)
+        }
     }
 
     private var updateHint: some View {
@@ -1647,8 +1665,8 @@ private struct SunriseHabitGridCard: View, Equatable {
 
     private var footerNote: some View {
         HStack {
-            Image(systemName: "star")
-            Text("Small steps, big changes.")
+            Image(systemName: "calendar.badge.clock")
+            Text("Due states update from the Habit Board.")
             Spacer()
         }
         .font(LBTypographyTokens.meta)

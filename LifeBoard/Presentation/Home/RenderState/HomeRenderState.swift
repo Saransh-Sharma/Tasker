@@ -466,7 +466,7 @@ enum TimelineGapAction: String, Equatable {
         case .addTask:
             return "Add Task"
         case .scheduleInbox:
-            return "Schedule Inbox"
+            return "Place Inbox"
         case .planBlock:
             return "Plan Block"
         case .dismiss:
