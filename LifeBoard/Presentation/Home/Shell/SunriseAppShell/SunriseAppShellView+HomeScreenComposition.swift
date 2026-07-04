@@ -514,13 +514,15 @@ extension SunriseAppShellView {
             activeDayCompassFlow = .eveningReview
             openDailyReflectPlan()
         case .rescue:
-            viewModel.openRescue()
+            viewModel.startDayCompassRescueSession()
         case .inbox:
             viewModel.startDayCompassInboxSession()
         case .resumeTask(_, _, let taskID):
             viewModel.handleDayCompassResumeTask(taskID: taskID)
         case .allClear:
-            break
+            // Tapping the transient confirmation dismisses it early.
+            viewModel.clearDayCompassAllClear()
+            viewModel.scheduleHomeRenderStateRefresh([.chrome])
         }
     }
 }
