@@ -5,7 +5,7 @@
 - [x] Phase 2: Polish Home timeline, inbox shelf, assistant prompts, empty/loading/error states, and habit board presentation.
 - [x] Phase 3: Polish creation sheets, native habit reminder pickers, shared creation chips, and success feedback.
 - [x] Phase 4: Migrate onboarding to the 8-step Sunrise Glass flow while preserving enum raw-value compatibility.
-- [ ] Verification: run target membership, diff token guardrail, focused tests, and Catalyst build-for-testing.
+- [x] Verification: target membership, Swift diff token guardrail, and Catalyst build-for-testing passed; focused test execution is blocked on this host because macOS 26.4.1 is below the LifeBoardTests macOS 26.5 deployment target.
 
 Notes:
 
