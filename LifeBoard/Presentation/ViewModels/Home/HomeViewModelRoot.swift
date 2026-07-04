@@ -285,6 +285,12 @@ public final class HomeViewModel: ObservableObject {
     /// True once the user dismisses the Resume prompt; resets next launch.
     var resumeDismissedForSession = false
 
+    var dayCompassAllClearFlow: DayCompassFlow?
+
+    var dayCompassAllClearExpiresAt: Date?
+
+    var dayCompassAllClearTask: Task<Void, Never>?
+
     var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
 
     var currentHabitSignals: [LifeBoardHabitSignal] = []
@@ -525,6 +531,7 @@ public final class HomeViewModel: ObservableObject {
         pendingAdjacentDayPrefetchTask?.cancel()
         catchUpReflectionPreviewTask?.cancel()
         reflectionContextPrefetchTask?.cancel()
+        dayCompassAllClearTask?.cancel()
     }
 
 }

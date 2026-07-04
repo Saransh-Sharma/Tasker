@@ -304,6 +304,26 @@ final class HomeNavigationCoordinatorTests: XCTestCase {
         XCTAssertTrue(spy.reflectPlanDates.isEmpty)
     }
 
+    func testDayCompassRouteTriggersCompassWithParsedDate() {
+        let spy = HomeNavigationCoordinatorSpy()
+        let coordinator = HomeNavigationCoordinator(delegate: spy)
+
+        coordinator.handleNotificationRoute(.dayCompass(flow: .eveningReview, dateStamp: "20260503"))
+
+        XCTAssertEqual(spy.didShowTasksDestinationCount, 1)
+        XCTAssertEqual(spy.quickViews, [.today])
+        XCTAssertEqual(spy.pendingFocusTaskIDs.count, 1)
+        XCTAssertNil(spy.pendingFocusTaskIDs.first ?? nil)
+        XCTAssertEqual(spy.dayCompassRoutes.map(\.flow), [.eveningReview])
+        let components = Calendar.current.dateComponents(
+            [.year, .month, .day],
+            from: try! XCTUnwrap(spy.dayCompassRoutes.first?.preferredReflectionDate)
+        )
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 5)
+        XCTAssertEqual(components.day, 3)
+    }
+
     func testTypedIntentOpensTaskDetailThroughNarrowDelegate() {
         let spy = HomeNavigationCoordinatorSpy()
         let coordinator = HomeNavigationCoordinator(delegate: spy)
@@ -776,6 +796,7 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
     private(set) var didProcessPendingIPadModalRequestCount = 0
     private(set) var dailySummaries: [(kind: LifeBoardDailySummaryKind, dateStamp: String?)] = []
     private(set) var reflectPlanDates: [Date?] = []
+    private(set) var dayCompassRoutes: [(flow: DayCompassFlow, preferredReflectionDate: Date?)] = []
     private(set) var performedIntents: [HomeNavigationIntent] = []
 
     func homeNavigationShowTasksDestination() {
@@ -872,6 +893,10 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
 
     func homeNavigationPresentReflectPlan(preferredReflectionDate: Date?) {
         reflectPlanDates.append(preferredReflectionDate)
+    }
+
+    func homeNavigationTriggerDayCompass(flow: DayCompassFlow, preferredReflectionDate: Date?) {
+        dayCompassRoutes.append((flow, preferredReflectionDate))
     }
 
     func homeNavigationDate(from stamp: String?) -> Date? {
@@ -11142,7 +11167,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(morning.map { calendar.component(.minute, from: $0.fireDate) }, 0)
         XCTAssertEqual(
             morning?.route,
-            .dailySummary(kind: .morning, dateStamp: "20260224")
+            .dayCompass(flow: .morningPlan, dateStamp: "20260224")
         )
 
         let nightlySummaryIDs = Set(
@@ -11176,7 +11201,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(nightly.map { calendar.component(.minute, from: $0.fireDate) }, 0)
         XCTAssertEqual(
             nightly?.route,
-            .dailySummary(kind: .nightly, dateStamp: "20260224")
+            .dayCompass(flow: .eveningReview, dateStamp: "20260224")
         )
     }
 
@@ -11615,6 +11640,20 @@ final class LifeBoardNotificationRouteTests: XCTestCase {
         XCTAssertEqual(
             LifeBoardNotificationRoute.from(payload: nightlyNoDate.payload, fallbackTaskID: nil),
             nightlyNoDate
+        )
+    }
+
+    func testDayCompassRoutePayloadRoundTrip() {
+        let morning: LifeBoardNotificationRoute = .dayCompass(flow: .morningPlan, dateStamp: "20260225")
+        XCTAssertEqual(
+            LifeBoardNotificationRoute.from(payload: morning.payload, fallbackTaskID: nil),
+            morning
+        )
+
+        let replanNoDate: LifeBoardNotificationRoute = .dayCompass(flow: .replan, dateStamp: nil)
+        XCTAssertEqual(
+            LifeBoardNotificationRoute.from(payload: replanNoDate.payload, fallbackTaskID: nil),
+            replanNoDate
         )
     }
 }

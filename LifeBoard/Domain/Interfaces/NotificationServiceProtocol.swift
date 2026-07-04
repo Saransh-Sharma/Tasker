@@ -152,6 +152,7 @@ public enum LifeBoardNotificationRoute: Equatable, Codable, Sendable {
     case taskDetail(taskID: UUID)
     case weeklyPlanner
     case weeklyReview
+    case dayCompass(flow: DayCompassFlow, dateStamp: String?)
     case dailySummary(kind: LifeBoardDailySummaryKind, dateStamp: String?)
 
     public var payload: String {
@@ -169,6 +170,11 @@ public enum LifeBoardNotificationRoute: Equatable, Codable, Sendable {
             return "weekly_planner"
         case .weeklyReview:
             return "weekly_review"
+        case .dayCompass(let flow, let dateStamp):
+            if let dateStamp, dateStamp.isEmpty == false {
+                return "day_compass:\(flow.rawValue):\(dateStamp)"
+            }
+            return "day_compass:\(flow.rawValue)"
         case .dailySummary(let kind, let dateStamp):
             if let dateStamp, dateStamp.isEmpty == false {
                 return "daily_summary:\(kind.rawValue):\(dateStamp)"
@@ -187,12 +193,24 @@ public enum LifeBoardNotificationRoute: Equatable, Codable, Sendable {
             return taskID
         case .weeklyPlanner, .weeklyReview:
             return nil
+        case .dayCompass:
+            return nil
         case .dailySummary:
             return nil
         }
     }
 
     public static func from(payload: String, fallbackTaskID: UUID?) -> LifeBoardNotificationRoute {
+        if payload.hasPrefix("day_compass:") {
+            let value = String(payload.dropFirst("day_compass:".count))
+            let components = value.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+            let flowRaw = components.first.map(String.init) ?? ""
+            if let flow = DayCompassFlow(rawValue: flowRaw) {
+                let dateStamp = components.count > 1 ? String(components[1]) : nil
+                let normalizedDateStamp = dateStamp?.isEmpty == false ? dateStamp : nil
+                return .dayCompass(flow: flow, dateStamp: normalizedDateStamp)
+            }
+        }
         if payload.hasPrefix("daily_summary:") {
             let value = String(payload.dropFirst("daily_summary:".count))
             let components = value.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)

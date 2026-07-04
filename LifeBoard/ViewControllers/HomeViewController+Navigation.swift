@@ -130,6 +130,22 @@ extension HomeViewController: HomeNavigationCoordinatorDelegate {
         presentReflectPlanFlow(preferredReflectionDate: preferredReflectionDate)
     }
 
+    func homeNavigationTriggerDayCompass(flow: DayCompassFlow, preferredReflectionDate: Date?) {
+        guard let viewModel else { return }
+        switch flow {
+        case .morningPlan, .eveningReview:
+            presentReflectPlanFlow(preferredReflectionDate: preferredReflectionDate)
+        case .replan:
+            viewModel.startDayCompassReplanSession()
+        case .rescue:
+            viewModel.openRescue()
+        case .inbox:
+            viewModel.startDayCompassInboxSession()
+        case .resumeTask:
+            break
+        }
+    }
+
     func homeNavigationDate(from stamp: String?) -> Date? {
         dateFromStamp(stamp)
     }

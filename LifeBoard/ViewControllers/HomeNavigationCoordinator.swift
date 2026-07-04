@@ -26,6 +26,7 @@ protocol HomeNavigationCoordinatorDelegate: AnyObject {
     func homeNavigationProcessPendingIPadModalRequest()
     func homeNavigationPresentDailySummary(kind: LifeBoardDailySummaryKind, dateStamp: String?)
     func homeNavigationPresentReflectPlan(preferredReflectionDate: Date?)
+    func homeNavigationTriggerDayCompass(flow: DayCompassFlow, preferredReflectionDate: Date?)
     func homeNavigationDate(from stamp: String?) -> Date?
 }
 
@@ -107,6 +108,15 @@ final class HomeNavigationCoordinator {
 
         case .weeklyReview:
             delegate.homeNavigationOpenWeeklyReview()
+
+        case .dayCompass(let flow, let dateStamp):
+            delegate.homeNavigationShowTasksDestination()
+            delegate.homeNavigationSetQuickView(.today)
+            delegate.homeNavigationSetPendingNotificationFocusTaskID(nil)
+            delegate.homeNavigationTriggerDayCompass(
+                flow: flow,
+                preferredReflectionDate: delegate.homeNavigationDate(from: dateStamp)
+            )
 
         case .dailySummary(let kind, let dateStamp):
             if kind == .nightly {

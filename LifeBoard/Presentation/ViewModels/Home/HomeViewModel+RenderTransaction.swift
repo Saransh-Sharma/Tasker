@@ -179,7 +179,7 @@ extension HomeViewModel {
             dailyPlanDraft: dailyPlanDraftForSelectedDate(),
             momentumGuidanceText: makeMomentumGuidanceText(),
             lifeAreaLensHeader: makeLifeAreaLensHeader(),
-            resumeContext: resolveResumeContext()
+            dayCompass: resolveDayCompass()
         )
     }
 

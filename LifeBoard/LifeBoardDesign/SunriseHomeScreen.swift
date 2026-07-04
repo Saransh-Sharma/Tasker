@@ -36,8 +36,8 @@ struct SunriseHomeScreen: View {
     let onManageLenses: () -> Void
     let onStreamTaskTap: (TaskDefinition) -> Void
     let onStreamTaskToggleComplete: (TaskDefinition) -> Void
-    let onResume: (HomeResumeContext) -> Void
-    let onDismissResume: () -> Void
+    let onDayCompassPrimary: (DayCompassState) -> Void
+    let onDayCompassSnooze: (DayCompassFlow) -> Void
 
     @State private var isScrollActive = false
     @State private var scrollStopTask: Task<Void, Never>?
@@ -305,11 +305,11 @@ struct SunriseHomeScreen: View {
 
     private var content: some View {
         VStack(spacing: LBSpacingTokens.xxs) {
-            if let resumeContext = chrome.resumeContext {
-                LBResumeCard(
-                    context: resumeContext,
-                    onResume: onResume,
-                    onDismiss: onDismissResume
+            if let dayCompass = chrome.dayCompass {
+                LBDayCompassCard(
+                    model: dayCompass,
+                    onPrimary: onDayCompassPrimary,
+                    onSnooze: onDayCompassSnooze
                 )
                 .padding(.bottom, LBSpacingTokens.xs)
                 .transition(.move(edge: .top).combined(with: .opacity))
