@@ -263,53 +263,6 @@ extension SunriseAppShellView {
         chromeSnapshot.activeScope.quickView == .today && tasksSnapshot.dueTodaySection?.rows.isEmpty == false
     }
 
-    @ViewBuilder
-    var rootTimelineRescueLauncher: some View {
-        if isTodayTimelineVisible,
-           isRescueEnabled,
-           let item = visibleAgendaTailItems.first,
-           case .rescue(let state) = item {
-            HStack {
-                Button {
-                    viewModel.openRescue()
-                } label: {
-                    HStack(spacing: spacing.s8) {
-                        Image(systemName: "lifepreserver")
-                            .font(.system(size: 13, weight: .semibold))
-                            .accessibilityHidden(true)
-
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(String(localized: "Rescue"))
-                                .font(.lifeboard(.caption1).weight(.semibold))
-                                .foregroundStyle(Color.lifeboard.textPrimary)
-                            Text(state.subtitle)
-                                .font(.lifeboard(.caption2))
-                                .foregroundStyle(Color.lifeboard.textSecondary)
-                                .lineLimit(1)
-                        }
-                    }
-                    .padding(.vertical, spacing.s8)
-                    .padding(.horizontal, spacing.s12)
-                    .background(Color.lifeboard.surfacePrimary.opacity(0.96))
-                    .clipShape(Capsule())
-                    .overlay {
-                        Capsule()
-                            .stroke(Color.lifeboard.strokeHairline.opacity(0.65), lineWidth: 1)
-                    }
-                    .shadow(color: Color.black.opacity(0.08), radius: 8, y: 3)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Rescue")
-                .accessibilityValue(state.subtitle)
-                .accessibilityIdentifier("home.rescue.open")
-                .contentShape(Rectangle())
-            }
-            .padding(.top, layoutMetrics.safeAreaTop + spacing.s8)
-            .padding(.trailing, spacing.s16)
-            .zIndex(30)
-        }
-    }
-
     var passiveTrackingRailCards: [QuietTrackingRailCardPresentation] {
         habitsSnapshot.quietTrackingSummaryState.railCards
     }

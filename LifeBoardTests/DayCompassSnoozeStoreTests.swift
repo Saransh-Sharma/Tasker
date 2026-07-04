@@ -63,6 +63,19 @@ final class DayCompassSnoozeStoreTests: XCTestCase {
         XCTAssertNil(defaults.string(forKey: legacyNeedsReplanDismissedDayKey))
     }
 
+    func testExpiredEntriesArePrunedWhenSnoozingAnotherFlow() {
+        let now = date(hour: 12)
+        let store = DayCompassSnoozeStore(userDefaults: defaults)
+        store.snooze(flow: .rescue, until: now.addingTimeInterval(-60), now: now)
+
+        store.snooze(flow: .inbox, until: now.addingTimeInterval(60 * 60), now: now)
+
+        let snapshot = store.load(now: now, calendar: calendar)
+        XCTAssertFalse(snapshot.isSnoozed(.rescue, at: now))
+        XCTAssertTrue(snapshot.isSnoozed(.inbox, at: now))
+        XCTAssertEqual(snapshot.snoozedUntil.count, 1)
+    }
+
     func testResumeDismissedForSessionIsSnapshotOnly() {
         let now = date(hour: 13)
         let store = DayCompassSnoozeStore(userDefaults: defaults)

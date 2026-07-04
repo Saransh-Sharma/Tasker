@@ -24,7 +24,6 @@
 		0458C5D6A8E64302B1D4F06F /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */; };
 		04821EE8B574D3BAF98E7B76 /* DeleteProjectSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8565ACC6D97DD8CCE34EA3E0 /* DeleteProjectSheet.swift */; };
 		04AD0E929FAB37FD57D8BCB8 /* OnboardingPainPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1DD1A6ABC050A464C7B4397 /* OnboardingPainPoint.swift */; };
-		04E63445FD908A06EBA5315D /* HomeResumeContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A4BE1DF1359A1C155375F8 /* HomeResumeContext.swift */; };
 		05017EDD38C8DCBBD917220C /* timelineAccessibilityIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6CF6BCC0828B64D4447931 /* timelineAccessibilityIdentifier.swift */; };
 		050AE50E81D4703777D6F0C1 /* HomeViewModel+RenderTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E69586D6A0661BB639FAE5F /* HomeViewModel+RenderTransaction.swift */; };
 		0512B30196300E86AE6ABE53 /* OnboardingFlowModel+CatalogPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 079A43F8E9012BEFEACB658C /* OnboardingFlowModel+CatalogPresentation.swift */; };
@@ -108,7 +107,6 @@
 		1E5654B0467738918FD0492C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3D8D5167F9519588886C38B /* Foundation.framework */; };
 		1E7D50D956C53289A4DC9691 /* TimelineFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EA1722FAD5507224C2ED584 /* TimelineFormatting.swift */; };
 		1E8F023F70606AF2879DEFBE /* LifeManagementAreaPaletteOption.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F73F08CE7AF7398D7835E7F /* LifeManagementAreaPaletteOption.swift */; };
-		1EF1C23FF7434E1DB409CAD0 /* HomeViewModel+Resume.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90655AFD399D1A8825C93ED3 /* HomeViewModel+Resume.swift */; };
 		1F2D5D429CB73C24348EE788 /* EvaWorkingStatusLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0E5A5DE6FF2E8EEACA4280 /* EvaWorkingStatusLibrary.swift */; };
 		1F9B00012FBA700000000001 /* HomeNavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00002FBA700000000001 /* HomeNavigationCoordinator.swift */; };
 		1F9B00032FBA700000000003 /* HomeReloadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00022FBA700000000003 /* HomeReloadCoordinator.swift */; };
@@ -768,7 +766,6 @@
 		B344A818A99590F452C10FC9 /* TimelineDayPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E09A984D40ECCC16F14B36F /* TimelineDayPresentation.swift */; };
 		B426403E6996E2CE8BE66FB6 /* EnhancedDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017ECAA6FA89C9A7825A3E8A /* EnhancedDependencyContainer.swift */; };
 		B430108C7AE1B927B9B1FB58 /* OnboardingEvaStatusCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E16263361281852BA8E5B7F /* OnboardingEvaStatusCard.swift */; };
-		B464C6F6DC809B517ACC84CC /* LBResumeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8226852D8F7D914017C57B57 /* LBResumeCard.swift */; };
 		B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D7E8213A4F5C6D7E8F9011 /* V3TestHarness.swift */; };
 		B4D7E8213A4F5C6D7E8F9014 /* SharedColorTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D7E8213A4F5C6D7E8F9015 /* SharedColorTestHelpers.swift */; };
 		B578F682B59B5EE5ADB3FB30 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 35E5A3CA91F06A962F9FF9FA /* AppIntents.framework */; };
@@ -1717,7 +1714,6 @@
 		80EEB0762BB49B5983079AF3 /* MessageView+EvaProposalAndDayOverview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/LLM/Views/Chat/Conversation/MessageView+EvaProposalAndDayOverview.swift"; sourceTree = SOURCE_ROOT; };
 		817A26FD3474A08EC2250BED /* SwiftUI+TokenAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SwiftUI+TokenAdapters.swift"; sourceTree = "<group>"; };
 		81B4061464040091D355959D /* HomeViewModel+DailySummaryModal.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+DailySummaryModal.swift"; sourceTree = SOURCE_ROOT; };
-		8226852D8F7D914017C57B57 /* LBResumeCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBResumeCard.swift; sourceTree = "<group>"; };
 		82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickFilterDropdown.swift; sourceTree = "<group>"; };
 		82775C66CDC41F9E7034D949 /* HomeViewModel+FocusSessions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+FocusSessions.swift"; sourceTree = SOURCE_ROOT; };
 		82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSectionHeader.swift; sourceTree = "<group>"; };
@@ -1761,7 +1757,6 @@
 		8FC11A075C9E37AF0A3A64C8 /* HomeViewModel+InitialLoading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+InitialLoading.swift"; sourceTree = SOURCE_ROOT; };
 		8FDA708D6EFE103BE7B725E0 /* SunriseAppShellView+RescueOverlays.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+RescueOverlays.swift"; sourceTree = SOURCE_ROOT; };
 		903BFF6DB72A0D515603C771 /* HabitListRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/HabitListRow.swift; sourceTree = SOURCE_ROOT; };
-		90655AFD399D1A8825C93ED3 /* HomeViewModel+Resume.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+Resume.swift"; sourceTree = SOURCE_ROOT; };
 		90F01E2761C0C86CBDFA7BB9 /* TimelineWeekDayCell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineWeekDayCell.swift; sourceTree = SOURCE_ROOT; };
 		917E928680EC00ECB792B118 /* HomeReloadBatchTracker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeReloadBatchTracker.swift; sourceTree = SOURCE_ROOT; };
 		919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionBanner.swift; sourceTree = "<group>"; };
@@ -2086,7 +2081,6 @@
 		C7A6D85F245E9F672238D9E0 /* ChatComposerView+StructuredComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/LLM/Views/Chat/Chrome/ChatComposerView+StructuredComposer.swift"; sourceTree = SOURCE_ROOT; };
 		C81997132A898566B3451D49 /* EvaDayStatusChipsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Conversation/EvaDayStatusChipsView.swift; sourceTree = SOURCE_ROOT; };
 		C869F0E1F0337702AD2AF780 /* TimelineCompactConnector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineCompactConnector.swift; sourceTree = SOURCE_ROOT; };
-		C8A4BE1DF1359A1C155375F8 /* HomeResumeContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Resume/HomeResumeContext.swift; sourceTree = SOURCE_ROOT; };
 		C8A4F1023D6E4B7A91C2D301 /* HabitBoardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardViewModelTests.swift; sourceTree = "<group>"; };
 		C8A4F1023D6E4B7A91C2D303 /* HabitBoardUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardUITests.swift; sourceTree = "<group>"; };
 		C8E1864B29C7801E433C2D11 /* HomeViewModel+TaskActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+TaskActions.swift"; sourceTree = SOURCE_ROOT; };
@@ -3569,7 +3563,6 @@
 				DEE50736401EDD2F9A73FC90 /* ChatStorageDegradedBanner.swift */,
 				B36F56E947D18C0D1D111E0C /* ChatScaffoldView.swift */,
 				D974CDFA2F5A901967B485D2 /* ChatScaffoldView+NavigationChrome.swift */,
-				90655AFD399D1A8825C93ED3 /* HomeViewModel+Resume.swift */,
 				8603A229AA6EF804F63AB9F2 /* HomeViewModel+DayCompass.swift */,
 			);
 			name = "Recovered References";
@@ -4214,7 +4207,6 @@
 			isa = PBXGroup;
 			children = (
 				AAB000000000000000000001 /* HomeRenderState.swift */,
-				C8A4BE1DF1359A1C155375F8 /* HomeResumeContext.swift */,
 			);
 			path = RenderState;
 			sourceTree = "<group>";
@@ -4416,7 +4408,6 @@
 				F10A00000000000000000004 /* TimelineRoutineAnchorCard.swift */,
 				E50000000000000000000028 /* LBTimelineItem.swift */,
 				E5000000000000000000002A /* LBTimelineSpine.swift */,
-				8226852D8F7D914017C57B57 /* LBResumeCard.swift */,
 				7FC0B837AC9D1164A33DD4AE /* LBDayCompassCard.swift */,
 			);
 			path = Components;
@@ -5850,9 +5841,6 @@
 				56963F23411F17C33B977592 /* HomeSessionContextStore.swift in Sources */,
 				3375085748668ACC2BDAC35A /* CaptureInboxDrain.swift in Sources */,
 				D9C770D61EDCF3A952676B96 /* PendingCapture.swift in Sources */,
-				04E63445FD908A06EBA5315D /* HomeResumeContext.swift in Sources */,
-				1EF1C23FF7434E1DB409CAD0 /* HomeViewModel+Resume.swift in Sources */,
-				B464C6F6DC809B517ACC84CC /* LBResumeCard.swift in Sources */,
 				FCC1D77810ED7D9DD2465504 /* LBDayCompassCard.swift in Sources */,
 				6E5B3724B6D36DDFF75020A0 /* DayCompassModels.swift in Sources */,
 				93282C40EBDB86E4E7F64E42 /* DayCompassEngine.swift in Sources */,

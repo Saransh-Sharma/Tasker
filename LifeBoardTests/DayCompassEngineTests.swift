@@ -151,6 +151,59 @@ final class DayCompassEngineTests: XCTestCase {
         XCTAssertNil(expired)
     }
 
+    func testActivationThresholdBoundaries() {
+        let now = date(hour: 14)
+
+        XCTAssertNil(
+            DayCompassEngine().resolve(signals: signals(now: now, rescueEligibleCount: 0))
+        )
+        XCTAssertEqual(
+            DayCompassEngine().resolve(signals: signals(now: now, rescueEligibleCount: 1))?.state,
+            .rescue(count: 1)
+        )
+        XCTAssertNil(
+            DayCompassEngine().resolve(signals: signals(now: now, inboxReadyCount: 1))
+        )
+        XCTAssertEqual(
+            DayCompassEngine().resolve(signals: signals(now: now, inboxReadyCount: 2))?.state,
+            .inbox(count: 2)
+        )
+    }
+
+    func testMorningAndEveningWindowEdges() {
+        let beforeDawn = DayCompassEngine().resolve(
+            signals: signals(now: date(hour: 4), hasCommittedDailyPlan: false, todayOpenTaskCount: 1)
+        )
+        let atDawn = DayCompassEngine().resolve(
+            signals: signals(now: date(hour: 5), hasCommittedDailyPlan: false, todayOpenTaskCount: 1)
+        )
+        let beforeEvening = DayCompassEngine().resolve(
+            signals: signals(now: date(hour: 17), hasOpenReflectionTarget: true, todayDoneTaskCount: 1)
+        )
+        let atEvening = DayCompassEngine().resolve(
+            signals: signals(now: date(hour: 18), hasOpenReflectionTarget: true, todayDoneTaskCount: 1)
+        )
+
+        XCTAssertNil(beforeDawn)
+        XCTAssertEqual(atDawn?.state, .morningPlan(openCount: 1))
+        XCTAssertNil(beforeEvening)
+        XCTAssertEqual(atEvening?.state, .eveningReview(doneCount: 1, openCount: 0))
+    }
+
+    func testEveningReviewOutranksRescueAndInboxInItsWindow() {
+        let model = DayCompassEngine().resolve(
+            signals: signals(
+                now: date(hour: 19),
+                hasOpenReflectionTarget: true,
+                todayDoneTaskCount: 2,
+                rescueEligibleCount: 5,
+                inboxReadyCount: 6
+            )
+        )
+
+        XCTAssertEqual(model?.state, .eveningReview(doneCount: 2, openCount: 0))
+    }
+
     private func signals(
         now: Date,
         selectedDate: Date? = nil,
