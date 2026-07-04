@@ -58,7 +58,7 @@ extension OnboardingFlowModel {
         guard let nextOpenTask else { return }
         focusTaskID = nextOpenTask.id
         successSummary = nil
-        step = .focusRoom
+        step = .homeDemo
         persistJourney()
         await generateBreakdownSuggestions()
     }
@@ -69,7 +69,7 @@ extension OnboardingFlowModel {
         focusIsActive = false
         focusStartedAt = nil
         successSummary = nil
-        step = .focusRoom
+        step = .homeDemo
         persistJourney()
     }
 
@@ -111,7 +111,7 @@ extension OnboardingFlowModel {
             errorMessage = OnboardingCopy.Error.chooseEvaPreference
             return
         }
-        step = .workBlockers
+        step = .firstTask
         errorMessage = nil
         persistJourney()
     }
@@ -166,7 +166,7 @@ extension OnboardingFlowModel {
             errorMessage = OnboardingCopy.Error.chooseEvaPreference
             return
         }
-        step = .weeklyOutcomes
+        step = .firstTask
         errorMessage = nil
         persistJourney()
     }
@@ -284,8 +284,11 @@ extension OnboardingFlowModel {
             task.dateCompleted = task.dateCompleted ?? Date()
             upsertCreatedTask(task)
             successSummary = buildSummary(completedTask: task)
+        } else if let task = createdTasks.first(where: \.isComplete) ?? createdTasks.first {
+            successSummary = buildSummary(completedTask: task)
         }
-        step = .calendarPermission
+        reminderPromptState = .hidden
+        step = .success
         errorMessage = nil
         persistJourney()
     }
@@ -314,23 +317,20 @@ extension OnboardingFlowModel {
     }
 
     func continueFromCalendarPermission(skipped: Bool = false) async {
-        if skipped == false {
-            _ = await requestCalendarAccessIfNeeded()
+        if let completedTask = createdTasks.first(where: \.isComplete) ?? createdTasks.first {
+            successSummary = buildSummary(completedTask: completedTask)
         }
-        step = .notificationPermission
+        step = .success
         errorMessage = nil
         persistJourney()
     }
 
     func continueFromNotificationPermission(skipped: Bool = false) async {
-        if skipped == false, let notificationService {
-            _ = await requestNotificationPermission(using: notificationService)
-        }
         if let completedTask = createdTasks.first(where: \.isComplete) ?? createdTasks.first {
             successSummary = buildSummary(completedTask: completedTask)
         }
         step = .success
-        await refreshReminderPromptState()
+        reminderPromptState = .hidden
         persistJourney()
     }
 

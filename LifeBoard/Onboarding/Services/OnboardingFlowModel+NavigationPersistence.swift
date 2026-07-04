@@ -90,7 +90,7 @@ extension OnboardingFlowModel {
         errorMessage = nil
         if step == .success {
             successSummary = nil
-            step = .notificationPermission
+            step = .homeDemo
             persistJourney()
             return
         }
@@ -304,7 +304,7 @@ extension OnboardingFlowModel {
             try await resolveHabitOccurrence(habit.id, action, Date())
             habitPreviewMarks = updatePreviewMarks(with: resultingMarkState)
             didCompleteStarterHabitCheckIn = true
-            step = .calendarPermission
+            step = .success
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription

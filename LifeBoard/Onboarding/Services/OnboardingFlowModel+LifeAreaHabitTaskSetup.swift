@@ -20,7 +20,7 @@ extension OnboardingFlowModel {
     func continueFromEvaValue() {
         persistSelectedMascot()
         startEvaPreparationInBackgroundIfNeeded()
-        step = .lifeAreas
+        step = .habitSetup
         errorMessage = nil
         persistJourney()
     }
@@ -90,7 +90,7 @@ extension OnboardingFlowModel {
             taskTemplateStates = [:]
             focusTaskID = nil
             selectedStarterHabitTemplateID = selectedStarterHabitTemplateID ?? selectedStarterHabitTemplate?.id
-            step = .habitSetup
+            step = .evaValue
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription
@@ -262,13 +262,13 @@ extension OnboardingFlowModel {
             await addSuggestedHabit(template)
             guard errorMessage == nil else { return }
         }
-        step = .evaStyle
+        step = .firstTask
         errorMessage = nil
         persistJourney()
     }
 
     func continueFromStreakPreview() {
-        step = .evaStyle
+        step = .firstTask
         errorMessage = nil
         persistJourney()
     }
@@ -369,7 +369,7 @@ extension OnboardingFlowModel {
             focusIsActive = false
             focusStartedAt = nil
             successSummary = buildSummary(completedTask: completed)
-            step = .calendarPermission
+            step = .success
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription

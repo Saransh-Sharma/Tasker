@@ -377,7 +377,10 @@ extension OnboardingFlowModel {
             errorMessage = OnboardingCopy.Error.chooseGoal
             return
         }
-        step = .pain
+        selectedPainPoints = []
+        frictionProfile = nil
+        applyDefaults(mode: mode, frictionProfile: frictionProfile)
+        step = .lifeAreas
         errorMessage = nil
         persistJourney()
     }

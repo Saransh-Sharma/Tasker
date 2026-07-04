@@ -91,26 +91,32 @@ final class AppOnboardingTests: XCTestCase {
     func testOnboardingStepOrderUsesExplicitReorderedFlow() {
         XCTAssertEqual(
             OnboardingStep.orderedFlow,
-            [.goal, .pain, .evaValue, .lifeAreas, .habitSetup, .evaStyle, .workBlockers, .weeklyOutcomes, .firstTask, .homeDemo, .calendarPermission, .notificationPermission, .success]
+            [.welcome, .goal, .lifeAreas, .evaValue, .habitSetup, .firstTask, .homeDemo, .success]
         )
     }
 
     func testOnboardingProgressUsesOrderedFlowAsSingleSource() {
-        XCTAssertEqual(OnboardingProgress(step: .goal)?.label, "Step 1 of 13")
-        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 13 of 13")
-        XCTAssertEqual(OnboardingStep.goal.accessibilitySummary, "Choose goal. Step 1 of 13. Select one goal to continue.")
-        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 13 of 13. Go to Home.")
-        XCTAssertNil(OnboardingProgress(step: .welcome))
+        XCTAssertEqual(OnboardingProgress(step: .welcome)?.label, "Step 1 of 8")
+        XCTAssertEqual(OnboardingProgress(step: .goal)?.label, "Step 2 of 8")
+        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 8 of 8")
+        XCTAssertEqual(OnboardingStep.goal.accessibilitySummary, "Choose goal. Step 2 of 8. Select one goal to continue.")
+        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 8 of 8. Go to Home.")
     }
 
     func testLegacyOnboardingStepsNormalizeBeforeRendering() {
+        XCTAssertEqual(OnboardingStep.pain.normalizedForCurrentFlow, .goal)
         XCTAssertEqual(OnboardingStep.blocker.normalizedForCurrentFlow, .goal)
         XCTAssertEqual(OnboardingStep.projects.normalizedForCurrentFlow, .lifeAreas)
         XCTAssertEqual(OnboardingStep.habits.normalizedForCurrentFlow, .habitSetup)
-        XCTAssertEqual(OnboardingStep.streakPreview.normalizedForCurrentFlow, .evaStyle)
+        XCTAssertEqual(OnboardingStep.streakPreview.normalizedForCurrentFlow, .habitSetup)
+        XCTAssertEqual(OnboardingStep.evaStyle.normalizedForCurrentFlow, .evaValue)
+        XCTAssertEqual(OnboardingStep.workBlockers.normalizedForCurrentFlow, .evaValue)
+        XCTAssertEqual(OnboardingStep.weeklyOutcomes.normalizedForCurrentFlow, .evaValue)
         XCTAssertEqual(OnboardingStep.processing.normalizedForCurrentFlow, .firstTask)
         XCTAssertEqual(OnboardingStep.focusRoom.normalizedForCurrentFlow, .homeDemo)
         XCTAssertEqual(OnboardingStep.habitCheckIn.normalizedForCurrentFlow, .homeDemo)
+        XCTAssertEqual(OnboardingStep.calendarPermission.normalizedForCurrentFlow, .success)
+        XCTAssertEqual(OnboardingStep.notificationPermission.normalizedForCurrentFlow, .success)
     }
 
     func testOnboardingCopyAvoidsGenericAIPhrases() {
@@ -178,9 +184,6 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedMascotID, .yesman)
         viewModel.selectGoal(.dailyExecution)
         viewModel.continueFromGoal()
-        viewModel.togglePainPoint(.overwhelm)
-        viewModel.continueFromPain()
-        viewModel.continueFromEvaValue()
 
         XCTAssertEqual(viewModel.step, .lifeAreas)
         XCTAssertEqual(viewModel.evaPreparationState.phase, .idle)
@@ -210,11 +213,11 @@ final class AppOnboardingTests: XCTestCase {
 
         viewModel.addCustomEvaWorkingStyle("Deep work mornings")
         viewModel.continueFromEvaStyle()
-        XCTAssertEqual(viewModel.step, .workBlockers)
+        XCTAssertEqual(viewModel.step, .firstTask)
 
         viewModel.addCustomEvaMomentumBlocker("Too many pings")
         viewModel.continueFromWorkBlockers()
-        XCTAssertEqual(viewModel.step, .weeklyOutcomes)
+        XCTAssertEqual(viewModel.step, .firstTask)
 
         viewModel.updateEvaGoal(at: 0, text: "Finish the launch checklist")
         viewModel.continueFromWeeklyOutcomes()
@@ -266,7 +269,7 @@ final class AppOnboardingTests: XCTestCase {
     }
 
     @MainActor
-    func testNotificationPermissionRequestsOnlyFromNotificationStep() async {
+    func testLegacyPermissionStepsAdvanceToSuccessWithoutRequestingPermission() async {
         let context = makeStoreContext()
         defer { context.cleanup() }
 
@@ -278,9 +281,10 @@ final class AppOnboardingTests: XCTestCase {
 
         await viewModel.continueFromCalendarPermission(skipped: true)
         XCTAssertEqual(notificationService.requestPermissionCallCount, 0)
+        XCTAssertEqual(viewModel.step, .success)
 
         await viewModel.continueFromNotificationPermission()
-        XCTAssertEqual(notificationService.requestPermissionCallCount, 1)
+        XCTAssertEqual(notificationService.requestPermissionCallCount, 0)
         XCTAssertEqual(viewModel.step, .success)
     }
 
@@ -1001,11 +1005,11 @@ final class AppOnboardingTests: XCTestCase {
 
         viewModel.continueFromHomeDemo()
 
-        XCTAssertEqual(viewModel.step, .calendarPermission)
+        XCTAssertEqual(viewModel.step, .success)
         XCTAssertFalse(viewModel.didCompleteHomeDemoTask)
         XCTAssertFalse(viewModel.didCompleteHomeDemoHabit)
         XCTAssertFalse(viewModel.createdTasks.first?.isComplete ?? true)
-        XCTAssertEqual(context.store.load().journeySnapshot?.step, .calendarPermission)
+        XCTAssertEqual(context.store.load().journeySnapshot?.step, .success)
     }
 
     @MainActor
@@ -1018,7 +1022,7 @@ final class AppOnboardingTests: XCTestCase {
         viewModel.markHomeDemoTaskDone()
         viewModel.continueFromHomeDemo()
 
-        XCTAssertEqual(viewModel.step, .calendarPermission)
+        XCTAssertEqual(viewModel.step, .success)
         XCTAssertTrue(viewModel.didCompleteHomeDemoTask)
         XCTAssertTrue(viewModel.createdTasks.first?.isComplete ?? false)
         XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Open the draft and write 3 lines")
@@ -1212,7 +1216,7 @@ final class AppOnboardingTests: XCTestCase {
 
         await viewModel.completeFocusTask()
 
-        XCTAssertEqual(viewModel.step, .calendarPermission)
+        XCTAssertEqual(viewModel.step, .success)
         XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Fill your water bottle")
         XCTAssertEqual(viewModel.successSummary?.completedTaskCount, 1)
         XCTAssertNil(viewModel.successSummary?.nextTaskTitle)
