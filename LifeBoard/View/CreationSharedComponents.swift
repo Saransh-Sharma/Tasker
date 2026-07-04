@@ -7,6 +7,14 @@
 
 import SwiftUI
 
+enum LifeBoardCreationChipMetrics {
+    static let hitHeight: CGFloat = 44
+    static let visualHeight: CGFloat = 34
+    static let horizontalPadding: CGFloat = 10
+    static let compactSwatchSize: CGFloat = 34
+    static let compactCornerRadius: CGFloat = 12
+}
+
 struct AddTaskTypeChips: View {
     @Binding var selectedType: TaskType
 

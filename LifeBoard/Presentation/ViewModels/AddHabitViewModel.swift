@@ -185,6 +185,44 @@ public final class AddHabitViewModel: ObservableObject {
         habitReminderWindowValidationError(start: reminderWindowStart.nilIfBlank, end: reminderWindowEnd.nilIfBlank)
     }
 
+    public var hasReminderWindow: Bool {
+        reminderWindowStart.nilIfBlank != nil || reminderWindowEnd.nilIfBlank != nil
+    }
+
+    public var reminderWindowStartPickerDate: Date {
+        get {
+            HabitReminderWindowPickerCodec.date(fromHHmm: reminderWindowStart, fallbackMinutes: 9 * 60)
+        }
+        set {
+            reminderWindowStart = HabitReminderWindowPickerCodec.hhmm(from: newValue)
+            repairReminderWindowEndIfNeeded()
+        }
+    }
+
+    public var reminderWindowEndPickerDate: Date {
+        get {
+            HabitReminderWindowPickerCodec.date(fromHHmm: reminderWindowEnd, fallbackMinutes: 17 * 60)
+        }
+        set {
+            reminderWindowEnd = HabitReminderWindowPickerCodec.hhmm(from: newValue)
+        }
+    }
+
+    public func ensureReminderWindowDefaults() {
+        if reminderWindowStart.nilIfBlank == nil {
+            reminderWindowStart = "09:00"
+        }
+        if reminderWindowEnd.nilIfBlank == nil {
+            reminderWindowEnd = "17:00"
+        }
+        repairReminderWindowEndIfNeeded()
+    }
+
+    public func clearReminderWindow() {
+        reminderWindowStart = ""
+        reminderWindowEnd = ""
+    }
+
     public var hasUnsavedChanges: Bool {
         habitName.trimmingCharacters(in: .whitespacesAndNewlines) != pristineName
             || habitNotes.trimmingCharacters(in: .whitespacesAndNewlines) != pristineNotes
@@ -493,6 +531,13 @@ public final class AddHabitViewModel: ObservableObject {
         }
     }
 
+    private func repairReminderWindowEndIfNeeded() {
+        guard let startMinutes = reminderWindowStart.nilIfBlank?.normalizedHHmm?.minutesSinceMidnight else { return }
+        let endMinutes = reminderWindowEnd.nilIfBlank?.normalizedHHmm?.minutesSinceMidnight
+        guard endMinutes == nil || (endMinutes ?? 0) <= startMinutes else { return }
+        reminderWindowEnd = HabitReminderWindowPickerCodec.hhmm(minutesSinceMidnight: min(startMinutes + 60, (23 * 60) + 59))
+    }
+
     private func validationError(_ message: String) -> NSError {
         NSError(
             domain: "AddHabitViewModel",
@@ -518,6 +563,32 @@ fileprivate func habitReminderWindowValidationError(start: String?, end: String?
         return "Reminder end must be after the start on the same day."
     }
     return nil
+}
+
+fileprivate enum HabitReminderWindowPickerCodec {
+    static func date(fromHHmm value: String, fallbackMinutes: Int) -> Date {
+        let minutes = value.nilIfBlank?.normalizedHHmm?.minutesSinceMidnight ?? fallbackMinutes
+        let clampedMinutes = max(0, min(minutes, (23 * 60) + 59))
+        let calendar = Calendar.current
+        return calendar.date(
+            bySettingHour: clampedMinutes / 60,
+            minute: clampedMinutes % 60,
+            second: 0,
+            of: calendar.startOfDay(for: Date())
+        ) ?? Date()
+    }
+
+    static func hhmm(from date: Date) -> String {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        return String(format: "%02d:%02d", hour, minute)
+    }
+
+    static func hhmm(minutesSinceMidnight minutes: Int) -> String {
+        let clampedMinutes = max(0, min(minutes, (23 * 60) + 59))
+        return String(format: "%02d:%02d", clampedMinutes / 60, clampedMinutes % 60)
+    }
 }
 
 private extension String {
@@ -631,6 +702,51 @@ public struct HabitEditorDraft: Equatable {
         iconSearchQuery = ""
         selectedIconSymbolName = row.icon?.symbolName
         colorHex = row.colorHex ?? ""
+    }
+
+    public var hasReminderWindow: Bool {
+        reminderWindowStart.nilIfBlank != nil || reminderWindowEnd.nilIfBlank != nil
+    }
+
+    public var reminderWindowStartPickerDate: Date {
+        get {
+            HabitReminderWindowPickerCodec.date(fromHHmm: reminderWindowStart, fallbackMinutes: 9 * 60)
+        }
+        set {
+            reminderWindowStart = HabitReminderWindowPickerCodec.hhmm(from: newValue)
+            repairReminderWindowEndIfNeeded()
+        }
+    }
+
+    public var reminderWindowEndPickerDate: Date {
+        get {
+            HabitReminderWindowPickerCodec.date(fromHHmm: reminderWindowEnd, fallbackMinutes: 17 * 60)
+        }
+        set {
+            reminderWindowEnd = HabitReminderWindowPickerCodec.hhmm(from: newValue)
+        }
+    }
+
+    public mutating func ensureReminderWindowDefaults() {
+        if reminderWindowStart.nilIfBlank == nil {
+            reminderWindowStart = "09:00"
+        }
+        if reminderWindowEnd.nilIfBlank == nil {
+            reminderWindowEnd = "17:00"
+        }
+        repairReminderWindowEndIfNeeded()
+    }
+
+    public mutating func clearReminderWindow() {
+        reminderWindowStart = ""
+        reminderWindowEnd = ""
+    }
+
+    private mutating func repairReminderWindowEndIfNeeded() {
+        guard let startMinutes = reminderWindowStart.nilIfBlank?.normalizedHHmm?.minutesSinceMidnight else { return }
+        let endMinutes = reminderWindowEnd.nilIfBlank?.normalizedHHmm?.minutesSinceMidnight
+        guard endMinutes == nil || (endMinutes ?? 0) <= startMinutes else { return }
+        reminderWindowEnd = HabitReminderWindowPickerCodec.hhmm(minutesSinceMidnight: min(startMinutes + 60, (23 * 60) + 59))
     }
 }
 

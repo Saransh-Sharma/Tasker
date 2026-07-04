@@ -256,10 +256,28 @@ public struct SunriseAddHabitSheetView: View {
                         )
                     }
 
-                    HStack(spacing: spacing.s8) {
-                        timeWindowField("Start", text: $viewModel.reminderWindowStart)
-                        timeWindowField("End", text: $viewModel.reminderWindowEnd)
-                    }
+                    SunriseHabitReminderWindowPicker(
+                        isEnabled: viewModel.hasReminderWindow,
+                        startDate: Binding(
+                            get: { viewModel.reminderWindowStartPickerDate },
+                            set: { viewModel.reminderWindowStartPickerDate = $0 }
+                        ),
+                        endDate: Binding(
+                            get: { viewModel.reminderWindowEndPickerDate },
+                            set: { viewModel.reminderWindowEndPickerDate = $0 }
+                        ),
+                        onEnable: {
+                            withAnimation(LifeBoardAnimation.snappy) {
+                                viewModel.ensureReminderWindowDefaults()
+                            }
+                        },
+                        onClear: {
+                            withAnimation(LifeBoardAnimation.snappy) {
+                                viewModel.clearReminderWindow()
+                            }
+                        },
+                        accessibilityIdentifierPrefix: "addHabit.reminderWindow"
+                    )
 
                     AddTaskDescriptionField(text: $viewModel.habitNotes, isFocused: $notesFieldFocused)
             }
@@ -286,11 +304,12 @@ public struct SunriseAddHabitSheetView: View {
                                     viewModel.selectedIconSymbolName = option.symbolName
                                 } label: {
                                     Image(systemName: option.symbolName)
-                                        .font(.system(size: 17, weight: .semibold))
+                                        .font(LBTypographyTokens.bodyStrong)
                                         .foregroundStyle(viewModel.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
-                                        .frame(width: 44, height: 44)
-                                        .background(viewModel.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        .frame(width: LifeBoardCreationChipMetrics.compactSwatchSize, height: LifeBoardCreationChipMetrics.compactSwatchSize)
+                                        .background(viewModel.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: LifeBoardCreationChipMetrics.compactCornerRadius, style: .continuous))
                                 }
+                                .frame(width: LifeBoardCreationChipMetrics.hitHeight, height: LifeBoardCreationChipMetrics.hitHeight)
                                 .buttonStyle(.plain)
                                 .accessibilityLabel(option.displayName)
                                 .accessibilityAddTraits(viewModel.selectedIconSymbolName == option.symbolName ? .isSelected : [])
@@ -304,17 +323,18 @@ public struct SunriseAddHabitSheetView: View {
                                 Button {
                                     viewModel.selectedColorHex = family.canonicalHex
                                 } label: {
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    RoundedRectangle(cornerRadius: LifeBoardCreationChipMetrics.compactCornerRadius, style: .continuous)
                                         .fill(Color(lifeboardHex: family.canonicalHex))
-                                        .frame(width: 44, height: 44)
+                                        .frame(width: LifeBoardCreationChipMetrics.compactSwatchSize, height: LifeBoardCreationChipMetrics.compactSwatchSize)
                                         .overlay {
                                             if HabitColorFamily.family(for: viewModel.selectedColorHex) == family {
-                                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                RoundedRectangle(cornerRadius: LifeBoardCreationChipMetrics.compactCornerRadius, style: .continuous)
                                                     .stroke(Color.lifeboard.accentOnPrimary, lineWidth: 2)
                                                     .padding(3)
                                             }
                                         }
                                 }
+                                .frame(width: LifeBoardCreationChipMetrics.hitHeight, height: LifeBoardCreationChipMetrics.hitHeight)
                                 .buttonStyle(.plain)
                                 .accessibilityLabel(family.title)
                                 .accessibilityAddTraits(HabitColorFamily.family(for: viewModel.selectedColorHex) == family ? .isSelected : [])
@@ -422,17 +442,6 @@ public struct SunriseAddHabitSheetView: View {
         }
     }
 
-    private func timeWindowField(_ label: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: spacing.s4) {
-            Text(label)
-                .font(.lifeboard(.caption1))
-                .foregroundStyle(Color.lifeboard.textTertiary)
-            TextField("HH:mm", text: text)
-                .keyboardType(.numbersAndPunctuation)
-                .textFieldStyle(LifeBoardTextFieldStyle())
-                .accessibilityLabel("Reminder \(label.lowercased()) time")
-        }
-    }
 }
 
 private enum SunriseAddHabitCadencePreset: String, CaseIterable, Identifiable {
@@ -621,6 +630,105 @@ private struct SunriseAddHabitWeekdayPickerRow: View {
             let fullIndex = fullLabels.indices.contains(day - 1) ? day - 1 : 0
             return (day, shortLabels[index], fullLabels[fullIndex])
         }
+    }
+}
+
+struct SunriseHabitReminderWindowPicker: View {
+    let isEnabled: Bool
+    let startDate: Binding<Date>
+    let endDate: Binding<Date>
+    let onEnable: () -> Void
+    let onClear: () -> Void
+    var accessibilityIdentifierPrefix: String
+
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text("Reminder window")
+                        .font(.lifeboard(.callout).weight(.semibold))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
+                    Text("Optional. Home stores this as a normalized start and end time.")
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if isEnabled {
+                    Button("Clear", systemImage: "xmark.circle", action: onClear)
+                        .font(LBTypographyTokens.meta)
+                        .foregroundStyle(LBColorTokens.textTertiary)
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("\(accessibilityIdentifierPrefix).clear")
+                }
+            }
+
+            if isEnabled {
+                ViewThatFits(in: .horizontal) {
+                    pickerRow
+                    pickerColumn
+                }
+            } else {
+                Button(action: onEnable) {
+                    HStack(spacing: spacing.s8) {
+                        Image(systemName: "bell.badge")
+                        Text("Add reminder window")
+                        Spacer(minLength: 0)
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(Color.lifeboard.accentPrimary)
+                    }
+                    .font(LBTypographyTokens.meta)
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .padding(.horizontal, spacing.s12)
+                    .frame(minHeight: 44)
+                    .background(Color.lifeboard.surfaceSecondary, in: Capsule())
+                    .overlay {
+                        Capsule()
+                            .stroke(Color.lifeboard.strokeHairline.opacity(0.7), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("\(accessibilityIdentifierPrefix).add")
+            }
+        }
+        .accessibilityIdentifier(accessibilityIdentifierPrefix)
+    }
+
+    private var pickerRow: some View {
+        HStack(spacing: spacing.s8) {
+            timePicker(title: "Start", selection: startDate, accessibilityID: "\(accessibilityIdentifierPrefix).start")
+            timePicker(title: "End", selection: endDate, accessibilityID: "\(accessibilityIdentifierPrefix).end")
+        }
+    }
+
+    private var pickerColumn: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            timePicker(title: "Start", selection: startDate, accessibilityID: "\(accessibilityIdentifierPrefix).start")
+            timePicker(title: "End", selection: endDate, accessibilityID: "\(accessibilityIdentifierPrefix).end")
+        }
+    }
+
+    private func timePicker(title: String, selection: Binding<Date>, accessibilityID: String) -> some View {
+        DatePicker(title, selection: selection, displayedComponents: .hourAndMinute)
+            .datePickerStyle(.compact)
+            .labelsHidden()
+            .padding(.horizontal, spacing.s12)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(alignment: .topLeading) {
+                Text(title)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textTertiary)
+                    .padding(.horizontal, spacing.s8)
+                    .background(Color.lifeboard.surfaceSecondary)
+                    .offset(x: spacing.s8, y: -7)
+            }
+            .accessibilityLabel("Reminder \(title.lowercased()) time")
+            .accessibilityIdentifier(accessibilityID)
     }
 }
 

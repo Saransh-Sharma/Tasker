@@ -305,10 +305,28 @@ struct SunriseHabitDetailScreen: View {
                 DatePicker("Check-in time", selection: cadenceTimeBinding, displayedComponents: .hourAndMinute)
                     .datePickerStyle(.compact)
 
-                HStack(spacing: spacing.s8) {
-                    timeWindowField("Start", text: $viewModel.draft.reminderWindowStart)
-                    timeWindowField("End", text: $viewModel.draft.reminderWindowEnd)
-                }
+                SunriseHabitReminderWindowPicker(
+                    isEnabled: viewModel.draft.hasReminderWindow,
+                    startDate: Binding(
+                        get: { viewModel.draft.reminderWindowStartPickerDate },
+                        set: { viewModel.draft.reminderWindowStartPickerDate = $0 }
+                    ),
+                    endDate: Binding(
+                        get: { viewModel.draft.reminderWindowEndPickerDate },
+                        set: { viewModel.draft.reminderWindowEndPickerDate = $0 }
+                    ),
+                    onEnable: {
+                        withAnimation(LifeBoardAnimation.snappy) {
+                            viewModel.draft.ensureReminderWindowDefaults()
+                        }
+                    },
+                    onClear: {
+                        withAnimation(LifeBoardAnimation.snappy) {
+                            viewModel.draft.clearReminderWindow()
+                        }
+                    },
+                    accessibilityIdentifierPrefix: "habitDetail.reminderWindow"
+                )
 
                 if let reminderError = viewModel.editorReminderWindowValidationError {
                     Text(reminderError)
@@ -350,11 +368,12 @@ struct SunriseHabitDetailScreen: View {
                                 viewModel.draft.selectedIconSymbolName = option.symbolName
                             } label: {
                                 Image(systemName: option.symbolName)
-                                    .font(.system(size: 17, weight: .semibold))
+                                    .font(LBTypographyTokens.bodyStrong)
                                     .foregroundStyle(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
-                                    .frame(width: 44, height: 44)
-                                    .background(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .frame(width: LifeBoardCreationChipMetrics.compactSwatchSize, height: LifeBoardCreationChipMetrics.compactSwatchSize)
+                                    .background(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: LifeBoardCreationChipMetrics.compactCornerRadius, style: .continuous))
                             }
+                            .frame(width: LifeBoardCreationChipMetrics.hitHeight, height: LifeBoardCreationChipMetrics.hitHeight)
                             .buttonStyle(.plain)
                             .accessibilityLabel(option.displayName)
                         }
@@ -367,17 +386,18 @@ struct SunriseHabitDetailScreen: View {
                             Button {
                                 viewModel.draft.colorHex = family.canonicalHex
                             } label: {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                RoundedRectangle(cornerRadius: LifeBoardCreationChipMetrics.compactCornerRadius, style: .continuous)
                                     .fill(Color(lifeboardHex: family.canonicalHex))
-                                    .frame(width: 44, height: 44)
+                                    .frame(width: LifeBoardCreationChipMetrics.compactSwatchSize, height: LifeBoardCreationChipMetrics.compactSwatchSize)
                                     .overlay {
                                         if colorFamily == family {
-                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            RoundedRectangle(cornerRadius: LifeBoardCreationChipMetrics.compactCornerRadius, style: .continuous)
                                                 .stroke(Color.lifeboard.accentOnPrimary, lineWidth: 2)
                                                 .padding(3)
                                         }
                                     }
                             }
+                            .frame(width: LifeBoardCreationChipMetrics.hitHeight, height: LifeBoardCreationChipMetrics.hitHeight)
                             .buttonStyle(.plain)
                             .accessibilityLabel(family.title)
                         }
@@ -423,20 +443,6 @@ struct SunriseHabitDetailScreen: View {
                 .font(.lifeboard(.callout))
                 .foregroundStyle(Color.lifeboard.textPrimary)
         }
-    }
-
-    private func timeWindowField(_ title: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: spacing.s4) {
-            Text(title)
-                .font(.lifeboard(.meta))
-                .foregroundStyle(Color.lifeboard.textTertiary)
-            TextField(title, text: text)
-                .textFieldStyle(LifeBoardTextFieldStyle())
-                .keyboardType(.numbersAndPunctuation)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var sunriseBackground: some View {
