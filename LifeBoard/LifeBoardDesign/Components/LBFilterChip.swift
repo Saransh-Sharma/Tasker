@@ -38,7 +38,10 @@ struct LBFilterChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            LifeBoardFeedback.selection()
+            action()
+        } label: {
             ZStack(alignment: .topTrailing) {
                 HStack(spacing: 6) {
                     if let dotHex = model.leadingDotHex {

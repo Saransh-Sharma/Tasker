@@ -4,9 +4,9 @@ enum TimelineRailTimeFormatter {
     static func railText(for date: Date, kind: TimelineRailLabelKind, calendar: Calendar = .current) -> String {
         switch kind {
         case .compactHour:
-            return formatted(date, format: "h a", calendar: calendar)
+            return date.formatted(style(calendar: calendar).hour())
         case .exact, .current:
-            return formatted(date, format: "h:mm a", calendar: calendar)
+            return date.formatted(style(calendar: calendar).hour().minute())
         }
     }
 
@@ -16,12 +16,12 @@ enum TimelineRailTimeFormatter {
         return railText(for: date, kind: kind, calendar: calendar)
     }
 
-    static func formatted(_ date: Date, format: String, calendar: Calendar) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = format
-        return formatter.string(from: date)
+    /// Visible rail times follow the user's locale and 12/24-hour preference.
+    private static func style(calendar: Calendar) -> Date.FormatStyle {
+        Date.FormatStyle(
+            locale: calendar.locale ?? .current,
+            calendar: calendar,
+            timeZone: calendar.timeZone
+        )
     }
 }

@@ -856,8 +856,8 @@ private struct HabitBoardMatrixRowView: View {
 
     private func cellAccessibilityValue(for cell: HabitBoardCell) -> String {
         switch cell.state {
-        case .done:
-            return "Completed"
+        case .done(let depth):
+            return depth > 1 ? "Completed, streak strength \(min(depth, 8)) of 8" : "Completed"
         case .missed:
             return "Missed"
         case .todayPending:
@@ -955,7 +955,7 @@ private struct HabitBoardHeaderDayCell: View {
     private var todayBackground: some View {
         if day.isToday {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.lifeboard.surfacePrimary)
+                .fill(HabitEverydayPalette.todayHalo(colorScheme: colorScheme))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.4)
@@ -1068,6 +1068,7 @@ private struct HabitBoardCellView: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         cell: HabitBoardCell,
@@ -1119,6 +1120,8 @@ private struct HabitBoardCellView: View {
         .overlay {
             todayOverlay
         }
+        // Check-ins settle in: the family color deepens rather than snapping.
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: cell.state)
     }
 
     @ViewBuilder
@@ -1328,10 +1331,16 @@ enum HabitEverydayPalette {
             : Color(uiColor: UIColor(lifeboardHex: "#F3F6F9"))
     }
 
+    /// Today is marked in the selection violet per the design language —
+    /// violet means "selected/today", green stays reserved for completion.
     static func todayStroke(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color(uiColor: UIColor(lifeboardHex: "#7ABD52"))
-            : Color(uiColor: UIColor(lifeboardHex: "#6FA242"))
+            ? Color(uiColor: UIColor(lifeboardHex: "#8F7BFF"))
+            : Color(uiColor: UIColor(lifeboardHex: "#6842FF"))
+    }
+
+    static func todayHalo(colorScheme: ColorScheme) -> Color {
+        todayStroke(colorScheme: colorScheme).opacity(colorScheme == .dark ? 0.28 : 0.18)
     }
 
     private static let lightRamps: [HabitColorFamily: [String]] = [
