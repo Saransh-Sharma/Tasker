@@ -29,6 +29,9 @@ enum OnboardingTheme {
     static let sunriseGold = LBColorTokens.sunriseGold
     static let marigold = sunriseGold
     static let headerAccent = sunriseGold
+    /// Deep gold for warm text/icon accents that must stay readable on the
+    /// light canvas — bright `sunriseGold` is a fill color, not an ink.
+    static let goldInk = LBColorTokens.role(.routine).deep
     static let success = Color.lifeboard(.statusSuccess)
     static let danger = Color.lifeboard(.statusDanger)
 

@@ -303,11 +303,11 @@ extension AppOnboardingJourneyView {
                     Spacer(minLength: spacing.s12)
                     Text(viewModel.step.progressLabel)
                         .lifeboardFont(.caption1)
-                        .foregroundStyle(OnboardingTheme.marigold)
+                        .foregroundStyle(OnboardingTheme.goldInk)
                 }
 
                 Capsule()
-                    .fill(OnboardingTheme.headerAccent.opacity(0.08))
+                    .fill(OnboardingTheme.headerAccent.opacity(0.16))
                     .overlay(alignment: .leading) {
                         GeometryReader { proxy in
                             Capsule()

@@ -16,7 +16,7 @@ struct OnboardingSectionHeader: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(title)
                     .lifeboardFont(.title1)
-                    .foregroundStyle(OnboardingTheme.marigold)
+                    .foregroundStyle(OnboardingTheme.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Spacer(minLength: 12)
@@ -24,7 +24,7 @@ struct OnboardingSectionHeader: View {
                 if let detail, detail.isEmpty == false {
                     Text(detail)
                         .lifeboardFont(.caption1)
-                        .foregroundStyle(OnboardingTheme.marigold)
+                        .foregroundStyle(OnboardingTheme.goldInk)
                 }
             }
 
