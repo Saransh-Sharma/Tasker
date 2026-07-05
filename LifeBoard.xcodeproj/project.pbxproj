@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		00E2B96FE676ECE56D1C1587 /* OnboardingSelectionSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F70E654847A2B4F0458F49F /* OnboardingSelectionSummaryCard.swift */; };
 		00E943E7872FB1B20D349D99 /* CoreDataOccurrenceRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9E54F6F587FF89056E429DF /* CoreDataOccurrenceRepository.swift */; };
-		0122C4D3D195380D2CDCBED5 /* OnboardingChecklistCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA878C13E4A9CF39A3D86B40 /* OnboardingChecklistCard.swift */; };
 		014575655AA3DBD8B1BD4C5F /* LifeManagementProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E031C3127045DB0AF8ACF9 /* LifeManagementProjectDetailView.swift */; };
 		01D3E1ADABC2FB7D419F301E /* AppOnboardingSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1859F3D260EADFEA49FDBA98 /* AppOnboardingSummary.swift */; };
 		02548417398F2FC3E57621F1 /* HomeArchitectureProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D48163BE7D31AF707E99B7 /* HomeArchitectureProtocols.swift */; };
@@ -2000,7 +1999,6 @@
 		B9F2A10C3D4E5F60718293AA /* WriteClosedRepositoryAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Sync/WriteClosedRepositoryAdapters.swift; sourceTree = SOURCE_ROOT; };
 		BA3610ABC404898F73D042EA /* LifeBoardWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardWatchApp.swift; sourceTree = "<group>"; };
 		BA66AB0570744BB33285402E /* HomeTaskMutationEvent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTaskMutationEvent.swift; sourceTree = SOURCE_ROOT; };
-		BA878C13E4A9CF39A3D86B40 /* OnboardingChecklistCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingChecklistCard.swift; sourceTree = SOURCE_ROOT; };
 		BAD49D68C47ABAA22C239873 /* AppOnboardingJourneyView+OutcomeDraftsAndActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Onboarding/Views/AppOnboardingJourneyView+OutcomeDraftsAndActions.swift"; sourceTree = SOURCE_ROOT; };
 		BAED50033BDBC1C4321DF9AA /* DailyTimelineAgendaView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/DailyTimelineAgendaView.swift; sourceTree = SOURCE_ROOT; };
 		BC8C39098BF0A10AE6CC5EE3 /* EvaChiefOfStaffGuideView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Chrome/EvaChiefOfStaffGuideView.swift; sourceTree = SOURCE_ROOT; };
@@ -3192,7 +3190,6 @@
 				4E66ADE238E28DD2BC20A9C7 /* OnboardingPermissionHeroIcon.swift */,
 				2D98632874AFDD2B129187E0 /* OnboardingHomeDemoSnapshotFactory.swift */,
 				4F244B959C35562023B24390 /* OnboardingHomeDemoPreview.swift */,
-				BA878C13E4A9CF39A3D86B40 /* OnboardingChecklistCard.swift */,
 				83BA608636D6DB86CBE1DC83 /* OnboardingChecklistRow.swift */,
 				50AA968766A5349A2BB45C61 /* OnboardingSelectableDetailCard.swift */,
 				5F2067B7B6ACA2A4A2DA6279 /* OnboardingFilterChip.swift */,
@@ -5466,7 +5463,6 @@
 				32FB0E5EB16490C5930975F4 /* OnboardingPermissionHeroIcon.swift in Sources */,
 				982DF7E1D0152A8257DDFCF5 /* OnboardingHomeDemoSnapshotFactory.swift in Sources */,
 				BE3795CCDFC49D30531F1016 /* OnboardingHomeDemoPreview.swift in Sources */,
-				0122C4D3D195380D2CDCBED5 /* OnboardingChecklistCard.swift in Sources */,
 				6D6E90ED524D19DBBBC00FD2 /* OnboardingChecklistRow.swift in Sources */,
 				63D15C0A35A7BF3479A69D30 /* OnboardingSelectableDetailCard.swift in Sources */,
 				1842D1AB7AB9D66E5A024CEE /* OnboardingFilterChip.swift in Sources */,

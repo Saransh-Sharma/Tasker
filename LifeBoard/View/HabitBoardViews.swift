@@ -519,6 +519,14 @@ struct HabitBoardScreen: View {
                 boardEmptyState
             } else {
                 boardMatrix
+
+                Rectangle()
+                    .fill(Color.lifeboard.strokeHairline.opacity(0.16))
+                    .frame(height: 1)
+
+                HabitBoardLegend()
+                    .padding(.horizontal, spacing.s16)
+                    .padding(.vertical, spacing.s12)
             }
         }
         .background(HabitBoardFlatSurfaceBackground(cornerRadius: 24))
@@ -1010,6 +1018,81 @@ struct HabitStatBadgeView: View {
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(minWidth: 28, alignment: .leading)
             }
+        }
+    }
+}
+
+/// Streak-strength and cell-state legend shown beneath the full board so the
+/// heatmap reads without instruction (design doc §12.2 / §16.5).
+private struct HabitBoardLegend: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(spacing: spacing.s8) {
+                Text("Streak strength")
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+
+                Spacer(minLength: spacing.s8)
+
+                HStack(spacing: 2) {
+                    ForEach([2, 3, 4, 6, 8], id: \.self) { depth in
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(HabitEverydayPalette.depthColor(for: .green, depth: depth, colorScheme: colorScheme))
+                            .frame(width: 15, height: 12)
+                    }
+                }
+
+                Text("Building → Strong")
+                    .font(.lifeboard(.caption2))
+                    .foregroundStyle(Color.lifeboard.textTertiary)
+                    .lineLimit(1)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing.s12) {
+                    legendSwatch(fill: HabitEverydayPalette.paperFill(colorScheme: colorScheme),
+                                 ring: HabitEverydayPalette.todayStroke(colorScheme: colorScheme),
+                                 label: "Today")
+                    legendSwatch(fill: HabitEverydayPalette.missedFill(colorScheme: colorScheme),
+                                 ring: nil,
+                                 label: "Missed")
+                    legendSwatch(fill: HabitEverydayPalette.bridgeTint(for: .gray, depth: nil, colorScheme: colorScheme),
+                                 ring: nil,
+                                 label: "Skipped")
+                    legendSwatch(fill: HabitEverydayPalette.futureFill(colorScheme: colorScheme),
+                                 ring: nil,
+                                 label: "Future")
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Legend. Cell color deepens as a streak strengthens. A violet outline marks today. Neutral cells are missed or skipped days, and faint cells are future days.")
+    }
+
+    private func legendSwatch(fill: Color, ring: Color?, label: String) -> some View {
+        HStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(fill)
+                .frame(width: 14, height: 14)
+                .overlay {
+                    if let ring {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .stroke(ring, lineWidth: 1.4)
+                    } else {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .stroke(Color.lifeboard.strokeHairline.opacity(0.4), lineWidth: 1)
+                    }
+                }
+            Text(label)
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .lineLimit(1)
         }
     }
 }
