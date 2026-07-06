@@ -164,12 +164,12 @@ private struct TimelineAnchorRitualHero: View {
                 Button(action: close) {
                     Image(systemName: "xmark")
                         .font(.system(size: 25, weight: .medium))
-                        .foregroundStyle(Color(lifeboardHex: "#2F241D"))
+                        .foregroundStyle(LBColorTokens.navy)
                         .frame(width: 60, height: 60)
                         .background(.regularMaterial, in: Circle())
                         .overlay {
                             Circle()
-                                .stroke(Color.white.opacity(0.72), lineWidth: 1)
+                                .stroke(LBColorTokens.hairline, lineWidth: 1)
                         }
                         .shadow(color: Color.black.opacity(0.08), radius: 14, x: 0, y: 8)
                 }
@@ -270,7 +270,7 @@ private struct TimelineAnchorRitualContent: View {
                     .fill(theme.surface)
                     .frame(width: metrics.sheetWidth, height: 112)
                     .offset(y: -82)
-                    .shadow(color: Color.white.opacity(0.65), radius: 2, x: 0, y: -1)
+                    .shadow(color: LBColorTokens.hairline, radius: 2, x: 0, y: -1)
             }
         }
         .overlay(alignment: .top) {
@@ -298,7 +298,7 @@ private struct TimelineAnchorFloatingToken: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color.white.opacity(0.98),
+                                LBColorTokens.glassStrong,
                                 theme.accentSoft.opacity(0.84)
                             ],
                             center: .center,
@@ -309,7 +309,7 @@ private struct TimelineAnchorFloatingToken: View {
             )
             .overlay {
                 Circle()
-                    .stroke(Color.white.opacity(0.92), lineWidth: 3)
+                    .stroke(theme.accentMist, lineWidth: 3)
             }
             .shadow(color: theme.accent.opacity(0.26), radius: 22, x: 0, y: 10)
             .accessibilityHidden(true)
@@ -335,7 +335,7 @@ private struct TimelineAnchorSelectedTimePill: View {
         .background(theme.accentSoft.opacity(0.84), in: Capsule())
         .overlay {
             Capsule()
-                .stroke(Color.white.opacity(0.78), lineWidth: 1)
+                .stroke(theme.accentMist, lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Selected time, \(model.selectedTimeText)")
@@ -355,10 +355,10 @@ private struct TimelineAnchorTimeSelectorCard: View {
             HStack(spacing: 10) {
                 Image(systemName: "clock")
                     .font(.lifeboard(.headline).weight(.semibold))
-                    .foregroundStyle(Color(lifeboardHex: "#46342C"))
+                    .foregroundStyle(theme.subtitle)
                 Text(model.sectionTitle)
                     .font(.lifeboard(.headline).weight(.semibold))
-                    .foregroundStyle(Color(lifeboardHex: "#2E241F"))
+                    .foregroundStyle(theme.title)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
                 Spacer()
@@ -376,7 +376,7 @@ private struct TimelineAnchorTimeSelectorCard: View {
         .frame(minHeight: metrics.selectorCardHeight, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(reduceTransparency ? theme.surface : Color.white.opacity(0.82))
+                .fill(reduceTransparency ? theme.surface : LBColorTokens.glass)
         )
         .overlay {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
@@ -458,17 +458,17 @@ private struct TimelineAnchorTimeChip: View {
                         .font(.lifeboard(.caption1).weight(.semibold))
                         .monospacedDigit()
                 }
-                .foregroundStyle(option.isSelected ? theme.accent : Color(lifeboardHex: "#4D403A"))
+                .foregroundStyle(option.isSelected ? theme.accent : theme.subtitle)
                 .lineLimit(1)
                 .minimumScaleFactor(0.76)
                 .frame(width: width, height: visualHeight)
                 .background(
                     RoundedRectangle(cornerRadius: 17, style: .continuous)
-                        .fill(option.isSelected ? theme.accentSoft : Color.white.opacity(0.42))
+                        .fill(option.isSelected ? theme.accentSoft : LBColorTokens.glass.opacity(0.5))
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: 17, style: .continuous)
-                        .stroke(option.isSelected ? theme.accentMist : Color(lifeboardHex: "#EFE7E1"), lineWidth: option.isSelected ? 2 : 1)
+                        .stroke(option.isSelected ? theme.accentMist : LBColorTokens.hairline, lineWidth: option.isSelected ? 2 : 1)
                 }
                 .shadow(color: option.isSelected ? theme.accent.opacity(0.12) : Color.black.opacity(0.035), radius: option.isSelected ? 8 : 4, x: 0, y: 3)
             }
