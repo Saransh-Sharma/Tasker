@@ -25,52 +25,52 @@ struct LBDayCompassCard: View {
                 borderColor: style.border,
                 fill: style.softSurface.opacity(0.88)
             ) {
-                HStack(alignment: .top, spacing: 0) {
-                    Capsule()
-                        .fill(style.base)
-                        .frame(width: 4)
-                        .padding(.vertical, LBSpacingTokens.xs)
-                        .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
+                    HStack(alignment: .center, spacing: LBSpacingTokens.sm) {
+                        iconWell(copy, style: style)
 
-                    VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
-                        HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
-                            iconWell(copy, style: style)
-
-                            VStack(alignment: .leading, spacing: LBSpacingTokens.xxs) {
-                                Text(copy.eyebrow)
-                                    .font(LBTypographyTokens.meta)
-                                    .foregroundStyle(style.deep)
-                                    .textCase(.uppercase)
-                                Text(copy.title)
-                                    .font(LBTypographyTokens.cardTitle)
-                                    .foregroundStyle(LBColorTokens.navy)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Text(copy.subtitle)
-                                    .font(LBTypographyTokens.body)
-                                    .foregroundStyle(LBColorTokens.navyMuted)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-
-                            Spacer(minLength: 0)
-
-                            if let count = countBadge(for: model.state) {
-                                Text("\(count)")
-                                    .font(LBTypographyTokens.meta)
-                                    .foregroundStyle(style.deep)
-                                    .padding(.horizontal, LBSpacingTokens.sm)
-                                    .padding(.vertical, LBSpacingTokens.xxs)
-                                    .background(style.base.opacity(0.14), in: Capsule())
-                                    .accessibilityHidden(true)
-                            }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(copy.eyebrow)
+                                .font(LBTypographyTokens.meta)
+                                .foregroundStyle(style.deep)
+                                .textCase(.uppercase)
+                            Text(copy.title)
+                                .font(LBTypographyTokens.cardTitle)
+                                .foregroundStyle(LBColorTokens.navy)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
 
-                        if copy.isActionable {
-                            actionRow(copy)
+                        Spacer(minLength: 0)
+
+                        if let count = countBadge(for: model.state) {
+                            Text("\(count)")
+                                .font(LBTypographyTokens.meta)
+                                .foregroundStyle(style.deep)
+                                .padding(.horizontal, LBSpacingTokens.sm)
+                                .padding(.vertical, LBSpacingTokens.xxs)
+                                .background(style.base.opacity(0.14), in: Capsule())
+                                .accessibilityHidden(true)
                         }
                     }
-                    .padding(.leading, LBSpacingTokens.md)
+
+                    Text(copy.subtitle)
+                        .font(LBTypographyTokens.body)
+                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(2)
+                        .padding(.trailing, LBSpacingTokens.xl)
+
+                    if copy.isActionable {
+                        actionRow(copy)
+                    }
                 }
                 .padding(LBSpacingTokens.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(alignment: .bottomTrailing) {
+                    SunriseDecorImage(asset: decorAsset(for: model.state), size: 116, opacity: 0.18)
+                        .offset(x: 20, y: 14)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: LBRadiusTokens.largeCard, style: .continuous))
             }
             .id(model.state.flow)
             .transition(stateChangeTransition)
@@ -108,7 +108,7 @@ struct LBDayCompassCard: View {
         Image(systemName: copy.symbolName)
             .font(LBTypographyTokens.cardTitle)
             .foregroundStyle(style.deep)
-            .frame(width: 42, height: 42)
+            .frame(width: 36, height: 36)
             .background(style.base.opacity(0.16), in: Circle())
             .scaleEffect(isAllClear ? allClearSealScale : 1)
             .accessibilityHidden(true)
@@ -153,6 +153,25 @@ struct LBDayCompassCard: View {
     private var dragFadeOpacity: Double {
         guard dragOffset > 0 else { return 1 }
         return max(0.35, 1 - Double(dragOffset / 88) * 0.65)
+    }
+
+    private func decorAsset(for state: DayCompassState) -> SunriseDecorAsset {
+        switch state {
+        case .rescue:
+            return .rescueShield
+        case .replan:
+            return .decisionSign
+        case .morningPlan:
+            return .rescueSunrise
+        case .eveningReview:
+            return .rescueMoonrise
+        case .inbox:
+            return .growthPlant
+        case .resumeTask:
+            return .thinkingCup
+        case .allClear:
+            return .subtleLeaf
+        }
     }
 
     private func countBadge(for state: DayCompassState) -> Int? {
