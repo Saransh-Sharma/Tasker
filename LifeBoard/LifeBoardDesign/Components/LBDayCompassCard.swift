@@ -97,7 +97,7 @@ struct LBDayCompassCard: View {
         .accessibilityAction(named: Text(copy.isActionable ? copy.primaryTitle : String(localized: "Dismiss"))) {
             onPrimary(model.state)
         }
-        .accessibilityAction(named: Text("Not now")) {
+        .accessibilityAction(named: Text("Later")) {
             guard copy.isActionable else { return }
             onSnooze(model.state.flow)
         }
@@ -216,7 +216,7 @@ struct LBDayCompassCard: View {
             LifeBoardFeedback.light()
             onSnooze(model.state.flow)
         } label: {
-            Text("Not now")
+            Text("Later")
                 .font(LBTypographyTokens.chip)
                 .foregroundStyle(LBColorTokens.navyMuted)
                 .frame(minHeight: 48)
@@ -246,28 +246,28 @@ struct LBDayCompassCard: View {
         switch state {
         case .replan(let count, let earliestTitle):
             let title = count == 1
-                ? String(localized: "One item needs a place")
-                : String(localized: "\(count) items need a place")
-            let subtitle = earliestTitle.map { String(localized: "Start with \($0), then keep sorting what still matters.") }
-                ?? String(localized: "Place unscheduled or displaced work before it competes with the rest of today.")
+                ? String(localized: "One thing needs a place")
+                : String(localized: "A few things need a place")
+            let subtitle = earliestTitle.map { String(localized: "Start with \($0).") }
+                ?? String(localized: "Give today's loose work a home.")
             return Copy(
                 eyebrow: String(localized: "Replan"),
                 title: title,
                 subtitle: subtitle,
-                primaryTitle: String(localized: "Start replan"),
+                primaryTitle: String(localized: "Replan"),
                 primarySymbol: "arrow.triangle.branch",
                 symbolName: "arrow.triangle.2.circlepath",
                 role: .warning
             )
         case .morningPlan(let openCount):
             let subtitle = openCount == 1
-                ? String(localized: "Choose the one task that gives today a clear start.")
-                : String(localized: "Choose the first few tasks before the day starts filling itself in.")
+                ? String(localized: "Pick the task that starts today well.")
+                : String(localized: "Pick the first few tasks for today.")
             return Copy(
                 eyebrow: String(localized: "Morning"),
                 title: String(localized: "Shape today"),
                 subtitle: subtitle,
-                primaryTitle: String(localized: "Plan the day"),
+                primaryTitle: String(localized: "Plan"),
                 primarySymbol: "list.bullet",
                 symbolName: "sun.max.fill",
                 role: .routine
@@ -281,35 +281,38 @@ struct LBDayCompassCard: View {
                 : String(localized: "\(openCount) still open")
             return Copy(
                 eyebrow: String(localized: "Evening"),
-                title: String(localized: "Close the loop"),
-                subtitle: String(localized: "\(doneText) today, \(openText). Reflect once and keep tomorrow lighter."),
+                title: String(localized: "Close the day"),
+                subtitle: String(localized: "\(doneText), \(openText). Reflect once."),
                 primaryTitle: String(localized: "Review"),
                 primarySymbol: "checkmark.circle",
                 symbolName: "moon.stars.fill",
                 role: .windDown
             )
         case .rescue(let count):
+            let title = count == 1
+                ? String(localized: "Something slipped")
+                : String(localized: "A few things slipped")
             let subtitle = count == 1
-                ? String(localized: "One overdue task needs a quick recovery decision.")
-                : String(localized: "\(count) overdue tasks need quick recovery decisions.")
+                ? String(localized: "One task waiting on a decision.")
+                : String(localized: "\(count) tasks waiting on a decision.")
             return Copy(
                 eyebrow: String(localized: "Recovery"),
-                title: String(localized: "Sort what still matters"),
+                title: title,
                 subtitle: subtitle,
-                primaryTitle: String(localized: "Open rescue"),
+                primaryTitle: String(localized: "Review"),
                 primarySymbol: "lifepreserver",
                 symbolName: "lifepreserver.fill",
                 role: .warning
             )
         case .inbox(let count):
             let subtitle = count == 1
-                ? String(localized: "One inbox task is ready to place.")
-                : String(localized: "\(count) inbox tasks are ready to place.")
+                ? String(localized: "One task ready to place.")
+                : String(localized: "\(count) tasks ready to place.")
             return Copy(
                 eyebrow: String(localized: "Inbox"),
                 title: String(localized: "Give backlog a place"),
                 subtitle: subtitle,
-                primaryTitle: String(localized: "Place inbox"),
+                primaryTitle: String(localized: "Place"),
                 primarySymbol: "tray.and.arrow.down",
                 symbolName: "tray.full.fill",
                 role: .task
@@ -318,7 +321,7 @@ struct LBDayCompassCard: View {
             return Copy(
                 eyebrow: String(localized: "Resume"),
                 title: String(localized: "Pick up where you left off"),
-                subtitle: String(localized: "\(title) paused \(minutes) min ago."),
+                subtitle: String(localized: "\(title), paused \(minutes) min ago."),
                 primaryTitle: String(localized: "Resume"),
                 primarySymbol: "play.fill",
                 symbolName: "arrow.uturn.left.circle.fill",
