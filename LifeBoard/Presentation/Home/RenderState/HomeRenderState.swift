@@ -100,8 +100,8 @@ struct HomeChromeSnapshot: Equatable {
     let momentumGuidanceText: String
     /// Life-area identity + progress shown in the date hero subtitle while a life-area lens is active.
     let lifeAreaLensHeader: LifeAreaLensHeader?
-    /// Calm "pick up where you left off" prompt shown at the top of Home after a break.
-    let resumeContext: HomeResumeContext?
+    /// Single top attention card for the highest-value Home action.
+    let dayCompass: DayCompassCardModel?
 
     init(
         selectedDate: Date,
@@ -120,7 +120,7 @@ struct HomeChromeSnapshot: Equatable {
         dailyPlanDraft: DailyPlanDraft?,
         momentumGuidanceText: String,
         lifeAreaLensHeader: LifeAreaLensHeader? = nil,
-        resumeContext: HomeResumeContext? = nil
+        dayCompass: DayCompassCardModel? = nil
     ) {
         self.selectedDate = selectedDate
         self.activeScope = activeScope
@@ -138,7 +138,7 @@ struct HomeChromeSnapshot: Equatable {
         self.dailyPlanDraft = dailyPlanDraft
         self.momentumGuidanceText = momentumGuidanceText
         self.lifeAreaLensHeader = lifeAreaLensHeader
-        self.resumeContext = resumeContext
+        self.dayCompass = dayCompass
     }
 
     static var empty: HomeChromeSnapshot {
@@ -466,7 +466,7 @@ enum TimelineGapAction: String, Equatable {
         case .addTask:
             return "Add Task"
         case .scheduleInbox:
-            return "Schedule Inbox"
+            return "Place Inbox"
         case .planBlock:
             return "Plan Block"
         case .dismiss:

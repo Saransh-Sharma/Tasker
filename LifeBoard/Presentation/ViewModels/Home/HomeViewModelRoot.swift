@@ -285,6 +285,25 @@ public final class HomeViewModel: ObservableObject {
     /// True once the user dismisses the Resume prompt; resets next launch.
     var resumeDismissedForSession = false
 
+    var dayCompassAllClearFlow: DayCompassFlow?
+
+    var dayCompassAllClearExpiresAt: Date?
+
+    var dayCompassAllClearTask: Task<Void, Never>?
+
+    /// Which compass CTA launched the currently running flow, so its completion
+    /// can arm the transient all-clear moment. Nil when the flow was entered
+    /// from a non-compass surface or was abandoned.
+    var dayCompassLaunchedFlow: DayCompassFlow?
+
+    lazy var dayCompassSnoozeStore = DayCompassSnoozeStore(userDefaults: userDefaults)
+
+    /// Day-stamp cache for the reflection-target lookup so `.chrome` refreshes
+    /// don't run the use case on every resolve.
+    var dayCompassReflectionTargetCacheDayKey: String?
+
+    var dayCompassReflectionTargetCacheValue = false
+
     var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
 
     var currentHabitSignals: [LifeBoardHabitSignal] = []
@@ -525,6 +544,7 @@ public final class HomeViewModel: ObservableObject {
         pendingAdjacentDayPrefetchTask?.cancel()
         catchUpReflectionPreviewTask?.cancel()
         reflectionContextPrefetchTask?.cancel()
+        dayCompassAllClearTask?.cancel()
     }
 
 }

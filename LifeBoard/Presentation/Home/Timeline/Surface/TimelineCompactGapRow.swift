@@ -12,7 +12,7 @@ struct TimelineCompactGapRow: View {
     var body: some View {
         Menu {
             Button(TimelineGapAction.addTask.title, action: onAddTask)
-            Button(TimelineGapAction.planBlock.title, action: onScheduleInbox)
+            Button("Place inbox with Compass", action: onScheduleInbox)
             Button(TimelineGapAction.dismiss.title, role: .destructive) {}
         } label: {
             HStack(alignment: .center, spacing: 0) {
@@ -25,7 +25,7 @@ struct TimelineCompactGapRow: View {
                     .frame(width: metrics.compactTimeToLaneGap)
 
                 Image(systemName: gap.emphasis == .quietWindow ? "moon.zzz" : "clock")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(LBTypographyTokens.meta)
                     .foregroundStyle(TimelineVisualTokens.utilityText)
                     .frame(width: metrics.compactLaneWidth)
                     .accessibilityHidden(true)

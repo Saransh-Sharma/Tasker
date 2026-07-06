@@ -1139,7 +1139,8 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
 
             let dateStamp = dateStamp(for: day)
             let summaryKind: LifeBoardDailySummaryKind = (kind == .nightlyRetrospective) ? .nightly : .morning
-            let route: LifeBoardNotificationRoute = .dailySummary(kind: summaryKind, dateStamp: dateStamp)
+            let compassFlow: DayCompassFlow = (summaryKind == .nightly) ? .eveningReview : .morningPlan
+            let route: LifeBoardNotificationRoute = .dayCompass(flow: compassFlow, dateStamp: dateStamp)
 
             return LifeBoardLocalNotificationRequest(
                 id: "\(prefix).\(dateStamp)",

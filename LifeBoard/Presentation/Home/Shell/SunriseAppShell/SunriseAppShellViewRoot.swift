@@ -110,6 +110,8 @@ struct SunriseAppShellView: View {
 
     @State var dailyReflectPlanViewModel: DailyReflectPlanViewModel?
 
+    @State var activeDayCompassFlow: DayCompassFlow?
+
     @State var activeNextActionFocusSession: FocusSessionDefinition?
 
     @State var showNextActionFocusTimer = false

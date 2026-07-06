@@ -12,6 +12,6 @@ struct OnboardingEyebrowLabel: View {
     var body: some View {
         Text(title.uppercased())
             .lifeboardFont(.caption2)
-            .foregroundStyle(OnboardingTheme.headerAccent)
+            .foregroundStyle(OnboardingTheme.goldInk)
     }
 }

@@ -57,17 +57,17 @@ struct OnboardingSelectableCard: View {
                     Spacer()
                     ZStack {
                         Circle()
-                            .fill(isSelected ? OnboardingTheme.marigold : .clear)
+                            .fill(isSelected ? OnboardingTheme.accent : .clear)
                             .overlay(
                                 Circle()
-                                    .stroke(isSelected ? OnboardingTheme.marigold : OnboardingTheme.border, lineWidth: 1.5)
+                                    .stroke(isSelected ? OnboardingTheme.accent : OnboardingTheme.border, lineWidth: 1.5)
                             )
                             .frame(width: 22, height: 22)
 
                         if isSelected {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(OnboardingTheme.canvas)
+                                .foregroundStyle(OnboardingTheme.accentOnPrimary)
                         }
                     }
                 }
@@ -87,10 +87,10 @@ struct OnboardingSelectableCard: View {
             .background(OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(isSelected ? OnboardingTheme.marigold : OnboardingTheme.borderSoft, lineWidth: isSelected ? 1.5 : 1)
+                    .stroke(isSelected ? OnboardingTheme.accent : OnboardingTheme.borderSoft, lineWidth: isSelected ? 1.5 : 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OnboardingPressScaleButtonStyle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")

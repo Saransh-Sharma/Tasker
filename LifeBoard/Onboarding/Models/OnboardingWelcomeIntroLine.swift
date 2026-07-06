@@ -15,7 +15,7 @@ struct OnboardingWelcomeIntroLine: View {
     var body: some View {
         Text(text)
             .lifeboardFont(style)
-            .foregroundStyle(secondary ? OnboardingTheme.textSecondary : OnboardingTheme.textPrimary)
+            .foregroundStyle(secondary ? OnboardingTheme.onMediaTextSecondary : OnboardingTheme.onMediaTextPrimary)
             .fixedSize(horizontal: false, vertical: true)
             .blur(radius: isVisible ? 0 : 18)
             .opacity(isVisible ? 1 : 0)

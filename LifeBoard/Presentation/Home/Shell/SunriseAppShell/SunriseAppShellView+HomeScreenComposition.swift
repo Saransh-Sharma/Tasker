@@ -92,11 +92,11 @@ extension SunriseAppShellView {
                 trackTaskToggle(task, source: "home_stream")
                 onToggleComplete(task)
             },
-            onResume: { context in
-                viewModel.handleResume(context)
+            onDayCompassPrimary: { state in
+                handleDayCompassPrimary(state)
             },
-            onDismissResume: {
-                viewModel.dismissResumeForSession()
+            onDayCompassSnooze: { flow in
+                viewModel.snoozeDayCompass(flow)
             }
         )
     }
@@ -160,9 +160,6 @@ extension SunriseAppShellView {
                     .accessibilityValue(homeDebugCountsValue)
                     .accessibilityIdentifier("home.debug.counts")
             }
-        }
-        .overlay(alignment: .topTrailing) {
-            rootTimelineRescueLauncher
         }
         .overlay(alignment: .center) {
             rescueLauncherOverlay
@@ -485,14 +482,47 @@ extension SunriseAppShellView {
     private var padDailyReflectPlanPresented: Binding<Bool> {
         Binding(
             get: { layoutClass.isPad && showDailyReflectPlan },
-            set: { showDailyReflectPlan = $0 }
+            set: { isPresented in
+                showDailyReflectPlan = isPresented
+                if isPresented == false {
+                    activeDayCompassFlow = nil
+                }
+            }
         )
     }
 
     private var phoneDailyReflectPlanPresented: Binding<Bool> {
         Binding(
             get: { !layoutClass.isPad && showDailyReflectPlan },
-            set: { showDailyReflectPlan = $0 }
+            set: { isPresented in
+                showDailyReflectPlan = isPresented
+                if isPresented == false {
+                    activeDayCompassFlow = nil
+                }
+            }
         )
+    }
+
+    func handleDayCompassPrimary(_ state: DayCompassState) {
+        switch state {
+        case .replan:
+            viewModel.startDayCompassReplanSession()
+        case .morningPlan:
+            activeDayCompassFlow = .morningPlan
+            openDailyReflectPlan()
+        case .eveningReview:
+            activeDayCompassFlow = .eveningReview
+            openDailyReflectPlan()
+        case .rescue:
+            viewModel.startDayCompassRescueSession()
+        case .inbox:
+            viewModel.startDayCompassInboxSession()
+        case .resumeTask(_, _, let taskID):
+            viewModel.handleDayCompassResumeTask(taskID: taskID)
+        case .allClear:
+            // Tapping the transient confirmation dismisses it early.
+            viewModel.clearDayCompassAllClear()
+            viewModel.scheduleHomeRenderStateRefresh([.chrome])
+        }
     }
 }

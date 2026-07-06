@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		00E2B96FE676ECE56D1C1587 /* OnboardingSelectionSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F70E654847A2B4F0458F49F /* OnboardingSelectionSummaryCard.swift */; };
 		00E943E7872FB1B20D349D99 /* CoreDataOccurrenceRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9E54F6F587FF89056E429DF /* CoreDataOccurrenceRepository.swift */; };
-		0122C4D3D195380D2CDCBED5 /* OnboardingChecklistCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA878C13E4A9CF39A3D86B40 /* OnboardingChecklistCard.swift */; };
 		014575655AA3DBD8B1BD4C5F /* LifeManagementProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E031C3127045DB0AF8ACF9 /* LifeManagementProjectDetailView.swift */; };
 		01D3E1ADABC2FB7D419F301E /* AppOnboardingSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1859F3D260EADFEA49FDBA98 /* AppOnboardingSummary.swift */; };
 		02548417398F2FC3E57621F1 /* HomeArchitectureProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D48163BE7D31AF707E99B7 /* HomeArchitectureProtocols.swift */; };
@@ -24,7 +23,6 @@
 		0458C5D6A8E64302B1D4F06F /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */; };
 		04821EE8B574D3BAF98E7B76 /* DeleteProjectSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8565ACC6D97DD8CCE34EA3E0 /* DeleteProjectSheet.swift */; };
 		04AD0E929FAB37FD57D8BCB8 /* OnboardingPainPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1DD1A6ABC050A464C7B4397 /* OnboardingPainPoint.swift */; };
-		04E63445FD908A06EBA5315D /* HomeResumeContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A4BE1DF1359A1C155375F8 /* HomeResumeContext.swift */; };
 		05017EDD38C8DCBBD917220C /* timelineAccessibilityIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6CF6BCC0828B64D4447931 /* timelineAccessibilityIdentifier.swift */; };
 		050AE50E81D4703777D6F0C1 /* HomeViewModel+RenderTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E69586D6A0661BB639FAE5F /* HomeViewModel+RenderTransaction.swift */; };
 		0512B30196300E86AE6ABE53 /* OnboardingFlowModel+CatalogPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 079A43F8E9012BEFEACB658C /* OnboardingFlowModel+CatalogPresentation.swift */; };
@@ -108,7 +106,6 @@
 		1E5654B0467738918FD0492C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3D8D5167F9519588886C38B /* Foundation.framework */; };
 		1E7D50D956C53289A4DC9691 /* TimelineFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EA1722FAD5507224C2ED584 /* TimelineFormatting.swift */; };
 		1E8F023F70606AF2879DEFBE /* LifeManagementAreaPaletteOption.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F73F08CE7AF7398D7835E7F /* LifeManagementAreaPaletteOption.swift */; };
-		1EF1C23FF7434E1DB409CAD0 /* HomeViewModel+Resume.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90655AFD399D1A8825C93ED3 /* HomeViewModel+Resume.swift */; };
 		1F2D5D429CB73C24348EE788 /* EvaWorkingStatusLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0E5A5DE6FF2E8EEACA4280 /* EvaWorkingStatusLibrary.swift */; };
 		1F9B00012FBA700000000001 /* HomeNavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00002FBA700000000001 /* HomeNavigationCoordinator.swift */; };
 		1F9B00032FBA700000000003 /* HomeReloadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00022FBA700000000003 /* HomeReloadCoordinator.swift */; };
@@ -275,6 +272,7 @@
 		5B2FF1A96BA37ED09DE12FAB /* HomeDailySummaryModalSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DFC4F80E1254139A27C0C5 /* HomeDailySummaryModalSupport.swift */; };
 		5B7BAB6078EBCDB6CC9F7B7E /* SunriseAppShellViewRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83540D1FFD9826270275D74A /* SunriseAppShellViewRoot.swift */; };
 		5C336D92A4C8046FB4291347 /* SunriseAppShellView+DerivedState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D27FF67FB1DB3066CA04D50 /* SunriseAppShellView+DerivedState.swift */; };
+		5CC8E92428C4ADD8D96F8350 /* DayCompassEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CA32739FA00E59F22FE344E /* DayCompassEngineTests.swift */; };
 		5D45628FA820FA3BEB7A97D3 /* ChatScaffoldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B36F56E947D18C0D1D111E0C /* ChatScaffoldView.swift */; };
 		5E49A6FCA0C096CB2B6EA054 /* StreakResilienceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBE8CE1B13AA2877F4BBCAE /* StreakResilienceWidget.swift */; };
 		5E62A1F6764E8C4158AE395D /* OnboardingEligibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4E3B7EAAC54AE18553A302 /* OnboardingEligibility.swift */; };
@@ -325,6 +323,7 @@
 		6CA88A6A8612FD806A55CEC5 /* HomeDataRevision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EA22869E8CBC680A061ABAC /* HomeDataRevision.swift */; };
 		6CBA9A1192D4C0870A538CB6 /* HomeDerivedHabitRowsCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A06726F28B0B30E18CCF0D3B /* HomeDerivedHabitRowsCache.swift */; };
 		6D6E90ED524D19DBBBC00FD2 /* OnboardingChecklistRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83BA608636D6DB86CBE1DC83 /* OnboardingChecklistRow.swift */; };
+		6E5B3724B6D36DDFF75020A0 /* DayCompassModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46656D1EB3DE3471787472A7 /* DayCompassModels.swift */; };
 		6EDF2C884AFF7BC3644F93F7 /* OnboardingFocusTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E48DF58E65C9466AC4E2893 /* OnboardingFocusTimer.swift */; };
 		6EEA323B3C94CC3D3875A12A /* OverdueRescueMoveLaterResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 315FEE8A1F6EB8E3768FAEF0 /* OverdueRescueMoveLaterResolver.swift */; };
 		6F02A28B57E02ED09779EC11 /* AssistantAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78CA56E2EAD1B448EFED377 /* AssistantAction.swift */; };
@@ -581,6 +580,7 @@
 		92A6F2B715C2C0A1687DACE9 /* LifeAreaRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107822EF572057FAE8E0EF37 /* LifeAreaRepositoryProtocol.swift */; };
 		92B41286923165E8B772C985 /* OverdueRescueCompletionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 583A0C544A5AEEE50CB3B870 /* OverdueRescueCompletionView.swift */; };
 		92ED5FEA6361F15C79382539 /* OverdueRescueEligibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09813915E7878C1392C791D0 /* OverdueRescueEligibilityService.swift */; };
+		93282C40EBDB86E4E7F64E42 /* DayCompassEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A78BBA8638C97BD9668075C1 /* DayCompassEngine.swift */; };
 		937B562AC1B7C19DC318F1B1 /* OnboardingLoopingPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37462636B49FEA555BA9E24 /* OnboardingLoopingPlayerView.swift */; };
 		9399E0A93BBEBA504BB0526D /* TimelineDayRelation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439335894506149A6B79E4A7 /* TimelineDayRelation.swift */; };
 		93C5C68DC8EB7F633BA4DA05 /* Pods_LifeBoardTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 116F9AD2836EC304C14DF552 /* Pods_LifeBoardTests.framework */; };
@@ -718,6 +718,7 @@
 		ACF0BB7B85C9268CD15869B1 /* SunriseAppShellView+FacesAndSearchChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855AD3CAAA08B951BDD134FD /* SunriseAppShellView+FacesAndSearchChat.swift */; };
 		AD8804130CE2160E653414FD /* OnboardingEntryContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9632B2C3609C7092AB65BFF4 /* OnboardingEntryContext.swift */; };
 		AE2B20F87AC525CF7E27B3C0 /* LLMContextProjectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88EAC5F41DAFB21D34E6790E /* LLMContextProjectionService.swift */; };
+		AEBA42795685AC315A19847D /* HomeViewModel+DayCompass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8603A229AA6EF804F63AB9F2 /* HomeViewModel+DayCompass.swift */; };
 		AEF06D3B80CB5D968535DDE5 /* LifeArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34288F9F2CB1DADA41F1673D /* LifeArea.swift */; };
 		AF46E4534CA58DD946E8AF43 /* OnboardingSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B5776D8C36FD7BB8FC91DA6 /* OnboardingSectionHeader.swift */; };
 		AF5A65D3A0CB556B850BFC01 /* InsightsActionIntentExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = B010C6D75FA3187BE754B3BF /* InsightsActionIntentExtension.swift */; };
@@ -764,7 +765,6 @@
 		B344A818A99590F452C10FC9 /* TimelineDayPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E09A984D40ECCC16F14B36F /* TimelineDayPresentation.swift */; };
 		B426403E6996E2CE8BE66FB6 /* EnhancedDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017ECAA6FA89C9A7825A3E8A /* EnhancedDependencyContainer.swift */; };
 		B430108C7AE1B927B9B1FB58 /* OnboardingEvaStatusCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E16263361281852BA8E5B7F /* OnboardingEvaStatusCard.swift */; };
-		B464C6F6DC809B517ACC84CC /* LBResumeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8226852D8F7D914017C57B57 /* LBResumeCard.swift */; };
 		B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D7E8213A4F5C6D7E8F9011 /* V3TestHarness.swift */; };
 		B4D7E8213A4F5C6D7E8F9014 /* SharedColorTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D7E8213A4F5C6D7E8F9015 /* SharedColorTestHelpers.swift */; };
 		B578F682B59B5EE5ADB3FB30 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 35E5A3CA91F06A962F9FF9FA /* AppIntents.framework */; };
@@ -1024,10 +1024,12 @@
 		E2B058A2C6F1249FA0248124 /* StarterProjectTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 782F77DA4E5822C3A8AF4305 /* StarterProjectTemplate.swift */; };
 		E30DEBE0065B162D16CFE54C /* Pods_LifeBoard_LifeBoardUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A2D7A866EC5053C29F5AE6F /* Pods_LifeBoard_LifeBoardUITests.framework */; };
 		E322491389C9B239A6D3BA57 /* HomeTimelineReplanPhaseSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E7DC8765CCB903348B7B91 /* HomeTimelineReplanPhaseSignature.swift */; };
+		E327378D16D77A603A05C536 /* DayCompassSnoozeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 681B3355B81889F522EA1BB7 /* DayCompassSnoozeStore.swift */; };
 		E3553D65476C93716D966319 /* HomeTaskDetailRelationshipMetadataState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3674205CDE72EB0BA59F05D4 /* HomeTaskDetailRelationshipMetadataState.swift */; };
 		E36C6117443BE8E4989A930C /* AppOnboardingJourneyView+SetupSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65EA7E811D99F9A2999C0D5 /* AppOnboardingJourneyView+SetupSteps.swift */; };
 		E39BA7BC60FB71563853AE5F /* HomeViewModel+RefreshEntryPoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DF9AEF356D3B2242580C561 /* HomeViewModel+RefreshEntryPoints.swift */; };
 		E428ECADD6A89C0B1D7F174B /* OnboardingEvaPreparationPhase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D16AF9130E446C22AB65042 /* OnboardingEvaPreparationPhase.swift */; };
+		E4701A01C54A9DDC4C0BEC8A /* DayCompassSnoozeStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265412CFB38084EE3F2C6AA3 /* DayCompassSnoozeStoreTests.swift */; };
 		E47B01A4B384D82C914661A4 /* OverdueRescueErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152A62EA1C5CBB8557A37E7 /* OverdueRescueErrorView.swift */; };
 		E4DF33BE9BD8B06FF928DA81 /* LifeBoardProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400A0C43B52E9F1509D5EC4C /* LifeBoardProgressBar.swift */; };
 		E4EE09FF5DA5E3D7530F0D94 /* SunriseTimelineBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF79ECF04752304C36B28F8 /* SunriseTimelineBar.swift */; };
@@ -1152,6 +1154,7 @@
 		FAD4981C27F2BBC7898744CD /* Achievement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C900006EE1DF0BACD33342B /* Achievement.swift */; };
 		FB8B2B57A23CA5361BE9C535 /* OverdueRescueActionGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F6BFD855ABC89559135C56 /* OverdueRescueActionGrid.swift */; };
 		FC7A4DCCA6C83872D730A8BF /* OverdueRescueVisualSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78AC645DDBDFE8BDCA4826F7 /* OverdueRescueVisualSpec.swift */; };
+		FCC1D77810ED7D9DD2465504 /* LBDayCompassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC0B837AC9D1164A33DD4AE /* LBDayCompassCard.swift */; };
 		FCC23D047188986E5F29D1EF /* OnboardingFlowModel+LifeAreaHabitTaskSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD51EED85A7A2713DD596393 /* OnboardingFlowModel+LifeAreaHabitTaskSetup.swift */; };
 		FD5A8F04A6436C78DBBD43A4 /* TombstoneMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD059BC932A17FD845CAC6CD /* TombstoneMapper.swift */; };
 		FD83FBA515FA99D90DE5465C /* FlowPromptChipsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25FBF99ED821FFD0AF0826C2 /* FlowPromptChipsView.swift */; };
@@ -1315,6 +1318,7 @@
 		24EC3451B4B59726B8F286E2 /* ColorTokenGenerationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTokenGenerationTests.swift; sourceTree = "<group>"; };
 		256FD8E6876C56256C606CBF /* OnboardingFlowModel+EvaActivationPreparation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Onboarding/Services/OnboardingFlowModel+EvaActivationPreparation.swift"; sourceTree = SOURCE_ROOT; };
 		25FBF99ED821FFD0AF0826C2 /* FlowPromptChipsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Chrome/FlowPromptChipsView.swift; sourceTree = SOURCE_ROOT; };
+		265412CFB38084EE3F2C6AA3 /* DayCompassSnoozeStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayCompassSnoozeStoreTests.swift; sourceTree = "<group>"; };
 		267DB3EE27A6E3C161F380D5 /* DueSoonLeadTimeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DueSoonLeadTimeCard.swift; sourceTree = "<group>"; };
 		2687D1B80519E0EB4CB71E2F /* HomeViewModel+Timeline.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewModel+Timeline.swift"; sourceTree = "<group>"; };
 		2689E7BAE48C3D0915401020 /* OnboardingFrictionSelectorWidthPreferenceKey.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingFrictionSelectorWidthPreferenceKey.swift; sourceTree = SOURCE_ROOT; };
@@ -1374,6 +1378,7 @@
 		3B5B7AA06E3FAF9CBF2A49AE /* TimelineOverlapItemCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineOverlapItemCard.swift; sourceTree = SOURCE_ROOT; };
 		3C66EE511C59B0C5DAAAEA30 /* ProjectMoveSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/ProjectMoveSheet.swift; sourceTree = SOURCE_ROOT; };
 		3C9C1DCD3D8D37AB96401D40 /* onboardingNaturalLanguageList.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/onboardingNaturalLanguageList.swift; sourceTree = SOURCE_ROOT; };
+		3CA32739FA00E59F22FE344E /* DayCompassEngineTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayCompassEngineTests.swift; sourceTree = "<group>"; };
 		3CAA3A6573B0FE5C495C67AC /* ExternalSyncModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/ExternalSyncModels.swift; sourceTree = SOURCE_ROOT; };
 		3D233F155B6A87F62F52F845 /* HomeQuickFilterSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickFilterSummary.swift; sourceTree = "<group>"; };
 		3DF9AEF356D3B2242580C561 /* HomeViewModel+RefreshEntryPoints.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+RefreshEntryPoints.swift"; sourceTree = SOURCE_ROOT; };
@@ -1404,6 +1409,7 @@
 		44367A0F426BE6D78CC89655 /* OverdueRescueSessionScope.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueSessionScope.swift; sourceTree = SOURCE_ROOT; };
 		44CFBD9F581CA1A255A49A85 /* CoreDataHabitRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/CoreDataHabitRepository.swift; sourceTree = SOURCE_ROOT; };
 		464A3B785BB4CE8EB48AB804 /* AddTaskAdvancedPlanningSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskAdvancedPlanningSection.swift; sourceTree = "<group>"; };
+		46656D1EB3DE3471787472A7 /* DayCompassModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayCompassModels.swift; path = DayCompassModels.swift; sourceTree = "<group>"; };
 		46D86472D55596A7E3DE5FED /* FocusPromotionResult.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/FocusPromotionResult.swift; sourceTree = SOURCE_ROOT; };
 		4777F58ED4D4C8E747F0F901 /* TimelineRendererModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineRendererModels.swift; sourceTree = "<group>"; };
 		4791B51EBAFFF32DE7642287 /* LifeAreaRepositoryProtocolExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/LifeAreaRepositoryProtocolExtension.swift; sourceTree = SOURCE_ROOT; };
@@ -1501,6 +1507,7 @@
 		66890102B461937BC39F7607 /* HomeViewModel+FocusPins.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+FocusPins.swift"; sourceTree = SOURCE_ROOT; };
 		677222149F21BD5C04EE2EC2 /* HomeHabitMutationSectionPatch.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeHabitMutationSectionPatch.swift; sourceTree = SOURCE_ROOT; };
 		67726D5DDDEB64497FEB21C9 /* HomeReplanResolutionKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeReplanResolutionKind.swift; sourceTree = SOURCE_ROOT; };
+		681B3355B81889F522EA1BB7 /* DayCompassSnoozeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayCompassSnoozeStore.swift; path = DayCompassSnoozeStore.swift; sourceTree = "<group>"; };
 		683AEAFD85DF5CACE9265D33 /* TaskCaptureParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskCaptureParser.swift; path = LifeBoard/UseCases/Task/TaskCaptureParser.swift; sourceTree = SOURCE_ROOT; };
 		683FBF4822AC0FD20D70E253 /* TimelineRailTimeFormatter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineRailTimeFormatter.swift; sourceTree = SOURCE_ROOT; };
 		687C38FA46273E45A8A46143 /* TimelineDenseTitleFormatter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineDenseTitleFormatter.swift; sourceTree = SOURCE_ROOT; };
@@ -1699,13 +1706,13 @@
 		7F70E654847A2B4F0458F49F /* OnboardingSelectionSummaryCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingSelectionSummaryCard.swift; sourceTree = SOURCE_ROOT; };
 		7F7676A13058C4757D1E2718 /* SavedHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SavedHomeView.swift; sourceTree = "<group>"; };
 		7FA441E9098F3D735062B78C /* LifeBoardWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LifeBoardWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7FC0B837AC9D1164A33DD4AE /* LBDayCompassCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LBDayCompassCard.swift; path = LBDayCompassCard.swift; sourceTree = "<group>"; };
 		8037E33E14B5471548D66C82 /* OnboardingFeedbackController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Services/OnboardingFeedbackController.swift; sourceTree = SOURCE_ROOT; };
 		80785BB956EE3DB3802D9858 /* TimelineGapPrompt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineGapPrompt.swift; sourceTree = SOURCE_ROOT; };
 		80E4F64519A39289AF03A73C /* OnboardingHabitTemplateState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingHabitTemplateState.swift; sourceTree = SOURCE_ROOT; };
 		80EEB0762BB49B5983079AF3 /* MessageView+EvaProposalAndDayOverview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/LLM/Views/Chat/Conversation/MessageView+EvaProposalAndDayOverview.swift"; sourceTree = SOURCE_ROOT; };
 		817A26FD3474A08EC2250BED /* SwiftUI+TokenAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SwiftUI+TokenAdapters.swift"; sourceTree = "<group>"; };
 		81B4061464040091D355959D /* HomeViewModel+DailySummaryModal.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+DailySummaryModal.swift"; sourceTree = SOURCE_ROOT; };
-		8226852D8F7D914017C57B57 /* LBResumeCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LBResumeCard.swift; sourceTree = "<group>"; };
 		82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickFilterDropdown.swift; sourceTree = "<group>"; };
 		82775C66CDC41F9E7034D949 /* HomeViewModel+FocusSessions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+FocusSessions.swift"; sourceTree = SOURCE_ROOT; };
 		82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSectionHeader.swift; sourceTree = "<group>"; };
@@ -1722,6 +1729,7 @@
 		856DDB017465F5A7BA124E09 /* LifeManagementComposerPreviewMetric.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementComposerPreviewMetric.swift; sourceTree = SOURCE_ROOT; };
 		85DF0433A9683E2365552FC2 /* timelineMetaColor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/timelineMetaColor.swift; sourceTree = SOURCE_ROOT; };
 		85F3DEB89B5BEB05F1972CA7 /* XPEvent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/XPEvent.swift; sourceTree = SOURCE_ROOT; };
+		8603A229AA6EF804F63AB9F2 /* HomeViewModel+DayCompass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+DayCompass.swift"; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+DayCompass.swift"; sourceTree = "<group>"; };
 		862166F085A7F815ADA70872 /* OnboardingWorkspaceSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingWorkspaceSnapshot.swift; sourceTree = SOURCE_ROOT; };
 		871E14455069188F7847E1DB /* TaskDefinitionRepositoryProtocolExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/TaskDefinitionRepositoryProtocolExtension.swift; sourceTree = SOURCE_ROOT; };
 		875713F2747185071D35BDF9 /* CelebrationPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/CelebrationPresentation.swift; sourceTree = SOURCE_ROOT; };
@@ -1748,7 +1756,6 @@
 		8FC11A075C9E37AF0A3A64C8 /* HomeViewModel+InitialLoading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+InitialLoading.swift"; sourceTree = SOURCE_ROOT; };
 		8FDA708D6EFE103BE7B725E0 /* SunriseAppShellView+RescueOverlays.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+RescueOverlays.swift"; sourceTree = SOURCE_ROOT; };
 		903BFF6DB72A0D515603C771 /* HabitListRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/HabitListRow.swift; sourceTree = SOURCE_ROOT; };
-		90655AFD399D1A8825C93ED3 /* HomeViewModel+Resume.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+Resume.swift"; sourceTree = SOURCE_ROOT; };
 		90F01E2761C0C86CBDFA7BB9 /* TimelineWeekDayCell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineWeekDayCell.swift; sourceTree = SOURCE_ROOT; };
 		917E928680EC00ECB792B118 /* HomeReloadBatchTracker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeReloadBatchTracker.swift; sourceTree = SOURCE_ROOT; };
 		919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionBanner.swift; sourceTree = "<group>"; };
@@ -1860,6 +1867,7 @@
 		A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaDayOverview.swift; sourceTree = "<group>"; };
 		A6E1D42A2F3C120100B1C2D3 /* TaskSemanticRetrievalServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticRetrievalServiceTests.swift; sourceTree = "<group>"; };
 		A6F510C5BFB0D534AB441244 /* ManageProjectsUseCaseExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/ManageProjectsUseCaseExtension.swift; sourceTree = SOURCE_ROOT; };
+		A78BBA8638C97BD9668075C1 /* DayCompassEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayCompassEngine.swift; path = DayCompassEngine.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardPresentationBuilderTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A3 /* HomeHabitLastCellInteractionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeHabitLastCellInteractionTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A5 /* HabitLastCellRuntimeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitLastCellRuntimeTests.swift; sourceTree = "<group>"; };
@@ -1991,7 +1999,6 @@
 		B9F2A10C3D4E5F60718293AA /* WriteClosedRepositoryAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Sync/WriteClosedRepositoryAdapters.swift; sourceTree = SOURCE_ROOT; };
 		BA3610ABC404898F73D042EA /* LifeBoardWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardWatchApp.swift; sourceTree = "<group>"; };
 		BA66AB0570744BB33285402E /* HomeTaskMutationEvent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTaskMutationEvent.swift; sourceTree = SOURCE_ROOT; };
-		BA878C13E4A9CF39A3D86B40 /* OnboardingChecklistCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingChecklistCard.swift; sourceTree = SOURCE_ROOT; };
 		BAD49D68C47ABAA22C239873 /* AppOnboardingJourneyView+OutcomeDraftsAndActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Onboarding/Views/AppOnboardingJourneyView+OutcomeDraftsAndActions.swift"; sourceTree = SOURCE_ROOT; };
 		BAED50033BDBC1C4321DF9AA /* DailyTimelineAgendaView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/DailyTimelineAgendaView.swift; sourceTree = SOURCE_ROOT; };
 		BC8C39098BF0A10AE6CC5EE3 /* EvaChiefOfStaffGuideView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Chrome/EvaChiefOfStaffGuideView.swift; sourceTree = SOURCE_ROOT; };
@@ -2072,7 +2079,6 @@
 		C7A6D85F245E9F672238D9E0 /* ChatComposerView+StructuredComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/LLM/Views/Chat/Chrome/ChatComposerView+StructuredComposer.swift"; sourceTree = SOURCE_ROOT; };
 		C81997132A898566B3451D49 /* EvaDayStatusChipsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Conversation/EvaDayStatusChipsView.swift; sourceTree = SOURCE_ROOT; };
 		C869F0E1F0337702AD2AF780 /* TimelineCompactConnector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineCompactConnector.swift; sourceTree = SOURCE_ROOT; };
-		C8A4BE1DF1359A1C155375F8 /* HomeResumeContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Resume/HomeResumeContext.swift; sourceTree = SOURCE_ROOT; };
 		C8A4F1023D6E4B7A91C2D301 /* HabitBoardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardViewModelTests.swift; sourceTree = "<group>"; };
 		C8A4F1023D6E4B7A91C2D303 /* HabitBoardUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardUITests.swift; sourceTree = "<group>"; };
 		C8E1864B29C7801E433C2D11 /* HomeViewModel+TaskActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+TaskActions.swift"; sourceTree = SOURCE_ROOT; };
@@ -2624,6 +2630,17 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		5879B5AB864F0434D214FB2F /* DayCompass */ = {
+			isa = PBXGroup;
+			children = (
+				46656D1EB3DE3471787472A7 /* DayCompassModels.swift */,
+				A78BBA8638C97BD9668075C1 /* DayCompassEngine.swift */,
+				681B3355B81889F522EA1BB7 /* DayCompassSnoozeStore.swift */,
+			);
+			name = DayCompass;
+			path = DayCompass;
+			sourceTree = "<group>";
+		};
 		5DAFF791DE50B3141083F4FD /* Components */ = {
 			isa = PBXGroup;
 			children = (
@@ -2928,6 +2945,8 @@
 				A7B8C9D0E1F20123456789A7 /* QuietTrackingRailPresentationTests.swift */,
 				C8A4F1023D6E4B7A91C2D301 /* HabitBoardViewModelTests.swift */,
 				7D83A0A1DBA10EFB600419F8 /* TaskCaptureParserTests.swift */,
+				3CA32739FA00E59F22FE344E /* DayCompassEngineTests.swift */,
+				265412CFB38084EE3F2C6AA3 /* DayCompassSnoozeStoreTests.swift */,
 			);
 			path = LifeBoardTests;
 			sourceTree = "<group>";
@@ -3171,7 +3190,6 @@
 				4E66ADE238E28DD2BC20A9C7 /* OnboardingPermissionHeroIcon.swift */,
 				2D98632874AFDD2B129187E0 /* OnboardingHomeDemoSnapshotFactory.swift */,
 				4F244B959C35562023B24390 /* OnboardingHomeDemoPreview.swift */,
-				BA878C13E4A9CF39A3D86B40 /* OnboardingChecklistCard.swift */,
 				83BA608636D6DB86CBE1DC83 /* OnboardingChecklistRow.swift */,
 				50AA968766A5349A2BB45C61 /* OnboardingSelectableDetailCard.swift */,
 				5F2067B7B6ACA2A4A2DA6279 /* OnboardingFilterChip.swift */,
@@ -3542,7 +3560,7 @@
 				DEE50736401EDD2F9A73FC90 /* ChatStorageDegradedBanner.swift */,
 				B36F56E947D18C0D1D111E0C /* ChatScaffoldView.swift */,
 				D974CDFA2F5A901967B485D2 /* ChatScaffoldView+NavigationChrome.swift */,
-				90655AFD399D1A8825C93ED3 /* HomeViewModel+Resume.swift */,
+				8603A229AA6EF804F63AB9F2 /* HomeViewModel+DayCompass.swift */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -4177,6 +4195,7 @@
 				AAB000000000000000000032 /* Search */,
 				AAB000000000000000000006 /* RenderState */,
 				AAB000000000000000000007 /* Stores */,
+				5879B5AB864F0434D214FB2F /* DayCompass */,
 			);
 			path = Home;
 			sourceTree = "<group>";
@@ -4185,7 +4204,6 @@
 			isa = PBXGroup;
 			children = (
 				AAB000000000000000000001 /* HomeRenderState.swift */,
-				C8A4BE1DF1359A1C155375F8 /* HomeResumeContext.swift */,
 			);
 			path = RenderState;
 			sourceTree = "<group>";
@@ -4387,7 +4405,7 @@
 				F10A00000000000000000004 /* TimelineRoutineAnchorCard.swift */,
 				E50000000000000000000028 /* LBTimelineItem.swift */,
 				E5000000000000000000002A /* LBTimelineSpine.swift */,
-				8226852D8F7D914017C57B57 /* LBResumeCard.swift */,
+				7FC0B837AC9D1164A33DD4AE /* LBDayCompassCard.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -5445,7 +5463,6 @@
 				32FB0E5EB16490C5930975F4 /* OnboardingPermissionHeroIcon.swift in Sources */,
 				982DF7E1D0152A8257DDFCF5 /* OnboardingHomeDemoSnapshotFactory.swift in Sources */,
 				BE3795CCDFC49D30531F1016 /* OnboardingHomeDemoPreview.swift in Sources */,
-				0122C4D3D195380D2CDCBED5 /* OnboardingChecklistCard.swift in Sources */,
 				6D6E90ED524D19DBBBC00FD2 /* OnboardingChecklistRow.swift in Sources */,
 				63D15C0A35A7BF3479A69D30 /* OnboardingSelectableDetailCard.swift in Sources */,
 				1842D1AB7AB9D66E5A024CEE /* OnboardingFilterChip.swift in Sources */,
@@ -5820,9 +5837,11 @@
 				56963F23411F17C33B977592 /* HomeSessionContextStore.swift in Sources */,
 				3375085748668ACC2BDAC35A /* CaptureInboxDrain.swift in Sources */,
 				D9C770D61EDCF3A952676B96 /* PendingCapture.swift in Sources */,
-				04E63445FD908A06EBA5315D /* HomeResumeContext.swift in Sources */,
-				1EF1C23FF7434E1DB409CAD0 /* HomeViewModel+Resume.swift in Sources */,
-				B464C6F6DC809B517ACC84CC /* LBResumeCard.swift in Sources */,
+				FCC1D77810ED7D9DD2465504 /* LBDayCompassCard.swift in Sources */,
+				6E5B3724B6D36DDFF75020A0 /* DayCompassModels.swift in Sources */,
+				93282C40EBDB86E4E7F64E42 /* DayCompassEngine.swift in Sources */,
+				E327378D16D77A603A05C536 /* DayCompassSnoozeStore.swift in Sources */,
+				AEBA42795685AC315A19847D /* HomeViewModel+DayCompass.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5887,6 +5906,8 @@
 				B4D7E8213A4F5C6D7E8F9014 /* SharedColorTestHelpers.swift in Sources */,
 				C2D3E4F5061728394A5B6C7D /* DeleteTaskDefinitionUseCaseTests.swift in Sources */,
 				404F51FA28EBB8BFB38DF285 /* TaskCaptureParserTests.swift in Sources */,
+				5CC8E92428C4ADD8D96F8350 /* DayCompassEngineTests.swift in Sources */,
+				E4701A01C54A9DDC4C0BEC8A /* DayCompassSnoozeStoreTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

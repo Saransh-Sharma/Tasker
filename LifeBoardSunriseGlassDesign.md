@@ -1,17 +1,17 @@
 ---
-version: "2.0.0"
+version: "2.1.0"
 name: "LifeBoard Sunrise Glass"
 status: "radical-redesign-source-of-truth"
-last_updated: "2026-06-01"
+last_updated: "2026-07-04"
 platforms:
   primary:
-    - "iOS 16+"
+    - "iOS 18.6+"
     - "SwiftUI first"
   secondary:
     - "UIKit bridge surfaces"
     - "iOS widgets"
     - "watchOS widgets"
-    - "marketing web"
+    - "marketing web visual parity, out of scope for the v2.1 iOS overhaul"
 format:
   front_matter: "normative machine-readable tokens"
   markdown_body: "human-readable rationale, rules, and component recipes"
@@ -31,12 +31,16 @@ product:
 
 revamp_alignment:
   updated_surfaces:
+    - "Day Compass top Home attention card"
     - "Insights"
     - "Overdue Rescue decision deck"
     - "Inbox and weekly triage"
     - "Rise and Shine ritual anchor"
     - "Wind Down ritual anchor"
+    - "Creation sheets"
+    - "Onboarding"
   canonical_patterns:
+    day_compass: "one top-card attention model that selects the single highest-value Home action and stays hidden when the day is clear"
     insights: "primary interpretation first, metric strip second, action cards third, details disclosed on demand"
     rescue: "one-card decision deck with undoable keep, move, edit, and delete choices"
     rituals: "scenic strip card opens image-led ritual sheet with locale-aware time chips"
@@ -288,6 +292,7 @@ typography:
       line_height: 22
       tracking: -0.1
       font: "interface"
+      swiftui_weight_mapping: ".semibold when the local token layer cannot express numeric 650"
     overline:
       size: 12
       weight: 700
@@ -414,6 +419,7 @@ motion:
     card_entrance: "180-260ms"
     habit_fill: "160-220ms"
     sheet: "280-360ms"
+    day_compass_state_change: "180-260ms"
   easing:
     standard: "cubic-bezier(0.16, 1, 0.3, 1)"
     spring_low_bounce: "interactive spring, damping 0.82-0.90"
@@ -468,6 +474,27 @@ components:
     radius: "xxl"
     center_add_size: "64pt"
     active_color: "brand.violet"
+  day_compass:
+    placement: "Home top attention slot, below date/filter context and above the timeline content"
+    fill: "LBGlassCard using semantic role tint and no ad hoc shadows"
+    hidden_when_clear: "hidden when all clear, except a short all-clear confirmation after the user acts"
+    primary_action: "single LBPrimaryButton action, with optional secondary text button for snooze"
+    state_priority: "replan, morning plan, evening review, rescue, inbox, resume"
+    gates: "Today lens, current calendar date, no active rescue/replan/reflect flow"
+    quiet_hours: "apply only to rescue and inbox states"
+    thresholds: "rescue at 1+ eligible task, inbox at 2+ ready items; proactive by design"
+    windows: "morning plan 05:00-10:59, evening review 18:00+, resume 11:00-17:59"
+    snooze: "replan/morning/evening/rescue/inbox snooze to end of day; resume dismisses for the session"
+    all_clear: "transient ~4s leaf confirmation after a compass-launched flow completes"
+  creation_sheet:
+    detent: "medium by default, large only when content requires it"
+    disclosure: "one advanced tier, never nested disclosure stacks"
+    time_input: "native DatePicker presentation state, normalized to HH:mm at save boundaries"
+    success: "750ms leaf success overlay shared with task creation"
+  onboarding_panel:
+    flow: "welcome, goal, lifeAreas, evaValue, habitSetup, firstTask, homeDemo, success"
+    permissions: "outside the funnel, never blocking progress"
+    visual_language: "Sunrise Glass LB tokens and components"
 ---
 
 # LifeBoard Sunrise Glass Design System
@@ -1236,6 +1263,16 @@ Do not ask for every field upfront. Start with title and one optional timing cue
 - Use red only for destructive or irreversible failures.
 - Preserve user input on failure.
 
+### 14.4 Creation sheet polish rules
+
+Creation sheets use the existing `LB*` design layer: `LBGlassCard` for grouped form surfaces, `LBFilterChip` metrics for compact chips, `LBPrimaryButton` for the primary save action, `LBColorTokens.role(_:)` for semantic tint, and `LBTypographyTokens` for text. New creation UI must not introduce raw `.font(.system(...))` or ad hoc `.shadow(...)`; token/component files are the only allowed place for those details.
+
+Habit reminders keep the storage contract as normalized `HH:mm` strings in `CreateHabitRequest` and `HabitDefinitionRecord`, but composer and detail presentation must use native date/time picker state. Convert to strings only at validation/save boundaries, and parse existing strings only when hydrating picker state.
+
+Creation sheets default to a medium detent. Use a large detent only when Dynamic Type, keyboard focus, or visible advanced fields require it. Keep the first screen focused on title, semantic type, and the next useful timing cue. Use one disclosure tier for advanced fields; avoid nested disclosure stacks.
+
+Success feedback is shared across task and habit creation: a brief 750ms leaf success overlay, VoiceOver announcement, and no layout jump. Validation errors remain inline near the field that needs attention.
+
 ## 15. Assistant and guidance surfaces
 
 The assistant is a calm planning partner, not an autonomous scheduler.
@@ -1287,6 +1324,46 @@ Decision copy should be direct and forgiving:
 - `Review first`
 - `Apply safe fixes`
 - `You're all triaged.`
+
+### 15.2 Day Compass attention card
+
+Day Compass is the top Home attention card. It owns the primary recovery or planning CTA so timeline cards, inbox shelves, and assistant prompts can become quieter supporting context.
+
+Placement and visibility rules:
+
+- Show only on the Today lens and only when the selected date is today.
+- Hide when all clear, except for a short post-action all-clear state after the user completes a Compass action.
+- Suppress while rescue, replan, or reflection/plan flows are actively presented.
+- Use quiet-hours suppression only for rescue and inbox states.
+- Preserve 44pt minimum touch targets, VoiceOver custom actions, Dynamic Type stacking, Reduce Motion, and Reduce Transparency behavior.
+
+State priority is normative and deterministic:
+
+1. `replan`: unscheduled or displaced work needs explicit placement.
+2. `morningPlan`: today needs an initial plan.
+3. `eveningReview`: the day is ready for reflection or tomorrow planning.
+4. `rescue`: overdue pressure needs a recovery sprint.
+5. `inbox`: inbox/backlog work is ready for placement.
+6. `resumeTask`: the user can resume the last interrupted task.
+
+Activation thresholds and windows (normative, matching the shipped engine):
+
+- `morningPlan` activates 05:00-10:59 when no daily plan is committed and open tasks exist.
+- `eveningReview` activates from 18:00 when a reflection target is still open.
+- `rescue` activates at 1 or more deck-eligible overdue tasks; `inbox` at 2 or more ready items. The compass is intentionally proactive; snooze keeps it polite.
+- `resumeTask` activates 11:00-17:59 for the last interrupted, still-open task.
+- Snoozing any state quiets it until the start of the next day; resume dismissal lasts for the session.
+- Completing a compass-launched flow shows a transient all-clear confirmation (~4s), then the card hides.
+
+Behavior contracts:
+
+- The engine is pure. It accepts `DayCompassSignals` and snooze state, and it has no repository, notification, or `UserDefaults` access.
+- `DayCompassSnoozeStore` owns persistence and legacy needs-replan dismissal migration.
+- Inbox Compass action starts the existing replan placement deck scoped to unscheduled inbox/backlog candidates.
+- Rescue opens the existing rescue deck.
+- Morning and evening actions route through the daily reflect/plan presentation, honoring date-stamped notification routes.
+- Resume pins the task represented by the card and never mutates unrelated timeline state.
+- Timeline inbox cards are informational once Compass owns the primary inbox CTA.
 
 ## 16. Screen recipes
 
@@ -1602,84 +1679,57 @@ Decision sprint controls must expose VoiceOver custom actions for each primary d
 
 ## 20. Implementation guidance
 
-### 20.1 New token namespace
+### 20.1 Existing `LB*` token namespace
 
-Create a new LifeBoard semantic layer. New UI code should not consume legacy color names directly.
+The iOS implementation already has a Sunrise Glass token/component layer. v2.1 work must build on it instead of introducing aspirational parallel names.
 
-Suggested Swift names:
+Normative Swift names:
 
-```swift
-enum LifeBoardRole {
-    case routine
-    case task
-    case meeting
-    case personal
-    case focus
-    case meal
-    case assistant
-    case neutral
-}
+- `LBColorTokens` and `LBColorTokens.role(_:)` for palette, semantic roles, borders, and gradients.
+- `LBTypographyTokens` for all text styling.
+- `LBSpacingTokens`, `LBRadiusTokens`, and `LBShadowTokens` for layout rhythm, corner geometry, and approved depth.
+- `LBGlassCard`, `LBPrimaryButton`, `LBFilterChip`, and existing `LB*` timeline/habit/assistant components for reusable surfaces.
+- `LBRole` for task, meeting, routine, personal, focus, meal, assistant, warning, wind-down, and neutral semantics.
 
-struct LifeBoardRoleStyle {
-    let base: Color
-    let deep: Color
-    let softSurface: Color
-    let border: Color
-    let gradient: LinearGradient
-    let symbolName: String
-}
-```
+Rules:
 
-Suggested token groups:
-
-- `LifeBoardColor`
-- `LifeBoardTypography`
-- `LifeBoardSpacing`
-- `LifeBoardRadius`
-- `LifeBoardShadow`
-- `LifeBoardMaterial`
-- `LifeBoardGradient`
-- `LifeBoardHabitPalette`
-- `LifeBoardSemanticRole`
+- New feature UI must not add raw `.font(.system(...))` or raw `.shadow(...)`. Keep those details inside token/component files.
+- New UI must not hardcode colors where `LBColorTokens` or role styles already express the state.
+- UIKit bridge surfaces may adapt these tokens, but should not fork visual rules.
+- iOS 18.6+ is the baseline for this app redesign; older PRD/architecture wording is not authoritative for visual implementation.
 
 ### 20.2 Component abstractions
 
-Build these as reusable components:
+Extend the existing component set before creating new primitives. New components are acceptable only when they remove real duplication or express a new user-facing pattern.
 
-- `LifeBoardHeroHeader`
-- `LifeBoardDateNavigator`
-- `LifeBoardRelativeDayChip`
-- `LifeBoardFilterPill`
-- `LifeBoardTimelineSpine`
-- `LifeBoardTimelineCard`
-- `LifeBoardMeetingFlockCard`
-- `LifeBoardRitualAnchorCard`
-- `LifeBoardRitualAnchorSheet`
-- `LifeBoardInsightInterpretationCard`
-- `LifeBoardInsightMetricStrip`
-- `LifeBoardInsightActionCard`
-- `LifeBoardDecisionDeck`
-- `LifeBoardDecisionActionGrid`
-- `LifeBoardHabitMatrix`
-- `LifeBoardHabitCell`
-- `LifeBoardHabitProgressCard`
-- `LifeBoardBottomDock`
-- `LifeBoardFloatingAddButton`
-- `LifeBoardAssistantPromptCard`
-- `LifeBoardCreationSheet`
+Current canonical components include:
+
+- `LBGlassCard`
+- `LBPrimaryButton`
+- `LBFilterChip`
+- `LBTimelineEventCard`
+- `LBRoutineAnchorCard`
+- `LBHabitGrid`
+- `LBAssistantPromptCard`
+- `LBEmptyStateView`
+- `LBErrorStateView`
+- `LBLoadingStateView`
+
+v2.1 adds:
+
+- `LBDayCompassCard`
+
+`LBDayCompassCard` is a presentation component only. It receives a `DayCompassCardModel` and emits primary/snooze actions; it does not compute priority, read persistence, or launch flows.
 
 ### 20.3 Migration order
 
-1. Add token layer without changing screens.
-2. Build Sunrise Glass component previews.
-3. Replace Home header and date/filter controls.
-4. Replace timeline card rendering.
-5. Replace habit matrix and progress cards.
-6. Replace bottom dock.
-7. Replace creation/editing sheets.
-8. Refresh widgets.
-9. Refresh marketing site.
-10. Delete or quarantine legacy visual tokens after parity.
+1. Update this design source of truth and in-repo markdown TODO tracking.
+2. Add Day Compass model, pure engine, snooze store, top-card UI, routing, notification deep links, and focused tests.
+3. Polish Home attention surfaces now that Compass owns the primary CTA.
+4. Polish creation and editing sheets, including native habit reminder pickers.
+5. Move onboarding to the 8-step Sunrise Glass flow while preserving raw enum values.
+6. Run target membership, diff token guardrail, focused tests, and Catalyst build-for-testing.
+7. Delete only unreferenced legacy onboarding/theme code after reference checks.
 
 ### 20.4 Snapshot and lint checks
 
@@ -1687,7 +1737,8 @@ Add checks that fail when:
 
 - Visible copy uses a previous product name.
 - Clinical or medical diagnostic terms appear in user-facing design copy.
-- New UI hardcodes colors outside LifeBoard tokens.
+- New UI hardcodes colors outside `LBColorTokens`.
+- New UI adds raw `.font(.system(...))` or `.shadow(...)` outside token/component files.
 - Touch targets fall below 44pt.
 - Timeline cards lack accessibility labels.
 - Habit cells lack state labels.
@@ -1802,6 +1853,8 @@ A new LifeBoard screen is acceptable only when:
 - Insights begin with interpretation, then metrics, then actions, then optional details.
 - Overdue Rescue and triage expose visible progress, tap alternatives, confirmation, and undo.
 - Rise and Shine and Wind Down use scenic ritual anchors and locale-aware time controls.
+- Day Compass appears only when a higher-value Home action exists, follows the v2.1 priority order, and hides when the day is clear.
+- Onboarding uses the 8-step Sunrise Glass flow without permission prompts inside the funnel.
 
 ## 25. Quick reference
 
@@ -1836,3 +1889,29 @@ Core components:
 Core promise:
 
 LifeBoard makes the day understandable at a glance, helps the user act on the next small step, and makes recovery feel normal.
+
+## 26. Onboarding journey
+
+Onboarding is an 8-step product setup flow, not a permission funnel:
+
+1. `welcome`
+2. `goal`
+3. `lifeAreas`
+4. `evaValue`
+5. `habitSetup`
+6. `firstTask`
+7. `homeDemo`
+8. `success`
+
+Raw enum values remain frozen for backward compatibility. Only `orderedFlow`, normalization, copy, progress, and presentation change. Legacy steps normalize forward into the closest current step; they must not create dead ends or reset a returning user.
+
+Permission prompts move outside onboarding. The funnel teaches the core product loop: clarify the user’s goal, create lightweight structure, add one habit, add one task, preview Home, then land in a clear success state.
+
+Visible onboarding surfaces use Sunrise Glass tokens and components:
+
+- `LBColorTokens` for fills, borders, role tints, and accent color.
+- `LBTypographyTokens` for all headings, body copy, progress labels, and buttons.
+- `LBGlassCard` or existing `LB*` panels for grouped content.
+- `LBPrimaryButton` for the next action.
+
+Delete legacy onboarding themes or components only after reference checks show they are unreferenced.

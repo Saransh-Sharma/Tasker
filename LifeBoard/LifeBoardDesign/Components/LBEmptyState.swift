@@ -6,6 +6,7 @@ struct LBEmptyState: View {
         let message: String
         let actionTitle: String
         let systemImage: String
+        var actionSystemImage: String = "plus"
     }
 
     let model: Model
@@ -23,7 +24,7 @@ struct LBEmptyState: View {
                     .font(LBTypographyTokens.body)
                     .foregroundStyle(LBColorTokens.navyMuted)
                     .multilineTextAlignment(.center)
-                LBPrimaryButton(title: model.actionTitle, systemImage: "plus", action: action)
+                LBPrimaryButton(title: model.actionTitle, systemImage: model.actionSystemImage, action: action)
             }
             .padding(LBSpacingTokens.xl)
             .frame(maxWidth: .infinity)

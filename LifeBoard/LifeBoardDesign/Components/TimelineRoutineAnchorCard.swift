@@ -21,7 +21,7 @@ struct TimelineRoutineAnchorCard: View {
             .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .center)
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LBPressableCardStyle())
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

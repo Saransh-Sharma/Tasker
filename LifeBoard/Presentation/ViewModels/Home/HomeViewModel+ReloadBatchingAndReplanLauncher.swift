@@ -316,6 +316,7 @@ extension HomeViewModel {
     // MARK: - Needs Replan
 
     public func openNeedsReplanLauncher() {
+        dayCompassLaunchedFlow = nil
         beginReplanLauncher(with: needsReplanCandidates, scopedTo: nil)
     }
 
@@ -357,18 +358,21 @@ extension HomeViewModel {
 
     public func dismissNeedsReplanLater() {
         guard needsReplanViewModel.dismissLater() else { return }
+        abandonDayCompassPlacementSessionIfNeeded()
         updateReplanState(phase: .trayHidden)
         refreshPassiveNeedsReplanState()
     }
 
     public func finishNeedsReplanSession() {
         guard needsReplanViewModel.finishSession() else { return }
+        completeDayCompassPlacementSessionIfNeeded()
         updateReplanState(phase: .trayHidden)
         refreshPassiveNeedsReplanState()
     }
 
     public func dismissNeedsReplanSessionUI() {
         guard needsReplanViewModel.dismissSessionUI() else { return }
+        abandonDayCompassPlacementSessionIfNeeded()
         updateReplanState(phase: .trayHidden)
         refreshPassiveNeedsReplanState()
     }

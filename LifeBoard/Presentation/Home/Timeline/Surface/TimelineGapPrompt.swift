@@ -12,7 +12,7 @@ struct TimelineGapPrompt: View {
         HStack(alignment: .center, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: gap.emphasis == .quietWindow ? "moon.zzz" : "clock")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(LBTypographyTokens.meta)
                     .foregroundStyle(TimelineVisualTokens.utilityText)
                     .accessibilityHidden(true)
                 timelineGapPromptText(for: gap, row: row)
@@ -41,11 +41,11 @@ struct TimelineGapPrompt: View {
             .accessibilityIdentifier("home.timeline.gap.createTask")
 
             Menu {
-                Button(TimelineGapAction.planBlock.title, action: onPlanBlock)
+                Button("Place inbox with Compass", action: onPlanBlock)
                 Button(TimelineGapAction.dismiss.title, role: .destructive) {}
             } label: {
                 Image(systemName: "ellipsis.circle")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(LBTypographyTokens.bodyStrong)
                     .foregroundStyle(TimelineVisualTokens.utilityText)
                     .frame(width: 36, height: 36)
                     .contentShape(Circle())

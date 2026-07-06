@@ -189,6 +189,7 @@ extension SunriseAppShellView {
                 viewModel: dailyReflectPlanViewModel,
                 onClose: {
                     showDailyReflectPlan = false
+                    activeDayCompassFlow = nil
                 }
             )
         } else {
@@ -210,6 +211,10 @@ extension SunriseAppShellView {
             },
             onComplete: { result in
                 viewModel.refreshAfterDailyReflectPlanSave(planningDate: result.target.planningDate)
+                if let flow = activeDayCompassFlow {
+                    viewModel.showDayCompassAllClear(after: flow)
+                    activeDayCompassFlow = nil
+                }
                 showDailyReflectPlan = false
             }
         )

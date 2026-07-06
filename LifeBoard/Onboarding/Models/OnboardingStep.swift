@@ -30,18 +30,13 @@ enum OnboardingStep: Int, CaseIterable, Codable {
     case homeDemo = 20
 
     static let orderedFlow: [OnboardingStep] = [
+        .welcome,
         .goal,
-        .pain,
-        .evaValue,
         .lifeAreas,
+        .evaValue,
         .habitSetup,
-        .evaStyle,
-        .workBlockers,
-        .weeklyOutcomes,
         .firstTask,
         .homeDemo,
-        .calendarPermission,
-        .notificationPermission,
         .success
     ]
 
@@ -133,18 +128,20 @@ enum OnboardingStep: Int, CaseIterable, Codable {
 
     var normalizedForCurrentFlow: OnboardingStep {
         switch self {
-        case .blocker:
+        case .pain, .blocker:
             return .goal
         case .projects:
             return .lifeAreas
-        case .habits:
+        case .evaStyle, .workBlockers, .weeklyOutcomes:
+            return .evaValue
+        case .habits, .streakPreview:
             return .habitSetup
-        case .streakPreview:
-            return .evaStyle
         case .processing:
             return .firstTask
         case .focusRoom, .habitCheckIn:
             return .homeDemo
+        case .calendarPermission, .notificationPermission:
+            return .success
         default:
             return self
         }
@@ -156,39 +153,19 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return "Welcome setup"
         case .goal:
             return "Choose goal"
-        case .pain:
-            return "Choose blockers"
         case .evaValue:
-            return "Choose guide"
+            return "Choose assistant"
         case .lifeAreas:
             return "Choose focus areas"
         case .habitSetup:
-            return "Pick one habit"
-        case .streakPreview:
-            return "Preview streak"
-        case .evaStyle:
-            return "Choose working style"
-        case .workBlockers:
-            return "Choose work blockers"
-        case .weeklyOutcomes:
-            return "Add weekly outcomes"
-        case .processing:
-            return "Preparing setup"
+            return "Create starter habit"
         case .firstTask:
-            return "Add today's task"
+            return "Create first task"
         case .homeDemo:
-            return "Try Home demo"
-        case .focusRoom:
-            return "Finish task"
-        case .habitCheckIn:
-            return "Check in habit"
-        case .calendarPermission:
-            return "Connect calendar"
-        case .notificationPermission:
-            return "Enable reminders"
+            return "Preview Home"
         case .success:
             return "Setup complete"
-        case .blocker, .projects, .habits:
+        case .pain, .blocker, .projects, .habits, .streakPreview, .evaStyle, .workBlockers, .weeklyOutcomes, .processing, .focusRoom, .habitCheckIn, .calendarPermission, .notificationPermission:
             return normalizedForCurrentFlow.voiceOverTitle
         }
     }
@@ -199,39 +176,19 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return "Start when you are ready."
         case .goal:
             return "Select one goal to continue."
-        case .pain:
-            return "Select at least one blocker."
         case .evaValue:
-            return "Swipe the carousel and choose a guide."
+            return "Choose how the assistant should support your day."
         case .lifeAreas:
             return "Pick up to 3 areas."
         case .habitSetup:
             return "Select one starter habit."
-        case .streakPreview:
-            return "Review your starter streak."
-        case .evaStyle:
-            return "Choose how Eva should work."
-        case .workBlockers:
-            return "Choose blockers or add your own."
-        case .weeklyOutcomes:
-            return "Add at least one outcome."
-        case .processing:
-            return "Wait while LifeBoard prepares your setup."
         case .firstTask:
             return "Choose or create a task for today."
         case .homeDemo:
-            return "Try the demo actions or continue when ready."
-        case .focusRoom:
-            return "Start focus or break the task down."
-        case .habitCheckIn:
-            return "Log today's habit status."
-        case .calendarPermission:
-            return "Allow or skip calendar access."
-        case .notificationPermission:
-            return "Allow or skip reminders."
+            return "Review the Home preview or continue when ready."
         case .success:
             return "Go to Home."
-        case .blocker, .projects, .habits:
+        case .pain, .blocker, .projects, .habits, .streakPreview, .evaStyle, .workBlockers, .weeklyOutcomes, .processing, .focusRoom, .habitCheckIn, .calendarPermission, .notificationPermission:
             return normalizedForCurrentFlow.voiceOverInstruction
         }
     }

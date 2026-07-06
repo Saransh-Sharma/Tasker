@@ -304,6 +304,26 @@ final class HomeNavigationCoordinatorTests: XCTestCase {
         XCTAssertTrue(spy.reflectPlanDates.isEmpty)
     }
 
+    func testDayCompassRouteTriggersCompassWithParsedDate() {
+        let spy = HomeNavigationCoordinatorSpy()
+        let coordinator = HomeNavigationCoordinator(delegate: spy)
+
+        coordinator.handleNotificationRoute(.dayCompass(flow: .eveningReview, dateStamp: "20260503"))
+
+        XCTAssertEqual(spy.didShowTasksDestinationCount, 1)
+        XCTAssertEqual(spy.quickViews, [.today])
+        XCTAssertEqual(spy.pendingFocusTaskIDs.count, 1)
+        XCTAssertNil(spy.pendingFocusTaskIDs.first ?? nil)
+        XCTAssertEqual(spy.dayCompassRoutes.map(\.flow), [.eveningReview])
+        let components = Calendar.current.dateComponents(
+            [.year, .month, .day],
+            from: try! XCTUnwrap(spy.dayCompassRoutes.first?.preferredReflectionDate)
+        )
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 5)
+        XCTAssertEqual(components.day, 3)
+    }
+
     func testTypedIntentOpensTaskDetailThroughNarrowDelegate() {
         let spy = HomeNavigationCoordinatorSpy()
         let coordinator = HomeNavigationCoordinator(delegate: spy)
@@ -776,6 +796,7 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
     private(set) var didProcessPendingIPadModalRequestCount = 0
     private(set) var dailySummaries: [(kind: LifeBoardDailySummaryKind, dateStamp: String?)] = []
     private(set) var reflectPlanDates: [Date?] = []
+    private(set) var dayCompassRoutes: [(flow: DayCompassFlow, preferredReflectionDate: Date?)] = []
     private(set) var performedIntents: [HomeNavigationIntent] = []
 
     func homeNavigationShowTasksDestination() {
@@ -872,6 +893,10 @@ private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDeleg
 
     func homeNavigationPresentReflectPlan(preferredReflectionDate: Date?) {
         reflectPlanDates.append(preferredReflectionDate)
+    }
+
+    func homeNavigationTriggerDayCompass(flow: DayCompassFlow, preferredReflectionDate: Date?) {
+        dayCompassRoutes.append((flow, preferredReflectionDate))
     }
 
     func homeNavigationDate(from stamp: String?) -> Date? {
@@ -11142,7 +11167,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(morning.map { calendar.component(.minute, from: $0.fireDate) }, 0)
         XCTAssertEqual(
             morning?.route,
-            .dailySummary(kind: .morning, dateStamp: "20260224")
+            .dayCompass(flow: .morningPlan, dateStamp: "20260224")
         )
 
         let nightlySummaryIDs = Set(
@@ -11176,7 +11201,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(nightly.map { calendar.component(.minute, from: $0.fireDate) }, 0)
         XCTAssertEqual(
             nightly?.route,
-            .dailySummary(kind: .nightly, dateStamp: "20260224")
+            .dayCompass(flow: .eveningReview, dateStamp: "20260224")
         )
     }
 
@@ -11615,6 +11640,20 @@ final class LifeBoardNotificationRouteTests: XCTestCase {
         XCTAssertEqual(
             LifeBoardNotificationRoute.from(payload: nightlyNoDate.payload, fallbackTaskID: nil),
             nightlyNoDate
+        )
+    }
+
+    func testDayCompassRoutePayloadRoundTrip() {
+        let morning: LifeBoardNotificationRoute = .dayCompass(flow: .morningPlan, dateStamp: "20260225")
+        XCTAssertEqual(
+            LifeBoardNotificationRoute.from(payload: morning.payload, fallbackTaskID: nil),
+            morning
+        )
+
+        let replanNoDate: LifeBoardNotificationRoute = .dayCompass(flow: .replan, dateStamp: nil)
+        XCTAssertEqual(
+            LifeBoardNotificationRoute.from(payload: replanNoDate.payload, fallbackTaskID: nil),
+            replanNoDate
         )
     }
 }
@@ -14849,6 +14888,46 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         XCTAssertFalse(viewModel.canSubmit)
     }
 
+    func testReminderWindowPickersWriteNormalizedStorageStrings() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Hydrate"
+        viewModel.ensureReminderWindowDefaults()
+        XCTAssertTrue(viewModel.hasReminderWindow)
+        XCTAssertEqual(viewModel.reminderWindowStart, "09:00")
+        XCTAssertEqual(viewModel.reminderWindowEnd, "17:00")
+
+        viewModel.reminderWindowStartPickerDate = pickerDate(hour: 7, minute: 5)
+        viewModel.reminderWindowEndPickerDate = pickerDate(hour: 8, minute: 30)
+
+        XCTAssertEqual(viewModel.reminderWindowStart, "07:05")
+        XCTAssertEqual(viewModel.reminderWindowEnd, "08:30")
+        XCTAssertNil(viewModel.reminderWindowValidationError)
+
+        let expectation = expectation(description: "create habit with picker reminder")
+        viewModel.createHabit { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
+        XCTAssertEqual(createdHabit.title, "Hydrate")
+
+        viewModel.clearReminderWindow()
+        XCTAssertFalse(viewModel.hasReminderWindow)
+        XCTAssertEqual(viewModel.reminderWindowStart, "")
+        XCTAssertEqual(viewModel.reminderWindowEnd, "")
+    }
+
     func testCreateHabitNormalizesSixDigitHexColor() async {
         let (viewModel, habitRepository) = makeViewModel()
 
@@ -15079,6 +15158,11 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         }
     }
 
+    private func pickerDate(hour: Int, minute: Int) -> Date {
+        let calendar = Calendar.current
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: calendar.startOfDay(for: Date())) ?? Date()
+    }
+
     private func makeViewModel(
         deferCreateCompletion: Bool = false,
         lifeAreas: [LifeArea]? = nil,
@@ -15254,6 +15338,26 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         XCTAssertEqual(fixture.lifeAreaRepository.fetchAllCallCount, editorLifeAreaFetchCount + 1)
         XCTAssertEqual(fixture.projectRepository.fetchAllProjectsCallCount, editorProjectListFetchCount)
         XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, editorProjectCountFetches)
+    }
+
+    func testHabitEditorDraftReminderPickersWriteNormalizedStrings() {
+        var draft = HabitEditorDraft(row: makeDetailFixture().row)
+
+        draft.clearReminderWindow()
+        XCTAssertFalse(draft.hasReminderWindow)
+        XCTAssertEqual(draft.reminderWindowStart, "")
+        XCTAssertEqual(draft.reminderWindowEnd, "")
+
+        draft.ensureReminderWindowDefaults()
+        XCTAssertTrue(draft.hasReminderWindow)
+        XCTAssertEqual(draft.reminderWindowStart, "09:00")
+        XCTAssertEqual(draft.reminderWindowEnd, "17:00")
+
+        draft.reminderWindowStartPickerDate = pickerDate(hour: 10, minute: 15)
+        draft.reminderWindowEndPickerDate = pickerDate(hour: 11, minute: 45)
+
+        XCTAssertEqual(draft.reminderWindowStart, "10:15")
+        XCTAssertEqual(draft.reminderWindowEnd, "11:45")
     }
 
     private struct DetailFixture {
@@ -15634,6 +15738,11 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
             }
             try? await _Concurrency.Task.sleep(for: pollInterval)
         }
+    }
+
+    private func pickerDate(hour: Int, minute: Int) -> Date {
+        let calendar = Calendar.current
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: calendar.startOfDay(for: Date())) ?? Date()
     }
 }
 

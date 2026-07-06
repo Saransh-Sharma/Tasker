@@ -43,11 +43,6 @@ extension SunriseAppShellView {
                     }
                 )
 
-                if visibleAgendaTailItems.isEmpty == false {
-                    pinnedTimelineRescueLauncher
-                        .zIndex(6)
-                }
-
                 if activeFace != .tasks {
                     daySunriseSwipeOverlay
                 }
@@ -171,7 +166,7 @@ extension SunriseAppShellView {
                     onAnchorTap: onTimelineAnchorTap,
                     onAddTask: onAddTask,
                     onScheduleInbox: {
-                        viewModel.openRescue()
+                        viewModel.startDayCompassInboxSession()
                     },
                     onShowCalendarInTimeline: {
                         viewModel.showCalendarEventsInTimelineFromHome()
@@ -315,67 +310,48 @@ extension SunriseAppShellView {
         }
     }
 
-    @ViewBuilder
-    var pinnedTimelineRescueLauncher: some View {
-        if isRescueEnabled,
-           let item = visibleAgendaTailItems.first,
-           case .rescue(let state) = item {
-            VStack(spacing: 0) {
-                timelineColumnContent {
-                    timelineRescueTailItem(state)
-                        .padding(.horizontal, spacing.s16)
-                }
-                .padding(.top, spacing.s8)
-                .background(Color.lifeboard.surfacePrimary.opacity(0.96))
-
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .allowsHitTesting(true)
-        }
-    }
-
     func timelineRescueTailItem(_ state: RescueTailState) -> some View {
-        HStack(alignment: .center, spacing: spacing.s12) {
-            Button {
-                viewModel.openRescue()
-            } label: {
+        let style = LBColorTokens.role(.warning)
+        return LBGlassCard(
+            cornerRadius: LBRadiusTokens.card,
+            borderColor: style.border.opacity(0.72),
+            fill: style.softSurface.opacity(0.48),
+            shadow: nil,
+            usesMaterialBackground: false
+        ) {
+            HStack(alignment: .center, spacing: spacing.s12) {
+                Image(systemName: style.symbolName)
+                    .font(LBTypographyTokens.bodyStrong)
+                    .foregroundStyle(style.deep)
+                    .frame(width: 34, height: 34)
+                    .background(style.softSurface.opacity(0.82), in: Circle())
+                    .accessibilityHidden(true)
+
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(String(localized: "Rescue"))
-                        .font(.lifeboard(.headline))
-                        .foregroundStyle(Color.lifeboard.textPrimary)
+                    Text(String(localized: "Rescue available"))
+                        .font(LBTypographyTokens.cardTitle)
+                        .foregroundStyle(LBColorTokens.navy)
                         .accessibilityIdentifier("home.rescue.header")
 
                     Text(state.subtitle)
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .font(LBTypographyTokens.meta)
+                        .foregroundStyle(LBColorTokens.navyMuted)
                         .multilineTextAlignment(.leading)
+
+                    if state.mode == .expanded {
+                        Text(String(localized: "Day Compass keeps the primary rescue action at the top of Home."))
+                            .font(LBTypographyTokens.meta)
+                            .foregroundStyle(LBColorTokens.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("home.rescue.open")
-
-            if state.mode == .expanded {
-                Button(String(localized: "Start rescue")) {
-                    viewModel.openRescue()
-                }
-                .font(.lifeboard(.caption1).weight(.semibold))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("home.rescue.start")
-            }
+            .padding(.vertical, spacing.s12)
+            .padding(.horizontal, spacing.s16)
         }
-        .padding(.vertical, spacing.s12)
-        .padding(.horizontal, spacing.s16)
-        .background(Color.lifeboard.surfaceSecondary.opacity(0.22))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(Color.lifeboard.strokeHairline.opacity(0.55), lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18))
         .accessibilityIdentifier("home.rescue.section")
+        .accessibilityElement(children: .combine)
     }
 
     var daySunriseSwipeOverlay: some View {

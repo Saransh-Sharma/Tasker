@@ -52,11 +52,29 @@ public final class ResolveDailyReflectionTargetUseCase: @unchecked Sendable {
         self.nowProvider = nowProvider
     }
 
-    public func execute(preferredReflectionDate _: Date? = nil) -> DailyReflectionTarget? {
+    public func execute(preferredReflectionDate: Date? = nil) -> DailyReflectionTarget? {
         let today = calendar.startOfDay(for: nowProvider())
         guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
               let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
             return nil
+        }
+
+        if let preferredReflectionDate {
+            let reflectionDate = calendar.startOfDay(for: preferredReflectionDate)
+            guard reflectionStore.isCompleted(on: reflectionDate) == false else {
+                return nil
+            }
+            let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate) ?? tomorrow
+            let mode: DailyReflectionMode = calendar.compare(
+                reflectionDate,
+                to: today,
+                toGranularity: .day
+            ) == .orderedAscending ? .catchUpYesterday : .sameDay
+            return DailyReflectionTarget(
+                mode: mode,
+                reflectionDate: reflectionDate,
+                planningDate: planningDate
+            )
         }
 
         if reflectionStore.isCompleted(on: yesterday) == false {

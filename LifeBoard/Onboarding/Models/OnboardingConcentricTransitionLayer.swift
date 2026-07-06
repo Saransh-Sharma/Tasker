@@ -66,7 +66,7 @@ struct OnboardingConcentricTransitionLayer: View {
                         colors: [
                             theme.accent.opacity(0.42),
                             pulseColor.opacity(pulseFillOpacity),
-                            Color.black.opacity(0.18)
+                            Color.white.opacity(0.18)
                         ],
                         center: .center,
                         startRadius: 0,

@@ -10,6 +10,7 @@ struct OnboardingSuccessHero: View {
     @Environment(\.lifeboardLayoutClass) var layoutClass
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State var pulse = false
+    @State var haloScale: CGFloat = 1
 
     var body: some View {
         VStack(alignment: .center, spacing: 18) {
@@ -20,10 +21,11 @@ struct OnboardingSuccessHero: View {
                 EvaMascotView(placement: .onboardingSuccess, size: .custom(mascotSize))
                     .accessibilityHidden(true)
             }
+            .scaleEffect(haloScale)
 
             Text(OnboardingCopy.Success.title)
                 .lifeboardFont(.display)
-                .foregroundStyle(OnboardingTheme.marigold)
+                .foregroundStyle(OnboardingTheme.textPrimary)
                 .multilineTextAlignment(.center)
 
             Text(OnboardingCopy.Success.subtitle)
@@ -38,6 +40,12 @@ struct OnboardingSuccessHero: View {
         .onboardingHeroPanel(cornerRadius: 32)
         .onAppear {
             guard reduceMotion == false else { return }
+            // One gentle settle-in, then a soft two-beat halo pulse — a single
+            // celebratory moment, never a looping reward.
+            haloScale = 0.86
+            withAnimation(.spring(duration: 0.5, bounce: 0.36)) {
+                haloScale = 1
+            }
             withAnimation(.easeInOut(duration: 0.8).repeatCount(2, autoreverses: true)) {
                 pulse = true
             }

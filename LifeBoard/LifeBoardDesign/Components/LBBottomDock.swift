@@ -145,12 +145,15 @@ private struct DockItem: Identifiable {
 
 private struct LBBottomDockMaterialModifier: ViewModifier {
     let isEnabled: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func body(content: Content) -> some View {
-        if isEnabled {
-            content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
-        } else {
+        if isEnabled == false {
             content
+        } else if reduceTransparency {
+            content.background(LBColorTokens.surfaceSolid, in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
+        } else {
+            content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
         }
     }
 }

@@ -91,7 +91,7 @@ struct OnboardingWelcomeCinematicOverlay: View {
             fillColor: reduceTransparency
                 ? OnboardingTheme.surfaceElevated.opacity(0.94)
                 : .clear,
-            strokeColor: OnboardingTheme.borderSoft.opacity(0.8),
+            strokeColor: OnboardingTheme.onMediaBorder.opacity(0.8),
             accentColor: reduceTransparency ? OnboardingTheme.accentSecondary : .clear,
             level: .e3,
             useNativeGlass: true

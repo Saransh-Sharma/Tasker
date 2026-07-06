@@ -62,7 +62,7 @@ extension HomeViewModel {
     /// Executes loadTaskDetailMetadata.
 
     func setupBindings() {
-        installResumeForegroundObserver()
+        installDayCompassForegroundObserver()
 
         calendarIntegrationService.$snapshot
             .receive(on: RunLoop.main)

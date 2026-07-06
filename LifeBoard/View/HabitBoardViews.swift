@@ -519,6 +519,14 @@ struct HabitBoardScreen: View {
                 boardEmptyState
             } else {
                 boardMatrix
+
+                Rectangle()
+                    .fill(Color.lifeboard.strokeHairline.opacity(0.16))
+                    .frame(height: 1)
+
+                HabitBoardLegend()
+                    .padding(.horizontal, spacing.s16)
+                    .padding(.vertical, spacing.s12)
             }
         }
         .background(HabitBoardFlatSurfaceBackground(cornerRadius: 24))
@@ -856,8 +864,8 @@ private struct HabitBoardMatrixRowView: View {
 
     private func cellAccessibilityValue(for cell: HabitBoardCell) -> String {
         switch cell.state {
-        case .done:
-            return "Completed"
+        case .done(let depth):
+            return depth > 1 ? "Completed, streak strength \(min(depth, 8)) of 8" : "Completed"
         case .missed:
             return "Missed"
         case .todayPending:
@@ -955,7 +963,7 @@ private struct HabitBoardHeaderDayCell: View {
     private var todayBackground: some View {
         if day.isToday {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.lifeboard.surfacePrimary)
+                .fill(HabitEverydayPalette.todayHalo(colorScheme: colorScheme))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.4)
@@ -1014,6 +1022,81 @@ struct HabitStatBadgeView: View {
     }
 }
 
+/// Streak-strength and cell-state legend shown beneath the full board so the
+/// heatmap reads without instruction (design doc §12.2 / §16.5).
+private struct HabitBoardLegend: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(spacing: spacing.s8) {
+                Text("Streak strength")
+                    .font(.lifeboard(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+
+                Spacer(minLength: spacing.s8)
+
+                HStack(spacing: 2) {
+                    ForEach([2, 3, 4, 6, 8], id: \.self) { depth in
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(HabitEverydayPalette.depthColor(for: .green, depth: depth, colorScheme: colorScheme))
+                            .frame(width: 15, height: 12)
+                    }
+                }
+
+                Text("Building → Strong")
+                    .font(.lifeboard(.caption2))
+                    .foregroundStyle(Color.lifeboard.textTertiary)
+                    .lineLimit(1)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing.s12) {
+                    legendSwatch(fill: HabitEverydayPalette.paperFill(colorScheme: colorScheme),
+                                 ring: HabitEverydayPalette.todayStroke(colorScheme: colorScheme),
+                                 label: "Today")
+                    legendSwatch(fill: HabitEverydayPalette.missedFill(colorScheme: colorScheme),
+                                 ring: nil,
+                                 label: "Missed")
+                    legendSwatch(fill: HabitEverydayPalette.bridgeTint(for: .gray, depth: nil, colorScheme: colorScheme),
+                                 ring: nil,
+                                 label: "Skipped")
+                    legendSwatch(fill: HabitEverydayPalette.futureFill(colorScheme: colorScheme),
+                                 ring: nil,
+                                 label: "Future")
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Legend. Cell color deepens as a streak strengthens. A violet outline marks today. Neutral cells are missed or skipped days, and faint cells are future days.")
+    }
+
+    private func legendSwatch(fill: Color, ring: Color?, label: String) -> some View {
+        HStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(fill)
+                .frame(width: 14, height: 14)
+                .overlay {
+                    if let ring {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .stroke(ring, lineWidth: 1.4)
+                    } else {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .stroke(Color.lifeboard.strokeHairline.opacity(0.4), lineWidth: 1)
+                    }
+                }
+            Text(label)
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .lineLimit(1)
+        }
+    }
+}
+
 private struct HabitBoardFlatSurfaceBackground: View {
     let cornerRadius: CGFloat
 
@@ -1068,6 +1151,7 @@ private struct HabitBoardCellView: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         cell: HabitBoardCell,
@@ -1119,6 +1203,8 @@ private struct HabitBoardCellView: View {
         .overlay {
             todayOverlay
         }
+        // Check-ins settle in: the family color deepens rather than snapping.
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: cell.state)
     }
 
     @ViewBuilder
@@ -1328,10 +1414,16 @@ enum HabitEverydayPalette {
             : Color(uiColor: UIColor(lifeboardHex: "#F3F6F9"))
     }
 
+    /// Today is marked in the selection violet per the design language —
+    /// violet means "selected/today", green stays reserved for completion.
     static func todayStroke(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color(uiColor: UIColor(lifeboardHex: "#7ABD52"))
-            : Color(uiColor: UIColor(lifeboardHex: "#6FA242"))
+            ? Color(uiColor: UIColor(lifeboardHex: "#8F7BFF"))
+            : Color(uiColor: UIColor(lifeboardHex: "#6842FF"))
+    }
+
+    static func todayHalo(colorScheme: ColorScheme) -> Color {
+        todayStroke(colorScheme: colorScheme).opacity(colorScheme == .dark ? 0.28 : 0.18)
     }
 
     private static let lightRamps: [HabitColorFamily: [String]] = [

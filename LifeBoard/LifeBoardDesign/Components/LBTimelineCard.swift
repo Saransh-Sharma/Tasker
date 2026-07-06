@@ -6,6 +6,18 @@ enum LBTimelineTemporalState: String, Equatable {
     case future
 }
 
+/// Shared pressed feedback for tappable Sunrise cards: a subtle settle rather
+/// than a button-like bounce, per the design-language pressed spec (0.985).
+struct LBPressableCardStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 struct LBTimelineCard: View, Equatable {
     enum Kind: String, Equatable {
         case anchor
@@ -79,9 +91,11 @@ struct LBTimelineCard: View, Equatable {
                     }
                     .padding(.horizontal, horizontalPadding)
                     .padding(.vertical, verticalPadding)
+                    .frame(minHeight: minimumHeight, alignment: .center)
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LBPressableCardStyle())
+            .animation(.easeOut(duration: 0.22), value: model.isCompleted)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(accessibilityLabel)
             .accessibilityValue(accessibilityValue)
@@ -142,7 +156,16 @@ struct LBTimelineCard: View, Equatable {
         model.kind == .anchor ? 10 : LBSpacingTokens.sm
     }
 
+    /// Non-anchor cards keep the 66pt design-language minimum so short titles
+    /// still read as substantial, tappable day blocks.
+    private var minimumHeight: CGFloat? {
+        model.kind == .anchor ? nil : 66
+    }
+
     private var titleColor: Color {
+        if model.isCompleted && model.kind == .task {
+            return LBColorTokens.navyMuted
+        }
         if model.temporalState == .past {
             return LBColorTokens.navyMuted
         }

@@ -6,6 +6,9 @@ import AVFoundation
 import Network
 import MLXLMCommon
 
+/// Per-step Sunrise Glass accents: pastel role washes with deep semantic
+/// accents. The CTA is always the violet primary action per the design
+/// language; only the welcome step keeps a dark on-video treatment.
 struct OnboardingStepVisualTheme: Equatable {
     let id: String
     let backdrop: Color
@@ -17,35 +20,42 @@ struct OnboardingStepVisualTheme: Equatable {
         lhs.id == rhs.id
     }
 
+    private static let primaryCTA = "#6842FF"
+    private static let ctaForeground = "#FFFFFF"
+
     static func theme(for step: OnboardingStep) -> OnboardingStepVisualTheme {
         switch step.normalizedForCurrentFlow {
         case .welcome:
             return theme(id: "welcome", backdrop: "#101827", accent: "#F4C95D", next: "#F4C95D", nextForeground: "#101827")
         case .goal:
-            return theme(id: "goal", backdrop: "#122B48", accent: "#4FB3FF", next: "#4FB3FF", nextForeground: "#07121F")
+            return sunriseTheme(id: "goal", backdrop: "#EAF6FF", accent: "#1266D6")
         case .pain:
-            return theme(id: "pain", backdrop: "#3A1833", accent: "#FF7AA8", next: "#FF7AA8", nextForeground: "#230817")
+            return sunriseTheme(id: "pain", backdrop: "#FFE3EE", accent: "#D92772")
         case .evaValue:
-            return theme(id: "eva-value", backdrop: "#14352D", accent: "#5FE2B8", next: "#5FE2B8", nextForeground: "#082018")
+            return sunriseTheme(id: "eva-value", backdrop: "#F6F2FF", accent: "#4F2CFF")
         case .lifeAreas:
-            return theme(id: "life-areas", backdrop: "#2E2559", accent: "#B8A7FF", next: "#B8A7FF", nextForeground: "#16102F")
+            return sunriseTheme(id: "life-areas", backdrop: "#F5F0FF", accent: "#5D2CC6")
         case .habitSetup, .streakPreview, .habitCheckIn:
-            return theme(id: "habit", backdrop: "#173B25", accent: "#8FEA8B", next: "#8FEA8B", nextForeground: "#071B0E")
+            return sunriseTheme(id: "habit", backdrop: "#EFF9EC", accent: "#15952B")
         case .evaStyle, .workBlockers, .weeklyOutcomes:
-            return theme(id: "eva-style", backdrop: "#38213F", accent: "#DFA7FF", next: "#DFA7FF", nextForeground: "#1D0928")
+            return sunriseTheme(id: "eva-style", backdrop: "#EEE3FF", accent: "#7332C9")
         case .processing:
-            return theme(id: "processing", backdrop: "#153544", accent: "#77D6F4", next: "#77D6F4", nextForeground: "#08202B")
+            return sunriseTheme(id: "processing", backdrop: "#EAF6FF", accent: "#1266D6")
         case .firstTask, .focusRoom, .homeDemo:
-            return theme(id: "demo", backdrop: "#402713", accent: "#FFBA6A", next: "#FFBA6A", nextForeground: "#261103")
+            return sunriseTheme(id: "demo", backdrop: "#FFF1E9", accent: "#C74716")
         case .calendarPermission:
-            return theme(id: "calendar", backdrop: "#11345B", accent: "#7EC8FF", next: "#7EC8FF", nextForeground: "#061B31")
+            return sunriseTheme(id: "calendar", backdrop: "#F4F0FF", accent: "#5230F3")
         case .notificationPermission:
-            return theme(id: "notifications", backdrop: "#3B244A", accent: "#F8A9FF", next: "#F8A9FF", nextForeground: "#210A2B")
+            return sunriseTheme(id: "notifications", backdrop: "#FFF7DF", accent: "#D88900")
         case .success:
-            return theme(id: "success", backdrop: "#163A2A", accent: "#9BF3BE", next: "#9BF3BE", nextForeground: "#061A10")
+            return sunriseTheme(id: "success", backdrop: "#EFF9EC", accent: "#15952B")
         case .blocker, .projects, .habits:
             return theme(for: step.normalizedForCurrentFlow)
         }
+    }
+
+    static func sunriseTheme(id: String, backdrop: String, accent: String) -> OnboardingStepVisualTheme {
+        theme(id: id, backdrop: backdrop, accent: accent, next: primaryCTA, nextForeground: ctaForeground)
     }
 
     static func theme(id: String, backdrop: String, accent: String, next: String, nextForeground: String) -> OnboardingStepVisualTheme {

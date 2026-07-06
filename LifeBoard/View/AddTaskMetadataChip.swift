@@ -41,20 +41,20 @@ struct AddTaskMetadataChip: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(LBTypographyTokens.meta)
 
                 Text(text)
-                    .font(.lifeboard(.callout))
                     .lineLimit(1)
             }
+            .font(LBTypographyTokens.meta)
             .fixedSize(horizontal: true, vertical: false)
             .foregroundColor(
                 isActive
                     ? (hasTint ? tintColor : Color.lifeboard.accentPrimary)
                     : Color.lifeboard.textTertiary
             )
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .frame(minHeight: LifeBoardCreationChipMetrics.visualHeight)
+            .padding(.horizontal, LifeBoardCreationChipMetrics.horizontalPadding)
             .background(
                 Capsule()
                     .fill(
@@ -72,6 +72,7 @@ struct AddTaskMetadataChip: View {
                         lineWidth: 1
                     )
             )
+            .frame(minHeight: LifeBoardCreationChipMetrics.hitHeight)
         }
         .buttonStyle(.plain)
         .scaleOnPress()

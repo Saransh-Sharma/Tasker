@@ -48,6 +48,9 @@ extension HomeViewModel {
             evaRescueLauncherState = .idle
             evaRescueReferenceDate = nil
         }
+        if value == false {
+            completeDayCompassRescueIfNeeded()
+        }
     }
 
     public func openFocusWhy() {

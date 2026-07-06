@@ -35,6 +35,9 @@ enum LBColorTokens {
     static let coolCanvas = adaptive(light: "#F7FBFF", dark: "#07111E", darkHighContrast: "#030911")
     static let glass = adaptive(light: "#FFFFFF", dark: "#171C2B", lightOpacity: 0.90, darkOpacity: 0.86, darkHighContrast: "#20263A", darkHighContrastOpacity: 0.94)
     static let glassStrong = adaptive(light: "#FFFFFF", dark: "#22283A", lightOpacity: 0.96, darkOpacity: 0.92, darkHighContrast: "#2B3146", darkHighContrastOpacity: 0.98)
+    /// Fully opaque surface used in place of glass/material when Reduce
+    /// Transparency is on (design language §19.4).
+    static let surfaceSolid = adaptive(light: "#FFFFFF", dark: "#20263A", darkHighContrast: "#2B3146")
     static let glassBorder = adaptive(light: "#FFFFFF", dark: "#FFFFFF", lightOpacity: 0.72, darkOpacity: 0.16, darkHighContrastOpacity: 0.28)
     static let glassDimmingOverlay = adaptive(light: "#000000", dark: "#000000", lightOpacity: 0.05, darkOpacity: 0.12, darkHighContrastOpacity: 0.18)
     static let hairline = adaptive(light: "#DDE3EE", dark: "#3A4258", darkHighContrast: "#56617B")

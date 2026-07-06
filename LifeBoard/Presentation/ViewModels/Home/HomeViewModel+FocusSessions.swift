@@ -86,6 +86,7 @@ extension HomeViewModel {
     }
 
     public func refreshAfterDailyReflectPlanSave(planningDate: Date) {
+        invalidateDayCompassReflectionTargetCache()
         refreshWeeklySummary()
         loadDailyAnalytics(includeGamificationRefresh: false)
         selectDate(planningDate, source: .dailyReflection)
