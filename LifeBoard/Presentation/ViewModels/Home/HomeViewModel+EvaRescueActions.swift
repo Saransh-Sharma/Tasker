@@ -113,6 +113,19 @@ extension HomeViewModel {
         }
     }
 
+    public func openOverdueRescueFromHome(
+        source: String,
+        action: String = "overdue_rescue_launch_requested"
+    ) {
+        setQuickView(.overdue)
+        trackHomeInteraction(action: action, metadata: [
+            "source": source
+        ])
+        DispatchQueue.main.async { [weak self] in
+            self?.openRescue()
+        }
+    }
+
     public func applyEvaBatchPlan(
         source: EvaBatchSource,
         mutations: [EvaBatchMutationInstruction],
