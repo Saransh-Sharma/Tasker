@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct TimelineAnchorRitualTheme {
     let heroAssetName: String
@@ -23,12 +24,12 @@ struct TimelineAnchorRitualTheme {
                 pillSystemImageName: "sun.max",
                 accent: Color(lifeboardHex: "#F16A35"),
                 accentDeep: Color(lifeboardHex: "#D94E22"),
-                accentSoft: Color(lifeboardHex: "#FFF0E4"),
-                accentMist: Color(lifeboardHex: "#FFE5D4"),
-                surface: Color(lifeboardHex: "#FFFDFC"),
-                title: Color(lifeboardHex: "#071B52"),
-                subtitle: Color(lifeboardHex: "#5D5C64"),
-                cardBorder: Color(lifeboardHex: "#F5E6DA"),
+                accentSoft: adaptiveColor(light: "#FFF0E4", dark: "#241812"),
+                accentMist: adaptiveColor(light: "#FFE5D4", dark: "#33211A"),
+                surface: adaptiveColor(light: "#FFFDFC", dark: "#15161D"),
+                title: LBColorTokens.navy,
+                subtitle: LBColorTokens.navyMuted,
+                cardBorder: adaptiveColor(light: "#F5E6DA", dark: "#2C2620"),
                 ctaGradient: LinearGradient(
                     colors: [
                         Color(lifeboardHex: "#F66B36"),
@@ -45,12 +46,12 @@ struct TimelineAnchorRitualTheme {
                 pillSystemImageName: "moon.fill",
                 accent: Color(lifeboardHex: "#6A35E8"),
                 accentDeep: Color(lifeboardHex: "#5529D5"),
-                accentSoft: Color(lifeboardHex: "#F0E8FF"),
-                accentMist: Color(lifeboardHex: "#E7DCFF"),
-                surface: Color(lifeboardHex: "#FFFDFC"),
-                title: Color(lifeboardHex: "#071B52"),
-                subtitle: Color(lifeboardHex: "#5D5C64"),
-                cardBorder: Color(lifeboardHex: "#E9E0F7"),
+                accentSoft: adaptiveColor(light: "#F0E8FF", dark: "#1C1630"),
+                accentMist: adaptiveColor(light: "#E7DCFF", dark: "#281E42"),
+                surface: adaptiveColor(light: "#FFFDFC", dark: "#15151E"),
+                title: LBColorTokens.navy,
+                subtitle: LBColorTokens.navyMuted,
+                cardBorder: adaptiveColor(light: "#E9E0F7", dark: "#262233"),
                 ctaGradient: LinearGradient(
                     colors: [
                         Color(lifeboardHex: "#6732E8"),
@@ -61,5 +62,16 @@ struct TimelineAnchorRitualTheme {
                 )
             )
         }
+    }
+
+    /// Resolves the warm/violet pastel in light mode and a deep same-hue tone in
+    /// dark mode, so the ritual sheet renders as a native dark surface instead of
+    /// a forced-light card.
+    private static func adaptiveColor(light: String, dark: String) -> Color {
+        let lightColor = UIColor(lifeboardHex: light)
+        let darkColor = UIColor(lifeboardHex: dark)
+        return Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? darkColor : lightColor
+        })
     }
 }
