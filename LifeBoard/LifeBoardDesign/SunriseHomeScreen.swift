@@ -303,6 +303,13 @@ struct SunriseHomeScreen: View {
         headerContentOverlap + LBSpacingTokens.xs
     }
 
+    /// When the day compass card is shown it carries the header clearance, so the
+    /// chip row only needs a normal gap beneath it. Otherwise the chip row is the
+    /// first element and must clear the header itself.
+    private var chipRowTopPadding: CGFloat {
+        chrome.dayCompass == nil ? filterRowTopPadding : LBSpacingTokens.xs
+    }
+
     private var content: some View {
         VStack(spacing: LBSpacingTokens.xxs) {
             if let dayCompass = chrome.dayCompass {
@@ -311,6 +318,7 @@ struct SunriseHomeScreen: View {
                     onPrimary: onDayCompassPrimary,
                     onSnooze: onDayCompassSnooze
                 )
+                .padding(.top, filterRowTopPadding)
                 .padding(.bottom, LBSpacingTokens.xs)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -369,7 +377,7 @@ struct SunriseHomeScreen: View {
             .padding(.horizontal, LBSpacingTokens.screenMargin)
         }
         .padding(.horizontal, -LBSpacingTokens.screenMargin)
-        .padding(.top, filterRowTopPadding)
+        .padding(.top, chipRowTopPadding)
     }
 
     @ViewBuilder
