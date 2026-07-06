@@ -16,10 +16,10 @@ struct OverdueRescueBackCards: View {
             ForEach(0..<4, id: \.self) { index in
                 let reverseIndex = 3 - index
                 RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
-                    .fill(backCardColor(index))
+                    .fill(OverdueRescuePalette.backCard(index))
                     .overlay(
                         RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
-                            .stroke(Color.white.opacity(0.74), lineWidth: 1)
+                            .stroke(OverdueRescuePalette.glassStroke, lineWidth: 1)
                     )
                     .frame(
                         width: metrics.cardWidth - CGFloat(reverseIndex) * 10,
@@ -41,15 +41,6 @@ struct OverdueRescueBackCards: View {
         case 2: return -12
         case 3: return 14
         default: return 0
-        }
-    }
-
-    func backCardColor(_ index: Int) -> Color {
-        switch index {
-        case 0: return Color(red: 1.0, green: 0.91, blue: 0.83)
-        case 1: return Color(red: 0.91, green: 0.96, blue: 1.0)
-        case 2: return Color(red: 0.94, green: 0.90, blue: 1.0)
-        default: return Color(red: 1.0, green: 0.96, blue: 0.86)
         }
     }
 }
