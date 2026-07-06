@@ -71,7 +71,7 @@ final class HomeReplanDayUITests: BaseUITest {
         XCTAssertTrue(app.staticTexts["Spanning 4 past days"].waitForExistence(timeout: 3))
     }
 
-    func testReplanCardExposesLifeBoardActionsAndHotZones() {
+    func testStartReplanOpensOverdueRescueDeck() {
         let tray = app.buttons["home.needsReplan.tray"]
         XCTAssertTrue(tray.waitForExistence(timeout: 8), "Needs Replan tray should be visible")
         tray.tap()
@@ -80,19 +80,10 @@ final class HomeReplanDayUITests: BaseUITest {
         XCTAssertTrue(startButton.waitForExistence(timeout: 5), "Start Replan should be available")
         startButton.tap()
 
-        let card = app.descendants(matching: .any)["home.needsReplan.card"]
-        XCTAssertTrue(card.waitForExistence(timeout: 5), "Replan card should be visible")
-        XCTAssertTrue(app.descendants(matching: .any)["home.needsReplan.dragSource"].waitForExistence(timeout: 3), "Replan task should expose a drag source")
-
-        XCTAssertTrue(app.buttons["home.needsReplan.action.inbox"].exists, "Move to Inbox fallback action should be accessible")
-        XCTAssertTrue(app.buttons["home.needsReplan.action.planToday"].exists, "Plan Today fallback action should be accessible")
-        XCTAssertTrue(app.buttons["home.needsReplan.action.complete"].exists, "Complete fallback action should be accessible")
-        XCTAssertTrue(app.buttons["home.needsReplan.action.delete"].exists, "Delete fallback action should be accessible")
-
-        XCTAssertTrue(app.descendants(matching: .any)["home.needsReplan.hotZone.planToday"].exists, "Plan Today hot zone should be present for drag targeting")
-        XCTAssertTrue(app.descendants(matching: .any)["home.needsReplan.hotZone.moveToInbox"].exists, "Inbox hot zone should be present for drag targeting")
-        XCTAssertTrue(app.descendants(matching: .any)["home.needsReplan.hotZone.complete"].exists, "Complete hot zone should be present for drag targeting")
-        XCTAssertTrue(app.descendants(matching: .any)["home.needsReplan.hotZone.delete"].exists, "Delete hot zone should be present for drag targeting")
+        let rescueSheet = app.descendants(matching: .any)["home.rescue.sheet"]
+        XCTAssertTrue(rescueSheet.waitForExistence(timeout: 10), "Start Replan should open the Overdue Rescue deck")
+        XCTAssertTrue(app.staticTexts["Rescue oldest"].waitForExistence(timeout: 5), "Rescue deck should show the seeded oldest rescue task")
+        XCTAssertFalse(app.descendants(matching: .any)["home.needsReplan.card"].exists, "Start Replan should no longer open the legacy replan card")
     }
 
     private func bottomChromeTopEdge() -> CGFloat {
