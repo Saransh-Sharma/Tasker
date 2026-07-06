@@ -405,20 +405,25 @@ extension SunriseAppShellView {
                     }
                 )
             }
-            .sheet(isPresented: needsReplanLauncherPresented) {
+            .sheet(isPresented: needsReplanLauncherPresented, onDismiss: {
+                launchPendingNeedsReplanRescueIfNeeded()
+            }) {
                 NeedsReplanLauncherSheet(
                     summary: overlaySnapshot.replanState.launcherSummary ?? .empty,
                     onStart: {
                         if overlaySnapshot.replanState.launcherSummary?.count == 0 {
+                            pendingRescueLaunchAfterNeedsReplanDismiss = false
                             viewModel.dismissNeedsReplanSessionUI()
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                 onAddTask(nil)
                             }
                         } else {
-                            viewModel.startNeedsReplanSession()
+                            pendingRescueLaunchAfterNeedsReplanDismiss = true
+                            viewModel.dismissNeedsReplanSessionUI()
                         }
                     },
                     onLater: {
+                        pendingRescueLaunchAfterNeedsReplanDismiss = false
                         viewModel.dismissNeedsReplanLater()
                     }
                 )
@@ -470,6 +475,16 @@ extension SunriseAppShellView {
                 viewModel.dismissNeedsReplanLater()
             }
         )
+    }
+
+    private func launchPendingNeedsReplanRescueIfNeeded() {
+        guard pendingRescueLaunchAfterNeedsReplanDismiss else { return }
+        pendingRescueLaunchAfterNeedsReplanDismiss = false
+        viewModel.setQuickView(.overdue)
+        viewModel.trackHomeInteraction(action: "needs_replan_start_rescue", metadata: [:])
+        DispatchQueue.main.async {
+            viewModel.openRescue()
+        }
     }
 
     private var habitRecoveryReflectionPromptBinding: Binding<HabitRecoveryReflectionPrompt?> {

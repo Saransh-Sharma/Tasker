@@ -192,6 +192,8 @@ struct SunriseAppShellView: View {
 
     @State var measuredNeedsReplanTrayHeight: CGFloat = 0
 
+    @State var pendingRescueLaunchAfterNeedsReplanDismiss = false
+
     @State var committedDaySwipeDirection: HomeDayNavigationDirection?
 
     @State var isDaySwipeTracingActive = false
