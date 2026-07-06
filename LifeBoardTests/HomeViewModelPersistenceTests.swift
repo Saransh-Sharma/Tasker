@@ -2339,6 +2339,46 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testHomeRecoveryEntrypointSwitchesToOverdueAndOpensRescueDeck() {
+        let suiteName = "HomeViewModelPersistenceTests.HomeRecoveryRoutesToRescue.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let calendar = Calendar.current
+        let inbox = Project.createInbox()
+        let rescueTask = makeTask(
+            name: "Home recovery rescue",
+            project: inbox,
+            dueDate: calendar.date(byAdding: .day, value: -18, to: now),
+            priority: .high
+        )
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [rescueTask]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        viewModel.startDayCompassRescueSession()
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.activeScope.quickView, .overdue)
+        XCTAssertTrue(viewModel.evaRescueSheetPresented)
+        XCTAssertEqual(viewModel.evaRescueLauncherState, .ready)
+        let planTaskIDs = Set(
+            (viewModel.evaRescuePlan?.doToday.map(\.taskID) ?? []) +
+            (viewModel.evaRescuePlan?.move.map(\.taskID) ?? []) +
+            (viewModel.evaRescuePlan?.split.map(\.taskID) ?? []) +
+            (viewModel.evaRescuePlan?.dropCandidate.map(\.taskID) ?? [])
+        )
+        XCTAssertTrue(planTaskIDs.contains(rescueTask.id))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testRescueEntrypointsOpenEmptyDeckInsteadOfLegacyTriageWhenNoOverdueTasksExist() {
         let suiteName = "HomeViewModelPersistenceTests.EmptyRescueNoLegacyTriage.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
