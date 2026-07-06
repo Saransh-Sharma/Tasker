@@ -22,7 +22,7 @@ struct OverdueRescuePauseView: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(OverdueRescuePalette.ink)
                         .frame(width: 58, height: 58)
-                        .background(Circle().fill(Color.white.opacity(0.84)))
+                        .background(Circle().fill(OverdueRescuePalette.glassFill))
                         .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                     Spacer()
                 }
@@ -80,7 +80,7 @@ struct OverdueRescuePauseView: View {
                             .font(.system(size: 36, weight: .semibold))
                             .foregroundStyle(Color.lifeboard.statusWarning)
                             .frame(width: 72, height: 72)
-                            .background(Circle().fill(Color.white.opacity(0.58)))
+                            .background(Circle().fill(OverdueRescuePalette.glassFill))
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Resume rescue")
                                 .font(.lifeboard(.headline))
@@ -96,7 +96,7 @@ struct OverdueRescuePauseView: View {
                     }
                     .padding(22)
                     .background(
-                        OverdueRescueVisualSpec.glassCard(cornerRadius: 28, fill: Color.white.opacity(0.68))
+                        OverdueRescueVisualSpec.glassCard(cornerRadius: 28, fill: OverdueRescuePalette.glassFill)
                     )
                 }
                 .buttonStyle(.plain)

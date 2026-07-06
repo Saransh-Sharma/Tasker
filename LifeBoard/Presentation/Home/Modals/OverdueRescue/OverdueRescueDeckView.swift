@@ -119,7 +119,7 @@ struct OverdueRescueDeckView: View {
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(OverdueRescuePalette.ink)
                 .frame(width: OverdueRescueVisualSpec.topButtonSize, height: OverdueRescueVisualSpec.topButtonSize)
-                .background(Circle().fill(Color.white.opacity(0.84)))
+                .background(Circle().fill(OverdueRescuePalette.glassFill))
                 .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                 .accessibilityLabel("Close rescue")
 
@@ -142,7 +142,7 @@ struct OverdueRescueDeckView: View {
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(OverdueRescuePalette.ink)
                         .frame(width: OverdueRescueVisualSpec.topButtonSize, height: OverdueRescueVisualSpec.topButtonSize)
-                        .background(Circle().fill(Color.white.opacity(0.82)))
+                        .background(Circle().fill(OverdueRescuePalette.glassFill))
                         .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                 }
                     .accessibilityLabel("More rescue actions")

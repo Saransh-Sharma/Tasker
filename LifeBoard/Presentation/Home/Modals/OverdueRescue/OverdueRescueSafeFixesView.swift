@@ -20,7 +20,7 @@ struct OverdueRescueSafeFixesView: View {
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(OverdueRescuePalette.ink)
                     .frame(width: 58, height: 58)
-                    .background(Circle().fill(Color.white.opacity(0.84)))
+                    .background(Circle().fill(OverdueRescuePalette.glassFill))
                     .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                 Spacer()
             }
@@ -58,7 +58,7 @@ struct OverdueRescueSafeFixesView: View {
             }
             .padding(.vertical, 10)
             .background(
-                OverdueRescueVisualSpec.glassCard(cornerRadius: 28, fill: Color.white.opacity(0.70))
+                OverdueRescueVisualSpec.glassCard(cornerRadius: 28, fill: OverdueRescuePalette.glassFill)
             )
 
             HStack(spacing: 14) {

@@ -47,7 +47,7 @@ struct OverdueRescueTaskCard: View {
                             .foregroundStyle(OverdueRescuePalette.secondaryInk)
                         Text(card.reasonBody)
                             .font(.lifeboard(.body))
-                            .foregroundStyle(Color(red: 0.38, green: 0.36, blue: 0.33))
+                            .foregroundStyle(OverdueRescuePalette.innerBody)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -60,12 +60,12 @@ struct OverdueRescueTaskCard: View {
                 .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.innerCardCorner, style: .continuous)
-                        .fill(Color.white.opacity(0.72))
+                        .fill(OverdueRescuePalette.glassFill)
                         .overlay(
                             RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.innerCardCorner, style: .continuous)
-                                .stroke(Color.white.opacity(0.78), lineWidth: 1)
+                                .stroke(OverdueRescuePalette.glassStroke, lineWidth: 1)
                         )
-                        .shadow(color: Color.black.opacity(0.06), radius: 16, y: 8)
+                        .shadow(color: OverdueRescuePalette.softShadow, radius: 16, y: 8)
                 )
             }
             .padding(30)
@@ -93,8 +93,8 @@ struct OverdueRescueTaskCard: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 1.0, green: 0.985, blue: 0.93),
-                            Color(red: 1.0, green: 0.995, blue: 0.985)
+                            OverdueRescuePalette.cardSurfaceTop,
+                            OverdueRescuePalette.cardSurfaceBottom
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -102,9 +102,9 @@ struct OverdueRescueTaskCard: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
-                        .stroke(Color(red: 0.97, green: 0.87, blue: 0.67), lineWidth: 1)
+                        .stroke(OverdueRescuePalette.cardStroke, lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(0.12), radius: 32, y: 18)
+                .shadow(color: OverdueRescuePalette.softShadow, radius: 32, y: 18)
         )
         .clipShape(RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous))
     }

@@ -52,7 +52,7 @@ struct OverdueRescueQuickEditSheet: View {
                 .labelStyle(.iconOnly)
                 .font(.title2.weight(.semibold))
                 .frame(width: 58, height: 58)
-                .background(Circle().fill(Color.white.opacity(0.84)))
+                .background(Circle().fill(OverdueRescuePalette.glassFill))
                 .foregroundStyle(OverdueRescuePalette.ink)
                 .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                 .accessibilityIdentifier("home.rescue.edit.close")
@@ -73,10 +73,10 @@ struct OverdueRescueQuickEditSheet: View {
             .padding(.vertical, 20)
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.white.opacity(0.70))
+                    .fill(OverdueRescuePalette.glassFill)
                     .overlay(
                         RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .stroke(Color(red: 0.96, green: 0.86, blue: 0.68).opacity(0.76), lineWidth: 1)
+                            .stroke(OverdueRescuePalette.glassStroke, lineWidth: 1)
                     )
             )
 
@@ -128,8 +128,8 @@ struct OverdueRescueQuickEditSheet: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.white.opacity(0.78))
-                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color(red: 0.85, green: 0.88, blue: 0.92).opacity(0.75), lineWidth: 1))
+                    .fill(OverdueRescuePalette.glassFill)
+                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(OverdueRescuePalette.glassStroke, lineWidth: 1))
             )
 
             HStack(spacing: 16) {

@@ -24,7 +24,7 @@ struct OverdueRescueCompletionView: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(OverdueRescuePalette.ink)
                         .frame(width: 58, height: 58)
-                        .background(Circle().fill(Color.white.opacity(0.84)))
+                        .background(Circle().fill(OverdueRescuePalette.glassFill))
                         .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                     Spacer()
                     Button("More", systemImage: "ellipsis") {}
@@ -32,7 +32,7 @@ struct OverdueRescueCompletionView: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(OverdueRescuePalette.ink)
                         .frame(width: 58, height: 58)
-                        .background(Circle().fill(Color.white.opacity(0.84)))
+                        .background(Circle().fill(OverdueRescuePalette.glassFill))
                         .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                 }
                 .padding(.horizontal, 28)
