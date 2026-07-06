@@ -1289,18 +1289,18 @@ extension HomeViewController {
                 onStartTriage: { [weak self] in
                     guard let self else { return }
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "open_rescue", countsSnapshot: summary.analyticsSnapshot)
-                    self.viewModel.setQuickView(.today)
-                    self.viewModel.openRescue()
                     self.viewModel.trackDailySummaryActionResult(cta: "open_rescue", success: true, error: nil)
-                    dismissSummary {}
+                    dismissSummary {
+                        self.viewModel.openOverdueRescueFromHome(source: "daily_summary_start_triage")
+                    }
                 },
                 onRescueOverdue: { [weak self] in
                     guard let self else { return }
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "rescue_overdue", countsSnapshot: summary.analyticsSnapshot)
-                    self.viewModel.setQuickView(.today)
-                    self.viewModel.openRescue()
                     self.viewModel.trackDailySummaryActionResult(cta: "rescue_overdue", success: true, error: nil)
-                    dismissSummary {}
+                    dismissSummary {
+                        self.viewModel.openOverdueRescueFromHome(source: "daily_summary_rescue_overdue")
+                    }
                 },
                 onAddTask: { [weak self] in
                     guard let self else { return }
@@ -1369,10 +1369,10 @@ extension HomeViewController {
                 onOpenRescue: { [weak self] in
                     guard let self else { return }
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "open_rescue", countsSnapshot: summary.analyticsSnapshot)
-                    self.viewModel.setQuickView(.today)
-                    self.viewModel.openRescue()
                     self.viewModel.trackDailySummaryActionResult(cta: "open_rescue", success: true, error: nil)
-                    dismissSummary {}
+                    dismissSummary {
+                        self.viewModel.openOverdueRescueFromHome(source: "daily_summary_open_rescue")
+                    }
                 }
             )
 

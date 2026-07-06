@@ -66,7 +66,7 @@ extension SunriseAppShellView {
                     },
                     onReorderCustomProjects: onReorderCustomProjects,
                     onInboxHeaderAction: shouldShowInboxTriageAction ? {
-                        viewModel.openRescue()
+                        viewModel.openOverdueRescueFromHome(source: "inbox_header")
                     } : nil,
                     inboxHeaderActionTitle: shouldShowInboxTriageAction ? "Start rescue" : nil,
                     onCompletedSectionToggle: { sectionID, collapsed, count in
@@ -88,7 +88,7 @@ extension SunriseAppShellView {
                         }
                     },
                     onOpenRescue: isRescueEnabled ? {
-                        viewModel.openRescue()
+                        viewModel.openOverdueRescueFromHome(source: "task_list_rescue")
                     } : nil,
                     onTaskDragStarted: { task in
                         trackTaskDragStarted(task, source: "task_list")

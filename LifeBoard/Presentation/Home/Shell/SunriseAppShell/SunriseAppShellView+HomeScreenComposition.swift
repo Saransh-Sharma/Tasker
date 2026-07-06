@@ -480,11 +480,10 @@ extension SunriseAppShellView {
     private func launchPendingNeedsReplanRescueIfNeeded() {
         guard pendingRescueLaunchAfterNeedsReplanDismiss else { return }
         pendingRescueLaunchAfterNeedsReplanDismiss = false
-        viewModel.setQuickView(.overdue)
-        viewModel.trackHomeInteraction(action: "needs_replan_start_rescue", metadata: [:])
-        DispatchQueue.main.async {
-            viewModel.openRescue()
-        }
+        viewModel.openOverdueRescueFromHome(
+            source: "needs_replan_start",
+            action: "needs_replan_start_rescue"
+        )
     }
 
     private var habitRecoveryReflectionPromptBinding: Binding<HabitRecoveryReflectionPrompt?> {
