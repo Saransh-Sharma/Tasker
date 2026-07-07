@@ -39,6 +39,8 @@ struct LBHabitCell: View, Equatable {
     let model: Model
 
     @State private var fillWave = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimized
 
     nonisolated static func == (lhs: LBHabitCell, rhs: LBHabitCell) -> Bool {
         lhs.model == rhs.model
@@ -83,7 +85,7 @@ struct LBHabitCell: View, Equatable {
         .padding(.horizontal, LBSpacingTokens.xs)
         .frame(minHeight: 48)
         .animation(
-            LifeBoardAnimation.isUITesting ? nil : LifeBoardAnimation.habitFill,
+            (LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) || scrollOptimized) ? nil : LifeBoardAnimation.habitFill,
             value: model.cells
         )
         .onChange(of: todayIsFilled) { _, newValue in

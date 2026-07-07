@@ -21,13 +21,14 @@ struct LBCelebrationBurst: View {
 
     @State private var firedAt: Date?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimized
 
     private static let particleCount = 12
     private static let duration: TimeInterval = 0.7
 
     var body: some View {
         ZStack {
-            if let firedAt, !reduceMotion, !LifeBoardAnimation.isUITesting {
+            if let firedAt, delightMotionEnabled {
                 TimelineView(.animation) { timeline in
                     Canvas { context, size in
                         let elapsed = timeline.date.timeIntervalSince(firedAt)
@@ -66,7 +67,7 @@ struct LBCelebrationBurst: View {
             }
         }
         .onChange(of: trigger) { _, _ in
-            guard trigger > 0 else { return }
+            guard trigger > 0, delightMotionEnabled else { return }
             firedAt = Date()
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.duration) {
                 if let firedAt, Date().timeIntervalSince(firedAt) >= Self.duration {
@@ -74,6 +75,10 @@ struct LBCelebrationBurst: View {
                 }
             }
         }
+    }
+
+    private var delightMotionEnabled: Bool {
+        LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false && scrollOptimized == false
     }
 }
 
@@ -87,7 +92,7 @@ private struct LBAnimatedSheen: ViewModifier {
     @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimized
 
     func body(content: Content) -> some View {
-        if reduceMotion || scrollOptimized || LifeBoardAnimation.isUITesting {
+        if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) || scrollOptimized {
             content
         } else {
             content
@@ -126,12 +131,15 @@ private struct LBRipplePop: ViewModifier {
     let index: Int
     @State private var popped = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimized
 
     func body(content: Content) -> some View {
         content
             .scaleEffect(popped ? 1.12 : 1.0)
             .onChange(of: trigger) { _, _ in
-                guard trigger > 0, !reduceMotion, !LifeBoardAnimation.isUITesting else { return }
+                guard trigger > 0,
+                      LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false,
+                      scrollOptimized == false else { return }
                 let delay = Double(index) * LifeBoardAnimation.staggerInterval
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                     withAnimation(LifeBoardAnimation.habitFill) { popped = true }
