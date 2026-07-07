@@ -483,14 +483,15 @@ struct CompletionCheckbox: View {
     let action: () -> Void
 
     @State private var bounceScale: CGFloat = 1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: {
-            withAnimation(LifeBoardAnimation.bouncy) {
+            withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.bouncy) {
                 bounceScale = 1.3
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(LifeBoardAnimation.bouncy) {
+                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.bouncy) {
                     bounceScale = 1.0
                 }
             }

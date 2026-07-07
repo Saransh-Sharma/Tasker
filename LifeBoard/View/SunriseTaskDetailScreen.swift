@@ -41,9 +41,9 @@ struct SunriseTaskDetailScreen: View {
     @State private var selectedBreakdownSteps: Set<String> = []
     @State private var showingReflectionComposer = false
     @State private var newStepTitle = ""
-    @State private var celebrateCompletion = false
-    @State private var celebrateResetTask: Task<Void, Never>?
     @State private var showRefine = false
+    @State private var completionBurstTrigger = 0
+    @State private var sawCompletionThisSession = false
 
     @FocusState private var titleFocused: Bool
     @FocusState private var notesFocused: Bool
@@ -150,7 +150,6 @@ struct SunriseTaskDetailScreen: View {
         sheetBoundScreen
         .onAppear(perform: viewModel.onAppear)
         .onDisappear {
-            celebrateResetTask?.cancel()
             viewModel.handleDisappear()
         }
         .onChange(of: viewModel.aiBreakdownSteps) { _, steps in
@@ -238,9 +237,7 @@ struct SunriseTaskDetailScreen: View {
 
             Spacer()
 
-            if viewModel.autosaveState != .idle {
-                autosavePill
-            }
+            SunriseAutosaveWhisper(state: viewModel.autosaveState)
         }
     }
 
@@ -272,10 +269,15 @@ struct SunriseTaskDetailScreen: View {
                 }
             }
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: spacing.s8) { heroMetrics }
-                VStack(spacing: spacing.s8) { heroMetrics }
-            }
+            TaskDetailHeroMetricRow(
+                scheduleTitle: "Schedule",
+                scheduleValue: scheduleSummary,
+                scheduleDetail: scheduleDetail,
+                statusTitle: "Status",
+                statusValue: statusText,
+                statusDetail: viewModel.selectedPriority.displayName,
+                statusTone: viewModel.isComplete ? .success : .neutral
+            )
         }
         .padding(spacing.s16)
         .lifeboardPremiumSurface(
@@ -284,28 +286,16 @@ struct SunriseTaskDetailScreen: View {
             accentColor: taskAccentColor,
             level: .e2
         )
-        .lifeboardSuccessPulse(isActive: celebrateCompletion)
-        .animation(LifeBoardAnimation.bouncy, value: celebrateCompletion)
+        .completionCelebration(isComplete: viewModel.isComplete, tint: taskAccentColor)
+        .lbCelebrationBurst(trigger: completionBurstTrigger, tint: taskAccentColor)
         .onChange(of: viewModel.isComplete) { _, isComplete in
             guard isComplete else { return }
-            triggerCompletionCelebration()
+            // First completion this session earns the particle burst.
+            if sawCompletionThisSession == false {
+                sawCompletionThisSession = true
+                completionBurstTrigger += 1
+            }
         }
-    }
-
-    private func triggerCompletionCelebration() {
-        celebrateResetTask?.cancel()
-        withAnimation(LifeBoardAnimation.bouncy) { celebrateCompletion = true }
-        celebrateResetTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            guard Task.isCancelled == false else { return }
-            withAnimation(LifeBoardAnimation.gentle) { celebrateCompletion = false }
-        }
-    }
-
-    @ViewBuilder
-    private var heroMetrics: some View {
-        LifeBoardHeroMetricTile(title: "Schedule", value: scheduleSummary, detail: scheduleDetail, tone: .accent)
-        LifeBoardHeroMetricTile(title: "Status", value: statusText, detail: viewModel.selectedPriority.displayName, tone: viewModel.isComplete ? .success : .neutral)
     }
 
     private var primaryActionCluster: some View {
@@ -318,7 +308,7 @@ struct SunriseTaskDetailScreen: View {
             Button("Adjust time", systemImage: "clock.badge.checkmark") {
                 expand(.plan)
             }
-            .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .accent))
+            .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .quiet))
 
             Button("Add step", systemImage: "plus.circle.fill") {
                 expand(.steps)
@@ -676,10 +666,6 @@ struct SunriseTaskDetailScreen: View {
         }
     }
 
-    private var autosavePill: some View {
-        LifeBoardStatusPill(text: viewModel.autosaveState.label, systemImage: autosaveSymbol, tone: autosaveTone)
-            .accessibilityLabel(viewModel.autosaveState.label)
-    }
 
     private var reflectionComposerSheet: some View {
         SunriseReflectionNoteComposerView(
@@ -836,23 +822,6 @@ struct SunriseTaskDetailScreen: View {
         Color.lifeboard.statusSuccess
     }
 
-    private var autosaveSymbol: String {
-        switch viewModel.autosaveState {
-        case .idle: return "circle"
-        case .saving: return "arrow.triangle.2.circlepath"
-        case .saved: return "checkmark.circle.fill"
-        case .failed: return "exclamationmark.triangle.fill"
-        }
-    }
-
-    private var autosaveTone: LifeBoardStatusPillTone {
-        switch viewModel.autosaveState {
-        case .idle, .saving: return .quiet
-        case .saved: return .success
-        case .failed: return .danger
-        }
-    }
-
     private var taskFitWindowSummary: String? {
         guard let start = viewModel.taskFitHint.freeWindowStart, let end = viewModel.taskFitHint.freeWindowEnd else { return nil }
         return "Largest window: \(start.formatted(date: .omitted, time: .shortened)) - \(end.formatted(date: .omitted, time: .shortened))"
@@ -925,5 +894,156 @@ struct SunriseTaskDetailScreen: View {
         // Plan and Steps are the always-visible primary cards in the Calm layout; the rest
         // lives behind the single "Refine" reveal.
         [.plan, .steps]
+    }
+}
+
+private struct TaskDetailHeroMetricRow: View {
+    let scheduleTitle: String
+    let scheduleValue: String
+    let scheduleDetail: String
+    let statusTitle: String
+    let statusValue: String
+    let statusDetail: String
+    let statusTone: LifeBoardHeroMetricTone
+
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 0) {
+                metric(title: scheduleTitle, value: scheduleValue, detail: scheduleDetail, tone: .accent)
+                divider
+                metric(title: statusTitle, value: statusValue, detail: statusDetail, tone: statusTone)
+            }
+
+            VStack(spacing: spacing.s8) {
+                metric(title: scheduleTitle, value: scheduleValue, detail: scheduleDetail, tone: .accent)
+                Divider().overlay(Color.lifeboard.strokeHairline)
+                metric(title: statusTitle, value: statusValue, detail: statusDetail, tone: statusTone)
+            }
+        }
+        .padding(.horizontal, spacing.s12)
+        .padding(.vertical, spacing.s8)
+        .lifeboardDenseSurface(
+            cornerRadius: LifeBoardTheme.CornerRadius.md,
+            fillColor: Color.lifeboard.surfaceSecondary.opacity(0.56),
+            strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
+        )
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.lifeboard.strokeHairline.opacity(0.72))
+            .frame(width: 1)
+            .padding(.vertical, 4)
+    }
+
+    private func metric(title: String, value: String, detail: String, tone: LifeBoardHeroMetricTone) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.lifeboard(.meta))
+                .foregroundStyle(Color.lifeboard.textTertiary)
+            Text(value)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(tone.valueColor)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            Text(detail)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard.textSecondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+        .padding(.horizontal, spacing.s8)
+        .animation(LifeBoardAnimation.numericUpdate, value: value)
+    }
+}
+
+/// A quiet save indicator: a small dot plus label that stays out of the way.
+/// "Saving" only surfaces if the save runs longer than ~400ms; "Saved" fades
+/// away after a beat; a failure stays put until the next successful save.
+private struct SunriseAutosaveWhisper: View {
+    let state: TaskDetailAutosaveState
+
+    @State private var visible = false
+    @State private var showSavingLabel = false
+    @State private var savingDelayTask: Task<Void, Never>?
+    @State private var savedFadeTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Group {
+            if visible {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(tint)
+                        .frame(width: 6, height: 6)
+                    Text(label)
+                        .font(LBTypographyTokens.meta)
+                        .foregroundStyle(labelColor)
+                }
+                .transition(.opacity)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(label)
+            }
+        }
+        .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange, value: visible)
+        .onChange(of: state) { _, newValue in handle(newValue) }
+        .onAppear { handle(state) }
+    }
+
+    private var label: String {
+        switch state {
+        case .idle, .saving: return "Saving…"
+        case .saved: return "Saved"
+        case .failed: return "Couldn't save"
+        }
+    }
+
+    private var tint: Color {
+        switch state {
+        case .failed: return LifeBoardDetailTonePalette.dangerText
+        case .saved: return LifeBoardDetailTonePalette.successText
+        default: return LBColorTokens.textTertiary
+        }
+    }
+
+    private var labelColor: Color {
+        if case .failed = state {
+            return LifeBoardDetailTonePalette.dangerText
+        }
+        return LBColorTokens.textTertiary
+    }
+
+    private func handle(_ newValue: TaskDetailAutosaveState) {
+        savingDelayTask?.cancel()
+        savedFadeTask?.cancel()
+        switch newValue {
+        case .idle:
+            visible = false
+            showSavingLabel = false
+        case .saving:
+            // Only reveal a "Saving…" whisper if the work outlasts a blink.
+            showSavingLabel = false
+            savingDelayTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                guard Task.isCancelled == false, case .saving = state else { return }
+                showSavingLabel = true
+                visible = true
+            }
+        case .saved:
+            visible = true
+            savedFadeTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                guard Task.isCancelled == false, case .saved = state else { return }
+                visible = false
+            }
+        case .failed:
+            visible = true
+        }
     }
 }
