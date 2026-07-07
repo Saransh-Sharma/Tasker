@@ -43,7 +43,7 @@ struct AddTaskCreateButton: View {
                             .font(.system(size: 16, weight: .medium))
                     }
 
-                    Text(isLoading ? "Creating..." : successFlash ? "Added!" : buttonTitle)
+                    Text(isLoading ? "Adding…" : successFlash ? "Added" : buttonTitle)
                         .font(.lifeboard(.button))
                         .contentTransition(.opacity)
                 }

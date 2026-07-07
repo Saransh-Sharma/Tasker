@@ -773,7 +773,7 @@ private struct SunriseHabitBottomActionBar: View {
                 } else {
                     Image(systemName: successFlash ? "checkmark.circle.fill" : "plus.circle.fill")
                 }
-                Text(isLoading ? "Adding..." : title)
+                Text(isLoading ? "Adding…" : title)
             }
             .font(.lifeboard(.bodyEmphasis))
             .foregroundStyle(Color.lifeboard.textInverse)

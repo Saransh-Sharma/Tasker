@@ -6,4 +6,5 @@ enum LBRadiusTokens {
     static let largeCard: CGFloat = 28
     static let iconWell: CGFloat = 14
     static let dock: CGFloat = 32
+    static let sheet: CGFloat = 30
 }

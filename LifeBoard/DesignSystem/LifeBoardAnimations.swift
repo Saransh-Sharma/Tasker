@@ -52,6 +52,18 @@ public enum LifeBoardAnimation {
 
     // Stagger delay per item (seconds)
     public static let staggerInterval: Double = 0.04
+
+    // Sunrise Glass motion spec (design doc lines 414-430)
+    public static let chipSelection: Animation = .spring(response: 0.20, dampingFraction: 0.86)
+    public static let dateChange: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.28)
+    public static let habitFill: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.18)
+
+    // Entrance stagger stops compounding past this index so long lists settle quickly.
+    public static let entranceStaggerCap: Int = 6
+
+    public static var isUITesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("-UI_TESTING")
+    }
 }
 
 // MARK: - Staggered Appearance Modifier
@@ -108,6 +120,73 @@ public struct EnhancedStaggeredAppearance: ViewModifier {
                 )
                 .onAppear { appeared = true }
         )
+    }
+}
+
+// MARK: - Card Entrance Modifier
+
+/// Fade + 8pt rise entrance per the Sunrise Glass card-entrance spec, with a capped stagger.
+/// Entrance is keyed to `onAppear` only — callers embedding this inside a periodically
+/// refreshing container (e.g. `TimelineView`) must scope identity so ticks don't re-trigger it.
+public struct CardEntrance: ViewModifier {
+    let index: Int
+    @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(index: Int) {
+        self.index = index
+    }
+
+    public func body(content: Content) -> some View {
+        if reduceMotion || LifeBoardAnimation.isUITesting {
+            content
+        } else {
+            content
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 8)
+                .animation(
+                    LifeBoardAnimation.stateChange.delay(
+                        Double(min(index, LifeBoardAnimation.entranceStaggerCap)) * LifeBoardAnimation.staggerInterval
+                    ),
+                    value: appeared
+                )
+                .onAppear { appeared = true }
+        }
+    }
+}
+
+// MARK: - Completion Celebration Modifier
+
+/// The single shared "success moment": brief scale swell + tint-deepened glow.
+/// This is the only place that fires the success haptic, keeping the haptic
+/// budget (success = explicit completion only) enforced structurally.
+public struct CompletionCelebration: ViewModifier {
+    let isComplete: Bool
+    let tint: Color
+    @State private var swell = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(isComplete: Bool, tint: Color) {
+        self.isComplete = isComplete
+        self.tint = tint
+    }
+
+    public func body(content: Content) -> some View {
+        content
+            .scaleEffect(swell ? 1.06 : 1.0)
+            .shadow(
+                color: swell ? tint.opacity(0.30) : .clear,
+                radius: swell ? 10 : 0
+            )
+            .onChange(of: isComplete) { _, newValue in
+                guard newValue else { return }
+                LifeBoardFeedback.success()
+                guard !reduceMotion, !LifeBoardAnimation.isUITesting else { return }
+                withAnimation(LifeBoardAnimation.celebration) { swell = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.27) {
+                    withAnimation(LifeBoardAnimation.celebration) { swell = false }
+                }
+            }
     }
 }
 
@@ -253,6 +332,14 @@ public struct ShimmerEffect: ViewModifier {
 public extension View {
     func staggeredAppearance(index: Int, totalItems: Int = 20) -> some View {
         modifier(StaggeredAppearance(index: index, totalItems: totalItems))
+    }
+
+    func cardEntrance(index: Int) -> some View {
+        modifier(CardEntrance(index: index))
+    }
+
+    func completionCelebration(isComplete: Bool, tint: Color) -> some View {
+        modifier(CompletionCelebration(isComplete: isComplete, tint: tint))
     }
 
     func enhancedStaggeredAppearance(index: Int) -> some View {
