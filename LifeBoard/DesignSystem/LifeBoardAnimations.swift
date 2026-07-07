@@ -64,6 +64,15 @@ public enum LifeBoardAnimation {
     public static var isUITesting: Bool {
         ProcessInfo.processInfo.arguments.contains("-UI_TESTING")
     }
+
+    public static var areProcessAnimationsDisabled: Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("-UI_TESTING") || arguments.contains("-DISABLE_ANIMATIONS")
+    }
+
+    public static func animationsDisabled(reduceMotion: Bool) -> Bool {
+        reduceMotion || areProcessAnimationsDisabled
+    }
 }
 
 // MARK: - Staggered Appearance Modifier
@@ -105,7 +114,8 @@ public struct EnhancedStaggeredAppearance: ViewModifier {
     }
 
     public func body(content: Content) -> some View {
-        if reduceMotion || (layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled) {
+        if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion)
+            || (layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled) {
             return AnyView(content)
         }
 
@@ -138,7 +148,7 @@ public struct CardEntrance: ViewModifier {
     }
 
     public func body(content: Content) -> some View {
-        if reduceMotion || LifeBoardAnimation.isUITesting {
+        if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) {
             content
         } else {
             content
@@ -181,7 +191,7 @@ public struct CompletionCelebration: ViewModifier {
             .onChange(of: isComplete) { _, newValue in
                 guard newValue else { return }
                 LifeBoardFeedback.success()
-                guard !reduceMotion, !LifeBoardAnimation.isUITesting else { return }
+                guard LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false else { return }
                 withAnimation(LifeBoardAnimation.celebration) { swell = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.27) {
                     withAnimation(LifeBoardAnimation.celebration) { swell = false }
@@ -207,9 +217,9 @@ public struct BreathingPulse: ViewModifier {
 
     public func body(content: Content) -> some View {
         content
-            .opacity(reduceMotion ? maxOpacity : (isPulsing ? maxOpacity : minOpacity))
+            .opacity(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? maxOpacity : (isPulsing ? maxOpacity : minOpacity))
             .onAppear {
-                guard !reduceMotion, minOpacity != maxOpacity else { return }
+                guard LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false, minOpacity != maxOpacity else { return }
                 withAnimation(.easeInOut(duration: duration).repeatForever(autoreverses: true)) {
                     isPulsing = true
                 }
@@ -227,7 +237,7 @@ public struct TaskCompletionTransition: ViewModifier {
         content
             .opacity(isComplete ? 0.55 : 1.0)
             .scaleEffect(isComplete ? 0.98 : 1.0)
-            .animation(reduceMotion ? nil : LifeBoardAnimation.gentle, value: isComplete)
+            .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.gentle, value: isComplete)
     }
 }
 
@@ -250,7 +260,7 @@ public struct ActiveGlow: ViewModifier {
                 color: isActive && scrollOptimizedRendering == false ? color.opacity(0.25) : .clear,
                 radius: isActive && scrollOptimizedRendering == false ? 8 : 0
             )
-            .animation((reduceMotion || scrollOptimizedRendering) ? nil : LifeBoardAnimation.quick, value: isActive)
+            .animation((LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) || scrollOptimizedRendering) ? nil : LifeBoardAnimation.quick, value: isActive)
     }
 }
 
@@ -267,7 +277,7 @@ public struct CardPressEffect: ViewModifier {
                 color: .black.opacity(isPressed ? 0.04 : 0.08),
                 radius: isPressed ? 4 : 8
             )
-            .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isPressed)
+            .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.quick, value: isPressed)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in isPressed = true }
@@ -290,8 +300,8 @@ private struct LifeBoardScaleOnPressButtonStyle: ButtonStyle {
     /// Executes makeBody.
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(LifeBoardAnimation.quick, value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && LifeBoardAnimation.areProcessAnimationsDisabled == false ? 0.97 : 1.0)
+            .animation(LifeBoardAnimation.areProcessAnimationsDisabled ? nil : LifeBoardAnimation.quick, value: configuration.isPressed)
     }
 }
 
@@ -300,30 +310,35 @@ private struct LifeBoardScaleOnPressButtonStyle: ButtonStyle {
 public struct ShimmerEffect: ViewModifier {
     /// Executes body.
     @State private var phase: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public func body(content: Content) -> some View {
-        content
-            .overlay(
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        .white.opacity(0),
-                        .white.opacity(0.08),
-                        .white.opacity(0)
-                    ]),
-                    startPoint: .leading,
-                    endPoint: .trailing
+        if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) {
+            content
+        } else {
+            content
+                .overlay(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            .white.opacity(0),
+                            .white.opacity(0.08),
+                            .white.opacity(0)
+                        ]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .offset(x: phase)
+                    .mask(content)
                 )
-                .offset(x: phase)
-                .mask(content)
-            )
-            .onAppear {
-                withAnimation(
-                    .linear(duration: 2.0)
-                    .repeatForever(autoreverses: false)
-                ) {
-                    phase = UIScreen.main.bounds.width
+                .onAppear {
+                    withAnimation(
+                        .linear(duration: 2.0)
+                        .repeatForever(autoreverses: false)
+                    ) {
+                        phase = UIScreen.main.bounds.width
+                    }
                 }
-            }
+        }
     }
 }
 
@@ -385,18 +400,19 @@ public struct BellShake: ViewModifier {
     /// Executes body.
     @Binding var trigger: Bool
     @State private var shaking = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public func body(content: Content) -> some View {
         content
-            .rotationEffect(.degrees(shaking ? 15 : 0))
+            .rotationEffect(.degrees(shaking && LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false ? 15 : 0))
             .animation(
-                shaking
+                shaking && LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false
                     ? .spring(response: 0.15, dampingFraction: 0.3).repeatCount(3)
-                    : .default,
+                    : nil,
                 value: shaking
             )
             .onChange(of: trigger) { _, newValue in
-                if newValue {
+                if newValue, LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false {
                     shaking = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         shaking = false
@@ -412,12 +428,12 @@ public struct LifeBoardSuccessPulse: ViewModifier {
 
     public func body(content: Content) -> some View {
         content
-            .scaleEffect(isActive && !reduceMotion ? 1.015 : 1)
+            .scaleEffect(isActive && LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false ? 1.015 : 1)
             .shadow(
                 color: isActive ? Color.lifeboard.statusSuccess.opacity(reduceMotion ? 0.12 : 0.24) : .clear,
                 radius: isActive ? (reduceMotion ? 4 : 12) : 0
             )
-            .animation(reduceMotion ? nil : LifeBoardAnimation.ctaConfirmation, value: isActive)
+            .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.ctaConfirmation, value: isActive)
     }
 }
 
