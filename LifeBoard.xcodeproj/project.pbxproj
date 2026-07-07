@@ -1007,6 +1007,7 @@
 		E0A100000000000000000009 /* EvaMemoryMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000109 /* EvaMemoryMapper.swift */; };
 		E0A10000000000000000000A /* EvaMediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010A /* EvaMediaView.swift */; };
 		E0A10000000000000000000C /* EvaLottie00-lite.json in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010C /* EvaLottie00-lite.json */; };
+		C0FFEE00000000000000CF01 /* lb_confetti.json in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000CF02 /* lb_confetti.json */; };
 		E0A10000000000000000000D /* EvaActivationComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010D /* EvaActivationComponents.swift */; };
 		E0A10000000000000000000E /* HeroWelcomeHighCompressMb.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */; };
 		E0A10000000000000000020B /* MascotSprites in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000020A /* MascotSprites */; };
@@ -2223,6 +2224,7 @@
 		E0A100000000000000000109 /* EvaMemoryMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaMemoryMapper.swift; sourceTree = "<group>"; };
 		E0A10000000000000000010A /* EvaMediaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaMediaView.swift; sourceTree = "<group>"; };
 		E0A10000000000000000010C /* EvaLottie00-lite.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "EvaLottie00-lite.json"; sourceTree = "<group>"; };
+		C0FFEE00000000000000CF02 /* lb_confetti.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "LifeBoard/LifeBoardDesign/Animations/lb_confetti.json"; sourceTree = SOURCE_ROOT; };
 		E0A10000000000000000010D /* EvaActivationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationComponents.swift; sourceTree = "<group>"; };
 		E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = HeroWelcomeHighCompressMb.mp4; sourceTree = SOURCE_ROOT; };
 		E0A10000000000000000020A /* MascotSprites */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MascotSprites; sourceTree = "<group>"; };
@@ -4368,6 +4370,7 @@
 				E5D000000000000000000004 /* Backgrounds */,
 				E5000000000000000000002C /* SunriseHomeScreen.swift */,
 				E50000000000000000000038 /* SunriseScheduleScreen.swift */,
+				C0FFEE00000000000000CF02 /* lb_confetti.json */,
 			);
 			path = LifeBoardDesign;
 			sourceTree = "<group>";
@@ -4661,6 +4664,7 @@
 				B7C8D9E22F6A100100ABC123 /* Localizable.xcstrings in Resources */,
 				753EFCA52445A24500A739E3 /* Main.storyboard in Resources */,
 				E0A10000000000000000000C /* EvaLottie00-lite.json in Resources */,
+				C0FFEE00000000000000CF01 /* lb_confetti.json in Resources */,
 				E0A10000000000000000000E /* HeroWelcomeHighCompressMb.mp4 in Resources */,
 				E0A10000000000000000020B /* MascotSprites in Resources */,
 				F8C1A0019AB24E01A11C0003 /* TaskIconSymbolManifest.generated.json in Resources */,
