@@ -16,6 +16,88 @@ extension AnyTransition {
     }
 }
 
+/// A quiet autosave indicator shared by the task and habit detail screens: a
+/// small dot plus label that stays out of the way. "Saving" only surfaces if
+/// the save runs longer than ~400ms; "Saved" fades away after a beat; a
+/// failure stays put until the next successful save.
+struct SunriseAutosaveWhisper: View {
+    let state: TaskDetailAutosaveState
+
+    @State private var visible = false
+    @State private var savingDelayTask: Task<Void, Never>?
+    @State private var savedFadeTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Group {
+            if visible {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(tint)
+                        .frame(width: 6, height: 6)
+                    Text(label)
+                        .font(LBTypographyTokens.meta)
+                        .foregroundStyle(labelColor)
+                }
+                .transition(.opacity)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(label)
+            }
+        }
+        .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange, value: visible)
+        .onChange(of: state) { _, newValue in handle(newValue) }
+        .onAppear { handle(state) }
+    }
+
+    private var label: String {
+        switch state {
+        case .idle, .saving: return "Saving…"
+        case .saved: return "Saved"
+        case .failed: return "Couldn't save"
+        }
+    }
+
+    private var tint: Color {
+        switch state {
+        case .failed: return LifeBoardDetailTonePalette.dangerText
+        case .saved: return LifeBoardDetailTonePalette.successText
+        default: return LBColorTokens.textTertiary
+        }
+    }
+
+    private var labelColor: Color {
+        if case .failed = state {
+            return LifeBoardDetailTonePalette.dangerText
+        }
+        return LBColorTokens.textTertiary
+    }
+
+    private func handle(_ newValue: TaskDetailAutosaveState) {
+        savingDelayTask?.cancel()
+        savedFadeTask?.cancel()
+        switch newValue {
+        case .idle:
+            visible = false
+        case .saving:
+            // Only reveal a "Saving…" whisper if the work outlasts a blink.
+            savingDelayTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                guard Task.isCancelled == false, case .saving = state else { return }
+                visible = true
+            }
+        case .saved:
+            visible = true
+            savedFadeTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                guard Task.isCancelled == false, case .saved = state else { return }
+                visible = false
+            }
+        case .failed:
+            visible = true
+        }
+    }
+}
+
 struct SunriseDetailDisclosureCard<Content: View>: View {
     let title: String
     let systemImage: String

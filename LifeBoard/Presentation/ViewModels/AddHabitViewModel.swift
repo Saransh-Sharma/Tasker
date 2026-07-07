@@ -1552,6 +1552,20 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
+    /// Cancels any scheduled debounced autosave, flushing the last edit
+    /// immediately so a fast dismiss doesn't drop the final keystroke.
+    /// Mirrors the cleanup `TaskDetailViewModel.handleDisappear` performs.
+    public func cancelPendingAutosave() {
+        guard let pending = autosaveWorkItem else { return }
+        autosaveWorkItem = nil
+        pending.cancel()
+        if isSaving {
+            needsSaveAfterCurrentRequest = true
+        } else {
+            performAutosave()
+        }
+    }
+
     public func scheduleAutosave(debounced: Bool) {
         autosaveWorkItem?.cancel()
 

@@ -60,6 +60,9 @@ struct SunriseHabitDetailScreen: View {
         .onAppear {
             LifeBoardPerformanceTrace.event("SunriseHabitDetailScreenPresented")
         }
+        .onDisappear {
+            viewModel.cancelPendingAutosave()
+        }
         .onChange(of: viewModel.mutationFeedback) { _, feedback in
             guard let feedback else { return }
             snackbar = SnackbarData(message: feedback.message, autoDismissSeconds: 2)
@@ -118,7 +121,7 @@ struct SunriseHabitDetailScreen: View {
                     .controlSize(.small)
                     .accessibilityLabel("Loading habit editor")
             }
-            SunriseHabitAutosaveWhisper(state: viewModel.autosaveState)
+            SunriseAutosaveWhisper(state: viewModel.autosaveState)
         }
     }
 
@@ -656,13 +659,6 @@ struct SunriseHabitDetailScreen: View {
         }
     }
 
-    private func saveChanges() {
-        let onMutation = onMutation
-        viewModel.saveChanges {
-            Task { @MainActor in onMutation() }
-        }
-    }
-
     private func notifyMutation() {
         let onMutation = onMutation
         Task { @MainActor in onMutation() }
@@ -677,84 +673,6 @@ struct SunriseHabitDetailScreen: View {
     }
 }
 
-private struct SunriseHabitAutosaveWhisper: View {
-    let state: TaskDetailAutosaveState
-
-    @State private var visible = false
-    @State private var savingDelayTask: Task<Void, Never>?
-    @State private var savedFadeTask: Task<Void, Never>?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        Group {
-            if visible {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(tint)
-                        .frame(width: 6, height: 6)
-                    Text(label)
-                        .font(LBTypographyTokens.meta)
-                        .foregroundStyle(labelColor)
-                }
-                .transition(.opacity)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(label)
-            }
-        }
-        .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange, value: visible)
-        .onAppear { handle(state) }
-        .onChange(of: state) { _, newValue in handle(newValue) }
-    }
-
-    private var label: String {
-        switch state {
-        case .idle, .saving: return "Saving..."
-        case .saved: return "Saved"
-        case .failed: return "Couldn't save"
-        }
-    }
-
-    private var tint: Color {
-        switch state {
-        case .failed: return LifeBoardDetailTonePalette.dangerText
-        case .saved: return LifeBoardDetailTonePalette.successText
-        default: return LBColorTokens.textTertiary
-        }
-    }
-
-    private var labelColor: Color {
-        if case .failed = state {
-            return LifeBoardDetailTonePalette.dangerText
-        }
-        return LBColorTokens.textTertiary
-    }
-
-    private func handle(_ newValue: TaskDetailAutosaveState) {
-        savingDelayTask?.cancel()
-        savedFadeTask?.cancel()
-
-        switch newValue {
-        case .idle:
-            visible = false
-        case .saving:
-            savingDelayTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 400_000_000)
-                guard Task.isCancelled == false, case .saving = state else { return }
-                visible = true
-            }
-        case .saved:
-            visible = true
-            savedFadeTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 1_200_000_000)
-                guard Task.isCancelled == false, case .saved = state else { return }
-                visible = false
-            }
-        case .failed:
-            visible = true
-        }
-    }
-}
-
 private enum SunriseHabitDetailAccessibilityID {
     static let view = "habitDetail.view"
     static let grid = "habitDetail.grid"
@@ -762,8 +680,6 @@ private enum SunriseHabitDetailAccessibilityID {
     static let contextSecondary = "habitDetail.context.secondary"
     static let detailsDisclosure = "habitDetail.detailsDisclosure"
     static let helperText = "habitDetail.helperText"
-    static let editButton = "habitDetail.editButton"
-    static let saveButton = "habitDetail.saveButton"
     static let currentStreakMetric = "habitDetail.metric.currentStreak"
     static let bestStreakMetric = "habitDetail.metric.bestStreak"
     static let totalCountMetric = "habitDetail.metric.totalCount"
