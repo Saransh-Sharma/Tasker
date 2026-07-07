@@ -14,6 +14,8 @@ struct LBDateHeroHeader: View {
         let navigatorTitle: String
         let navigatorGlassFill: Color
         let navigatorGlassStroke: Color
+        let isOnNonTodayLens: Bool
+        let backToTodayColor: Color
         let hasNotifications: Bool
         let hasActiveFilters: Bool
     }
@@ -24,7 +26,9 @@ struct LBDateHeroHeader: View {
     let onMenu: () -> Void
     let onSearch: () -> Void
     let onDateTap: () -> Void
+    let onBackToToday: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     var body: some View {
@@ -83,27 +87,84 @@ struct LBDateHeroHeader: View {
     }
 
     private var navigatorRow: some View {
+        Group {
+            if model.isOnNonTodayLens {
+                backToTodayButton
+            } else {
+                dateNavigatorButton
+            }
+        }
+        .id(model.isOnNonTodayLens)
+        .transition(navigatorTransition)
+        .animation(navigatorAnimation, value: model.isOnNonTodayLens)
+        .padding(.horizontal, LBSpacingTokens.screenMargin)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var dateNavigatorButton: some View {
         Button(action: onDateTap) {
-            HStack(spacing: LBSpacingTokens.sm) {
-                Image(systemName: "calendar")
-                Text(model.navigatorTitle)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 12, weight: .bold))
-            }
-            .font(LBTypographyTokens.chip)
-            .foregroundStyle(model.navigatorColor)
-            .frame(minHeight: 44)
-            .padding(.horizontal, LBSpacingTokens.md)
-            .background {
-                clearCapsuleSurface(fill: model.navigatorGlassFill, stroke: model.navigatorGlassStroke)
-            }
+            navigatorLabel(
+                leadingSystemName: "calendar",
+                title: model.navigatorTitle,
+                trailingSystemName: "chevron.down",
+                fill: model.navigatorGlassFill,
+                stroke: model.navigatorGlassStroke
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Choose date")
         .accessibilityValue(model.navigatorTitle)
         .accessibilityIdentifier("home.sunrise.date.selector")
-        .padding(.horizontal, LBSpacingTokens.screenMargin)
-        .frame(maxWidth: .infinity)
+    }
+
+    private var backToTodayButton: some View {
+        Button(action: onBackToToday) {
+            navigatorLabel(
+                leadingSystemName: "arrow.uturn.backward",
+                title: "Today",
+                trailingSystemName: nil,
+                fill: model.backToTodayColor.opacity(0.16),
+                stroke: model.backToTodayColor.opacity(0.42)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Back to Today")
+        .accessibilityIdentifier("home.sunrise.backToToday")
+    }
+
+    private func navigatorLabel(
+        leadingSystemName: String,
+        title: String,
+        trailingSystemName: String?,
+        fill: Color,
+        stroke: Color
+    ) -> some View {
+        HStack(spacing: LBSpacingTokens.sm) {
+            Image(systemName: leadingSystemName)
+            Text(title)
+            if let trailingSystemName {
+                Image(systemName: trailingSystemName)
+                    .font(.system(size: 12, weight: .bold))
+            }
+        }
+        .font(LBTypographyTokens.chip)
+        .foregroundStyle(model.navigatorColor)
+        .frame(minHeight: 44)
+        .padding(.horizontal, LBSpacingTokens.md)
+        .background {
+            clearCapsuleSurface(fill: fill, stroke: stroke)
+        }
+    }
+
+    private var navigatorTransition: AnyTransition {
+        if reduceMotion {
+            return .opacity
+        }
+        return .opacity.combined(with: .scale(scale: 0.98))
+    }
+
+    private var navigatorAnimation: Animation? {
+        reduceMotion ? .linear(duration: 0.01) : .snappy(duration: 0.18)
     }
 
     private var dateGroupTop: CGFloat {
