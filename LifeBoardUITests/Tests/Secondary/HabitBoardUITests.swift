@@ -211,7 +211,7 @@ final class HabitBoardUITests: BaseUITest {
         firstRow.tap()
 
         XCTAssertTrue(app.staticTexts["Drink water after breakfast"].waitForExistence(timeout: 5), "Habit detail should show the tapped habit title")
-        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 3), "Habit detail should expose the edit action")
+        XCTAssertTrue(app.textFields["Habit title"].waitForExistence(timeout: 3), "Habit detail should expose the always-editable title field")
     }
 
     func testHabitDetailShowsSquareTappableDayCells() throws {
@@ -266,7 +266,7 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(waitForElementToBeHittable(todayCell, timeout: 5), "Day cell should become interactive again after the save cycle")
     }
 
-    func testHabitDetailEditWaitsForDeferredEditorSupport() throws {
+    func testHabitDetailShowsAlwaysEditableDetailsAfterDeferredEditorSupport() throws {
         openHabitBoard()
 
         let firstRow = try firstHabitBoardRow()
@@ -275,24 +275,12 @@ final class HabitBoardUITests: BaseUITest {
         let detailView = app.otherElements[AccessibilityIdentifiers.HabitDetail.view]
         XCTAssertTrue(detailView.waitForExistence(timeout: 5), "Habit detail should render")
 
-        let editButton = app.buttons[AccessibilityIdentifiers.HabitDetail.editButton]
-        XCTAssertTrue(editButton.waitForExistence(timeout: 3), "Habit detail should expose the edit action")
-        XCTAssertTrue(waitForElementToBeHittable(editButton, timeout: 3))
+        let titleField = app.textFields["Habit title"]
+        XCTAssertTrue(titleField.waitForExistence(timeout: 3), "Habit detail should expose the always-editable title field")
 
-        editButton.tap()
-
-        let loadingExpectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@", "Loading"),
-            object: editButton
-        )
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [loadingExpectation], timeout: 1.5),
-            .completed,
-            "Deferred editor support should keep the sheet visible and show a loading affordance"
-        )
-
-        let saveButton = app.buttons[AccessibilityIdentifiers.HabitDetail.saveButton]
-        XCTAssertTrue(saveButton.waitForExistence(timeout: 5), "Habit detail should enter edit mode after editor support loads")
+        let detailsDisclosure = app.buttons[AccessibilityIdentifiers.HabitDetail.detailsDisclosure]
+        XCTAssertTrue(detailsDisclosure.waitForExistence(timeout: 5), "Habit detail should expose editable details after editor support loads")
+        XCTAssertTrue(waitForElementToBeHittable(detailsDisclosure, timeout: 3))
     }
 
     func testHomeHabitLastCellCyclesThroughThreeStates() throws {
