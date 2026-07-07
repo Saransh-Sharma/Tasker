@@ -44,6 +44,10 @@ final class OnboardingFlowModel: ObservableObject {
 
     let isEvaBackgroundPreparationEnabled: Bool
 
+    var isAppStoreScreenshotOnboardingFlowEnabled: Bool {
+        ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_EXPANDED_APP_STORE_ONBOARDING")
+    }
+
     @Published var step: OnboardingStep = .welcome
 
     @Published var mode: OnboardingMode = .guided

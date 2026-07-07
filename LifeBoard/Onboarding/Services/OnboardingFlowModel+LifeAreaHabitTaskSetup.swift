@@ -262,7 +262,7 @@ extension OnboardingFlowModel {
             await addSuggestedHabit(template)
             guard errorMessage == nil else { return }
         }
-        step = .firstTask
+        step = isAppStoreScreenshotOnboardingFlowEnabled ? .evaStyle : .firstTask
         errorMessage = nil
         persistJourney()
     }

@@ -111,7 +111,7 @@ extension OnboardingFlowModel {
             errorMessage = OnboardingCopy.Error.chooseEvaPreference
             return
         }
-        step = .firstTask
+        step = isAppStoreScreenshotOnboardingFlowEnabled ? .workBlockers : .firstTask
         errorMessage = nil
         persistJourney()
     }
@@ -166,7 +166,7 @@ extension OnboardingFlowModel {
             errorMessage = OnboardingCopy.Error.chooseEvaPreference
             return
         }
-        step = .firstTask
+        step = isAppStoreScreenshotOnboardingFlowEnabled ? .weeklyOutcomes : .firstTask
         errorMessage = nil
         persistJourney()
     }
@@ -278,6 +278,14 @@ extension OnboardingFlowModel {
     }
 
     func continueFromHomeDemo() {
+        if isAppStoreScreenshotOnboardingFlowEnabled {
+            reminderPromptState = .hidden
+            step = .calendarPermission
+            errorMessage = nil
+            persistJourney()
+            return
+        }
+
         if didCompleteHomeDemoTask, let completedTask = createdTasks.first {
             var task = completedTask
             task.isComplete = true
