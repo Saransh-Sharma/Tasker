@@ -418,8 +418,7 @@ public enum HomeLensResolver {
         lifeAreas: [LifeArea],
         pinnedLifeAreaIDs: [UUID],
         activeLens: HomeLens,
-        activityByID: [UUID: HomeLensLifeAreaActivity] = [:],
-        limit: Int = 4
+        activityByID: [UUID: HomeLensLifeAreaActivity] = [:]
     ) -> [HomeLensChip] {
         let selectable = lifeAreas.filter { !$0.isArchived }
         let byID = Dictionary(uniqueKeysWithValues: selectable.map { ($0.id, $0) })
@@ -445,14 +444,18 @@ public enum HomeLensResolver {
         }
         autoFilled.forEach { append($0.id) }
 
+        orderedIDs = orderedIDs.filter { id in
+            (activityByID[id]?.openCount ?? 0) > 0
+        }
+
         if case .lifeArea(let activeID) = activeLens,
            byID[activeID] != nil,
-           Array(orderedIDs.prefix(limit)).contains(activeID) == false {
+           orderedIDs.contains(activeID) == false {
             orderedIDs.removeAll { $0 == activeID }
             orderedIDs.insert(activeID, at: 0)
         }
 
-        return orderedIDs.prefix(limit).compactMap { id in
+        return orderedIDs.compactMap { id in
             guard let area = byID[id] else { return nil }
             let tintHex = LifeAreaColorPalette.normalizeOrMap(hex: area.color, for: area.id)
             return HomeLensChip(
