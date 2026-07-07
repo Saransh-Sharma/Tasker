@@ -10,6 +10,7 @@ build/
 build_test/
 build_debug/
 GoogleService-Info.plist
+*.xcresult/
 
 *.pbxuser
 !default.pbxuser
@@ -53,6 +54,9 @@ dist-ssr
 .claude/worktrees/
 .claude/settings.local.json
 .claude/**/__pycache__/
+
+# Generated App Store screenshot output
+screenshots/app-store-raw-*/
 
 # Editor directories and files
 .vscode/*
