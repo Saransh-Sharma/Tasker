@@ -37,6 +37,8 @@ extension XCUIApplication {
         case testSeedHabitBoardWorkspace = "-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE"
         case testSeedQuietTrackingWorkspace = "-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE"
         case testSeedFullTimelineWorkspace = "-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE"
+        case testSeedAppStoreScreenshots = "-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS"
+        case testExpandedAppStoreOnboarding = "-LIFEBOARD_TEST_EXPANDED_APP_STORE_ONBOARDING"
         case testPresentHabitBoard = "-LIFEBOARD_TEST_PRESENT_HABIT_BOARD"
         case testCalendarStub = "-LIFEBOARD_TEST_CALENDAR_STUB"
         case testCalendarMode = "-LIFEBOARD_TEST_CALENDAR_MODE"
