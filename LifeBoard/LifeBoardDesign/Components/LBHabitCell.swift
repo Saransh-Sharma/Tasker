@@ -38,6 +38,8 @@ struct LBHabitCell: View, Equatable {
 
     let model: Model
 
+    @State private var fillWave = 0
+
     nonisolated static func == (lhs: LBHabitCell, rhs: LBHabitCell) -> Bool {
         lhs.model == rhs.model
     }
@@ -73,12 +75,25 @@ struct LBHabitCell: View, Equatable {
                                         .stroke(model.color.opacity(0.72), lineWidth: 1)
                                 }
                             }
+                            .lbRipplePop(trigger: fillWave, index: index)
                     }
                 }
             }
         }
         .padding(.horizontal, LBSpacingTokens.xs)
         .frame(minHeight: 48)
+        .animation(
+            LifeBoardAnimation.isUITesting ? nil : LifeBoardAnimation.habitFill,
+            value: model.cells
+        )
+        .onChange(of: todayIsFilled) { _, newValue in
+            guard newValue else { return }
+            fillWave += 1
+        }
+    }
+
+    private var todayIsFilled: Bool {
+        resolvedCells.first(where: { $0.isToday })?.isFilled ?? false
     }
 
     private var resolvedCells: [CellState] {
