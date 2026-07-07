@@ -38,13 +38,13 @@ struct AddTaskNavigationBar: View {
 
             Button {
                 if canSave {
-                    LifeBoardFeedback.success()
+                    LifeBoardFeedback.medium()
                     onSave()
                 }
             } label: {
                 Text("Done")
-                    .font(.lifeboard(.callout).weight(.semibold))
-                    .foregroundStyle(canSave ? Color.lifeboard.accentPrimary : Color.lifeboard.textQuaternary)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(canSave ? Color.lifeboard.textSecondary : Color.lifeboard.textQuaternary)
             }
             .buttonStyle(.plain)
             .disabled(!canSave)

@@ -66,6 +66,8 @@ struct AddTaskCreateButton: View {
                             lineWidth: 1
                         )
                 )
+                .clipShape(RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+                .lbAnimatedSheen()
             }
             .buttonStyle(.plain)
             .scaleOnPress()

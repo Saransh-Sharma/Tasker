@@ -14,7 +14,7 @@ struct AddTaskTitleField: View {
     let iconAccessibilityLabel: String?
     let onIconTap: (() -> Void)?
     let placeholder: LocalizedStringKey
-    let helperText: LocalizedStringKey
+    let helperText: LocalizedStringKey?
     let onSubmit: () -> Void
 
     init(
@@ -24,7 +24,7 @@ struct AddTaskTitleField: View {
         iconAccessibilityLabel: String? = nil,
         onIconTap: (() -> Void)? = nil,
         placeholder: LocalizedStringKey,
-        helperText: LocalizedStringKey,
+        helperText: LocalizedStringKey? = nil,
         onSubmit: @escaping () -> Void
     ) {
         _text = text
@@ -91,11 +91,13 @@ struct AddTaskTitleField: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("addTask.titleFieldContainer")
 
-            Text(helperText)
-                .font(.lifeboard(.meta))
-                .foregroundStyle(isFocused ? Color.lifeboard.textSecondary : Color.lifeboard.textTertiary)
-                .padding(.horizontal, spacing.s4)
-                .animation(LifeBoardAnimation.quick, value: isFocused)
+            if let helperText {
+                Text(helperText)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(isFocused ? Color.lifeboard.textSecondary : Color.lifeboard.textTertiary)
+                    .padding(.horizontal, spacing.s4)
+                    .animation(LifeBoardAnimation.quick, value: isFocused)
+            }
         }
     }
 }
