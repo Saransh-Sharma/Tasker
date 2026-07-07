@@ -10,6 +10,7 @@ struct HomeLaunchHarnessWorkspaceSeeders {
     let habitBoardSeed: (@escaping () -> Void) -> Void
     let quietTrackingSeed: (@escaping () -> Void) -> Void
     let fullTimelineSeed: (@escaping () -> Void) -> Void
+    let appStoreScreenshotSeed: (@escaping () -> Void) -> Void
 
     init(
         establishedSeed: @escaping (@escaping () -> Void) -> Void,
@@ -19,7 +20,8 @@ struct HomeLaunchHarnessWorkspaceSeeders {
         focusSeed: @escaping (@escaping () -> Void) -> Void,
         habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
         quietTrackingSeed: @escaping (@escaping () -> Void) -> Void,
-        fullTimelineSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() }
+        fullTimelineSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
+        appStoreScreenshotSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() }
     ) {
         self.establishedSeed = establishedSeed
         self.searchSeed = searchSeed
@@ -29,6 +31,7 @@ struct HomeLaunchHarnessWorkspaceSeeders {
         self.habitBoardSeed = habitBoardSeed
         self.quietTrackingSeed = quietTrackingSeed
         self.fullTimelineSeed = fullTimelineSeed
+        self.appStoreScreenshotSeed = appStoreScreenshotSeed
     }
 }
 
@@ -49,7 +52,9 @@ final class UITestWorkspaceSeeder {
                             self.seeders.habitBoardSeed {
                                 self.seeders.quietTrackingSeed {
                                     self.seeders.fullTimelineSeed {
-                                        completion()
+                                        self.seeders.appStoreScreenshotSeed {
+                                            completion()
+                                        }
                                     }
                                 }
                             }
@@ -110,6 +115,7 @@ final class HomeLaunchHarnessService {
         habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
         quietTrackingSeed: @escaping (@escaping () -> Void) -> Void,
         fullTimelineSeed: @escaping (@escaping () -> Void) -> Void,
+        appStoreScreenshotSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         completion: @escaping () -> Void
     ) {
         seedUITestWorkspacesIfNeeded(
@@ -121,7 +127,8 @@ final class HomeLaunchHarnessService {
                 focusSeed: focusSeed,
                 habitBoardSeed: habitBoardSeed,
                 quietTrackingSeed: quietTrackingSeed,
-                fullTimelineSeed: fullTimelineSeed
+                fullTimelineSeed: fullTimelineSeed,
+                appStoreScreenshotSeed: appStoreScreenshotSeed
             ),
             completion: completion
         )
