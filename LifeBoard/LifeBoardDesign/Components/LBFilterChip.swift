@@ -61,7 +61,7 @@ struct LBFilterChip: View {
                     }
                 }
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(model.isSelected ? Color.white : LBColorTokens.navy)
+                .foregroundStyle(model.isSelected ? Color.white : LBColorTokens.navyMuted)
                 .frame(minHeight: 34)
                 .padding(.horizontal, model.hidesTitle ? 12 : 10)
                 .background {
@@ -94,8 +94,9 @@ struct LBFilterChip: View {
                 }
             }
             .frame(minHeight: 44)
+            .animation(LifeBoardAnimation.chipSelection, value: model.isSelected)
         }
-        .buttonStyle(.plain)
+        .scaleOnPress()
         .accessibilityIdentifier(model.accessibilityID ?? "home.sunrise.filter.\(model.id)")
         .accessibilityLabel(model.title)
         .accessibilityAddTraits(model.isSelected ? .isSelected : [])

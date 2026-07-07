@@ -52,6 +52,8 @@ struct SunriseHomeScreen: View {
     @State private var activeDaySunriseSwipeSide: SunriseDaySwipeSide?
     @State private var isDaySunriseSwipeChromeVisible = true
     @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
+    @State private var completionBurstRowID: String?
+    @State private var completionBurstTrigger = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -196,6 +198,8 @@ struct SunriseHomeScreen: View {
                         navigatorTitle: LBHeaderTimeContext.navigatorTitle(selectedDate: chrome.selectedDate, now: timeline.date),
                         navigatorGlassFill: context.foregroundStyle.glassFill,
                         navigatorGlassStroke: context.foregroundStyle.glassStroke,
+                        isOnNonTodayLens: activeLens != .today,
+                        backToTodayColor: LBColorTokens.sunriseGold,
                         hasNotifications: false,
                         hasActiveFilters: chrome.activeFilterState.hasActiveFilters
                     ),
@@ -203,7 +207,11 @@ struct SunriseHomeScreen: View {
                     safeAreaTop: safeAreaTop,
                     onMenu: onOpenSettings,
                     onSearch: onOpenSearch,
-                    onDateTap: onShowDatePicker
+                    onDateTap: onShowDatePicker,
+                    onBackToToday: {
+                        LifeBoardFeedback.selection()
+                        onSelectLens(.today)
+                    }
                 )
             }
         }
@@ -575,8 +583,9 @@ struct SunriseHomeScreen: View {
                 )
             } else {
                 LazyVStack(spacing: LBSpacingTokens.sm) {
-                    ForEach(rows) { row in
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { rowIndex, row in
                         let temporalState = row.temporalState(now: context.date)
+                        Group {
                     switch row.kind {
                     case .anchor(let anchor):
                         let anchorRole = role(for: anchor)
@@ -608,6 +617,10 @@ struct SunriseHomeScreen: View {
                         let kind = cardKind(for: item)
                         let taskToggleAction: (() -> Void)? = item.taskID == nil ? nil : {
                             let interval = LifeBoardPerformanceTrace.begin("HomeTimelineTaskToggle")
+                            if item.isComplete == false, isFirstCompletionOfDay {
+                                completionBurstRowID = row.id
+                                completionBurstTrigger += 1
+                            }
                             onTimelineItemToggleComplete(item)
                             LifeBoardPerformanceTrace.end(interval)
                         }
@@ -619,7 +632,8 @@ struct SunriseHomeScreen: View {
                             spineIconSystemName: spineIconSystemName(for: item, kind: kind),
                             spineIconAccessibilityLabel: item.isComplete ? "Reopen \(item.title)" : "Complete \(item.title)",
                             spineIconAccessibilityValue: item.isComplete ? "Completed" : "Not completed",
-                            spineIconAction: kind == .task ? taskToggleAction : nil
+                            spineIconAction: kind == .task ? taskToggleAction : nil,
+                            spineIconIsCompleted: kind == .task ? item.isComplete : nil
                         ) {
                             LBTimelineCard(
                                 model: timelineCardModel(
@@ -645,20 +659,10 @@ struct SunriseHomeScreen: View {
                                 }
                             }
                         }
-                    case .gap(let gap):
-                        LBTimelineItem(
-                            timeText: timeText(row.sortDate(now: context.date)),
-                            role: .assistant,
-                            temporalState: temporalState,
-                            spineIconSystemName: "sparkles"
-                        ) {
-                            let copy = assistantCopy(for: gap)
-                            LBAssistantPromptCard(
-                                title: copy.title,
-                                subtitle: copy.subtitle,
-                                action: { onAddTask(gap.startDate) }
-                            )
-                        }
+                    case .gap:
+                        // Gaps stay quiet; the row kind survives for compatibility
+                        // but is no longer injected or rendered.
+                        EmptyView()
                     case .now(let now):
                         LBCurrentTimeRail(
                             model: LBCurrentTimeRail.Model(
@@ -669,6 +673,11 @@ struct SunriseHomeScreen: View {
                         .equatable()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                        }
+                        .cardEntrance(index: rowIndex)
+                        .lbCelebrationBurst(
+                            trigger: completionBurstRowID == row.id ? completionBurstTrigger : 0
+                        )
                     }
                 }
             }
@@ -699,8 +708,8 @@ struct SunriseHomeScreen: View {
             return (
                 LBEmptyState.Model(
                     title: "A quiet day",
-                    message: "Nothing fixed is on the board yet. Add one meaningful next step when you are ready.",
-                    actionTitle: "Add to today",
+                    message: "Want to shape it?",
+                    actionTitle: "Add task",
                     systemImage: "sun.max"
                 ),
                 { onAddTask(chrome.selectedDate) }
@@ -708,8 +717,8 @@ struct SunriseHomeScreen: View {
         case .meetings:
             return (
                 LBEmptyState.Model(
-                    title: "No meetings on this day",
-                    message: "Your calendar has nothing meeting-like in this Home view.",
+                    title: "No meetings today",
+                    message: "The calendar is clear here.",
                     actionTitle: "Choose calendars",
                     systemImage: "calendar",
                     actionSystemImage: "calendar.badge.checkmark"
@@ -719,9 +728,9 @@ struct SunriseHomeScreen: View {
         case .tasks:
             return (
                 LBEmptyState.Model(
-                    title: "No tasks in this view",
-                    message: "No task cards match the current day and focus filters.",
-                    actionTitle: "Add to today",
+                    title: "No tasks here",
+                    message: "Nothing matches the current filters.",
+                    actionTitle: "Add task",
                     systemImage: "checkmark.square"
                 ),
                 { onAddTask(chrome.selectedDate) }
@@ -729,8 +738,8 @@ struct SunriseHomeScreen: View {
         case .habits:
             return (
                 LBEmptyState.Model(
-                    title: "No habits here yet",
-                    message: "Nothing is due or tracked in Home right now. Open the Habit Board to review the full system.",
+                    title: "No habits yet",
+                    message: "Start with one small rhythm.",
                     actionTitle: "Open Habit Board",
                     systemImage: "heart",
                     actionSystemImage: "arrow.right"
@@ -750,6 +759,12 @@ struct SunriseHomeScreen: View {
         SunriseHomeContentScope.allCases.map {
             HomeChipRailBuilder.todayFacetChipModel(for: $0, isSelected: selectedContentScope == $0)
         }
+    }
+
+    /// True while no plotted timeline item is complete yet — gates the
+    /// celebration burst to the first completion of the day.
+    private var isFirstCompletionOfDay: Bool {
+        timeline.day.plottedTimelineItems.allSatisfy { $0.isComplete == false }
     }
 
     func timelineRows(now: Date) -> [SunriseTimelineRow] {
@@ -804,10 +819,8 @@ struct SunriseHomeScreen: View {
             rows.append(.now(now))
         }
 
-        if contentScope.includesAssistantGaps,
-           let gap = gaps.first(where: { Self.assistantDisplayDate(for: $0, now: now) != nil }) {
-            rows.append(.gap(gap))
-        }
+        // Open time reads as restful, not unfinished: the assistant gap prompt
+        // was removed from the timeline in the Sunrise Glass polish pass.
 
         if contentScope.includesStructuralTimelineRows {
             rows.append(.anchor(sleepAnchor))
@@ -1023,16 +1036,6 @@ struct SunriseHomeScreen: View {
         case .night:
             return "Keep the night gentle"
         }
-    }
-
-    private func assistantCopy(for gap: TimelineGap) -> (title: String, subtitle: String) {
-        let context = LBHeaderTimeContext.resolve(selectedDate: chrome.selectedDate)
-        return LBHeaderTimeContext.assistantCopy(
-            for: context.period,
-            gapStart: gap.startDate,
-            gapEnd: gap.endDate,
-            now: context.now
-        )
     }
 
     nonisolated static func sortedRows(_ rows: [SunriseTimelineRow], now: Date) -> [SunriseTimelineRow] {
