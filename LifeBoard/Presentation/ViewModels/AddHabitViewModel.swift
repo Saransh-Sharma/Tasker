@@ -1279,6 +1279,7 @@ public final class HabitDetailViewModel: ObservableObject {
     private var hasLoadedOnce = false
     private var hasLoadedEditorSupport = false
     private var iconOptionsCache: (key: IconSearchCacheKey, options: [HabitIconOption])?
+    private var pendingLoadIfNeededCompletions: [@MainActor @Sendable () -> Void] = []
     private var pendingEditorSupportCompletions: [(Bool) -> Void] = []
     private var autosaveWorkItem: DispatchWorkItem?
     private var needsSaveAfterCurrentRequest = false
@@ -1372,8 +1373,16 @@ public final class HabitDetailViewModel: ObservableObject {
         )
     }
 
-    public func loadIfNeeded() {
-        guard hasLoadedOnce == false else { return }
+    public func loadIfNeeded(completion: (@MainActor @Sendable () -> Void)? = nil) {
+        if let completion {
+            pendingLoadIfNeededCompletions.append(completion)
+        }
+        guard hasLoadedOnce == false else {
+            if isLoading == false && isCalendarLoading == false {
+                completeLoadIfNeededCompletions()
+            }
+            return
+        }
         hasLoadedOnce = true
         isLoading = true
         isCalendarLoading = true
@@ -1384,7 +1393,9 @@ public final class HabitDetailViewModel: ObservableObject {
             LifeBoardPerformanceTrace.event("HabitDetailCalendarMounted")
 
             DispatchQueue.main.async {
-                self.refreshReadOnlyData()
+                self.refreshReadOnlyData {
+                    self.completeLoadIfNeededCompletions()
+                }
             }
         }
     }
@@ -1494,12 +1505,17 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    public func prepareAlwaysEditableSupport() {
-        guard isPreparingEditorData == false else { return }
+    public func prepareAlwaysEditableSupport(completion: (@MainActor @Sendable () -> Void)? = nil) {
         loadEditorSupportDataIfNeeded { [weak self] didLoad in
-            guard let self, didLoad else { return }
-            self.isEditing = true
-            self.errorMessage = nil
+            guard let self else {
+                completion?()
+                return
+            }
+            if didLoad {
+                self.isEditing = true
+                self.errorMessage = nil
+            }
+            completion?()
         }
     }
 
@@ -1732,6 +1748,12 @@ public final class HabitDetailViewModel: ObservableObject {
             marks: historyMarks,
             referenceDate: referenceDate
         )
+    }
+
+    private func completeLoadIfNeededCompletions() {
+        let completions = pendingLoadIfNeededCompletions
+        pendingLoadIfNeededCompletions.removeAll()
+        completions.forEach { $0() }
     }
 
     private func performAutosave() {
