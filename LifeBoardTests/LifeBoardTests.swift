@@ -15234,6 +15234,47 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         XCTAssertFalse(fixture.viewModel.isPreparingEditorData)
     }
 
+    func testLoadIfNeededCompletionRunsAfterReadOnlyDraftHydration() async {
+        let fixture = makeDetailFixture(returnedTitle: "Hydrate refreshed")
+        var completedDraftTitle: String?
+        var completedIsLoading: Bool?
+
+        fixture.viewModel.loadIfNeeded {
+            completedDraftTitle = fixture.viewModel.draft.title
+            completedIsLoading = fixture.viewModel.isLoading
+        }
+
+        await waitUntil { completedDraftTitle != nil }
+
+        XCTAssertEqual(completedDraftTitle, "Hydrate refreshed")
+        XCTAssertEqual(completedIsLoading, false)
+        XCTAssertEqual(fixture.readRepository.fetchDetailSummaryCallCount, 1)
+        XCTAssertEqual(fixture.readRepository.fetchHistoryCallCount, 1)
+    }
+
+    func testPrepareAlwaysEditableSupportCompletionRunsAfterEditorSupportHydration() async {
+        let fixture = makeDetailFixture()
+        var completedIsEditing: Bool?
+        var completedIsPreparingEditorData: Bool?
+        var completedLifeAreaFetchCount: Int?
+        var completedProjectFetchCount: Int?
+
+        fixture.viewModel.prepareAlwaysEditableSupport {
+            completedIsEditing = fixture.viewModel.isEditing
+            completedIsPreparingEditorData = fixture.viewModel.isPreparingEditorData
+            completedLifeAreaFetchCount = fixture.lifeAreaRepository.fetchAllCallCount
+            completedProjectFetchCount = fixture.projectRepository.fetchAllProjectsCallCount
+        }
+
+        await waitUntil { completedIsEditing != nil }
+
+        XCTAssertEqual(completedIsEditing, true)
+        XCTAssertEqual(completedIsPreparingEditorData, false)
+        XCTAssertEqual(completedLifeAreaFetchCount, 1)
+        XCTAssertEqual(completedProjectFetchCount, 1)
+        XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, fixture.projectRepository.projectCount)
+    }
+
     func testBeginEditingDefersAndCachesEditorSupportLoading() async {
         let fixture = makeDetailFixture()
 
