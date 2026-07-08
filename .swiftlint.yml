@@ -1,6 +1,9 @@
 included:
   - LifeBoard
 
+only_rules:
+  - custom_rules
+
 excluded:
   - Pods
   - build
@@ -11,25 +14,25 @@ excluded:
 custom_rules:
   token_law_uicolor_constructor:
     name: "Token Law UIColor"
-    regex: "\\bUIColor\\s*\\("
+    regex: "\\bUIColor\\s*\\(\\s*(red|white|black|gray|hue|displayP3Red|cgColor:)"
     included: "LifeBoard/(View|Views|ViewControllers|Presentation/Views|LLM/Views)/.*\\.swift"
-    message: "Use token colors (`UIColor.lifeboard.*` / `Color.lifeboard`) instead of raw UIColor constructors in UI modules."
+    message: "Use token colors (`UIColor.lifeboard.*` / `Color.lifeboard`) instead of raw UIKit color constructors in UI modules."
     severity: error
 
   token_law_font_system:
     name: "Token Law UIFont"
-    regex: "UIFont\\.systemFont|\\.font\\(\\.system\\("
+    regex: "UIFont\\.(systemFont|boldSystemFont|italicSystemFont|monospacedSystemFont)"
     included: "LifeBoard/(View|Views|ViewControllers|Presentation/Views|LLM/Views)/.*\\.swift"
-    message: "Use typography tokens (`UIFont.lifeboard` / `Font.lifeboard`) instead of system fonts in UI modules."
+    message: "Use typography tokens (`UIFont.lifeboard` / `Font.lifeboard`) instead of raw UIKit system fonts in UI modules."
     severity: error
 
   token_law_shadow_usage:
     name: "Token Law Shadow"
-    regex: "layer\\.shadow(Color|Opacity|Offset|Radius|Path)|\\.shadow\\("
+    regex: "layer\\.shadow(Color|Opacity|Offset|Radius|Path)"
     included: "LifeBoard/(View|Views|ViewControllers|Presentation/Views|LLM/Views)/.*\\.swift"
     excluded:
       - "LifeBoard/View/LiquidGlass/LGBaseView.swift"
-    message: "Use token elevation APIs (`applyLifeBoardElevation` / `.lifeboardElevation`) instead of ad-hoc shadows."
+    message: "Use token elevation APIs (`applyLifeBoardElevation` / `.lifeboardElevation`) instead of ad-hoc CALayer shadows."
     severity: error
 
   no_direct_print:

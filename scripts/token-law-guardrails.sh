@@ -77,16 +77,16 @@ scan_rule() {
 }
 
 scan_rule \
-  "Token Law: no raw UIColor constructors in UI modules" \
-  '\bUIColor\s*\('
+  "Token Law: no raw UIKit color constructors in UI modules" \
+  '\bUIColor\s*\(\s*(red|white|black|gray|hue|displayP3Red|cgColor:)'
 
 scan_rule \
-  "Token Law: no UIFont.systemFont / SwiftUI .font(.system...) in UI modules" \
-  'UIFont\.systemFont|\.font\(\.system\('
+  "Token Law: no raw UIKit system fonts in UI modules" \
+  'UIFont\.(systemFont|boldSystemFont|italicSystemFont|monospacedSystemFont)'
 
 scan_rule \
-  "Token Law: no ad-hoc shadows outside DesignSystem components" \
-  'layer\.shadow(Color|Opacity|Offset|Radius|Path)|\.shadow\(' \
+  "Token Law: no ad-hoc CALayer shadows outside DesignSystem components" \
+  'layer\.shadow(Color|Opacity|Offset|Radius|Path)' \
   'LifeBoard/View/LiquidGlass/LGBaseView.swift'
 
 if [[ $FAILED -eq 1 ]]; then

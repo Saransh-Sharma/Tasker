@@ -31,10 +31,10 @@ jobs:
           set -euo pipefail
           bash scripts/validate_coredata_codegen_guardrails.sh
 
-      - name: Enforce V2 fail-closed runtime guardrails
+      - name: Enforce V3 fail-closed runtime guardrails
         run: |
           set -euo pipefail
-          rg -n "assertV2RuntimeReady|v2RuntimeReady|v2_runtime_not_ready" \
+          rg -n "assertV3RuntimeReady|v3RuntimeReady|v3_runtime_not_ready" \
             "LifeBoard/AppDelegate.swift" \
             "LifeBoard/Presentation/DI/PresentationDependencyContainer.swift" \
             "LifeBoard/State/DI/EnhancedDependencyContainer.swift"
