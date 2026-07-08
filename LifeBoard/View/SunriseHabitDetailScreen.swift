@@ -31,9 +31,14 @@ struct SunriseHabitDetailScreen: View {
     @State private var showDetailReveal = false
     @State private var completionBurstTrigger = 0
     @State private var sawTodayCompletionThisSession = false
+    @State private var isInitialReadOnlyHydrationComplete = false
+    @State private var isInitialEditorSupportHydrationComplete = false
     @State private var snackbar: SnackbarData?
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var isInitialDraftHydrationComplete: Bool {
+        isInitialReadOnlyHydrationComplete && isInitialEditorSupportHydrationComplete
+    }
 
     init(viewModel: HabitDetailViewModel, onMutation: @escaping @MainActor @Sendable () -> Void) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -54,8 +59,14 @@ struct SunriseHabitDetailScreen: View {
         .background(sunriseBackground)
         .accessibilityIdentifier(SunriseHabitDetailAccessibilityID.view)
         .task {
-            viewModel.loadIfNeeded()
-            viewModel.prepareAlwaysEditableSupport()
+            isInitialReadOnlyHydrationComplete = false
+            isInitialEditorSupportHydrationComplete = false
+            viewModel.loadIfNeeded {
+                isInitialReadOnlyHydrationComplete = true
+            }
+            viewModel.prepareAlwaysEditableSupport {
+                isInitialEditorSupportHydrationComplete = true
+            }
         }
         .onAppear {
             LifeBoardPerformanceTrace.event("SunriseHabitDetailScreenPresented")
@@ -69,24 +80,29 @@ struct SunriseHabitDetailScreen: View {
             playMutationHaptic(feedback.haptic)
             viewModel.clearMutationFeedback()
         }
-        .onChange(of: viewModel.draft.title) { _, _ in viewModel.scheduleAutosave(debounced: true) }
-        .onChange(of: viewModel.draft.notes) { _, _ in viewModel.scheduleAutosave(debounced: true) }
+        .onChange(of: viewModel.draft.title) { _, _ in scheduleAutosaveIfHydrated(debounced: true) }
+        .onChange(of: viewModel.draft.notes) { _, _ in scheduleAutosaveIfHydrated(debounced: true) }
         .onChange(of: viewModel.draft.kind) { _, _ in
             viewModel.normalizeDraftSelection()
-            viewModel.scheduleAutosave(debounced: false)
+            scheduleAutosaveIfHydrated(debounced: false)
         }
-        .onChange(of: viewModel.draft.trackingMode) { _, _ in viewModel.scheduleAutosave(debounced: false) }
-        .onChange(of: viewModel.draft.cadence) { _, _ in viewModel.scheduleAutosave(debounced: false) }
+        .onChange(of: viewModel.draft.trackingMode) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.cadence) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
         .onChange(of: viewModel.draft.lifeAreaID) { _, _ in
             viewModel.normalizeDraftSelection()
-            viewModel.scheduleAutosave(debounced: false)
+            scheduleAutosaveIfHydrated(debounced: false)
         }
-        .onChange(of: viewModel.draft.projectID) { _, _ in viewModel.scheduleAutosave(debounced: false) }
-        .onChange(of: viewModel.draft.reminderWindowStart) { _, _ in viewModel.scheduleAutosave(debounced: false) }
-        .onChange(of: viewModel.draft.reminderWindowEnd) { _, _ in viewModel.scheduleAutosave(debounced: false) }
-        .onChange(of: viewModel.draft.selectedIconSymbolName) { _, _ in viewModel.scheduleAutosave(debounced: false) }
-        .onChange(of: viewModel.draft.colorHex) { _, _ in viewModel.scheduleAutosave(debounced: false) }
+        .onChange(of: viewModel.draft.projectID) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.reminderWindowStart) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.reminderWindowEnd) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.selectedIconSymbolName) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.colorHex) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
         .lifeboardSnackbar($snackbar)
+    }
+
+    private func scheduleAutosaveIfHydrated(debounced: Bool) {
+        guard isInitialDraftHydrationComplete else { return }
+        viewModel.scheduleAutosave(debounced: debounced)
     }
 
     private var headerChrome: some View {
