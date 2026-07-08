@@ -55,7 +55,7 @@ jobs:
           xcodebuild \
             -workspace "LifeBoard.xcworkspace" \
             -scheme "LifeBoard" \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
             -only-testing:LifeBoardTests \
             test
 
