@@ -39,22 +39,6 @@ jobs:
             "LifeBoard/Presentation/DI/PresentationDependencyContainer.swift" \
             "LifeBoard/State/DI/EnhancedDependencyContainer.swift"
 
-      - name: Install flowctl
-        env:
-          FLOWCTL_DOWNLOAD_URL: ${{ secrets.FLOWCTL_DOWNLOAD_URL }}
-          FLOWCTL_DOWNLOAD_SHA256: ${{ secrets.FLOWCTL_DOWNLOAD_SHA256 }}
-          FLOWCTL_ALLOW_SHIM: "0"
-        run: |
-          set -euo pipefail
-          bash scripts/install_flowctl.sh
-
-      - name: Verify flowctl availability
-        env:
-          FLOWCTL_ALLOW_SHIM: "0"
-        run: |
-          set -euo pipefail
-          bash scripts/verify_flowctl.sh
-
   unit-tests:
     runs-on: macos-latest
     needs: guardrails
