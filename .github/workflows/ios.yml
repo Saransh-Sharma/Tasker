@@ -47,7 +47,15 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Select Xcode
-        run: sudo xcode-select -switch /Applications/Xcode.app
+        run: |
+          set -euo pipefail
+          if [[ ! -d /Applications/Xcode_26.5.app ]]; then
+            ls -1 /Applications
+            echo "Xcode 26.5 is required for SwiftUI 26 APIs used by LifeBoard."
+            exit 1
+          fi
+          sudo xcode-select -switch /Applications/Xcode_26.5.app
+          xcodebuild -version
 
       - name: Install CocoaPods dependencies
         run: |
