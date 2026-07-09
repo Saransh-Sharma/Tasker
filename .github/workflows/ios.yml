@@ -57,6 +57,9 @@ jobs:
           sudo xcode-select -switch /Applications/Xcode_26.5.app
           xcodebuild -version
 
+      - name: Write CI Firebase placeholder
+        run: bash scripts/write-ci-google-service-info.sh
+
       - name: Install CocoaPods dependencies
         run: |
           set -euo pipefail
