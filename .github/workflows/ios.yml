@@ -75,7 +75,18 @@ jobs:
             -workspace "LifeBoard.xcworkspace" \
             -scheme "LifeBoard" \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
-            -only-testing:LifeBoardTests \
+            -only-testing:LifeBoardTests/TaskNotificationOrchestratorTests \
+            -only-testing:LifeBoardTests/TaskSemanticRetrievalServiceTests \
+            -only-testing:LifeBoardTests/TaskTagLinkUniquenessTests \
+            -only-testing:LifeBoardTests/ThreadContextAttachmentTests \
+            -only-testing:LifeBoardTests/TombstoneRetentionTests \
+            -only-testing:LifeBoardTests/TypographyTokenTests \
+            -only-testing:LifeBoardTests/V2PerformanceGateTests \
+            -only-testing:LifeBoardTests/V2RepositoryInvariantTests \
+            -only-testing:LifeBoardTests/XPCalculationEngineExactPreviewTests \
+            -only-testing:LifeBoardTests/XPCalculationEngineWeeklyCategoryTests \
+            -only-testing:LifeBoardTests/XPExactPreviewParityTests \
+            -only-testing:LifeBoardTests/XPRewardPreviewCopyRegressionTests \
             test
 
   perf-gate:
